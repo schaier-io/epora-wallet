@@ -43,6 +43,7 @@ fn subtract_entries(
 ///   PayStreamingPayment(payout_delta) |  yes   | exact delta + routing; outputs <= inputs
 ///   Consolidate(_)                    |  no¹   | exact aggregate value; no count cap
 ///   CancelStreamingPayment(id)        |  no    | —
+///   StopBeneficiaryStream(_, _)       |  no    | —
 ///
 /// ¹ Consolidation is technically a "spend" of wallet UTxOs but value must be
 ///   exactly preserved across the consolidation — no funds leave the wallet.
@@ -167,9 +168,10 @@ pub fn stt_action_allows_spend(
     // No wallet spend permitted on proof-of-life renewal.
     state_types.RenewProofOfLife -> False
 
-    // A payee self-cancel is a pure STT state transition — it only lowers one
+    // A payee cancel or beneficiary stop is a pure STT transition. It lowers one
     // streaming payment's `end_date` and never moves wallet value — so no wallet
     // spend is permitted (like RenewProofOfLife / UpdateState).
-    state_types.CancelStreamingPayment(_) -> False
+    state_types.CancelStreamingPayment(_) |
+    state_types.StopBeneficiaryStream(_, _) -> False
   }
 }

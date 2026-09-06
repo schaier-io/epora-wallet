@@ -100,6 +100,7 @@ export function mapActionKindToIntent(action: UserActionKind): UserWorkspaceInte
     case "use-allowance":
     case "use-beneficiary":
     case "exit-beneficiary":
+    case "stop-beneficiary-stream":
       return "send";
     case "lock-funds":
       return "add-funds";

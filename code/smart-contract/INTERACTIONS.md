@@ -93,6 +93,7 @@ flowchart LR
     UAL["UseAllowance"]
     UBE["UseBeneficiary"]
     EBE["ExitBeneficiary"]
+    SBS["StopBeneficiaryStream"]
   end
   subgraph SET["Settlement actions"]
     PSP["PayStreamingPayment"]
@@ -112,6 +113,7 @@ flowchart LR
   ALW --> UAL
   BEN --> UBE
   BEN --> EBE
+  BEN --> SBS
   PAY -- "payee signature; exact cutoff after terminal unlock" --> CSP
   LST -- "before terminal recovery, cadence applies" --> PSP
   PAY -- "before terminal recovery, cadence applies" --> PSP
@@ -128,6 +130,7 @@ flowchart LR
   EBE -- "weighted share; actor always removed" --> W
   PSP -- "== payout delta, only to tagged payee outputs" --> W
   NOX["No wallet movement"]
+  SBS -.-> NOX
   UPD -.-> NOX
   MSP -.-> NOX
   RAI -.-> NOX
@@ -177,6 +180,7 @@ stateDiagram-v2
     L --> L : UseBeneficiary, earlier actor removed
     L --> L : final UseBeneficiary, actor retained, cadence stamped
     L --> L : ExitBeneficiary removes actor, final exit stamps cadence
+    L --> L : StopBeneficiaryStream stops accrual, preserves debt, stamps cadence
     L --> L : beneficiary-authorized Consolidate
     L --> L : beneficiary-authorized crank, cadence stamped
 
@@ -270,6 +274,7 @@ classDiagram
       Consolidate(ConsolidatePath)
       CancelStreamingPayment(Int)
       ExitBeneficiary(Int)
+      StopBeneficiaryStream(Int, Int)
     }
     class OperatorAction {
       <<RunOperator payload>>
@@ -325,7 +330,7 @@ payout batch or fewer wallet inputs.
 | G1 | Exactly one STT input and one continuing STT output, matched by **full address**; token (policy + name, qty 1) forwarded unchanged | `io.expect_single_stt_io`, `io.expect_transition_context` | attacker-supplied second STT at the script; token swap/burn; stake re-homing of the STT UTxO itself |
 | G2 | Reference-script ban on the forwarded STT output; admin operator actions exempt | `stt.eval_spend` + `io.is_admin_operator_action` | STT UTxO bloat / foreign script pinning; admin can still re-host the STT reference script |
 | G3 | `intended_stake_credential` preserved by every action except `SetIntendedStakeCredential` | `stt.eval_spend` (central `expect or`) | any path — even arbitrary `UpdateState` — silently re-targeting wallet delegation |
-| G4 | `last_non_admin_payout_at` preserved except by non-admin `PayStreamingPayment`, `CancelStreamingPayment`, and final-beneficiary recovery or exit | `stt.eval_spend` (central `expect or`) | resetting or advancing the shared cadence clock from another path |
+| G4 | `last_non_admin_payout_at` preserved except by non-admin `PayStreamingPayment`, `CancelStreamingPayment`, `StopBeneficiaryStream`, and final-beneficiary recovery or exit | `stt.eval_spend` (central `expect or`) | resetting or advancing the shared cadence clock from another path |
 | G5 | The forwarded STT output contains only ADA and one STT. A non-admin path preserves its native-asset shape and can only add ADA. An admin operator action may remove legacy native assets or change ADA, but cannot forward or add native assets. The payout path keeps the full value equal. | `io.expect_stt_token_is_forwarded_unchanged`, `io.stt_value_preserved_or_increased` | draining or junk-flooding the STT UTxO |
 
 Wallet-side cross-cutting guards (apply to **every** wallet spend, before the
@@ -374,6 +379,7 @@ inclusivity assumption).
 | UseAllowance | finite (reset gate) | finite (next-reset rebase) |
 | UseBeneficiary | finite (unlock check; final recovery also checks cadence) | finite for final recovery (stamp + 1h window cap) |
 | ExitBeneficiary | finite (unlock check; final exit also checks cadence) | finite for final exit (stamp + 1h window cap) |
+| StopBeneficiaryStream | finite (unlock and shared cadence) | finite (exact cutoff, stamp, and 1h window cap) |
 | PayStreamingPayment | finite (cadence + accrual floor) | finite (stamp + 1h window cap) |
 | CancelStreamingPayment | finite (shared cadence gate) | finite (end-date floor + stamp + 1h window cap) |
 | Consolidate | finite for `BeneficiaryPath` (unlock check) | – (STT side) |
@@ -607,3 +613,12 @@ whitepaper's *Limitations and Trust Assumptions* (advisory proof-of-life,
 shape-not-timing recovery, point-in-time reserve, operator-only rewards,
 ADA-crank fee funding). The map's value is the checklist: each path has one to
 re-run when it changes.
+
+
+### P16: StopBeneficiaryStream
+
+- **Entry:** `user_handlers.eval_stop_beneficiary_stream`, then shared `settlement_handlers.expect_streaming_payment_stopped`.
+- **Authority:** exactly one unlocked beneficiary must sign. Its id must match the action. The stream id must exist.
+- **Change:** the target end becomes exactly `max(input.start_date, tx_upper)` and must strictly decrease. Stream rate, address, asset, start, and paid-out amount stay unchanged. All other streams and access entries stay unchanged.
+- **Cadence:** finite bounds, at most one hour wide. The lower bound must pass the shared 30-minute cooldown. The output records the upper bound. Admin signatures do not bypass these checks.
+- **Wallet effect:** no wallet spending. Earned debt remains available to the existing settlement action. A script payee needs no signature to have its stream stopped. The beneficiary signs instead. Existing operator management authority remains available.

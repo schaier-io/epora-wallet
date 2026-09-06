@@ -1,5 +1,9 @@
+import { readCallerForwardedState, validateSttSpendInput } from "./internals/stt-spend-preflight";
+import { deriveBeneficiaryStreamStopStateDatum } from "@/lib/contracts/beneficiary-stream-stop";
+import { formatBeneficiaryStopTimestamp } from "./internals/beneficiary-stream-stop-review";
+import { deserializeAddress } from "@meshsdk/core";
 import { beneficiaryExitFeeWarning, captureBeneficiaryExitFeeEvidence, type BeneficiaryExitFeeEvidence } from "./internals/beneficiary-exit-fees";
-import { WALLET_SPEND_VALIDATOR, addExtraRequiredSigners, assertValidAssetList, assertValidConstrData, assertValidPayoutTransfers, assertValidWalletInputRefs, assertValidWalletOutputs, buildTransactionWithReestimatedLimits, classifyStreamingPayoutBatch, createInputRefKey, createStateForwarding, createStreamingPayoutBuild, createTxPreview, decodeConstrDatumFromUtxo, deriveBeneficiaryExitStateDatum, deriveBeneficiaryWithdrawalId, deriveBeneficiaryWithdrawalStateDatum, ensureUniqueWalletInputRefs, resolveExactWalletInputUtxos, resolveStreamingAdaPayoutTopUps, runStateForwarding, getValidityWindow, mergeAssetLists, mergeAssetsByUnit, mergeRestrictedSttAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, setupTransaction, subtractSelectedInputRemainder, validateForwardedStateDatum, withStage } from "./internals";
+import { WALLET_SPEND_VALIDATOR, addExtraRequiredSigners, buildTransactionWithReestimatedLimits, classifyStreamingPayoutBatch, createInputRefKey, createStateForwarding, createStreamingPayoutBuild, createTxPreview, decodeConstrDatumFromUtxo, deriveBeneficiaryExitStateDatum, deriveBeneficiaryWithdrawalId, deriveBeneficiaryWithdrawalStateDatum, ensureUniqueWalletInputRefs, resolveExactWalletInputUtxos, resolveStreamingAdaPayoutTopUps, runStateForwarding, getValidityWindow, mergeAssetLists, mergeAssetsByUnit, mergeRestrictedSttAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, setupTransaction, subtractSelectedInputRemainder, validateForwardedStateDatum, withStage } from "./internals";
 import { deriveAccessIndexRemovalStateDatum } from "@/lib/contracts/access-removal";
 import { validateManagedStreamingPayments } from "@/lib/contracts/streaming-manage";
 import { type OnChainStructuredAction, buildSttSpendRedeemerData, buildWalletSpendRedeemerData, resolveStructuredOnChainAction } from "@/lib/contracts/action-data";
@@ -69,18 +73,6 @@ export function deriveValidatedStreamingPaymentPayoutStateDatum(
   );
 }
 
-/**
- * The caller-supplied forwarded State, validated. Only the five actions that
- * actually forward it call this; the other five derive theirs from the
- * consumed State and may omit both fields, which is what the request schema
- * now says.
- */
-function readCallerForwardedState(input: SttSpendFormInput) {
-  assertValidConstrData(input.outputDatum, "STT output datum");
-  assertValidAssetList(input.outputAssets, "STT output assets");
-  return { datum: input.outputDatum, assets: input.outputAssets };
-}
-
 export async function buildSttSpendTx(
   wallet: WalletSource,
   config: ContractConfig,
@@ -92,6 +84,7 @@ export async function buildSttSpendTx(
     | "use-allowance"
     | "use-beneficiary"
     | "exit-beneficiary"
+    | "stop-beneficiary-stream"
     | "payout-streaming-payment"
     | "cancel-streaming-payment"
     | "remove-access-index",
@@ -126,6 +119,7 @@ export async function buildSttSpendTx(
     action === "use-allowance" ||
     action === "use-beneficiary" ||
     action === "exit-beneficiary" ||
+    action === "stop-beneficiary-stream" ||
     action === "remove-access-index" ||
     action === "cancel-streaming-payment";
 
@@ -133,33 +127,11 @@ export async function buildSttSpendTx(
     ? null
     : readCallerForwardedState(input);
 
-  if (action === "remove-access-index" && !input.removeAccessTarget) {
-    throw new Error("Removing an access entry requires a target (list and index).");
-  }
-
-  assertValidWalletInputRefs(walletInputs, "Locked contract inputs");
-  assertValidWalletOutputs(walletOutputs, "Locked contract outputs");
-  assertValidPayoutTransfers(extraTransfers, "Transfers / Forwarded Outputs");
+  validateSttSpendInput(action, input);
   const streamingPayoutBatch =
     action === "payout-streaming-payment"
       ? classifyStreamingPayoutBatch(extraTransfers)
       : null;
-
-  if (action === "use-allowance") {
-    if (!input.allowanceSignerKeyHash?.trim()) {
-      throw new Error(
-        "Allowance Withdrawal requires the connected wallet payment key hash."
-      );
-    }
-
-    if (walletInputs.length === 0) {
-      throw new Error("Allowance Withdrawal requires at least one locked contract input.");
-    }
-
-    if (extraTransfers.length === 0) {
-      throw new Error("Allowance Withdrawal requires at least one forwarded transfer.");
-    }
-  }
 
   const stateForwarding = createStateForwarding(config);
   const sttParams = stateForwarding.params;
@@ -217,6 +189,7 @@ export async function buildSttSpendTx(
       let repeatableBeneficiaryRecovery = false;
       let exitSmartInputLovelace: bigint | undefined;
       let forwardedStateWarnings: string[] = [];
+      let beneficiaryStopWarning: string | undefined;
       const resolvedWalletInputs: UTxO[] = [];
       let effectiveExtraTransfers = extraTransfers;
       const forwarding = await runStateForwarding({
@@ -500,6 +473,29 @@ export async function buildSttSpendTx(
               payoutComputation.outputDatum,
               "STT state datum"
             );
+          } else if (action === "stop-beneficiary-stream") {
+            const sourceStateDatum = decodeConstrDatumFromUtxo(scriptInput);
+            if (!sourceStateDatum) throw new Error("Stopping a beneficiary stream requires an inline STT state datum.");
+            const connectedSigner = deserializeAddress(changeAddress).pubKeyHash;
+            if (connectedSigner !== input.beneficiarySignerKeyHash?.trim().toLowerCase()) {
+              throw new Error("The beneficiary signer must match the connected wallet payment key hash.");
+            }
+            const stopped = deriveBeneficiaryStreamStopStateDatum({
+              stateDatum: sourceStateDatum,
+              beneficiarySignerKeyHash: connectedSigner,
+              additionalSignerKeyHashes: extraRequiredSignerKeyHashes,
+              streamingPaymentId: input.beneficiaryStreamStopId!,
+              txEarliestTimeMs: earliestTimeMs,
+              txLatestTimeMs: latestTimeMs
+            });
+            effectiveOnChainAction = { kind: "stop-beneficiary-stream", beneficiaryId: stopped.beneficiaryId, streamingPaymentId: stopped.streamingPaymentId };
+            effectiveForwardedDatum = stopped.outputDatum;
+            beneficiaryStopWarning = i18n("beneficiaryStreamStopDetails", {
+              id: String(stopped.streamingPaymentId), oldEnd: formatBeneficiaryStopTimestamp(stopped.oldEndDate), cutoff: formatBeneficiaryStopTimestamp(stopped.cutoff),
+              paid: stopped.unit === "lovelace" ? formatLovelaceAsAda(String(stopped.paidOutAmount)) : String(stopped.paidOutAmount),
+              debt: stopped.unit === "lovelace" ? formatLovelaceAsAda(String(stopped.retainedDebt)) : String(stopped.retainedDebt),
+              unit: stopped.unit === "lovelace" ? "ADA" : stopped.unit
+            });
           } else if (action === "cancel-streaming-payment") {
             const sourceStateDatum = decodeConstrDatumFromUtxo(scriptInput);
             if (!sourceStateDatum) {
@@ -585,6 +581,7 @@ export async function buildSttSpendTx(
             "stt-spend:validateStateDatum",
             "Forwarded STT output datum is invalid."
           );
+          if (beneficiaryStopWarning) forwardedStateWarnings.push(beneficiaryStopWarning);
           if (repeatableBeneficiaryRecovery) {
             forwardedStateWarnings.push(REPEATABLE_RECOVERY_NOTICE);
           }

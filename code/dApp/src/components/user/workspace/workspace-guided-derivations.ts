@@ -66,7 +66,7 @@ export function computeSelectedPathLabel(ctx: SelectedPathLabelCtx): string | nu
       return i18n("spender");
     }
 
-    if ((wizardSelectedAction === "use-beneficiary" || wizardSelectedAction === "exit-beneficiary")) {
+    if ((wizardSelectedAction === "use-beneficiary" || wizardSelectedAction === "exit-beneficiary" || wizardSelectedAction === "stop-beneficiary-stream")) {
       return i18n("recoveryContact");
     }
 

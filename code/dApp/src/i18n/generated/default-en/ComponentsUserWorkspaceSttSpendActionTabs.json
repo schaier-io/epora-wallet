@@ -94,5 +94,9 @@
   "permanentExitDescription": "Withdraw your share and permanently remove your recovery access.",
   "permanentExitStateHelper": "This transaction removes you as a recovery contact, including when you are the final contact.",
   "permanentExitBuild": "Preview permanent withdrawal",
-  "permanentExitOutputAssetsHelper": "Withdrawn assets count toward your weighted share. Unwithdrawn assets remain in the wallet."
+  "permanentExitOutputAssetsHelper": "Withdrawn assets count toward your weighted share. Unwithdrawn assets remain in the wallet.",
+  "stopStreamLabel": "Stop a scheduled payment",
+  "stopStreamHint": "Stop future accrual as an unlocked recovery contact.",
+  "stopStreamDescription": "Stop one scheduled payment. Earned funds remain owed and require settlement.",
+  "stopStreamBuild": "Preview stop"
 }

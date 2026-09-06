@@ -32,6 +32,7 @@ export type SttSpendMode =
   | "use-allowance"
   | "use-beneficiary"
   | "exit-beneficiary"
+  | "stop-beneficiary-stream"
   | "payout-streaming-payment"
   | "remove-access-index";
 

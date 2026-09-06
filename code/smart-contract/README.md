@@ -55,7 +55,8 @@ The on-chain model is grouped around the contract's audit boundaries:
   - `last_non_admin_payout_at`: `Option<POSIXTime>` recording the upper bound
     of the most recent cadence-limited action (`None` before any).
     Despite its legacy name, a non-admin `PayStreamingPayment` crank, a payee
-    `CancelStreamingPayment`, and final-beneficiary recovery or exit stamp it. They
+    `CancelStreamingPayment`, `StopBeneficiaryStream`, and final-beneficiary
+    recovery or exit stamp it. They
     share a 30-minute global cooldown and a one-hour validity-window cap. See
     the whitepaper's
     *Streaming payments and open settlement* section and its *Settlement
@@ -97,6 +98,7 @@ is exactly 28 bytes and its asset name is at most 32 bytes (including empty).
   - `Consolidate(consolidate_path)`
   - `CancelStreamingPayment(streaming_payment_id)`
   - `ExitBeneficiary(beneficiary_id)` (constructor index 7)
+  - `StopBeneficiaryStream(beneficiary_id, streaming_payment_id)` (constructor index 8)
 
 This lets auditors review the state shape, STT-side authorization, and wallet-side
 effects as separate concerns instead of following one large flat datum/action model.
@@ -128,6 +130,7 @@ bounded by the true state diff.
 | `UseAllowance(spent)` | changed allowance user signature | matched user allowance changes, proof-of-life unlock time may renew, threshold/beneficiaries/streaming payments unchanged | wallet payout must equal declared `spent` |
 | `UseBeneficiary(id)` | exactly one unlocked beneficiary signature | an earlier acting beneficiary is removed; the final beneficiary stays in State and stamps the shared cadence clock; nothing else changes | wallet payout ≤ beneficiary's weighted share `weight / Σweights × (wallet − streaming reserve)`, per asset; final recovery may leave reserve-aware change and repeat after the cooldown. Once its recovery window opens, the sole final beneficiary controls non-admin payout authority. Each payee keeps one exact terminal cancellation per payment |
 | `ExitBeneficiary(id)` | exactly one unlocked beneficiary signature | removes the actor, including the final beneficiary. Earlier exits preserve cadence. Final exit requires an empty stream list and stamps the shared clock under the existing 30-minute cooldown and one-hour window cap | the existing per-asset weighted-share and streaming-reserve checks apply. Wallet outputs cannot outnumber consumed wallet inputs |
+| `StopBeneficiaryStream(beneficiary_id, stream_id)` | exactly one unlocked beneficiary signature | changes one stream's end to `max(start_date, tx_upper)`, strictly before its old end. All debt fields and other streams remain unchanged. It stamps the shared 30-minute cadence with no admin bypass | no wallet spend |
 | `PayStreamingPayment(delta)` | while the transaction lower bound is before the sole final beneficiary's recovery boundary: an admin, any other listed user, any stream payee, or any unlocked beneficiary. Once that lower bound reaches the boundary: only an admin or that beneficiary | streaming payment payout progress changes; a non-admin crank stamps `last_non_admin_payout_at` to the tx upper bound (an admin crank must leave it unchanged) | wallet payout must equal `delta` and reach tagged streaming payment outputs; exempt from the streaming-reserve floor (its outflow is already pinned to the tagged payees) |
 | `Consolidate(path)` | admin, multisig, or beneficiary path | no state change | aggregate wallet value is preserved; wallet UTxOs may be collected or repartitioned |
 | `CancelStreamingPayment(id)` | the target payment's payee signature. A script payee cannot sign, so operators stop such a stream via `ManageStreamingPayments` | the target's `end_date` strictly decreases but stays at or after the tx upper bound (and never before its start). After final recovery opens, it must equal that earliest safe cutoff, so each payment can advance the shared clock once. The action stamps `last_non_admin_payout_at` and shares its 30-minute cooldown and one-hour window cap; everything else stays unchanged | no wallet spend |
@@ -191,6 +194,7 @@ exercised in the suite.
   prove that another wallet UTxO does not exist or that no future deposit will
   arrive, so the contract has no final recovery marker. This path recovers
   wallet UTxOs only. Staking rewards remain operator-only.
+- **Beneficiaries can stop future stream accrual.** `StopBeneficiaryStream` works with key and script payee addresses. It preserves earned debt and does not transfer funds. The existing settlement action remains necessary. Operators keep their existing management authority and can later reschedule a stopped stream.
 - **Permanent beneficiary exit is explicit.** `ExitBeneficiary` removes its actor even when it is the final access path. It does not prove that all wallet UTxOs were selected. Without another operator path, remaining funds and future deposits cannot be recovered. Final exit requires no streaming payments. Mint and `UpdateState` still require reachable access.
 - **A multisig meeting threshold can rewrite access, including evicting the
   admin.** `RunOperator({ path: Multisig, kind: UpdateState })` may replace the
@@ -314,7 +318,7 @@ under-funded partial recovery uses 12,392,950 memory units. The 4,999-byte,
 token-wide partial recovery uses 10,220,208 memory units. Active owner cleanup
 uses 12,890,642 memory units for the 151-policy shape and 10,713,938 for the
 token-wide shape. The STT raw
-`compiledCode` is 15,413 bytes. Raw script size is an artifact metric, not a
+`compiledCode` is 15,700 bytes. Raw script size is an artifact metric, not a
 standalone 16 KiB validator limit. The 16,384-byte protocol value limits the
 full serialized transaction. The frontend rejects a final transaction above
 that size and keeps a 1,024-byte deployment-test margin. Release checks must
@@ -334,14 +338,14 @@ compiled validator entrypoints or prove full transaction serialization.
 The separate entrypoint fixture closes the entrypoint budget gap for one
 partial streaming payout. Mesh builds the transaction. Aiken's native
 transaction simulator then executes its compiled STT `Spend[0]` and wallet
-`Spend[1]` validators. The result is 10,108,517 memory units and 3,331,203,599
+`Spend[1]` validators. The result is 10,110,019 memory units and 3,331,571,981
 CPU units. The fixture reaches the user, combined-access, wallet, allowance, and
 stream caps. Its five beneficiaries each carry a full script payment address with
 an inline script stake credential. It uses high-width uint64 values and valid
 action times. It has
-250 native assets and a 16,068-byte unsigned transaction.
+250 native assets and a 16,127-byte unsigned transaction.
 The generator requires one crank key shared by funding and collateral. The
-size gate reserves 103 bytes for its vkey witness. This shape uses 16,171 bytes
+size gate reserves 103 bytes for its vkey witness. This shape uses 16,230 bytes
 with that witness, below the 16,384-byte ceiling.
 The Mesh evaluator
 values only let the fixture builder balance the transaction. They do not
@@ -349,17 +353,17 @@ determine the measured result.
 
 The diagnostic Aiken Consolidation fixture uses one 151-policy wallet input,
 two continuing wallet outputs, an external funding input, and normal change.
-Its named STT and wallet helper bodies use 10,379,491 memory units and
-3,246,457,440 CPU units together. These figures leave 25.86% memory margin and
-63.93% CPU margin. Helper-body figures are not the escape-path proof.
+Its named STT and wallet helper bodies use 10,382,295 memory units and
+3,247,162,204 CPU units together. These figures leave 25.84% memory margin and
+63.92% CPU margin. Helper-body figures are not the escape-path proof.
 
 **Verified:** the compiled-entrypoint Consolidation fixture is the proof for
 this representative minimum escape. Mesh builds the exact transaction with one
 wallet input, two wallet outputs, ordinary funding and change, collateral, and
 two reference inputs. Aiken's native simulator then executes that transaction's
 compiled STT `Spend[0]` and wallet `Spend[1]` entrypoints. Together they use
-5,578,885 memory units and 1,920,901,610 CPU units. This leaves 8,421,115 memory
-units, or 60.15%, and 7,079,098,390 CPU units, or 78.66%.
+5,581,289 memory units and 1,921,542,374 CPU units. This leaves 8,418,711 memory
+units, or 60.13%, and 7,078,457,626 CPU units, or 78.65%.
 
 The exact unsigned transaction is 11,151 bytes. It leaves 5,233 bytes, or
 31.94%, below 16,384 bytes. Mesh `Value.toCbor()` measures the 151-policy input

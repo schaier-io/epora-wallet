@@ -230,6 +230,13 @@ export function buildGuidedActionDrafts(
     },
     "use-beneficiary": beneficiaryDraft("use-beneficiary"),
     "exit-beneficiary": beneficiaryDraft("exit-beneficiary"),
+    "stop-beneficiary-stream": {
+      dirty: context.stt.inputHash.trim().length > 0,
+      ready: !context.actionReadinessMap["stop-beneficiary-stream"].some((issue) => issue.blocking),
+      summary: i18n("stopBeneficiaryStreamSummary"),
+      blockingHint: getBlockingHint(context.actionReadinessMap["stop-beneficiary-stream"]),
+      nextStep: i18n("stopBeneficiaryStreamNext")
+    },
     "payout-streaming-payment": {
       dirty:
         context.stt.inputHash.trim().length > 0 ||

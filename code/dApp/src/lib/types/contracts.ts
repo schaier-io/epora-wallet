@@ -82,6 +82,7 @@ export type ActionKind =
   | "use-allowance"
   | "use-beneficiary"
   | "exit-beneficiary"
+  | "stop-beneficiary-stream"
   | "payout-streaming-payment"
   | "consolidate-utxo"
   | "lock-funds"
@@ -147,7 +148,7 @@ export type SttSpendFormInput = {
   sttInputTxHash: string;
   sttInputOutputIndex?: number;
   // Optional because "use-allowance", "use-beneficiary", "exit-beneficiary",
-  // "cancel-streaming-payment" and "remove-access-index" derive the forwarded
+  // "stop-beneficiary-stream", "cancel-streaming-payment" and "remove-access-index" derive the forwarded
   // State from the consumed one.
   // The builder requires both for every other action.
   outputDatum?: ConstrData;
@@ -185,6 +186,8 @@ export type SttSpendFormInput = {
   // final recovery opens, the contract requires the exact safe cutoff. The
   // connected payee remains the only required authority.
   streamingPaymentCancelId?: OnChainInteger;
+  // Stop one schedule as the connected unlocked beneficiary.
+  beneficiaryStreamStopId?: OnChainInteger;
 };
 
 export type WalletSpendFormInput = {

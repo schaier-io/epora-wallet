@@ -7,7 +7,7 @@ import { type WalletInputRef } from "@/lib/types/contracts";
 import { useSetAtom, useAtomValue } from "jotai";
 import { consolidateSttInputHashAtom, consolidateSttInputIndexAtom, consolidateWalletInputsAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
 import { mintReferenceAtom, mintStarterAssetsAtom, mintStateFormAtom, mintZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/mint-form.atoms";
-import { consolidateAuthorityPathAtom, selectedSttActionAtom, streamingPaymentPayoutAmountsAtom, sttAuthorityPathAtom, sttWalletInputsAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import { beneficiaryStreamStopIdAtom, consolidateAuthorityPathAtom, selectedSttActionAtom, streamingPaymentPayoutAmountsAtom, sttAuthorityPathAtom, sttWalletInputsAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { seedWorkspaceWalletAtom } from "@/components/user/workspace/atoms/workspace-wallet-seeding.atoms";
 import { type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { type StateFormState } from "@/lib/contracts/state-form";
@@ -240,6 +240,12 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
     clearBuildMessages();
   }
 
+  function handleBeneficiaryStreamStopSelect(streamId: string) {
+    jotaiStore.set(beneficiaryStreamStopIdAtom, streamId);
+    setSttAuthorityPath("beneficiary");
+    openWorkspaceIntent("send", "stop-beneficiary-stream");
+  }
+
   function handleFlowBranchSelect(nextBranch: UserFlowBranch) {
     setConnectStepPinned(false);
     clearBuildMessages();
@@ -347,6 +353,7 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
     applyDetectedToken,
     handleDetectedTokenChange,
     openWorkspaceIntent,
+    handleBeneficiaryStreamStopSelect,
     handleFlowBranchSelect,
     handleConsolidateOrphans,
     handleRecoverOrphans,

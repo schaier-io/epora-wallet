@@ -159,7 +159,7 @@ fn crank_authority_and_cooldown_ok(context: TransitionContext) -> Bool {
 }
 
 /// Shared global cadence for non-admin payout cranks, receiver cancellations,
-/// and final-beneficiary recovery.
+/// beneficiary stream stops, and final-beneficiary recovery.
 /// The lower bound proves enough time elapsed; the upper bound becomes the next
 /// stamp. Capping their difference prevents a transaction from stamping far into
 /// the future after satisfying the gate with an old lower bound.
@@ -244,6 +244,22 @@ pub fn eval_cancel_streaming_payment(
     context.validity_range,
     context.input_state,
   )
+  expect_streaming_payment_stopped(
+    target_streaming_payment,
+    final_recovery_active,
+    context,
+  )
+}
+
+/// Shared stop checks for payee cancellation and beneficiary stopping. The caller
+/// must authenticate its authority and find the target in the input State.
+/// Exact cutoff is mandatory for beneficiary stops and terminal payee cancels.
+pub fn expect_streaming_payment_stopped(
+  target_streaming_payment: streaming_payment_type.StreamingPayment,
+  require_exact_cutoff: Bool,
+  context: TransitionContext,
+) -> Bool {
+  let declared_streaming_payment_id = target_streaming_payment.id
   expect Some((tx_earliest_time, tx_latest_time)) = bounds.finite_range(
     context.validity_range,
   )
@@ -264,7 +280,7 @@ pub fn eval_cancel_streaming_payment(
   // interval starts after this end, so strict shortening makes a second cancel
   // of the same payment impossible. Payee authority remains sufficient.
   expect
-    if final_recovery_active {
+    if require_exact_cutoff {
       expect Some(output_target_streaming_payment) = streaming_payment_type.find_by_id(
         context.output_state.streaming_payments,
         declared_streaming_payment_id,

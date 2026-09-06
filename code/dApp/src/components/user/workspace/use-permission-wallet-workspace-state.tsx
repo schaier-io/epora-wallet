@@ -488,6 +488,7 @@ export function usePermissionWalletWorkspaceState() {
     applyDetectedToken,
     handleDetectedTokenChange,
     openWorkspaceIntent,
+    handleBeneficiaryStreamStopSelect,
     handleFlowBranchSelect,
     handleConsolidateOrphans,
     handleRecoverOrphans,
@@ -638,6 +639,7 @@ export function usePermissionWalletWorkspaceState() {
 
     // Navigation, intents, and top-level flow actions.
     openWorkspaceIntent,
+    handleBeneficiaryStreamStopSelect,
     handleFlowBranchSelect,
     handleConsolidateOrphans,
     handleRecoverOrphans,

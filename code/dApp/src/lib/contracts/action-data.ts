@@ -21,6 +21,7 @@ export type StructuredSttAction =
   | "use-allowance"
   | "use-beneficiary"
   | "exit-beneficiary"
+  | "stop-beneficiary-stream"
   | "payout-streaming-payment"
   | "consolidate-utxo"
   | "cancel-streaming-payment";
@@ -52,6 +53,11 @@ export type OnChainStructuredAction =
   | {
       kind: "beneficiary-exit";
       beneficiaryId?: OnChainInteger;
+    }
+  | {
+      kind: "stop-beneficiary-stream";
+      beneficiaryId?: OnChainInteger;
+      streamingPaymentId?: OnChainInteger;
     }
   | {
       kind: "streaming-payment-payout";
@@ -186,6 +192,7 @@ function buildStakeCredentialOptionData(
 //   alt 5 Consolidate(ConsolidatePath)
 //   alt 6 CancelStreamingPayment(Int)                // streaming-payment id
 //   alt 7 ExitBeneficiary(Int)                         // permanent beneficiary exit
+//   alt 8 StopBeneficiaryStream(Int, Int)                // beneficiary id, stream id
 function buildSttActionData(
   action: "mint" | OnChainStructuredAction
 ): ConstrData {
@@ -235,6 +242,17 @@ function buildSttActionData(
       return {
         alternative: 7,
         fields: [normalizeStateInteger(action.beneficiaryId, "ExitBeneficiary beneficiary id")]
+      };
+    case "stop-beneficiary-stream":
+      if (action.beneficiaryId === undefined || action.streamingPaymentId === undefined) {
+        throw new Error("StopBeneficiaryStream requires beneficiary and streaming payment ids before redeemer encoding.");
+      }
+      return {
+        alternative: 8,
+        fields: [
+          normalizeStateInteger(action.beneficiaryId, "StopBeneficiaryStream beneficiary id"),
+          normalizeStateInteger(action.streamingPaymentId, "StopBeneficiaryStream streaming payment id")
+        ]
       };
     case "streaming-payment-payout":
       if (action.payoutDelta === undefined) {
@@ -392,6 +410,10 @@ export function resolveStructuredOnChainAction(
 
   if (action === "use-allowance") {
     return { kind: "allowance-withdrawal" };
+  }
+
+  if (action === "stop-beneficiary-stream") {
+    return { kind: "stop-beneficiary-stream" };
   }
 
   if (action === "exit-beneficiary") {

@@ -33,6 +33,7 @@ const GUIDED_USER_ACTION_KINDS = [
   "use-allowance",
   "use-beneficiary",
   "exit-beneficiary",
+  "stop-beneficiary-stream",
   "payout-streaming-payment"
 ] as const;
 

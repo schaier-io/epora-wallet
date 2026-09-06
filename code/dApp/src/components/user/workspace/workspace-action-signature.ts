@@ -93,6 +93,10 @@ export function computeActionSignature(action: UserActionKind, ctx: BuildActionS
     withdrawZeroAdminConfirmed
   } = ctx;
     switch (action) {
+      case "stop-beneficiary-stream":
+        return safeStringify({ config, action, sttInputTxHash, sttInputOutputIndex,
+          activePaymentKeyHash, selectedDetectedTokenStateForm,
+          beneficiaryStreamStopId: ctx.beneficiaryStreamStopId });
       case "mint":
         return safeStringify({
           mintReference,

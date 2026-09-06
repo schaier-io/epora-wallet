@@ -226,6 +226,21 @@ export const STT_SPEND_ACTION_TABS: Array<{
     showQuickTransferBuilder: true,
     buildLabel: i18n("buildPreviewAllowanceSend")
   },
+  {
+    ...beneficiaryWithdrawalTab,
+    value: "stop-beneficiary-stream",
+    label: i18n("stopStreamLabel"),
+    tabHint: i18n("stopStreamHint"),
+    description: i18n("stopStreamDescription"),
+    stateHelper: i18n("stopStreamDescription"),
+    showOutputAssets: false,
+    showTransfers: false,
+    showProofOfLifeOverride: false,
+    allowsStateEditing: false,
+    showLockedContractUtxoBrowser: false,
+    showQuickTransferBuilder: false,
+    buildLabel: i18n("stopStreamBuild")
+  },
   beneficiaryWithdrawalTab,
   {
     ...beneficiaryWithdrawalTab,

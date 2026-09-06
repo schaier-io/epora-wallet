@@ -826,6 +826,54 @@ const max_beneficiary_state: state_types.State =
     wallet_name: from_int_big_endian(0, constants.max_wallet_name_bytes),
   }
 
+const beneficiary_stop_time: Int =
+  constants.max_state_integer - constants.non_admin_payout_cooldown_ms
+
+const beneficiary_stop_action: state_types.SttAction =
+  state_types.StopBeneficiaryStream(
+    max_beneficiary_actor_id,
+    fixture_stream_count,
+  )
+
+const beneficiary_stop_input_state: state_types.State =
+  state_types.State {
+    ..max_beneficiary_state,
+    access: state_types.AccessControl {
+      ..max_beneficiary_state.access,
+      beneficiaries: list.map(
+        max_beneficiary_state.access.beneficiaries,
+        fn(beneficiary) {
+          state_types.Beneficiary {
+            ..beneficiary,
+            unlock_after: Some(beneficiary_stop_time),
+          }
+        },
+      ),
+    },
+    streaming_payments: list.map(
+      max_beneficiary_state.streaming_payments,
+      fn(payment) {
+        StreamingPayment { ..payment, end_date: constants.max_state_integer }
+      },
+    ),
+  }
+
+const beneficiary_stop_output_state: state_types.State =
+  state_types.State {
+    ..beneficiary_stop_input_state,
+    streaming_payments: list.map(
+      beneficiary_stop_input_state.streaming_payments,
+      fn(payment) {
+        if payment.id == fixture_stream_count {
+          StreamingPayment { ..payment, end_date: beneficiary_stop_time }
+        } else {
+          payment
+        }
+      },
+    ),
+    last_non_admin_payout_at: Some(beneficiary_stop_time),
+  }
+
 const max_state_admin_wallet: ByteArray =
   user_wallet_hash(fixture_user_count, user_wallet_count(fixture_user_count))
 
@@ -998,6 +1046,20 @@ const max_state_manage_streaming_transaction: Transaction =
 
 const beneficiary_actor_wallet: ByteArray =
   from_int_big_endian(fixture_total_beneficiary_wallet_count, 28)
+
+const beneficiary_stop_transaction: Transaction =
+  with_spend_redeemers(
+    fixtures.stt_spend_tx(
+      interval.between(beneficiary_stop_time, beneficiary_stop_time),
+      [beneficiary_actor_wallet],
+      beneficiary_stop_input_state,
+      beneficiary_stop_output_state,
+      [],
+      fixtures.tx_id(#"b530"),
+    ),
+    0,
+    beneficiary_stop_action,
+  )
 
 const max_beneficiary_input_value: assets.Value =
   make_distinct_allowance_entries_from(
@@ -2643,6 +2705,21 @@ test capped_state_policy_deep_consolidation_repartition_w01__wallet_00() {
     run_wallet_spend(
       wallet_input_reference_00,
       consolidation_repartition_transaction,
+    )
+}
+
+test max_recovery_stop_beneficiary_stream_w00__stt() {
+  expect wallet_execution_count(beneficiary_stop_transaction) == 0
+  expect
+    list.length(beneficiary_stop_input_state.access.beneficiaries) == constants.max_beneficiaries
+  expect
+    list.length(beneficiary_stop_input_state.streaming_payments) == constants.max_streaming_payments
+  expect
+    stt.eval_spend(
+      None,
+      beneficiary_stop_action,
+      fixtures.stt_input_ref(),
+      beneficiary_stop_transaction,
     )
 }
 
