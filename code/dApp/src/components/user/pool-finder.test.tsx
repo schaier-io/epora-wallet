@@ -147,3 +147,40 @@ describe("depth", () => {
     expect(container.querySelector(".rounded-xl")).toBeNull();
   });
 });
+
+describe("two lookups at once", () => {
+  /**
+   * Enter in the field starts a lookup and, unlike the Look up button, is not
+   * disabled while one runs. The reader corrected the pool id and pressed Enter
+   * again; the first answer arrived last and the card showed the wrong pool.
+   */
+  it("shows the pool the reader asked for last", async () => {
+    const answers: ((pool: StakePool) => void)[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        () =>
+          new Promise((resolve) => {
+            answers.push((pool: StakePool) =>
+              resolve({ ok: true, json: async () => ({ pool }) })
+            );
+          })
+      )
+    );
+
+    render(<PoolFinder selectedPool={null} onSelect={vi.fn()} />);
+    const input = screen.getByLabelText("Find your pool");
+
+    fireEvent.change(input, { target: { value: "pool1first" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    fireEvent.change(input, { target: { value: "pool1second" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() => expect(answers).toHaveLength(2));
+
+    answers[1]!({ ...BASE_POOL, ticker: "SECOND", name: "Second pool" });
+    answers[0]!({ ...BASE_POOL, ticker: "FIRST", name: "First pool" });
+
+    await waitFor(() => expect(screen.getByText(/SECOND/)).toBeInTheDocument());
+    expect(screen.queryByText(/FIRST/)).toBeNull();
+  });
+});
