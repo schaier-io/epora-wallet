@@ -21,13 +21,14 @@ test("entrypoint fixture reserves room for its required vkey witness", (t) => {
   const fixtureRoot = join(sourceRoot, "fixtures", "entrypoint-budget");
   const manifest = JSON.parse(readFileSync(join(fixtureRoot, "manifest.json"), "utf8"));
   const source = JSON.parse(readFileSync(join(fixtureRoot, "source.json"), "utf8"));
-  // This unsigned size fits 16,384 bytes but leaves fewer than 103 bytes for
+  // This unsigned size fits 16,384 bytes but leaves only 104 bytes for
   // the one key shared by the crank, funding input, and collateral input.
-  source.transactionBytes = 16_300;
+  // Conway serialization needs 106 bytes, including its three-byte set tag.
+  source.transactionBytes = 16_280;
   manifest.fixture.transactionBytes = source.transactionBytes;
   writeFileSync(join(fixtures, "manifest.json"), JSON.stringify(manifest));
   writeFileSync(join(fixtures, "source.json"), JSON.stringify(source));
   const result = spawnSync(process.execPath, [join(scripts, "check-entrypoint-budget.mjs"), "--check-generated"], { encoding: "utf8" });
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /unsigned fixture transaction must be 16000\.\.16281 bytes/);
+  assert.match(result.stderr, /unsigned fixture transaction must be 16000\.\.16278 bytes/);
 });

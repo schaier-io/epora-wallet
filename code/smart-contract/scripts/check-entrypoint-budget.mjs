@@ -55,17 +55,17 @@ const CPU_CEILING = 9_000_000_000;
 const FIXTURE_TRANSACTION_SIZE_FLOOR_BYTES = 16_000;
 const FIXTURE_SIGNED_TRANSACTION_SIZE_CEILING_BYTES = 16_384;
 // The generator pins one crank/funding/collateral key. Adding its vkey witness
-// with the existing CST assembler adds 103 bytes to this fixture's transaction.
-const FIXTURE_VKEY_WITNESS_BYTES = 103;
+// with Mesh's Conway serializer adds 106 bytes, including the CBOR set tag.
+const FIXTURE_VKEY_WITNESS_BYTES = 106;
 const FIXTURE_UNSIGNED_TRANSACTION_SIZE_CEILING_BYTES =
   FIXTURE_SIGNED_TRANSACTION_SIZE_CEILING_BYTES - FIXTURE_VKEY_WITNESS_BYTES;
-const FIXTURE_NATIVE_ASSET_FLOOR = 250;
-const FIXTURE_WALLET_VALUE_SIZE_FLOOR_BYTES = 788;
+const FIXTURE_NATIVE_ASSET_FLOOR = 30;
+const FIXTURE_WALLET_VALUE_SIZE_FLOOR_BYTES = 128;
 const FIXTURE_STATE_DATUM_SIZE_FLOOR_BYTES = 5_000;
 const REQUIRED_WALLET_VALUE_CBOR_SHA256 =
-  "2ccd8ef5085810cd8096eba46784cc51e6525a2461d2a6dabfc3ce273a2a5758";
+  "e4ddd5eb47fc362c56561f610b491a0f6a12176363d296bc3605a26401ebde35";
 const REQUIRED_STATE_DATUM_CBOR_SHA256 =
-  "ad99699e58dee4fd149b569001500a549363715d7f816304e2a9b737cc9a2ef2";
+  "780e1fe0a0ac2f46740c2d66ac363d950346e6436b3b7eb382a8a69f64e44386";
 const REQUIRED_FIXTURE_SCENARIO =
   "capped-list-and-scalar-near-transaction-limit-partial-streaming-payout";
 const REQUIRED_STATE_SHAPE = {
@@ -81,7 +81,7 @@ const REQUIRED_STRESS_PROFILE = {
   crankSignerMatchesBeneficiary: false,
   crankSignerStreamingPayeeIndexes: [14],
   targetStreamingPaymentIndex: 14,
-  targetNativeAssetIndex: 249,
+  targetNativeAssetIndex: 29,
   payoutQuantity: "1"
 };
 const CONSOLIDATION_TRANSACTION_SIZE_FLOOR_BYTES = 10_000;

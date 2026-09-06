@@ -37,6 +37,7 @@ function baseBody(action: string) {
   };
   if (action === "use-allowance") body.allowanceSignerKeyHash = HASH_HEX;
   if (action === "use-beneficiary" || action === "exit-beneficiary") body.beneficiarySignerKeyHash = HASH_HEX;
+  if (action === "distribute-beneficiaries") { body.beneficiarySignerKeyHash=HASH_HEX; body.walletInputs=[{txHash:TX_HASH,outputIndex:1}]; }
   if (action === "stop-beneficiary-stream") { body.beneficiarySignerKeyHash = HASH_HEX; body.beneficiaryStreamStopId = 0; }
   if (action === "payout-streaming-payment") body.crankSignerKeyHash = HASH_HEX;
   if (action === "cancel-streaming-payment") body.streamingPaymentCancelId = 0;
@@ -53,6 +54,7 @@ const ALL_ACTIONS = [
   "use-beneficiary",
   "exit-beneficiary",
   "stop-beneficiary-stream",
+  "distribute-beneficiaries",
   "payout-streaming-payment",
   "cancel-streaming-payment",
   "remove-access-index"
@@ -75,7 +77,7 @@ describe("SttSpendTxRequestSchema", () => {
   });
 
   it("still requires both fields for every forwarding action", () => {
-    const deriving = new Set(buildersDerivingActions());
+    const deriving = new Set([...buildersDerivingActions(), "distribute-beneficiaries"]);
     const forwarding = ALL_ACTIONS.filter((action) => !deriving.has(action));
     assert.equal(forwarding.length, 5);
     for (const action of forwarding) {
@@ -91,7 +93,7 @@ describe("SttSpendTxRequestSchema", () => {
 
   it("covers every action the union declares", () => {
     const declared = ALL_ACTIONS.map((action) => {
-      const body = { ...baseBody(action), outputDatum: { alternative: 0, fields: [] }, outputAssets: [] };
+      const body = action === "distribute-beneficiaries" ? baseBody(action) : { ...baseBody(action), outputDatum: { alternative: 0, fields: [] }, outputAssets: [] };
       return SttSpendTxRequestSchema.safeParse(body).success;
     });
     assert.deepEqual(declared, ALL_ACTIONS.map(() => true));
@@ -198,4 +200,16 @@ it("beneficiary stop requires a signer and target, accepts uint64, and rejects e
     {walletOutputs:[{amount:[{unit:"lovelace",quantity:"2000000"}]}]},
     {extraTransfers:[{address:ADDRESS,amount:[{unit:"lovelace",quantity:"2000000"}]}]}
   ]) assert.equal(SttSpendTxRequestSchema.safeParse({...body,...extra}).success,false);
+});
+
+it("exact distribution API requires one input and rejects caller outputs, transfers and authority",()=>{
+  const body=baseBody("distribute-beneficiaries");
+  assert.equal(SttSpendTxRequestSchema.safeParse(body).success,true);
+  for(const changes of [
+    {walletInputs:[]},{walletInputs:[{txHash:TX_HASH,outputIndex:1},{txHash:TX_HASH,outputIndex:2}]},
+    {beneficiarySignerKeyHash:undefined},{outputDatum:{alternative:0,fields:[]}},{outputAssets:[]},
+    {authorityPath:"admin"},{authorityPath:"beneficiary"},
+    {walletOutputs:[{amount:[{unit:"lovelace",quantity:"2000000"}]}]},
+    {extraTransfers:[{address:ADDRESS,amount:[{unit:"lovelace",quantity:"2000000"}]}]}
+  ]) assert.equal(SttSpendTxRequestSchema.safeParse({...body,...changes}).success,false);
 });

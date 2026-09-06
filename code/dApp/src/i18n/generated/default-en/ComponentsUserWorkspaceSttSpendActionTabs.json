@@ -98,5 +98,9 @@
   "stopStreamLabel": "Stop a scheduled payment",
   "stopStreamHint": "Stop future accrual as an unlocked recovery contact.",
   "stopStreamDescription": "Stop one scheduled payment. Earned funds remain owed and require settlement.",
-  "stopStreamBuild": "Preview stop"
+  "stopStreamBuild": "Preview stop",
+  "distributionLabel": "Distribute one fund pool",
+  "distributionHint": "Pay exact shares to all recovery contacts.",
+  "distributionDescription": "Pay one fund pool to the saved destinations. Recovery rights remain.",
+  "distributionBuild": "Preview distribution"
 }

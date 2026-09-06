@@ -29,6 +29,7 @@ use streaming_payments/funding
 use streaming_payments/types.{StreamingPayment}
 use stt
 use stt/io as stt_io
+use test_support/beneficiary_distribution_test_helpers as exact
 use test_support/security_fixtures as fixtures
 use test_support/state_builders as states
 use wallet
@@ -1144,6 +1145,65 @@ const beneficiary_use_output_state: state_types.State =
 
 const beneficiary_use_action: state_types.SttAction =
   state_types.UseBeneficiary(max_beneficiary_actor_id)
+
+const exact_distribution_action: state_types.SttAction =
+  state_types.DistributeBeneficiaries(max_beneficiary_actor_id)
+
+const exact_distribution_state: state_types.State =
+  state_types.State { ..max_beneficiary_state, streaming_payments: [] }
+
+// Equal maximum-width weights require every quantity to divide by the full
+// beneficiary count. Five native assets retain the existing recovery profile.
+const exact_distribution_value: assets.Value =
+  list.foldl(
+    assets.flatten(max_beneficiary_input_value),
+    assets.from_lovelace(max_beneficiary_fixture_count * payout_output_lovelace),
+    fn(asset, value) {
+      let (policy, name, _) = asset
+      assets.add(
+        value,
+        policy,
+        name,
+        constants.max_state_integer / max_beneficiary_fixture_count * max_beneficiary_fixture_count,
+      )
+    },
+  )
+
+const exact_distribution_transaction: Transaction =
+  with_spend_redeemers(
+    fixtures.transaction_with_stt_redeemer(
+      interval.between(constants.max_state_integer, constants.max_state_integer),
+      [beneficiary_actor_wallet],
+      [
+        fixtures.stt_input(
+          fixtures.stt_input_ref(),
+          fixtures.default_policy_id(),
+          exact_distribution_state,
+          fixtures.default_stt_value(),
+        ),
+        fixtures.wallet_input(
+          wallet_input_reference(0),
+          exact_distribution_value,
+        ),
+      ],
+      [
+        fixtures.stt_output(
+          fixtures.default_policy_id(),
+          exact_distribution_state,
+          fixtures.default_stt_value(),
+        ),
+        ..exact.payout_outputs(
+          exact_distribution_state,
+          exact_distribution_value,
+        )
+      ],
+      fixtures.tx_id(#"ed10"),
+      fixtures.stt_input_ref(),
+      exact_distribution_action,
+    ),
+    1,
+    exact_distribution_action,
+  )
 
 const beneficiary_use_transaction: Transaction =
   with_spend_redeemers(
@@ -3019,4 +3079,22 @@ test near_max_value_underfunded_beneficiary_recovery_w01__wallet_00() {
       wallet_input_reference_00,
       near_max_value_underfunded_beneficiary_recovery_transaction,
     )
+}
+
+test max_five_asset_exact_distribution_w01__stt() {
+  expect
+    list.length(exact_distribution_state.access.beneficiaries) == constants.max_beneficiaries
+  expect wallet_execution_count(exact_distribution_transaction) == 1
+  expect
+    stt.eval_spend(
+      None,
+      exact_distribution_action,
+      fixtures.stt_input_ref(),
+      exact_distribution_transaction,
+    )
+}
+
+test max_five_asset_exact_distribution_w01__wallet_00() {
+  expect
+    run_wallet_spend(wallet_input_reference_00, exact_distribution_transaction)
 }

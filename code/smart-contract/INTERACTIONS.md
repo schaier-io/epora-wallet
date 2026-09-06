@@ -94,6 +94,7 @@ flowchart LR
     UBE["UseBeneficiary"]
     EBE["ExitBeneficiary"]
     SBS["StopBeneficiaryStream"]
+    DBE["DistributeBeneficiaries"]
   end
   subgraph SET["Settlement actions"]
     PSP["PayStreamingPayment"]
@@ -114,6 +115,7 @@ flowchart LR
   BEN --> UBE
   BEN --> EBE
   BEN --> SBS
+  BEN --> DBE
   PAY -- "payee signature; exact cutoff after terminal unlock" --> CSP
   LST -- "before terminal recovery, cadence applies" --> PSP
   PAY -- "before terminal recovery, cadence applies" --> PSP
@@ -128,6 +130,7 @@ flowchart LR
   UAL -- "== declared spent_allowance" --> W
   UBE -- "≤ weighted share of (wallet − reserve)" --> W
   EBE -- "weighted share; actor always removed" --> W
+  DBE -- "one input; exact tagged shares; rights retained" --> W
   PSP -- "== payout delta, only to tagged payee outputs" --> W
   NOX["No wallet movement"]
   SBS -.-> NOX
@@ -141,7 +144,7 @@ flowchart LR
 
   classDef moves fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
   classDef nomove fill:#eceff1,stroke:#546e7a,color:#263238
-  class USE,UAL,UBE,EBE,PSP,CON moves
+  class USE,UAL,UBE,EBE,DBE,PSP,CON moves
   class UPD,MSP,RAI,SIC,RPL,CSP,MINT,GOV nomove
 ```
 
@@ -275,6 +278,7 @@ classDiagram
       CancelStreamingPayment(Int)
       ExitBeneficiary(Int)
       StopBeneficiaryStream(Int, Int)
+      DistributeBeneficiaries(Int)
     }
     class OperatorAction {
       <<RunOperator payload>>
@@ -380,6 +384,7 @@ inclusivity assumption).
 | UseBeneficiary | finite (unlock check; final recovery also checks cadence) | finite for final recovery (stamp + 1h window cap) |
 | ExitBeneficiary | finite (unlock check; final exit also checks cadence) | finite for final exit (stamp + 1h window cap) |
 | StopBeneficiaryStream | finite (unlock and shared cadence) | finite (exact cutoff, stamp, and 1h window cap) |
+| DistributeBeneficiaries | finite (every beneficiary unlock) | finite when wallet spends; final beneficiary also requires cadence and 1h window cap |
 | PayStreamingPayment | finite (cadence + accrual floor) | finite (stamp + 1h window cap) |
 | CancelStreamingPayment | finite (shared cadence gate) | finite (end-date floor + stamp + 1h window cap) |
 | Consolidate | finite for `BeneficiaryPath` (unlock check) | – (STT side) |
@@ -622,3 +627,13 @@ re-run when it changes.
 - **Change:** the target end becomes exactly `max(input.start_date, tx_upper)` and must strictly decrease. Stream rate, address, asset, start, and paid-out amount stay unchanged. All other streams and access entries stay unchanged.
 - **Cadence:** finite bounds, at most one hour wide. The lower bound must pass the shared 30-minute cooldown. The output records the upper bound. Admin signatures do not bypass these checks.
 - **Wallet effect:** no wallet spending. Earned debt remains available to the existing settlement action. A script payee needs no signature to have its stream stopped. The beneficiary signs instead. Existing operator management authority remains available.
+
+
+### P17: DistributeBeneficiaries
+
+- **Entry and authority:** constructor 9 names the initiating beneficiary. That beneficiary must sign. Every beneficiary must pass both global and personal unlock times. Other beneficiary signatures are allowed.
+- **State:** the input stream list must be empty. Every beneficiary and other State field remains unchanged. Multiple beneficiaries preserve the cadence stamp. The sole beneficiary uses the existing finite window, 30-minute cooldown, one-hour window cap, and upper-bound stamp. STT value cannot decrease.
+- **Wallet:** the matching payment credential must have exactly one input and zero outputs, including stake variants. Each asset quantity times each beneficiary weight must divide exactly by total weight. The check includes ADA and has no asset-count cap.
+- **Routing:** each beneficiary has exactly one output with the existing inline `OutputId`, bound to its id and the consumed STT reference. The output must use its full configured address. Native quantities equal the exact share; ADA may exceed it through external funding. Distinct ids make the payout tags disjoint even when full addresses match. Wallet and STT payment credentials are forbidden payout destinations, including stake variants.
+- **Wallet-less transaction:** the STT permits the authorized unchanged transition, or the sole beneficiary's cadence update. Payout and input-count checks run only when wallet funds are consumed. This action does not prove that all wallet UTxOs were discovered or that no later deposit will arrive.
+- **Checks:** `beneficiary_distribution_tests.ak` exercises routing, divisibility, authorization, State preservation, cadence, and the wallet-less boundary. The paired `max_five_asset_exact_distribution` case measures the maximum beneficiary count with five native assets. Synthetic execution budgets do not prove serialized transaction size.

@@ -241,6 +241,21 @@ export const STT_SPEND_ACTION_TABS: Array<{
     showQuickTransferBuilder: false,
     buildLabel: i18n("stopStreamBuild")
   },
+  {
+    ...beneficiaryWithdrawalTab,
+    value: "distribute-beneficiaries",
+    label: i18n("distributionLabel"),
+    tabHint: i18n("distributionHint"),
+    description: i18n("distributionDescription"),
+    stateHelper: i18n("distributionDescription"),
+    showOutputAssets: false,
+    showTransfers: false,
+    showProofOfLifeOverride: false,
+    allowsStateEditing: false,
+    showLockedContractUtxoBrowser: false,
+    showQuickTransferBuilder: false,
+    buildLabel: i18n("distributionBuild")
+  },
   beneficiaryWithdrawalTab,
   {
     ...beneficiaryWithdrawalTab,

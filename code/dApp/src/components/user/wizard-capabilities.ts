@@ -159,6 +159,10 @@ export function buildAvailableWizardActions(
     });
   }
 
+  if (capabilityMap.hasBeneficiaryMatch) {
+    actions.push({ kind: "distribute-beneficiaries", pathLabels: [i18n("recoveryContact")], note: i18n("distributeBeneficiaries") });
+  }
+
   if (capabilityMap.hasBeneficiaryMatch && capabilityMap.hasStreamingPayments) {
     actions.push({ kind: "stop-beneficiary-stream", pathLabels: [i18n("recoveryContact")], note: i18n("stopBeneficiaryStream") });
   }

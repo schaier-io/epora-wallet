@@ -87,7 +87,7 @@ export const suggestedSttAuthorityPathAtom = atom<AuthorityPath>((get) => {
 
 export const canProposeSelectedActionAtom = atom((get) => {
   const action = get(selectedActionAtom);
-  if (action === "stop-beneficiary-stream" || !isSttFlowAction(action)) {
+  if (action === "stop-beneficiary-stream" || action === "distribute-beneficiaries" || !isSttFlowAction(action)) {
     return false;
   }
   const path = get(sttAuthorityPathAtom);

@@ -1,4 +1,5 @@
 "use client";
+import { lockedContractUtxosAtom, lockedContractUtxosLoadingAtom, lockedContractUtxosErrorAtom } from "./atoms/workspace-data.atoms";
 import { renderNowMsAtom } from "./atoms/workspace-ui.atoms";
 import { useMemo } from "react";
 import { useAtomValue } from "jotai";
@@ -34,6 +35,9 @@ export function useWorkspaceActionFieldErrors(ctx: WorkspaceActionFieldErrorsCtx
     streamingPaymentPayoutTransfers,
     useAllowancePreview
   } = ctx;
+  const lockedContractUtxos = useAtomValue(lockedContractUtxosAtom);
+  const lockedContractUtxosLoading = useAtomValue(lockedContractUtxosLoadingAtom);
+  const lockedContractUtxosError = useAtomValue(lockedContractUtxosErrorAtom);
   const beneficiaryStreamStopId = useAtomValue(beneficiaryStreamStopIdAtom);
   const nowMs = useAtomValue(renderNowMsAtom);
   const consolidateAuthorityPath = useAtomValue(consolidateAuthorityPathAtom);
@@ -84,7 +88,7 @@ export function useWorkspaceActionFieldErrors(ctx: WorkspaceActionFieldErrorsCtx
 
   return useMemo(
     () => computeActionFieldErrors({
-        beneficiaryStreamStopId, nowMs,
+        beneficiaryStreamStopId, nowMs, lockedContractUtxos, lockedContractUtxosLoading, lockedContractUtxosError,
         activeInferredSttStateForm,
         activePaymentKeyHash,
         consolidateAuthorityPath,
@@ -135,7 +139,7 @@ export function useWorkspaceActionFieldErrors(ctx: WorkspaceActionFieldErrorsCtx
         withdrawSttStateForm,
         withdrawZeroAdminConfirmed }),
     [
-    beneficiaryStreamStopId, nowMs,
+    beneficiaryStreamStopId, nowMs, lockedContractUtxos, lockedContractUtxosLoading, lockedContractUtxosError,
     activeInferredSttStateForm,
     activePaymentKeyHash,
     consolidateAuthorityPath,

@@ -214,6 +214,9 @@ export function WorkspaceReviewRailView() {
                     isSubmitting={activeSubmit}
                     primaryActionLabel={
                       approvalOnly ? approvalActionLabel
+                        : selectedAction === "distribute-beneficiaries"
+                          ? previewMatchesSelectedAction && preview?.txHex
+                            ? i18n("confirmDistribution") : i18n("previewDistribution")
                         : selectedAction === "stop-beneficiary-stream"
                           ? previewMatchesSelectedAction && preview?.txHex
                             ? i18n("confirmStreamStop") : i18n("previewStreamStop")
@@ -235,7 +238,7 @@ export function WorkspaceReviewRailView() {
                         void saveAsApprovalRequest();
                         return;
                       }
-                      if (selectedAction === "exit-beneficiary" || selectedAction === "stop-beneficiary-stream") {
+                      if (selectedAction === "exit-beneficiary" || selectedAction === "stop-beneficiary-stream" || selectedAction === "distribute-beneficiaries") {
                         if (previewMatchesSelectedAction && preview?.txHex) {
                           void submitTransactionPreview(preview);
                         } else {

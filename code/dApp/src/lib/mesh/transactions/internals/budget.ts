@@ -146,7 +146,8 @@ export async function buildTransactionWithReestimatedLimits(
         finalPrepared.tx,
         appliedOverrides,
         preparedOutputCount,
-        finalPrepared.resolveAdjustableLovelaceOutput?.()
+        finalPrepared.resolveAdjustableLovelaceOutput?.(),
+        finalPrepared.preservePreparedOutputs
       ),
     {
       ...finalPrepared.diagnostics,

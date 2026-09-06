@@ -518,3 +518,9 @@ describe("tidy funds: choosing pools", () => {
     expect(container.querySelectorAll("div.rounded-md.border").length).toBeGreaterThan(1);
   });
 });
+
+it("exact distribution does not render generic input, transfer or advanced editors", () => {
+  const tab = STT_SPEND_ACTION_TABS.find(tab => tab.value === "distribute-beneficiaries")!;
+  const { container } = renderView({ selectedAction: "distribute-beneficiaries", tab });
+  expect(container).toBeEmptyDOMElement();
+});

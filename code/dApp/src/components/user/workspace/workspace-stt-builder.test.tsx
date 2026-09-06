@@ -1,8 +1,10 @@
 import { createStore } from "jotai";
 import { beforeEach, expect, it, vi } from "vitest";
+import { validateBeneficiaryDistributionInput } from "@/lib/mesh/transactions/beneficiary-distribution";
 import { createWorkspaceSttBuilder } from "./workspace-stt-builder";
 import type { WorkspaceTransactionsCtx } from "./workspace-transactions-types";
 import { beneficiaryStreamStopIdAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputTxHashAtom, sttInputOutputIndexAtom, sttWalletInputsAtom } from "./atoms/forms/stt-spend-form.atoms";
+import type { SttSpendFormInput } from "@/lib/types/contracts";
 import { createDefaultStateForm } from "@/lib/contracts/state-form";
 const mocks = vi.hoisted(() => ({ build: vi.fn() }));
 vi.mock("@/lib/mesh/transactions", () => ({
@@ -36,6 +38,22 @@ it("builds a single stop with no stale withdrawal data or operator override", as
     beneficiaryStreamStopId: 18446744073709551615n,
     beneficiarySignerKeyHash: "11".repeat(28), authorityPath: "beneficiary"
   });
+  expect(capture).not.toHaveBeenCalled();
+  expect(requiredSigners).not.toHaveBeenCalled();
+});
+it("builds exact distribution with no stale withdrawal data or operator override", async () => {
+  const { store, ctx, capture, requiredSigners } = fixture();
+  store.set(beneficiaryStreamStopIdAtom, "18446744073709551615");
+  store.set(sttAuthorityPathAtom, "multisig");
+  store.set(sttWalletInputsAtom, [{ txHash: "b".repeat(64), outputIndex: 0 }]);
+  store.set(sttExtraTransfersAtom, [{ address: "stale", amount: [{ unit: "lovelace", quantity: "42" }], inlineDatum: { mode: "none", customAlternative: "" } }]);
+  await createWorkspaceSttBuilder(ctx, capture, requiredSigners).buildSttTx("distribute-beneficiaries", "admin");
+  expect(mocks.build).toHaveBeenCalledWith(ctx.activeWallet, expect.any(Object), "distribute-beneficiaries", {
+    sttInputTxHash: "a".repeat(64), sttInputOutputIndex: 2,
+    walletInputs: [{ txHash: "b".repeat(64), outputIndex: 0 }],
+    beneficiarySignerKeyHash: "11".repeat(28)
+  });
+  expect(() => validateBeneficiaryDistributionInput(mocks.build.mock.calls[0]![3] as SttSpendFormInput)).not.toThrow();
   expect(capture).not.toHaveBeenCalled();
   expect(requiredSigners).not.toHaveBeenCalled();
 });

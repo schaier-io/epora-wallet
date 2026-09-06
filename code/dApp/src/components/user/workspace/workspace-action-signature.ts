@@ -1,4 +1,5 @@
 "use client";
+import type { UTxO } from "@meshsdk/core";
 
 import type {
   UserActionKind
@@ -37,6 +38,7 @@ export type BuildActionSignatureCtx = ReturnType<typeof useMintForm> &
   activePaymentKeyHash: string | null;
   config: ContractConfig;
   streamingPaymentPayout: PreparedStreamingPaymentPayout;
+  lockedContractUtxos?: UTxO[];
   selectedDetectedToken: DetectedSttToken | null;
   selectedDetectedTokenStateForm: StateFormState | null;
 };
@@ -93,6 +95,11 @@ export function computeActionSignature(action: UserActionKind, ctx: BuildActionS
     withdrawZeroAdminConfirmed
   } = ctx;
     switch (action) {
+      case "distribute-beneficiaries":
+        return safeStringify({ config, action, sttInputTxHash, sttInputOutputIndex,
+          activePaymentKeyHash, state: selectedDetectedTokenStateForm ?? sttStateForm, sttWalletInputs,
+          walletInputs: ctx.lockedContractUtxos?.filter((utxo) => sttWalletInputs.some((ref) =>
+            ref.txHash === utxo.input.txHash && ref.outputIndex === utxo.input.outputIndex)) });
       case "stop-beneficiary-stream":
         return safeStringify({ config, action, sttInputTxHash, sttInputOutputIndex,
           activePaymentKeyHash, selectedDetectedTokenStateForm,

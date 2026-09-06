@@ -129,7 +129,7 @@ const TX_PATHS: Array<[string, string, string, string, z.ZodType]> = [
     "/api/v1/tx/stt-spend",
     "buildSttSpendTx",
     "Spend the state token",
-    "Run one of the eleven State transitions: `use`, `renew-proof-of-life`, `update-state`, `manage-streaming-payments`, `use-allowance`, `use-beneficiary`, `exit-beneficiary`, `stop-beneficiary-stream`, `payout-streaming-payment`, `cancel-streaming-payment` and `remove-access-index`. `action` selects which.",
+    "Run one of the twelve State transitions: `use`, `renew-proof-of-life`, `update-state`, `manage-streaming-payments`, `use-allowance`, `use-beneficiary`, `exit-beneficiary`, `stop-beneficiary-stream`, `distribute-beneficiaries`, `payout-streaming-payment`, `cancel-streaming-payment` and `remove-access-index`. `action` selects which.",
     SttSpendTxRequestSchema
   ],
   [

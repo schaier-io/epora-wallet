@@ -17,7 +17,7 @@
     "docs": "aiken docs",
     "watch": "aiken check --watch",
     "fuzz": "aiken check --max-success 10000",
-    "budgets": "node scripts/check-budgets.mjs && node scripts/check-entrypoint-budget.mjs",
+    "budgets": "node scripts/check-budgets.mjs && node scripts/check-entrypoint-budget.mjs && node scripts/check-beneficiary-distribution-native.mjs",
     "budgets:update": "node scripts/check-entrypoint-budget.mjs --update && node scripts/check-budgets.mjs --update",
     "traces": "node scripts/check-traces.mjs",
     "offchain:test": "node --test \"offchain/test/*.test.mjs\" \"scripts/*.test.mjs\" && for f in offchain/*.mjs offchain/lib/*.mjs; do node --check \"$f\" || exit 1; done",
