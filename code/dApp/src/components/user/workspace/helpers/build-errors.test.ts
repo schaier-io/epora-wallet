@@ -21,11 +21,11 @@ test("maps 'Maximum Input Count Exceeded' to variable transaction-size guidance"
   assert.match(message, /select fewer pools and retry/);
 });
 
-test("maps a missing shared STT reference to deploy guidance", () => {
+test("maps a missing shared STT reference to service retry guidance", () => {
   const { message } = parse(
     new Error("No shared STT reference script is deployed for the current validator")
   );
-  assert.match(message, /one-time shared setup helper/);
+  assert.equal(message, "Service temporarily unavailable. Please try again shortly.");
 });
 
 test("maps PPViewHashesDontMatch to the retry guidance", () => {
