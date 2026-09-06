@@ -344,7 +344,14 @@ export function PayeeView() {
                         <Button
                           type="button"
                           size="sm"
-                          disabled={collecting || collected || cooldownBlocked || nothingOwed}
+                          disabled={
+                            collecting ||
+                            collected ||
+                            cooldownBlocked ||
+                            nothingOwed ||
+                            submitting ||
+                            done
+                          }
                           aria-busy={collecting}
                           onClick={() => void handleCollect(payment)}
                         >
@@ -359,12 +366,19 @@ export function PayeeView() {
                           type="button"
                           variant="destructive"
                           size="sm"
+                          /* Collect and Shorten spend the same wallet UTxO, so
+                             whichever goes first leaves the other building
+                             against an input that is already spent. Each one now
+                             blocks the other from the moment it is submitted
+                             until the page is refreshed. */
                           disabled={
                             submitting ||
                             done ||
                             alreadyEnded ||
                             cooldownBlocked ||
-                            cannotShorten
+                            cannotShorten ||
+                            collecting ||
+                            collected
                           }
                           aria-busy={submitting}
                           onClick={() => void handleCancel(payment)}

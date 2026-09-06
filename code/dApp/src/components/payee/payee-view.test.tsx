@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   PayeeScanResult,
@@ -36,6 +36,9 @@ vi.mock("@/components/payee/payee-amounts", () => ({
   computePayeeDueAmount: (): bigint => chain.due() as bigint
 }));
 
+import { runPayeeCollect } from "@/components/payee/payee-collect-tx";
+import { buildSttSpendTx } from "@/lib/mesh/transactions";
+import type { DetectedSttInfo } from "@/lib/mesh/detection";
 import { PayeeView } from "@/components/payee/payee-view";
 
 function payment(overrides: Partial<PayeeStreamingPayment> = {}): PayeeStreamingPayment {
@@ -147,5 +150,73 @@ describe("a payment the reader cannot act on yet", () => {
       screen.getByText("This payment ends too soon to shorten. It will finish on its own.")
     ).toBeInTheDocument();
     expect(screen.queryByText(/safe transaction window/)).toBeNull();
+  });
+});
+
+describe("two actions, one wallet UTxO", () => {
+  /** The row's own token, so `Collect payment` gets past the re-read guard. */
+  function detectionFor(scheduled: PayeeStreamingPayment): DetectedSttInfo {
+    return {
+      tokens: [
+        {
+          policyId: scheduled.sttPolicyId,
+          assetNameHex: scheduled.sttAssetNameHex,
+          unit: `${scheduled.sttPolicyId}${scheduled.sttAssetNameHex}`,
+          scriptAddress: "addr_test1script",
+          utxo: {
+            input: {
+              txHash: scheduled.sttInputTxHash,
+              outputIndex: scheduled.sttInputOutputIndex
+            }
+          },
+          datum: { alternative: 0, fields: [] }
+        }
+      ]
+    } as unknown as DetectedSttInfo;
+  }
+
+  function armRow() {
+    const scheduled = payment();
+    chain.scan.mockReturnValue(scanOf([scheduled]));
+    chain.detect.mockResolvedValue(detectionFor(scheduled));
+    return scheduled;
+  }
+
+  /**
+   * Collect and Shorten spend the same wallet UTxO. `Collect payment` submits,
+   * the page re-reads before that transaction is on chain, so the row still
+   * carries the input that was just spent. Shorten then built against it and
+   * the node rejected the transaction.
+   */
+  it("stops Shorten after Collect spends the input", async () => {
+    armRow();
+    vi.mocked(runPayeeCollect).mockResolvedValue("cc".repeat(32));
+
+    await renderView();
+    expect(screen.getByRole("button", { name: "Shorten payment" })).toBeEnabled();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Collect payment" }));
+      await vi.runOnlyPendingTimersAsync();
+    });
+
+    expect(screen.getByRole("button", { name: "Collected" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Shorten payment" })).toBeDisabled();
+  });
+
+  /** The same hole in the other direction, while the shorten is still in flight. */
+  it("stops Collect while a Shorten is in flight", async () => {
+    armRow();
+    vi.mocked(buildSttSpendTx).mockReturnValue(new Promise<never>(() => {}));
+
+    await renderView();
+    expect(screen.getByRole("button", { name: "Collect payment" })).toBeEnabled();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Shorten payment" }));
+    });
+
+    expect(screen.getByRole("button", { name: "Shortening…" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Collect payment" })).toBeDisabled();
   });
 });
