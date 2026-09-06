@@ -19,7 +19,7 @@ use state/types as state_types
 use test_support/fuzz_generators as gen
 use test_support/security_fixtures as fixtures
 use test_support/wallet_test_helpers as helpers
-use wallet
+use wallet/spend as wallet
 
 // Binds the fixture policy/asset/stake/index/ref arguments (partial
 // application), so this is not a pure-forwarding wrapper — a property's only

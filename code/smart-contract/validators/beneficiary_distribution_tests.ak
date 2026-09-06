@@ -12,7 +12,7 @@ use stt
 use test_support/beneficiary_distribution_test_helpers as exact
 use test_support/security_fixtures as fixtures
 use test_support/state_builders as states
-use wallet
+use wallet/spend as wallet
 
 fn run_stt(tx: Transaction) -> Bool {
   stt.eval_spend(

@@ -1,13 +1,6 @@
-//// Wallet-side UTxO plumbing: locating the forwarded STT, decoding its state
-//// and spend redeemer, and snapshotting wallet value movement.
-////
-//// Extracted from `validators/wallet.ak` so this module owns the UTxO-decoding
-//// boilerplate; the per-action decision logic lives in `lib/wallet/rules.ak`,
-//// dispatched from `validators/wallet.ak::eval_spend`. All functions are
-//// `pub` because the validator imports them; that also leaves them open to
-//// white-box unit tests from `_tests.ak` siblings (the same trade
-//// `lib/stt/io.ak` documents), though today they are exercised end-to-end
-//// through `wallet.eval_spend`.
+//// Wallet UTxO helpers: read the forwarded STT transition, select the wallet
+//// input leader, and collect the aggregate wallet value and input/output counts.
+//// `wallet/spend.ak` uses these helpers before applying reserve and movement rules.
 
 use aiken/collection/list
 use aiken/collection/pairs
@@ -20,7 +13,9 @@ use cardano/transaction/output_reference
 use state/types as state_types
 
 /// Decode the forwarded STT states and spend redeemer, then pass their fields
-/// to the callback. This avoids constructing a temporary transition record.
+/// to `then` through `<-`. Callback order: input_state, output_state,
+/// stt_action, stt_input_reference, stt_address. The address is the STT output's.
+/// Backpassing avoids constructing a temporary transition record.
 ///
 /// PRECONDITIONS (enforced by `validators/stt.ak`, not re-checked here):
 ///   - exactly one transaction input carries the STT token

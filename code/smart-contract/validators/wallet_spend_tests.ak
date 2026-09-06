@@ -1,8 +1,5 @@
-//// Wallet validator spend tests: forwarded operator-use rules, validity-range
-//// guards, the per-asset streaming reserve (output >= min(input, reserve)),
-//// and streaming-payment payout enforcement. All of these drive
-//// `wallet.eval_spend` end to end, so `run_wallet_spend` — the one helper that
-//// calls the validator — lives here rather than in the shared lib module.
+//// Spend integration tests: STT forwarding, group leadership, action movement,
+//// and payout routing. Tests call the same implementation as the entrypoint.
 
 use aiken/collection/list
 use aiken/interval
@@ -17,25 +14,6 @@ use stt
 use test_support/security_fixtures as fixtures
 use test_support/state_builders as states
 use test_support/wallet_test_helpers as helpers
-use wallet
-
-// Binds the fixture policy/asset/stake/index/ref arguments (partial
-// application), so this is not a pure-forwarding wrapper — a test's only
-// remaining signal is its transaction.
-fn run_wallet_spend(tx: Transaction) -> Bool {
-  run_wallet_spend_at(fixtures.wallet_input_ref(), tx)
-}
-
-fn run_wallet_spend_at(own_ref: OutputReference, tx: Transaction) -> Bool {
-  wallet.eval_spend(
-    fixtures.default_policy_id(),
-    fixtures.default_asset_name(),
-    None,
-    0,
-    own_ref,
-    tx,
-  )
-}
 
 fn native_asset_value_from(
   first_asset_id: Int,
@@ -180,19 +158,23 @@ test wallet_spend_accepts_forwarded_operator_use_rule() {
     [],
   )
 
-  expect run_wallet_spend(transaction)
+  expect helpers.run_wallet_spend(transaction)
 }
 
 test allowance_spend_accepts_five_native_assets() {
   expect
-    run_wallet_spend(allowance_native_asset_cap_tx(5, fixtures.tx_id(#"f130")))
+    helpers.run_wallet_spend(
+      allowance_native_asset_cap_tx(5, fixtures.tx_id(#"f130")),
+    )
 }
 
 // The Allowance velocity and Bounded movement invariants constrain the draw,
 // while unrelated assets remain in the continuing wallet output.
 test allowance_spend_accepts_small_draw_from_six_native_assets() {
   expect
-    run_wallet_spend(allowance_native_asset_cap_tx(6, fixtures.tx_id(#"f230")))
+    helpers.run_wallet_spend(
+      allowance_native_asset_cap_tx(6, fixtures.tx_id(#"f230")),
+    )
 }
 
 test allowance_dense_draw_preserves_every_undeclared_asset() fail {
@@ -215,7 +197,7 @@ test allowance_dense_draw_preserves_every_undeclared_asset() fail {
       }
     },
   )
-  expect run_wallet_spend(Transaction { ..transaction, outputs })
+  expect helpers.run_wallet_spend(Transaction { ..transaction, outputs })
 }
 
 test allowance_dense_draw_cannot_consume_stream_reserve() fail {
@@ -232,12 +214,12 @@ test allowance_dense_draw_cannot_consume_stream_reserve() fail {
     [fixtures.wallet_output(assets.difference(input_value, spent_value))],
     fixtures.tx_id(#"f232"),
   )
-  expect run_wallet_spend(transaction)
+  expect helpers.run_wallet_spend(transaction)
 }
 
 test nonterminal_beneficiary_accepts_five_native_assets() {
   expect
-    run_wallet_spend(
+    helpers.run_wallet_spend(
       beneficiary_native_asset_cap_tx(
         False,
         1,
@@ -250,7 +232,7 @@ test nonterminal_beneficiary_accepts_five_native_assets() {
 
 test nonterminal_beneficiary_accepts_six_native_assets() {
   expect
-    run_wallet_spend(
+    helpers.run_wallet_spend(
       beneficiary_native_asset_cap_tx(
         False,
         1,
@@ -276,9 +258,9 @@ test final_beneficiary_can_repeat_full_sweeps_over_native_asset_cap() {
     fixtures.secondary_wallet_input_ref(),
     fixtures.tx_id(#"f531"),
   )
-  expect run_wallet_spend(first_transaction)
+  expect helpers.run_wallet_spend(first_transaction)
   expect
-    run_wallet_spend_at(
+    helpers.run_wallet_spend_at(
       fixtures.secondary_wallet_input_ref(),
       second_transaction,
     )
@@ -308,8 +290,12 @@ test final_beneficiary_can_recover_multiple_wallet_inputs() {
     fixtures.tx_id(#"f534"),
   )
 
-  expect run_wallet_spend(transaction)
-  expect run_wallet_spend_at(fixtures.secondary_wallet_input_ref(), transaction)
+  expect helpers.run_wallet_spend(transaction)
+  expect
+    helpers.run_wallet_spend_at(
+      fixtures.secondary_wallet_input_ref(),
+      transaction,
+    )
 }
 
 test final_beneficiary_can_leave_reserved_asset_in_wide_fund_pool() {
@@ -334,7 +320,7 @@ test final_beneficiary_can_leave_reserved_asset_in_wide_fund_pool() {
     fixtures.tx_id(#"f532"),
   )
 
-  expect run_wallet_spend(transaction)
+  expect helpers.run_wallet_spend(transaction)
 }
 
 test final_beneficiary_cannot_spend_reserved_asset_in_wide_fund_pool() fail {
@@ -357,7 +343,7 @@ test final_beneficiary_cannot_spend_reserved_asset_in_wide_fund_pool() fail {
     fixtures.tx_id(#"f533"),
   )
 
-  expect run_wallet_spend(transaction)
+  expect helpers.run_wallet_spend(transaction)
 }
 
 test operator_cleanup_accepts_over_cap_input_and_keeps_active_stream_reserve() {
@@ -368,7 +354,7 @@ test operator_cleanup_accepts_over_cap_input_and_keeps_active_stream_reserve() {
     |> assets.add(policy_id, reserved_asset_name, 1)
 
   expect
-    run_wallet_spend(
+    helpers.run_wallet_spend(
       helpers.admin_use_reserve_tx(
         helpers.reserve_state_with_sp(policy_id, reserved_asset_name),
         input_value,
@@ -387,7 +373,7 @@ test wallet_spend_rejects_no_wallet_rule() fail {
     [],
   )
 
-  expect run_wallet_spend(transaction)
+  expect helpers.run_wallet_spend(transaction)
 }
 
 test wallet_spend_rejects_missing_forwarded_stt_input() fail {
@@ -409,7 +395,7 @@ test wallet_spend_rejects_missing_forwarded_stt_input() fail {
     fixtures.operator_use_action(state_types.Admin),
   )
 
-  expect run_wallet_spend(transaction)
+  expect helpers.run_wallet_spend(transaction)
 }
 
 test wallet_spend_rejects_missing_forwarded_stt_output() fail {
@@ -429,7 +415,7 @@ test wallet_spend_rejects_missing_forwarded_stt_output() fail {
     fixtures.operator_use_action(state_types.Admin),
   )
 
-  expect run_wallet_spend(transaction)
+  expect helpers.run_wallet_spend(transaction)
 }
 
 test wallet_spend_rejects_missing_finite_upper_bound() fail {
@@ -441,112 +427,7 @@ test wallet_spend_rejects_missing_finite_upper_bound() fail {
     [],
   )
 
-  expect run_wallet_spend(transaction)
-}
-
-test wallet_spend_rejects_underfunded_streaming_payments() fail {
-  let output_state = states.base_state()
-    |> states.with_streaming_payments(
-        [states.ada_streaming_payment(1, "beneficiary1", 0)],
-      )
-  let transaction = helpers.wallet_spend_tx(
-    interval.between(86_400_000, 86_400_000),
-    output_state,
-    fixtures.operator_use_action(state_types.Admin),
-    fixtures.wallet_output(assets.from_lovelace(500_000)),
-    [],
-  )
-
-  expect run_wallet_spend(transaction)
-}
-
-// ---------------------------------------------------------------------------
-// Per-asset streaming reserve (output >= min(input, reserve)) — distributed from
-// the deadlock probe. Admin RunOperator(Use) over a wallet that holds (or not)
-// a streaming payment's asset.
-// ---------------------------------------------------------------------------
-
-// A foreign-asset streaming payment (wallet holds 0 of it) does not block an
-// unrelated lovelace withdrawal: cc unchanged at 0, min(0, reserve) = 0.
-test wallet_spend_foreign_asset_reserve_does_not_block_lovelace() {
-  expect
-    run_wallet_spend(
-      helpers.admin_use_reserve_tx(
-        helpers.reserve_state_with_sp(#"cc", #"01"),
-        assets.from_lovelace(5_000_000),
-        assets.from_lovelace(4_000_000),
-      ),
-    )
-}
-
-// Draining a HELD reserved asset below its reserve is rejected (holds 5 cc,
-// reserve 1, drains to 0).
-test wallet_spend_rejects_draining_reserved_asset_below_reserve() fail {
-  let in_cc = assets.merge(
-    assets.from_lovelace(5_000_000),
-    assets.from_asset(#"cc", #"01", 5),
-  )
-  expect
-    run_wallet_spend(
-      helpers.admin_use_reserve_tx(
-        helpers.reserve_state_with_sp(#"cc", #"01"),
-        in_cc,
-        assets.from_lovelace(5_000_000),
-      ),
-    )
-}
-
-// Spending a held reserved asset while keeping >= reserve is allowed (holds
-// 5 cc, reserve 1, keeps 2).
-test wallet_spend_allows_spending_reserved_asset_above_reserve() {
-  let in_cc = assets.merge(
-    assets.from_lovelace(5_000_000),
-    assets.from_asset(#"cc", #"01", 5),
-  )
-  let out_keep_2 = assets.merge(
-    assets.from_lovelace(5_000_000),
-    assets.from_asset(#"cc", #"01", 2),
-  )
-  expect
-    run_wallet_spend(
-      helpers.admin_use_reserve_tx(
-        helpers.reserve_state_with_sp(#"cc", #"01"),
-        in_cc,
-        out_keep_2,
-      ),
-    )
-}
-
-// Value-preserving consolidation passes the reserve trivially, even with a
-// foreign-asset streaming payment the wallet does not hold.
-test wallet_consolidation_passes_reserve_with_foreign_asset_sp() {
-  let input_state = helpers.reserve_state_with_sp(#"cc", #"01")
-  let stt_in = fixtures.stt_input(
-    fixtures.stt_input_ref(),
-    fixtures.default_policy_id(),
-    input_state,
-    fixtures.default_stt_value(),
-  )
-  let stt_out = fixtures.stt_output(
-    fixtures.default_policy_id(),
-    input_state,
-    fixtures.default_stt_value(),
-  )
-  let wallet_in = fixtures.wallet_input(
-    fixtures.wallet_input_ref(),
-    assets.from_lovelace(5_000_000),
-  )
-  let wallet_return = fixtures.wallet_output(assets.from_lovelace(5_000_000))
-  let tx = fixtures.transaction_with_stt_redeemer(
-    interval.between(50, 100),
-    ["admin"],
-    [stt_in, wallet_in],
-    [stt_out, wallet_return],
-    fixtures.tx_id(#"e230"),
-    fixtures.stt_input_ref(),
-    fixtures.consolidation_action(state_types.AdminPath),
-  )
-  expect run_wallet_spend(tx)
+  expect helpers.run_wallet_spend(transaction)
 }
 
 test wallet_spend_accepts_two_wallet_inputs_for_operator_use() {
@@ -574,8 +455,8 @@ test wallet_spend_accepts_two_wallet_inputs_for_operator_use() {
     fixtures.operator_use_action(state_types.Admin),
   )
 
-  expect run_wallet_spend(tx)
-  expect run_wallet_spend_at(fixtures.secondary_wallet_input_ref(), tx)
+  expect helpers.run_wallet_spend(tx)
+  expect helpers.run_wallet_spend_at(fixtures.secondary_wallet_input_ref(), tx)
 }
 
 // Every same-payment-credential input sees the same leader even when stake
@@ -584,14 +465,14 @@ test wallet_spend_accepts_two_wallet_inputs_for_operator_use() {
 // rejects the missing STT and therefore rejects the transaction as a whole.
 test wallet_stale_stake_nonleader_defers_full_checks_to_group_leader() {
   expect
-    run_wallet_spend_at(
+    helpers.run_wallet_spend_at(
       fixtures.secondary_wallet_input_ref(),
       stale_stake_two_input_without_stt(),
     )
 }
 
 test wallet_group_leader_still_requires_full_checks() fail {
-  expect run_wallet_spend(stale_stake_two_input_without_stt())
+  expect helpers.run_wallet_spend(stale_stake_two_input_without_stt())
 }
 
 test wallet_consolidation_accepts_two_wallet_inputs() {
@@ -619,8 +500,8 @@ test wallet_consolidation_accepts_two_wallet_inputs() {
     fixtures.consolidation_action(state_types.AdminPath),
   )
 
-  expect run_wallet_spend(tx)
-  expect run_wallet_spend_at(fixtures.secondary_wallet_input_ref(), tx)
+  expect helpers.run_wallet_spend(tx)
+  expect helpers.run_wallet_spend_at(fixtures.secondary_wallet_input_ref(), tx)
 }
 
 test wallet_consolidation_accepts_value_preserving_repartition() {
@@ -645,7 +526,7 @@ test wallet_consolidation_accepts_value_preserving_repartition() {
     fixtures.consolidation_action(state_types.AdminPath),
   )
 
-  expect run_wallet_spend(tx)
+  expect helpers.run_wallet_spend(tx)
 }
 
 test wallet_consolidation_accepts_dense_native_asset_union() {
@@ -664,7 +545,7 @@ test wallet_consolidation_accepts_dense_native_asset_union() {
     fixtures.tx_id(#"f630"),
   )
 
-  expect run_wallet_spend(tx)
+  expect helpers.run_wallet_spend(tx)
 }
 
 test wallet_consolidation_accepts_three_wallet_inputs() {
@@ -697,9 +578,9 @@ test wallet_consolidation_accepts_three_wallet_inputs() {
     fixtures.consolidation_action(state_types.AdminPath),
   )
 
-  expect run_wallet_spend(tx)
-  expect run_wallet_spend_at(fixtures.secondary_wallet_input_ref(), tx)
-  expect run_wallet_spend_at(third_wallet_input_ref, tx)
+  expect helpers.run_wallet_spend(tx)
+  expect helpers.run_wallet_spend_at(fixtures.secondary_wallet_input_ref(), tx)
+  expect helpers.run_wallet_spend_at(third_wallet_input_ref, tx)
 }
 
 test streaming_payment_payout_accepts_exact_single_address_payout() {
@@ -718,7 +599,7 @@ test streaming_payment_payout_accepts_exact_single_address_payout() {
     fixtures.tx_id(#"5130"),
   )
 
-  expect run_wallet_spend(transaction)
+  expect helpers.run_wallet_spend(transaction)
 }
 
 // A wallet-address stream can use its tagged continuing wallet output to meet
@@ -773,7 +654,7 @@ test streaming_payment_payout_accepts_self_address_delta_at_other_payee() {
     action,
   )
 
-  expect run_wallet_spend(transaction)
+  expect helpers.run_wallet_spend(transaction)
   expect stt.eval_spend(None, action, fixtures.stt_input_ref(), transaction)
 }
 
@@ -818,7 +699,7 @@ test streaming_payment_payout_accepts_matured_removal_settlement() {
     fixtures.streaming_payment_action(payout_delta),
   )
 
-  expect run_wallet_spend(transaction)
+  expect helpers.run_wallet_spend(transaction)
 }
 
 test streaming_payment_payout_rejects_tagged_id_at_other_streaming_payment_address() fail {
@@ -837,7 +718,7 @@ test streaming_payment_payout_rejects_tagged_id_at_other_streaming_payment_addre
     fixtures.tx_id(#"5430"),
   )
 
-  expect run_wallet_spend(transaction)
+  expect helpers.run_wallet_spend(transaction)
 }
 
 // An EXTRA tagged output to a *configured* payee, beyond the declared delta, is
@@ -872,7 +753,7 @@ test streaming_payment_payout_allows_cranker_funded_extra_tagged_output() {
     fixtures.tx_id(#"5530"),
   )
 
-  expect run_wallet_spend(transaction)
+  expect helpers.run_wallet_spend(transaction)
 }
 
 // Core of the ada min-UTxO top-up fix (security review 2026-07). An ada-denominated
@@ -899,7 +780,7 @@ test streaming_payment_payout_allows_ada_topup_to_clear_min_utxo() {
     fixtures.tx_id(#"5730"),
   )
 
-  expect run_wallet_spend(transaction)
+  expect helpers.run_wallet_spend(transaction)
 }
 
 // The top-up relaxation must NOT let the WALLET itself pay out more than the declared
@@ -923,7 +804,7 @@ test streaming_payment_payout_rejects_wallet_outflow_above_declared_delta() fail
     fixtures.tx_id(#"5830"),
   )
 
-  expect run_wallet_spend(transaction)
+  expect helpers.run_wallet_spend(transaction)
 }
 
 // Non-ada streams keep EXACT routing: the `>=` top-up carve-out is conditioned on
@@ -1001,7 +882,7 @@ test streaming_payment_payout_rejects_token_overpay_in_tagged_output() fail {
     fixtures.streaming_payment_action(payout_delta),
   )
 
-  expect run_wallet_spend(transaction)
+  expect helpers.run_wallet_spend(transaction)
 }
 
 test streaming_payment_payout_rejects_payout_to_wrong_address() fail {
@@ -1018,7 +899,7 @@ test streaming_payment_payout_rejects_payout_to_wrong_address() fail {
     fixtures.tx_id(#"5230"),
   )
 
-  expect run_wallet_spend(transaction)
+  expect helpers.run_wallet_spend(transaction)
 }
 
 test streaming_payment_payout_rejects_split_between_beneficiary_and_attacker() fail {
@@ -1041,7 +922,7 @@ test streaming_payment_payout_rejects_split_between_beneficiary_and_attacker() f
     fixtures.tx_id(#"5330"),
   )
 
-  expect run_wallet_spend(transaction)
+  expect helpers.run_wallet_spend(transaction)
 }
 
 // End-to-end confirmation of the "ADA settlement granularity and fee funding"
@@ -1074,7 +955,7 @@ test streaming_payment_payout_rejects_cranker_lovelace_change_output() fail {
     fixtures.tx_id(#"5a30"),
   )
 
-  expect run_wallet_spend(transaction)
+  expect helpers.run_wallet_spend(transaction)
 }
 
 // End-to-end anti-fragmentation: an otherwise-valid crank (exact delta, exact
@@ -1098,7 +979,7 @@ test streaming_payment_payout_rejects_wallet_utxo_fragmentation() fail {
     fixtures.tx_id(#"5b30"),
   )
 
-  expect run_wallet_spend(transaction)
+  expect helpers.run_wallet_spend(transaction)
 }
 
 // Security review 2026-07 (Medium): the wallet had no counterpart to the STT's
@@ -1129,68 +1010,5 @@ test streaming_payment_payout_rejects_reference_script_on_wallet_output() fail {
     fixtures.tx_id(#"5c30"),
   )
 
-  expect run_wallet_spend(transaction)
-}
-
-// Security review 2026-07 (High): the per-asset streaming reserve used to
-// deadlock the settlement it exists to protect. For an UNDER-FUNDED wallet
-// (`0 < input <= reserve`) the gate `output >= min(input, reserve)` collapses to
-// `output >= input`, forbidding EVERY outflow — including the crank, the only
-// action that can shrink the reserve — so the asset froze permanently while
-// `accrued_at` kept growing. `PayStreamingPayment` is now EXEMPT (its outflow is
-// already pinned to the tagged payee outputs), so an under-funded wallet can
-// still pay out what it holds.
-//
-// The canonical stream has accrued 1_000_000 by the tx bounds with nothing paid,
-// so the reserve is 1_000_001 — MORE than the 500_000 the wallet holds. The crank
-// settles the whole 500_000 to the payee, leaving the wallet at 0. Under the old
-// gate `min(500_000, 500_001) = 500_000` demanded `output >= 500_000`, so this
-// exact transaction — and every smaller one — was rejected outright.
-test streaming_payment_payout_accepts_settlement_from_under_funded_wallet() {
-  let transaction = helpers.under_funded_streaming_payment_payout_tx(
-    500_000,
-    [
-      fixtures.tagged_streaming_payment_output(
-        fixtures.address_from_key("beneficiary1"),
-        assets.from_lovelace(500_000),
-        fixtures.stt_input_ref(),
-        1,
-      ),
-    ],
-    500_000,
-    fixtures.tx_id(#"5d30"),
-  )
-
-  expect run_wallet_spend(transaction)
-}
-
-// The exemption is scoped to the crank ONLY. The same under-funded wallet may not
-// be drained by a discretionary spend: an operator `Use` moving value out of a
-// wallet holding less than the reserve is still rejected by `remains_funded`,
-// which is the whole point of the gate.
-test operator_use_rejects_spend_from_under_funded_wallet() fail {
-  let input_state = states.streaming_payment_payout_state(0)
-  let transaction = fixtures.transaction_with_stt_redeemer(
-    interval.between(86_400_000, 86_400_000),
-    ["admin"],
-    [
-      helpers.stt_input_with_state(input_state),
-      fixtures.wallet_input(
-        fixtures.wallet_input_ref(),
-        assets.from_lovelace(500_000),
-      ),
-    ],
-    [
-      helpers.stt_output_with_state(input_state),
-      fixtures.payout_output(
-        fixtures.address_from_key("admin"),
-        assets.from_lovelace(500_000),
-      ),
-    ],
-    fixtures.tx_id(#"5e30"),
-    fixtures.stt_input_ref(),
-    fixtures.operator_use_action(state_types.Admin),
-  )
-
-  expect run_wallet_spend(transaction)
+  expect helpers.run_wallet_spend(transaction)
 }

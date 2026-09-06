@@ -28,16 +28,47 @@ layout and the contract-level details a contributor or auditor needs.
   wallet movement against the payload that the STT validator already proved
   consistent with the state diff.
 
-Supporting logic lives in `lib/stt` (the STT validator's per-action decision
-bodies, split by audit concern: `action_checks`, `io`, `preservation`, and the
-per-authority-family `operator_handlers` / `user_handlers` /
-`settlement_handlers`), `lib/state`, `lib/streaming_payments`, `lib/wallet` (also
-split by concern: `rules` — the spend-authorization dispatcher; `io` — the
-forwarded-STT decode and wallet value snapshot; `stake_pinning` — where may
-continuing wallet funds be re-homed; `payout_routing`
-— "can value leak?"; `beneficiary_share` — "how much can a beneficiary take?"),
-`lib/assets`, and `lib/time`. Shared constants are in `lib/constants.ak`. Test
-helpers are in `lib/test_support/`.
+VERIFIED structure: validator entrypoints call the following library modules.
+
+| Concern | Start here |
+| --- | --- |
+| STT input/output checks and State decoding | [stt/io.ak](lib/stt/io.ak) |
+| STT action checks | [operator_handlers.ak](lib/stt/operator_handlers.ak), [user_handlers.ak](lib/stt/user_handlers.ak), [settlement_handlers.ak](lib/stt/settlement_handlers.ak) |
+| Fields each action may change | [stt/preservation.ak](lib/stt/preservation.ak) |
+| Wallet spend sequence and group leader | [wallet/spend.ak](lib/wallet/spend.ak) |
+| Which reserve an action must preserve | [wallet/reserve.ak](lib/wallet/reserve.ak) |
+| Reserve accrual and funding math | [streaming_payments/funding.ak](lib/streaming_payments/funding.ak) |
+| Allowed wallet movement | [wallet/rules.ak](lib/wallet/rules.ak) |
+| Payout destinations and beneficiary shares | [payout_routing.ak](lib/wallet/payout_routing.ak), [beneficiary_share.ak](lib/wallet/beneficiary_share.ak) |
+
+Wallet spend follows one sequence: select the leader, decode the STT transition,
+pin continuing outputs, preserve reserves, then check the action's movement.
+`reserve.ak` selects full-reserve or spent-asset checks. It returns both the reserve
+and spent assets for the movement rules to reuse. The arithmetic stays in `funding.ak`.
+
+Shared constants live in [constants.ak](lib/constants.ak).
+Tests use the builders and adapters in `lib/test_support/`.
+Reserve-policy tests live in [reserve_tests.ak](lib/wallet/reserve_tests.ak).
+Cross-validator spend tests stay in [wallet_spend_tests.ak](validators/wallet_spend_tests.ak).
+
+### Reading callbacks
+
+The `<-` bindings pass decoded fields directly to the rest of the function.
+They avoid temporary records while keeping each input/output pair explicit.
+The callback order is documented beside each helper. For example:
+
+```aiken
+let streaming_reserve, spent_wallet_assets <- reserve.expect_reserve_preserved(
+  stt_action,
+  streaming_payments,
+  repeatable_beneficiary_recovery,
+  wallet_values,
+  tx_latest_time,
+)
+```
+
+See Aiken's [backpassing guide](https://aiken-lang.org/language-tour/functions#backpassing)
+and the installed helper signatures for the argument order.
 
 ## Audit-Oriented Structure
 
@@ -165,7 +196,7 @@ The validator code follows this table directly:
 - `validators/stt.ak` dispatches the spend redeemer to per-action `eval_*`
   handlers in `lib/stt/{operator,user,settlement}_handlers.ak`, grouped by
   authority family.
-- `validators/wallet.ak` builds the wallet value snapshot once
+- `validators/wallet.ak` delegates spending to `lib/wallet/spend.ak`, which builds the wallet value snapshot once
   (`lib/wallet/io.ak::collect_wallet_value_snapshot`) and delegates wallet-rule
   checks to `lib/wallet/rules.ak::stt_action_allows_spend`.
 
@@ -304,18 +335,31 @@ well as potentially different formatter output. Install and switch with:
 aikup install v1.1.23
 ```
 
-`pnpm preflight` (run automatically by `pnpm verify` and `pnpm sync`) fails fast
+`pnpm preflight` (run automatically by `pnpm verify`, `pnpm build`, and `pnpm sync`) fails fast
 when the local `aiken` doesn't match the pin.
 
 ### Everyday commands
 
-The `package.json` scripts mirror the CI gates, so a clean local run means a
-clean CI run:
+Start with `pnpm typecheck`, then run tests for the concern you changed:
+
+```sh
+pnpm test "wallet/reserve_tests.{}"
+pnpm test "wallet_spend_tests.{}"
+```
+
+VERIFIED correction: the earlier bare `wallet_spend_tests` example collected zero tests.
+The explicit `"wallet_spend_tests.{}"` selector ran all 36 tests in that module.
+
+Use `pnpm build` to inspect script sizes. Use `pnpm sync` when the blueprint must
+also reach the dApp. Finish with `pnpm verify` for the complete local gate.
+The commands below are defined in [package.json](package.json):
 
 | Command | What it does |
 | --- | --- |
+| `pnpm typecheck` | Check types without running tests; warnings are errors |
+| `pnpm build` | Build the production blueprint with the pinned compiler defaults |
 | `pnpm check` | `aiken check -D` — type-check + full test suite, warnings are errors (the CI gate) |
-| `pnpm test <pattern>` | **the inner-loop command** — only the tests matching `<pattern>` (`aiken check -D -m`). `pnpm test allowance` is sub-second against ~30s for the full suite. Matches a module (`stt_allowance_tests`) or a single test (`"stt_allowance_tests.{allowance_use_accepts_exact_single_user_spend}"`) |
+| `pnpm test <pattern>` | Run matching tests (`aiken check -D -m`). Use `"wallet_spend_tests.{}"` for a complete module, `"stt_allowance_tests.{allowance_use_accepts_exact_single_user_spend}"` for one test, or `allowance` for matching test names |
 | `pnpm test:watch <pattern>` | same, re-run on every file change |
 | `pnpm watch` | the **whole** suite on every file change |
 | `pnpm fmt` | format the tree with the pinned formatter |
@@ -349,18 +393,21 @@ recorded by [check-budgets.mjs](scripts/check-budgets.mjs).
 VERIFIED (2026-09-06): `node scripts/check-budgets.mjs --update` recorded
 `683 unit tests, 27 transactions, and 11 scripts into budgets.json`.
 The optimized scripts change which group has the highest memory cost.
-`oversized_value_pay_streaming` now uses 13,372,987 memory units and
-4,541,739,905 CPU units. Both are the largest group costs.
-It leaves 627,013 memory units, or 4.48%, below the repository ceiling.
-`policy_deep_use_allowance` uses 13,156,687 memory units.
-`deep_value_pay_streaming` uses 13,321,223 memory units.
-The 151-policy under-funded partial recovery uses 12,189,323 memory units.
-The 4,999-byte token-wide partial recovery uses 10,016,581 memory units.
-Active owner cleanup uses 12,851,517 memory units for the 151-policy shape and
-10,674,813 for the token-wide shape.
+`oversized_value_pay_streaming` now uses 13,373,087 memory units and
+4,541,755,905 CPU units. Both are the largest group costs.
+It leaves 626,913 memory units, or 4.48%, below the repository ceiling.
+`policy_deep_use_allowance` uses 13,156,787 memory units.
+`deep_value_pay_streaming` uses 13,321,323 memory units.
+The 151-policy under-funded partial recovery uses 12,189,423 memory units.
+The 4,999-byte token-wide partial recovery uses 10,016,681 memory units.
+Active owner cleanup uses 12,851,617 memory units for the 151-policy shape and
+10,674,913 for the token-wide shape.
 
-VERIFIED: [plutus.json](plutus.json) contains 14,428 STT bytes and 9,378 wallet bytes.
+VERIFIED: [plutus.json](plutus.json) contains 14,428 STT bytes and 9,375 wallet bytes.
 These raw `compiledCode` sizes measure the artifacts.
+VERIFIED against commit `c6115f9`: extracting the wallet reserve policy saves
+3 script bytes. Recorded transaction groups add at most 100 memory units and
+16,000 CPU units; STT-only groups are unchanged. All remain within the same ceilings.
 The 16,384-byte limit applies to the full serialized transaction.
 [assertSerializedTransactionSizeIsBounded](../dApp/src/lib/mesh/transactions/internals/budget.ts)
 checks that limit. [signAndSubmitTx](../dApp/src/lib/mesh/transactions/submit.ts)
@@ -389,13 +436,13 @@ The separate entrypoint fixture closes the entrypoint budget gap for one
 partial streaming payout. Mesh builds the transaction. Aiken's native
 transaction simulator then executes its compiled STT `Spend[0]` and wallet
 `Spend[1]` validators. VERIFIED: [manifest.json](fixtures/entrypoint-budget/manifest.json)
-records 8,536,020 memory units and 2,834,335,903 CPU units. The fixture reaches the user, combined-access, wallet, allowance, and
+records 8,536,120 memory units and 2,834,351,903 CPU units. The fixture reaches the user, combined-access, wallet, allowance, and
 stream caps. Its five beneficiaries each carry a full script payment address with
 an inline script stake credential. It uses high-width uint64 values and valid
 action times. It has
-120 native assets and a 16,049-byte unsigned transaction.
+120 native assets and a 16,046-byte unsigned transaction.
 The generator requires one crank key shared by funding and collateral. The
-size gate reserves 106 bytes for its vkey witness. This shape uses 16,155 bytes
+size gate reserves 106 bytes for its vkey witness. This shape uses 16,152 bytes
 with that witness, below the 16,384-byte ceiling. The earlier 103-byte estimate
 used a separate signer process. Mesh enables Conway set encoding, which adds
 a three-byte tag. The 250-asset fixture failed construction after script growth.
@@ -414,18 +461,18 @@ It builds, signs, and natively evaluates two production-builder scenarios.
 Both use five native assets with 32-byte names, full script/stake payout addresses,
 one funding input, one collateral input, base-address change, and one payment-key witness.
 VERIFIED: `node scripts/check-beneficiary-distribution-native.mjs` recorded the following costs.
-Two beneficiaries with an inline wallet script use 11,441 signed bytes,
-1,663,406 memory units, and 589,862,715 CPU units. Fifteen beneficiaries with
-both reference scripts use 9,925 signed bytes, 7,942,445 memory units, and
-3,101,476,079 CPU units. The checker verifies the merged signature and body,
+Two beneficiaries with an inline wallet script use 11,438 signed bytes,
+1,663,506 memory units, and 589,878,715 CPU units. Fifteen beneficiaries with
+both reference scripts use 9,925 signed bytes, 7,942,545 memory units, and
+3,101,492,079 CPU units. The checker verifies the merged signature and body,
 declared execution budgets, actual paired costs, and the signed byte limit.
 These fixtures do not establish live UTxO existence, current network parameters,
 or capacity for additional inputs, witnesses, and other asset layouts.
 
 The diagnostic Aiken Consolidation fixture uses one 151-policy wallet input,
 two continuing wallet outputs, an external funding input, and normal change.
-Its named STT and wallet helper bodies use 10,302,829 memory units and
-3,212,718,668 CPU units together. These figures leave 26.41% memory margin and
+Its named STT and wallet helper bodies use 10,302,929 memory units and
+3,212,734,668 CPU units together. These figures leave 26.41% memory margin and
 64.30% CPU margin. Helper-body figures are not the escape-path proof.
 
 **Verified:** the compiled-entrypoint Consolidation fixture is the proof for
@@ -433,8 +480,8 @@ this representative minimum escape. Mesh builds the exact transaction with one
 wallet input, two wallet outputs, ordinary funding and change, collateral, and
 two reference inputs. Aiken's native simulator then executes that transaction's
 compiled STT `Spend[0]` and wallet `Spend[1]` entrypoints. Together they use
-5,495,657 memory units and 1,886,997,271 CPU units. This leaves 8,504,343 memory
-units, or 60.75%, and 7,113,002,729 CPU units, or 79.03%.
+5,495,757 memory units and 1,887,013,271 CPU units. This leaves 8,504,243 memory
+units, or 60.75%, and 7,112,986,729 CPU units, or 79.03%.
 
 The exact unsigned transaction is 11,151 bytes. It leaves 5,233 bytes, or
 31.94%, below 16,384 bytes. Mesh `Value.toCbor()` measures the 151-policy input

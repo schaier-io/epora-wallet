@@ -17,12 +17,12 @@ use streaming_payments/types.{StreamingPayment} as streaming_payment_type
 
 /// Output-side transaction facts the payout scan inspects: which outputs exist
 /// and which addresses count as protocol destinations. Built once by
-/// `validators/wallet.ak` and passed whole through
+/// `wallet/spend.ak` and passed whole through
 /// `wallet/rules.stt_action_allows_spend` — only the `PayStreamingPayment`
 /// branch reads it, but the bundle keeps that dispatcher's signature short and
 /// stable, and the labeled fields rule out the silent positional transposition
 /// of the two `Address` args that the former 6-arg signature allowed (labels
-/// must still be bound correctly at the construction site in `validators/wallet.ak`).
+/// must still be bound correctly at the construction site in `wallet/spend.ak`).
 pub type OutputContext {
   /// Address of the wallet UTxO(s) being spent.
   wallet_address: Address,

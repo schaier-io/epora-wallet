@@ -126,12 +126,15 @@ pub fn output_reference_to_asset_name(
     |> blake2b_256
 }
 
-/// Gather the shared transaction facts used by every STT spend rule. Composed
-/// of three smaller helpers so each invariant is easy to locate and unit-test.
+/// Decode the STT transition and pass its fields to `then` through `<-`.
+/// Callback order: transaction, validity_range, input_reference,
+/// stt_payment_credential, input_stt_value, output_stt_value, input_state,
+/// output_state, output_reference_script. Each input/output pair is passed input first.
+/// Backpassing avoids constructing a temporary transition record.
 pub fn expect_transition_context(
   own_ref: OutputReference,
   self: Transaction,
-  return: fn(
+  then: fn(
     Transaction,
     ValidityRange,
     OutputReference,
@@ -159,7 +162,7 @@ pub fn expect_transition_context(
     output_utxo,
   )
 
-  return(
+  then(
     self,
     validity_range,
     own_ref,
@@ -220,41 +223,15 @@ pub fn is_admin_operator_action(action: state_types.SttAction) -> Bool {
   }
 }
 
-/// The forwarded STT output may TOP UP lovelace but must carry every NON-lovelace
-/// asset at EXACTLY the consumed quantity — no decrease (would leak value out of the
-/// STT UTxO) and no increase (would let any actor bloat the singleton STT UTxO with
-/// junk tokens that every future spend then has to carry, and that only the admin
-/// carve-out could ever strip back out).
-///
-/// ┌─ DO NOT be misled by this function's name or by the `>=` below ───────────────┐
-/// │ The `>=` does NOT mean "every asset may grow". It applies to LOVELACE ONLY.   │
-/// │ Non-lovelace assets must be EXACTLY EQUAL — the comparator never touches them. │
-/// └───────────────────────────────────────────────────────────────────────────────┘
-///
-/// Why `assets.match(output, input, >=)` enforces exactly that — verified against the
-/// stdlib source (aiken-lang/stdlib `cardano/assets.{match,expect_match}`):
-///   1. ARGUMENT ORDER: `match(left, right, assert_lovelace)`. Here `left = output`
-///      and `right = input`, and the callback is invoked as
-///      `assert_lovelace(left_lovelace, right_lovelace)` — i.e.
-///      `assert_lovelace(output_lovelace, input_lovelace)`. So `>=` reads as
-///      `output_lovelace >= input_lovelace` (lovelace may be topped up).
-///      KEEP `output` FIRST: swapping the two value args silently INVERTS the
-///      lovelace direction (it would then require output lovelace to SHRINK).
-///   2. NON-LOVELACE: the comparator is the LOVELACE-ONLY callback. For every other
-///      asset, `expect_match` compares the non-ada maps with structural `==`
-///      (`left_assets == right` in the stdlib body), so the `>=` is irrelevant to
-///      them: ANY non-lovelace add OR remove fails, regardless of direction.
-/// Pinned by the add/remove non-lovelace `fail` tests in `stt_spend_value_tests.ak`
-/// — those tests are what would break first if a future stdlib bump changed this.
-///
-/// This is the default value-preservation gate for every non-admin spend. Admin
-/// operator-use bypasses it so the admin may reduce or top up lovelace, but the
-/// shared forwarding check still rejects every non-STT native asset in the output.
-pub fn stt_value_preserved_or_increased(
+/// Preserve every non-lovelace quantity and allow only a lovelace top-up.
+/// `assets.match` applies `>=` to lovelace alone; native-asset maps must match.
+/// Output comes first: reversing the arguments would allow lovelace withdrawal.
+/// Admin operator Use bypasses this gate, but the shared forwarding check still
+/// requires the output to contain only ADA and the STT.
+/// Covered by the native-asset addition/removal tests in `stt_spend_value_tests.ak`.
+pub fn stt_value_preserved_with_lovelace_top_up(
   input_stt_value: Value,
   output_stt_value: Value,
 ) -> Bool {
-  // output first, input second — see the ARGUMENT ORDER note above; `>=` governs
-  // lovelace only, non-lovelace assets must be exactly equal.
   assets.match(output_stt_value, input_stt_value, >=)
 }

@@ -26,7 +26,7 @@ use streaming_payments/forwarding as streaming_payment_forwarding
 use streaming_payments/payout as streaming_payment_payout
 use streaming_payments/shape as streaming_payment_shape
 use streaming_payments/types as streaming_payment_type
-use stt/io.{stt_value_preserved_or_increased}
+use stt/io.{stt_value_preserved_with_lovelace_top_up}
 use stt/preservation.{
   state_completely_unchanged, state_unchanged_except_streaming_payments,
 }
@@ -345,7 +345,7 @@ pub fn expect_streaming_payment_stopped(
   // forwarding rule can reintroduce an unshaped set through this path.
   expect streaming_payment_shape.is_valid(output_state.streaming_payments)
   expect
-    stt_value_preserved_or_increased(
+    stt_value_preserved_with_lovelace_top_up(
       input_stt_value: input_stt_value,
       output_stt_value: output_stt_value,
     )
@@ -372,7 +372,7 @@ pub fn eval_consolidate(
       consolidate_path,
     )
   expect
-    stt_value_preserved_or_increased(
+    stt_value_preserved_with_lovelace_top_up(
       input_stt_value: input_stt_value,
       output_stt_value: output_stt_value,
     )

@@ -25,7 +25,7 @@ use stt/action_checks.{
   allowance_pol_renewal_is_valid, allowance_update_is_signed_by_changed_user,
   proof_of_life_user_signature_matches,
 }
-use stt/io.{stt_value_preserved_or_increased}
+use stt/io.{stt_value_preserved_with_lovelace_top_up}
 use stt/preservation.{
   state_completely_unchanged, state_unchanged_except_beneficiary_removed,
   state_unchanged_except_pol_unlock_time,
@@ -63,7 +63,7 @@ pub fn eval_renew_proof_of_life(
       output_state,
     )
   expect
-    stt_value_preserved_or_increased(
+    stt_value_preserved_with_lovelace_top_up(
       input_stt_value: input_stt_value,
       output_stt_value: output_stt_value,
     )
@@ -122,7 +122,7 @@ pub fn eval_use_allowance(
       allowance_update,
     )
   expect
-    stt_value_preserved_or_increased(
+    stt_value_preserved_with_lovelace_top_up(
       input_stt_value: input_stt_value,
       output_stt_value: output_stt_value,
     )
@@ -306,7 +306,7 @@ fn beneficiary_cadence_and_value_are_valid(
   output_state: state_types.State,
 ) -> Bool {
   expect
-    stt_value_preserved_or_increased(
+    stt_value_preserved_with_lovelace_top_up(
       input_stt_value: input_stt_value,
       output_stt_value: output_stt_value,
     )

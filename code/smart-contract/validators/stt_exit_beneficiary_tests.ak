@@ -11,7 +11,7 @@ use streaming_payments/types.{StreamingPayment}
 use stt
 use test_support/security_fixtures as fixtures
 use test_support/state_builders as states
-use wallet
+use wallet/spend as wallet
 
 const exit_action: state_types.SttAction = state_types.ExitBeneficiary(7)
 

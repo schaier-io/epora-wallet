@@ -19,7 +19,7 @@ use state/proof_of_life
 use state/types as state_types
 use streaming_payments/forwarding as streaming_payment_forwarding
 use streaming_payments/shape as streaming_payment_shape
-use stt/io.{stt_value_preserved_or_increased}
+use stt/io.{stt_value_preserved_with_lovelace_top_up}
 use stt/preservation.{
   state_completely_unchanged, state_unchanged_except_access_index_removed,
   state_unchanged_except_pol_unlock_time,
@@ -69,7 +69,7 @@ pub fn eval_operator_use(
   let is_admin_use = operator_action.path == state_types.Admin
   expect or {
       is_admin_use,
-      stt_value_preserved_or_increased(
+      stt_value_preserved_with_lovelace_top_up(
         input_stt_value: input_stt_value,
         output_stt_value: output_stt_value,
       ),
@@ -134,7 +134,7 @@ pub fn eval_operator_state_update(
       wallet_name_unchanged,
     }
   expect
-    stt_value_preserved_or_increased(
+    stt_value_preserved_with_lovelace_top_up(
       input_stt_value: input_stt_value,
       output_stt_value: output_stt_value,
     )
@@ -187,7 +187,7 @@ pub fn eval_manage_streaming_payments(
       operator_action.path,
     )
   expect
-    stt_value_preserved_or_increased(
+    stt_value_preserved_with_lovelace_top_up(
       input_stt_value: input_stt_value,
       output_stt_value: output_stt_value,
     )
@@ -234,7 +234,7 @@ pub fn eval_remove_access_index(
   // super-linear `expect_valid_state_configuration`.
   expect state_configuration.has_reachable_access_path(output_state.access)
   expect
-    stt_value_preserved_or_increased(
+    stt_value_preserved_with_lovelace_top_up(
       input_stt_value: input_stt_value,
       output_stt_value: output_stt_value,
     )
@@ -270,7 +270,7 @@ pub fn eval_set_intended_stake_credential(
   expect output_state.intended_stake_credential == target
   expect credential_shape.optional_is_valid(target)
   expect
-    stt_value_preserved_or_increased(
+    stt_value_preserved_with_lovelace_top_up(
       input_stt_value: input_stt_value,
       output_stt_value: output_stt_value,
     )
