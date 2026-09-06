@@ -231,7 +231,7 @@ export function WalletHeroCard({
           </p>
         </div>
       </div>
-      <div className="relative z-10 mt-4 grid grid-cols-1 gap-2 @xs:grid-cols-2 @xl:grid-cols-4">
+      <div className="relative z-10 mt-4 grid grid-cols-1 gap-2 @xs:grid-cols-2">
         <Button type="button" onClick={onSend} className="justify-center">
           <Send className="h-4 w-4" />
           {i18n("send")}
