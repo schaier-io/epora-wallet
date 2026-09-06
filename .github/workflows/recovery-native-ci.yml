@@ -1,0 +1,58 @@
+name: Native Recovery CI
+
+on:
+  push:
+    branches: ["main", "dev"]
+    paths:
+      - "code/smart-contract/**"
+      - "code/dApp/**"
+      - ".github/workflows/recovery-native-ci.yml"
+  pull_request:
+    paths:
+      - "code/smart-contract/**"
+      - "code/dApp/**"
+      - ".github/workflows/recovery-native-ci.yml"
+
+concurrency:
+  group: recovery-native-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: code/dApp
+
+jobs:
+  native-recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: aiken-lang/setup-aiken@1728a4be43be099752e22d8b841706caaa6fdd88 # v1.0.4
+        with:
+          version: v1.1.23
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 10.0.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: code/dApp/pnpm-lock.yaml
+      # These fixtures need no database or Prisma client generation.
+      - run: |
+          if command -v sfw >/dev/null 2>&1; then
+            sfw pnpm install --frozen-lockfile --ignore-scripts
+          else
+            echo "sfw is unavailable; using the frozen lockfile without install scripts."
+            pnpm install --frozen-lockfile --ignore-scripts
+          fi
+      - run: aiken build
+        working-directory: code/smart-contract
+      - run: pnpm sync:blueprint:check
+      - run: node --import tsx scripts/check-beneficiary-distribution-native.ts
+      - run: node --import tsx scripts/check-beneficiary-preparation-native.ts

@@ -446,6 +446,19 @@ describe("the tick box and the amount field drive the payout", () => {
 
     expect(stage.calls).toBe(0);
   });
+
+  it("lets a third positive payment enter the transaction", () => {
+    const rows = [0, 1, 2].map((id) =>
+      payoutRow({
+        configuredAmount: id < 2 ? "1" : "0",
+        streamingPayment: { ...payoutRow().streamingPayment, id: String(id) }
+      })
+    );
+    renderPayout(rows);
+
+    screen.getAllByRole("checkbox")[2]!.click();
+    expect(stage.amounts).toEqual({ "2": "2000000" });
+  });
 });
 
 describe("the shared payout cooldown", () => {

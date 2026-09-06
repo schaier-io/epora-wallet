@@ -49,8 +49,10 @@ export function isSttFlowAction(value: UserActionKind): value is SttSpendActionM
     value === "update-state" ||
     value === "manage-streaming-payments" ||
     value === "use-allowance" ||
-    value === "use-beneficiary" ||
+    (value === "use-beneficiary" || value === "exit-beneficiary") ||
     value === "payout-streaming-payment" ||
+    value === "stop-beneficiary-stream" ||
+    value === "distribute-beneficiaries" ||
     value === "consolidate-utxo"
   );
 }
@@ -58,6 +60,7 @@ export function isSttFlowAction(value: UserActionKind): value is SttSpendActionM
 /** Administrative actions do not select or consume existing wallet fund pools. */
 export function supportsSttFundPoolInputs(action: SttSpendActionMode): boolean {
   return (
+    action !== "stop-beneficiary-stream" &&
     action !== "renew-proof-of-life" &&
     action !== "update-state" &&
     action !== "manage-streaming-payments"
@@ -97,7 +100,7 @@ export function getSttAuthorityOptions(
     ];
   }
 
-  if (action === "use-beneficiary") {
+  if (action === "use-beneficiary" || action === "exit-beneficiary" || action === "stop-beneficiary-stream" || action === "distribute-beneficiaries") {
     return [{ value: "beneficiary", label: i18n("recoveryContact") }];
   }
 

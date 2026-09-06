@@ -81,12 +81,16 @@
   "walletUpdateReceipt": "Wallet update receipt",
   "whatThisTransactionChangesAboutWhoCanUse": "What this transaction changes about who can use this wallet.",
   "youAreAddingValue1ToTheSelectedWallet": "You are adding {value1} to the selected wallet.",
-  "youAreMergingValue1IntoFewerLargerOnes": "You are merging {value1} into fewer, larger ones.",
+  "youAreMergingValue1IntoFewerLargerOnes": "You are reorganizing {value1} without changing the wallet balance.",
   "youAreMovingAmountsummaryOfEarnedStakingRewards": "You are moving {amountSummary} of earned staking rewards into this wallet. Everyday rules stay exactly as they are.",
   "youArePayingValue1UsingFundingphrase": "You are paying {value1} using {fundingPhrase}.",
   "youArePreparingValue1": "You are preparing {value1}.",
   "youAreSendingValue1Value2FromValue3": "You are sending {value1}{value2} from {value3}.",
   "youAreSendingAmountFromFunding": "You are sending {amount} from {funding}.",
   "youAreSendingAmountToRecipientFromFunding": "You are sending {amount} to {recipient} from {funding}.",
-  "needsSetup": "Needs setup"
+  "needsSetup": "Needs setup",
+  "permanentExitReceipt": "Permanent withdrawal",
+  "recoveryAccess": "Recovery access",
+  "permanentlyRemoved": "Permanently removed",
+  "permanentExitRights": "You give up any unused share and rights to remaining funds and future deposits."
 }

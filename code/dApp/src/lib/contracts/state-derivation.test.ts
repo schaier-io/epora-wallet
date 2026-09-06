@@ -1,3 +1,4 @@
+import { encodePayoutAddressToData } from "@/lib/contracts/payout-address";
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -13,6 +14,10 @@ import type { Asset, ConstrData, PayoutTransfer } from "@/lib/types/contracts";
 const NONE: ConstrData = { alternative: 1, fields: [] };
 const FALSE: ConstrData = { alternative: 0, fields: [] };
 const PLACEHOLDER_ADDRESS: ConstrData = { alternative: 0, fields: [] };
+
+function keyFor(index: number): string {
+  return index.toString(16).padStart(2, "0").repeat(28);
+}
 
 function lovelace(quantity: number): Asset[] {
   return [{ unit: "lovelace", quantity: String(quantity) }];
@@ -364,7 +369,7 @@ test("allowance with a spend above remaining is rejected in the boundary window"
 function beneficiaryDatum(id: number): ConstrData {
   return {
     alternative: 0,
-    fields: [id, [`b${id.toString(16).padStart(2, "0")}`.repeat(14)], { alternative: 1, fields: [] }, 1]
+    fields: [id, [`b${id.toString(16).padStart(2, "0")}`.repeat(14)], { alternative: 1, fields: [] }, 1, encodePayoutAddressToData("addr_test1vqg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygxrcya6")]
   };
 }
 
@@ -372,32 +377,207 @@ function manyUsers(count: number): ConstrData[] {
   return Array.from({ length: count }, (_, i) =>
     userDatum({
       id: i,
-      wallets: [`a${i.toString(16).padStart(2, "0")}`.repeat(14)],
-      perDay: lovelace(1),
-      remaining: lovelace(1),
+      wallets: [keyFor(i)],
+      perDay: [],
+      remaining: [],
       nextAllowanceReset: 0
     })
   );
 }
 
-test("validateStateDatum flags more than 15 users", () => {
-  const errors = validateStateDatum(stateDatum({ users: manyUsers(16) }));
+function nativeAssets(count: number, firstId = 0): Asset[] {
+  const policyId = "11".repeat(28);
+  return Array.from({ length: count }, (_, index) => ({
+    unit: `${policyId}${(firstId + index).toString(16).padStart(2, "0")}`,
+    quantity: "1"
+  }));
+}
+
+test("validateStateDatum flags more than 10 users", () => {
+  const errors = validateStateDatum(stateDatum({ users: manyUsers(11) }));
   assert.ok(
-    errors.some((e) => e.includes("at most 15")),
+    errors.some((e) => e.includes("at most 10")),
     `expected a user-cap error, got: ${errors.join("; ")}`
   );
 });
 
-test("validateStateDatum accepts exactly 15 users", () => {
-  const errors = validateStateDatum(stateDatum({ users: manyUsers(15) }));
+test("validateStateDatum accepts exactly 10 users", () => {
+  const errors = validateStateDatum(stateDatum({ users: manyUsers(10) }));
   assert.ok(
-    !errors.some((e) => e.includes("at most 15")),
+    !errors.some((e) => e.includes("at most 10")),
     `unexpected user-cap error at the limit: ${errors.join("; ")}`
   );
 });
 
-test("validateStateDatum flags more than 25 beneficiaries", () => {
-  const beneficiaries = Array.from({ length: 26 }, (_, i) => beneficiaryDatum(i));
+test("validateStateDatum flags more than 15 access records in total", () => {
+  const errors = validateStateDatum(
+    stateDatum({
+      users: manyUsers(10),
+      beneficiaries: Array.from({ length: 6 }, (_, index) => beneficiaryDatum(index + 1)),
+      proofOfLife: {
+        alternative: 0,
+        fields: [{ alternative: 0, fields: [0] }, { alternative: 0, fields: [1] }]
+      }
+    }),
+    { allowNoReachableAccessPath: true }
+  );
+  assert.ok(
+    errors.some((error) => error.includes("at most 15 owners, spenders, and recovery contacts")),
+    `expected an aggregate access-cap error, got: ${errors.join("; ")}`
+  );
+});
+
+test("validateStateDatum flags more than 15 user wallet ids in total", () => {
+  const errors = validateStateDatum(
+    stateDatum({
+      users: [
+        userDatum({
+          id: 1,
+          wallets: Array.from({ length: 10 }, (_, index) => keyFor(index)),
+          perDay: [],
+          remaining: [],
+          nextAllowanceReset: 0
+        }),
+        userDatum({
+          id: 2,
+          wallets: Array.from({ length: 6 }, (_, index) => keyFor(index + 10)),
+          perDay: [],
+          remaining: [],
+          nextAllowanceReset: 0
+        })
+      ]
+    }),
+    { allowNoReachableAccessPath: true }
+  );
+  assert.ok(
+    errors.some((error) => error.includes("at most 15 wallet IDs in total")),
+    `expected an aggregate user-wallet-cap error, got: ${errors.join("; ")}`
+  );
+});
+
+test("validateStateDatum flags more than 15 allowance entries in total", () => {
+  const errors = validateStateDatum(
+    stateDatum({
+      users: [
+        userDatum({
+          id: 1,
+          wallets: [keyFor(1)],
+          perDay: nativeAssets(5),
+          remaining: nativeAssets(5),
+          nextAllowanceReset: 0
+        }),
+        userDatum({
+          id: 2,
+          wallets: [keyFor(2)],
+          perDay: nativeAssets(5, 20),
+          remaining: nativeAssets(1, 30),
+          nextAllowanceReset: 0
+        })
+      ]
+    }),
+    { allowNoReachableAccessPath: true }
+  );
+  assert.ok(
+    errors.some((error) => error.includes("at most 15 asset entries in total")),
+    `expected an aggregate allowance-cap error, got: ${errors.join("; ")}`
+  );
+});
+
+test("validateStateDatum reserves capacity for allowance reset growth", () => {
+  const errors = validateStateDatum(
+    stateDatum({
+      users: Array.from({ length: 3 }, (_, index) =>
+        userDatum({
+          id: index + 1,
+          wallets: [keyFor(index + 1)],
+          perDay: nativeAssets(5, index * 10),
+          remaining: [],
+          nextAllowanceReset: 0
+        })
+      )
+    }),
+    { allowNoReachableAccessPath: true }
+  );
+
+  assert.ok(
+    errors.some((error) => error.includes("at most 15 asset entries in total")),
+    `expected a reset-capacity error, got: ${errors.join("; ")}`
+  );
+});
+
+test("validateStateDatum accepts the reserved allowance capacity boundary", () => {
+  const errors = validateStateDatum(
+    stateDatum({
+      users: [
+        userDatum({
+          id: 1,
+          wallets: [keyFor(1)],
+          perDay: nativeAssets(5),
+          remaining: nativeAssets(5, 10),
+          nextAllowanceReset: 0
+        }),
+        userDatum({
+          id: 2,
+          wallets: [keyFor(2)],
+          perDay: nativeAssets(2, 20),
+          remaining: nativeAssets(3, 30),
+          nextAllowanceReset: 0
+        })
+      ]
+    }),
+    { allowNoReachableAccessPath: true }
+  );
+
+  assert.ok(
+    !errors.some((error) => error.includes("at most 15 asset entries in total")),
+    `unexpected reset-capacity error at the boundary: ${errors.join("; ")}`
+  );
+});
+
+test("validateStateDatum accepts five entries in each allowance list", () => {
+  const errors = validateStateDatum(
+    stateDatum({
+      users: [
+        userDatum({
+          id: 1,
+          wallets: [keyFor(1)],
+          perDay: nativeAssets(5),
+          remaining: nativeAssets(5, 10),
+          nextAllowanceReset: 0
+        })
+      ]
+    }),
+    { allowNoReachableAccessPath: true }
+  );
+  assert.ok(
+    !errors.some((error) => error.includes("at most 5 tokens")),
+    `unexpected allowance-list-cap error at the limit: ${errors.join("; ")}`
+  );
+});
+
+test("validateStateDatum rejects six entries in one allowance list", () => {
+  const errors = validateStateDatum(
+    stateDatum({
+      users: [
+        userDatum({
+          id: 1,
+          wallets: [keyFor(1)],
+          perDay: nativeAssets(6),
+          remaining: [],
+          nextAllowanceReset: 0
+        })
+      ]
+    }),
+    { allowNoReachableAccessPath: true }
+  );
+  assert.ok(
+    errors.some((error) => error.includes("at most 5 tokens")),
+    `expected an allowance-list-cap error, got: ${errors.join("; ")}`
+  );
+});
+
+test("validateStateDatum flags more than 15 beneficiaries", () => {
+  const beneficiaries = Array.from({ length: 16 }, (_, i) => beneficiaryDatum(i));
   const errors = validateStateDatum(
     stateDatum({
       beneficiaries,
@@ -405,13 +585,13 @@ test("validateStateDatum flags more than 25 beneficiaries", () => {
     })
   );
   assert.ok(
-    errors.some((e) => e.includes("at most 25")),
+    errors.some((e) => e.includes("at most 15")),
     `expected a beneficiary-cap error, got: ${errors.join("; ")}`
   );
 });
 
-test("validateStateDatum flags more than 25 streaming payments", () => {
-  const streamingPayments = Array.from({ length: 26 }, (_, i) =>
+test("validateStateDatum flags more than 15 streaming payments", () => {
+  const streamingPayments = Array.from({ length: 16 }, (_, i) =>
     streamingPaymentDatum({
       id: i,
       paidOutAmount: 0,
@@ -424,7 +604,7 @@ test("validateStateDatum flags more than 25 streaming payments", () => {
   );
   const errors = validateStateDatum(stateDatum({ streamingPayments }));
   assert.ok(
-    errors.some((e) => e.includes("at most 25")),
+    errors.some((e) => e.includes("at most 15")),
     `expected a streaming-cap error, got: ${errors.join("; ")}`
   );
 });

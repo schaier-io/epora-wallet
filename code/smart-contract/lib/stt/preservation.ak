@@ -28,18 +28,21 @@
 ////   RunOperator(SetIntendedStakeCredential) |   -    |     -      |    -     |    -    |  -   | state_completely_unchanged ⁵
 ////   RenewProofOfLife                        |   -    |     y      |    -     |    -    |  -   | state_unchanged_except_pol_unlock_time
 ////   UseAllowance(_)                         |   y²   |     y      |    -     |    -    |  -   | state_unchanged_except_users_and_pol_unlock_time
-////   UseBeneficiary(_)                       |   y³   |     -      |    -     |    -    |  -   | state_unchanged_except_beneficiary_removed
+////   UseBeneficiary(_)                       |   y³   |     -      |    -     |    -    |  -   | earlier removed; final stays unchanged
+////   DistributeBeneficiaries(_)              |   -    |     -      |    -     |    -    |  -   | state_completely_unchanged
+////   ExitBeneficiary(_)                      |   y³   |     -      |    -     |    -    |  -   | actor always removed
 ////   PayStreamingPayment(_)                  |   -    |     -      |    -     |    y    |  -   | state_unchanged_except_streaming_payments
 ////   Consolidate(_)                          |   -    |     -      |    -     |    -    |  -   | state_completely_unchanged
 ////   CancelStreamingPayment(_)               |   -    |     -      |    -     |    y⁶   |  -   | state_unchanged_except_streaming_payments ⁷
+////   StopBeneficiaryStream(_, _)             |   -    |     -      |    -     |    y⁶   |  -   | state_unchanged_except_streaming_payments ⁷
 ////
 ////   y  = field may change
 ////   -  = field must equal input
 ////   y¹ = only admin path may change wallet_name
 ////   y² = only the changed user's mutable allowance fields; static user fields
 ////        and the access-level multi_sig_threshold / beneficiaries are preserved
-////   y³ = only the acting beneficiary is removed from access.beneficiaries;
-////        users and multi_sig_threshold are preserved
+////   y³ = only the acting beneficiary is removed. UseBeneficiary preserves
+////        the final actor, while ExitBeneficiary removes it.
 ////   y⁴ = exactly one entry (user or beneficiary, by index) is removed from the
 ////        targeted access list; the other access sub-fields are preserved
 ////   ⁵  = the new credential value itself is not a matrix column — it is guarded
@@ -52,7 +55,9 @@
 ////        `settlement_handlers.ak`, not by the preservation helper (which only
 ////        frees the `streaming_payments` field)
 ////   ⁷  = Cancel also advances `last_non_admin_payout_at`; that field is outside
-////        this matrix and is pinned by the shared cadence helper
+////        this matrix and is pinned by the shared cadence helper. Final
+////        beneficiary recovery advances the same field without changing a
+////        matrix field.
 
 use aiken/collection/list
 use aiken/fuzz
@@ -125,11 +130,11 @@ pub fn state_unchanged_except_users_and_pol_unlock_time(
 }
 
 /// Everything preserved. Note this spans only the preservable field set:
-/// `intended_stake_credential` is not a `StateField` (guarded centrally in
-/// `eval_spend`), which is why SetIntendedStakeCredential — whose one mutation
-/// is exempted there — can share this predicate and assert the new credential
-/// value separately (see matrix footnote ⁵).
-/// Used by: Consolidate, SetIntendedStakeCredential.
+/// `intended_stake_credential` and `last_non_admin_payout_at` are not
+/// `StateField` variants because `eval_spend` guards them centrally. This lets
+/// SetIntendedStakeCredential and final-beneficiary recovery use this predicate
+/// while their handlers validate the one central-field mutation separately.
+/// Used by: Consolidate, SetIntendedStakeCredential, final UseBeneficiary.
 pub fn state_completely_unchanged(
   input: state_types.State,
   output: state_types.State,
@@ -141,7 +146,7 @@ pub fn state_completely_unchanged(
 /// its unique id) is removed from the beneficiary list. Beneficiary ids are
 /// guaranteed unique by `expect_valid_state_configuration`, so filtering by
 /// `id != removed` drops exactly one entry.
-/// Used by: UseBeneficiary.
+/// Used by: UseBeneficiary and ExitBeneficiary.
 pub fn state_unchanged_except_beneficiary_removed(
   input: state_types.State,
   output: state_types.State,
@@ -159,7 +164,8 @@ pub fn state_unchanged_except_beneficiary_removed(
 
 /// Access + proof-of-life + wallet_name preserved; only streaming_payments may
 /// change.
-/// Used by: PayStreamingPayment and CancelStreamingPayment. Their cadence-clock
+/// Used by: PayStreamingPayment, CancelStreamingPayment, and beneficiary stops.
+/// Their cadence-clock
 /// handling is enforced separately because that field sits outside this matrix.
 pub fn state_unchanged_except_streaming_payments(
   input: state_types.State,

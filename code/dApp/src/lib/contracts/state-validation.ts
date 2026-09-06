@@ -6,12 +6,17 @@ import {
   walletNameDatumByteLength
 } from "@/lib/contracts/state-wallet-name";
 import {
+  MAX_ACCESS_RECORDS,
   MAX_ALLOWANCE_ENTRIES,
   MAX_BENEFICIARIES,
   MAX_BENEFICIARY_WALLETS,
+  MAX_TOTAL_BENEFICIARY_WALLETS,
   MAX_STREAMING_PAYMENTS,
+  MAX_TOTAL_ALLOWANCE_ENTRIES,
   MAX_USERS,
+  MAX_TOTAL_USER_WALLETS,
   MAX_WALLETS_PER_USER,
+  countValueEntries,
   readOption,
   readWalletEntries,
   validateBeneficiary,
@@ -21,6 +26,7 @@ import {
   validateUser
 } from "@/lib/contracts/state-validation-records";
 import { isIntendedStakeCredentialData } from "@/lib/contracts/payout-address";
+import { isOnChainInteger } from "@/lib/contracts/on-chain-integer";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/LibContractsStateValidation.json";
 
@@ -30,11 +36,15 @@ const i18n = createDefaultTranslator("LibContractsStateValidation", defaultMessa
 // them from this module (the validators that enforce them now live in
 // `state-validation-records.ts`).
 export {
+  MAX_ACCESS_RECORDS,
   MAX_ALLOWANCE_ENTRIES,
   MAX_BENEFICIARIES,
   MAX_BENEFICIARY_WALLETS,
+  MAX_TOTAL_BENEFICIARY_WALLETS,
   MAX_STREAMING_PAYMENTS,
+  MAX_TOTAL_ALLOWANCE_ENTRIES,
   MAX_USERS,
+  MAX_TOTAL_USER_WALLETS,
   MAX_WALLETS_PER_USER
 };
 
@@ -62,7 +72,7 @@ function findDuplicateWallets(wallets: string[]) {
 function readUserAccessSummary(value: Data): {
   isAdmin: boolean;
   hasWallets: boolean;
-  multiSigPower: number;
+  multiSigPower: bigint;
   wallets: string[];
 } | null {
   if (!isConstrData(value) || value.alternative !== 0 || value.fields.length !== 8) {
@@ -79,11 +89,10 @@ function readUserAccessSummary(value: Data): {
     multiSigPowerOption &&
     multiSigPowerOption.alternative === 0 &&
     multiSigPowerOption.fields.length === 1 &&
-    typeof multiSigPowerOption.fields[0] === "number" &&
-    Number.isInteger(multiSigPowerOption.fields[0]) &&
-    multiSigPowerOption.fields[0] > 0
-      ? multiSigPowerOption.fields[0]
-      : 0;
+    isOnChainInteger(multiSigPowerOption.fields[0]) &&
+    BigInt(multiSigPowerOption.fields[0]) > 0n
+      ? BigInt(multiSigPowerOption.fields[0])
+      : 0n;
 
   return {
     isAdmin,
@@ -107,17 +116,16 @@ function readAdminUserCount(users: Data[]) {
 }
 
 function readBeneficiaryAccessSummary(value: Data) {
-  if (!isConstrData(value) || value.alternative !== 0 || value.fields.length !== 4) {
+  if (!isConstrData(value) || value.alternative !== 0 || value.fields.length !== 5) {
     return null;
   }
 
   const [, beneficiaryWallets] = value.fields;
 
-  // Under the weighted-share model the beneficiary set collectively drains the
-  // entire distributable pool, but only because every beneficiary is required
-  // to carry a signable wallet (enforced as a hard error in `validateBeneficiary`
-  // / on-chain `expect_beneficiaries_are_valid`). With that invariant, any
-  // present beneficiary is a reachable non-admin recovery path.
+  // Every beneficiary must carry a signable wallet. This makes a present
+  // beneficiary a reachable non-admin authorization path. The weighted-share
+  // rule caps a co-fired consumed pool, but this reachability check does not
+  // promise recovery across every wallet UTxO.
   return {
     hasWallets: readWalletEntries(beneficiaryWallets!).length > 0
   };
@@ -129,23 +137,22 @@ function hasReachableMultisigPath(users: Data[], threshold: ThresholdOption): bo
   if (
     !threshold ||
     threshold.kind !== "some" ||
-    typeof threshold.value !== "number" ||
-    !Number.isInteger(threshold.value) ||
-    threshold.value <= 0
+    !isOnChainInteger(threshold.value) ||
+    BigInt(threshold.value) <= 0n
   ) {
     return false;
   }
 
-  const availablePower = users.reduce<number>((power, user) => {
+  const availablePower = users.reduce<bigint>((power, user) => {
     const summary = readUserAccessSummary(user);
     if (!summary?.hasWallets) {
       return power;
     }
 
     return power + summary.multiSigPower;
-  }, 0);
+  }, 0n);
 
-  return availablePower >= threshold.value;
+  return availablePower >= BigInt(threshold.value);
 }
 
 function zeroAdminStateHasUserSideAccessPath(
@@ -260,7 +267,27 @@ export function validateStateDatum(
     );
   }
 
+  const lastNonAdminPayoutAt = readOption(
+    sections.lastNonAdminPayoutAt,
+    "state.last_non_admin_payout_at",
+    errors
+  );
+  if (lastNonAdminPayoutAt?.kind === "some") {
+    validateInteger(
+      lastNonAdminPayoutAt.value,
+      "state.last_non_admin_payout_at.Some",
+      errors,
+      { min: 0 }
+    );
+  }
+
   const beneficiaryWalletLists: string[][] = [];
+
+  if (sections.users.length + sections.beneficiaries.length > MAX_ACCESS_RECORDS) {
+    errors.push(
+      i18n("aWalletCanHaveAtMostMaxAccessRecords", { limit: MAX_ACCESS_RECORDS })
+    );
+  }
 
   if (sections.users.length > MAX_USERS) {
     errors.push(
@@ -268,17 +295,68 @@ export function validateStateDatum(
     );
   }
 
-  const seenUserIds = new Set<number>();
+  const seenUserIds = new Set<bigint>();
+  let totalUserWallets = 0;
+  let reservedAllowanceEntries = 0;
   for (const [index, user] of sections.users.entries()) {
     const id = validateUser(user, `state.users[${index}]`, errors);
+    if (isConstrData(user) && user.alternative === 0 && user.fields.length === 8) {
+      totalUserWallets += readWalletEntries(user.fields[1]!).length;
+      const perDayCount = countValueEntries(user.fields[2]!);
+      const remainingCount = countValueEntries(user.fields[3]!);
+      reservedAllowanceEntries += perDayCount + Math.max(perDayCount, remainingCount);
+    }
 
-    if (typeof id === "number") {
+    if (id !== null) {
       if (seenUserIds.has(id)) {
-        errors.push(i18n("stateUsersContainsDuplicateIdId", { id }));
+        errors.push(i18n("stateUsersContainsDuplicateIdId", { id: id.toString() }));
       } else {
         seenUserIds.add(id);
       }
     }
+  }
+
+  const poweredCredentialUsers = new Map<string, number[]>();
+  for (const [userIndex, user] of sections.users.entries()) {
+    const summary = readUserAccessSummary(user);
+    if (!summary || summary.multiSigPower <= 0n) {
+      continue;
+    }
+
+    // One record's power is counted once even if its wallet list repeats a
+    // credential. Normalize hex case before comparing separate records.
+    for (const wallet of new Set(summary.wallets.map((value) => value.toLowerCase()))) {
+      const userIndexes = poweredCredentialUsers.get(wallet) ?? [];
+      userIndexes.push(userIndex);
+      poweredCredentialUsers.set(wallet, userIndexes);
+    }
+  }
+  for (const [wallet, userIndexes] of poweredCredentialUsers.entries()) {
+    if (userIndexes.length < 2) {
+      continue;
+    }
+
+    errors.push(
+      i18n("multisigKeyWalletAppearsInPoweredOwnerRecords", {
+        wallet,
+        value2: userIndexes.map((index) => index + 1).join(", ")
+      })
+    );
+  }
+
+  if (totalUserWallets > MAX_TOTAL_USER_WALLETS) {
+    errors.push(
+      i18n("ownersAndSpendersCanListAtMostMaxWalletIdsInTotal", {
+        limit: MAX_TOTAL_USER_WALLETS
+      })
+    );
+  }
+  if (reservedAllowanceEntries > MAX_TOTAL_ALLOWANCE_ENTRIES) {
+    errors.push(
+      i18n("allowancesCanContainAtMostMaxTokenEntriesInTotal", {
+        limit: MAX_TOTAL_ALLOWANCE_ENTRIES
+      })
+    );
   }
 
   const threshold = readOption(sections.multiSigThreshold, "state.multi_sig_threshold", errors);
@@ -292,22 +370,34 @@ export function validateStateDatum(
     );
   }
 
-  const seenBeneficiaryIds = new Set<number>();
+  const seenBeneficiaryIds = new Set<bigint>();
   for (const [index, beneficiary] of sections.beneficiaries.entries()) {
     const id = validateBeneficiary(beneficiary, `state.beneficiaries[${index}]`, errors);
     const walletEntries =
-      isConstrData(beneficiary) && beneficiary.alternative === 0 && beneficiary.fields.length === 4
+      isConstrData(beneficiary) && beneficiary.alternative === 0 && beneficiary.fields.length === 5
         ? readWalletEntries(beneficiary.fields[1]!)
         : [];
     beneficiaryWalletLists[index] = walletEntries;
 
-    if (typeof id === "number") {
+    if (id !== null) {
       if (seenBeneficiaryIds.has(id)) {
-        errors.push(i18n("stateBeneficiariesContainsDuplicateIdId", { id }));
+        errors.push(i18n("stateBeneficiariesContainsDuplicateIdId", { id: id.toString() }));
       } else {
         seenBeneficiaryIds.add(id);
       }
     }
+  }
+
+  const totalBeneficiaryWallets = beneficiaryWalletLists.reduce(
+    (total, wallets) => total + wallets.length,
+    0
+  );
+  if (totalBeneficiaryWallets > MAX_TOTAL_BENEFICIARY_WALLETS) {
+    errors.push(
+      i18n("recoveryContactsCanListAtMostMaxBeneficiaryWalletsInTotal", {
+        limit: MAX_TOTAL_BENEFICIARY_WALLETS
+      })
+    );
   }
 
   for (const [index, wallets] of beneficiaryWalletLists.entries()) {
@@ -360,12 +450,12 @@ export function validateStateDatum(
     );
   }
 
-  const seenStreamingPaymentIds = new Set<number>();
+  const seenStreamingPaymentIds = new Set<bigint>();
   for (const [index, streamingPayment] of sections.streamingPayments.entries()) {
     const id = validateStreamingPayment(streamingPayment, `state.streamingPayments[${index}]`, errors);
-    if (typeof id === "number") {
+    if (id !== null) {
       if (seenStreamingPaymentIds.has(id)) {
-        errors.push(i18n("stateStreamingpaymentsContainsDuplicateIdId", { id }));
+        errors.push(i18n("stateStreamingpaymentsContainsDuplicateIdId", { id: id.toString() }));
       } else {
         seenStreamingPaymentIds.add(id);
       }
@@ -416,15 +506,15 @@ export function validateMintStateDatum(stateDatum: ConstrData): string[] {
     const paidOutAmount = streamingPayment.fields[2];
     const startDate = streamingPayment.fields[6];
     const endDate = streamingPayment.fields[7];
-    if (typeof paidOutAmount === "number" && paidOutAmount !== 0) {
+    if (isOnChainInteger(paidOutAmount) && BigInt(paidOutAmount) !== 0n) {
       errors.push(
         i18n("freshStreamingPaymentValue1MustStartWithZero", { value1: index + 1 })
       );
     }
     if (
-      typeof startDate === "number" &&
-      typeof endDate === "number" &&
-      startDate >= endDate
+      isOnChainInteger(startDate) &&
+      isOnChainInteger(endDate) &&
+      BigInt(startDate) >= BigInt(endDate)
     ) {
       errors.push(
         i18n("freshStreamingPaymentValue1MustStartBeforeIt", { value1: index + 1 })
@@ -455,8 +545,8 @@ export function validateFreshStreamingPayments(
 
   const inputIds = new Set(
     inputSections.streamingPayments.flatMap((payment) =>
-      isConstrData(payment) && typeof payment.fields[0] === "number"
-        ? [payment.fields[0]]
+      isConstrData(payment) && isOnChainInteger(payment.fields[0])
+        ? [BigInt(payment.fields[0])]
         : []
     )
   );
@@ -465,23 +555,23 @@ export function validateFreshStreamingPayments(
     if (
       !isConstrData(payment) ||
       payment.fields.length !== 8 ||
-      typeof payment.fields[0] !== "number" ||
-      inputIds.has(payment.fields[0])
+      !isOnChainInteger(payment.fields[0]) ||
+      inputIds.has(BigInt(payment.fields[0]))
     ) {
       return;
     }
     const paidOutAmount = payment.fields[2];
     const startDate = payment.fields[6];
     const endDate = payment.fields[7];
-    if (typeof paidOutAmount === "number" && paidOutAmount !== 0) {
+    if (isOnChainInteger(paidOutAmount) && BigInt(paidOutAmount) !== 0n) {
       errors.push(
         i18n("freshStreamingPaymentValue1MustStartWithZero", { value1: index + 1 })
       );
     }
     if (
-      typeof startDate === "number" &&
-      typeof endDate === "number" &&
-      startDate >= endDate
+      isOnChainInteger(startDate) &&
+      isOnChainInteger(endDate) &&
+      BigInt(startDate) >= BigInt(endDate)
     ) {
       errors.push(
         i18n("freshStreamingPaymentValue1MustStartBeforeIt", { value1: index + 1 })
@@ -504,14 +594,10 @@ export function validateFreshStreamingPayments(
 // a misconfiguration (an effective time-lock brick), not deliberate intent.
 const FAR_FUTURE_UNLOCK_HORIZON_MS = 10 * 365 * 24 * 60 * 60 * 1000;
 
-function readOptionIntegerValue(value: Data): number | null {
+function readOptionIntegerValue(value: Data): bigint | null {
   const option = readOption(value, "", []);
-  if (
-    option?.kind === "some" &&
-    typeof option.value === "number" &&
-    Number.isInteger(option.value)
-  ) {
-    return option.value;
+  if (option?.kind === "some" && isOnChainInteger(option.value)) {
+    return BigInt(option.value);
   }
 
   return null;
@@ -539,43 +625,11 @@ export function collectStateDatumWarnings(
     return warnings;
   }
 
-  const poweredKeyUsage = new Map<
-    string,
-    { userIndexes: number[]; combinedPower: number }
-  >();
-  for (const [userIndex, user] of sections.users.entries()) {
-    const summary = readUserAccessSummary(user);
-    if (!summary || summary.multiSigPower <= 0) {
-      continue;
-    }
-
-    // Plutus ByteArray equality is case-insensitive with respect to the hex
-    // text used off-chain. Normalize before counting so the same signer cannot
-    // evade the duplicate-power warning as `AA...` versus `aa...`.
-    for (const wallet of new Set(summary.wallets.map((value) => value.toLowerCase()))) {
-      const usage = poweredKeyUsage.get(wallet) ?? { userIndexes: [], combinedPower: 0 };
-      usage.userIndexes.push(userIndex);
-      usage.combinedPower += summary.multiSigPower;
-      poweredKeyUsage.set(wallet, usage);
-    }
-  }
-  for (const [wallet, usage] of poweredKeyUsage.entries()) {
-    if (usage.userIndexes.length < 2) {
-      continue;
-    }
-
-    warnings.push(
-      i18n("multisigKeyWalletAppearsInPoweredOwnerRecords", { wallet: wallet, value2: usage.userIndexes
-        .map((index) => index + 1)
-        .join(", "), value3: usage.combinedPower })
-    );
-  }
-
   const proofUnlock = readOptionIntegerValue(sections.unlockTime);
 
   // The earliest a signable beneficiary can unlock is the soonest the wallet
   // can be recovered through the beneficiary path.
-  let earliestUnlock: number | null = null;
+  let earliestUnlock: bigint | null = null;
   let hasSignableBeneficiary = false;
   for (const beneficiary of sections.beneficiaries) {
     if (!(readBeneficiaryAccessSummary(beneficiary)?.hasWallets ?? false)) {
@@ -584,10 +638,12 @@ export function collectStateDatumWarnings(
     hasSignableBeneficiary = true;
 
     const unlockAfter =
-      isConstrData(beneficiary) && beneficiary.fields.length === 4
+      isConstrData(beneficiary) && beneficiary.fields.length === 5
         ? readOptionIntegerValue(beneficiary.fields[2]!)
         : null;
-    const effectiveUnlock = Math.max(unlockAfter ?? 0, proofUnlock ?? 0);
+    const effectiveUnlock = unlockAfter !== null && unlockAfter > (proofUnlock ?? 0n)
+      ? unlockAfter
+      : (proofUnlock ?? 0n);
     if (earliestUnlock === null || effectiveUnlock < earliestUnlock) {
       earliestUnlock = effectiveUnlock;
     }
@@ -606,7 +662,7 @@ export function collectStateDatumWarnings(
     hasSignableBeneficiary &&
     proofUnlock !== null &&
     earliestUnlock !== null &&
-    earliestUnlock <= nowMs
+    earliestUnlock <= BigInt(nowMs)
   ) {
     warnings.push(
       i18n("aRecoveryContactCanAlreadyWithdrawFromThis")
@@ -625,7 +681,7 @@ export function collectStateDatumWarnings(
     !hasOperatorPath &&
     hasSignableBeneficiary &&
     earliestUnlock !== null &&
-    earliestUnlock > nowMs + FAR_FUTURE_UNLOCK_HORIZON_MS
+    earliestUnlock > BigInt(nowMs + FAR_FUTURE_UNLOCK_HORIZON_MS)
   ) {
     warnings.push(
       i18n("thisWalletHasNoOwnerAndNoMultisig")

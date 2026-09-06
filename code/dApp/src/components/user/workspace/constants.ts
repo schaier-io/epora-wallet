@@ -15,12 +15,6 @@ export const LONG_DESCRIPTION_LIMIT = 78;
 // deliberate choice, consistent with the Send flow, which also starts blank.
 export const DEFAULT_LOCK_ASSETS: Asset[] = [{ unit: "lovelace", quantity: "" }];
 
-// Max wallet UTxOs swept into one enterprise→base migration / orphan-cleanup
-// transaction. Each is a script input (execution-unit heavy), so a sweep of many
-// UTxOs is batched: consolidate this many per tx, then re-check finds the rest.
-// Conservative so the tx stays well under the protocol execution-unit ceiling.
-export const MAX_ORPHAN_SWEEP_INPUTS = 15;
-
 export const DEFAULT_MINT_STARTER_ASSETS: Asset[] = [
   { unit: "lovelace", quantity: DEFAULT_MINT_STT_LOVELACE }
 ];
@@ -82,6 +76,10 @@ export const ALLOWANCE_WITHDRAWAL_ACTION = buildStateActionData({
 
 export const BENEFICIARY_WITHDRAWAL_ACTION = buildStateActionData({
   kind: "beneficiary-withdrawal"
+});
+
+export const BENEFICIARY_EXIT_ACTION = buildStateActionData({
+  kind: "beneficiary-exit"
 });
 
 export const STREAMING_PAYMENT_PAYOUT_ACTION = buildStateActionData({

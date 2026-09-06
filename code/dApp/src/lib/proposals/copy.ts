@@ -31,8 +31,6 @@ export const proposalCopy = {
   requestFailed: (_status: number) => i18n("requestFailed"),
   couldNotDecodeTransaction: () => i18n("couldNotDecodeTransaction"),
   couldNotDecodeTransactionBytes: () => i18n("couldNotDecodeTransactionBytes"),
-  checkedInputLimit: (limit: number, count: number) =>
-    i18n("checkedInputLimit", { limit, count }),
   couldNotConfirmInput: (input: string) => i18n("couldNotConfirmInput", { input }),
   inputSpent: (input: string) => i18n("inputSpent", { input }),
   transactionExpired: () => i18n("transactionExpired"),
@@ -43,6 +41,7 @@ export const proposalCopy = {
   invalidStoredWitness: (signer: string) => i18n("invalidStoredWitness", { signer }),
   stateTokenMissing: () => i18n("stateTokenMissing"),
   signersUnresolved: () => i18n("signersUnresolved"),
+  stateTransitionUnresolved: () => i18n("stateTransitionUnresolved"),
   listedSignersCannotPass: () => i18n("listedSignersCannotPass"),
   claimedBodyHashMismatch: () => i18n("claimedBodyHashMismatch"),
   liveStateMissing: () => i18n("liveStateMissing"),

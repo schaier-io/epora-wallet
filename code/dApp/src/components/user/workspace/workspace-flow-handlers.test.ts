@@ -1,3 +1,7 @@
+import { parseWorkspaceRouteState } from "@/components/user/workspace-controller";
+import { routeStateAtom } from "./atoms/workspace-route.atoms";
+import { currentRecoveryCapacityFailureAtom } from "./atoms/recovery-capacity.atoms";
+import { sttWalletInputsAtom } from "./atoms/forms/stt-spend-form.atoms";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createStore } from "jotai";
@@ -268,4 +272,23 @@ test("an invalidated scan cannot overwrite a newer mint confirmation run", async
     (confirmations.at(-1)?.[0] as { txHash?: string } | undefined)?.txHash,
     "new-run"
   );
+});
+
+test("Exit capacity failure records fallback, while a later funding failure clears it", async () => {
+  const { ctx } = makeCtx();
+  ctx.jotaiStore.set(routeStateAtom, parseWorkspaceRouteState(new URLSearchParams("mode=existing-wallet&action=exit-beneficiary")));
+  const handlers = createWorkspaceFlowHandlers(ctx);
+  await handlers.withBuildGuard("exit-beneficiary", async () => { throw new Error("Serialized transaction uses 17000 bytes. The protocol limit is 16384."); });
+  assert.equal(ctx.jotaiStore.get(currentRecoveryCapacityFailureAtom)?.kind, "bytes");
+  await handlers.withBuildGuard("exit-beneficiary", async () => { throw new Error("Insufficient funds"); });
+  assert.equal(ctx.jotaiStore.get(currentRecoveryCapacityFailureAtom), null);
+});
+test("a capacity failure after an Exit input edit cannot offer fallback for the new draft", async () => {
+  const { ctx } = makeCtx();
+  ctx.jotaiStore.set(routeStateAtom, parseWorkspaceRouteState(new URLSearchParams("mode=existing-wallet&action=exit-beneficiary")));
+  await createWorkspaceFlowHandlers(ctx).withBuildGuard("exit-beneficiary", async () => {
+    ctx.jotaiStore.set(sttWalletInputsAtom, [{ txHash: "aa".repeat(32), outputIndex: 0 }]);
+    throw new Error("Serialized transaction uses 17000 bytes. The protocol limit is 16384.");
+  });
+  assert.equal(ctx.jotaiStore.get(currentRecoveryCapacityFailureAtom), null);
 });

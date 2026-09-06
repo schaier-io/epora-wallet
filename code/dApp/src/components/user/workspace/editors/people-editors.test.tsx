@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { BeneficiaryEditor } from "./people-editors";
@@ -21,6 +21,7 @@ function renderContact(
         beneficiary={beneficiary}
         index={0}
         totalWeight={totalWeight}
+        canAddWallet
         onChange={onChange}
         onRemove={vi.fn()}
       />
@@ -32,8 +33,9 @@ describe("the share", () => {
   /**
    * `Beneficiary.weight` (`smart-contract/lib/state/types.ak:42-48`) is a share against the
    * other contacts, capped at `weight / (sum of weights still present) × (wallet value −
-   * scheduled-payment reserve)`, after which the contact is removed. "Weight" and
-   * "distributable pool" named the field and the contract's own word for the money.
+   * scheduled-payment reserve)`. An earlier contact is then removed. The final contact
+   * stays in State for other fund pools and funds sent later. "Weight" and
+   * "distributable pool" name the field and the contract's own word for the money.
    */
   it("is labelled by what it does, not by the stored field", () => {
     renderContact({ weight: "1" });
@@ -49,7 +51,7 @@ describe("the share", () => {
 
     expect(
       screen.getByText(
-        "Takes about 25.0% of what the wallet holds once scheduled payments are covered (1 of 4 across every recovery contact). They can take it once, and are then removed."
+        "Takes about 25.0% of what the wallet holds once scheduled payments are covered (1 of 4 across every recovery contact). An earlier recovery contact can take this share once and is then removed. The final recovery contact stays available for other fund pools and funds sent later."
       )
     ).toBeInTheDocument();
   });
@@ -59,7 +61,7 @@ describe("the share", () => {
 
     expect(
       screen.getByText(
-        "A bigger number takes a bigger share. Somebody on 2 takes twice as much as somebody on 1. They can take their share once, and are then removed."
+        "A bigger number takes a bigger share. Somebody on 2 takes twice as much as somebody on 1. An earlier recovery contact can take one share and is then removed. The final recovery contact stays available for other fund pools and funds sent later."
       )
     ).toBeInTheDocument();
   });
@@ -128,5 +130,24 @@ describe("the empty-state copy stays visible", () => {
     expect(
       "Add someone who can claim what is here if the proof of life runs out.".length
     ).toBeLessThanOrEqual(LONG_DESCRIPTION_LIMIT);
+  });
+});
+
+
+describe("the configured payout address", () => {
+  it("starts blank and records an explicit destination independently of signing keys", () => {
+    const { onChange } = renderContact();
+    const input = screen.getByLabelText("Exact-distribution payout address");
+    expect(input).toHaveValue("");
+    fireEvent.change(input, { target: { value: "addr_test_destination" } });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
+      payoutAddress: "addr_test_destination", wallets: []
+    }));
+    expect(screen.getByText(/script must accept our existing payout datum/i)).toBeInTheDocument();
+  });
+
+  it("shows an invalid destination before submission", () => {
+    renderContact({ payoutAddress: "addr_test_invalid" });
+    expect(screen.getByLabelText("Exact-distribution payout address")).toHaveAttribute("aria-invalid", "true");
   });
 });

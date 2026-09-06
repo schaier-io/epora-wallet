@@ -13,14 +13,15 @@ function digestKey(key: string): string {
 }
 
 /**
- * Consume one request from a globally shared PostgreSQL bucket. The upsert is a
- * single atomic statement, so concurrent requests and separate serverless
+ * Consume weighted work from a globally shared PostgreSQL bucket. The upsert
+ * is a single atomic statement, so concurrent requests and separate serverless
  * instances cannot each obtain an independent allowance.
  */
 export async function consumePostgresRateLimit(
   key: string,
   limit: number,
-  windowMs: number
+  windowMs: number,
+  cost = 1
 ): Promise<RateLimitResult> {
   if (
     !Number.isSafeInteger(limit) ||
@@ -28,9 +29,12 @@ export async function consumePostgresRateLimit(
     limit > MAX_CONFIGURED_LIMIT ||
     !Number.isSafeInteger(windowMs) ||
     windowMs < 1 ||
-    windowMs > MAX_WINDOW_MS
+    windowMs > MAX_WINDOW_MS ||
+    !Number.isSafeInteger(cost) ||
+    cost < 1 ||
+    cost > MAX_CONFIGURED_LIMIT
   ) {
-    throw new Error("Rate-limit configuration must use positive safe integers.");
+    throw new Error("Rate-limit configuration and cost must use positive safe integers.");
   }
 
   const nowMs = Date.now();
@@ -38,6 +42,9 @@ export async function consumePostgresRateLimit(
   const resetAt = new Date(nowMs + windowMs);
   const bucketKey = digestKey(key);
   const db = getPrisma();
+  // Store at most one unit above the limit. Oversized work is rejected even on
+  // a fresh or expired bucket, while the counter stays bounded.
+  const initialConsumed = Math.min(cost, limit + 1);
   // Prisma's PostgreSQL adapter applies `?schema=` to generated model queries,
   // but raw SQL does not inherit that search path. Qualify the table explicitly
   // so preview/test schemas and production behave identically.
@@ -46,12 +53,12 @@ export async function consumePostgresRateLimit(
   );
   const rows = await db.$queryRaw<RateLimitRow[]>(Prisma.sql`
     INSERT INTO ${table} AS bucket ("key", "requestCount", "expiresAt", "updatedAt")
-    VALUES (${bucketKey}, 1, ${resetAt}, ${now})
+    VALUES (${bucketKey}, ${initialConsumed}, ${resetAt}, ${now})
     ON CONFLICT ("key") DO UPDATE SET
       "requestCount" = CASE
         WHEN bucket."expiresAt" <= ${now}
-          THEN 1
-        ELSE LEAST(bucket."requestCount" + 1, ${limit + 1})
+          THEN ${initialConsumed}
+        ELSE LEAST(bucket."requestCount" + ${cost}, ${limit + 1})
       END,
       "expiresAt" = CASE
         WHEN bucket."expiresAt" <= ${now}

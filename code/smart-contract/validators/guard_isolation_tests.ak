@@ -67,11 +67,9 @@ test consolidate_rejects_reference_script_on_continuing_output() fail {
 }
 
 // ---------------------------------------------------------------------------
-// UseBeneficiary state-preservation (state_unchanged_except_beneficiary_removed):
-// the only mutation allowed is removing the acting beneficiary. multi_sig_threshold,
-// streaming_payments and wallet_name must all stay equal. Each test removes the
-// beneficiary correctly (so the removal/users/pol conjuncts pass) but also touches
-// ONE other field, isolating that conjunct.
+// UseBeneficiary state preservation for a final beneficiary. The beneficiary
+// stays in State, while the threshold, streams, and wallet name remain fixed.
+// Each test changes one other field to isolate that check.
 // ---------------------------------------------------------------------------
 
 fn beneficiary_use_base_input() -> state_types.State {
@@ -90,7 +88,7 @@ test beneficiary_use_rejects_multisig_threshold_mutation() fail {
     access: state_types.AccessControl {
       users: input_state.access.users,
       multi_sig_threshold: Some(3),
-      beneficiaries: [],
+      beneficiaries: input_state.access.beneficiaries,
     },
   }
   let transaction = fixtures.stt_spend_tx(
@@ -113,7 +111,7 @@ test beneficiary_use_rejects_streaming_payment_mutation() fail {
     access: state_types.AccessControl {
       users: input_state.access.users,
       multi_sig_threshold: Some(2),
-      beneficiaries: [],
+      beneficiaries: input_state.access.beneficiaries,
     },
     streaming_payments: [injected],
   }
@@ -136,7 +134,7 @@ test beneficiary_use_rejects_wallet_name_mutation() fail {
     access: state_types.AccessControl {
       users: input_state.access.users,
       multi_sig_threshold: Some(2),
-      beneficiaries: [],
+      beneficiaries: input_state.access.beneficiaries,
     },
     wallet_name: #"6e6577",
   }
@@ -153,7 +151,7 @@ test beneficiary_use_rejects_wallet_name_mutation() fail {
 
 // sh.useben.declared_id — the redeemer's declared beneficiary id must equal the
 // beneficiary the signature/unlock actually selects. Here only id 7 is eligible
-// and is correctly removed, but the redeemer declares 8.
+// and is correctly preserved, but the redeemer declares 8.
 test beneficiary_use_rejects_declared_id_mismatch() fail {
   let input_state = beneficiary_use_base_input()
   let output_state = state_types.State {
@@ -161,7 +159,7 @@ test beneficiary_use_rejects_declared_id_mismatch() fail {
     access: state_types.AccessControl {
       users: input_state.access.users,
       multi_sig_threshold: Some(2),
-      beneficiaries: [],
+      beneficiaries: input_state.access.beneficiaries,
     },
   }
   let transaction = fixtures.stt_spend_tx(
@@ -215,7 +213,7 @@ test beneficiary_use_rejects_unsigned_unlocked_beneficiary() fail {
     access: state_types.AccessControl {
       users: input_state.access.users,
       multi_sig_threshold: Some(2),
-      beneficiaries: [],
+      beneficiaries: input_state.access.beneficiaries,
     },
   }
   let transaction = fixtures.stt_spend_tx(
@@ -229,55 +227,41 @@ test beneficiary_use_rejects_unsigned_unlocked_beneficiary() fail {
   expect run_stt_spend(state_types.UseBeneficiary(7), transaction)
 }
 
-// Beneficiary-wallet distinctness on the SPEND path. Two unlocked beneficiaries
-// share a wallet; each one's authority check evaluates the pure
-// `beneficiary_wallets_are_distinct_from_others` predicate, so the
-// `beneficiary_wallets_distinct` conjunct is LIVE: both sharers evaluate to
-// False, the filter finds no authorized beneficiary, and `expect [beneficiary]`
-// fails the tx. (This pins the distinctness PROTECTION on the spend path.)
-test beneficiary_use_rejects_unlocked_shared_wallet_overlap() fail {
-  let input_state = states.secured_state(
-    [states.renewing_user(1, "user1")],
-    [
-      state_types.Beneficiary {
-        ..states.base_beneficiary(),
-        id: 7,
-        beneficiary_wallets: ["shared"],
-        unlock_after: Some(100),
-      },
-      state_types.Beneficiary {
-        ..states.base_beneficiary(),
-        id: 8,
-        beneficiary_wallets: ["shared"],
-        unlock_after: Some(100),
-      },
-    ],
-    [],
-  )
-  let output_state = state_types.State {
-    ..input_state,
-    access: state_types.AccessControl {
-      users: input_state.access.users,
-      multi_sig_threshold: Some(2),
-      beneficiaries: [
-        state_types.Beneficiary {
-          ..states.base_beneficiary(),
-          id: 8,
-          beneficiary_wallets: ["shared"],
-          unlock_after: Some(100),
-        },
-      ],
-    },
-  }
+// UpdateState is the only spend path that may replace beneficiaries. It must
+// establish global wallet uniqueness before the new State becomes reachable.
+test update_state_rejects_shared_beneficiary_wallets() fail {
+  let shared_wallet = fixtures.key_hash("shared")
+  let input_state = states.admin_state()
+  let output_state = input_state
+    |> states.with_beneficiaries(
+        [
+          state_types.Beneficiary {
+            ..states.base_beneficiary(),
+            id: 7,
+            beneficiary_wallets: [shared_wallet],
+            unlock_after: Some(100),
+          },
+          state_types.Beneficiary {
+            ..states.base_beneficiary(),
+            id: 8,
+            beneficiary_wallets: [shared_wallet],
+            unlock_after: Some(100),
+          },
+        ],
+      )
   let transaction = fixtures.stt_spend_tx(
-    interval.after(120),
-    ["shared"],
+    interval.after(0),
+    ["admin"],
     input_state,
     output_state,
     [],
     fixtures.tx_id(#"7a70"),
   )
-  expect run_stt_spend(state_types.UseBeneficiary(7), transaction)
+  expect
+    run_stt_spend(
+      fixtures.operator_action(state_types.Admin, state_types.UpdateState),
+      transaction,
+    )
 }
 
 // ---------------------------------------------------------------------------

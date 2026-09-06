@@ -9,6 +9,7 @@ import type { UTxO } from "@meshsdk/common";
 import type * as ServerWallet from "@/lib/mesh/server-wallet";
 import { BuildResultSchema } from "@/lib/api/tx-result";
 import { ApiErrorSchema } from "@/lib/api/errors";
+import { addVKeyWitnessSetToTransaction, createVKeyWitnessSetHex, deserializeTx, deserializeVKeyWitnessSet } from "@/lib/mesh/cst";
 
 // Generation cannot check that a handler's real response matches the schema it
 // claims, because it never runs one. This file runs the real route handler and
@@ -143,6 +144,27 @@ describe("a real build against a mock chain client", () => {
     expect(result.txHex.length).toBeGreaterThan(0);
     expect(Number(result.estimatedFeeLovelace)).toBeGreaterThan(0);
     expect(result.preview.txSize?.usedBytes ?? 0).toBeGreaterThan(0);
+  });
+
+  it("deploys the current shared reference script within the transaction size limit", async () => {
+    const response = await post(deployReference, { address: CALLER });
+    const body: unknown = await response.json();
+
+    expect(response.status, `unexpected body: ${JSON.stringify(body)}`).toBe(200);
+    const parsed = BuildResultSchema.parse(body);
+    const txSize = parsed.preview.txSize;
+
+    expect(txSize?.usedBytes ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(
+      txSize?.maxBytes ?? 0
+    );
+    // The previous 1 KiB reserve is no longer available. Check the actual
+    // serialized transaction with the single funding-key witness instead.
+    // Fixed witness bytes measure size only; this is not ledger validation.
+    const signed = addVKeyWitnessSetToTransaction(parsed.txHex, createVKeyWitnessSetHex([
+      { publicKeyHex: "11".repeat(32), signatureHex: "22".repeat(64) }
+    ]));
+    expect(deserializeVKeyWitnessSet(deserializeTx(signed).witnessSet().toCbor()).vkeys()?.values()).toHaveLength(1);
+    expect(signed.length / 2).toBeLessThanOrEqual(txSize?.maxBytes ?? 0);
   });
 });
 

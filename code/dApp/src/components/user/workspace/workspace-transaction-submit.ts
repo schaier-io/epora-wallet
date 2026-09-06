@@ -1,6 +1,9 @@
+import { beneficiaryPreparationActiveAtom, consolidateWalletInputsAtom } from "./atoms/forms/consolidate-form.atoms";
+import { recoveryCapacityFailureAtom, recoveryCapacitySignatureAtom } from "./atoms/recovery-capacity.atoms";
+import { recordRecoveryCapacityFailure } from "./recovery-capacity-model";
 import { buildDiagnosticIdAtom, mintConfirmationRunAtom, submitConfirmedAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { resetLockFundsFormAtom } from "@/components/user/workspace/atoms/forms/lock-funds-form.atoms";
-import { sttExtraTransfersAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import { sttExtraTransfersAtom, sttWalletInputsAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import {
   MINT_CONFIRMATION_MAX_ATTEMPTS,
   SUBMIT_CONFIRMATION_INITIAL_DELAY_MS,
@@ -105,6 +108,8 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
     options: { allowExistingSubmitHash?: boolean; requireCurrentPreview?: boolean } = {}
   ) {
     const { allowExistingSubmitHash = false, requireCurrentPreview = true } = options;
+    jotaiStore.set(recoveryCapacityFailureAtom, null);
+    const recoverySignature = jotaiStore.get(recoveryCapacitySignatureAtom);
 
     // Synchronous re-entry guard: blocks the second handler call when the
     // user double-clicks before React re-renders the button as disabled.
@@ -151,6 +156,17 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
       return;
     }
 
+    if (
+      transactionPreview.warnings?.length &&
+      !window.confirm(
+        i18n("reviewTheseWarningsBeforeYouSignContinue", {
+          warnings: transactionPreview.warnings.join("\n\n")
+        })
+      )
+    ) {
+      return;
+    }
+
     submitInFlightRef.current = true;
     setActiveSubmit(true);
     setBuildError(null);
@@ -186,6 +202,7 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
       setBuildError(parsed.message, parsed.staleInputs);
       setBuildErrorExpected(parsed.expected);
       jotaiStore.set(buildDiagnosticIdAtom, parsed.diagnosticId);
+      recordRecoveryCapacityFailure(jotaiStore, selectedAction, error, recoverySignature);
       if (selectedAction === "mint") {
         jotaiStore.set(mintConfirmationRunAtom, jotaiStore.get(mintConfirmationRunAtom) + 1);
         setMintConfirmation(null);
@@ -208,7 +225,7 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
     if (
       selectedAction === "use" ||
       selectedAction === "use-allowance" ||
-      selectedAction === "use-beneficiary"
+      (selectedAction === "use-beneficiary" || selectedAction === "exit-beneficiary")
     ) {
       runPostSubmitTask("recent-recipients", () =>
         rememberRecipients(sttExtraTransfers.map((transfer) => transfer.address))
@@ -218,6 +235,12 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
       // 5 ₳ to ..." -- over money that had already left the wallet, with Next step
       // still saying "Review the receipt and continue".
       runPostSubmitTask("clear-payouts", () => jotaiStore.set(sttExtraTransfersAtom, []));
+    }
+    if (selectedAction === "consolidate-utxo" && jotaiStore.get(beneficiaryPreparationActiveAtom)) {
+      runPostSubmitTask("clear-prepared-inputs", () => jotaiStore.set(consolidateWalletInputsAtom, []));
+    }
+    if (selectedAction === "distribute-beneficiaries") {
+      runPostSubmitTask("clear-distributed-input", () => jotaiStore.set(sttWalletInputsAtom, []));
     }
     if (selectedAction === "lock-funds") {
       // Same reason: the receipt read "You are adding 10 ₳ to the selected wallet."

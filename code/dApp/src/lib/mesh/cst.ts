@@ -44,6 +44,10 @@ export interface CstSized {
   toCbor(): string;
 }
 
+export interface CstCollection<T> extends CstSized {
+  values(): readonly T[];
+}
+
 export interface CstPlutusData {
   equals(other: CstPlutusData): boolean;
   toCbor(): string;
@@ -74,6 +78,8 @@ export interface CstTransactionBody {
   scriptDataHash(): CstStringable | undefined;
   setScriptDataHash(hash: Hash32ByteBase16): void;
   inputs(): unknown;
+  collateral(): CstCollection<CstTransactionInput> | undefined;
+  referenceInputs(): CstCollection<CstTransactionInput> | undefined;
   outputs(): unknown;
   fee(): CstStringable;
   /** `invalid_hereafter` slot (exclusive upper validity bound), when the body sets one. */
@@ -88,9 +94,9 @@ export interface CstTransactionBody {
 export interface CstWitnessSet {
   redeemers(): CstRedeemers | undefined;
   plutusData(): CstSized | undefined;
-  plutusV1Scripts(): CstSized | undefined;
-  plutusV2Scripts(): CstSized | undefined;
-  plutusV3Scripts(): CstSized | undefined;
+  plutusV1Scripts(): CstCollection<unknown> | undefined;
+  plutusV2Scripts(): CstCollection<unknown> | undefined;
+  plutusV3Scripts(): CstCollection<unknown> | undefined;
   toCbor(): string;
 }
 
@@ -122,7 +128,7 @@ export interface CstMultiasset {
   entries(): Iterable<[CstStringable, CstStringable]>;
 }
 
-export interface CstValue {
+export interface CstValue extends CstSized {
   multiasset(): CstMultiasset | undefined;
   coin(): CstStringable;
 }
@@ -130,7 +136,7 @@ export interface CstValue {
 export interface CstTransactionOutput {
   amount(): CstValue;
   address(): { toBech32(): CstStringable };
-  datum(): { asInlineData?: () => unknown } | undefined;
+  datum(): { asInlineData?: () => CstPlutusData | undefined } | undefined;
 }
 
 // --- cost-model / hashing surface (script-data hash recomputation) ---

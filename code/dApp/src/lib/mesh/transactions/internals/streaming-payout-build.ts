@@ -10,26 +10,45 @@ import {
 import type { Asset, PayoutTransfer } from "@/lib/types/contracts";
 import type { Transaction } from "@meshsdk/core";
 
-export type StreamingPayoutBatch = "ada-only" | "native-only" | "empty";
+export type StreamingPayoutBatch = "ada-only" | "native-only" | "mixed" | "empty";
 
 type StreamingAdaPayout = {
   settlementLovelace: bigint;
   sinkAmount: Asset[] | null;
-  outputAmounts: Asset[][];
+  outputs: Array<{
+    address: string;
+    settlementLovelace: bigint;
+    amount: Asset[];
+  }>;
 };
 
 export function resolveStreamingAdaPayoutTopUp(payout: StreamingAdaPayout) {
-  return payout.outputAmounts.reduce(
-    (total, amount) => total + getLovelaceQuantity(amount),
+  return payout.outputs.reduce(
+    (total, output) => total + getLovelaceQuantity(output.amount),
     0n
   ) - payout.settlementLovelace;
 }
 
 export function resolveStreamingAdaPayoutTotal(payout: StreamingAdaPayout) {
-  return payout.outputAmounts.reduce(
-    (total, amount) => total + getLovelaceQuantity(amount),
+  return payout.outputs.reduce(
+    (total, output) => total + getLovelaceQuantity(output.amount),
     0n
   );
+}
+
+export function resolveStreamingAdaPayoutTopUps(payout: StreamingAdaPayout) {
+  return payout.outputs.flatMap((output) => {
+    const finalOutputLovelace = getLovelaceQuantity(output.amount);
+    const topUpLovelace = finalOutputLovelace - output.settlementLovelace;
+    return topUpLovelace > 0n
+      ? [{
+          address: output.address,
+          settlementLovelace: output.settlementLovelace,
+          finalOutputLovelace,
+          topUpLovelace
+        }]
+      : [];
+  });
 }
 
 export function classifyStreamingPayoutBatch(
@@ -45,27 +64,32 @@ export function classifyStreamingPayoutBatch(
     (unit) => unit !== "lovelace" && unit !== ""
   );
 
-  if (hasAda && hasNativeAsset) {
-    throw new Error(
-      "Streaming payment payouts cannot mix ADA and native assets in one transaction. Build separate transactions for the ADA and native-asset payouts."
-    );
-  }
+  if (hasAda && hasNativeAsset) return "mixed";
   if (hasAda) return "ada-only";
   if (hasNativeAsset) return "native-only";
   return "empty";
 }
 
-export function createStreamingPayoutBuild(batch: StreamingPayoutBatch) {
+export function createStreamingPayoutBuild(
+  batch: StreamingPayoutBatch,
+  hasWalletInputs = false
+) {
+  // An ADA payout that spends the wallet script cannot leave ordinary ADA
+  // change. The validator treats every non-protocol ADA output as payout value
+  // and requires its matching payout tag. Absorb funding change into one tagged
+  // ADA output instead. Without a wallet-script input, ordinary change is safe.
+  const absorbsFundingChange =
+    hasWalletInputs && (batch === "ada-only" || batch === "mixed");
   let sinkAmount: Asset[] | null = null;
   let sinkMinimumLovelace = 0n;
   const adaPayout: StreamingAdaPayout = {
     settlementLovelace: 0n,
     sinkAmount: null,
-    outputAmounts: []
+    outputs: []
   };
   const excludedInputRefs = new Set<string>();
   const selector =
-    batch === "ada-only"
+    absorbsFundingChange
       ? createNoChangeAdaSelector({
           resolveSinkOutputIndex: (outputs) =>
             outputs.findIndex((output) => output.amount === sinkAmount),
@@ -85,11 +109,16 @@ export function createStreamingPayoutBuild(batch: StreamingPayoutBatch) {
         transfer.inlineDatum
       );
       if (batch !== "empty") {
-        adaPayout.settlementLovelace += getLovelaceQuantity(transfer.amount);
-        adaPayout.outputAmounts.push(output.amount);
+        const settlementLovelace = getLovelaceQuantity(transfer.amount);
+        adaPayout.settlementLovelace += settlementLovelace;
+        adaPayout.outputs.push({
+          address: transfer.address,
+          settlementLovelace,
+          amount: output.amount
+        });
       }
       if (
-        batch === "ada-only" &&
+        absorbsFundingChange &&
         sinkAmount === null &&
         transfer.amount.some(
           (asset) => asset.unit === "lovelace" || asset.unit === ""
@@ -114,6 +143,7 @@ export function createStreamingPayoutBuild(batch: StreamingPayoutBatch) {
         requireNoAppendedOutputs: true
       };
     },
-    adaPayout
+    adaPayout,
+    absorbsFundingChange
   };
 }

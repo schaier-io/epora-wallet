@@ -11,11 +11,12 @@
 
 use aiken/collection/list
 use aiken/collection/pairs
-use cardano/address.{Address}
+use cardano/address.{Address, Credential}
 use cardano/assets.{PolicyId, quantity_of}
 use cardano/transaction.{
   InlineDatum, Input, Output, OutputReference, Spend, Transaction,
 }
+use cardano/transaction/output_reference
 use state/types as state_types
 
 /// The forwarded STT transition as the wallet reads it: both `State` datums,
@@ -40,8 +41,8 @@ pub type ForwardedSttState {
 ///
 /// It LOCATES the STT input/output (to look up the redeemer and read both
 /// states) and decodes the inline `State` datum on each side. The input state
-/// is needed by the beneficiary rule, which reads weights from the set BEFORE
-/// the acting beneficiary is removed. Both datums are trustworthy because the
+/// is needed by the beneficiary rule, which reads weights from the set before
+/// an earlier beneficiary is removed. Both datums are trustworthy because the
 /// STT validator validated this exact transition; if the STT didn't fire, the
 /// redeemer lookup below fails.
 pub fn expect_forwarded_stt_output(
@@ -91,23 +92,54 @@ pub type WalletValueSnapshot {
   /// Sum of wallet outputs after this transaction's spend (continuing wallet
   /// state).
   output_value: assets.Value,
-  /// Net value that left the wallet to external addresses (i.e.
-  /// `input_value - output_value`, minus value already returning to the wallet
-  /// itself). This is what action-specific rules bound against.
-  paid_out_value: assets.Value,
   /// Number of consumed wallet inputs (same payment-credential filter as
-  /// `input_value`). With `output_count`, bounds UTxO-layout churn on the
-  /// crank (see `wallet/rules`' `PayStreamingPayment` branch).
+  /// `input_value`). With `output_count`, bounds UTxO-layout churn on allowance,
+  /// beneficiary, and streaming-payout branches (see `wallet/rules`).
   input_count: Int,
   /// Number of continuing wallet outputs (same filter as `output_value`).
   output_count: Int,
 }
 
-/// Snapshot the wallet's input, output, and paid-out values across every UTxO whose payment
-/// credential matches the consumed wallet input. Matching by payment credential (instead of the
-/// full Address) aggregates value consistently even when wallet UTxOs exist at multiple stake
-/// credentials under the same script hash, which prevents a per-invocation cap (the beneficiary
-/// weighted-share bound) from being applied K times across K stake variants in the same transaction.
+/// Same-script wallet inputs share one full validator execution. Every input
+/// derives this group from the payment credential, so stale stake credentials
+/// cannot split the group. The least output reference is its unique leader.
+pub type WalletInputGroup {
+  leader_reference: OutputReference,
+}
+
+/// Choose the least output reference among all consumed inputs under one wallet
+/// payment credential. `own_ref` belongs to that group and seeds the fold.
+pub fn wallet_input_group(
+  inputs: List<Input>,
+  wallet_payment_credential: Credential,
+  own_ref: OutputReference,
+) -> WalletInputGroup {
+  list.foldl(
+    inputs,
+    WalletInputGroup { leader_reference: own_ref },
+    fn(input, group) {
+      if input.output.address.payment_credential == wallet_payment_credential {
+        WalletInputGroup {
+          leader_reference: if output_reference.compare(
+            input.output_reference,
+            group.leader_reference,
+          ) == Less {
+            input.output_reference
+          } else {
+            group.leader_reference
+          },
+        }
+      } else {
+        group
+      }
+    },
+  )
+}
+
+/// Snapshot the wallet's input and output values across every UTxO whose
+/// payment credential matches the consumed wallet input. Matching by payment
+/// credential aggregates value consistently across stake variants. This stops
+/// one transaction from applying a beneficiary share cap once per variant.
 pub fn collect_wallet_value_snapshot(
   inputs: List<Input>,
   outputs: List<Output>,
@@ -127,28 +159,47 @@ pub fn collect_wallet_value_snapshot(
         },
       )
 
-  let input_value = list.foldl(
+  let input_accumulator = list.foldl(
     wallet_inputs,
-    assets.zero,
-    fn(input, acc) { assets.merge(acc, input.output.value) },
+    Pair(0, assets.zero),
+    fn(input, acc) {
+      let Pair(count, value) = acc
+      Pair(
+        count + 1,
+        if count == 0 {
+          input.output.value
+        } else {
+          assets.merge(value, input.output.value)
+        },
+      )
+    },
   )
-  let output_value = list.foldl(
+  let output_accumulator = list.foldl(
     wallet_outputs,
-    assets.zero,
-    fn(output, acc) { assets.merge(acc, output.value) },
+    Pair(0, assets.zero),
+    fn(output, acc) {
+      let Pair(count, value) = acc
+      Pair(
+        count + 1,
+        if count == 0 {
+          output.value
+        } else {
+          assets.merge(value, output.value)
+        },
+      )
+    },
   )
+  let Pair(input_count, input_value) = input_accumulator
+  let Pair(output_count, output_value) = output_accumulator
 
   WalletValueSnapshot {
     input_value,
     output_value,
-    // Net value that left the wallet is inputs minus outputs, derived from the
-    // two sums above rather than re-folding both lists a second time.
-    paid_out_value: assets.merge(input_value, assets.negate(output_value)),
     // UTxO counts over the SAME filtered lists as the value sums, so the
-    // crank's anti-fragmentation bound (`wallet/rules`, PayStreamingPayment
-    // branch) and the value aggregation can never disagree about what counts
-    // as a wallet UTxO.
-    input_count: list.length(wallet_inputs),
-    output_count: list.length(wallet_outputs),
+    // action-specific layout bounds (`wallet/rules`: UseAllowance,
+    // UseBeneficiary, and PayStreamingPayment) and value aggregation can never
+    // disagree about what counts as a wallet UTxO.
+    input_count,
+    output_count,
   }
 }

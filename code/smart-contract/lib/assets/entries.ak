@@ -6,6 +6,7 @@ use aiken/collection/list
 use assets/identity as asset_identity
 use cardano/assets
 use collections
+use constants
 use state/types.{AssetEntry}
 
 /// A flat asset-entries bundle (allowance, payout delta, …) is well-formed when
@@ -22,7 +23,12 @@ pub fn entries_are_valid(entries: List<AssetEntry>) -> Bool {
     fn(entry) { (entry.policy_id, entry.asset_name) },
   )
   and {
-    list.all(entries, fn(entry) { entry.quantity >= 0 })?,
+    list.all(
+      entries,
+      fn(entry) {
+        entry.quantity >= 0 && entry.quantity <= constants.max_state_integer
+      },
+    )?,
     list.all(
       entries,
       fn(entry) { asset_identity.is_valid(entry.policy_id, entry.asset_name) },

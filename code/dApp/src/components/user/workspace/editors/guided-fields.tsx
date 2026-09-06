@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatAmountSummary, formatCountLabel, formatInputRefLabel } from "@/components/user/workspace/helpers";
+import { isNonNegativeUint64Decimal } from "@/lib/contracts/on-chain-integer";
 import { type WalletInputRef } from "@/lib/types/contracts";
 import { type DurationUnit, combineDurationToMillis, combineLocalDateAndTimeToTimestamp, splitDurationMillis, splitTimestampToLocalInputParts } from "@/lib/user-flow/guided-helpers";
 import { cn } from "@/lib/utils/cn";
@@ -44,11 +45,18 @@ export function GuidedDateTimeField({
       setParts(splitTimestampToLocalInputParts(value));
     }
   }
-  const storedTimestamp = Number(value);
+  const normalizedStoredTimestamp = value.trim();
+  const storedTimestamp = Number(normalizedStoredTimestamp);
+  const storedDate = new Date(storedTimestamp);
   const hasStoredTimestamp =
-    value.trim().length > 0 && Number.isFinite(storedTimestamp) && storedTimestamp > 0;
+    isNonNegativeUint64Decimal(normalizedStoredTimestamp) &&
+    BigInt(normalizedStoredTimestamp) > 0n;
+  const storedTimestampFitsDate =
+    Number.isSafeInteger(storedTimestamp) && !Number.isNaN(storedDate.getTime());
   const storedTimestampLabel = hasStoredTimestamp
-    ? format.dateTime(storedTimestamp, "short")
+    ? storedTimestampFitsDate
+      ? format.dateTime(storedTimestamp, "short")
+      : normalizedStoredTimestamp
     : null;
 
   function updateParts(patch: Partial<typeof parts>) {
@@ -217,6 +225,7 @@ export function GuidedLockedUtxoSelector({
   selectedRefs,
   onChange,
   onSuggest,
+  selectionMode = "multiple",
   helper,
   error = null,
   onRefresh
@@ -224,7 +233,8 @@ export function GuidedLockedUtxoSelector({
   utxos: UTxO[];
   selectedRefs: WalletInputRef[];
   onChange: (value: WalletInputRef[]) => void;
-  onSuggest: () => void;
+  onSuggest?: () => void;
+  selectionMode?: "single" | "multiple";
   helper: string;
   /* The shared read behind `utxos` can fail; without these the panel reported the
      failure as an empty wallet with no way to retry (the gate on the pool browser
@@ -236,7 +246,6 @@ export function GuidedLockedUtxoSelector({
   const selectedKeys = new Set(
     selectedRefs.map((ref) => formatInputRefLabel(ref.txHash, ref.outputIndex))
   );
-
   function toggleUtxo(utxo: UTxO) {
     const nextRef = {
       txHash: utxo.input.txHash,
@@ -253,7 +262,7 @@ export function GuidedLockedUtxoSelector({
       return;
     }
 
-    onChange([...selectedRefs, nextRef]);
+    onChange(selectionMode === "single" ? [nextRef] : [...selectedRefs, nextRef]);
   }
 
   return (
@@ -278,10 +287,10 @@ export function GuidedLockedUtxoSelector({
               {i18n("refreshFunds")}
             </Button>
           ) : null}
-          <Button type="button" size="sm" variant="secondary" onClick={onSuggest} disabled={utxos.length === 0}>
+          {selectionMode === "multiple" && onSuggest ? <Button type="button" size="sm" variant="secondary" onClick={onSuggest} disabled={utxos.length === 0}>
             {i18n("pickEnoughForThisPayment")}
-          </Button>
-          <Button
+          </Button> : null}
+          {selectionMode === "multiple" ? <Button
             type="button"
             size="sm"
             variant="outline"
@@ -296,7 +305,7 @@ export function GuidedLockedUtxoSelector({
             disabled={utxos.length === 0}
           >
             {i18n("selectAll")}
-          </Button>
+          </Button> : null}
           <Button
             type="button"
             size="sm"
@@ -327,6 +336,7 @@ export function GuidedLockedUtxoSelector({
                 key={refLabel}
                 type="button"
                 onClick={() => toggleUtxo(utxo)}
+                aria-pressed={isSelected}
                 className={cn(
                   "w-full rounded-md border px-3 py-2.5 text-left transition-colors",
                   isSelected

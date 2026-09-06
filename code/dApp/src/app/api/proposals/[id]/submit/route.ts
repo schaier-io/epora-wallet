@@ -7,6 +7,10 @@ import {
   txBodyHashSchema
 } from "@/lib/proposals/api-helpers";
 import { assembleSignedTx } from "@/lib/proposals/assemble";
+import {
+  assertSerializedTransactionShapeIsBounded,
+  assertSerializedTransactionSizeIsBounded
+} from "@/lib/mesh/transactions/internals/budget";
 import { readBoundedJson, RequestBodyTooLargeError } from "@/lib/http/request-body";
 import { rateLimit } from "@/lib/http/rate-limit";
 import { getBlockfrostProvider } from "@/lib/mesh/blockfrost-server";
@@ -87,6 +91,8 @@ export async function POST(request: Request, context: RouteContext) {
     let provider: ReturnType<typeof getBlockfrostProvider>;
     try {
       signedTx = assembleSignedTx(claimed.proposal);
+      assertSerializedTransactionSizeIsBounded(signedTx);
+      assertSerializedTransactionShapeIsBounded(signedTx);
       provider = getBlockfrostProvider();
     } catch (error) {
       await releaseClaim();

@@ -43,6 +43,14 @@ test("createMeshRedeemer wraps the datum and applies the default redeemer budget
   });
 });
 
+test("createMeshRedeemer preserves an evaluated budget override", () => {
+  const data = { alternative: 0, fields: [] };
+  assert.deepEqual(createMeshRedeemer(data, { mem: 123, steps: 456 }), {
+    data: { type: "Mesh", content: data },
+    exUnits: { mem: 123, steps: 456 }
+  });
+});
+
 // A real preprod reward address: Mesh parses it when it records the withdrawal.
 const REWARD_ADDRESS = "stake_test1uqevw2xnsc0pvn9t9r9c7qryfqfeerchgrlm3ea2nefr9hqp8n5xl";
 const WITHDRAW_SCRIPT = { code: "4e4d01000033222220051200120011", version: "V3" as const };

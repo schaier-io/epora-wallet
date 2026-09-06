@@ -15,6 +15,7 @@ type StakeAddressDiscoveryPanelProps = {
   enabled?: boolean;
   busy?: boolean;
   onConsolidate: (orphans: DiscoveredUtxo[]) => void;
+  onRecover?: (orphans: DiscoveredUtxo[]) => void;
 };
 
 /// Runs the orphan / Franken-address discovery (a direct, client-side Koios query, on
@@ -28,7 +29,8 @@ export function StakeAddressDiscoveryPanel({
   walletScriptAddress,
   enabled = true,
   busy = false,
-  onConsolidate
+  onConsolidate,
+  onRecover
 }: StakeAddressDiscoveryPanelProps) {
   const i18n = useTranslations("ComponentsUserStakeAddressDiscoveryPanel");
   const { orphans, orphanLovelace, error, refetch } = useOrphanWalletUtxos({
@@ -45,6 +47,7 @@ export function StakeAddressDiscoveryPanel({
         orphanLovelace={orphanLovelace}
         busy={busy}
         onConsolidate={onConsolidate}
+        onRecover={onRecover}
         onRefresh={() => void refetch()}
       />
     );

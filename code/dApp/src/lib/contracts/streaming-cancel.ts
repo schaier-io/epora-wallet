@@ -9,6 +9,12 @@ import { assertNonAdminStreamingActionWindow } from "@/lib/contracts/crank-coold
 import { isConstrData, readStateSections } from "@/lib/contracts/state-layout";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import type { ConstrData } from "@/lib/types/contracts";
+import { readInteger } from "@/lib/contracts/plutus-primitives";
+import {
+  assertNonNegativeUint64,
+  type OnChainInteger,
+  toOnChainBigInt
+} from "@/lib/contracts/on-chain-integer";
 
 // State datum field layout (matches the on-chain `State` constructor order).
 const STATE_STREAMING_PAYMENTS_INDEX = 2;
@@ -39,13 +45,12 @@ export type StreamingPaymentCancellationComputation = {
  */
 export function deriveStreamingPaymentCancellationStateDatum(
   stateDatum: ConstrData,
-  streamingPaymentId: number,
+  streamingPaymentId: OnChainInteger,
   txEarliestTimeMs: number,
   txLatestTimeMs: number
 ): StreamingPaymentCancellationComputation {
-  if (!Number.isSafeInteger(streamingPaymentId) || streamingPaymentId < 0) {
-    throw new Error("Streaming payment cancellation id must be a non-negative safe integer.");
-  }
+  const targetId = toOnChainBigInt(streamingPaymentId, "Streaming payment cancellation id");
+  assertNonNegativeUint64(targetId, "Streaming payment cancellation id");
 
   const unwrappedStateDatum = unwrapStateDatum(
     stateDatum,
@@ -81,26 +86,23 @@ export function deriveStreamingPaymentCancellationStateDatum(
     }
 
     const id = streamingPayment.fields[STREAMING_PAYMENT_ID_INDEX];
-    if (id !== streamingPaymentId) {
+    if (BigInt(readInteger(id, `Streaming payment cancellation streamingPayments[${index}].id`)) !== targetId) {
       return streamingPayment;
     }
 
-    const currentEndDate = streamingPayment.fields[STREAMING_PAYMENT_END_DATE_INDEX];
-    const startDate = streamingPayment.fields[STREAMING_PAYMENT_START_DATE_INDEX];
-    if (typeof currentEndDate !== "number" || !Number.isSafeInteger(currentEndDate)) {
-      throw new Error(
-        `Streaming payment cancellation streamingPayments[${index}].end_date must be a safe integer.`
-      );
-    }
-    if (typeof startDate !== "number" || !Number.isSafeInteger(startDate)) {
-      throw new Error(
-        `Streaming payment cancellation streamingPayments[${index}].start_date must be a safe integer.`
-      );
-    }
+    const currentEndDate = BigInt(readInteger(
+      streamingPayment.fields[STREAMING_PAYMENT_END_DATE_INDEX],
+      `Streaming payment cancellation streamingPayments[${index}].end_date`
+    ));
+    const startDate = BigInt(readInteger(
+      streamingPayment.fields[STREAMING_PAYMENT_START_DATE_INDEX],
+      `Streaming payment cancellation streamingPayments[${index}].start_date`
+    ));
 
     // Preserve the valid start <= end shape without charging a synthetic 1 ms
     // at high rates when a receiver stops a stream before accrual begins.
-    const cappedEndDate = Math.max(startDate, txLatestTimeMs);
+    const latestTime = BigInt(txLatestTimeMs);
+    const cappedEndDate = startDate > latestTime ? startDate : latestTime;
     if (cappedEndDate >= currentEndDate) {
       throw new Error(
         `Streaming payment ${streamingPaymentId} ends too soon to shorten within this transaction's safe validity window.`
@@ -109,7 +111,9 @@ export function deriveStreamingPaymentCancellationStateDatum(
 
     matched = true;
     const nextFields = [...streamingPayment.fields];
-    nextFields[STREAMING_PAYMENT_END_DATE_INDEX] = cappedEndDate;
+    nextFields[STREAMING_PAYMENT_END_DATE_INDEX] = cappedEndDate <= BigInt(Number.MAX_SAFE_INTEGER)
+      ? Number(cappedEndDate)
+      : cappedEndDate;
     return {
       ...streamingPayment,
       fields: nextFields

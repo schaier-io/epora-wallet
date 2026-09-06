@@ -118,7 +118,13 @@ test("manual budget rebalance adjusts a prepared tagged payout instead of change
 
   const txHex = applyManualBudgetOverrides(
     { txBuilder: builder } as unknown as Transaction,
-    { spendBudgetsByRef: new Map(), mintBudgets: [], rewardBudgets: [] },
+    {
+      certificateBudgets: [],
+      spendBudgetsByRef: new Map(),
+      mintBudgets: [],
+      rewardBudgets: [],
+      voteBudgets: []
+    },
     1,
     {
       outputIndex: 0,
@@ -135,7 +141,7 @@ test("manual budget rebalance adjusts a prepared tagged payout instead of change
 // applyBudgetOverridesToBuilder mutates the builder's redeemer exUnits in place;
 // a mismatch here ships a tx whose declared budgets differ from what was priced.
 
-test("applyBudgetOverridesToBuilder overrides matched spend/mint/reward budgets only", () => {
+test("applyBudgetOverridesToBuilder overrides every supported script purpose", () => {
   const builder = {
     meshTxBuilderBody: {
       inputs: [
@@ -144,14 +150,34 @@ test("applyBudgetOverridesToBuilder overrides matched spend/mint/reward budgets 
         { type: "PubKey", txIn: { txHash: A, txIndex: 9 } }
       ],
       mints: [{ type: "Plutus", redeemer: { exUnits: { mem: 1, steps: 1 } } }],
-      withdrawals: [{ type: "ScriptWithdrawal", redeemer: { exUnits: { mem: 1, steps: 1 } } }]
+      withdrawals: [{ type: "ScriptWithdrawal", redeemer: { exUnits: { mem: 1, steps: 1 } } }],
+      certificates: [
+        {
+          type: "ScriptCertificate",
+          certType: { type: "RegisterStake", stakeKeyAddress: "stake_test1xyz" },
+          redeemer: { exUnits: { mem: 1, steps: 1 } }
+        }
+      ],
+      votes: [
+        {
+          type: "ScriptVote",
+          vote: {
+            voter: { type: "DRep", drepId: "drep1xyz" },
+            govActionId: { txHash: A, txIndex: 0 },
+            votingProcedure: { voteKind: "Yes" }
+          },
+          redeemer: { exUnits: { mem: 1, steps: 1 } }
+        }
+      ]
     }
   } as unknown as RuntimeTxBuilder;
 
   applyBudgetOverridesToBuilder(builder, {
+    certificateBudgets: [{ mem: 700, steps: 800 }],
     spendBudgetsByRef: new Map([[`${A}#0`, { mem: 100, steps: 200 }]]),
     mintBudgets: [{ mem: 300, steps: 400 }],
-    rewardBudgets: [{ mem: 500, steps: 600 }]
+    rewardBudgets: [{ mem: 500, steps: 600 }],
+    voteBudgets: [{ mem: 900, steps: 1000 }]
   });
 
   const body = builder.meshTxBuilderBody;
@@ -160,6 +186,15 @@ test("applyBudgetOverridesToBuilder overrides matched spend/mint/reward budgets 
   assert.deepEqual(body.inputs![1]!.scriptTxIn!.redeemer!.exUnits, { mem: 2, steps: 2 });
   assert.deepEqual(body.mints![0]!.redeemer!.exUnits, { mem: 300, steps: 400 });
   assert.deepEqual(body.withdrawals![0]!.redeemer!.exUnits, { mem: 500, steps: 600 });
+  const certificate = body.certificates[0]!;
+  const vote = body.votes[0]!;
+  assert.equal(certificate.type, "ScriptCertificate");
+  assert.equal(vote.type, "ScriptVote");
+  if (certificate.type !== "ScriptCertificate" || vote.type !== "ScriptVote") {
+    assert.fail("Expected script governance entries.");
+  }
+  assert.deepEqual(certificate.redeemer!.exUnits, { mem: 700, steps: 800 });
+  assert.deepEqual(vote.redeemer!.exUnits, { mem: 900, steps: 1000 });
 });
 
 test("findAdjustableChangeOutputIndex prefers a clean change output at/after the prepared count", () => {
@@ -232,4 +267,20 @@ test("calculateCurrentFee prefers calculateFee, then getActualFee, then the reco
     calculateCurrentFee({ meshTxBuilderBody: { fee: "9" } } as unknown as RuntimeTxBuilder),
     9n
   );
+});
+
+test("exact distribution fee adjustment preserves prepared self-payouts and only uses appended connected change",()=>{
+  const makeBuilder=(appended:boolean)=>({meshTxBuilderBody:{fee:"200000",changeAddress:CHANGE,outputs:[
+    {address:CHANGE,amount:[{unit:"lovelace",quantity:"2000000"}],datum:{tag:7}},
+    ...(appended?[{address:CHANGE,amount:[{unit:"lovelace",quantity:"3000000"}]}]:[])
+  ]},calculateFee:()=>210_000n,completeUnbalancedSync:()=>"tx"}) as unknown as RuntimeTxBuilder;
+  const overrides={certificateBudgets:[],spendBudgetsByRef:new Map(),mintBudgets:[],rewardBudgets:[],voteBudgets:[]};
+  const missing=makeBuilder(false);
+  assert.equal(findAdjustableChangeOutputIndex(missing,1,true),-1);
+  assert.throws(()=>applyManualBudgetOverrides({txBuilder:missing} as unknown as Transaction,overrides,1,undefined,true),/Could not locate a change output/);
+  assert.equal(missing.meshTxBuilderBody.outputs![0]!.amount[0]!.quantity,"2000000");
+  const funded=makeBuilder(true);
+  assert.equal(applyManualBudgetOverrides({txBuilder:funded} as unknown as Transaction,overrides,1,undefined,true),"tx");
+  assert.equal(funded.meshTxBuilderBody.outputs![0]!.amount[0]!.quantity,"2000000");
+  assert.equal(funded.meshTxBuilderBody.outputs![1]!.amount[0]!.quantity,"2990000");
 });

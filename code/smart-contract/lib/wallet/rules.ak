@@ -12,9 +12,21 @@ use aiken/collection/list
 use assets/entries as asset_entries
 use cardano/assets
 use state/types as state_types
+use streaming_payments/funding.{StreamingReserve}
+use wallet/beneficiary_distribution
 use wallet/beneficiary_share
 use wallet/io.{WalletValueSnapshot}
 use wallet/payout_routing.{OutputContext}
+
+fn subtract_entries(
+  input_value: assets.Value,
+  entries: state_types.AssetEntries,
+) -> assets.Value {
+  assets.difference(
+    input_value,
+    asset_entries.value_from_asset_entries(entries),
+  )
+}
 
 /// Match the STT action (read from the STT spend redeemer) to the wallet
 /// movement it permits.
@@ -26,11 +38,14 @@ use wallet/payout_routing.{OutputContext}
 ///   RunOperator(UpdateState, _)       |  no    | —
 ///   RunOperator(ManageStreamingPayments,_)|  no    | —
 ///   RenewProofOfLife                  |  no    | —
-///   UseAllowance(spent_allowance)     |  yes   | paid_out_value == spent_allowance
-///   UseBeneficiary(id)                |  yes   | weighted share of (wallet − streaming reserve)
-///   PayStreamingPayment(payout_delta)     |  yes   | tagged outputs sum to payout_delta; wallet output count <= input count
-///   Consolidate(_)                    |  no¹   | wallet input_value == output_value
+///   UseAllowance(spent_allowance)     |  yes   | exact delta; outputs <= inputs
+///   UseBeneficiary(id)                |  yes   | weighted share; outputs <= inputs
+///   ExitBeneficiary(id)               |  yes   | weighted share; outputs <= inputs
+///   DistributeBeneficiaries(id)       |  yes   | exact weighted outputs; one input, zero change
+///   PayStreamingPayment(payout_delta) |  yes   | exact delta + routing; outputs <= inputs
+///   Consolidate(_)                    |  no¹   | exact aggregate value; no count cap
 ///   CancelStreamingPayment(id)        |  no    | —
+///   StopBeneficiaryStream(_, _)       |  no    | —
 ///
 /// ¹ Consolidation is technically a "spend" of wallet UTxOs but value must be
 ///   exactly preserved across the consolidation — no funds leave the wallet.
@@ -40,8 +55,10 @@ use wallet/payout_routing.{OutputContext}
 pub fn stt_action_allows_spend(
   action: state_types.SttAction,
   input_state: state_types.State,
+  repeatable_beneficiary_recovery: Bool,
   wallet_values: WalletValueSnapshot,
-  streaming_reserve: assets.Value,
+  streaming_reserve: StreamingReserve,
+  spent_wallet_assets: state_types.AssetEntries,
   output_context: OutputContext,
 ) -> Bool {
   when action is {
@@ -54,34 +71,60 @@ pub fn stt_action_allows_spend(
 
     // Allowance use can only pay out the exact spent allowance delta.
     state_types.UseAllowance(spent_allowance) -> {
+      expect wallet_values.output_count <= wallet_values.input_count
       expect
-        asset_entries.flatten_to_entries(wallet_values.paid_out_value) == spent_allowance
+        wallet_values.output_value == subtract_entries(
+          wallet_values.input_value,
+          spent_allowance,
+        )
       True
     }
 
+    // Exact distribution empties one selected input into distinct payout tags.
+    state_types.DistributeBeneficiaries(_) -> {
+      expect wallet_values.input_count == 1
+      expect wallet_values.output_count == 0
+      beneficiary_distribution.all_shares_are_paid(
+        input_state.access.beneficiaries,
+        wallet_values.input_value,
+        output_context,
+      )
+    }
+
     // Beneficiary use is bounded by the beneficiary's weighted share of the
-    // distributable pool. The acting beneficiary is removed in the forwarded
-    // (output) state, so its weight and the pre-removal weight total are read
-    // from the INPUT state — the STT validator already proved the output state
-    // equals the input with exactly this beneficiary removed.
-    state_types.UseBeneficiary(beneficiary_id) -> {
+    // distributable pool. Weights come from the input state. The STT validator
+    // removes an earlier beneficiary, but preserves the final beneficiary so
+    // it can retry recovery for any wallet UTxOs that remain. ExitBeneficiary
+    // always removes the actor and uses the weighted-share check, including
+    // the final actor whose share is 100%.
+    state_types.UseBeneficiary(beneficiary_id) |
+    state_types.ExitBeneficiary(beneficiary_id) -> {
       expect Some(beneficiary) = list.find(
         input_state.access.beneficiaries,
         fn(beneficiary) { beneficiary.id == beneficiary_id },
       )
-      let remaining_weight = list.foldl(
-        input_state.access.beneficiaries,
-        0,
-        fn(other, acc) { acc + other.weight },
-      )
-      expect
-        beneficiary_share.paid_out_within_share(
-          beneficiary.weight,
-          remaining_weight,
-          wallet_values.input_value,
-          streaming_reserve,
-          wallet_values.paid_out_value,
+      if repeatable_beneficiary_recovery {
+        // The final beneficiary owns the full distributable pool. The reserve
+        // gate in wallet.ak already rejects every outflow that would cross a
+        // streaming reserve, so repeating the weighted-share scan adds no
+        // constraint here. Keep only the output-count anti-fragmentation rule.
+        expect wallet_values.output_count <= wallet_values.input_count
+      } else {
+        expect wallet_values.output_count <= wallet_values.input_count
+        let remaining_weight = list.foldl(
+          input_state.access.beneficiaries,
+          0,
+          fn(other, acc) { acc + other.weight },
         )
+        expect
+          beneficiary_share.paid_out_within_share(
+            beneficiary.weight,
+            remaining_weight,
+            wallet_values.input_value,
+            streaming_reserve,
+            spent_wallet_assets,
+          )
+      }
       True
     }
 
@@ -101,7 +144,10 @@ pub fn stt_action_allows_spend(
     // the input set is also correct for partial payouts.
     state_types.PayStreamingPayment(payout_delta) -> {
       expect
-        asset_entries.flatten_to_entries(wallet_values.paid_out_value) == payout_delta
+        wallet_values.output_value == subtract_entries(
+          wallet_values.input_value,
+          payout_delta,
+        )
       // Anti-fragmentation: the crank is the only wallet spend that needs no
       // wallet-role signature, so without this bound a cranker could split
       // the wallet's funds into ever more min-ADA-sized UTxOs (value, stake,
@@ -123,7 +169,10 @@ pub fn stt_action_allows_spend(
       True
     }
 
-    // Consolidation must preserve the wallet value exactly.
+    // Consolidation may collect or repartition wallet UTxOs, but it must
+    // preserve the aggregate wallet value exactly. An authorized actor may
+    // increase the UTxO count. A later Consolidation can reverse that layout,
+    // but discovery work and cleanup fees can increase.
     state_types.Consolidate(_) -> {
       expect wallet_values.input_value == wallet_values.output_value
       True
@@ -132,9 +181,10 @@ pub fn stt_action_allows_spend(
     // No wallet spend permitted on proof-of-life renewal.
     state_types.RenewProofOfLife -> False
 
-    // A payee self-cancel is a pure STT state transition — it only lowers one
+    // A payee cancel or beneficiary stop is a pure STT transition. It lowers one
     // streaming payment's `end_date` and never moves wallet value — so no wallet
     // spend is permitted (like RenewProofOfLife / UpdateState).
-    state_types.CancelStreamingPayment(_) -> False
+    state_types.CancelStreamingPayment(_) |
+    state_types.StopBeneficiaryStream(_, _) -> False
   }
 }

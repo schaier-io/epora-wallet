@@ -82,17 +82,16 @@ test("streaming payout builder separates ADA-only and native-only batches", () =
   );
 });
 
-test("streaming payout builder rejects mixed ADA and native batches", () => {
-  assert.throws(
-    () =>
-      classifyStreamingPayoutBatch([
-        ...payoutTransfers(),
-        {
-          ...payoutTransfers()[0]!,
-          amount: [{ unit: `${"ab".repeat(28)}01`, quantity: "1" }]
-        }
-      ]),
-    /separate transactions/
+test("streaming payout builder accepts mixed ADA and native batches", () => {
+  assert.equal(
+    classifyStreamingPayoutBatch([
+      ...payoutTransfers(),
+      {
+        ...payoutTransfers()[0]!,
+        amount: [{ unit: `${"ab".repeat(28)}01`, quantity: "1" }]
+      }
+    ]),
+    "mixed"
   );
 });
 

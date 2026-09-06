@@ -223,3 +223,26 @@ it("does not let an older wallet summary overwrite a newer one", async () => {
 
   expect(Object.keys(store.get(permissionWalletSummariesAtom))).toEqual([newerToken.unit]);
 });
+
+it("refreshes the known wallet by identity and preserves other cached wallets", async () => {
+  const other = { ...token, unit: "policybb", assetNameHex: "bb" };
+  mocks.detectSttInfo.mockResolvedValue({ policyId: "policy", tokens: [token] });
+  const { store, hook } = setup(token.unit);
+  act(() => store.set(detectedSttTokensAtom, [token, other]));
+  let result: Awaited<ReturnType<typeof hook.result.current.refreshDetectedTokens>>;
+  await act(async () => { result = await hook.result.current.refreshDetectedTokens({ keepSelection: true }); });
+  expect(result!.tokens).toContainEqual(other);
+  expect(mocks.detectSttInfo).toHaveBeenCalledWith(token.unit);
+  expect(store.get(detectedSttTokensAtom)).toContainEqual(other);
+  expect(store.get(detectedSttTokensAtom)).toContainEqual(token);
+});
+
+
+it("manual refresh discovers other wallets even when a wallet is selected", async () => {
+  const other = { ...token, unit: "policybb", assetNameHex: "bb" };
+  mocks.detectSttInfo.mockResolvedValue({ policyId: "policy", tokens: [token, other] });
+  const { store, hook } = setup(token.unit);
+  await act(async () => { await hook.result.current.refreshDetectedTokens(); });
+  expect(mocks.detectSttInfo).toHaveBeenCalledWith(undefined);
+  expect(store.get(detectedSttTokensAtom)).toEqual([token, other]);
+});

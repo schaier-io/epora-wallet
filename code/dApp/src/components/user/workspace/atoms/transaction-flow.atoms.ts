@@ -1,3 +1,4 @@
+import { recoveryCapacityFailureAtom } from "./recovery-capacity.atoms";
 import { atom } from "jotai";
 
 import type { BuildResult } from "@/lib/types/contracts";
@@ -68,6 +69,7 @@ export const dismissedSubmitHashAtom = atom<string | null>(null);
 export const buildErrorWriteAtom = atom(
   null,
   (_get, set, payload: { message: string | null; staleInputs?: boolean }) => {
+    set(recoveryCapacityFailureAtom, null);
     set(buildErrorAtom, payload.message);
     set(buildErrorStaleInputsAtom, payload.staleInputs ?? false);
     set(buildDiagnosticIdAtom, null);
@@ -76,6 +78,7 @@ export const buildErrorWriteAtom = atom(
 
 /** Pre-flight check failed before a build started (no wallet / wrong network). */
 export const precheckFailedAtom = atom(null, (_get, set, message: string) => {
+  set(recoveryCapacityFailureAtom, null);
   set(buildErrorAtom, message);
   set(buildErrorExpectedAtom, false);
   set(buildDiagnosticIdAtom, null);
@@ -85,6 +88,7 @@ export const precheckFailedAtom = atom(null, (_get, set, message: string) => {
 /** A build began for `label`: clear prior error/hash/confirmation; any stale preview is kept until success/failure. */
 export const buildStartedAtom = atom(null, (_get, set, label: string) => {
   set(activeBuildAtom, label);
+  set(recoveryCapacityFailureAtom, null);
   set(buildErrorAtom, null);
   set(buildErrorExpectedAtom, false);
   set(buildDiagnosticIdAtom, null);
@@ -108,6 +112,7 @@ export const buildSucceededAtom = atom(
 export const buildFailedAtom = atom(
   null,
   (_get, set, payload: { message: string; expected: boolean; diagnosticId?: string | null; staleInputs?: boolean }) => {
+    set(recoveryCapacityFailureAtom, null);
     set(buildErrorAtom, payload.message);
     set(buildErrorExpectedAtom, payload.expected);
     set(buildDiagnosticIdAtom, payload.expected ? null : payload.diagnosticId ?? null);
@@ -142,6 +147,7 @@ export const resetFlowAtom = atom(null, (_get, set) => {
   set(previewAtom, null);
   set(previewSignatureAtom, null);
   set(lastActionLabelAtom, "");
+  set(recoveryCapacityFailureAtom, null);
   set(buildErrorAtom, null);
   set(buildErrorExpectedAtom, false);
   set(buildDiagnosticIdAtom, null);
@@ -153,6 +159,7 @@ export const resetFlowAtom = atom(null, (_get, set) => {
 
 /** Clear only the error banner (leaves any preview intact); legacy `clearBuildMessages`. */
 export const clearMessagesAtom = atom(null, (_get, set) => {
+  set(recoveryCapacityFailureAtom, null);
   set(buildErrorAtom, null);
   set(buildErrorExpectedAtom, false);
   set(buildDiagnosticIdAtom, null);
@@ -168,6 +175,7 @@ export const clearMessagesAtom = atom(null, (_get, set) => {
 export const resetAllFlowAtom = atom(null, (_get, set) => {
   set(activeBuildAtom, null);
   set(activeSubmitAtom, false);
+  set(recoveryCapacityFailureAtom, null);
   set(buildErrorAtom, null);
   set(buildErrorExpectedAtom, false);
   set(buildDiagnosticIdAtom, null);

@@ -1,4 +1,7 @@
 // Pure per-action field validation extracted from permission-wallet-workspace.tsx.
+import type { UTxO } from "@meshsdk/core";
+import { deriveBeneficiaryDistributionPreview } from "./beneficiary-distribution-model";
+import { deriveBeneficiaryStreamStopPreview } from "./beneficiary-stream-stop-model";
 import { type FieldErrors, type UserActionKind } from "@/components/user/flow-types";
 import { MINT_PERFORMED_ACTION, NON_NEGATIVE_INTEGER_SCHEMA, OPTIONAL_NON_NEGATIVE_INTEGER_SCHEMA, RENEW_PROOF_OF_LIFE_ACTION, REQUIRED_TEXT_SCHEMA } from "@/components/user/workspace/constants";
 import { appendValidationErrors, cloneStateForm, hasPositiveAssetAmount, pushFieldError, resolveConsolidateActionAlternative, resolveManageStreamingPaymentsActionAlternative, resolveOperatorActionAlternative, resolveUpdateStateActionAlternative, resolveUseActionAlternative, resolveProofOfLifeOverrideTimestamp, resolveWalletWrapperSttInputRef, serializeWalletOutputs, validateAssetRows, validateField, validateWalletInputRefs, validateWalletScriptOutputs, walletNameAlreadyExists } from "@/components/user/workspace/helpers";
@@ -23,6 +26,12 @@ const i18n = createDefaultTranslator("ComponentsUserWorkspaceActionValidation", 
 export type ActionFieldErrorsInput = {
   activeInferredSttStateForm: StateFormState;
   activePaymentKeyHash: string | null;
+  beneficiaryStreamStopId?: string;
+  beneficiaryPreparation?: { error: string | null; ready: boolean };
+  nowMs?: number;
+  lockedContractUtxos?: UTxO[];
+  lockedContractUtxosLoading?: boolean;
+  lockedContractUtxosError?: string | null;
   consolidateAuthorityPath: ConsolidateAuthorityPath;
   consolidateSttAssets: Asset[];
   consolidateSttInputHash: string;
@@ -208,6 +217,7 @@ export function computeActionFieldErrors(
       updateErrors,
       manageStreamingPaymentsErrors,
       limitedErrors,
+      exitErrors,
       useAllowanceErrors,
       streamingPaymentErrors
     } = computeSpendActionErrors(input, {
@@ -238,6 +248,11 @@ export function computeActionFieldErrors(
       consolidateWalletInputs,
       1
     );
+    if (input.beneficiaryPreparation) {
+      if (input.beneficiaryPreparation.error || !input.beneficiaryPreparation.ready) {
+        pushFieldError(consolidateErrors, i18n("preparation"), input.beneficiaryPreparation.error ?? i18n("preparationRequirements"));
+      }
+    } else {
     validateWalletScriptOutputs(
       consolidateErrors,
       "New fund pools",
@@ -256,6 +271,7 @@ export function computeActionFieldErrors(
         i18n("consolidation"),
         error instanceof Error ? error.message : i18n("consolidationInputsAreInvalid")
       );
+    }
     }
 
     const lockFundsErrors: FieldErrors = {};
@@ -439,7 +455,25 @@ export function computeActionFieldErrors(
       );
     }
 
+    const distributionErrors: FieldErrors = {};
+    const distributionPreview = deriveBeneficiaryDistributionPreview({
+      form: activeInferredSttStateForm, signer: activePaymentKeyHash,
+      selectedRefs: input.sttWalletInputs, utxos: input.lockedContractUtxos ?? [],
+      loading: input.lockedContractUtxosLoading, discoveryError: input.lockedContractUtxosError,
+      nowMs: input.nowMs ?? Date.now(),
+      sttInput: { txHash: input.sttInputTxHash, outputIndex: Number(input.sttInputOutputIndex) }
+    });
+    if (distributionPreview.error) pushFieldError(distributionErrors, i18n("distribution"), distributionPreview.error);
+    validateField(distributionErrors, "STT input tx hash", REQUIRED_TEXT_SCHEMA, input.sttInputTxHash);
+    validateField(distributionErrors, "STT input index", OPTIONAL_NON_NEGATIVE_INTEGER_SCHEMA, input.sttInputOutputIndex);
+    const stopErrors: FieldErrors = {};
+    const stopPreview = deriveBeneficiaryStreamStopPreview(activeInferredSttStateForm, activePaymentKeyHash, input.beneficiaryStreamStopId ?? "", input.nowMs ?? Date.now());
+    if (stopPreview.error) pushFieldError(stopErrors, i18n("scheduledPayment"), stopPreview.error);
+    validateField(stopErrors, "STT input tx hash", REQUIRED_TEXT_SCHEMA, input.sttInputTxHash);
+    validateField(stopErrors, "STT input index", OPTIONAL_NON_NEGATIVE_INTEGER_SCHEMA, input.sttInputOutputIndex);
     return {
+      "distribute-beneficiaries": distributionErrors,
+      "stop-beneficiary-stream": stopErrors,
       mint: mintErrors,
       use: useErrors,
       "renew-proof-of-life": renewProofOfLifeErrors,
@@ -447,6 +481,7 @@ export function computeActionFieldErrors(
       "manage-streaming-payments": manageStreamingPaymentsErrors,
       "use-allowance": useAllowanceErrors,
       "use-beneficiary": limitedErrors,
+      "exit-beneficiary": exitErrors,
       "payout-streaming-payment": streamingPaymentErrors,
       "consolidate-utxo": consolidateErrors,
       "lock-funds": lockFundsErrors,

@@ -1,12 +1,21 @@
+import { beneficiaryPreparationActiveAtom, beneficiaryPreparationPoolAssetsAtom, consolidateSttInputHashAtom, consolidateSttInputIndexAtom, consolidateWalletInputsAtom, consolidateWalletOutputsAtom } from "./atoms/forms/consolidate-form.atoms";
 import { createStore } from "jotai";
 import { beforeEach, expect, it, vi } from "vitest";
 import { lockFundsAssetsAtom } from "@/components/user/workspace/atoms/forms/lock-funds-form.atoms";
-import { streamingPaymentPayoutAmountsAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import { configAtom } from "./atoms/workspace-config.atoms";
+import {
+  beneficiaryStreamStopIdAtom,
+  streamingPaymentPayoutAmountsAtom,
+  sttWalletInputsAtom,
+  sttStateFormAtom
+} from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import { createDefaultStateForm, stateFormToDatum } from "@/lib/contracts/state-form";
+import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
 import type { WorkspaceTransactionsCtx } from "@/components/user/workspace/workspace-transactions-types";
 
-const mocks = vi.hoisted(() => ({ signAndSubmitTx: vi.fn() }));
+const mocks = vi.hoisted(() => ({ signAndSubmitTx: vi.fn(), buildPreparation: vi.fn(), buildMint: vi.fn() }));
 
-vi.mock("@/lib/mesh/transactions", () => ({ signAndSubmitTx: mocks.signAndSubmitTx }));
+vi.mock("@/lib/mesh/transactions", () => ({ signAndSubmitTx: mocks.signAndSubmitTx, buildBeneficiaryPreparationTx: mocks.buildPreparation, buildMintStateTokenTx: mocks.buildMint }));
 vi.mock("@/components/user/workspace/workspace-transaction-refresh", () => ({
   schedulePostSubmitRefresh: vi.fn()
 }));
@@ -54,6 +63,18 @@ beforeEach(() => {
   mocks.signAndSubmitTx.mockReset().mockResolvedValue("ff".repeat(32));
 });
 
+it("uses the configured setup helper when creating a wallet", async () => {
+  const store = createStore();
+  const reference = `${"aa".repeat(32)}#2`;
+  store.set(configAtom, { ...store.get(configAtom), sttSpendReference: reference });
+  const { ctx } = contextFor(store, null);
+  ctx.withBuildGuard = (_label, run) => run();
+  await createWorkspaceTransactions(ctx).buildMintTx();
+  expect(mocks.buildMint).toHaveBeenCalledWith(ctx.activeWallet, expect.objectContaining({
+    sttSpendReference: reference
+  }));
+});
+
 it("refuses to sign when the draft changed while the transaction was being built", async () => {
   // Build-then-submit skipped the staleness check, so the wallet signed the click-time
   // draft while the screen showed the edit.
@@ -86,4 +107,91 @@ it("signs the freshly built transaction when the draft held still", async () => 
 
   expect(mocks.signAndSubmitTx).toHaveBeenCalledWith({}, "84a1");
   expect(setBuildError).not.toHaveBeenCalledWith(expect.stringMatching(/stale/i));
+});
+
+it("compares a draft that contains an exact bigint State field", async () => {
+  const store = createStore();
+  const state = createDefaultStateForm();
+  state.lastNonAdminPayoutAt = {
+    alternative: 0,
+    fields: [MAX_ON_CHAIN_STATE_INTEGER]
+  };
+  store.set(sttStateFormAtom, state);
+  const { ctx, setBuildError } = contextFor(store, null);
+
+  await createWorkspaceTransactions(ctx).buildAndSubmitSelectedActionTx();
+
+  expect(mocks.signAndSubmitTx).toHaveBeenCalledWith({}, "84a1");
+  expect(setBuildError).not.toHaveBeenCalledWith(expect.stringMatching(/stale/i));
+});
+
+it("a stop target edit during build cannot lead to signing", async () => {
+  const store = createStore();
+  const { ctx, setBuildError } = contextFor(store, () => store.set(beneficiaryStreamStopIdAtom, "8"));
+  ctx.selectedAction = "stop-beneficiary-stream";
+  ctx.effectiveSttAction = "stop-beneficiary-stream";
+  await createWorkspaceTransactions(ctx).buildAndSubmitSelectedActionTx();
+  expect(mocks.signAndSubmitTx).not.toHaveBeenCalled();
+  expect(setBuildError).toHaveBeenCalledWith(expect.stringMatching(/stale/i));
+});
+
+it("a stop build always returns for explicit confirmation before signing", async () => {
+  const { ctx } = contextFor(createStore(), null);
+  ctx.selectedAction = "stop-beneficiary-stream";
+  ctx.effectiveSttAction = "stop-beneficiary-stream";
+  await createWorkspaceTransactions(ctx).buildAndSubmitSelectedActionTx();
+  expect(mocks.signAndSubmitTx).not.toHaveBeenCalled();
+});
+
+it("an exact input edit during build cannot lead to signing", async () => {
+  const store = createStore();
+  const { ctx, setBuildError } = contextFor(store, () => store.set(sttWalletInputsAtom, [{ txHash: "aa".repeat(32), outputIndex: 1 }]));
+  ctx.selectedAction = "distribute-beneficiaries";
+  ctx.effectiveSttAction = "distribute-beneficiaries";
+  await createWorkspaceTransactions(ctx).buildAndSubmitSelectedActionTx();
+  expect(mocks.signAndSubmitTx).not.toHaveBeenCalled();
+  expect(setBuildError).toHaveBeenCalledWith(expect.stringMatching(/stale/i));
+});
+it("exact distribution returns for explicit confirmation before signing", async () => {
+  const { ctx } = contextFor(createStore(), null);
+  ctx.selectedAction = "distribute-beneficiaries";
+  ctx.effectiveSttAction = "distribute-beneficiaries";
+  await createWorkspaceTransactions(ctx).buildAndSubmitSelectedActionTx();
+  expect(mocks.signAndSubmitTx).not.toHaveBeenCalled();
+});
+
+it("preparation always returns for a separate confirmation before signing", async () => {
+  const store = createStore(); store.set(beneficiaryPreparationActiveAtom, true);
+  const { ctx } = contextFor(store, null);
+  ctx.selectedAction = "consolidate-utxo"; ctx.effectiveSttAction = "consolidate-utxo";
+  await createWorkspaceTransactions(ctx).buildAndSubmitSelectedActionTx();
+  expect(mocks.signAndSubmitTx).not.toHaveBeenCalled();
+});
+it("editing the requested preparation pool during build prevents signing", async () => {
+  const store = createStore(); store.set(beneficiaryPreparationActiveAtom, true);
+  const { ctx, setBuildError } = contextFor(store, () => store.set(beneficiaryPreparationPoolAssetsAtom, [{ unit: "lovelace", quantity: "3000000" }]));
+  ctx.selectedAction = "consolidate-utxo"; ctx.effectiveSttAction = "consolidate-utxo";
+  await createWorkspaceTransactions(ctx).buildAndSubmitSelectedActionTx();
+  expect(mocks.signAndSubmitTx).not.toHaveBeenCalled();
+  expect(setBuildError).toHaveBeenCalledWith(expect.stringMatching(/stale/i));
+});
+
+it("preparation builds the derived beneficiary intent without stale output layouts or admin overrides", async () => {
+  const store = createStore();
+  store.set(beneficiaryPreparationActiveAtom, true);
+  store.set(beneficiaryPreparationPoolAssetsAtom, [{ unit: "lovelace", quantity: "3000000" }]);
+  store.set(consolidateSttInputHashAtom, "aa".repeat(32)); store.set(consolidateSttInputIndexAtom, "1");
+  const refs = [{ txHash: "bb".repeat(32), outputIndex: 0 }]; store.set(consolidateWalletInputsAtom, refs);
+  store.set(consolidateWalletOutputsAtom, [{ amount: [{ unit: "lovelace", quantity: "1" }], inlineDatum: { mode: "none", customAlternative: "" } }]);
+  const { ctx } = contextFor(store, null);
+  ctx.selectedAction = "consolidate-utxo"; ctx.effectiveSttAction = "consolidate-utxo";
+  ctx.activePaymentKeyHash = "11".repeat(28); ctx.activeInferredSttStateForm = createDefaultStateForm();
+  ctx.withBuildGuard = (_label, run) => run();
+  mocks.buildPreparation.mockResolvedValueOnce({ txHex: "prepared" });
+  await createWorkspaceTransactions(ctx).buildSelectedActionTx("admin");
+  expect(mocks.buildPreparation).toHaveBeenCalledWith(ctx.activeWallet, expect.any(Object), {
+    sttInputTxHash: "aa".repeat(32), sttInputOutputIndex: 1, walletInputs: refs,
+    beneficiarySignerKeyHash: "11".repeat(28), poolAssets: [{ unit: "lovelace", quantity: "3000000" }], expectedStateDatum: stateFormToDatum(ctx.activeInferredSttStateForm)
+  });
+  expect(ctx.proposalCaptureRef.current).toBeNull();
 });

@@ -301,3 +301,56 @@ test allowance_use_rejects_remaining_allowance_over_cap_padding() fail {
       transaction,
     )
 }
+
+// A spend cannot preserve a small current row count while expanding the room a
+// later allowance reset needs. The first user grows from one remaining entry to
+// five through zero-quantity padding. The second user's five-entry daily bundle
+// makes the output's reserved footprint 16 even though it stores only 11 rows.
+test allowance_use_rejects_reserved_footprint_growth_past_cap() fail {
+  let actor = states.allowance_user(1, "user1", 1_000_000, 86_400_000, False)
+  let other = state_types.User {
+    ..states.plain_user(2, "user2"),
+    per_day_allowance: [
+      asset_entries.asset_entry(fixtures.policy_id(#"02"), #"01", 1),
+      asset_entries.asset_entry(fixtures.policy_id(#"02"), #"02", 1),
+      asset_entries.asset_entry(fixtures.policy_id(#"02"), #"03", 1),
+      asset_entries.asset_entry(fixtures.policy_id(#"02"), #"04", 1),
+      asset_entries.asset_entry(fixtures.policy_id(#"02"), #"05", 1),
+    ],
+  }
+  let state_input = states.secured_state([actor, other], [], [])
+  let padded_actor = state_types.User {
+    ..actor,
+    remaining_allowance: [
+      asset_entries.asset_entry(#"", #"", 400_000),
+      asset_entries.asset_entry(fixtures.policy_id(#"01"), #"01", 0),
+      asset_entries.asset_entry(fixtures.policy_id(#"01"), #"02", 0),
+      asset_entries.asset_entry(fixtures.policy_id(#"01"), #"03", 0),
+      asset_entries.asset_entry(fixtures.policy_id(#"01"), #"04", 0),
+    ],
+    next_allowance_reset: 86_400_110,
+  }
+  let state_output = state_types.State {
+    ..state_input,
+    access: state_types.AccessControl {
+      ..state_input.access,
+      users: [padded_actor, other],
+    },
+  }
+  let transaction = fixtures.stt_spend_tx(
+    interval.between(100, 110),
+    ["user1"],
+    state_input,
+    state_output,
+    [],
+    fixtures.tx_id(#"2b31"),
+  )
+
+  expect
+    run_stt_spend(
+      state_types.UseAllowance(
+        assets.from_lovelace(600_000) |> asset_entries.flatten_to_entries,
+      ),
+      transaction,
+    )
+}

@@ -1,3 +1,4 @@
+import { readStateSections } from "@/lib/contracts/state-layout";
 import { createStageError } from "./errors";
 import { type OnChainStructuredAction } from "@/lib/contracts/action-data";
 import {
@@ -5,13 +6,14 @@ import {
   validateCurrentStateDatum
 } from "@/lib/contracts/state-validation";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
-import {
-  isTerminalBeneficiaryOutputState
-} from "@/lib/contracts/terminal-recovery";
 import { type Asset, type ConstrData } from "@/lib/types/contracts";
 import { isConstrData, isRecord } from "@/lib/contracts/plutus-primitives";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/LibMeshTransactionsInternalsGuards.json";
+import {
+  isNonNegativeUint64Decimal,
+  MAX_ON_CHAIN_STATE_INTEGER
+} from "@/lib/contracts/on-chain-integer";
 
 const i18n = createDefaultTranslator("LibMeshTransactionsInternalsGuards", defaultMessages);
 
@@ -92,8 +94,13 @@ export function assertValidAssetList(
       throw new Error(`${label} entry ${index} quantity must be an integer string.`);
     }
 
-    if (BigInt(asset.quantity) < 0n) {
+    if (asset.quantity.startsWith("-")) {
       throw new Error(`${label} entry ${index} quantity must be zero or greater.`);
+    }
+    if (!isNonNegativeUint64Decimal(asset.quantity)) {
+      throw new Error(
+        `${label} entry ${index} quantity must not exceed ${MAX_ON_CHAIN_STATE_INTEGER.toString()}.`
+      );
     }
   });
 }
@@ -118,7 +125,10 @@ function assertValidAddress(value: unknown, label: string) {
 
 
 
-export function assertValidWalletInputRefs(value: unknown, label: string) {
+export function assertValidWalletInputRefs(
+  value: unknown,
+  label: string
+) {
   if (!Array.isArray(value)) {
     throw new Error(`${label} must be an array of {"txHash","outputIndex"} objects.`);
   }
@@ -206,11 +216,10 @@ export function validateForwardedStateDatum(
   invalidMessage: string
 ): string[] {
   const unwrappedStateDatum = unwrapStateDatum(stateDatum, "Forwarded STT datum");
-  const permitsTerminalBeneficiaryState =
-    action.kind === "beneficiary-withdrawal" &&
-    isTerminalBeneficiaryOutputState(unwrappedStateDatum);
+  const sections = readStateSections(unwrappedStateDatum, "Forwarded STT datum");
   const stateValidationErrors = validateCurrentStateDatum(unwrappedStateDatum, {
-    allowNoReachableAccessPath: permitsTerminalBeneficiaryState
+    allowNoReachableAccessPath: action.kind === "beneficiary-exit" &&
+      sections.beneficiaries.length === 0 && sections.streamingPayments.length === 0
   });
   if (stateValidationErrors.length > 0) {
     throw createStageError(

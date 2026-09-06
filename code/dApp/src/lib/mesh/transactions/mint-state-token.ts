@@ -84,6 +84,7 @@ export async function buildMintStateTokenTx(
         sttAssetNameHex: assetName
       });
       const sharedReferenceInspection = await inspectSharedSttReferenceStore(fetcher, {
+        configuredReference: input.sttSpendReference,
         script: sttScript,
         stage: "mint:inspectSharedSttReferenceStore",
         details: {
@@ -95,6 +96,13 @@ export async function buildMintStateTokenTx(
       });
       const sttReferenceScript =
         sharedReferenceInspection.matchingReferences[0] ?? null;
+      if (!sttReferenceScript) {
+        throw createStageError(
+          "mint:referenceScript",
+          new Error("Create or configure the one-time setup helper before creating this wallet."),
+          { policyId, requiredField: "sttSpendReference", setupRoute: "/api/v1/tx/deploy-reference" }
+        );
+      }
       const scriptWitnessDiagnostics = buildReferenceScriptDiagnostics([
         {
           label: "STT mint",
@@ -165,7 +173,7 @@ export async function buildMintStateTokenTx(
             sharedReferenceInspection.matchingReferences.length > 0,
           sharedSttReferenceMatchCount:
             sharedReferenceInspection.matchingReferences.length,
-          sharedSttReferenceStaleCount: sharedReferenceInspection.staleReferenceCount,
+          sharedSttCheckedReferenceCount: sharedReferenceInspection.checkedReferenceCount,
           sharedSttReferenceUsed: sttReferenceScript?.reference ?? null
         },
         executionLabels: {
@@ -209,4 +217,3 @@ export async function buildMintStateTokenTx(
     warnings: mintStateWarnings.length > 0 ? mintStateWarnings : undefined
   };
 }
-

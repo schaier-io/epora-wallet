@@ -22,9 +22,13 @@ export function isConstrDataValue(value: unknown): value is ConstrData {
 
 export function safeStringify(value: unknown) {
   try {
-    return JSON.stringify(value, null, 2);
+    return JSON.stringify(
+      value,
+      (_key, entry: unknown) =>
+        typeof entry === "bigint" ? { int: entry.toString() } : entry,
+      2
+    );
   } catch {
     return String(value);
   }
 }
-

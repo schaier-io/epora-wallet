@@ -4,8 +4,8 @@
 ////    attack the validator MUST reject. The transaction is well-formed enough
 ////    that the validator must actively notice the constraint violation.
 ////  - `security_intentional__*` (passing tests at the bottom): document
-////    behaviours that are intentional product choices, not security holes —
-////    e.g. shared keys carrying weight in multiple multisig roles. See
+////    behaviours that are intentional product choices, not security holes.
+////    See
 ////    README §"Role Model & Trust Boundaries" for the broader discussion.
 
 use aiken/interval
@@ -311,7 +311,7 @@ test security_attack_log__attack_renew_proof_of_life_cannot_extend_beyond_increm
 // payment credential, so the combined outflow is measured against a single weighted share. Here
 // beneficiary 7 has weight 1 of a total weight of 10, so its share of the aggregated 10 ADA pool
 // is 1 ADA; taking 2 ADA across the two stake variants must be rejected.
-test security_attack_log__attack_beneficiary_cannot_drain_multiple_stake_variants_per_tx() fail {
+test security_attack_log__attack_beneficiary_cannot_exceed_weighted_share_across_stake_variants() fail {
   let wallet_script_hash = #"bb"
   let wallet_address_a = Address {
     payment_credential: Script(wallet_script_hash),
@@ -332,6 +332,7 @@ test security_attack_log__attack_beneficiary_cannot_drain_multiple_stake_variant
             unlock_after: Some(100),
           },
           state_types.Beneficiary {
+            ..states.base_beneficiary(),
             id: 8,
             beneficiary_wallets: ["beneficiary2"],
             unlock_after: Some(100),
@@ -369,18 +370,9 @@ test security_attack_log__attack_beneficiary_cannot_drain_multiple_stake_variant
       reference_script: None,
     },
   }
-  let wallet_return_a = Output {
-    address: wallet_address_a,
-    value: assets.from_lovelace(4_000_000),
-    datum: NoDatum,
-    reference_script: None,
-  }
-  let wallet_return_b = Output {
-    address: wallet_address_b,
-    value: assets.from_lovelace(4_000_000),
-    datum: NoDatum,
-    reference_script: None,
-  }
+  // Return the aggregate value to the intended no-stake address. This keeps
+  // stake pinning valid, so rejection must come from the weighted-share rule.
+  let wallet_return = fixtures.wallet_output(assets.from_lovelace(8_000_000))
   let beneficiary_output = fixtures.payout_output(
     fixtures.address_from_key("beneficiary1"),
     assets.from_lovelace(2_000_000),
@@ -389,7 +381,7 @@ test security_attack_log__attack_beneficiary_cannot_drain_multiple_stake_variant
     interval.between(120, 200),
     ["beneficiary1"],
     [stt_input, wallet_input_a, wallet_input_b],
-    [stt_output, wallet_return_a, wallet_return_b, beneficiary_output],
+    [stt_output, wallet_return, beneficiary_output],
     fixtures.tx_id(#"a130"),
     fixtures.stt_input_ref(),
     fixtures.beneficiary_action(7),
@@ -562,7 +554,7 @@ test security_attack_log__attack_non_set_action_cannot_change_intended_stake_cre
 }
 
 // ---------------------------------------------------------------------------
-// Confirmed-intentional behaviors (passing tests; documented product choices).
+// Shared multisig credentials must be rejected at State ingress.
 // ---------------------------------------------------------------------------
 
 fn duplicate_multisig_state() -> state_types.State {
@@ -586,17 +578,16 @@ fn duplicate_multisig_state() -> state_types.State {
     |> states.with_multisig_threshold(2)
 }
 
-// A single signer who holds two multisig user records exercises the combined
-// voting power of both records. This is intentional: shared keys that play
-// multiple roles are expected to count for each role they hold.
-test security_intentional__multisig_shared_key_counts_each_role_state_configuration() {
+// Without State validation, the authorization helper still counts both
+// records. Mint and UpdateState must therefore reject this shape first.
+test security_attack_log__attack_shared_multisig_credential_rejected_at_state_configuration() fail {
   expect
     state_configuration.expect_valid_state_configuration(
       duplicate_multisig_state(),
     )
 }
 
-test security_intentional__multisig_shared_key_counts_each_role_meets_threshold() {
+test security_regression__shared_multisig_credential_counts_without_ingress_validation() {
   let transaction = fixtures.transaction(
     interval.after(0),
     ["shared"],
@@ -637,15 +628,10 @@ test security_attack_log__attack_noop_pay_streaming_payment_is_rejected() fail {
   run_stt_spend(state_types.PayStreamingPayment([]), transaction)
 }
 
-// F-2 (audit) — INTENTIONAL terminal state. In an admin-less, multisig-less,
-// last-beneficiary wallet, `UseBeneficiary` removes the only remaining access
-// path, so the OUTPUT state is intentionally unreachable: the immortal-STT
-// terminal state after full recovery. It is ACCEPTED on-chain. The contract
-// enforces only the UPPER weighted-share bound, not a minimum withdrawal, so the
-// recovering beneficiary MUST sweep every asset in the same tx (the off-chain
-// builder is responsible for this and for warning the user) — any value left
-// behind is locked forever. Confirms brick-on-last-removal is by design.
-test security_intentional__use_beneficiary_last_removal_reaches_terminal_state() {
+// Recovery must remain retryable when the wallet has several fund pools.
+// The final beneficiary owns all remaining beneficiary weight, so it stays in
+// State after each draw and can authorize the next wallet-input sweep.
+test security_recovery__final_beneficiary_remains_reachable() {
   let ben = state_types.Beneficiary {
     ..states.base_beneficiary(),
     id: 10,
@@ -655,8 +641,10 @@ test security_intentional__use_beneficiary_last_removal_reaches_terminal_state()
   let input_state = states.base_state()
     |> states.with_beneficiaries([ben])
     |> states.with_proof_of_life(100, 50)
-  let output_state = states.base_state()
-    |> states.with_proof_of_life(100, 50)
+  let output_state = state_types.State {
+    ..input_state,
+    last_non_admin_payout_at: Some(120),
+  }
   let transaction = fixtures.stt_spend_tx(
     interval.between(110, 120),
     ["ben1"],

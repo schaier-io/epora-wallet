@@ -54,6 +54,18 @@ const USER_ACTION_UX_METADATA: Record<UserActionKind, TaskUxMetadata> = {
     setupCTA: i18n("chooseRecoveryContactWallet"),
     routeExplanation: i18n("recoveryContactRouteExplanation")
   },
+  "exit-beneficiary": {
+    setupCTA: i18n("chooseRecoveryContactWallet"),
+    routeExplanation: i18n("permanentExitRouteExplanation")
+  },
+  "distribute-beneficiaries": {
+    setupCTA: i18n("chooseRecoveryContactWallet"),
+    routeExplanation: i18n("beneficiaryDistributionRouteExplanation")
+  },
+  "stop-beneficiary-stream": {
+    setupCTA: i18n("chooseRecoveryContactWallet"),
+    routeExplanation: i18n("beneficiaryStopRouteExplanation")
+  },
   "payout-streaming-payment": {
     setupCTA: i18n("loadScheduledPayments"),
     routeExplanation: i18n("payoutRouteExplanation")
@@ -176,6 +188,51 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     icon: HandHeart,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference", "locking-contract"],
     risk: "medium"
+  },
+  {
+    kind: "exit-beneficiary",
+    label: i18n("permanentExitLabel"),
+    shortLabel: i18n("permanentExitShortLabel"),
+    description: i18n("permanentExitDescription"),
+    outcome: i18n("permanentExitOutcome"),
+    whenToUse: i18n("permanentExitWhenToUse"),
+    whatChanges: i18n("permanentExitWhatChanges"),
+    pathLabels: [i18n("recoveryContact")],
+    surfaceLabel: IMPLICIT_LOCKED_INPUT_SURFACE_LABEL,
+    startingPoint: i18n("permanentExitStartingPoint"),
+    icon: HandHeart,
+    prerequisites: ["wallet", "preprod", "detected-token", "stt-reference", "locking-contract"],
+    risk: "high"
+  },
+  {
+    kind: "distribute-beneficiaries",
+    label: i18n("beneficiaryDistributionLabel"),
+    shortLabel: i18n("beneficiaryDistributionShortLabel"),
+    description: i18n("beneficiaryDistributionDescription"),
+    outcome: i18n("beneficiaryDistributionOutcome"),
+    whenToUse: i18n("beneficiaryDistributionWhenToUse"),
+    whatChanges: i18n("beneficiaryDistributionWhatChanges"),
+    pathLabels: [i18n("recoveryContact")],
+    surfaceLabel: IMPLICIT_LOCKED_INPUT_SURFACE_LABEL,
+    startingPoint: i18n("beneficiaryDistributionStartingPoint"),
+    icon: HandHeart,
+    prerequisites: ["wallet", "preprod", "detected-token", "stt-reference", "locking-contract"],
+    risk: "high"
+  },
+  {
+    kind: "stop-beneficiary-stream",
+    label: i18n("beneficiaryStopLabel"),
+    shortLabel: i18n("beneficiaryStopShortLabel"),
+    description: i18n("beneficiaryStopDescription"),
+    outcome: i18n("beneficiaryStopOutcome"),
+    whenToUse: i18n("beneficiaryStopWhenToUse"),
+    whatChanges: i18n("beneficiaryStopWhatChanges"),
+    pathLabels: [i18n("recoveryContact")],
+    surfaceLabel: IMPLICIT_LOCKED_INPUT_SURFACE_LABEL,
+    startingPoint: i18n("beneficiaryStopStartingPoint"),
+    icon: CalendarArrowDown,
+    prerequisites: ["wallet", "preprod", "detected-token", "stt-reference"],
+    risk: "high"
   },
   {
     kind: "payout-streaming-payment",

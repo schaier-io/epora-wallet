@@ -1,3 +1,4 @@
+export { buildBeneficiaryPreparationTx } from "./beneficiary-preparation";
 export { buildConsolidateUtxosTx } from "./consolidate-utxos";
 export {
   buildDeploySharedSttReferenceTx,

@@ -71,7 +71,10 @@ export function PersonPermissionsEditor({
   onChange,
   onRemove,
   approvalsNeeded,
-  approvalPowerCeiling
+  approvalPowerCeiling,
+  canAddPerDayAllowanceEntry,
+  canAddRemainingAllowanceEntry,
+  canAddWallet
 }: {
   user: UserFormState;
   onChange: (value: UserFormState) => void;
@@ -81,6 +84,9 @@ export function PersonPermissionsEditor({
   approvalsNeeded?: number;
   /** The stable scale limit. It does not depend on the value being dragged. */
   approvalPowerCeiling: number;
+  canAddPerDayAllowanceEntry: boolean;
+  canAddRemainingAllowanceEntry: boolean;
+  canAddWallet: boolean;
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsFocusedPeopleEditor");
   const uid = useId();
@@ -117,15 +123,18 @@ export function PersonPermissionsEditor({
           { multiSigPowerMode: "some", multiSigPower: user.multiSigPower.trim() || "1" }
     );
 
-  const toggleSpender = () =>
-    isSpender
-      ? patch({ perDayAllowance: [], remainingAllowance: [] })
-      : patch({
-          perDayAllowance:
-            user.perDayAllowance.length > 0
-              ? user.perDayAllowance
-              : [{ policyId: "", assetName: "", amount: "" }]
-        });
+  const toggleSpender = () => {
+    if (!isSpender && !canAddPerDayAllowanceEntry) {
+      return;
+    }
+    if (isSpender) {
+      patch({ perDayAllowance: [], remainingAllowance: [] });
+      return;
+    }
+    patch({
+      perDayAllowance: [{ policyId: "", assetName: "", amount: "" }]
+    });
+  };
 
   return (
     <div className="user-surface user-list-item space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
@@ -154,7 +163,7 @@ export function PersonPermissionsEditor({
           <PermissionChip
             label={i18n("spender")}
             pressed={isSpender}
-            disabled={user.isAdmin}
+            disabled={user.isAdmin || (!isSpender && !canAddPerDayAllowanceEntry)}
             onClick={toggleSpender}
             title={
               user.isAdmin
@@ -211,6 +220,7 @@ export function PersonPermissionsEditor({
             helper={i18n("howMuchThisPersonCanSpendEachDay")}
             value={user.perDayAllowance}
             onChange={(perDayAllowance) => patch({ perDayAllowance })}
+            canAdd={canAddPerDayAllowanceEntry}
             availableAssets={walletBalance.assets}
           />
           <StateAssetAmountListEditor
@@ -218,6 +228,7 @@ export function PersonPermissionsEditor({
             helper={i18n("whatIsLeftOfTheDailyLimitRight")}
             value={user.remainingAllowance}
             onChange={(remainingAllowance) => patch({ remainingAllowance })}
+            canAdd={canAddRemainingAllowanceEntry}
             availableAssets={walletBalance.assets}
           />
           <GuidedDateTimeField
@@ -239,15 +250,16 @@ export function PersonPermissionsEditor({
         emptyLabel={i18n("noWalletAddedYetSoThisPersonCannot")}
         placeholder={i18n("cardanoWalletId")}
         knownAddresses={knownAddresses}
+        canAdd={canAddWallet}
       />
       <div className="flex flex-wrap items-center gap-2">
         <Button
           type="button"
           variant="outline"
           size="sm"
-          disabled={activePaymentKeyHash === null || alreadyLinked}
+          disabled={activePaymentKeyHash === null || alreadyLinked || !canAddWallet}
           onClick={() =>
-            activePaymentKeyHash === null
+            activePaymentKeyHash === null || !canAddWallet
               ? undefined
               : patch({ wallets: [...user.wallets, activePaymentKeyHash] })
           }

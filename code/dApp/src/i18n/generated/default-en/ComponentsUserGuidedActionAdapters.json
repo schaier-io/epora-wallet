@@ -56,5 +56,9 @@
   "value1PathValue2Value3": "{value1} path, {value2}, {value3}",
   "value1ReadyToLock": "{value1} ready to lock",
   "value1Value2": "{value1}: {value2}",
-  "value1Value2_4c86b7": "{value1}, {value2}"
+  "value1Value2_4c86b7": "{value1}, {value2}",
+  "stopBeneficiaryStreamSummary": "Stop one scheduled payment and retain its unpaid debt.",
+  "stopBeneficiaryStreamNext": "Select a payment, review its cutoff and unpaid debt, then confirm.",
+  "distributionSummary": "Distribute exact shares from one fund pool.",
+  "distributionNext": "Select one fund pool and review every payout before confirming."
 }

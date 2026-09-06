@@ -1,7 +1,8 @@
 //// User-path STT spend decision bodies: the individually-signed, non-operator
 //// actions — `RenewProofOfLife` (a liveness keeper's renewal), `UseAllowance`
 //// (one user draws on their per-day allowance), and `UseBeneficiary` (an
-//// unlocked beneficiary's one-shot recovery draw). Authority on every path here
+//// unlocked beneficiary's recovery draw), permanent exit, and stream stopping.
+//// Authority on every path here
 //// is a specific user's or beneficiary's own signature, never the operator gate.
 ////
 //// Each `eval_*` here owns the full invariant set for one individually-signed
@@ -9,19 +10,27 @@
 //// (whitepaper Formal Model — "The two validators", Bounded-movement theorem)
 //// live in `validators/stt.ak::eval_spend`.
 
+use aiken/collection/list
+use assets/entries as asset_entries
+use constants
+use numeric_bounds
 use state/allowance as state_allowance
 use state/authorization as state_authorization
 use state/proof_of_life
 use state/types as state_types
+use streaming_payments/types as streaming_payment_type
 use stt/action_checks.{
   allowance_pol_renewal_is_valid, allowance_update_is_signed_by_changed_user,
   proof_of_life_user_signature_matches,
 }
 use stt/io.{TransitionContext, stt_value_preserved_or_increased}
 use stt/preservation.{
-  state_unchanged_except_beneficiary_removed,
+  state_completely_unchanged, state_unchanged_except_beneficiary_removed,
   state_unchanged_except_pol_unlock_time,
   state_unchanged_except_users_and_pol_unlock_time,
+}
+use stt/settlement_handlers.{
+  expect_streaming_payment_stopped, non_admin_cadence_is_valid,
 }
 use time/bounds
 
@@ -61,6 +70,9 @@ pub fn eval_use_allowance(
   declared_spent_allowance: state_types.AssetEntries,
   context: TransitionContext,
 ) -> Bool {
+  expect
+    list.length(declared_spent_allowance) <= constants.max_allowance_entries
+  expect asset_entries.entries_are_valid(declared_spent_allowance)
   // Both bounds must be finite for an allowance-use action. The lower bound
   // gates whether the per-day allowance is treated as reset; the upper bound
   // drives the new `next_allowance_reset`. See
@@ -68,6 +80,8 @@ pub fn eval_use_allowance(
   expect Some((tx_earliest_time, tx_latest_time)) = bounds.finite_range(
     context.validity_range,
   )
+  expect numeric_bounds.is_non_negative_bounded(tx_earliest_time)
+  expect numeric_bounds.is_non_negative_bounded(tx_latest_time)
   expect
     state_unchanged_except_users_and_pol_unlock_time(
       context.input_state,
@@ -109,38 +123,139 @@ pub fn eval_use_allowance(
 
 /// Beneficiary use: the single unlocked+signed beneficiary withdraws its
 /// weighted share (bounded wallet-side in `lib/wallet/beneficiary_share.ak`) and
-/// is REMOVED from the forwarded state. One-shot removal is what makes the
-/// weighted-share cap a true ceiling: the beneficiary cannot come back next
-/// block for another slice, and the remaining beneficiaries' shares re-normalise
-/// against the reduced weight total.
+/// an earlier beneficiary is removed, which makes its weighted share one-shot.
+/// The remaining weights then re-normalise. The final beneficiary already owns
+/// 100% of the remaining beneficiary weight, so it stays in State and may drain
+/// one or more fragmented wallet UTxOs per ledger-valid transaction.
 pub fn eval_use_beneficiary(
   declared_beneficiary_id: Int,
   context: TransitionContext,
 ) -> Bool {
-  let beneficiary = state_authorization.expect_single_beneficiary_with_unlock_authority(
-    context.transaction,
-    context.validity_range,
-    context.input_state,
+  let beneficiary = expect_declared_beneficiary(
+    declared_beneficiary_id,
+    context,
   )
-  expect declared_beneficiary_id == beneficiary.id
+  let is_final_beneficiary = list.length(
+    context.input_state.access.beneficiaries,
+  ) == 1
+  expect
+    if is_final_beneficiary {
+      state_completely_unchanged(context.input_state, context.output_state)
+    } else {
+      state_unchanged_except_beneficiary_removed(
+        context.input_state,
+        context.output_state,
+        beneficiary.id,
+      )
+    }
+  expect beneficiary_cadence_and_value_are_valid(context)
+  // The final beneficiary remains available after each withdrawal. This is the
+  // only on-chain way to keep recovery retryable because a transaction cannot
+  // prove that no other UTxO exists under the wallet payment credential.
+  True
+}
+
+/// Permanent exit uses the same unlock authority as beneficiary use, but always
+/// removes the actor. Final exit may leave no access path. This deliberate
+/// terminal State cannot recover remaining or future deposits without another
+/// operator path (see the whitepaper's recovery limitations). Mint and
+/// UpdateState still enforce configuration reachability.
+pub fn eval_exit_beneficiary(
+  declared_beneficiary_id: Int,
+  context: TransitionContext,
+) -> Bool {
+  let beneficiary = expect_declared_beneficiary(
+    declared_beneficiary_id,
+    context,
+  )
   expect
     state_unchanged_except_beneficiary_removed(
       context.input_state,
       context.output_state,
       beneficiary.id,
     )
-  // DELIBERATELY NOT re-checked here: `has_reachable_access_path`. Unlike
-  // `RemoveAccessIndex`, this path may legitimately remove the LAST access entry
-  // — that is the immortal-STT terminal state after full recovery, pinned by
-  // `security_intentional__use_beneficiary_last_removal_reaches_terminal_state`
-  // (audit F-2) and recorded in the whitepaper's "Terminal recovery state"
-  // limitation. Adding the check would not make the final draw repeatable: this
-  // handler REQUIRES the acting beneficiary to be removed
-  // (`state_unchanged_except_beneficiary_removed`), so a reachability guard would
-  // make the last beneficiary's draw impossible and brick recovery for every
-  // single-beneficiary wallet. The residue risk (value left behind, or deposited
-  // afterwards, is unrecoverable) is owned off-chain by the builder, which must
-  // sweep every asset in the recovery tx and warn the user.
-  expect stt_value_preserved_or_increased(context)
+  expect
+    list.length(context.input_state.access.beneficiaries) != 1 || list.is_empty(
+      context.input_state.streaming_payments,
+    )
+  expect beneficiary_cadence_and_value_are_valid(context)
   True
+}
+
+/// Stop future accrual without changing the debt already recorded by the stream.
+/// Beneficiary authority is independent of the payee's address credential type.
+/// The shared stop checks preserve the stream and enforce non-admin cadence.
+pub fn eval_stop_beneficiary_stream(
+  declared_beneficiary_id: Int,
+  declared_streaming_payment_id: Int,
+  context: TransitionContext,
+) -> Bool {
+  expect numeric_bounds.is_non_negative_bounded(declared_streaming_payment_id)
+  expect _beneficiary = expect_declared_beneficiary(
+    declared_beneficiary_id,
+    context,
+  )
+  expect Some(target_streaming_payment) = streaming_payment_type.find_by_id(
+    context.input_state.streaming_payments,
+    declared_streaming_payment_id,
+  )
+  expect_streaming_payment_stopped(target_streaming_payment, True, context)
+}
+
+/// Preserve recovery rights while the wallet pays all beneficiaries exactly.
+/// Without a wallet input this authorizes only an unchanged State, or the sole
+/// beneficiary's cadence update. Actual distribution is enforced wallet-side.
+pub fn eval_distribute_beneficiaries(
+  declared_beneficiary_id: Int,
+  context: TransitionContext,
+) -> Bool {
+  expect list.is_empty(context.input_state.streaming_payments)
+  let beneficiaries = context.input_state.access.beneficiaries
+  expect
+    list.foldl(
+      beneficiaries,
+      False,
+      fn(beneficiary, initiator_signed) {
+        expect
+          proof_of_life.is_unlock_time_reached(
+            context.validity_range,
+            proof_of_life.calculate_beneficiary_unlock_time(
+              beneficiary.unlock_after,
+              context.input_state,
+            ),
+          )
+        initiator_signed || beneficiary.id == declared_beneficiary_id && state_authorization.any_wallet_signed(
+          context.transaction.extra_signatories,
+          beneficiary.beneficiary_wallets,
+        )
+      },
+    )
+  expect state_completely_unchanged(context.input_state, context.output_state)
+  expect beneficiary_cadence_and_value_are_valid(context)
+  True
+}
+
+// Earlier beneficiaries preserve cadence; the sole beneficiary advances it.
+fn beneficiary_cadence_and_value_are_valid(context: TransitionContext) -> Bool {
+  expect stt_value_preserved_or_increased(context)
+  if list.length(context.input_state.access.beneficiaries) == 1 {
+    non_admin_cadence_is_valid(context)
+  } else {
+    context.output_state.last_non_admin_payout_at == context.input_state.last_non_admin_payout_at
+  }
+}
+
+// Existing one-actor paths retain their singleton signer and bounded-id rules.
+fn expect_declared_beneficiary(
+  declared_beneficiary_id: Int,
+  context: TransitionContext,
+) -> state_types.Beneficiary {
+  expect numeric_bounds.is_non_negative_bounded(declared_beneficiary_id)
+  let beneficiary = state_authorization.expect_single_beneficiary_with_unlock_authority(
+    context.transaction,
+    context.validity_range,
+    context.input_state,
+  )
+  expect declared_beneficiary_id == beneficiary.id
+  beneficiary
 }

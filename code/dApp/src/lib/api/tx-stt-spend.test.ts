@@ -4,8 +4,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import { SttSpendTxRequestSchema } from "@/lib/api/tx-stt-spend";
+import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
 
-// Three of the nine actions derive the forwarded State from the consumed one
+// Four of the nine actions derive the forwarded State from the consumed one
 // and never read the caller's copy. The schema must not require what the
 // builder ignores, and the two lists must not drift apart.
 
@@ -20,6 +21,12 @@ const TX_HASH = "f8482092d1cf9deb9c2eddd45dea95dbcfbfdae060ce5dce851d1141db660fd
 const HASH_HEX = "bc3f3eae902eaf53b3d8a1f9d7ad2e6b370f8b9ec8c9b62a9044455b";
 const CO_SIGNER = "ab".repeat(28);
 
+function distinctSignerKeyHashes(count: number) {
+  return Array.from({ length: count }, (_, index) =>
+    index.toString(16).padStart(56, "0")
+  );
+}
+
 /** The fields every action needs, minus the two under test. */
 function baseBody(action: string) {
   const body: Record<string, unknown> = {
@@ -29,7 +36,9 @@ function baseBody(action: string) {
     action
   };
   if (action === "use-allowance") body.allowanceSignerKeyHash = HASH_HEX;
-  if (action === "use-beneficiary") body.beneficiarySignerKeyHash = HASH_HEX;
+  if (action === "use-beneficiary" || action === "exit-beneficiary") body.beneficiarySignerKeyHash = HASH_HEX;
+  if (action === "distribute-beneficiaries") { body.beneficiarySignerKeyHash=HASH_HEX; body.walletInputs=[{txHash:TX_HASH,outputIndex:1}]; }
+  if (action === "stop-beneficiary-stream") { body.beneficiarySignerKeyHash = HASH_HEX; body.beneficiaryStreamStopId = 0; }
   if (action === "payout-streaming-payment") body.crankSignerKeyHash = HASH_HEX;
   if (action === "cancel-streaming-payment") body.streamingPaymentCancelId = 0;
   if (action === "remove-access-index") body.removeAccessTarget = { list: "user", index: 0 };
@@ -43,6 +52,9 @@ const ALL_ACTIONS = [
   "manage-streaming-payments",
   "use-allowance",
   "use-beneficiary",
+  "exit-beneficiary",
+  "stop-beneficiary-stream",
+  "distribute-beneficiaries",
   "payout-streaming-payment",
   "cancel-streaming-payment",
   "remove-access-index"
@@ -65,9 +77,9 @@ describe("SttSpendTxRequestSchema", () => {
   });
 
   it("still requires both fields for every forwarding action", () => {
-    const deriving = new Set(buildersDerivingActions());
+    const deriving = new Set([...buildersDerivingActions(), "distribute-beneficiaries"]);
     const forwarding = ALL_ACTIONS.filter((action) => !deriving.has(action));
-    assert.equal(forwarding.length, 6);
+    assert.equal(forwarding.length, 5);
     for (const action of forwarding) {
       const result = SttSpendTxRequestSchema.safeParse(baseBody(action));
       assert.equal(result.success, false, `${action} should reject a body without the State`);
@@ -81,7 +93,7 @@ describe("SttSpendTxRequestSchema", () => {
 
   it("covers every action the union declares", () => {
     const declared = ALL_ACTIONS.map((action) => {
-      const body = { ...baseBody(action), outputDatum: { alternative: 0, fields: [] }, outputAssets: [] };
+      const body = action === "distribute-beneficiaries" ? baseBody(action) : { ...baseBody(action), outputDatum: { alternative: 0, fields: [] }, outputAssets: [] };
       return SttSpendTxRequestSchema.safeParse(body).success;
     });
     assert.deepEqual(declared, ALL_ACTIONS.map(() => true));
@@ -99,7 +111,7 @@ describe("SttSpendTxRequestSchema", () => {
     assert.deepEqual(parsed.requiredSignerKeyHashes, [CO_SIGNER]);
   });
 
-  it("rejects malformed or unbounded required signer lists", () => {
+  it("rejects malformed required signers and accepts a 15-signer list", () => {
     const body = {
       ...baseBody("use"),
       outputDatum: { alternative: 0, fields: [] },
@@ -114,9 +126,90 @@ describe("SttSpendTxRequestSchema", () => {
     assert.equal(
       SttSpendTxRequestSchema.safeParse({
         ...body,
-        requiredSignerKeyHashes: Array.from({ length: 16 }, () => CO_SIGNER)
+        requiredSignerKeyHashes: distinctSignerKeyHashes(15)
       }).success,
-      false
+      true
     );
   });
+
+  it("accepts multiple wallet-script inputs for an STT spend", () => {
+    const body = {
+      ...baseBody("use"),
+      outputDatum: { alternative: 0, fields: [] },
+      outputAssets: []
+    };
+    const walletInputs = Array.from(
+      { length: 3 },
+      (_, outputIndex) => ({ txHash: TX_HASH, outputIndex })
+    );
+
+    assert.equal(
+      SttSpendTxRequestSchema.safeParse({ ...body, walletInputs }).success,
+      true
+    );
+  });
+
+  it("accepts every streaming-payment payout transfer in the request", () => {
+    const transfers = Array.from(
+      { length: 3 },
+      () => ({
+        address: ADDRESS,
+        amount: [{ unit: "lovelace", quantity: "1" }]
+      })
+    );
+    const forwardingFields = {
+      outputDatum: { alternative: 0, fields: [] },
+      outputAssets: []
+    };
+
+    assert.equal(
+      SttSpendTxRequestSchema.safeParse({
+        ...baseBody("payout-streaming-payment"),
+        ...forwardingFields,
+        extraTransfers: transfers
+      }).success,
+      true
+    );
+  });
+
+  it("parses an exact uint64 cancellation id at the route boundary", () => {
+    const parsed = SttSpendTxRequestSchema.parse({
+      ...baseBody("cancel-streaming-payment"),
+      streamingPaymentCancelId: {
+        int: MAX_ON_CHAIN_STATE_INTEGER.toString()
+      }
+    });
+
+    if (parsed.action !== "cancel-streaming-payment") {
+      assert.fail("Expected the cancellation request variant.");
+    }
+    assert.equal(parsed.streamingPaymentCancelId, MAX_ON_CHAIN_STATE_INTEGER);
+  });
+});
+
+it("beneficiary stop requires a signer and target, accepts uint64, and rejects every fund movement", () => {
+  const body = baseBody("stop-beneficiary-stream");
+  assert.equal(SttSpendTxRequestSchema.safeParse(body).success, true);
+  for (const key of ["beneficiarySignerKeyHash", "beneficiaryStreamStopId"]) {
+    assert.equal(SttSpendTxRequestSchema.safeParse({...body,[key]:undefined}).success,false);
+  }
+  const parsed = SttSpendTxRequestSchema.parse({...body,beneficiaryStreamStopId:{int:MAX_ON_CHAIN_STATE_INTEGER.toString()}});
+  assert.equal(parsed.action === "stop-beneficiary-stream" && parsed.beneficiaryStreamStopId,MAX_ON_CHAIN_STATE_INTEGER);
+  for (const extra of [
+    {walletInputs:[{txHash:TX_HASH,outputIndex:0}]},
+    {walletOutputs:[{amount:[{unit:"lovelace",quantity:"2000000"}]}]},
+    {extraTransfers:[{address:ADDRESS,amount:[{unit:"lovelace",quantity:"2000000"}]}]}
+  ]) assert.equal(SttSpendTxRequestSchema.safeParse({...body,...extra}).success,false);
+});
+
+it("exact distribution API requires one input and rejects caller outputs, transfers and authority",()=>{
+  const body=baseBody("distribute-beneficiaries");
+  assert.equal(SttSpendTxRequestSchema.safeParse(body).success,true);
+  for(const changes of [
+    {walletInputs:[]},{walletInputs:[{txHash:TX_HASH,outputIndex:1},{txHash:TX_HASH,outputIndex:2}]},
+    {beneficiarySignerKeyHash:undefined},{outputDatum:{alternative:0,fields:[]}},{outputAssets:[]},
+    {authorityPath:"admin"},{authorityPath:"beneficiary"},
+    {walletOutputs:[{amount:[{unit:"lovelace",quantity:"2000000"}]}]},
+    {extraTransfers:[{address:ADDRESS,amount:[{unit:"lovelace",quantity:"2000000"}]}]}
+  ]) assert.equal(SttSpendTxRequestSchema.safeParse({...body,...changes}).success,false);
 });

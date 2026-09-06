@@ -15,6 +15,7 @@ use test_support/state_builders as states
 use wallet/io.{WalletValueSnapshot}
 use wallet/payout_routing.{OutputContext}
 use wallet/rules as wallet_rules
+use wallet/terminal_recovery
 
 // Rule-level adapter: drives `stt_action_allows_spend` with the given state,
 // an empty streaming reserve, and the default fixture addresses/reference —
@@ -30,11 +31,20 @@ pub fn allows_spend(
   wallet_values: WalletValueSnapshot,
   outputs: List<Output>,
 ) -> Bool {
+  let repeatable_beneficiary_recovery = when action is {
+    state_types.UseBeneficiary(_) ->
+      terminal_recovery.is_repeatable_beneficiary_recovery(state)
+    _ -> False
+  }
   wallet_rules.stt_action_allows_spend(
     action,
     state,
+    repeatable_beneficiary_recovery,
     wallet_values,
-    assets.zero,
+    [],
+    assets.difference(wallet_values.input_value, wallet_values.output_value)
+      |> asset_entries.flatten_to_entries
+      |> list.filter(fn(asset) { asset.quantity > 0 }),
     OutputContext {
       wallet_address: fixtures.wallet_script_address(),
       stt_input_reference: fixtures.stt_input_ref(),
@@ -50,12 +60,11 @@ pub fn allows_spend(
 pub fn snapshot(
   input_value: assets.Value,
   output_value: assets.Value,
-  paid_out_value: assets.Value,
+  _paid_out_value: assets.Value,
 ) -> WalletValueSnapshot {
   WalletValueSnapshot {
     input_value,
     output_value,
-    paid_out_value,
     input_count: 1,
     output_count: 1,
   }
@@ -63,6 +72,7 @@ pub fn snapshot(
 
 pub fn mk_beneficiary(id: Int, weight: Int) -> state_types.Beneficiary {
   state_types.Beneficiary {
+    ..states.base_beneficiary(),
     id,
     beneficiary_wallets: ["beneficiary1"],
     unlock_after: Some(100),

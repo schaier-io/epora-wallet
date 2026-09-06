@@ -1,7 +1,8 @@
 {
   "nothingIsOwedYet": "Nothing is owed to you yet. The amount grows each day the schedule runs.",
+  "theFinalBackupPersonMustApprovePaymentsAfterRecoveryOpens": "The final backup person must approve payments after recovery opens.",
   "thePayingWalletCannotPayInFull": "The paying wallet holds {held} of the {owed} owed to you, so it cannot pay in full yet.",
-  "thePayingWalletHasNoLockedFunds": "The paying wallet has no locked funds to pay from right now.",
+  "thePayingWalletCannotSelectFundPools": "The paying wallet's loaded fund pools cannot fund this payout. Ask the wallet owner to refresh the wallet or add funds.",
   "thePayoutAddressCouldNotBeRead": "The payout address on this payment could not be read, so no payout can be built.",
   "thisWalletSettledAPaymentRecently": "This wallet settled a payment recently. It shares one 30-minute cooldown across every receiver action, so collecting has to wait."
 }

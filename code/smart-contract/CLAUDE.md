@@ -243,9 +243,11 @@ with and without them.
   evaluation. Read the deltas, and if they are intended re-record them with
   `pnpm budgets:update` **in the same commit**, saying why. Never re-record to
   make a gate go quiet.
-- Fixture/scaffolding refactors legitimately move the test numbers (the
-  scaffolding is evaluated too). Validator script sizes only move when validator
-  logic moves — watch those against the 16 KiB script limit.
+- Fixture/scaffolding refactors legitimately move the test numbers because the
+  scaffolding is evaluated too. Fixture-only changes do not change compiled
+  script size. Validator code, dependency, or compiler changes can. Track script
+  sizes as artifact metrics. The 16,384-byte protocol limit
+  applies to the full serialized transaction, not to one validator.
 
 ## 11. Off-chain plumbing is shared and tested
 

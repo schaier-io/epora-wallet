@@ -4,6 +4,7 @@ import { test } from "node:test";
 import { createStore } from "jotai";
 
 import {
+  beneficiaryPreparationActiveAtom, beneficiaryPreparationPoolAssetsAtom,
   consolidateStateFormAtom,
   consolidateSttAssetsAtom,
   consolidateSttInputHashAtom,
@@ -22,6 +23,7 @@ import {
 import {
   consolidateAuthorityPathAtom,
   selectedSttActionAtom,
+  beneficiaryStreamStopIdAtom,
   streamingPaymentPayoutAmountsAtom,
   sttAuthorityPathAtom,
   sttExtraTransfersAtom,
@@ -126,6 +128,7 @@ function dirtyWalletBoundDrafts(store: Store) {
   store.set(sttTransferAddressAtom, "dirty");
   store.set(sttTransferAmountsAtom, { dirty: "1" });
   store.set(streamingPaymentPayoutAmountsAtom, { dirty: "1" });
+  store.set(beneficiaryStreamStopIdAtom, "7");
 
   store.set(transferRecipientModeAtom, "custom");
   store.set(transferCustomAddressAtom, "dirty");
@@ -152,6 +155,8 @@ function dirtyWalletBoundDrafts(store: Store) {
 
   store.set(consolidateSttInputHashAtom, "dirty");
   store.set(consolidateSttInputIndexAtom, "9");
+  store.set(beneficiaryPreparationActiveAtom, true);
+  store.set(beneficiaryPreparationPoolAssetsAtom, [dirtyAsset]);
   store.set(consolidateStateFormAtom, dirtyStateForm);
   store.set(consolidateSttAssetsAtom, [dirtyAsset]);
   store.set(consolidateWalletInputsAtom, [dirtyInput]);
@@ -180,6 +185,7 @@ function assertSeeded(store: Store, token: DetectedSttToken) {
   assert.equal(store.get(sttTransferAddressAtom), "");
   assert.deepEqual(store.get(sttTransferAmountsAtom), {});
   assert.deepEqual(store.get(streamingPaymentPayoutAmountsAtom), {});
+  assert.equal(store.get(beneficiaryStreamStopIdAtom), "");
 
   assert.equal(store.get(transferRecipientModeAtom), "");
   assert.equal(store.get(transferCustomAddressAtom), "");
@@ -222,6 +228,8 @@ function assertSeeded(store: Store, token: DetectedSttToken) {
   assert.deepEqual(store.get(consolidateSttAssetsAtom), []);
   assert.deepEqual(store.get(consolidateWalletInputsAtom), []);
   assert.deepEqual(store.get(consolidateWalletOutputsAtom), []);
+  assert.equal(store.get(beneficiaryPreparationActiveAtom), false);
+  assert.deepEqual(store.get(beneficiaryPreparationPoolAssetsAtom), []);
 }
 
 test("wallet seeding replaces every wallet-bound draft on selection and switch", () => {

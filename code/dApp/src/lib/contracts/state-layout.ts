@@ -22,7 +22,7 @@ export function hasIntendedStakeCredential(value: unknown): boolean {
 // Plutus encoding of `last_non_admin_payout_at: Option<POSIXTime> = None`
 // (Aiken `Option`: `Some` = constructor 0, `None` = constructor 1). New wallets
 // MUST mint with this (the STT validator pins it to `None`); thereafter a
-// non-admin payout crank or receiver cancellation advances it as the shared
+// non-admin payout crank, receiver cancellation or beneficiary stream stop advances it as the shared
 // cadence stamp. An admin crank preserves it.
 export const LAST_NON_ADMIN_PAYOUT_AT_NONE: ConstrData = {
   alternative: 1,

@@ -5,6 +5,7 @@ import {
   serializeAssetsToValueData,
   valueEntriesToAssets
 } from "@/lib/contracts/value-data";
+import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
 
 test("serializeAssetsToValueData normalizes duplicates, zeros, and ordering", () => {
   assert.deepEqual(
@@ -57,4 +58,14 @@ test("parseValueData round-trips normalized asset entries", () => {
     { unit: "lovelace", quantity: "5" },
     { unit: `${"bb".repeat(28)}cafe`, quantity: "9" }
   ]);
+});
+
+test("asset quantities reject values above uint64", () => {
+  assert.throws(
+    () =>
+      serializeAssetsToValueData([
+        { unit: "lovelace", quantity: (MAX_ON_CHAIN_STATE_INTEGER + 1n).toString() }
+      ]),
+    /must be between 0 and 18446744073709551615/
+  );
 });

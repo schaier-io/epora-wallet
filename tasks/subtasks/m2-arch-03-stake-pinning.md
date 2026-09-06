@@ -6,7 +6,7 @@ Contract dev task (done) · [Milestone 2](../milestone-2-smart-contract.md) · W
 
 - [x] `State.intended_stake_credential` (`None` = enterprise) in [lib/state/types.ak](../../code/smart-contract/lib/state/types.ak).
 - [x] Every continuing wallet output must carry it inline ([validators/wallet.ak](../../code/smart-contract/validators/wallet.ak) `expect_wallet_outputs_use_intended_stake`); pointer or mismatch rejected. Payee/beneficiary/change outputs unconstrained.
-- [x] Wallet inputs deliberately unconstrained, so stray-stake UTxOs stay sweepable.
+- [x] Wallet input stake credentials remain unrestricted. `Consolidate` has no fixed wallet-input, continuing-output, or native-asset cap. It preserves aggregate wallet Value, and shared output guards and ledger limits still apply.
 - [x] Changeable only via [`SetIntendedStakeCredential`](m2-trans-08-set-stake-credential.md); preservation for every other action enforced centrally in `eval_spend`.
 
 ## Verified by

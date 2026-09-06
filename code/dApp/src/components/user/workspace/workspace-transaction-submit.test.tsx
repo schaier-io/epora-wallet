@@ -1,5 +1,10 @@
+import { parseWorkspaceRouteState } from "@/components/user/workspace-controller";
+import { routeStateAtom } from "./atoms/workspace-route.atoms";
+import { currentRecoveryCapacityFailureAtom } from "./atoms/recovery-capacity.atoms";
+import { beneficiaryPreparationActiveAtom, consolidateWalletInputsAtom } from "./atoms/forms/consolidate-form.atoms";
 import { createStore } from "jotai";
 import { beforeEach, expect, it, vi } from "vitest";
+import { sttWalletInputsAtom } from "./atoms/forms/stt-spend-form.atoms";
 import type { BuildResult } from "@/lib/types/contracts";
 
 const mocks = vi.hoisted(() => ({ signAndSubmitTx: vi.fn() }));
@@ -124,4 +129,72 @@ it("represents a mint whose transaction hash is not known yet with null", async 
     resolveSubmit(TX_HASH);
     await submission;
   }
+});
+
+it("signs a warned transaction only after explicit approval", async () => {
+  const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+  const warnedPreview = {
+    ...preview,
+    warnings: [
+      "ADA payout top-up: extra sent to the payee 7 ADA."
+    ]
+  };
+  const deps = makeDeps({ preview: warnedPreview });
+
+  try {
+    await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(
+      warnedPreview
+    );
+    expect(mocks.signAndSubmitTx).not.toHaveBeenCalled();
+
+    confirm.mockReturnValue(true);
+    await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(
+      warnedPreview
+    );
+
+    expect(confirm).toHaveBeenCalledWith(
+      "Review these warnings before you sign:\n\n" +
+        "ADA payout top-up: extra sent to the payee 7 ADA.\n\n" +
+        "Continue?"
+    );
+    expect(mocks.signAndSubmitTx).toHaveBeenCalledWith({}, "84a1");
+  } finally {
+    confirm.mockRestore();
+  }
+});
+
+it("clears the consumed distribution input after submission so another can be selected", async () => {
+  const deps = makeDeps({ selectedAction: "distribute-beneficiaries" });
+  deps.jotaiStore.set(sttWalletInputsAtom, [{ txHash: "aa".repeat(32), outputIndex: 0 }]);
+  await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
+  expect(mocks.signAndSubmitTx).toHaveBeenCalledOnce();
+  expect(deps.jotaiStore.get(sttWalletInputsAtom)).toEqual([]);
+  expect(deps.rememberRecipients).not.toHaveBeenCalled();
+});
+
+it("a signed-size failure offers fallback only for the reviewed permanent Exit", async () => {
+  const deps = makeDeps({ selectedAction: "exit-beneficiary" });
+  deps.jotaiStore.set(routeStateAtom, parseWorkspaceRouteState(new URLSearchParams("mode=existing-wallet&action=exit-beneficiary")));
+  mocks.signAndSubmitTx.mockRejectedValueOnce(new Error("Serialized transaction uses 17000 bytes. The protocol limit is 16384."));
+  await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
+  expect(deps.jotaiStore.get(currentRecoveryCapacityFailureAtom)?.kind).toBe("bytes");
+  expect(deps.setSubmitHash).not.toHaveBeenCalled();
+});
+it("a signed transaction failure after a wallet switch cannot offer fallback", async () => {
+  const deps = makeDeps({ selectedAction: "exit-beneficiary" });
+  deps.jotaiStore.set(routeStateAtom, parseWorkspaceRouteState(new URLSearchParams("mode=existing-wallet&action=exit-beneficiary")));
+  mocks.signAndSubmitTx.mockImplementationOnce(() => {
+    deps.jotaiStore.set(routeStateAtom, { ...deps.jotaiStore.get(routeStateAtom), selectedWalletUnit: "different-wallet" });
+    return Promise.reject(new Error("Serialized transaction uses 17000 bytes. The protocol limit is 16384."));
+  });
+  await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
+  expect(deps.jotaiStore.get(currentRecoveryCapacityFailureAtom)).toBeNull();
+});
+it("successful preparation clears selected inputs while keeping preparation available", async () => {
+  const deps = makeDeps({ selectedAction: "consolidate-utxo" });
+  deps.jotaiStore.set(beneficiaryPreparationActiveAtom, true);
+  deps.jotaiStore.set(consolidateWalletInputsAtom, [{ txHash: "aa".repeat(32), outputIndex: 0 }]);
+  await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
+  expect(deps.jotaiStore.get(consolidateWalletInputsAtom)).toEqual([]);
+  expect(deps.jotaiStore.get(beneficiaryPreparationActiveAtom)).toBe(true);
 });

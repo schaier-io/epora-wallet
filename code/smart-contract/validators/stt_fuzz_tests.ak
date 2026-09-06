@@ -55,7 +55,8 @@ test prop_stt_non_set_action_cannot_retarget_intended_stake(
 
 // The `PayStreamingPayment` crank is NOT permissionless: it must be signed by an
 // admin, a multisig quorum, a listed user, a stream payee, or an unlocked
-// beneficiary. Fuzzed over signatory sets that contain NONE of the wallet's keys,
+// beneficiary before final recovery opens. The sole beneficiary controls the
+// non-admin path after it opens. Fuzzed over signatory sets that contain NONE of the wallet's keys,
 // against an otherwise well-formed no-op crank — every one is rejected.
 //
 // This REPLACES `prop_stt_payout_rejects_unchanged_streaming_payments`, which

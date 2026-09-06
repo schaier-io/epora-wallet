@@ -8,6 +8,7 @@ import { useAtomValue } from "jotai";
 import { walletBalanceSummaryAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { buildKnownAddresses, StateAssetAmountListEditor, WalletHashesEditor } from "./asset-editors";
 import { GuidedDateTimeField } from "./guided-fields";
+import { BeneficiaryPayoutAddressEditor } from "./people-editors";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { InfoHint } from "@/components/ui/info-hint";
@@ -125,12 +126,14 @@ export function OwnerAccessEditor({
   user,
   connectedPaymentKeyHash,
   connectedAddress,
+  canAddWallet,
   onChange,
   onRemove
 }: {
   user: UserFormState;
   connectedPaymentKeyHash?: string | null;
   connectedAddress?: string | null;
+  canAddWallet: boolean;
   onChange: (value: UserFormState) => void;
   onRemove: () => void;
 }) {
@@ -161,17 +164,21 @@ export function OwnerAccessEditor({
         onChange={(wallets) => onChange({ ...user, wallets })}
         addLabel={i18n("addOwnerWallet")}
         knownAddresses={knownAddresses}
+        canAdd={canAddWallet}
       />
       {normalizedConnectedHash && !connectedWalletAdded ? (
         <Button
           type="button"
           variant="outline"
-          onClick={() =>
-            onChange({
-              ...user,
-              wallets: [...user.wallets, normalizedConnectedHash]
-            })
-          }
+          disabled={!canAddWallet}
+          onClick={() => {
+            if (canAddWallet) {
+              onChange({
+                ...user,
+                wallets: [...user.wallets, normalizedConnectedHash]
+              });
+            }
+          }}
         >
           {i18n("useConnectedWalletHere")}
         </Button>
@@ -185,13 +192,17 @@ export function SpendingAccessEditor({
   connectedPaymentKeyHash,
   connectedAddress,
   onChange,
-  onRemove
+  onRemove,
+  canAddAllowanceEntry,
+  canAddWallet
 }: {
   user: UserFormState;
   connectedPaymentKeyHash?: string | null;
   connectedAddress?: string | null;
   onChange: (value: UserFormState) => void;
   onRemove: () => void;
+  canAddAllowanceEntry: boolean;
+  canAddWallet: boolean;
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsWalletSettingsEditors");
   const walletBalance = useAtomValue(walletBalanceSummaryAtom);
@@ -219,6 +230,7 @@ export function SpendingAccessEditor({
         onChange={(wallets) => onChange({ ...user, wallets })}
         addLabel={i18n("addWalletId")}
         knownAddresses={knownAddresses}
+        canAdd={canAddWallet}
       />
       <StateAssetAmountListEditor
         label={i18n("dailySpendingLimit")}
@@ -226,6 +238,7 @@ export function SpendingAccessEditor({
         value={user.perDayAllowance}
         onChange={(perDayAllowance) => onChange({ ...user, perDayAllowance })}
         addLabel={i18n("addDailyLimit")}
+        canAdd={canAddAllowanceEntry}
         availableAssets={walletBalance.assets}
       />
     </div>
@@ -238,6 +251,7 @@ export function RecoveryAccessEditor({
   totalWeight,
   connectedPaymentKeyHash,
   connectedAddress,
+  canAddWallet,
   onChange,
   onRemove
 }: {
@@ -246,6 +260,7 @@ export function RecoveryAccessEditor({
   totalWeight: number;
   connectedPaymentKeyHash?: string | null;
   connectedAddress?: string | null;
+  canAddWallet: boolean;
   onChange: (value: BeneficiaryFormState) => void;
   onRemove: () => void;
 }) {
@@ -280,6 +295,11 @@ export function RecoveryAccessEditor({
         onChange={(wallets) => onChange({ ...beneficiary, wallets })}
         addLabel={i18n("addRecoveryWallet")}
         knownAddresses={knownAddresses}
+        canAdd={canAddWallet}
+      />
+      <BeneficiaryPayoutAddressEditor
+        value={beneficiary.payoutAddress}
+        onChange={(payoutAddress) => onChange({ ...beneficiary, payoutAddress })}
       />
       <WalletRuleTogglePanel
         title={i18n("useAPersonalWaitDate")}
