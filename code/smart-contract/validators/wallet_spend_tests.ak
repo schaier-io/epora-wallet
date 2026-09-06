@@ -658,6 +658,90 @@ test streaming_payment_payout_accepts_self_address_delta_at_other_payee() {
   expect stt.eval_spend(None, action, fixtures.stt_input_ref(), transaction)
 }
 
+// A self-addressed native stream can satisfy the exact tag check with a
+// continuing wallet output while a negative mint supplies the exact wallet
+// delta. This accepted configuration fixture starts with two 50-token wallet
+// inputs. It continues 10 tokens in the tagged wallet output, 80 in a second
+// wallet output, and burns 10. Both wallet legs and the STT validator accept
+// this context. The test does not execute a minting policy or phase-one checks.
+test streaming_payment_payout_accepts_self_address_native_burn() {
+  let wallet_address = fixtures.script_address(fixtures.policy_id("wallet"))
+  let token_policy = fixtures.policy_id(#"d1")
+  let token_name = #"01"
+  let self_stream = StreamingPayment {
+    ..states.streaming_payment_to(1, wallet_address, 0),
+    policy_id: token_policy,
+    asset_name: token_name,
+    amount_per_day: 10,
+  }
+  let paid_stream = StreamingPayment { ..self_stream, paid_out_amount: 10 }
+  let input_state = states.base_state()
+    |> states.with_users([states.plain_user(1, "user1")])
+    |> states.with_streaming_payments([self_stream])
+  let output_state = state_types.State {
+    ..input_state,
+    streaming_payments: [paid_stream],
+    last_non_admin_payout_at: Some(86_400_000),
+  }
+  let payout_delta = assets.from_asset(token_policy, token_name, 10)
+    |> asset_entries.flatten_to_entries
+  let action = fixtures.streaming_payment_action(payout_delta)
+  let wallet_input_value = assets.merge(
+    assets.from_lovelace(2_000_000),
+    assets.from_asset(token_policy, token_name, 50),
+  )
+  let tagged_output_value = assets.merge(
+    assets.from_lovelace(2_000_000),
+    assets.from_asset(token_policy, token_name, 10),
+  )
+  let remainder_output_value = assets.merge(
+    assets.from_lovelace(2_000_000),
+    assets.from_asset(token_policy, token_name, 80),
+  )
+  let base_transaction = fixtures.transaction_with_stt_redeemer(
+    interval.between(86_400_000, 86_400_000),
+    [fixtures.key_hash("user1")],
+    [
+      helpers.stt_input_with_state(input_state),
+      fixtures.external_input(
+        fixtures.wallet_input_ref(),
+        wallet_address,
+        wallet_input_value,
+      ),
+      fixtures.external_input(
+        fixtures.secondary_wallet_input_ref(),
+        wallet_address,
+        wallet_input_value,
+      ),
+    ],
+    [
+      helpers.stt_output_with_state(output_state),
+      fixtures.tagged_streaming_payment_output(
+        wallet_address,
+        tagged_output_value,
+        fixtures.stt_input_ref(),
+        1,
+      ),
+      fixtures.payout_output(wallet_address, remainder_output_value),
+    ],
+    fixtures.tx_id(#"5232"),
+    fixtures.stt_input_ref(),
+    action,
+  )
+  let transaction = Transaction {
+    ..base_transaction,
+    mint: assets.from_asset(token_policy, token_name, -10),
+  }
+
+  expect helpers.run_wallet_spend(transaction)
+  expect
+    helpers.run_wallet_spend_at(
+      fixtures.secondary_wallet_input_ref(),
+      transaction,
+    )
+  expect stt.eval_spend(None, action, fixtures.stt_input_ref(), transaction)
+}
+
 // Regression for the wallet-side payout authorization list (audit M1). When a
 // matured streaming payment is REMOVED in the output state, the STT still routes
 // its full remaining amount to a tagged payout output for the now-absent id. The

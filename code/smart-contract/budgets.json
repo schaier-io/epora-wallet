@@ -2712,6 +2712,10 @@
       "mem": 2462600,
       "cpu": 827360990
     },
+    "wallet_spend_tests.streaming_payment_payout_accepts_self_address_native_burn": {
+      "mem": 2426191,
+      "cpu": 827340115
+    },
     "wallet_spend_tests.streaming_payment_payout_accepts_matured_removal_settlement": {
       "mem": 1121726,
       "cpu": 375341694
