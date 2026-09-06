@@ -1,5 +1,5 @@
 "use client";
-import { detectedSttTokensAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
+import { detectedSttTokensAtom, lockedContractUtxosAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { useWorkspaceRouteState } from "@/components/user/use-workspace-controller";
 import { connectStepPinnedAtom, renderNowMsAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
 import { configAtom } from "@/components/user/workspace/atoms/workspace-config.atoms";
@@ -7,7 +7,7 @@ import { type WalletInputRef } from "@/lib/types/contracts";
 import { useSetAtom, useAtomValue } from "jotai";
 import { consolidateSttInputHashAtom, consolidateSttInputIndexAtom, consolidateWalletInputsAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
 import { mintReferenceAtom, mintStarterAssetsAtom, mintStateFormAtom, mintZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/mint-form.atoms";
-import { consolidateAuthorityPathAtom, selectedSttActionAtom, streamingPaymentPayoutAmountsAtom, sttAuthorityPathAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import { beneficiaryStreamStopIdAtom, consolidateAuthorityPathAtom, selectedSttActionAtom, streamingPaymentPayoutAmountsAtom, sttAuthorityPathAtom, sttWalletInputsAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { seedWorkspaceWalletAtom } from "@/components/user/workspace/atoms/workspace-wallet-seeding.atoms";
 import { type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { type StateFormState } from "@/lib/contracts/state-form";
@@ -30,7 +30,7 @@ import {
   chooseDefaultConsolidatePath,
   chooseDefaultOperatorPath
 } from "@/components/user/wizard-capabilities";
-import { orphanUtxosToWalletInputRefs } from "@/lib/discovery/orphan-utxos";
+import { mergeDiscoveredWalletUtxos, orphanUtxosToWalletInputRefs } from "@/lib/discovery/orphan-utxos";
 import type { DiscoveredUtxo } from "@/lib/discovery/types";
 
 import {
@@ -45,9 +45,11 @@ import { type useWorkspaceDraftHandlers } from "@/components/user/workspace/work
 import { type useStore } from "jotai";
 import { mintConfirmationRunAtom
 } from "@/components/user/workspace/atoms/transaction-flow.atoms";
-import { DEFAULT_MINT_STARTER_ASSETS, MAX_ORPHAN_SWEEP_INPUTS } from "@/components/user/workspace/constants";
+import { DEFAULT_MINT_STARTER_ASSETS } from "@/components/user/workspace/constants";
 import { cloneAssets, cloneStateForm, isSttFlowAction } from "@/components/user/workspace/helpers";
 import { type useSharedSttReference } from "@/components/user/workspace/use-shared-stt-reference";
+import { finalBeneficiaryRecoveryIsActive } from "@/lib/contracts/crank-cooldown";
+import { getValidityWindow } from "@/lib/mesh/transactions";
 /**
  * The workspace navigation / intent-routing handlers, extracted from the controller.
  * They apply a detected token, open a workspace intent, switch flow branches, route
@@ -98,6 +100,7 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
     setSelectedDetectedTokenUnit,
   } = ctx;
   const detectedSttTokens = useAtomValue(detectedSttTokensAtom);
+  const renderNowMs = useAtomValue(renderNowMsAtom);
   const { routeState, commitRouteState, dispatch: dispatchWorkspaceAction } = useWorkspaceRouteState();
   const setRenderNowMs = useSetAtom(renderNowMsAtom);
   const setConnectStepPinned = useSetAtom(connectStepPinnedAtom);
@@ -114,6 +117,17 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
   const setStreamingPaymentPayoutAmounts = useSetAtom(streamingPaymentPayoutAmountsAtom);
   const setSttAuthorityPath = useSetAtom(sttAuthorityPathAtom);
   const setWalletOperatorPath = useSetAtom(walletOperatorPathAtom);
+  const canRecoverOrphansDirectly = Boolean(
+    selectedDetectedToken &&
+      selectedDetectedToken.datum &&
+      selectedTokenCapabilityMap?.hasBeneficiaryMatch &&
+      activeInferredSttStateForm.beneficiaries.length === 1 &&
+      renderNowMs > 0 &&
+      finalBeneficiaryRecoveryIsActive(
+        selectedDetectedToken.datum,
+        getValidityWindow(renderNowMs).earliestTimeMs
+      )
+  );
 
   // `txHexOverride` carries the hex of a build that just finished: the caller prepares the
   // transaction, then saves it in the same click, and `preview` is still the pre-build value
@@ -226,6 +240,12 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
     clearBuildMessages();
   }
 
+  function handleBeneficiaryStreamStopSelect(streamId: string) {
+    jotaiStore.set(beneficiaryStreamStopIdAtom, streamId);
+    setSttAuthorityPath("beneficiary");
+    openWorkspaceIntent("send", "stop-beneficiary-stream");
+  }
+
   function handleFlowBranchSelect(nextBranch: UserFlowBranch) {
     setConnectStepPinned(false);
     clearBuildMessages();
@@ -254,17 +274,24 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
     if (!selectedDetectedToken) {
       return;
     }
-    const allRefs = orphanUtxosToWalletInputRefs(orphans);
-    // Sweep at most one batch per transaction (each input is execution-unit
-    // heavy). A lone remainder is safe: address migration deliberately permits
-    // one input when it moves from a non-canonical stake variant.
-    const take = Math.min(allRefs.length, MAX_ORPHAN_SWEEP_INPUTS);
-    const refs = allRefs.slice(0, take);
+    const refs = orphanUtxosToWalletInputRefs(orphans);
     pendingOrphanWalletInputsRef.current = refs;
     setConsolidateSttInputHash(selectedDetectedToken.utxo.input.txHash);
     setConsolidateSttInputIndex(String(selectedDetectedToken.utxo.input.outputIndex));
     setConsolidateWalletInputs(refs);
     openWorkspaceIntent("consolidate", "consolidate-utxo");
+  }
+
+  function handleRecoverOrphans(orphans: DiscoveredUtxo[]) {
+    if (!canRecoverOrphansDirectly) {
+      return;
+    }
+    const refs = orphanUtxosToWalletInputRefs(orphans);
+    openWorkspaceIntent("send", "exit-beneficiary");
+    jotaiStore.set(lockedContractUtxosAtom, (loaded) =>
+      mergeDiscoveredWalletUtxos(loaded, orphans)
+    );
+    jotaiStore.set(sttWalletInputsAtom, refs);
   }
 
   function handleCreateAnotherWallet() {
@@ -326,8 +353,11 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
     applyDetectedToken,
     handleDetectedTokenChange,
     openWorkspaceIntent,
+    handleBeneficiaryStreamStopSelect,
     handleFlowBranchSelect,
     handleConsolidateOrphans,
+    handleRecoverOrphans,
+    canRecoverOrphansDirectly,
     handleCreateAnotherWallet,
     handleOpenCreatedWallet,
     handleFocusedTaskSelect,

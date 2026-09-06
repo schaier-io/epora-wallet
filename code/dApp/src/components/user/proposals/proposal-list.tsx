@@ -160,7 +160,7 @@ export function ProposalList({
                 )}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <span className="font-medium leading-tight">{proposal.title}</span>
+                  <span className="min-w-0 wrap-anywhere font-medium leading-tight">{proposal.title}</span>
                   {proposal.status === "OPEN" ? (
                     <ValidityBadge validity={report?.validity} />
                   ) : (

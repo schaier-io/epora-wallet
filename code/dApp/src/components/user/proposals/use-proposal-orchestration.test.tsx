@@ -107,6 +107,7 @@ function verification(
     validity,
     reasons: [],
     bodyHashMatches: true,
+    stateTransition: { txBodyHash: TX_BODY_HASH, outputIndex: 0, changes: [] },
     effect: { inputs: [], outputs: [], feeLovelace: "200000", validUntilMs: null },
     signers: {
       authorityPath: "multisig",
@@ -346,6 +347,23 @@ describe("proposal lifecycle Model", () => {
     expect(result.current.verification?.validity).toBe("valid");
     expect(result.current.verifying).toBe(false);
   });
+
+  it.each([null, { txBodyHash: "ff".repeat(32), outputIndex: 0, changes: [] }])(
+    "blocks signing and submission when the State review is missing or belongs to another body",
+    async (stateTransition) => {
+      dependencies.verifyProposal.mockResolvedValue({ ...verification("valid", true), stateTransition });
+      const { result } = renderHook(() => useProposalOrchestration({
+        proposalId: "proposal-1", sessionKeyHash: SIGNER_KEY_HASH, onChanged: vi.fn()
+      }));
+      await waitFor(() => expect(result.current.verification?.validity).toBe("valid"));
+      expect(result.current.canSign).toBe(false);
+      expect(result.current.canSubmit).toBe(false);
+      await act(async () => result.current.handleSign());
+      await act(async () => result.current.handleSubmit());
+      expect(dependencies.wallet.signTx).not.toHaveBeenCalled();
+      expect(dependencies.markProposalSubmitted).not.toHaveBeenCalled();
+    }
+  );
 
   it("signs and submits through the current proposal command paths", async () => {
     dependencies.verifyProposal.mockResolvedValue(verification("valid", true));

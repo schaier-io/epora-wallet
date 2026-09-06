@@ -1,7 +1,7 @@
 "use client";
 
 import { useAtom } from "jotai";
-import { sttInputTxHashAtom, sttInputOutputIndexAtom, sttStateFormAtom, sttZeroAdminConfirmedAtom, sttOutputAssetsAtom, sttWalletInputsAtom, sttWalletOutputsAtom, sttExtraTransfersAtom, sttProofOfLifeOverrideModeAtom, sttProofOfLifeSpecificDateTimeAtom, sttTransferAddressAtom, sttTransferAmountsAtom, streamingPaymentPayoutAmountsAtom, selectedSttActionAtom, sttAuthorityPathAtom, consolidateAuthorityPathAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import { sttInputTxHashAtom, sttInputOutputIndexAtom, sttStateFormAtom, sttZeroAdminConfirmedAtom, sttOutputAssetsAtom, sttWalletInputsAtom, sttWalletOutputsAtom, sttExtraTransfersAtom, sttProofOfLifeOverrideModeAtom, sttProofOfLifeSpecificDateTimeAtom, sttTransferAddressAtom, sttTransferAmountsAtom, beneficiaryStreamStopIdAtom, streamingPaymentPayoutAmountsAtom, selectedSttActionAtom, sttAuthorityPathAtom, consolidateAuthorityPathAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 
 /**
  * Form state for the STT-spend composer (the use/renew/update/manage/allowance/beneficiary/payout/consolidate spend of an existing wallet).
@@ -19,6 +19,7 @@ export function useSttSpendForm() {
   const [sttProofOfLifeSpecificDateTime, setSttProofOfLifeSpecificDateTime] = useAtom(sttProofOfLifeSpecificDateTimeAtom);
   const [sttTransferAddress, setSttTransferAddress] = useAtom(sttTransferAddressAtom);
   const [sttTransferAmounts, setSttTransferAmounts] = useAtom(sttTransferAmountsAtom);
+  const [beneficiaryStreamStopId, setBeneficiaryStreamStopId] = useAtom(beneficiaryStreamStopIdAtom);
   const [streamingPaymentPayoutAmounts, setStreamingPaymentPayoutAmounts] = useAtom(streamingPaymentPayoutAmountsAtom);
   const [selectedSttAction, setSelectedSttAction] = useAtom(selectedSttActionAtom);
   const [sttAuthorityPath, setSttAuthorityPath] = useAtom(sttAuthorityPathAtom);
@@ -50,6 +51,8 @@ export function useSttSpendForm() {
     setSttTransferAddress,
     sttTransferAmounts,
     setSttTransferAmounts,
+    beneficiaryStreamStopId,
+    setBeneficiaryStreamStopId,
     streamingPaymentPayoutAmounts,
     setStreamingPaymentPayoutAmounts,
     selectedSttAction,

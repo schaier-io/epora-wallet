@@ -12,18 +12,24 @@ import {
 } from "@/lib/contracts/state-form";
 import {
   collectStateDatumWarnings,
-  validateFreshStreamingPayments,
-  validateMintStateDatum,
   validateStateDatum
 } from "@/lib/contracts/state-validation";
+import {
+  validateFreshStreamingPayments,
+  validateMintStateDatum
+} from "@/lib/contracts/state-validation-streaming";
 import { describeStatePath } from "@/lib/contracts/state-validation-records";
 import { MAX_WALLET_NAME_BYTES } from "@/lib/contracts/state-wallet-name";
+import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
+
+const BENEFICIARY_PAYOUT_ADDRESS = "addr_test1vqg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygxrcya6";
 
 // --- builders ----------------------------------------------------------------
 
 const KEY_A = "aa".repeat(28);
 const KEY_B = "bb".repeat(28);
 const KEY_C = "cc".repeat(28);
+const STT_POLICY_ID = "dd".repeat(28);
 
 function keyFor(index: number): string {
   return index.toString(16).padStart(2, "0").repeat(28);
@@ -45,6 +51,7 @@ function formWith(overrides: Partial<StateFormState>): StateFormState {
 
 function beneficiary(overrides: Partial<BeneficiaryFormState> = {}): BeneficiaryFormState {
   return {
+    payoutAddress: BENEFICIARY_PAYOUT_ADDRESS,
     id: "0",
     wallets: [KEY_C],
     unlockAfterMode: "none",
@@ -73,6 +80,35 @@ function withStreamingPayments(base: ConstrData, payments: ConstrData[]): Constr
   };
 }
 
+function withFirstUserPerDayAllowance(
+  base: ConstrData,
+  entries: ConstrData[]
+): ConstrData {
+  const access = base.fields[0] as ConstrData;
+  const users = access.fields[0] as ConstrData[];
+  const user = users[0]!;
+  const updatedUser = {
+    ...user,
+    fields: [user.fields[0]!, user.fields[1]!, entries, ...user.fields.slice(3)]
+  };
+
+  return {
+    ...base,
+    fields: [
+      { ...access, fields: [[updatedUser], ...access.fields.slice(1)] },
+      ...base.fields.slice(1)
+    ]
+  };
+}
+
+function allowanceEntry(
+  policyId: string,
+  assetName: string,
+  amount: number | bigint
+): ConstrData {
+  return { alternative: 0, fields: [policyId, assetName, amount] };
+}
+
 function hasError(errors: string[], pattern: RegExp): boolean {
   return errors.some((error) => pattern.test(error));
 }
@@ -82,6 +118,82 @@ function hasError(errors: string[], pattern: RegExp): boolean {
 test("a single-admin wallet validates with no errors", () => {
   const datum = stateFormToDatum(formWith({ users: [adminUser()] }));
   assert.deepEqual(validateStateDatum(datum), []);
+});
+
+test("state integers accept exact uint64 bigint and reject imprecise JSON numbers", () => {
+  const datum = stateFormToDatum(formWith({ users: [adminUser()] }));
+  const access = datum.fields[0] as ConstrData;
+  const users = access.fields[0] as ConstrData[];
+  const user = users[0]!;
+  const maximumUser: ConstrData = {
+    ...user,
+    fields: [MAX_ON_CHAIN_STATE_INTEGER, ...user.fields.slice(1)]
+  };
+  const maximumDatum: ConstrData = {
+    ...datum,
+    fields: [
+      { ...access, fields: [[maximumUser], ...access.fields.slice(1)] },
+      ...datum.fields.slice(1)
+    ]
+  };
+  const unsafeUser: ConstrData = {
+    ...user,
+    fields: [Number.MAX_SAFE_INTEGER + 1, ...user.fields.slice(1)]
+  };
+  const unsafeDatum: ConstrData = {
+    ...datum,
+    fields: [
+      { ...access, fields: [[unsafeUser], ...access.fields.slice(1)] },
+      ...datum.fields.slice(1)
+    ]
+  };
+
+  assert.deepEqual(validateStateDatum(maximumDatum), []);
+  assert.ok(hasError(validateStateDatum(unsafeDatum), /id must be a whole number/i));
+});
+
+test("the last non-admin payout time must be a bounded integer option", () => {
+  const base = stateFormToDatum(formWith({ users: [adminUser()] }));
+  const withLastPayout = (lastPayout: unknown): ConstrData => ({
+    ...base,
+    fields: [...base.fields.slice(0, 5), lastPayout as ConstrData]
+  });
+
+  assert.deepEqual(
+    validateStateDatum(withLastPayout({ alternative: 0, fields: [100] })),
+    []
+  );
+  assert.deepEqual(
+    validateStateDatum(
+      withLastPayout({ alternative: 0, fields: [MAX_ON_CHAIN_STATE_INTEGER] })
+    ),
+    []
+  );
+  assert.ok(
+    validateStateDatum(
+      withLastPayout({
+        alternative: 0,
+        fields: [MAX_ON_CHAIN_STATE_INTEGER + 1n]
+      })
+    ).some((error) => error.includes(MAX_ON_CHAIN_STATE_INTEGER.toString()))
+  );
+  assert.ok(
+    hasError(
+      validateStateDatum(
+        withLastPayout({ alternative: 0, fields: [Number.MAX_SAFE_INTEGER + 1] })
+      ),
+      /last payout time must be a whole number/i
+    )
+  );
+  assert.ok(
+    hasError(validateStateDatum(withLastPayout(100)), /last payout time must be set or left empty/i)
+  );
+  assert.ok(
+    hasError(
+      validateStateDatum(withLastPayout({ alternative: 0, fields: [-1] })),
+      /last payout time must be 0 or more/i
+    )
+  );
 });
 
 test("a satisfiable multisig with no admin is a valid access path", () => {
@@ -252,6 +364,52 @@ test("more than the maximum number of owners is rejected", () => {
   assert.ok(hasError(validateStateDatum(datum), /at most 15 owners/));
 });
 
+test("allowance caps count raw rows that normalize to zero", () => {
+  const base = stateFormToDatum(formWith({ users: [adminUser()] }));
+  const entries = Array.from({ length: 6 }, (_, index) =>
+    allowanceEntry(keyFor(index + 10), "", 0)
+  );
+
+  assert.ok(
+    hasError(
+      validateStateDatum(withFirstUserPerDayAllowance(base, entries)),
+      /daily limit for at most 5 tokens/i
+    )
+  );
+});
+
+test("allowances reject duplicate raw asset identities", () => {
+  const base = stateFormToDatum(formWith({ users: [adminUser()] }));
+  const entries = [
+    allowanceEntry(KEY_A, "beef", 1),
+    allowanceEntry(KEY_A.toUpperCase(), "BEEF", 2)
+  ];
+
+  assert.ok(
+    hasError(
+      validateStateDatum(withFirstUserPerDayAllowance(base, entries)),
+      /must not list the same token more than once/i
+    )
+  );
+});
+
+test("allowance quantities reject uint64 maximum plus one", () => {
+  const base = stateFormToDatum(formWith({ users: [adminUser()] }));
+  const entries = [
+    allowanceEntry("", "", MAX_ON_CHAIN_STATE_INTEGER + 1n)
+  ];
+
+  const errors = validateStateDatum(
+    withFirstUserPerDayAllowance(base, entries)
+  );
+  assert.ok(
+    errors.some((error) =>
+      error.includes(MAX_ON_CHAIN_STATE_INTEGER.toString())
+    ),
+    errors.join("\n")
+  );
+});
+
 // --- validateStateDatum: beneficiary rules -----------------------------------
 
 test("a beneficiary with no wallet is rejected", () => {
@@ -290,6 +448,28 @@ test("two beneficiaries may not share a wallet", () => {
     })
   );
   assert.ok(hasError(validateStateDatum(datum), /must not share a wallet ID/));
+});
+
+test("beneficiary wallet count is capped across all recovery contacts", () => {
+  const wallets = (offset: number, count: number) =>
+    Array.from({ length: count }, (_, index) => keyFor(offset + index));
+  const datum = stateFormToDatum(
+    formWith({
+      users: [adminUser()],
+      beneficiaries: [
+        beneficiary({ id: "0", wallets: wallets(10, 10) }),
+        beneficiary({ id: "1", wallets: wallets(20, 6) })
+      ],
+      proofOfLifeUnlockTimeMode: "some",
+      proofOfLifeUnlockTime: "1000",
+      proofOfLifeIncrementMode: "some",
+      proofOfLifeIncrement: "60"
+    })
+  );
+
+  assert.ok(
+    hasError(validateStateDatum(datum), /at most 15 wallet IDs in total/)
+  );
 });
 
 test("beneficiary duplicate checks normalize credential hex case", () => {
@@ -344,6 +524,37 @@ test("a streaming payment with start after end is rejected", () => {
     [payment]
   );
   assert.ok(hasError(validateStateDatum(datum), /start date cannot be after the end date/));
+});
+
+test("a streaming payment lifetime payout must fit the on-chain integer limit", () => {
+  const base = stateFormToDatum(formWith({ users: [adminUser()] }));
+  const paymentForDays = (days: number): ConstrData => ({
+    alternative: 0,
+    fields: [
+      0,
+      VALID_PAYOUT_ADDRESS,
+      0,
+      "",
+      "",
+      Number.MAX_SAFE_INTEGER,
+      0,
+      86_400_000 * days
+    ]
+  });
+
+  assert.equal(
+    hasError(
+      validateStateDatum(withStreamingPayments(base, [paymentForDays(2_048)])),
+      /lifetime payout.*or less/i
+    ),
+    false
+  );
+  assert.ok(
+    hasError(
+      validateStateDatum(withStreamingPayments(base, [paymentForDays(2_049)])),
+      /lifetime payout.*or less/i
+    )
+  );
 });
 
 test("a streaming payment field error names the payment the way a person counts", () => {
@@ -423,6 +634,24 @@ test("a native asset may have an empty asset name", () => {
   assert.deepEqual(validateStateDatum(datum), []);
 });
 
+test("mint rejects a fresh stream under the STT policy", () => {
+  const payment: ConstrData = {
+    alternative: 0,
+    fields: [0, VALID_PAYOUT_ADDRESS, 0, STT_POLICY_ID, "01", 1, 0, 100]
+  };
+  const datum = withStreamingPayments(
+    stateFormToDatum(formWith({ users: [adminUser()] })),
+    [payment]
+  );
+
+  assert.ok(
+    hasError(
+      validateMintStateDatum(datum, undefined, STT_POLICY_ID.toUpperCase()),
+      /cannot use this wallet.*policy/i
+    )
+  );
+});
+
 test("streaming asset ids enforce policy and asset-name ledger widths", () => {
   const base = stateFormToDatum(formWith({ users: [adminUser()] }));
   const malformedPolicy: ConstrData = {
@@ -499,14 +728,7 @@ test("mint rejects a fresh zero-duration stream and a seeded payout timestamp", 
   assert.ok(hasError(errors, /must start without a previous payout time/));
 });
 
-// --- collectStateDatumWarnings (non-blocking advisories) ---------------------
-
-test("a clean admin wallet produces no warnings", () => {
-  const datum = stateFormToDatum(formWith({ users: [adminUser()] }));
-  assert.deepEqual(collectStateDatumWarnings(datum, 2_000), []);
-});
-
-test("warns when one key contributes power through multiple owner records", () => {
+test("rejects one credential across multiple positive-power owner records", () => {
   const poweredUser = (id: string, power: string): UserFormState => ({
     ...createDefaultUserFormState(id),
     wallets: [KEY_A],
@@ -524,13 +746,13 @@ test("warns when one key contributes power through multiple owner records", () =
 
   assert.ok(
     hasError(
-      collectStateDatumWarnings(datum, 2_000),
-      /One signature contributes their combined power 3/
+      validateStateDatum(datum),
+      /Each positive-power co-signer must use a distinct wallet ID/i
     )
   );
 });
 
-test("normalizes credential hex case when warning about duplicate multisig power", () => {
+test("normalizes credential hex case when rejecting duplicate multisig credentials", () => {
   const poweredUser = (id: string, wallet: string, power: string): UserFormState => ({
     ...createDefaultUserFormState(id),
     wallets: [wallet],
@@ -548,10 +770,44 @@ test("normalizes credential hex case when warning about duplicate multisig power
 
   assert.ok(
     hasError(
-      collectStateDatumWarnings(datum, 2_000),
-      /One signature contributes their combined power 3/
+      validateStateDatum(datum),
+      /Each positive-power co-signer must use a distinct wallet ID/i
     )
   );
+});
+
+test("allows credential overlap with none and zero-power owner records", () => {
+  const poweredUser = (
+    id: string,
+    mode: UserFormState["multiSigPowerMode"],
+    power: string
+  ): UserFormState => ({
+    ...createDefaultUserFormState(id),
+    wallets: [KEY_A],
+    multiSigPowerMode: mode,
+    multiSigPower: power,
+    preset: "custom"
+  });
+  const datum = stateFormToDatum(
+    formWith({
+      users: [
+        poweredUser("0", "some", "1"),
+        poweredUser("1", "none", ""),
+        poweredUser("2", "some", "0")
+      ],
+      multiSigThresholdMode: "some",
+      multiSigThreshold: "1"
+    })
+  );
+
+  assert.deepEqual(validateStateDatum(datum), []);
+});
+
+// --- collectStateDatumWarnings (non-blocking advisories) ---------------------
+
+test("a clean admin wallet produces no warnings", () => {
+  const datum = stateFormToDatum(formWith({ users: [adminUser()] }));
+  assert.deepEqual(collectStateDatumWarnings(datum, 2_000), []);
 });
 
 test("warns when a recovery contact can already withdraw (lapsed timer)", () => {

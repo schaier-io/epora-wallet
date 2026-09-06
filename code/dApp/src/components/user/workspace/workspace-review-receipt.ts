@@ -222,7 +222,7 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
     if (
       selectedAction === "use" ||
       selectedAction === "use-allowance" ||
-      selectedAction === "use-beneficiary"
+      (selectedAction === "use-beneficiary" || selectedAction === "exit-beneficiary")
     ) {
       const transferAmount = mergeAmountLists(
         sttExtraTransfers.map((transfer) => transfer.amount)
@@ -255,7 +255,7 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
             }));
 
       return {
-        title: i18n("sendReceipt"),
+        title: selectedAction === "exit-beneficiary" ? i18n("permanentExitReceipt") : i18n("sendReceipt"),
         summary:
           sttExtraTransfers.length > 0
             ? i18n("youAreSendingAmountFromFunding", {
@@ -265,6 +265,12 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
             : i18n("nothingIsStagedYetAddAPayoutTo"),
         items: [
           ...recipientItems,
+          ...(selectedAction === "exit-beneficiary" ? [{
+            label: i18n("recoveryAccess"),
+            value: i18n("permanentlyRemoved"),
+            detail: i18n("permanentExitRights"),
+            tone: "warning" as const
+          }] : []),
           // Only worth a row once it is more than the one recipient row already says.
           ...(sttExtraTransfers.length > 1
             ? [

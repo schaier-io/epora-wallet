@@ -11,6 +11,9 @@ const holder = vi.hoisted(() => ({
     error: null as string | null,
     canCheck: true,
     refetch: vi.fn(async () => {})
+  },
+  noticeProps: null as null | {
+    onRecover?: (orphans: DiscoveredUtxo[]) => void;
   }
 }));
 
@@ -19,7 +22,10 @@ vi.mock("@/hooks/use-orphan-wallet-utxos", () => ({
 }));
 
 vi.mock("@/components/user/orphan-utxo-notice", () => ({
-  OrphanUtxoNotice: () => <div data-testid="orphan-notice" />
+  OrphanUtxoNotice: (props: { onRecover?: (orphans: DiscoveredUtxo[]) => void }) => {
+    holder.noticeProps = props;
+    return <div data-testid="orphan-notice" />;
+  }
 }));
 
 const { StakeAddressDiscoveryPanel } = await import(
@@ -29,7 +35,7 @@ const { StakeAddressDiscoveryPanel } = await import(
 function renderPanel({
   enabled = true,
   ...overrides
-}: Partial<typeof holder.result> & { enabled?: boolean } = {}) {
+}: Partial<typeof holder.result> & { enabled?: boolean } = {}, onRecover?: (orphans: DiscoveredUtxo[]) => void) {
   holder.result = {
     orphans: [],
     orphanLovelace: 0n,
@@ -46,6 +52,7 @@ function renderPanel({
       walletScriptAddress="addr_test1wallet"
       enabled={enabled}
       onConsolidate={vi.fn()}
+      onRecover={onRecover}
     />
   );
 }
@@ -101,5 +108,18 @@ describe("orphans", () => {
     });
 
     expect(screen.getByTestId("orphan-notice")).toBeInTheDocument();
+  });
+
+  it("forwards the final-beneficiary recovery route to the notice", () => {
+    const onRecover = vi.fn();
+    renderPanel(
+      {
+        orphans: [{ txHash: "aa", outputIndex: 0 } as unknown as DiscoveredUtxo],
+        orphanLovelace: 5_000_000n
+      },
+      onRecover
+    );
+
+    expect(holder.noticeProps?.onRecover).toBe(onRecover);
   });
 });

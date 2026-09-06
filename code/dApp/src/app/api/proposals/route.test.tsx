@@ -41,6 +41,12 @@ vi.mock("@/lib/proposals/api-helpers", () => ({
 
 import { GET, POST } from "./route";
 import { InvalidProposalBuildContextError } from "@/lib/proposals/validation";
+import type { CreateProposalRequest } from "@/lib/proposals/types";
+import {
+  MAX_SUMMARY_BYTES,
+  MAX_SUMMARY_CELL_LENGTH,
+  MAX_SUMMARY_ROWS
+} from "@/lib/proposals/limits";
 
 const CALLER = "aa".repeat(28);
 const POLICY = "bb".repeat(28);
@@ -223,6 +229,55 @@ describe("POST /api/proposals", () => {
     expect(response.status).toBe(201);
     expect(indexer.reconcileWalletUnit).toHaveBeenCalledWith(`${POLICY}${ASSET_NAME}`);
     expect(store.createProposalRecord).toHaveBeenCalled();
+  });
+
+  it("fits direct proposal summaries before storage instead of rejecting extra rows", async () => {
+    store.isWalletParticipant.mockResolvedValue(true);
+    store.createProposalRecord.mockResolvedValue({ id: "proposal-1" });
+    const expectedRows = Array.from({ length: MAX_SUMMARY_ROWS }, (_, index) => ({
+      label: `Output ${index}`,
+      value: "1 ADA"
+    }));
+
+    const response = await POST(
+      createRequest({
+        summary: {
+          headline: "Many outputs",
+          rows: Array.from({ length: MAX_SUMMARY_ROWS + 1 }, (_, index) => ({
+            label: `Output ${index}`,
+            value: "1 ADA"
+          }))
+        }
+      })
+    );
+
+    expect(response.status).toBe(201);
+    expect(store.createProposalRecord).toHaveBeenCalledOnce();
+    const storedRequest = store.createProposalRecord.mock.calls[0]?.[0] as unknown as
+      | CreateProposalRequest
+      | undefined;
+    expect(storedRequest?.summary).toEqual({ headline: "Many outputs", rows: expectedRows });
+    expect(store.createProposalRecord.mock.calls[0]?.[1]).toBe(CALLER);
+  });
+
+  it("rejects an oversized raw summary before fitting it for storage", async () => {
+    store.isWalletParticipant.mockResolvedValue(true);
+    const oversizedRowCount = Math.ceil(MAX_SUMMARY_BYTES / MAX_SUMMARY_CELL_LENGTH) + 1;
+
+    const response = await POST(
+      createRequest({
+        summary: {
+          headline: "Too much metadata",
+          rows: Array.from({ length: oversizedRowCount }, (_, index) => ({
+            label: `Output ${index}`,
+            value: "v".repeat(MAX_SUMMARY_CELL_LENGTH)
+          }))
+        }
+      })
+    );
+
+    expect(response.status).toBe(400);
+    expect(store.createProposalRecord).not.toHaveBeenCalled();
   });
 
   it("answers not a member when reconciling indexed the wallet but excludes the caller", async () => {

@@ -46,7 +46,7 @@ sequenceDiagram
   participant W as wallet.spend (per wallet input)
   B->>S: tx: STT input + SttAction redeemer (+ wallet inputs, outputs)
   S->>S: expect_transition_context — single STT input & output,<br/>token forwarded unchanged, both State datums decoded
-  S->>S: central guards — reference-script ban (admin exempt),<br/>intended_stake_credential preserved (unless SetIntendedStakeCredential),<br/>cooldown clock preserved (unless PayStreamingPayment)
+  S->>S: central guards: reference-script ban (admin exempt),<br/>intended_stake_credential preserved (unless SetIntendedStakeCredential),<br/>cooldown clock preserved except on a cadence-limited action
   S->>S: dispatch to eval_* — authority + state diff == declared payload
   B->>W: same tx spends wallet UTxO(s)
   W->>W: locate STT input/output by token, read SttAction<br/>from tx.redeemers[Spend(stt_ref)] — fails if the STT did not fire
@@ -76,9 +76,10 @@ flowchart LR
   MS(["Multisig quorum"])
   ALW(["Allowance user"])
   KPR(["Liveness keeper<br/>(non-admin, can_renew)"])
+  LST(["Any listed user"])
   BEN(["Unlocked beneficiary"])
   PAY(["Streaming payee"])
-  ANY(["Any stakeholder<br/>(user / payee / operator / beneficiary)"])
+  CRE(["Wallet creator"])
 
   subgraph OPS["Operator actions — RunOperator(path, kind)"]
     USE["Use"]
@@ -91,6 +92,9 @@ flowchart LR
     RPL["RenewProofOfLife"]
     UAL["UseAllowance"]
     UBE["UseBeneficiary"]
+    EBE["ExitBeneficiary"]
+    SBS["StopBeneficiaryStream"]
+    DBE["DistributeBeneficiaries"]
   end
   subgraph SET["Settlement actions"]
     PSP["PayStreamingPayment"]
@@ -102,18 +106,20 @@ flowchart LR
     GOV["wallet withdraw / publish / vote (P13)"]
   end
 
-  ANY --> MINT
+  CRE --> MINT
   USE -- "same-tx co-fire authorizes (payloads not inspected)" --> GOV
   ADM --> OPS
   MS --> OPS
   KPR --> RPL
   ALW --> UAL
   BEN --> UBE
-  PAY --> CSP
-  ALW -- "30-min cadence + 1h window cap" --> PSP
-  PAY -- "30-min cadence + 1h window cap" --> PSP
-  MS -- "30-min cadence + 1h window cap" --> PSP
-  BEN -- "30-min cadence + 1h window cap" --> PSP
+  BEN --> EBE
+  BEN --> SBS
+  BEN --> DBE
+  PAY -- "payee signature; exact cutoff after terminal unlock" --> CSP
+  LST -- "before terminal recovery, cadence applies" --> PSP
+  PAY -- "before terminal recovery, cadence applies" --> PSP
+  BEN -- "cadence applies, final beneficiary after unlock" --> PSP
   ADM -- "cadence bypass, no stamp" --> PSP
   ADM --> CON
   MS --> CON
@@ -123,8 +129,11 @@ flowchart LR
   USE -- "unbounded (operator trust)" --> W
   UAL -- "== declared spent_allowance" --> W
   UBE -- "≤ weighted share of (wallet − reserve)" --> W
+  EBE -- "weighted share; actor always removed" --> W
+  DBE -- "one input; exact tagged shares; rights retained" --> W
   PSP -- "== payout delta, only to tagged payee outputs" --> W
   NOX["No wallet movement"]
+  SBS -.-> NOX
   UPD -.-> NOX
   MSP -.-> NOX
   RAI -.-> NOX
@@ -135,8 +144,8 @@ flowchart LR
 
   classDef moves fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
   classDef nomove fill:#eceff1,stroke:#546e7a,color:#263238
-  class USE,UAL,UBE,PSP,CON moves
-  class UPD,MSP,RAI,SIC,RPL,CSP,MINT,GOV nomove
+  class USE,UAL,UBE,EBE,DBE,PSP,CON moves
+  class UPD,MSP,RAI,SIC,RPL,CSP,SBS,MINT,GOV nomove
 ```
 
 Green nodes may spend wallet UTxOs; grey nodes never touch them. The map
@@ -171,8 +180,12 @@ stateDiagram-v2
     A --> L : unlock_time passes (no transaction needed)
     A --> L : UpdateState sets unlock_time into the past — no window cap (operator trust, audit A4)
     L --> A : any heartbeat path still works, or UpdateState re-arms
-    L --> L : UseBeneficiary — one-shot draw, acting beneficiary removed
-    L --> L : beneficiary-authorized Consolidate / crank (cadence-limited like any non-admin)
+    L --> L : UseBeneficiary, earlier actor removed
+    L --> L : final UseBeneficiary, actor retained, cadence stamped
+    L --> L : ExitBeneficiary removes actor, final exit stamps cadence
+    L --> L : StopBeneficiaryStream stops accrual, preserves debt, stamps cadence
+    L --> L : beneficiary-authorized Consolidate
+    L --> L : beneficiary-authorized crank, cadence stamped
 
     note right of U
       config validation rejects beneficiaries without PoL,
@@ -184,12 +197,15 @@ stateDiagram-v2
     end note
 ```
 
-Audit reading of the diagram: `UseBeneficiary`, `BeneficiaryPath` consolidation
+Audit reading of the diagram: `UseBeneficiary`, `BeneficiaryPath` consolidation,
 and the beneficiary arm of the crank's authority gate are reachable **only** in
-`Lapsed` (and only for beneficiaries whose own `unlock_after` has elapsed — P9);
-everything else is phase-independent. Note the beneficiary arm grants the right
-to crank, not an exemption from its cadence limit — only an admin is exempt
-(P10). The `Lapsed → Alive` edge is why the liveness keeper
+`Lapsed`. The beneficiary's own `unlock_after` must also have elapsed (P9).
+Final-beneficiary recovery and beneficiary cranks use the shared cadence.
+Once the sole final beneficiary unlocks, only an admin or that beneficiary may
+crank. A payee may still cancel its own payment, but it must use the exact safe
+cutoff. Consolidation does not need the final beneficiary's signature. Only an
+admin payout bypasses that cadence (P10). The
+`Lapsed → Alive` edge is why the liveness keeper
 "outranks" recovery (P7), the born-`Lapsed` edge is the documented
 shape-not-timing acceptance from P1, and the operator `Alive → Lapsed` edge is
 the A4 consequence of `UpdateState` skipping the increment window entirely (P3).
@@ -198,7 +214,7 @@ the A4 consequence of `UpdateState` skipping the increment window entirely (P3).
 
 What the paths actually mutate. The two datum fields guarded centrally
 (G3/G4) rather than per-handler are marked; `SttAction` payload semantics are
-what the wallet validator bounds against (P2/P8/P9/P10).
+what the wallet validator bounds against (P2/P8/P9/P10/P15/P17).
 
 ```mermaid
 classDiagram
@@ -215,12 +231,15 @@ classDiagram
       users: List~User~
       multi_sig_threshold: Option~Int~
       beneficiaries: List~Beneficiary~
+      users plus beneficiaries: max 15 records
     }
     class User {
       id: Int, unique
       user_wallets: List~KeyHash~, max 10, each exactly 28 bytes
-      per_day_allowance: AssetEntries, max 10
-      remaining_allowance: AssetEntries, max 10
+      per_day_allowance: AssetEntries, max 5
+      remaining_allowance: AssetEntries, max 5
+      all users: max 15 wallet ids
+      reserved allowance footprint: max 15 entries
       next_allowance_reset: POSIXTime
       can_renew_proof_of_life: Bool
       multi_sig_power: Option~Int~
@@ -229,8 +248,10 @@ classDiagram
     class Beneficiary {
       id: Int, unique
       beneficiary_wallets: List~KeyHash~, 1 to 10, no overlap, each exactly 28 bytes
+      all beneficiaries: max 15 wallet ids
       unlock_after: Option~POSIXTime~
       weight: Int, at least 1
+      payout_address: Data encoding Address, fifth field
     }
     class ProofOfLifeSettings {
       unlock_time: Option~POSIXTime~
@@ -240,7 +261,7 @@ classDiagram
       id: Int, unique
       payout_address: Address, every embedded credential hash exactly 28 bytes;
         pointer stake credentials rejected
-      policy_id, asset_name: canonical ADA (both empty), or 28-byte native
+      policy_id, asset_name: one canonical ADA (both empty), or one 28-byte native
         policy plus asset name of at most 32 bytes
       amount_per_day: Int
       start_date, end_date: POSIXTime
@@ -255,6 +276,9 @@ classDiagram
       PayStreamingPayment(AssetEntries)
       Consolidate(ConsolidatePath)
       CancelStreamingPayment(Int)
+      ExitBeneficiary(Int)
+      StopBeneficiaryStream(Int, Int)
+      DistributeBeneficiaries(Int)
     }
     class OperatorAction {
       <<RunOperator payload>>
@@ -273,20 +297,21 @@ classDiagram
     }
     class OutputId {
       <<payout-output inline datum>>
-      id: Int of the streaming payment
+      id: Int of the streaming payment or beneficiary
       transaction_id: Hash of the consumed STT ref
       output_index: Int
     }
 
     State *-- AccessControl
     State *-- ProofOfLifeSettings
-    State "1" *-- "0..25" StreamingPayment
-    AccessControl "1" *-- "0..15" User
-    AccessControl "1" *-- "0..25" Beneficiary
+    State "1" *-- "0..15" StreamingPayment
+    AccessControl "1" *-- "0..10" User
+    AccessControl "1" *-- "0..15" Beneficiary
     SttAction *-- OperatorAction : RunOperator
     SttAction *-- ConsolidatePath : Consolidate
     SttAction ..> State : each variant rewrites one field subset (see preservation matrix)
     StreamingPayment ..> OutputId : crank payouts must land on outputs tagged with this
+    Beneficiary ..> OutputId : exact shares must land on outputs tagged with this
 ```
 
 The caps in parentheses are the execution-budget bounds from
@@ -295,6 +320,14 @@ change" matrix is maintained in the [preservation.ak](lib/stt/preservation.ak)
 module header, and `streaming_payments/types.core_fields_match` owns the
 always-immutable `StreamingPayment` field set.
 
+Each streaming schedule names exactly one asset. The contract sets no global
+wallet-input, general transaction-input, general output, ordinary redeemer, or
+positive-schedule payout count. `UseAllowance`, `UseBeneficiary`, and
+`PayStreamingPayment` still limit continuing wallet outputs to consumed wallet
+inputs. Serialized byte size, combined ExUnits, and action-specific limits
+decide which other transaction shape fits. A builder can retry with a smaller
+payout batch or fewer wallet inputs.
+
 ## Cross-cutting guards (audited once — apply to every STT spend path)
 
 | # | Guard | Where | What it stops |
@@ -302,8 +335,8 @@ always-immutable `StreamingPayment` field set.
 | G1 | Exactly one STT input and one continuing STT output, matched by **full address**; token (policy + name, qty 1) forwarded unchanged | `io.expect_single_stt_io`, `io.expect_transition_context` | attacker-supplied second STT at the script; token swap/burn; stake re-homing of the STT UTxO itself |
 | G2 | Reference-script ban on the forwarded STT output; admin operator actions exempt | `stt.eval_spend` + `io.is_admin_operator_action` | STT UTxO bloat / foreign script pinning; admin can still re-host the STT reference script |
 | G3 | `intended_stake_credential` preserved by every action except `SetIntendedStakeCredential` | `stt.eval_spend` (central `expect or`) | any path — even arbitrary `UpdateState` — silently re-targeting wallet delegation |
-| G4 | `last_non_admin_payout_at` preserved by every action except `PayStreamingPayment` and `CancelStreamingPayment` | `stt.eval_spend` (central `expect or`) | resetting/advancing the shared payout/cancel cooldown clock from another path |
-| G5 | STT value: non-lovelace exactly equal, lovelace may only grow (`stt_value_preserved_or_increased`); admin `Use` exempt, crank stricter (`==`) | `io.stt_value_preserved_or_increased` (argument order is load-bearing — see its doc comment) | draining or junk-flooding the STT UTxO |
+| G4 | `last_non_admin_payout_at` preserved except by non-admin `PayStreamingPayment`, `CancelStreamingPayment`, `StopBeneficiaryStream`, final-beneficiary recovery or exit, and sole-beneficiary `DistributeBeneficiaries` | `stt.eval_spend` (central `expect or`) | resetting or advancing the shared cadence clock from another path |
+| G5 | Every spend forwards exactly one unchanged STT policy, asset name, and quantity. Assets under other policies may share the STT output. Admin or threshold Multisig `RunOperator(Use)` may add or remove ADA and other-policy assets. Every other action preserves all native assets and allows ADA only to stay equal or increase. Thus every otherwise-valid action may add ADA through external funding. | `io.expect_stt_token_is_forwarded_unchanged`, `io.stt_value_preserved_with_lovelace_top_up`, `operator_handlers.eval_operator_use` | non-operator value removal or native-asset drift; any change to the singleton STT |
 
 Wallet-side cross-cutting guards (apply to **every** wallet spend, before the
 per-action rule):
@@ -311,8 +344,31 @@ per-action rule):
 | # | Guard | Where | What it stops |
 | --- | --- | --- | --- |
 | W1 | Every continuing wallet output carries `State.intended_stake_credential`, has no reference script, and uses `NoDatum` or `InlineDatum`. The guard rejects `DatumHash` and pointer stake credentials. Input datums remain unrestricted. | `stake_pinning.expect_wallet_outputs_are_well_formed` | Foreign stake credentials, reference-script bloat, and hashed continuations with unavailable preimages. Legacy hashed inputs still need their preimages under ledger rules. |
-| W2 | Per-asset streaming reserve: `output ≥ min(input, reserve)` for every spent asset. **`PayStreamingPayment` is exempt** — its outflow is already pinned to the tagged payee outputs, and applying the floor deadlocked settlement for an under-funded wallet | `funding.remains_funded`, exemption in `validators/wallet.ak` | any DISCRETIONARY spend (operator included) draining what payees have already accrued |
+| W2 | Per-asset streaming reserve: `output ≥ min(input, reserve)`. Routine bounded paths check only spent assets. Uncapped owner cleanup and repeatable final recovery scan the normalized reserve against aggregate input and output Values. **`PayStreamingPayment` is exempt** because its outflow is already pinned to tagged payee outputs. Applying the floor deadlocked settlement for an under-funded wallet. | `funding.remains_funded`, `funding.reserve_assets_remain_funded`, selection and exemption in `lib/wallet/reserve.ak` | any DISCRETIONARY spend (operator included) draining what payees have already accrued |
 | W3 | Value snapshot aggregates by **payment credential** across all wallet UTxOs in the tx | `wallet/io.collect_wallet_value_snapshot` | applying a per-invocation cap (e.g. beneficiary share) once per stake variant instead of once per tx |
+| W4 | Wallet spends have no fixed wallet-input count. The least input reference runs the full aggregate check. Other wallet inputs take the same-script leader fast path. | `lib/wallet/spend.ak` | Ledger byte size and combined ExUnits decide how many wallet inputs fit without duplicating the full aggregate check. |
+| W5 | Wallet inputs, outputs, and aggregate Values have no native-asset count cap. `UseAllowance` limits the declared draw through the five-entry allowance bundle. Exact subtraction preserves every asset outside that draw. `UseBeneficiary` still limits each withdrawn asset to the actor's weighted share. | `state/allowance.expect_single_allowance_update`, `wallet/rules.stt_action_allows_spend`, `wallet/beneficiary_share.paid_out_within_share` | Ledger byte size and combined ExUnits limit transaction shapes. Earlier beneficiaries still leave the access list after one use, even if other wallet UTxOs remain. |
+
+### Allowance entries and wallet assets
+
+**VERIFIED implementation:** The five-entry limit applies to each stored daily
+or remaining allowance bundle. ADA counts as one entry when present. This
+limits the allowance data that later State transitions must process. The
+declared withdrawal also has a five-entry check and must equal the allowance
+decrease. Removing that check alone would not increase the available allowance.
+See `lib/constants.ak:106`, `lib/state/configuration.ak:114,140-141`,
+`lib/state/allowance.ak:183`, and `lib/stt/user_handlers.ak:74`.
+
+Wallet inputs and continuing outputs have no corresponding asset-count cap.
+For example, an input can contain ADA and 20 native assets. An allowance draw
+of ADA and token A uses two allowance entries. Every other asset and every
+unwithdrawn quantity must remain in the wallet. Authorization and streaming
+reserve checks still apply. Ledger size and execution limits can reject a
+transaction with a large input even when the draw is small.
+
+The configured limit is five. These checks do not establish that five is the
+largest safe allowance size. Changing the stored allowance limit requires a
+separate budget review of later State transitions.
 
 ### Validity-bound requirements per path
 
@@ -326,7 +382,10 @@ inclusivity assumption).
 | RunOperator(Use / ManageStreamingPayments), RenewProofOfLife | finite **only if** `unlock_time` changes (renewal window check; unchanged ⇒ no bound required) | same; `ManageStreamingPayments` also needs a finite upper to *stop* a stream (unbounded ⇒ extend-only) |
 | RunOperator(UpdateState / RemoveAccessIndex / SetIntendedStakeCredential) | – | – (`UpdateState` may set `unlock_time` freely with **no** window check — P3/audit A4; the other two cannot touch it) |
 | UseAllowance | finite (reset gate) | finite (next-reset rebase) |
-| UseBeneficiary | finite (unlock check — no finite lower ⇒ never unlocked) | – (STT side) |
+| UseBeneficiary | finite (unlock check; final recovery also checks cadence) | finite for final recovery (stamp + 1h window cap) |
+| ExitBeneficiary | finite (unlock check; final exit also checks cadence) | finite for final exit (stamp + 1h window cap) |
+| StopBeneficiaryStream | finite (unlock and shared cadence) | finite (exact cutoff, stamp, and 1h window cap) |
+| DistributeBeneficiaries | finite (every beneficiary unlock) | finite when wallet spends; final beneficiary also requires cadence and 1h window cap |
 | PayStreamingPayment | finite (cadence + accrual floor) | finite (stamp + 1h window cap) |
 | CancelStreamingPayment | finite (shared cadence gate) | finite (end-date floor + stamp + 1h window cap) |
 | Consolidate | finite for `BeneficiaryPath` (unlock check) | – (STT side) |
@@ -343,7 +402,7 @@ code site and in the whitepaper's *Limitations and Trust Assumptions*.
 
 - **Entry:** `stt.mint` → `eval_mint` ([stt.ak](validators/stt.ak))
 - **Authority:** anyone (creating a wallet needs no permission; all authority is in the State being minted — the mint redeemer itself is ignored)
-- **Guards:** exactly one STT output at the STT script, enterprise address (stake `None` — immutable for the wallet's life, audit B-4), no reference script, inline `State` datum; token name = `blake2b_256(consumed input ref)` (uniqueness); mint pinned to exactly one token, quantity 1, name equal to the output's (audit I-5); `expect_valid_state_configuration` (caps, unique ids, reachable recovery path); `last_non_admin_payout_at == None` (fresh cooldown clock).
+- **Guards:** exactly one STT output at the STT script, enterprise address (stake `None` — immutable for the wallet's life, audit B-4), no reference script, inline `State` datum; token name = `blake2b_256(consumed input ref)` (uniqueness); mint pinned to exactly one token, quantity 1, name equal to the output's (audit I-5); `expect_valid_state_configuration` (caps, unique ids, reachable recovery path); fresh streams start unpaid, have positive duration, and cannot use the runtime STT script as their payout payment credential; `last_non_admin_payout_at == None` (fresh cooldown clock).
 - **Abuse analysis:** minting a bricked wallet → rejected by recovery-reachability shape check; minting with lapsed `unlock_time` → accepted **(intentional — "shape, not timing"; off-chain warns)**; double-mint under one policy in one tx → single-output + single-name pins reject it.
 - **Tests:** `stt_mint_tests.ak`, `config_cap_tests.ak`, `security_attack_log_tests.ak`.
 - **Verdict:** ✅ sound; two documented intentional caveats (timing not checked, permissionless creation).
@@ -353,10 +412,10 @@ code site and in the whitepaper's *Limitations and Trust Assumptions*.
 - **Entry:** `stt.spend` → `operator_handlers.eval_operator_use`; wallet arm: `RunOperator.kind == Use`
 - **Authority:** admin signature, or multisig power ≥ threshold (`authorization.has_operator_authority`)
 - **May change:** proof-of-life `unlock_time` only (renewal optional, window-checked when present); wallet: **any movement** (operator trust)
-- **Guards:** operator authority; `state_unchanged_except_pol_unlock_time`; renewal window; STT value preserved **unless admin** (carve-out so admin can reshape the STT UTxO's own assets).
+- **Guards:** operator authority; `state_unchanged_except_pol_unlock_time`; renewal window. G1 fixes the singleton STT. Admin or threshold Multisig authority may add or remove ADA and other-policy assets from the STT output. Wallet spending must leave each active stream's accrued reserve. Dense owner cleanup uses the normalized full-reserve cursor and does not flatten the wallet Value delta.
 - **Abuse analysis:** non-operator forging `Use` → authority gate; renewing `unlock_time` beyond `increment` → window check; wallet drain by operator → **intentional** (trust model); operator spend leaving payees unfunded → blocked wallet-side by W2. `Use` **not** forcing renewal is the documented advisory-proof-of-life trade-off (README §Role Model, whitepaper caveat box) — off-chain owns liveness.
-- **Wallet-less tx:** admin can reshape only the STT UTxO's min-ADA-tier contents; wallet funds untouched by definition.
-- **Tests:** `stt_operator_tests.ak`, `wallet_spend_tests.ak`, `stt_spend_value_tests.ak`.
+- **Wallet-less tx:** an Admin or threshold Multisig `Use` may change STT-output ADA and other-policy assets. The singleton STT stays fixed. Wallet funds are untouched by definition.
+- **Tests:** `stt_operator_tests.ak`, `wallet_spend_tests.ak`, `stt_spend_value_tests.ak`, and `transaction_budget_tests.ak` (`deep_value_underfunded_operator_use`, `near_max_value_underfunded_operator_use`).
 - **Verdict:** ✅ sound; operator-trust and advisory-liveness are documented design.
 
 ### P3 — RunOperator(UpdateState): full reconfiguration
@@ -364,7 +423,7 @@ code site and in the whitepaper's *Limitations and Trust Assumptions*.
 - **Entry:** `operator_handlers.eval_operator_state_update`; wallet arm: no spend
 - **Authority:** admin or multisig quorum
 - **May change:** entire access record + proof-of-life settings; wallet_name (admin only); streaming payments must be forwarded exactly
-- **Guards:** full `expect_valid_state_configuration` on the output (caps, unique ids, reachability); `are_forwarded` (no payee erased/clawed back); authority; STT value preserved. G3/G4 keep the stake credential and cooldown clock out of reach.
+- **Guards:** full `expect_valid_state_configuration` on the output (caps, unique ids, reachability); `are_forwarded` (no payee erased/clawed back); authority; STT output follows G5. G3/G4 keep the stake credential and cooldown clock out of reach.
 - **Abuse analysis:** multisig evicting the admin → **intentional** (co-equal recovery authority); setting `unlock_time` into the past → **intentional** (reconfiguration path skips the increment cap — handler doc comment, audit A4); sneaking in a bloated state → inner-collection caps (audit A1).
 - **Tests:** `stt_operator_tests.ak`, `config_cap_tests.ak`, `security_attack_log_tests.ak`.
 - **Verdict:** ✅ sound; the two "surprising" powers are documented operator-trust consequences.
@@ -374,8 +433,11 @@ code site and in the whitepaper's *Limitations and Trust Assumptions*.
 - **Entry:** `operator_handlers.eval_manage_streaming_payments`; wallet arm: no spend
 - **Authority:** admin or multisig quorum
 - **May change:** streaming payments (extend / stop-at-"now" / add new, born unsettled) + optional proof-of-life renewal
-- **Guards:** `shape.is_valid` on the grown set (count cap 25, unique ids, ledger-valid asset/address identifiers, per-entry validity); `are_forwarded_rescheduled_or_added` — existing entries never dropped, immutable fields + `paid_out_amount` pinned. For a positive-duration input, the operator `end_date` floor is `max(start_date + 1, min(end_date, tx_latest))` (no clawback; the 1 ms high-rate edge is accepted operator burden). For an existing receiver-created zero-duration input, the floor stays at `start_date`, so management may preserve or extend it without manufacturing 1 ms of accrual. Adds must have `paid_out_amount == 0` and `start_date < end_date`; renewal window; authority; STT value preserved.
+- **Guards:** `shape.is_valid` on the grown set (count cap 15, unique ids, ledger-valid asset/address identifiers, per-entry validity). `are_forwarded_rescheduled_or_added` prevents existing entries from being dropped and pins immutable fields plus `paid_out_amount`. For a positive-duration input, the operator `end_date` floor is `max(start_date + 1, min(end_date, tx_latest))` (no clawback; the 1 ms high-rate edge is accepted operator burden). For an existing receiver-created zero-duration input, the floor stays at `start_date`, so management may preserve or extend it without manufacturing 1 ms of accrual. Adds must have `paid_out_amount == 0`, `start_date < end_date`, and a payment credential different from the consumed STT input. The credential check includes stake variants and does not re-check existing ids; renewal window; authority; STT output follows G5.
 - **Abuse analysis:** clawing back accrued value by shrinking `end_date` below "now" → floor rejects; deleting a payment → forwarding rejects (settlement is the only exit); unbounded tx faking "now" → `None` upper bound degrades the floor to `end_date` (extend-only).
+- **ACCEPTED STT-policy payment asset:**
+  _VERIFIED:_ the on-chain shape permits a stream asset under the active STT policy. `stt_mint_accepts_stream_asset_under_stt_policy` and `manage_streaming_payments_accepts_new_stream_asset_under_stt_policy` pin this boundary. The maintained dApp rejects this policy at mint and for new management additions. It permits existing entries so they remain manageable. Frontend tests in `state-validation.test.ts`, `streaming-manage.test.ts`, and `mint-state-token.test.tsx` cover the fresh-entry guard and existing-entry compatibility.
+  _INFERRED:_ a stream that owes a positive quantity cannot make positive payment progress or be removed while that unpaid amount remains. Payout routing needs the asset at its tagged payee. Each STT policy token stays at its own continuing STT output, and the current spend rejects another input from the shared STT address. The entry can block final exit and exact distribution. Custom builders must apply the same fresh-entry check.
 - **Tests:** `shape_tests.ak`, `forwarding_tests.ak`, `stt_operator_tests.ak`.
 - **Verdict:** ✅ sound; reserve stays honest because it is recomputed from live State on every spend.
 
@@ -384,8 +446,8 @@ code site and in the whitepaper's *Limitations and Trust Assumptions*.
 - **Entry:** `operator_handlers.eval_remove_access_index`; wallet arm: no spend
 - **Authority:** admin or multisig quorum
 - **May change:** exactly one user or beneficiary entry, by index
-- **Guards:** authority; `state_unchanged_except_access_index_removed` (output == input minus index, length must shrink by exactly 1 — out-of-range index is a no-op caught by the length check); `has_reachable_access_path` re-checked (the only invariant a removal can break — removal cannot create duplicates/invalid allowances); STT value preserved.
-- **Abuse analysis:** removing the last recovery path → reachability recheck rejects; using removal to bypass full validation → safe by construction (subset of a valid set + the one recheck); cap-exempt on purpose so an over-cap wallet can always shrink (audit / Security Analysis "Bounded execution cost").
+- **Guards:** authority; `state_unchanged_except_access_index_removed` (output == input minus index, length must shrink by exactly 1 — out-of-range index is a no-op caught by the length check); `has_reachable_access_path` re-checked (the only invariant a removal can break — removal cannot create duplicates/invalid allowances); STT output follows G5.
+- **Abuse analysis:** removing the last recovery path → reachability recheck rejects; using removal to bypass full validation → safe by construction (subset of a valid set + the one recheck); the cap exemption lets a decodable over-cap list shrink while each removal fits current execution limits (audit / Security Analysis "Bounded execution cost").
 - **Tests:** `remove_access_index_tests.ak`.
 - **Verdict:** ✅ sound; the skipped full re-validation is justified and documented at the code site.
 
@@ -394,7 +456,7 @@ code site and in the whitepaper's *Limitations and Trust Assumptions*.
 - **Entry:** `operator_handlers.eval_set_intended_stake_credential`; wallet arm: no spend
 - **Authority:** admin or multisig quorum
 - **May change:** only `intended_stake_credential`, to exactly the declared target
-- **Guards:** authority; `state_completely_unchanged` (all normal fields pinned — the credential itself is outside the preservable field set, guarded centrally by G3) + `output.intended_stake_credential == target`; this action is G3's single exemption; STT value preserved.
+- **Guards:** authority; `state_completely_unchanged` (all normal fields pinned — the credential itself is outside the preservable field set, guarded centrally by G3) + `output.intended_stake_credential == target`; this action is G3's single exemption; STT output follows G5.
 - **Abuse analysis:** any *other* path changing the credential → G3; smuggling extra changes into this path → preservation helper pins everything else.
 - **Tests:** `wallet_rule_tests.ak` / `security_attack_log_tests.ak` (stake-pinning cases), `guard_isolation_tests.ak`.
 - **Verdict:** ✅ sound — the pairing of a central preservation guard with one narrowly-scoped mutator is the cleanest pattern in the codebase.
@@ -404,66 +466,86 @@ code site and in the whitepaper's *Limitations and Trust Assumptions*.
 - **Entry:** `user_handlers.eval_renew_proof_of_life`; wallet arm: **no spend** (`False`)
 - **Authority:** a **non-admin** user with `can_renew_proof_of_life`, by signature
 - **May change:** `unlock_time` only, forward, within one `increment`, landing ≥ tx upper bound
-- **Guards:** `proof_of_life_user_signature_matches` (non-admin + flag + signed); `state_unchanged_except_pol_unlock_time`; **`unlock_time` must actually change** (a no-op renewal is rejected — `expect_valid_renewal_window` passes trivially when it is unchanged, so without this a keeper could replay a bit-identical tx every block to occupy the STT thread); `expect_valid_renewal_window` (finite range required, no decrease, ≤ earliest + increment).
+- **Guards:** `proof_of_life_user_signature_matches` requires a signed non-admin keeper. `state_unchanged_except_pol_unlock_time` pins the other State fields. `unlock_time` must change, which rejects an exact no-op. `expect_valid_renewal_window` requires a finite range, no decrease, and a value no greater than `tx_earliest + increment`.
 - **Abuse analysis:** keeper deferring beneficiary unlock forever → **intentional** (keeper outranks recovery — whitepaper Recovery-reachability theorem); admin using this path → excluded by design (admins renew via `Use`); replaying a renewal to jump far ahead → increment cap per tx, ratchet only moves forward.
+- **CORRECTION / ACCEPTED residual (2026-09 security review):** the exact no-op guard does not stop successor churn. A keeper can choose `max(old_unlock_time + 1, tx_latest)` when that value is at most `tx_earliest + increment`. The keeper can repeat this change against each confirmed successor. Each accepted transaction can invalidate pending operator or beneficiary transactions that use the prior STT. The keeper pays each fee and cannot move wallet value through this path. The 2026-09 security review accepts this risk because the keeper is already a trusted liveness role.
+  _VERIFIED:_ `user_handlers.eval_renew_proof_of_life` requires only inequality before `proof_of_life.expect_valid_renewal_window`. The window check sets no minimum increase or cadence.
+  _INFERRED:_ Each accepted successor spends the STT reference used by a competing pending transaction.
 - **Tests:** `stt_operator_tests.ak` (renewal cases), `state_tests.ak` property tests (window boundaries).
-- **Verdict:** ✅ sound.
+- **Verdict:** ✅ sound within the accepted keeper trust model. Successor contention remains possible.
 
 ### P8 — UseAllowance (bounded daily spend)
 
 - **Entry:** `user_handlers.eval_use_allowance`; wallet arm: payout `==` declared `spent_allowance`
 - **Authority:** signature of the one user whose allowance changed
 - **May change:** that user's `remaining_allowance` / `next_allowance_reset` (+ optional PoL renewal by an eligible changed user)
-- **Guards:** finite validity range; `state_unchanged_except_users_and_pol_unlock_time`; lockstep user-list walk (no insert/remove/reorder), exactly one changed user; static user fields pinned; reset uses **lower** bound, rebase uses **upper** bound + one full period (velocity floor); post-spend bundle well-formed (dup-key guard) and capped; per-asset draw ≤ effective remaining; spent delta must be **non-empty** (a pure reset-rebase that spends nothing is rejected); declared delta `==` computed delta; STT value preserved.
-- **Abuse analysis:** wide validity window faking an early reset → lower-bound gating (see `allowance.remaining_allowance_available_for_use` doc); padding `remaining_allowance` with junk entries → spend-path cap; draining twice via duplicate keys → `entries_are_valid` dup guard; spending more wallet value than declared → wallet arm equality.
+- **Guards:** finite validity range; `state_unchanged_except_users_and_pol_unlock_time`; lockstep user-list walk (no insert/remove/reorder), exactly one changed user; static user fields pinned; reset uses **lower** bound, rebase uses **upper** bound + one full period (velocity floor); post-spend bundle well-formed (dup-key guard) and capped; reserved output footprint `Σ(per_day + max(per_day, remaining)) ≤ 15`; per-asset draw ≤ effective remaining; spent delta must be **non-empty** (a pure reset-rebase that spends nothing is rejected); declared delta `==` computed delta; G5 value rule; continuing wallet outputs do not exceed consumed wallet inputs.
+- **Abuse analysis:** wide validity window faking an early reset → lower-bound gating (see `allowance.remaining_allowance_available_for_use` doc); padding or reset growth → reserved footprint cap; draining twice through duplicate keys → `entries_are_valid` duplicate guard; spending more wallet value than declared → wallet arm equality.
+- **Wallet-less tx:** the signed allowance user may submit a non-empty allowance decrease without consuming a wallet UTxO. No wallet value moves because the wallet validator does not run. The call still consumes and recreates the STT, uses remaining allowance, and costs a fee. It can invalidate a pending transaction that references the prior STT. Repetition is bounded by the configured allowance quantities until the next reset. This succession is intentional.
+  _VERIFIED:_ `stt_allowance_tests.allowance_use_accepts_wallet_less_draw_from_valid_configuration` executes the wallet-less form. `user_handlers.eval_use_allowance` requires a non-empty, bounded allowance decrease and the changed user's signature.
+  _INFERRED:_ Singleton STT succession makes an accepted call conflict with a pending transaction that references the prior output.
 - **Tests:** `stt_allowance_tests.ak`, `allowance.ak` co-located property tests, `wallet_rule_tests.ak`.
 - **Verdict:** ✅ sound; the boundary arithmetic is the best-covered code in the suite (property tests pin the exact floors).
+
+Beneficiary `payout_address` stores the encoded full `Address` as `Data`. Mint and
+`UpdateState` decode it and apply shared address validation. All other actions
+preserve its encoded value for each retained beneficiary. It permits key or
+script payment credentials and optional inline
+key or script stake credentials. Pointer stake credentials are rejected.
+`UseBeneficiary` and `ExitBeneficiary` do not route funds through this stored field.
 
 ### P9 — UseBeneficiary (recovery draw)
 
 - **Entry:** `user_handlers.eval_use_beneficiary`; wallet arm: payout ≤ weighted share
 - **Authority:** exactly **one** beneficiary that is unlocked (max of its own `unlock_after` and global `unlock_time`, both elapsed vs the tx **lower** bound), signed, and sharing no wallet key with another beneficiary
-- **May change:** the acting beneficiary is **removed** (one-shot); nothing else
-- **Guards:** `expect_single_beneficiary_with_unlock_authority` (filter must yield exactly one); declared id `==` acting id; `state_unchanged_except_beneficiary_removed`; STT value preserved. Wallet side: `paid_out_within_share` per asset, division-free bound `qty × remaining_weight ≤ weight × pool`, pool = `max(0, input − reserve)`, weights read from the **input** state (pre-removal).
-- **Abuse analysis:** double-dip → removal retires the weight; two unlocked beneficiaries colluding in one tx → "exactly one" filter rejects; drawing payee-owed funds → reserve subtracted from the pool, **but only point-in-time** (**intentional** — a beneficiary can choose an early upper bound and draw future accrual; whitepaper "Streaming reserve is point-in-time"); under-drawing forfeits to later actors → intended weighted-share semantics.
-- **Terminal state (intentional):** `has_reachable_access_path` is deliberately NOT re-checked here, unlike `RemoveAccessIndex`. The last beneficiary of an operator-less wallet removes the final access path as it withdraws — the intended end of a completed recovery, pinned by `security_intentional__use_beneficiary_last_removal_reaches_terminal_state` (F-2) and the whitepaper's "Terminal recovery state". Adding the guard would NOT make the final draw repeatable: this handler *requires* the acting beneficiary to be removed, so the guard would make the last draw impossible and brick every single-beneficiary wallet. The off-chain builder owns the residual duty (sweep every asset in the recovery tx; the address is dead afterwards).
-- **Tests:** `stt_beneficiary_tests.ak`, `beneficiary_share.ak` property tests (exact floor), `wallet_fuzz_tests.ak`, `security_attack_log_tests.ak` (F-2).
-- **Verdict:** ✅ sound; the point-in-time reserve and the terminal state are the consciously-accepted gaps, documented on both sides.
+- **May change:** an earlier acting beneficiary is **removed** (one-shot). The final beneficiary stays in State and advances the shared cadence stamp. No other State field changes.
+- **Guards:** `expect_single_beneficiary_with_unlock_authority` (filter must yield exactly one); declared id `==` acting id; `state_unchanged_except_beneficiary_removed` when more than one beneficiary remains; `state_completely_unchanged` plus shared cadence validation for the final beneficiary; STT output follows G5. Wallet side: earlier recovery uses the division-free share bound `qty × remaining_weight ≤ weight × pool`, where `pool = max(0, input − reserve)`. Final recovery owns 100% of the beneficiary weight, so the shared reserve floor is the effective value bound. Every recovery keeps the continuing wallet output count at or below the consumed input count.
+- **Abuse analysis:** removal retires each earlier beneficiary's weight; two unlocked beneficiaries colluding in one tx → "exactly one" filter rejects; drawing payee-owed funds → reserve subtracted from the pool, **but only point-in-time** (intentional: a beneficiary can choose an early upper bound and draw future accrual; whitepaper "Streaming reserve is point-in-time"); under-drawing by an earlier beneficiary forfeits value to later actors → intended weighted-share semantics.
+- **Repeatable final recovery:** the final beneficiary remains in State and may select any wallet-input set that fits ledger limits. It may withdraw any amount that leaves the required per-asset streaming reserve. It may keep continuing wallet outputs for reserve or chosen change. This path has no five-native-asset cap. Ledger byte size and combined ExUnits decide whether the selected shape fits. It can retry with fewer inputs or a smaller draw after the shared 30-minute cooldown. If a dense input contains a reserved asset, the beneficiary can first advance one present payment with a minimum `PayStreamingPayment` action. It can repeat until every present reserved payment is settled, then recover a selected unreserved subset. The normalized reserve scan treats each absent input key as a zero floor and does not flatten the dense Value delta. Once its recovery window opens, only an admin or that beneficiary may advance the cadence through a payout. Each payee may still cancel its own payment once at the exact safe cutoff. An STT-only call cannot prove wallet exhaustion. No transaction can prove that another UTxO does not exist or that no future deposit will arrive, so there is no final recovery marker. The path recovers wallet UTxOs, not staking rewards. P13 keeps reward withdrawal operator-only.
+- **Tests:** `stt_beneficiary_tests.ak` (`beneficiary_use_rejects_retained_nonfinal_beneficiary`, `beneficiary_use_preserves_final_beneficiary_for_repeatable_recovery`, `beneficiary_use_rejects_removing_final_beneficiary`), `beneficiary_share.ak` property tests, `funding_tests.ak` (`full_reserve_guard_accepts_missing_reserve_assets`, `full_reserve_guard_sums_duplicates_and_normalizes_key_order`, `full_reserve_guard_accepts_funded_asset_and_unreserved_outflow`, `full_reserve_guard_keeps_present_underfunded_asset`), `wallet_spend_tests.ak` (`final_beneficiary_can_repeat_full_sweeps_over_native_asset_cap`, `final_beneficiary_can_leave_reserved_asset_in_wide_fund_pool`, `final_beneficiary_cannot_spend_reserved_asset_in_wide_fund_pool`), `transaction_budget_tests.ak` (`oversized_value_pay_streaming`, `deep_value_repeatable_beneficiary_recovery`, `deep_value_underfunded_beneficiary_recovery`, `near_max_value_underfunded_beneficiary_recovery`), `security_attack_log_tests.ak` (`security_recovery__final_beneficiary_remains_reachable`).
+- **Verdict:** ✅ sound; the point-in-time reserve and persistent final beneficiary are documented tradeoffs.
 
 ### P10 — PayStreamingPayment (the crank)
 
 - **Entry:** `settlement_handlers.eval_pay_streaming_payment`; wallet arm: payout `==` delta, routed only to tagged outputs, output count ≤ input count
-- **Authority:** a **stakeholder signature** — admin, multisig quorum, ANY listed user, ANY stream payee ("receiver"), or an unlocked beneficiary. NOT permissionless. Only **admin** bypasses the cadence limit (and then leaves the clock unchanged); every other cranker is rate-limited and stamps it
+- **Authority:** while the transaction lower bound is before the sole final beneficiary's recovery boundary, an admin, any other listed user, any stream payee ("receiver"), or any unlocked beneficiary may sign. Once that lower bound reaches the boundary, only an admin or that beneficiary may crank. NOT permissionless. Only **admin** bypasses the cadence limit and leaves the clock unchanged. Every other accepted cranker is rate-limited and stamps it
 - **May change:** streaming payments (accrual settled / matured entries removed) + the cadence stamp (non-admin branch only)
-- **Guards (STT):** value strictly `==`; only streaming payments change; **stakeholder authority** required; finite range; non-admin branch: window ≤ 1 h cap, lower bound ≥ last stamp + 30 min, new stamp = upper bound; admin branch: stamp **pinned unchanged**; `payout_is_valid` (unique ids, no new ids, per-entry: monotonic `paid_out`, ≤ accrued-at-lower-bound, retained entries must still owe, removals only when matured or fully settled, each positive delta reaches a tagged output bound to *this* STT input ref); declared delta `==` computed.
+- VERIFIED correction: the earlier map named the test-only `payout_is_valid` wrapper. `lib/stt/settlement_handlers.ak::eval_pay_streaming_payment` calls `validated_value_change`, which validates the transition and returns its value change.
+- **Guards (STT):** all native assets at the STT output stay equal and its ADA may only stay equal or increase; only streaming payments change; phase-aware authority required; finite range; non-admin branch: window ≤ 1 h cap, lower bound ≥ last stamp + 30 min, new stamp = upper bound; admin branch: stamp **pinned unchanged**; `validated_value_change` (output entries form an ordered subsequence of input entries, preserving their unique ids, per-entry: monotonic `paid_out`, ≤ accrued-at-lower-bound, retained entries must still owe, removals only when matured or fully settled, each positive delta reaches a tagged output bound to *this* STT input ref); declared delta `==` computed.
+- **Execution bound:** each schedule names one asset. The contract sets no fixed positive-schedule count per payout. Serialized byte size and combined ExUnits decide the accepted batch. A builder can retry fewer schedules. A non-admin cranker must observe the 30-minute cooldown between accepted batches. An admin payout bypasses the cooldown.
 - **Guards (wallet):** paid-out `==` delta (wallet net outflow pinned exactly — this is the anti-drain backstop); anti-fragmentation (`output_count ≤ input_count`); no reference script or `DatumHash` on continuing wallet outputs (W1); **exempt from the W2 reserve floor** (its outflow is already pinned to tagged payees; applying the floor deadlocked settlement for an under-funded wallet); `assets_only_reach_matching_outputs` — every payout asset lands only on wallet/STT/correctly-tagged outputs (anti-leak / double-satisfaction), and the tagged outputs sum to the delta **exactly for a non-ADA asset**, or **`≥` the delta for ADA** (ADA payee outputs must clear min-UTxO, so the crank tops them up with its own ADA; the `==` net-outflow pin above keeps the wallet from paying more than the delta regardless). Consequences: an ADA-crank may not return an untagged change output to itself, so its funding input has only two legal ADA sinks — the tagged payee top-up (min-UTxO) and the tx fee — and splits across both (the fee is **not** `==` the input once a top-up is present); and multiple simultaneous ADA streams may shuffle wallet-sourced ADA across their configured payees (value-neutral) — whitepaper "ADA settlement granularity and fee funding" / "Payout integrity".
-- **Abuse analysis:** STT-thread stalling by a third party → **authority gate** (a party with no key in the wallet and no stream payable to it cannot crank at all) + the 30-min cadence limit for every non-admin (Settlement-cadence theorem); stamping years ahead to freeze cranks → 1 h window cap + admin-branch pin; paying the wrong party → tag = (payment id, consumed STT ref) is replay-proof per spend; UTxO-dust griefing → count bound; reference-script bloat and hashed continuations with unavailable preimages → W1 rejects both.
+- **Abuse analysis:** STT-thread stalling by a third party → **authority gate** (a party with no key in the wallet and no stream payable to it cannot crank at all) + the 30-min cadence limit for every non-admin (Settlement-cadence theorem); cadence-valid user or payee calls delaying final recovery → once the transaction lower bound reaches the sole final beneficiary's unlock, those calls need that beneficiary's signature. At most one pre-terminal action can straddle that boundary and stamp up to one hour past it; stamping years ahead to freeze cranks → 1 h window cap + admin-branch pin; paying the wrong party → tag = (payment id, consumed STT ref) is replay-proof per spend; UTxO-dust griefing → count bound; reference-script bloat and hashed continuations with unavailable preimages → W1 rejects both.
 - **REMOVED guard (security review 2026-07):** the old "real progress" diff (`input.streaming_payments != output.streaming_payments`, audit F-1). It never bounded anything — one lovelace of progress satisfied it — so the churn it was written against stayed available at fee cost. Authority + cadence replaces it; its property test became `prop_stt_payout_rejects_unauthorized_cranker`.
-- **Wallet-less tx:** delta must still reach tagged payee outputs — STT-side `payout_is_valid` carries the routing on its own (co-firing invariant, verified in `guard_isolation_tests.ak`).
-- **Tests:** `stt_payout_cooldown_tests.ak` (authority arms + cadence), `stt_settlement_tests.ak`, `payout_tests.ak`, `funding_tests.ak`, `wallet_rule_tests.ak`, `wallet_spend_tests.ak` (under-funded settlement, reference-script ban), `wallet_datum_tests.ak` (hashed-continuation rejection and datum compatibility), `guard_isolation_tests.ak`.
-- **Verdict:** ✅ sound — the most defended path in the system, proportional to having the widest authority set.
+- **ACCEPTED on-chain self-addressed stream:** mint and stream addition forbid the STT payment credential, but the validators permit the wallet's own full address. The maintained dApp blocks this credential at mint and for new additions. It does not block existing entries. On a wallet-backed settlement, a tagged output at that address counts in both the tagged payout sum and continuing wallet value. The exact total wallet delta still caps wallet loss. ADA routing can place that delta at transaction fees or another correctly tagged configured stream payee because the validators do not track the source of individual lovelace. For a native asset, the Epora validators accept a negative mint that supplies the matching wallet loss while the tagged wallet output equals the exact payout delta. No external payee receives the burned quantity. VERIFIED: The native acceptance test uses a zero placeholder fee and does not execute a minting policy or phase-one validation. INFERRED: A ledger-balanced form of this native-only fixture needs external ADA for a positive fee and a minting policy that accepts the burn. On a wallet-less settlement, external value can create the tagged wallet output without a wallet delta check. The mint, addition, wallet-rule, and two-validator acceptance tests listed in `SECURITY.md` fix these behaviors as intentional configuration risks.
+- **External script payees:** a configured script address receives the required inline `OutputId`. Epora validates the full address, tag, and amount, but it cannot validate the receiving script's later spend rules. The configurer must confirm that the script accepts this datum. Another Epora wallet does because `lib/wallet/spend.ak::eval_spend` ignores input datums.
+- **Wallet-less tx:** delta must still reach tagged payee outputs. STT-side `validated_value_change` carries the routing on its own (co-firing invariant, verified in `guard_isolation_tests.ak`).
+- **Tests:** `stt_payout_cooldown_tests.ak` (authority arms, final-recovery priority, and cadence), `stt_settlement_tests.ak`, `payout_tests.ak`, `funding_tests.ak`, `wallet_rule_tests.ak`, `lib/wallet/reserve_tests.ak` (under-funded settlement), `wallet_spend_tests.ak` (reference-script ban), `wallet_datum_tests.ak` (hashed-continuation rejection and datum compatibility), `guard_isolation_tests.ak`.
+- **Verdict:** ✅ sound under the phase-aware authority set.
 
 ### P11 — CancelStreamingPayment (payee self-cancel)
 
 - **Entry:** `settlement_handlers.eval_cancel_streaming_payment`; wallet arm: **no spend** (`False`)
-- **Authority:** signature of the target payment's `payout_address` payment key (a script payee has no self-cancel — operator path instead)
-- **May change:** exactly the target payment's `end_date`, to any value satisfying `max(start_date, tx_latest) ≤ new_end < old_end`, plus the shared cadence stamp `last_non_admin_payout_at = Some(tx_latest)`. A pre-start cancel may therefore create a `start_date == end_date` zero-lifetime schedule. Management may preserve or extend that existing zero-duration form; its usual `start_date + 1` stop floor applies only to positive-duration inputs and fresh schedules.
-- **Guards:** target id must exist; payee authority; finite lower and upper bounds; validity window ≤ 1 h; lower bound ≥ the prior shared stamp + 30 min; output stamp equals the upper bound; only the target end date and shared stamp change; end date strictly decreases; every other payment is forwarded exactly; **`shape.is_valid` on the resulting set**; STT value preserved.
-- **Abuse analysis:** payee clawing back already-accrued value → the new end cannot precede the tx upper bound, which is after the inclusion time; payee touching another payment or the state → preservation + exact-forward; descending-end replay to occupy the STT thread → the same global 30-minute cadence used by non-admin payouts. Repeating after the cooldown is intentionally accepted: it needs the target payee's signature, pays a new fee, and cannot move the end backwards past real time. A cancel also delays the next non-admin payout, and vice versa; an admin payout remains exempt.
+- **Authority:** signature of the target payment's `payout_address` payment key. A script payee has no self-cancel, so it uses the operator path instead
+- **May change:** exactly the target payment's `end_date`, to any value satisfying `max(start_date, tx_latest) ≤ new_end < old_end`, plus the shared cadence stamp `last_non_admin_payout_at = Some(tx_latest)`. Once final recovery is active, `new_end` must equal `max(start_date, tx_latest)`. A pre-start cancel may therefore create a `start_date == end_date` zero-lifetime schedule. Management may preserve or extend that existing zero-duration form; its usual `start_date + 1` stop floor applies only to positive-duration inputs and fresh schedules.
+- **Guards:** target id must exist; phase-aware payee authority; finite lower and upper bounds; validity window ≤ 1 h; lower bound ≥ the prior shared stamp + 30 min; output stamp equals the upper bound; only the target end date and shared stamp change; end date strictly decreases; every other payment is forwarded exactly; **`shape.is_valid` on the resulting set**; STT output follows G5.
+- **Abuse analysis:** payee clawing back already-accrued value → the new end cannot precede the tx upper bound, which is after the inclusion time; payee touching another payment or the state → preservation + exact-forward; descending-end replay to occupy the STT thread → the same global 30-minute cadence used by non-admin payouts. Before final recovery opens, repeating after the cooldown is intentionally accepted: it needs the target payee's signature, pays a new fee, and cannot move the end backwards past real time. Once final recovery opens, the new end must equal the safe floor. Without an intervening operator reschedule, the next cadence-valid window begins after that end, so the same payment cannot cancel again. At most 15 payments can then take one terminal action each. One preceding action may straddle the unlock boundary. The one-hour validity cap plus 30-minute cooldown therefore bounds payee-only delay from the boundary to 24 hours. A cancel delays the next non-admin payout, and vice versa. An admin payout remains exempt.
 - **FIXED (security review 2026-07, High):** this was the ONE streaming rewrite that skipped `shape.is_valid`, and the cancel cap had no lower clamp. A payee of a **not-yet-started** stream could cap `end_date` below `start_date`, committing a negative `lifetime_total` that blocked `UpdateState` (key rotation) and every wallet-funded settlement for the WHOLE wallet. The output now remains shape-valid and clamps at `start_date`, permitting a safe zero-lifetime schedule but never an inverted one.
-- **ACCEPTED (2026-07 design decision):** cancellation has no persistent per-payment marker. `end_date` is the sole cancellation state, so the payee may shorten it again after the shared cooldown and an admin or multisig quorum may later reschedule it in either direction. This keeps the serialized payment shape small and treats bounded, fee-funded repetition as acceptable. Fresh mint/manage-add schedules remain strict (`start_date < end_date`, `paid_out_amount == 0`); equality is accepted only as a forwarded zero-duration state, contributes zero reserve, and must be removed by the next payout rather than retained.
-- **Tests:** `stt_cancel_streaming_payment_tests.ak` (incl. the clamp + inversion cases), `forwarding_tests.ak` (`is_payee_cancelled` units).
-- **Verdict:** ✅ sound under the accepted shared-cadence model; the payee controls only its end date, but consuming the global cooldown slot intentionally affects non-admin payout timing.
+- **ACCEPTED (2026-09 design decision):** cancellation has no persistent per-payment marker. `end_date` is the sole cancellation state, so the payee may shorten it again after the shared cooldown before final recovery opens. After final recovery opens, the payee must use the exact safe floor. Each payment can then move the shared clock only once. An admin or multisig quorum may later reschedule it in either direction. This keeps the serialized payment shape small and bounds terminal delay through the existing 15-payment cap. Fresh mint/manage-add schedules remain strict (`start_date < end_date`, `paid_out_amount == 0`); equality is accepted only as a forwarded zero-duration state, contributes zero reserve, and must be removed by the next payout rather than retained.
+- **Tests:** `stt_cancel_streaming_payment_tests.ak` (including the clamp, inversion, exact terminal cutoff, bounded succession, and replay rejection), `forwarding_tests.ak` (`is_payee_cancelled` units).
+- **Verdict:** ✅ sound under the accepted shared-cadence model. The final beneficiary controls non-admin payout authority once terminal recovery opens. Each payee retains one exact terminal cancellation per payment.
 
-### P12 — Consolidate (UTxO cleanup / Franken sweep)
+### P12: Consolidate (UTxO repartition and stake repair)
 
 - **Entry:** `settlement_handlers.eval_consolidate`; wallet arm: `input_value == output_value`
 - **Authority:** admin, multisig, **or** unlocked beneficiary (declared via `ConsolidatePath`)
 - **May change:** nothing in State; wallet UTxO *layout* only, value exactly preserved
-- **Guards:** `state_completely_unchanged`; `has_consolidate_authority`; STT value preserved; wallet-side exact value equality (which also passes the reserve gate trivially); W1 re-homes swept stray-stake funds onto the intended credential.
-- **Abuse analysis:** value exfiltration disguised as consolidation → exact equality; a beneficiary using it pre-unlock → unlock check in the authority; layout griefing → requires authority, unlike the crank.
-- **ACCEPTED residual (security review 2026-07):** `Consolidate` has no real-progress guard, so a bit-identical no-op is valid and replayable every block. After the crank was gated (P10), an **unlocked beneficiary** is the only party that can do this from outside the trust envelope — so post-lapse it can occupy the STT thread and deny its *peer* beneficiaries. Left open deliberately: a progress guard would need a new `WalletValueSnapshot` field and still would not close the pure-STT variant (a `Consolidate` spending no wallet UTxO never reaches the wallet validator, and the STT holds no reference to the wallet script hash), while a cadence limit would throttle exactly the recovery sequence that must not be throttled. The griefer gains nothing — its own share stays capped and one-shot — and pays fees indefinitely.
-- **Tests:** `wallet_spend_tests.ak`, `stt_spend_io_tests.ak`.
+- **Guards:** `state_completely_unchanged`; `has_consolidate_authority`; STT output follows G5; wallet-side exact aggregate value equality (which also passes the reserve gate trivially); W1 re-homes compatible stray-stake inputs onto the intended credential.
+- **Execution bound:** input count, output count, and native-asset shape are limited by ledger byte-size and combined ExUnits. A transaction that is too large can retry with a smaller repartition.
+- **Verified preparation builder:** `buildBeneficiaryPreparationTx` reuses the beneficiary `Consolidate` path. It reads the current STT and selected wallet inputs, checks the connected beneficiary's unlock, and derives the continuing address from State. A requested pool contains only exact multiples of `sum(weights) / gcd(weights)`; every unallocated asset stays in the derived remainder. An empty pool request merges inputs. State and aggregate wallet Value remain unchanged. The balanced output check rejects implicit wallet ADA topups, fee deductions, and extra destinations. Selected wallet ADA must fund every continuing output. A zero deposit shortfall can still require ADA reassignment before building.
+- **Verified native preparation check:** run `node --import tsx scripts/check-beneficiary-preparation-native.ts` from `code/dApp`. The retained fixture checks weights 1:3: 5 token units split into pool 4 and remainder 1; two inputs with 4 units each merge into 8. It checks serialized output minimum ADA, a real signed body, declared execution budgets, and native STT plus wallet execution. A split with only 1.5 ADA selected fails despite 2,000 ADA external funding. This is a synthetic fixture with both reference scripts and one key witness. It does not prove live UTxO availability or capacity for other input and asset shapes. Capacity failure requires a new user selection; the preparation path does not automatically reduce the batch and retry.
+- **Abuse analysis:** value exfiltration disguised as consolidation → exact equality; a beneficiary using it pre-unlock → unlock check in the authority. An authorized actor may repartition value into more min-ADA wallet UTxOs. The repartition is reversible through later consolidation, but it can impose discovery work and cleanup fees. This layout control is accepted as a normal wallet operation.
+- **ACCEPTED residual (security review 2026-07):** `Consolidate` has no real-progress guard, so a bit-identical no-op is valid and replayable every block. After the crank was gated (P10), an **unlocked beneficiary** is the only party that can do this from outside the trust envelope, so post-lapse it can occupy the STT thread and deny its *peer* beneficiaries. Left open deliberately: a progress guard would need a new `WalletValueSnapshot` field and still would not close the pure-STT variant (a `Consolidate` spending no wallet UTxO never reaches the wallet validator, and the STT holds no reference to the wallet script hash), while a cadence limit would throttle the recovery sequence. The no-op moves no value and the submitter pays fees indefinitely.
+- **Tests:** `wallet_rule_tests.ak` (`consolidation_accepts_value_preserving_wallet_repartition`, `consolidation_rejects_changed_wallet_value`), `wallet_spend_tests.ak` (`wallet_consolidation_accepts_value_preserving_repartition`, `wallet_consolidation_accepts_dense_native_asset_union`), `stt_settlement_tests.ak` (`consolidate_accepts_admin_path`, `consolidate_accepts_multisig_path`, `consolidate_accepts_beneficiary_path`, `consolidate_rejects_wrong_authority_path`), `transaction_budget_tests.ak` (`max_state_dense_consolidation_repartition_w01__stt`, `max_state_dense_consolidation_repartition_w01__wallet_00`).
 - **Verdict:** ✅ sound.
 
 ### P13 — Governance purposes: withdraw / publish / vote
@@ -471,7 +553,10 @@ code site and in the whitepaper's *Limitations and Trust Assumptions*.
 - **Entry:** `wallet.withdraw|publish|vote` → `eval_governance_operator_use` (one shared gate, no per-purpose wrappers)
 - **Authority:** the STT must run `RunOperator(path, Use)` **in the same tx**
 - **Guards:** forwarded STT action equality — nothing else. The purpose payloads (`account`, `certificate`, `voter`) are deliberately **not** inspected.
-- **Abuse analysis:** withdrawing rewards / voting without operator authority → the STT `Use` spend inside the tx carries the full authority gate; a beneficiary claiming rewards during recovery → **intentional** gap (operator-only rewards — audit I-3; negligible for the default enterprise wallet); payload mischief → off-chain builder is the trust surface, documented in [README](README.md) §Role Model.
+- **Abuse analysis (VERIFIED, source review):** Reward withdrawal, certificate publication, and voting require the same-transaction STT operator `Use`. The gate does not inspect purpose payloads. See [wallet.ak:33](validators/wallet.ak#L33), [wallet.ak:85](validators/wallet.ak#L85), and [operator_handlers.ak:44](lib/stt/operator_handlers.ak#L44). The off-chain builder remains the trust surface for those payloads, as documented in [README](README.md) §Role Model.
+- **Beneficiary recovery (VERIFIED, source review):** ADA and native tokens in wallet UTxOs remain recoverable under the beneficiary unlock, share, and streaming-reserve rules. An attached stake credential does not add operator authorization to that spend. Inputs are grouped by payment credential. Stake pinning applies only to outputs returned to the wallet script. See [io.ak:121](lib/wallet/io.ak#L121), [rules.ak:108](lib/wallet/rules.ak#L108), and [stake_pinning.ak:16](lib/wallet/stake_pinning.ak#L16).
+- **Delegated case (INFERRED from the authorization gates):** If the wallet script controls a registered stake credential, beneficiary authority cannot withdraw its rewards. It also cannot deregister that credential for the deposit refund. Both actions require an available Admin or Multisig path. If all operator paths remain permanently unavailable, the current contract strands the unwithdrawn rewards and registration deposit. The amount at risk is the unwithdrawn reward balance plus the registration deposit. Losing the admin alone does not strand them if a valid Multisig quorum remains. See [authorization.ak:123](lib/state/authorization.ak#L123) and [Cardano's deposit definition](https://cardano.org/glossary/stake-address-deposit/).
+- **Rationale correction (VERIFIED, source review):** The earlier phrase "negligible for the default enterprise wallet" understated this delegated case. `intended_stake_credential = None` constrains continuing output addresses. It does not establish that historical rewards or a registration deposit are absent. See [types.ak:134](lib/state/types.ak#L134). The operator-only staking restriction remains intentional (audit I-3).
 - **Tests:** `wallet_governance_tests.ak`.
 - **Verdict:** ✅ sound within its documented trust envelope.
 
@@ -481,6 +566,15 @@ code site and in the whitepaper's *Limitations and Trust Assumptions*.
 - **Tests:** `stt_reference_store.ak` co-located fail test, `guard_isolation_tests.ak`.
 - **Verdict:** ✅ nothing reachable.
 
+### P15: ExitBeneficiary (permanent exit)
+
+- **Entry:** `user_handlers.eval_exit_beneficiary`. Constructor index 7 leaves indices 0 through 6 unchanged.
+- **Authority and State:** exactly one unlocked beneficiary must sign. Its declared id must match. Only that beneficiary leaves the list. Other access entries, proof-of-life, streams, wallet name, and intended stake credential remain unchanged. STT output follows G5.
+- **Cadence:** an earlier exit preserves the clock. Final exit requires an empty stream list, the shared 30-minute cooldown, a finite window of at most one hour, and an upper-bound stamp.
+- **Wallet effect:** existing weighted-share arithmetic and per-asset streaming reserves apply. Continuing wallet outputs cannot outnumber consumed wallet inputs. The final actor's weight is 100%. Exit may leave wallet value behind.
+- **Terminal State:** final exit may remove the last beneficiary access path. Mint and `UpdateState` still enforce reachability. Existing users retain bounded Allowance rights, and surviving operators retain their authority. If neither path remains, remaining funds and future deposits cannot be recovered. `UseBeneficiary` still retains the final actor.
+- **Tests:** `stt_exit_beneficiary_tests.ak` checks constructor encoding, weighted withdrawals, terminal removal, authorization, State preservation, reserve handling, and cadence.
+
 ## Cross-path interactions
 
 Interactions *between* paths are where single-path audits go blind; these are
@@ -488,18 +582,19 @@ the pairs worth re-checking whenever either side changes:
 
 | Pair | Interaction | Resolution |
 | --- | --- | --- |
-| Crank ↔ Renewal | Both consume the single STT thread; third-party cranks could stall heartbeats until the dead-man-switch lapses | stakeholder authority gate + 30-min cadence for every non-admin + 1 h stamp cap (P10); Settlement-cadence theorem |
+| Crank ↔ Renewal | Both consume the single STT thread; third-party cranks could stall heartbeats until the dead-man-switch lapses | phase-aware authority gate + 30-min cadence for every non-admin + 1 h stamp cap (P10); Settlement-cadence theorem |
 | Beneficiary ↔ Payee | A recovery draw could take value payees accrued | reserve subtracted from the pool (P9/W2) — point-in-time only, documented gap |
-| Beneficiary ↔ Crank | Recovery must settle every stream before the terminal sweep | unlocked beneficiary is an authorized cranker, now cadence-limited like any non-admin — acceptable because ONE crank settles every stream at once (P10) |
+| Beneficiary ↔ Crank | Recovery must not take value that a stream has already accrued | An unlocked beneficiary is an authorized cranker. It may settle any ledger-valid batch and retry a smaller batch. For a dense input, it can advance each present reserved payment until settled, then recover an unreserved subset while absent reserve keys impose no floor. The final beneficiary stays in State throughout. Once its recovery window opens, only an admin or that beneficiary may crank. Each accepted non-admin crank or final recovery advances the shared cooldown. Wallet UTxO recovery does not withdraw staking rewards. |
 | Multisig ↔ Admin | Quorum can rewrite access, including evicting the admin | intentional co-equal recovery authority (P3) |
 | Operator ↔ Keeper ↔ Beneficiary | Authority ordering: operators and keeper outrank recovery; lost keeper ⇒ lapse ⇒ unlock | Recovery-reachability theorem; keeper is a trusted role (P7) |
-| Anyone ↔ Wallet address | Deposits under a foreign stake credential ("Franken") | funds stay locked; W1 pins continuing outputs; `Consolidate` sweeps them back (P12) |
+| Anyone ↔ Wallet address | Deposits under a foreign stake credential ("Franken") | funds stay locked; W1 pins continuing outputs; `Consolidate` can re-home any input group and repartition it without fixed count or native-asset caps, subject to exact aggregate Value equality, W1, and ledger limits (P12) |
 | Governance ↔ Use | withdraw/publish/vote piggyback on the same `Use` authority in one tx | single shared gate; payloads out of scope by design (P13) |
-| Shared keys across records | One key in two multisig-powered user records double-counts its power | intentional but sharp — config UI must surface it; see `authorization.ak` FOOTGUN note and the whitepaper's "Multi-signature counts power per record, not per key" |
+| Shared keys across records | One key in two multisig-powered user records would double-count its power | State mint and `UpdateState` reject credentials shared across positive-power records. The frontend blocks the same configuration before transaction construction. |
 | Payee ↔ Operator | A payee cancel could commit an unshaped payment set that blocked `UpdateState` and all settlement | payee-specific `start_date` clamp + `shape.is_valid` on the cancel path (P11) |
-| Payee ↔ STT thread | A payee may repeatedly shorten its payment and consume the singleton STT | cancellation shares the global non-admin 30-minute cadence and one-hour window cap; post-cooldown repetition is accepted and documented (P11) |
+| Payee ↔ STT thread | A payee may repeatedly shorten its payment and consume the singleton STT | cancellation shares the global non-admin 30-minute cadence and one-hour window cap. Once final recovery opens, each payment must use the exact safe cutoff. Without an intervening operator reschedule, each payment can cancel once. One pre-terminal action may straddle the boundary, so the cap is 24 hours from unlock (P11) |
 | Crank ↔ Reserve | The reserve floor blocked the settlement that reduces the reserve, freezing under-funded wallets | `PayStreamingPayment` exempt from W2; outflow still pinned to tagged payees (P10) |
 | Beneficiary ↔ Beneficiary | No-op `Consolidate` replay lets one unlocked beneficiary deny its peers | accepted residual, documented at P12 |
+| Keeper ↔ STT thread | A keeper can advance `unlock_time` by one unit per successor and contest other STT transactions | accepted residual, documented at P7 |
 
 ## Audit summary
 
@@ -511,13 +606,16 @@ the pairs worth re-checking whenever either side changes:
 | P4 ManageStreamingPayments | admin / multisig | none | ✅ |
 | P5 RemoveAccessIndex | admin / multisig | none | ✅ |
 | P6 SetIntendedStakeCredential | admin / multisig | none | ✅ |
-| P7 RenewProofOfLife | liveness keeper | none | ✅ (keeper outranks recovery; no-op renewal rejected) |
+| P7 RenewProofOfLife | liveness keeper | none | ✅ (exact no-op rejected, advancing successor contention accepted) |
 | P8 UseAllowance | changed user | == declared | ✅ |
 | P9 UseBeneficiary | single unlocked beneficiary | ≤ weighted share | ✅ (point-in-time reserve) |
-| P10 PayStreamingPayment | any stakeholder (rate-limited unless admin) | == delta, tagged only | ✅ |
-| P11 CancelStreamingPayment | the payee | none | ✅ (after the date-order clamp) |
+| P10 PayStreamingPayment | admin, listed user, payee, or unlocked beneficiary before sole final recovery, then admin or final beneficiary from the unlock boundary | == delta, tagged only | ✅ |
+| P11 CancelStreamingPayment | the payee; exact safe cutoff after final recovery opens | none | ✅ (after the date-order clamp) |
 | P12 Consolidate | admin / multisig / beneficiary | value preserved | ✅ (no-op replay accepted, documented) |
 | P13 withdraw / publish / vote | operator `Use` co-fire | n/a (reward account) | ✅ (operator-only rewards) |
+| P15 ExitBeneficiary | one signed unlocked beneficiary | ≤ weighted share; actor removed | ✅ (final exit can remove beneficiary recovery) |
+| P16 StopBeneficiaryStream | one signed unlocked beneficiary | none | ✅ (earned debt remains) |
+| P17 DistributeBeneficiaries | named beneficiary; all beneficiaries unlocked | one input split into exact tagged shares | ✅ (wallet-less succession accepted) |
 | P14 everything else | – | – | ✅ hard fail |
 
 **2026-07 security review.** That pass DID find new issues, all now fixed or
@@ -532,9 +630,11 @@ recorded here and in the whitepaper:
 - **Medium** — the crank was permissionless and its anti-churn "real progress"
   diff was ineffective (P10): replaced by a stakeholder authority gate plus a
   cadence limit that now binds every non-admin.
-- **Medium** — no-op `RenewProofOfLife` was replayable (P7): now must advance.
-- **Accepted, documented** — no-op `Consolidate` replay (P12), the terminal
-  recovery state (P9), per-record multisig power, the STT ada ratchet,
+- **Corrected, accepted:** exact no-op `RenewProofOfLife` is rejected, but a
+  keeper can advance by one unit per accepted successor and contest the STT (P7).
+- **Accepted, documented:** no-op `Consolidate` replay (P12), repeatable final
+  beneficiary recovery (P9), renewal and allowance succession contention (P7/P8),
+  per-record multisig power, STT-output deposits, STT-policy streaming assets,
   and token-less UTxOs at the STT address.
 
 Everything else encountered is documented at its code site and in the
@@ -542,3 +642,25 @@ whitepaper's *Limitations and Trust Assumptions* (advisory proof-of-life,
 shape-not-timing recovery, point-in-time reserve, operator-only rewards,
 ADA-crank fee funding). The map's value is the checklist: each path has one to
 re-run when it changes.
+
+
+### P16: StopBeneficiaryStream
+
+- **Entry:** `user_handlers.eval_stop_beneficiary_stream`, then shared `settlement_handlers.expect_streaming_payment_stopped`.
+- **Authority:** exactly one unlocked beneficiary must sign. Its id must match the action. The stream id must exist.
+- **Change:** the target end becomes exactly `max(input.start_date, tx_upper)` and must strictly decrease. Stream rate, address, asset, start, and paid-out amount stay unchanged. All other streams and access entries stay unchanged.
+- **Cadence:** finite bounds, at most one hour wide. The lower bound must pass the shared 30-minute cooldown. The output records the upper bound. Admin signatures do not bypass these checks.
+- **Wallet effect:** no wallet spending. Earned debt remains available to the existing settlement action. A script payee needs no signature to have its stream stopped. The beneficiary signs instead. Existing operator management authority remains available.
+
+
+### P17: DistributeBeneficiaries
+
+- **Entry and authority:** constructor 9 names the initiating beneficiary. That beneficiary must sign. Every beneficiary must pass both global and personal unlock times. Other beneficiary signatures are allowed.
+- **State:** the input stream list must be empty. Every beneficiary and other State field remains unchanged. Multiple beneficiaries preserve the cadence stamp. The sole beneficiary uses the existing finite window, 30-minute cooldown, one-hour window cap, and upper-bound stamp. STT output follows G5.
+- **Wallet:** the matching payment credential must have exactly one input and zero outputs, including stake variants. Each asset quantity times each beneficiary weight must divide exactly by total weight. The check includes ADA and has no asset-count cap.
+- **Routing:** each beneficiary has exactly one output with the existing inline `OutputId`, bound to its id and the consumed STT reference. The output must use its full configured address. Native quantities equal the exact share; ADA may exceed it through external funding. Distinct ids make the payout tags disjoint even when full addresses match. Wallet and STT payment credentials are forbidden payout destinations, including stake variants.
+- **Wallet-less transaction:** the STT permits the authorized unchanged transition, or the sole beneficiary's cadence update. Payout and input-count checks run only when wallet funds are consumed. This action does not prove that all wallet UTxOs were discovered or that no later deposit will arrive.
+- **ACCEPTED residual (2026-09 design decision):** with two or more beneficiaries, the authorized wallet-less form preserves State and cadence. The initiator can immediately submit a successor against the recreated STT. Each call consumes and recreates the latest STT, so this is not byte replay. The caller supplies the fee, and no wallet value moves. The call can invalidate a pending transaction that references the prior STT. This uncadenced succession is intentional. The sole-beneficiary form remains subject to the shared cadence.
+  _VERIFIED:_ `user_handlers.eval_distribute_beneficiaries` preserves State and the cadence stamp for multiple beneficiaries. `beneficiary_distribution_tests.authorized_stt_only_transaction_preserves_multiple_beneficiary_state` executes the wallet-less form.
+  _INFERRED:_ Singleton STT succession makes the accepted call conflict with a pending transaction that references the prior output.
+- **Checks:** `beneficiary_distribution_tests.ak` exercises routing, divisibility, authorization, State preservation, cadence, and the wallet-less boundary. `transaction_budget_tests.max_five_asset_exact_distribution_w01__stt` and `transaction_budget_tests.max_five_asset_exact_distribution_w01__wallet_00` measure the maximum beneficiary count with five native assets. Synthetic execution budgets do not prove serialized transaction size.

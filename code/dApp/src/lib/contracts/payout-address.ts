@@ -326,6 +326,26 @@ export function isAddressData(value: unknown): value is ConstrData {
 }
 
 /**
+ * True when an on-chain address uses the given script payment credential.
+ * The stake credential is intentionally ignored because every stake variant
+ * still resolves to the same wallet spending validator.
+ */
+export function addressUsesPaymentScriptHash(
+  value: unknown,
+  scriptHash: string
+): boolean {
+  if (!isCredentialHash(scriptHash) || !isAddressData(value)) {
+    return false;
+  }
+
+  const payment = readCredentialParts(value.fields[0]);
+  return (
+    payment?.isScript === true &&
+    payment.hash.toLowerCase() === scriptHash.toLowerCase()
+  );
+}
+
+/**
  * Decode an on-chain `Address` Plutus datum back to a bech32 string for the
  * form. A valid plain string remains supported for datums written before payout
  * addresses were structured. Returns "" when the value is absent or cannot be

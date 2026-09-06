@@ -189,7 +189,7 @@ export function PoolFinder({
             ) : null}
           </div>
 
-          <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-4">
+          <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-4 [&>div]:min-w-0 [&>div]:[overflow-wrap:anywhere]">
             <div>
               <dt className="eyebrow text-muted-foreground">{i18n("saturation")}</dt>
               <dd

@@ -9,7 +9,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { CopyButton } from "@/components/ui/copy-button";
 import { fetchProposal } from "@/lib/proposals/client";
 import type { ProposalValidity, SignerSatisfaction } from "@/lib/proposals/types";
-import { verifyProposal } from "@/lib/proposals/verify";
+import {
+  MAX_BACKGROUND_PROPOSAL_INPUT_LOOKUPS,
+  verifyProposal
+} from "@/lib/proposals/verify";
 import { CreateProposalPanel } from "./create-proposal-panel";
 import { truncateMiddle } from "./format";
 import { ProposalDetail } from "./proposal-detail";
@@ -19,7 +22,28 @@ import { useProposalSession } from "./use-proposal-session";
 import { useProposals } from "./use-proposals";
 
 const MAX_BACKGROUND_VERIFY = 20;
+export const BACKGROUND_PROPOSAL_VERIFICATION_TIMEOUT_MS = 15_000;
 const PROPOSALS_PATH = "/user/proposals";
+
+async function waitForBackgroundVerification<T>(work: Promise<T>): Promise<
+  | { timedOut: false; value: T }
+  | { timedOut: true }
+> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      work.then((value) => ({ timedOut: false as const, value })),
+      new Promise<{ timedOut: true }>((resolve) => {
+        timeout = setTimeout(
+          () => resolve({ timedOut: true }),
+          BACKGROUND_PROPOSAL_VERIFICATION_TIMEOUT_MS
+        );
+      })
+    ]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
 
 export function ProposalsWorkspace() {
   const i18n = useTranslations("ComponentsUserProposalsProposalsWorkspace");
@@ -48,6 +72,10 @@ export function ProposalsWorkspace() {
   const [reportById, setReportById] = useState<
     Record<string, { validity: ProposalValidity; signers: SignerSatisfaction | null }>
   >({});
+  const [backgroundVerificationRun, setBackgroundVerificationRun] = useState(0);
+  // A timed-out fetch cannot be aborted by the current proposal client. Keep
+  // later list generations from stacking more work behind that live request.
+  const backgroundWorkRef = useRef<Promise<void> | null>(null);
   // Whether this session opened the proposal from the list. If it did, the detail's Back
   // button should retrace that step; if the user arrived on the link directly there is
   // nothing of ours behind it, and `router.back()` would leave the app.
@@ -96,47 +124,102 @@ export function ProposalsWorkspace() {
     let cancelled = false;
     const openAll = proposals.filter((proposal) => proposal.status === "OPEN");
     const open = openAll.slice(0, MAX_BACKGROUND_VERIFY);
+    const backgroundWork = backgroundWorkRef.current;
+    const backgroundWorkAlreadyRunning = backgroundWork !== null;
     // Legitimate data-fetch effect (verifies each open proposal against chain).
-    /* eslint-disable react-hooks/set-state-in-effect */
     setReportById((previous) => {
       const next = { ...previous };
       for (const [index, proposal] of openAll.entries()) {
         // Past the cap nothing is queued, so seeding "checking" left those rows spinning for
         // ever. The list has to say the app never looked, not that it is still looking.
-        next[proposal.id] = next[proposal.id] ?? {
-          validity: index < MAX_BACKGROUND_VERIFY ? "checking" : "unknown",
-          signers: null
-        };
+        if (backgroundWorkAlreadyRunning) {
+          next[proposal.id] = { validity: "unknown", signers: null };
+        } else {
+          next[proposal.id] = next[proposal.id] ?? {
+            validity: index < MAX_BACKGROUND_VERIFY ? "checking" : "unknown",
+            signers: null
+          };
+        }
       }
       return next;
     });
-    /* eslint-enable react-hooks/set-state-in-effect */
-    open.forEach(async (proposal) => {
-      try {
-        const detail = await fetchProposal(proposal.id);
-        const report = await verifyProposal(detail);
+    if (backgroundWork) {
+      // The current request cannot be aborted. Restart this effect after it
+      // settles so the newest proposal generation is not left unverified.
+      void backgroundWork.then(() => {
         if (!cancelled) {
-          setReportById((map) => ({
-            ...map,
-            [proposal.id]: { validity: report.validity, signers: report.signers }
-          }));
+          setBackgroundVerificationRun((generation) => generation + 1);
         }
-      } catch {
-        if (!cancelled) {
-          // Not "invalid". The fetch or the chain query failed, which says nothing about
-          // whether this request can still go through; writing "invalid" told a co-signer
-          // their request was dead because the network hiccupped.
-          setReportById((map) => ({
-            ...map,
-            [proposal.id]: { validity: "unknown", signers: null }
-          }));
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+    const verifyOpenProposals = async () => {
+      for (const [index, proposal] of open.entries()) {
+        if (cancelled) {
+          return;
+        }
+        try {
+          const work = fetchProposal(proposal.id).then((detail) =>
+            verifyProposal(detail, {
+              maxInputLookups: MAX_BACKGROUND_PROPOSAL_INPUT_LOOKUPS
+            })
+          );
+          const trackedWork = work.then(
+            () => undefined,
+            () => undefined
+          );
+          backgroundWorkRef.current = trackedWork;
+          void trackedWork.finally(() => {
+            if (backgroundWorkRef.current === trackedWork) {
+              backgroundWorkRef.current = null;
+            }
+          });
+          const outcome = await waitForBackgroundVerification(
+            work
+          );
+          if (outcome.timedOut) {
+            if (!cancelled) {
+              // Stop after one stalled item. Starting later items would leave
+              // more unresolved provider work in flight.
+              setReportById((map) => {
+                const next = { ...map };
+                for (const queued of open.slice(index)) {
+                  next[queued.id] = { validity: "unknown", signers: null };
+                }
+                return next;
+              });
+            }
+            return;
+          }
+          if (!cancelled) {
+            setReportById((map) => ({
+              ...map,
+              [proposal.id]: {
+                validity: outcome.value.validity,
+                signers: outcome.value.signers
+              }
+            }));
+          }
+        } catch {
+          if (!cancelled) {
+            // Not "invalid". The fetch or the chain query failed, which says nothing about
+            // whether this request can still go through; writing "invalid" told a co-signer
+            // their request was dead because the network hiccupped.
+            setReportById((map) => ({
+              ...map,
+              [proposal.id]: { validity: "unknown", signers: null }
+            }));
+          }
         }
       }
-    });
+    };
+    void verifyOpenProposals();
     return () => {
       cancelled = true;
     };
-  }, [proposals, signedIn]);
+  }, [backgroundVerificationRun, proposals, signedIn]);
 
   const handleChanged = useCallback(() => {
     void refresh();
@@ -197,7 +280,7 @@ export function ProposalsWorkspace() {
           onCancel={() => router.replace(buildUrl({ create: null }))}
         />
       ) : (
-        <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(320px,380px)_1fr]">
+        <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(320px,380px)_minmax(0,1fr)]">
           {/* `lg:h-full` + flex column so the list fills the pane height and scrolls inside
               it. Unconstrained, the list grew the page while the detail pane stayed a full
               height box -- two columns that disagreed about how tall the row was. */}
@@ -221,7 +304,7 @@ export function ProposalsWorkspace() {
               onLoadMore={() => void loadMore()}
             />
           </div>
-          <div className={selectedId ? "block" : "hidden lg:block"}>
+          <div className={selectedId ? "block min-w-0" : "hidden min-w-0 lg:block"}>
             {selectedId ? (
               <ProposalDetail
                 proposalId={selectedId}

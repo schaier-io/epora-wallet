@@ -177,7 +177,7 @@ export function WalletSelectionDialogView() {
             ) : null}
 
             {detectedSttTokensError ? (
-              <FadeContent className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-100">
+              <FadeContent className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-100 [overflow-wrap:anywhere]">
                 {detectedSttTokensError}
               </FadeContent>
             ) : null}

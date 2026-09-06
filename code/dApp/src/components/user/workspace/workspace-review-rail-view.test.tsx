@@ -1,3 +1,4 @@
+import { beneficiaryPreparationActiveAtom } from "./atoms/forms/consolidate-form.atoms";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import { createRef } from "react";
@@ -77,6 +78,7 @@ function renderRail(options: {
   seedStore?: (store: ReturnType<typeof createStore>) => void;
   signingAvailability?: typeof signingActions.value;
   buildAndSubmitSelectedActionTx?: ReturnType<typeof vi.fn>;
+  submitTransactionPreview?: ReturnType<typeof vi.fn>;
   selectedAction?: string;
 }) {
   signingActions.value = options.signingAvailability ?? {
@@ -111,6 +113,7 @@ function renderRail(options: {
     activeReadinessIssues: [],
     buildAndSubmitSelectedActionTx: options.buildAndSubmitSelectedActionTx ?? vi.fn(),
     buildSelectedActionTx: options.buildSelectedActionTx,
+    submitTransactionPreview: options.submitTransactionPreview ?? vi.fn(),
     handleSaveProposalFromBuild: options.handleSaveProposalFromBuild,
     lastActionDisplayLabel: "Pay scheduled payments",
     previewMatchesSelectedAction: options.previewMatchesSelectedAction,
@@ -132,6 +135,156 @@ function renderRail(options: {
     </Provider>
   );
 }
+
+it("builds a permanent withdrawal for review without opening the signing wallet", () => {
+  const build = vi.fn();
+  const submit = vi.fn();
+  const combined = vi.fn();
+  renderRail({
+    selectedAction: "exit-beneficiary",
+    previewMatchesSelectedAction: false,
+    buildSelectedActionTx: build,
+    submitTransactionPreview: submit,
+    buildAndSubmitSelectedActionTx: combined,
+    handleSaveProposalFromBuild: vi.fn(),
+    signingAvailability: { canDirectSign: true, directAuthorityPath: "beneficiary", canSaveApprovalRequest: false }
+  });
+  expect(reviewPanelProps.latest.primaryActionLabel).toBe("Preview permanent withdrawal");
+  (reviewPanelProps.latest.onPrimaryAction as () => void)();
+  expect(build).toHaveBeenCalledWith("beneficiary");
+  expect(submit).not.toHaveBeenCalled();
+  expect(combined).not.toHaveBeenCalled();
+});
+
+it("signs the reviewed permanent withdrawal only on the confirmation click", () => {
+  const build = vi.fn();
+  const submit = vi.fn();
+  renderRail({
+    selectedAction: "exit-beneficiary",
+    previewMatchesSelectedAction: true,
+    buildSelectedActionTx: build,
+    submitTransactionPreview: submit,
+    handleSaveProposalFromBuild: vi.fn(),
+    signingAvailability: { canDirectSign: true, directAuthorityPath: "beneficiary", canSaveApprovalRequest: false }
+  });
+  expect(reviewPanelProps.latest.primaryActionLabel).toBe("Confirm permanent withdrawal");
+  (reviewPanelProps.latest.onPrimaryAction as () => void)();
+  expect(submit).toHaveBeenCalledWith(expect.objectContaining({ txHex: "old-payout-tx" }));
+  expect(build).not.toHaveBeenCalled();
+});
+
+it("builds a stream stop for review without opening the signing wallet", () => {
+  const build = vi.fn();
+  const submit = vi.fn();
+  const combined = vi.fn();
+  renderRail({
+    selectedAction: "stop-beneficiary-stream",
+    previewMatchesSelectedAction: false,
+    buildSelectedActionTx: build,
+    submitTransactionPreview: submit,
+    buildAndSubmitSelectedActionTx: combined,
+    handleSaveProposalFromBuild: vi.fn(),
+    signingAvailability: { canDirectSign: true, directAuthorityPath: "beneficiary", canSaveApprovalRequest: false }
+  });
+  expect(reviewPanelProps.latest.primaryActionLabel).toBe("Preview stop");
+  (reviewPanelProps.latest.onPrimaryAction as () => void)();
+  expect(build).toHaveBeenCalledWith("beneficiary");
+  expect(submit).not.toHaveBeenCalled();
+  expect(combined).not.toHaveBeenCalled();
+});
+
+it("signs the reviewed stream stop only on the confirmation click", () => {
+  const build = vi.fn();
+  const submit = vi.fn();
+  renderRail({
+    selectedAction: "stop-beneficiary-stream",
+    previewMatchesSelectedAction: true,
+    buildSelectedActionTx: build,
+    submitTransactionPreview: submit,
+    handleSaveProposalFromBuild: vi.fn(),
+    signingAvailability: { canDirectSign: true, directAuthorityPath: "beneficiary", canSaveApprovalRequest: false }
+  });
+  expect(reviewPanelProps.latest.primaryActionLabel).toBe("Confirm stop");
+  (reviewPanelProps.latest.onPrimaryAction as () => void)();
+  expect(submit).toHaveBeenCalledWith(expect.objectContaining({ txHex: "old-payout-tx" }));
+  expect(build).not.toHaveBeenCalled();
+});
+
+it("builds a exact distribution for review without opening the signing wallet", () => {
+  const build = vi.fn();
+  const submit = vi.fn();
+  const combined = vi.fn();
+  renderRail({
+    selectedAction: "distribute-beneficiaries",
+    previewMatchesSelectedAction: false,
+    buildSelectedActionTx: build,
+    submitTransactionPreview: submit,
+    buildAndSubmitSelectedActionTx: combined,
+    handleSaveProposalFromBuild: vi.fn(),
+    signingAvailability: { canDirectSign: true, directAuthorityPath: "beneficiary", canSaveApprovalRequest: false }
+  });
+  expect(reviewPanelProps.latest.primaryActionLabel).toBe("Preview distribution");
+  (reviewPanelProps.latest.onPrimaryAction as () => void)();
+  expect(build).toHaveBeenCalledWith("beneficiary");
+  expect(submit).not.toHaveBeenCalled();
+  expect(combined).not.toHaveBeenCalled();
+});
+
+it("signs the reviewed exact distribution only on the confirmation click", () => {
+  const build = vi.fn();
+  const submit = vi.fn();
+  renderRail({
+    selectedAction: "distribute-beneficiaries",
+    previewMatchesSelectedAction: true,
+    buildSelectedActionTx: build,
+    submitTransactionPreview: submit,
+    handleSaveProposalFromBuild: vi.fn(),
+    signingAvailability: { canDirectSign: true, directAuthorityPath: "beneficiary", canSaveApprovalRequest: false }
+  });
+  expect(reviewPanelProps.latest.primaryActionLabel).toBe("Confirm distribution");
+  (reviewPanelProps.latest.onPrimaryAction as () => void)();
+  expect(submit).toHaveBeenCalledWith(expect.objectContaining({ txHex: "old-payout-tx" }));
+  expect(build).not.toHaveBeenCalled();
+});
+
+it("builds a recovery preparation for review without opening the signing wallet", () => {
+  const build = vi.fn();
+  const submit = vi.fn();
+  const combined = vi.fn();
+  renderRail({
+    selectedAction: "consolidate-utxo",
+    seedStore: store => store.set(beneficiaryPreparationActiveAtom, true),
+    previewMatchesSelectedAction: false,
+    buildSelectedActionTx: build,
+    submitTransactionPreview: submit,
+    buildAndSubmitSelectedActionTx: combined,
+    handleSaveProposalFromBuild: vi.fn(),
+    signingAvailability: { canDirectSign: true, directAuthorityPath: "beneficiary", canSaveApprovalRequest: false }
+  });
+  expect(reviewPanelProps.latest.primaryActionLabel).toBe("Preview preparation");
+  (reviewPanelProps.latest.onPrimaryAction as () => void)();
+  expect(build).toHaveBeenCalledWith("beneficiary");
+  expect(submit).not.toHaveBeenCalled();
+  expect(combined).not.toHaveBeenCalled();
+});
+
+it("signs the reviewed recovery preparation only on the confirmation click", () => {
+  const build = vi.fn();
+  const submit = vi.fn();
+  renderRail({
+    selectedAction: "consolidate-utxo",
+    seedStore: store => store.set(beneficiaryPreparationActiveAtom, true),
+    previewMatchesSelectedAction: true,
+    buildSelectedActionTx: build,
+    submitTransactionPreview: submit,
+    handleSaveProposalFromBuild: vi.fn(),
+    signingAvailability: { canDirectSign: true, directAuthorityPath: "beneficiary", canSaveApprovalRequest: false }
+  });
+  expect(reviewPanelProps.latest.primaryActionLabel).toBe("Confirm preparation");
+  (reviewPanelProps.latest.onPrimaryAction as () => void)();
+  expect(submit).toHaveBeenCalledWith(expect.objectContaining({ txHex: "old-payout-tx" }));
+  expect(build).not.toHaveBeenCalled();
+});
 
 describe("context-aware signing actions", () => {
   it("hands the connected wallet's address to the review panel as the signer", () => {

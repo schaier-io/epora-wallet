@@ -4,12 +4,24 @@
 
 use aiken/collection/list
 use aiken/fuzz
+use assets/entries as asset_entries
 use cardano/assets
 use state/types as state_types
 use streaming_payments/funding
 use streaming_payments/types.{StreamingPayment}
 use test_support/streaming_payment_test_helpers.{
   mk_address, mk_streaming_payment,
+}
+
+fn lovelace_reserved(reserve: funding.StreamingReserve) -> Int {
+  funding.reserved_quantity(reserve, assets.ada_policy_id, #"")
+}
+
+fn spent_between(
+  input: assets.Value,
+  output: assets.Value,
+) -> state_types.AssetEntries {
+  assets.difference(input, output) |> asset_entries.flatten_to_entries
 }
 
 test streaming_payment_remains_funded_for_empty_schedule() {
@@ -33,7 +45,7 @@ test streaming_payment_remains_funded_for_empty_schedule() {
     funding.remains_funded(
       funding.calculate_streaming_reserve(state.streaming_payments, 0),
       assets.from_lovelace(0),
-      assets.from_lovelace(0),
+      spent_between(assets.from_lovelace(0), assets.from_lovelace(0)),
     )
 }
 
@@ -60,7 +72,10 @@ test streaming_payment_remains_funded_for_lovelace_schedule() {
     funding.remains_funded(
       funding.calculate_streaming_reserve(state.streaming_payments, 86_400_000),
       assets.from_lovelace(2_000_000),
-      assets.from_lovelace(1_100_000),
+      spent_between(
+        assets.from_lovelace(2_000_000),
+        assets.from_lovelace(1_100_000),
+      ),
     )
 }
 
@@ -157,7 +172,7 @@ test reserve_includes_rounding_buffer() {
     [mk_streaming_payment(0, mk_address(#"01"), 0, 1_000_000, 3 * one_day)],
     one_day,
   )
-  assets.lovelace_of(reserve) == 1_000_001
+  lovelace_reserved(reserve) == 1_000_001
 }
 
 // Two payments in the SAME asset accumulate into one per-asset reserve;
@@ -172,9 +187,46 @@ test reserve_accumulates_per_asset_across_payments() {
     one_day,
   )
   and {
+    list.length(reserve) == 2,
     // 1_000_000 + 1 + 500_000 + 1 — buffers accumulate per payment.
-    assets.lovelace_of(reserve) == 1_500_002,
-    assets.quantity_of(reserve, #"cc", #"dd") == 8,
+    lovelace_reserved(reserve) == 1_500_002,
+    funding.reserved_quantity(reserve, #"cc", #"dd") == 8,
+  }
+}
+
+test filtered_reserve_keeps_only_relevant_assets_and_accumulates_duplicates() {
+  let reserve = funding.calculate_streaming_reserve_for_assets(
+    [
+      mk_streaming_payment_in_asset(0, #"aa", #"01", 0, 4, 3 * one_day),
+      mk_streaming_payment_in_asset(1, #"aa", #"01", 0, 5, 3 * one_day),
+      mk_streaming_payment_in_asset(2, #"bb", #"02", 0, 7, 3 * one_day),
+    ],
+    one_day,
+    [
+      state_types.AssetEntry {
+        policy_id: #"aa",
+        asset_name: #"01",
+        quantity: 1,
+      },
+    ],
+  )
+  and {
+    (list.length(reserve) == 1)?,
+    (funding.reserved_quantity(reserve, #"aa", #"01") == 11)?,
+    (funding.reserved_quantity(reserve, #"bb", #"02") == 0)?,
+  }
+}
+
+test reserve_keys_match_policy_and_asset_name() {
+  let reserve = [
+    state_types.AssetEntry { policy_id: #"aa", asset_name: #"01", quantity: 3 },
+    state_types.AssetEntry { policy_id: #"aa", asset_name: #"02", quantity: 5 },
+    state_types.AssetEntry { policy_id: #"bb", asset_name: #"01", quantity: 7 },
+  ]
+  and {
+    funding.reserved_quantity(reserve, #"aa", #"01") == 3,
+    funding.reserved_quantity(reserve, #"aa", #"02") == 5,
+    funding.reserved_quantity(reserve, #"bb", #"01") == 7,
   }
 }
 
@@ -185,7 +237,7 @@ test reserve_caps_accrual_at_end_date() {
     [mk_streaming_payment(0, mk_address(#"01"), 0, 1_000_000, 2 * one_day)],
     100 * one_day,
   )
-  assets.lovelace_of(reserve) == 2_000_001
+  lovelace_reserved(reserve) == 2_000_001
 }
 
 // An entry whose payouts already cover accrued + buffer reserves exactly zero —
@@ -207,7 +259,7 @@ test reserve_clamps_overpaid_entry_at_zero() {
   )
   // Entry 0 is over-paid (3_000_000 paid vs 1_000_001 owed) → contributes 0,
   // NOT -1_999_999; entry 1 still reserves its full 1_000_001.
-  assets.lovelace_of(reserve) == 1_000_001
+  lovelace_reserved(reserve) == 1_000_001
 }
 
 // Receiver cancellation may shorten a future stream exactly to start_date.
@@ -220,7 +272,10 @@ test reserve_is_zero_for_settled_zero_duration_entry() {
   }
   let reserve = funding.calculate_streaming_reserve([zero_duration], 1_000)
 
-  assets.lovelace_of(reserve) == 0
+  and {
+    list.is_empty(reserve)?,
+    (lovelace_reserved(reserve) == 0)?,
+  }
 }
 
 // Direct negative for the spend guard: draining a reserved asset below
@@ -248,7 +303,26 @@ test reserve_guard_rejects_draining_below_reserve() fail {
     funding.remains_funded(
       funding.calculate_streaming_reserve(state.streaming_payments, one_day),
       assets.from_lovelace(2_000_000),
-      assets.from_lovelace(1_000_000),
+      spent_between(
+        assets.from_lovelace(2_000_000),
+        assets.from_lovelace(1_000_000),
+      ),
+    )
+}
+
+test reserve_guard_sums_shared_asset_streams() fail {
+  let payments = [
+    mk_streaming_payment(0, mk_address(#"01"), 0, 100, 3 * one_day),
+    mk_streaming_payment(1, mk_address(#"02"), 0, 100, 3 * one_day),
+  ]
+  let input_value = assets.from_lovelace(300)
+  let output_value = assets.from_lovelace(201)
+
+  expect
+    funding.remains_funded(
+      funding.calculate_streaming_reserve(payments, one_day),
+      input_value,
+      spent_between(input_value, output_value),
     )
 }
 
@@ -260,6 +334,96 @@ fn payment_args_gen() -> Fuzzer<((Int, Int), (Int, Int))> {
     fuzz.both(fuzz.int_between(1, 10 * one_day), fuzz.int_between(0, 1_000_000)),
     fuzz.both(fuzz.int_at_least(0), fuzz.int_between(0, 20 * one_day)),
   )
+}
+
+test reserve_guard_accepts_exact_shared_asset_reserve() {
+  let payments = [
+    mk_streaming_payment(0, mk_address(#"01"), 0, 100, 3 * one_day),
+    mk_streaming_payment(1, mk_address(#"02"), 0, 100, 3 * one_day),
+  ]
+  let input_value = assets.from_lovelace(300)
+  let output_value = assets.from_lovelace(202)
+
+  expect
+    funding.remains_funded(
+      funding.calculate_streaming_reserve(payments, one_day),
+      input_value,
+      spent_between(input_value, output_value),
+    )
+}
+
+test full_reserve_guard_accepts_missing_reserve_assets() {
+  let reserve = [
+    asset_entries.asset_entry(#"aa", #"02", 10),
+    asset_entries.asset_entry(#"cc", #"01", 20),
+  ]
+  let input_value = assets.merge(
+    assets.from_asset(#"bb", #"01", 7),
+    assets.from_asset(#"dd", #"01", 9),
+  )
+
+  funding.reserve_assets_remain_funded(reserve, input_value, assets.zero)
+}
+
+test full_reserve_guard_sums_duplicates_and_normalizes_key_order() {
+  let reserve = funding.calculate_streaming_reserve(
+    [
+      mk_streaming_payment_in_asset(0, #"cc", #"01", 0, 100, 3 * one_day),
+      mk_streaming_payment_in_asset(1, #"aa", #"02", 0, 100, 3 * one_day),
+      mk_streaming_payment_in_asset(2, #"aa", #"01", 0, 100, 3 * one_day),
+      mk_streaming_payment_in_asset(3, #"aa", #"01", 0, 100, 3 * one_day),
+    ],
+    one_day,
+  )
+  let input_value = assets.from_asset(#"aa", #"01", 300)
+
+  and {
+    funding.reserve_assets_remain_funded(
+      reserve,
+      input_value,
+      assets.from_asset(#"aa", #"01", 202),
+    ),
+    !funding.reserve_assets_remain_funded(
+      reserve,
+      input_value,
+      assets.from_asset(#"aa", #"01", 201),
+    ),
+  }
+}
+
+test full_reserve_guard_accepts_funded_asset_and_unreserved_outflow() {
+  let reserve = [asset_entries.asset_entry(assets.ada_policy_id, #"", 10)]
+  let input_value = assets.merge(
+    assets.from_lovelace(20),
+    assets.from_asset(#"aa", #"01", 7),
+  )
+  let output_value = assets.from_lovelace(10)
+
+  and {
+    funding.reserve_assets_remain_funded(reserve, input_value, output_value),
+    !funding.reserve_assets_remain_funded(
+      reserve,
+      input_value,
+      assets.from_lovelace(9),
+    ),
+  }
+}
+
+test full_reserve_guard_keeps_present_underfunded_asset() {
+  let reserve = [asset_entries.asset_entry(assets.ada_policy_id, #"", 10)]
+
+  and {
+    funding.reserve_assets_remain_funded(
+      reserve,
+      assets.from_lovelace(5),
+      assets.from_lovelace(5),
+    ),
+    !funding.reserve_assets_remain_funded(
+      reserve,
+      assets.from_lovelace(5),
+      assets.from_lovelace(4),
+    ),
+  }
 }
 
 fn payment_from(end_date: Int, rate: Int, paid_out: Int) -> StreamingPayment {
@@ -284,7 +448,7 @@ test prop_reserve_never_negative(args via payment_args_gen()) {
     [payment_from(end_date, rate, paid_out)],
     at_time,
   )
-  list.all(assets.flatten(reserve), fn(asset) { asset.3rd >= 0 })
+  list.all(reserve, fn(asset) { asset.quantity >= 0 })
 }
 
 // The reserve always covers what the payee is owed so far: accrued-to-time
@@ -293,7 +457,7 @@ test prop_reserve_covers_accrued_minus_paid(args via payment_args_gen()) {
   let ((end_date, rate), (paid_out, at_time)) = args
   let payment = payment_from(end_date, rate, paid_out)
   let reserve = funding.calculate_streaming_reserve([payment], at_time)
-  assets.lovelace_of(reserve) >= funding.accrued_at(payment, at_time) - payment.paid_out_amount
+  lovelace_reserved(reserve) >= funding.accrued_at(payment, at_time) - payment.paid_out_amount
 }
 
 // Measuring later never shrinks the reserve (monotone in the tx upper bound),
@@ -308,5 +472,5 @@ test prop_reserve_monotone_in_time(
   let payment = payment_from(end_date, rate, paid_out)
   let earlier = funding.calculate_streaming_reserve([payment], at_time)
   let later = funding.calculate_streaming_reserve([payment], at_time + extra)
-  assets.lovelace_of(later) >= assets.lovelace_of(earlier)
+  lovelace_reserved(later) >= lovelace_reserved(earlier)
 }

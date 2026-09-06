@@ -55,6 +55,8 @@ export function ApprovalPowerSlider({
   className?: string;
 }) {
   const parsed = Number.parseInt(value, 10);
+  const exactValueNeedsStaticDisplay =
+    /^\d+$/.test(value.trim()) && !Number.isSafeInteger(parsed);
   // The caller's ceiling ignores the number this slider writes, so it cannot
   // shrink mid-drag. A number stored above it still has to be representable, so
   // the range is widened once, from the value this slider was first handed, and
@@ -73,6 +75,23 @@ export function ApprovalPowerSlider({
         [...new Set(marksFull ? [min, fullAt, top] : [min, top])].toSorted((a, b) => a - b);
   const fractionOf = (point: number) => (span > 0 ? (point - min) / span : 0);
   const atFull = marksFull && current >= fullAt;
+
+  // Radix sliders use JavaScript numbers. Keep an exact large on-chain value
+  // visible, but do not let a pointer gesture round and overwrite it.
+  if (exactValueNeedsStaticDisplay) {
+    return (
+      <p
+        id={id}
+        aria-labelledby={labelledBy}
+        aria-describedby={describedBy}
+        aria-invalid={invalid ? true : undefined}
+        aria-disabled="true"
+        className={cn("text-base font-semibold tabular-nums text-foreground", className)}
+      >
+        {value.trim()}
+      </p>
+    );
+  }
 
   // A slider with a single reachable stop is a decoration, not a control: with
   // no co-signers yet, `max` collapses onto `min`.

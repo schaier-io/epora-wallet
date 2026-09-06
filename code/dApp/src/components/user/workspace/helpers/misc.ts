@@ -1,5 +1,9 @@
 import { isConstrDataValue } from "./guards";
 import { type ConstrData, type ContractConfig } from "@/lib/types/contracts";
+import {
+  isOnChainInteger,
+  type OnChainInteger
+} from "@/lib/contracts/on-chain-integer";
 
 export function waitFor(milliseconds: number) {
   return new Promise((resolve) => {
@@ -16,7 +20,7 @@ export function resolveEffectiveAssetNameHex(config: ContractConfig) {
 export function readProofOfLifeOption(
   datum: ConstrData | null | undefined,
   index: number
-): number | null | undefined {
+): OnChainInteger | null | undefined {
   if (!datum || datum.alternative !== 0 || datum.fields.length <= index) {
     return undefined;
   }
@@ -30,10 +34,9 @@ export function readProofOfLifeOption(
     return null;
   }
 
-  if (value.alternative === 0 && value.fields.length === 1 && typeof value.fields[0] === "number") {
+  if (value.alternative === 0 && value.fields.length === 1 && isOnChainInteger(value.fields[0])) {
     return value.fields[0];
   }
 
   return undefined;
 }
-

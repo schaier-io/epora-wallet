@@ -1,5 +1,5 @@
 import { resolveScriptHash, type UTxO } from "@meshsdk/core";
-import { fromScriptRef } from "@meshsdk/core-cst";
+import { inspectSharedSttReferenceStore } from "./transactions/internals/reference-scripts";
 import {
   getSttMintPolicyId,
   getSttSpendScript,
@@ -39,49 +39,11 @@ export type SharedSttReferenceStoreInfo = {
   activeReference: string | null;
   matchingReferences: string[];
   matchingCount: number;
-  staleReferenceCount: number;
-  storeUtxoCount: number;
+  checkedReferenceCount: number;
 };
 
-function createInputRefKey(txHash: string, outputIndex: number) {
-  return `${txHash}#${outputIndex}`;
-}
 
-function compareReferenceKeys(left: string, right: string) {
-  return left.localeCompare(right, "en", { sensitivity: "base" });
-}
-
-function hasReferenceScript(utxo: UTxO) {
-  return typeof utxo.output.scriptRef === "string" && utxo.output.scriptRef.length > 0;
-}
-
-function utxoMatchesReferenceScript(
-  utxo: UTxO,
-  script: { code: string; version: "V1" | "V2" | "V3" }
-) {
-  const scriptRef = utxo.output.scriptRef;
-  if (typeof scriptRef !== "string" || scriptRef.length === 0) {
-    return false;
-  }
-
-  const expectedHash = resolveScriptHash(script.code, script.version);
-  if (utxo.output.scriptHash) {
-    return utxo.output.scriptHash === expectedHash;
-  }
-
-  const parsedScript = fromScriptRef(scriptRef);
-  if (!parsedScript || !("code" in parsedScript)) {
-    return false;
-  }
-
-  if (parsedScript.version !== script.version) {
-    return false;
-  }
-
-  return resolveScriptHash(parsedScript.code, parsedScript.version) === expectedHash;
-}
-
-export async function detectSttInfo(): Promise<DetectedSttInfo> {
+export async function detectSttInfo(knownUnit?: string): Promise<DetectedSttInfo> {
   const fetcher = new ServerFetcher();
   const policyId = getSttMintPolicyId();
   const script = getSttSpendScript();
@@ -89,7 +51,13 @@ export async function detectSttInfo(): Promise<DetectedSttInfo> {
   const collectionAssets: Array<{ unit: string; quantity: string }> = [];
   let cursor: number | string | null | undefined;
 
-  do {
+  if (knownUnit !== undefined) {
+    if (!knownUnit.startsWith(policyId) || !/^[0-9a-f]+$/i.test(knownUnit) ||
+        knownUnit.length <= POLICY_ID_LENGTH || knownUnit.length > POLICY_ID_LENGTH + 64 || knownUnit.length % 2 !== 0) {
+      throw new Error("The requested wallet asset does not match the current STT policy.");
+    }
+    collectionAssets.push({ unit: knownUnit, quantity: "1" });
+  } else do {
     const page = await fetcher.fetchCollectionAssets(policyId, cursor ?? undefined);
     collectionAssets.push(
       ...page.assets.filter((asset) => asset.unit.startsWith(policyId) && asset.unit !== policyId)
@@ -98,17 +66,18 @@ export async function detectSttInfo(): Promise<DetectedSttInfo> {
   } while (cursor);
 
   const tokens: DetectedSttToken[] = [];
-  // One request for every UTxO at the script address, filtered per asset below. It used to
-  // be one request per asset, so a policy with N wallets cost N round trips in series and
-  // tripped the /api/mesh rate limit together with the other page-load fetches.
+  // Known wallets use the asset index. Unknown inventory still enumerates the
+  // shared address and remains subject to provider pagination and response limits.
   const scriptUtxos =
-    collectionAssets.length > 0 ? await fetcher.fetchAddressUTxOs(scriptAddress) : [];
+    collectionAssets.length > 0 ? await fetcher.fetchAddressUTxOs(scriptAddress, knownUnit) : [];
 
   for (const asset of collectionAssets) {
     const assetNameHex = asset.unit.slice(POLICY_ID_LENGTH);
 
     for (const utxo of scriptUtxos) {
-      if (!utxo.output.amount.some((entry) => entry.unit === asset.unit)) {
+      if (utxo.output.address !== scriptAddress ||
+          utxo.output.amount.filter((entry) => entry.unit === asset.unit)
+            .reduce((sum, entry) => sum + BigInt(entry.quantity), 0n) !== 1n) {
         continue;
       }
 
@@ -169,16 +138,14 @@ export async function countSttTokens(policyId: string): Promise<number> {
   return total;
 }
 
-export async function detectSharedSttReferenceStore(): Promise<SharedSttReferenceStoreInfo> {
+export async function detectSharedSttReferenceStore(configuredReference?: string): Promise<SharedSttReferenceStoreInfo> {
   const fetcher = new ServerFetcher();
   const sttScript = getSttSpendScript();
   const storeAddress = resolveSttReferenceStoreAddress();
-  const storeUtxos = await fetcher.fetchAddressUTxOs(storeAddress);
-  const referenceStoreUtxos = storeUtxos.filter(hasReferenceScript);
-  const matchingReferences = referenceStoreUtxos
-    .filter((utxo) => utxoMatchesReferenceScript(utxo, sttScript))
-    .map((utxo) => createInputRefKey(utxo.input.txHash, utxo.input.outputIndex))
-    .sort(compareReferenceKeys);
+  const inspection = await inspectSharedSttReferenceStore(fetcher, {
+    script: sttScript, configuredReference, stage: "detect:shared-stt-reference"
+  });
+  const matchingReferences = inspection.matchingReferences.map((entry) => entry.reference);
   const matchingCount = matchingReferences.length;
 
   return {
@@ -189,7 +156,6 @@ export async function detectSharedSttReferenceStore(): Promise<SharedSttReferenc
     activeReference: matchingReferences[0] ?? null,
     matchingReferences,
     matchingCount,
-    staleReferenceCount: referenceStoreUtxos.length - matchingCount,
-    storeUtxoCount: storeUtxos.length
+    checkedReferenceCount: inspection.checkedReferenceCount
   };
 }

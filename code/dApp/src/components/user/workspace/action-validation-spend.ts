@@ -25,6 +25,12 @@ import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspace
 
 const i18n = createDefaultTranslator("ComponentsUserWorkspaceActionValidationSpend", defaultMessages);
 
+export function minimumBeneficiaryWithdrawalWalletInputCount(
+  stateForm: StateFormState
+) {
+  return stateForm.beneficiaries.length === 1 ? 1 : 0;
+}
+
 export type SpendActionValidationContext = {
   useActionAlternative: ReturnType<typeof resolveUseActionAlternative>;
   renewProofOfLifeActionAlternative: typeof RENEW_PROOF_OF_LIFE_ACTION;
@@ -82,7 +88,6 @@ export function appendStreamingPaymentPayoutDraftErrors(
       i18n("selectAtLeastOneScheduledPaymentPayoutAmount")
     );
   }
-
   // Number rows the way the payout view heads them (1-based), not by on-chain id.
   for (const [index, row] of streamingPaymentPayoutRows.entries()) {
     const nextAmount = row.configuredAmount.trim();
@@ -112,6 +117,7 @@ export function computeSpendActionErrors(
   const {
     activeInferredSttStateForm,
     activePaymentKeyHash,
+    selectedDetectedToken,
     streamingPaymentPayoutRows,
     streamingPaymentPayoutTransfers,
     sttAuthorityPath,
@@ -253,7 +259,8 @@ export function computeSpendActionErrors(
       "Output state",
       validateManagedStreamingPaymentsStatic(
         stateFormToDatum(activeInferredSttStateForm),
-        stateFormToDatum(sttStateForm)
+        stateFormToDatum(sttStateForm),
+        selectedDetectedToken?.policyId
       )
     );
   } catch {
@@ -275,8 +282,18 @@ export function computeSpendActionErrors(
 
   const limitedErrors: FieldErrors = {};
   validateSttInputRef(limitedErrors, sttInputTxHash, sttInputOutputIndex);
-  validateWalletInputRefs(limitedErrors, "Fund pools", sttWalletInputs);
-  validateTransferRows(limitedErrors, "Transfers / forwarded outputs", sttExtraTransfers, 1);
+  validateWalletInputRefs(
+    limitedErrors,
+    "Fund pools",
+    sttWalletInputs,
+    minimumBeneficiaryWithdrawalWalletInputCount(activeInferredSttStateForm)
+  );
+  validateTransferRows(
+    limitedErrors,
+    "Transfers / forwarded outputs",
+    sttExtraTransfers,
+    1
+  );
   try {
     stateFormToDatum(
       cloneStateForm(activeInferredSttStateForm),
@@ -289,6 +306,11 @@ export function computeSpendActionErrors(
       i18n("limitedWithdrawal"),
       extractErrorMessage(error, i18n("limitedWithdrawalInputsAreInvalid"))
     );
+  }
+
+  const exitErrors: FieldErrors = { ...limitedErrors };
+  if (activeInferredSttStateForm.beneficiaries.length === 1 && activeInferredSttStateForm.streamingPayments.length > 0) {
+    pushFieldError(exitErrors, i18n("permanentExit"), i18n("settleStreamsBeforeFinalExit"));
   }
 
   const useAllowanceErrors: FieldErrors = {};
@@ -341,6 +363,7 @@ export function computeSpendActionErrors(
     updateErrors,
     manageStreamingPaymentsErrors,
     limitedErrors,
+    exitErrors,
     useAllowanceErrors,
     streamingPaymentErrors
   };

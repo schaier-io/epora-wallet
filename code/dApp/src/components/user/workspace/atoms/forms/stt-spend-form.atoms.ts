@@ -15,6 +15,7 @@ export const sttProofOfLifeOverrideModeAtom = atom<ProofOfLifeOverrideMode>("aut
 export const sttProofOfLifeSpecificDateTimeAtom = atom("");
 export const sttTransferAddressAtom = atom("");
 export const sttTransferAmountsAtom = atom<Record<string, string>>({});
+export const beneficiaryStreamStopIdAtom = atom("");
 export const streamingPaymentPayoutAmountsAtom = atom<Record<string, string>>({});
 export const selectedSttActionAtom = atom<SttSpendActionMode>("use");
 export const sttAuthorityPathAtom = atom<AuthorityPath>("admin");
@@ -36,6 +37,7 @@ export const resetSttSpendFormAtom = atom(null, (_get, set) => {
   set(sttTransferAddressAtom, "");
   set(sttTransferAmountsAtom, {});
   set(streamingPaymentPayoutAmountsAtom, {});
+  set(beneficiaryStreamStopIdAtom, "");
   set(selectedSttActionAtom, "use");
   set(sttAuthorityPathAtom, "admin");
   set(consolidateAuthorityPathAtom, "admin");

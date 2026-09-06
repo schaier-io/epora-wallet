@@ -1,7 +1,8 @@
 import { type RuntimeTxBuilder, STT_MINT_VALIDATOR, addWalletInput, applyMintWitness, buildReferenceScriptDiagnostics, buildTransactionWithReestimatedLimits, createStageError, createTxPreview, deriveAssetName, describeReferenceScriptUsage, getLovelaceQuantity, hasReferenceScript, inspectSharedSttReferenceStore, normalizeMintStarterAssets, resolveMintReferenceInput, sendAssetsWithOptionalInlineDatumAndReferenceScript, setupTransaction, summarizeAmountForTxPreview, withStage } from "./internals";
-import { getSttMintScript, resolveScriptAddress, resolveWalletSpendAddress } from "@/lib/contracts/blueprint";
+import { getSttMintScript, resolveScriptAddress, resolveWalletSpendAddress, resolveWalletSpendScriptHash } from "@/lib/contracts/blueprint";
 import { readStateSections } from "@/lib/contracts/state-layout";
-import { collectStateDatumWarnings, validateMintStateDatum } from "@/lib/contracts/state-validation";
+import { collectStateDatumWarnings } from "@/lib/contracts/state-validation";
+import { validateMintStateDatum } from "@/lib/contracts/state-validation-streaming";
 import { decodeWalletNameFromDatum, normalizeWalletName } from "@/lib/contracts/state-wallet-name";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import { type BuildResult, type MintFormInput } from "@/lib/types/contracts";
@@ -24,7 +25,13 @@ export async function buildMintStateTokenTx(
   );
   const requestedStarterLovelace = getLovelaceQuantity(requestedStarterAssets).toString();
   const normalizedStateDatum = unwrapStateDatum(input.stateDatum, "Mint state datum");
-  const stateValidationErrors = validateMintStateDatum(normalizedStateDatum);
+  const sttScript = getSttMintScript();
+  const policyId = resolveScriptHash(sttScript.code, sttScript.version);
+  const stateValidationErrors = validateMintStateDatum(
+    normalizedStateDatum,
+    undefined,
+    policyId
+  );
   if (stateValidationErrors.length > 0) {
     throw createStageError(
       "mint:validateStateDatum",
@@ -44,8 +51,6 @@ export async function buildMintStateTokenTx(
   );
   const mintedDatum = unwrapStateDatum(normalizedStateDatum, "STT state datum");
 
-  const sttScript = getSttMintScript();
-  const policyId = resolveScriptHash(sttScript.code, sttScript.version);
   const prepared = await buildTransactionWithReestimatedLimits(
     "mint:tx.draft-build",
     "mint:tx.build",
@@ -83,7 +88,31 @@ export async function buildMintStateTokenTx(
         sttPolicyId: policyId,
         sttAssetNameHex: assetName
       });
+      const walletPaymentScriptHash = resolveWalletSpendScriptHash({
+        sttPolicyId: policyId,
+        sttAssetNameHex: assetName
+      });
+      const walletDestinationErrors = validateMintStateDatum(
+        normalizedStateDatum,
+        walletPaymentScriptHash,
+        policyId
+      );
+      if (walletDestinationErrors.length > 0) {
+        throw createStageError(
+          "mint:validateStreamingPaymentDestinations",
+          new Error(
+            walletDestinationErrors[0] ??
+              "Mint state datum has an invalid streaming payment destination."
+          ),
+          {
+            validationErrors: walletDestinationErrors,
+            stateDatum: normalizedStateDatum,
+            walletPaymentScriptHash
+          }
+        );
+      }
       const sharedReferenceInspection = await inspectSharedSttReferenceStore(fetcher, {
+        configuredReference: input.sttSpendReference,
         script: sttScript,
         stage: "mint:inspectSharedSttReferenceStore",
         details: {
@@ -95,6 +124,13 @@ export async function buildMintStateTokenTx(
       });
       const sttReferenceScript =
         sharedReferenceInspection.matchingReferences[0] ?? null;
+      if (!sttReferenceScript) {
+        throw createStageError(
+          "mint:referenceScript",
+          new Error("Create or configure the one-time setup helper before creating this wallet."),
+          { policyId, requiredField: "sttSpendReference", setupRoute: "/api/v1/tx/deploy-reference" }
+        );
+      }
       const scriptWitnessDiagnostics = buildReferenceScriptDiagnostics([
         {
           label: "STT mint",
@@ -165,7 +201,7 @@ export async function buildMintStateTokenTx(
             sharedReferenceInspection.matchingReferences.length > 0,
           sharedSttReferenceMatchCount:
             sharedReferenceInspection.matchingReferences.length,
-          sharedSttReferenceStaleCount: sharedReferenceInspection.staleReferenceCount,
+          sharedSttCheckedReferenceCount: sharedReferenceInspection.checkedReferenceCount,
           sharedSttReferenceUsed: sttReferenceScript?.reference ?? null
         },
         executionLabels: {
@@ -209,4 +245,3 @@ export async function buildMintStateTokenTx(
     warnings: mintStateWarnings.length > 0 ? mintStateWarnings : undefined
   };
 }
-

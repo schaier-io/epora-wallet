@@ -1,4 +1,5 @@
 "use client";
+import { beneficiaryPreparationActiveAtom } from "./atoms/forms/consolidate-form.atoms";
 import { useTranslations } from "next-intl";
 
 import { useAtomValue } from "jotai";
@@ -309,6 +310,7 @@ export function usePermissionWalletWorkspaceState() {
 
   const {
     buildAndSubmitSelectedActionTx,
+    submitTransactionPreview,
     // Build-only, no signature. The review dock uses it to prepare an approval request.
     buildSelectedActionTx
     // We pass stable ref *objects* (not `.current`) into the transactions factory; the
@@ -355,17 +357,20 @@ export function usePermissionWalletWorkspaceState() {
     rememberRecipients,
     refreshWalletBalance
   });
-  // These four actions leave the workspace ready to run again: what they staged is cleared
+  // These actions leave the workspace ready to run again: what they staged is cleared
   // at submit, so the button goes back to its own label and the readiness gate below holds
   // it shut until something new is staged. It used to freeze at a disabled "Done" -- a dead
   // control whose only escape was `Clear form` in a different card. The submitted
   // transaction and its hash stay on screen in the block underneath. `mint` is excluded on
   // purpose: it creates one wallet, and its own overlay owns the after-state.
+  const preparationActive = useAtomValue(beneficiaryPreparationActiveAtom);
   const repeatableJustSubmitted =
     Boolean(submitHash) &&
     (selectedAction === "use" ||
       selectedAction === "use-allowance" ||
-      selectedAction === "use-beneficiary" ||
+      (selectedAction === "use-beneficiary" || selectedAction === "exit-beneficiary") ||
+      selectedAction === "distribute-beneficiaries" ||
+      (selectedAction === "consolidate-utxo" && preparationActive) ||
       selectedAction === "lock-funds");
   const reviewPrimaryActionLabel =
     submitHash && !repeatableJustSubmitted
@@ -487,8 +492,11 @@ export function usePermissionWalletWorkspaceState() {
     applyDetectedToken,
     handleDetectedTokenChange,
     openWorkspaceIntent,
+    handleBeneficiaryStreamStopSelect,
     handleFlowBranchSelect,
     handleConsolidateOrphans,
+    handleRecoverOrphans,
+    canRecoverOrphansDirectly,
     handleCreateAnotherWallet,
     handleOpenCreatedWallet,
     handleFocusedTaskSelect,
@@ -603,6 +611,7 @@ export function usePermissionWalletWorkspaceState() {
     // Build + submit the selected action, and save a built tx as a proposal.
     buildAndSubmitSelectedActionTx,
     buildSelectedActionTx,
+    submitTransactionPreview,
     handleSaveProposalFromBuild,
     proposalCaptureRef,
 
@@ -634,8 +643,11 @@ export function usePermissionWalletWorkspaceState() {
 
     // Navigation, intents, and top-level flow actions.
     openWorkspaceIntent,
+    handleBeneficiaryStreamStopSelect,
     handleFlowBranchSelect,
     handleConsolidateOrphans,
+    handleRecoverOrphans,
+    canRecoverOrphansDirectly,
     handleCreateAnotherWallet,
     handleOpenCreatedWallet,
     copyTextToClipboard,

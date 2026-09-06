@@ -5,22 +5,23 @@
 
 import type { Data } from "@meshsdk/common";
 import { isConstrData, readStateSections } from "@/lib/contracts/state-layout";
-import { validateFreshStreamingPayments } from "@/lib/contracts/state-validation";
+import { validateFreshStreamingPayments } from "@/lib/contracts/state-validation-streaming";
 import type { ConstrData } from "@/lib/types/contracts";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/LibContractsStreamingManage.json";
+import { isOnChainInteger } from "@/lib/contracts/on-chain-integer";
 
 const i18n = createDefaultTranslator("LibContractsStreamingManage", defaultMessages);
 
 type ManagedPayment = {
-  amountPerDay: number;
+  amountPerDay: bigint;
   assetName: string;
-  endDate: number;
-  id: number;
-  paidOutAmount: number;
+  endDate: bigint;
+  id: bigint;
+  paidOutAmount: bigint;
   payoutAddress: Data;
   policyId: string;
-  startDate: number;
+  startDate: bigint;
 };
 
 type ImmutableStreamingField =
@@ -32,6 +33,9 @@ type ImmutableStreamingField =
   | "startDate";
 
 function sameData(left: Data, right: Data): boolean {
+  if (isOnChainInteger(left) && isOnChainInteger(right)) {
+    return BigInt(left) === BigInt(right);
+  }
   if (Object.is(left, right)) {
     return true;
   }
@@ -77,30 +81,25 @@ function readManagedPayment(value: Data): ManagedPayment | null {
   const startDate = value.fields[6];
   const endDate = value.fields[7];
   if (
-    typeof id !== "number" ||
-    !Number.isSafeInteger(id) ||
-    typeof paidOutAmount !== "number" ||
-    !Number.isSafeInteger(paidOutAmount) ||
+    !isOnChainInteger(id) ||
+    !isOnChainInteger(paidOutAmount) ||
     typeof policyId !== "string" ||
     typeof assetName !== "string" ||
-    typeof amountPerDay !== "number" ||
-    !Number.isSafeInteger(amountPerDay) ||
-    typeof startDate !== "number" ||
-    !Number.isSafeInteger(startDate) ||
-    typeof endDate !== "number" ||
-    !Number.isSafeInteger(endDate)
+    !isOnChainInteger(amountPerDay) ||
+    !isOnChainInteger(startDate) ||
+    !isOnChainInteger(endDate)
   ) {
     return null;
   }
   return {
-    amountPerDay,
+    amountPerDay: BigInt(amountPerDay),
     assetName,
-    endDate,
-    id,
-    paidOutAmount,
+    endDate: BigInt(endDate),
+    id: BigInt(id),
+    paidOutAmount: BigInt(paidOutAmount),
     payoutAddress,
     policyId,
-    startDate
+    startDate: BigInt(startDate)
   };
 }
 
@@ -120,7 +119,7 @@ function changedImmutableField(
 function readManageTransition(
   inputStateDatum: ConstrData,
   outputStateDatum: ConstrData
-): { input: ManagedPayment[]; outputById: Map<number, ManagedPayment> } | null {
+): { input: ManagedPayment[]; outputById: Map<bigint, ManagedPayment> } | null {
   try {
     const input = readStateSections(
       inputStateDatum,
@@ -129,7 +128,7 @@ function readManageTransition(
       const parsed = readManagedPayment(payment);
       return parsed ? [parsed] : [];
     });
-    const outputById = new Map<number, ManagedPayment>();
+    const outputById = new Map<bigint, ManagedPayment>();
     readStateSections(
       outputStateDatum,
       "Manage streaming-payments output State datum"
@@ -161,7 +160,7 @@ function validateExistingManagedPayments(
     const output = transition.outputById.get(input.id);
     if (!output) {
       errors.push(
-        i18n("existingStreamingPaymentValue1MustRemainInThe", { value1: input.id })
+        i18n("existingStreamingPaymentValue1MustRemainInThe", { value1: input.id.toString() })
       );
       return;
     }
@@ -170,7 +169,7 @@ function validateExistingManagedPayments(
     if (changedField) {
       errors.push(
         i18n("existingStreamingPaymentValue1MustKeepItsImmutable", {
-          value1: input.id,
+          value1: input.id.toString(),
           field: changedField
         })
       );
@@ -182,7 +181,7 @@ function validateExistingManagedPayments(
       // receiver-created zero-duration form.
       if (input.endDate > input.startDate && output.endDate === input.startDate) {
         errors.push(
-          i18n("existingStreamingPaymentValue1CannotBeShortenedTo", { value1: input.id })
+          i18n("existingStreamingPaymentValue1CannotBeShortenedTo", { value1: input.id.toString() })
         );
       }
       return;
@@ -191,13 +190,18 @@ function validateExistingManagedPayments(
     const endDateFloor =
       input.endDate === input.startDate
         ? input.startDate
-        : Math.max(
-            input.startDate + 1,
-            Math.min(input.endDate, txLatestTimeMs)
-          );
+        : (() => {
+            const txFloor = input.endDate < BigInt(txLatestTimeMs)
+              ? input.endDate
+              : BigInt(txLatestTimeMs);
+            return input.startDate + 1n > txFloor ? input.startDate + 1n : txFloor;
+          })();
     if (output.endDate < endDateFloor) {
       errors.push(
-        i18n("existingStreamingPaymentValue1EndDateMustBe", { value1: input.id, endDateFloor })
+        i18n("existingStreamingPaymentValue1EndDateMustBe", {
+          value1: input.id.toString(),
+          endDateFloor: endDateFloor.toString()
+        })
       );
     }
   });
@@ -212,9 +216,16 @@ function validateExistingManagedPayments(
 export function validateManagedStreamingPayments(
   inputStateDatum: ConstrData,
   outputStateDatum: ConstrData,
-  txLatestTimeMs: number
+  txLatestTimeMs: number,
+  walletPaymentScriptHash: string,
+  sttPolicyId: string
 ): string[] {
-  const errors = validateFreshStreamingPayments(inputStateDatum, outputStateDatum);
+  const errors = validateFreshStreamingPayments(
+    inputStateDatum,
+    outputStateDatum,
+    walletPaymentScriptHash,
+    sttPolicyId
+  );
   if (!Number.isSafeInteger(txLatestTimeMs) || txLatestTimeMs < 0) {
     errors.push(
       i18n("managingStreamingPaymentsRequiresANonNegativeSafe")
@@ -238,10 +249,16 @@ export function validateManagedStreamingPayments(
  */
 export function validateManagedStreamingPaymentsStatic(
   inputStateDatum: ConstrData,
-  outputStateDatum: ConstrData
+  outputStateDatum: ConstrData,
+  sttPolicyId?: string
 ): string[] {
   return [
-    ...validateFreshStreamingPayments(inputStateDatum, outputStateDatum),
+    ...validateFreshStreamingPayments(
+      inputStateDatum,
+      outputStateDatum,
+      undefined,
+      sttPolicyId
+    ),
     ...validateExistingManagedPayments(inputStateDatum, outputStateDatum, null)
   ];
 }

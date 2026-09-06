@@ -1,3 +1,5 @@
+// @vitest-environment node
+// Address codecs use Node buffers; these standalone builders need no DOM.
 import { beforeEach, expect, it, vi } from "vitest";
 
 import {
@@ -79,15 +81,17 @@ import { buildSetIntendedStakeCredentialTx } from "./set-intended-stake-credenti
 import { buildWalletPublishTx, buildWalletVoteTx } from "./wallet-governance";
 import { buildWalletWithdrawTx } from "./wallet-withdraw";
 
+const BENEFICIARY_PAYOUT_ADDRESS = "addr_test1vqg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygxrcya6";
+
 const KEY = "ab".repeat(28);
 const CONFIG: ContractConfig = { sttAssetNameHex: "01" };
 const TX_HASH = "cd".repeat(32);
 const WALLET = {} as WalletSource;
 
-function poweredUser(id: string, power: string): UserFormState {
+function poweredUser(id: string, power: string, wallet: string): UserFormState {
   return {
     ...createDefaultUserFormState(id),
-    wallets: [KEY],
+    wallets: [wallet],
     multiSigPowerMode: "some",
     multiSigPower: power,
     preset: "custom"
@@ -96,6 +100,7 @@ function poweredUser(id: string, power: string): UserFormState {
 
 function warningState() {
   const beneficiary: BeneficiaryFormState = {
+    payoutAddress: BENEFICIARY_PAYOUT_ADDRESS,
     id: "0",
     wallets: ["ef".repeat(28)],
     unlockAfterMode: "none",
@@ -104,7 +109,7 @@ function warningState() {
   };
   const form: StateFormState = {
     ...createDefaultStateForm(),
-    users: [poweredUser("0", "1"), poweredUser("1", "2")],
+    users: [poweredUser("0", "1", KEY), poweredUser("1", "2", "ac".repeat(28))],
     multiSigThresholdMode: "some",
     multiSigThreshold: "3",
     beneficiaries: [beneficiary],
@@ -118,10 +123,7 @@ function warningState() {
 
 function expectSafetyWarnings(result: BuildResult) {
   expect(result.warnings).toEqual(
-    expect.arrayContaining([
-      expect.stringMatching(/One signature contributes their combined power 3/),
-      expect.stringMatching(/already withdraw/)
-    ])
+    expect.arrayContaining([expect.stringMatching(/already withdraw/)])
   );
 }
 

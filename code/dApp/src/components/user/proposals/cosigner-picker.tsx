@@ -79,8 +79,8 @@ export function CoSignerPicker({ choice, chosen, onChange, disabled }: CoSignerP
   const status =
     listed.threshold != null
       ? i18n("powerOfThresholdApprovalPowerOnceEveryone", {
-          power: listed.satisfiedPower,
-          threshold: listed.threshold
+          power: listed.satisfiedPower.toString(),
+          threshold: listed.threshold.toString()
         })
       : listed.satisfied
         ? i18n("anOwnerIsListed")
@@ -91,7 +91,7 @@ export function CoSignerPicker({ choice, chosen, onChange, disabled }: CoSignerP
       {signer.isAdmin ? <Badge variant="outline">{i18n("owner")}</Badge> : null}
       {listed.threshold != null ? (
         <span className="text-muted-foreground">
-          {signer.power} {i18n("approvalPower")}
+          {signer.power.toString()} {i18n("approvalPower")}
         </span>
       ) : null}
     </span>

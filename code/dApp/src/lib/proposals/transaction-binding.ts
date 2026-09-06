@@ -14,6 +14,7 @@ import {
   type OnChainStructuredAction
 } from "@/lib/contracts/action-data";
 import type { ConstrData, OperatorAuthorityPath } from "@/lib/types/contracts";
+import { assertSerializedTransactionShapeIsBounded } from "@/lib/mesh/transactions/internals/budget";
 import type { ProposalBuildContext } from "./types";
 import { proposalCopy } from "./copy";
 import { InvalidProposalBuildContextError } from "./validation";
@@ -158,6 +159,7 @@ export function assertProposalTransactionBinding(input: {
   buildContext: ProposalBuildContext;
 }): void {
   try {
+    assertSerializedTransactionShapeIsBounded(input.unsignedTxHex);
     const buildInput = input.buildContext.input as {
       sttInputTxHash?: unknown;
       sttInputOutputIndex?: unknown;

@@ -1,5 +1,9 @@
 import type { Data } from "@meshsdk/common";
 import type { ConstrData } from "@/lib/types/contracts";
+import {
+  isOnChainInteger,
+  type OnChainInteger
+} from "@/lib/contracts/on-chain-integer";
 
 // Shared primitives for reading Plutus `Data` that mirrors the on-chain types.
 // These are the off-chain half of the contract's encoding and must match the
@@ -20,9 +24,9 @@ export function isConstrData(value: unknown): value is ConstrData {
   );
 }
 
-export function readInteger(value: Data, label: string): number {
-  if (typeof value !== "number" || !Number.isSafeInteger(value)) {
-    throw new Error(`${label} must be a safe integer.`);
+export function readInteger(value: Data, label: string): OnChainInteger {
+  if (!isOnChainInteger(value)) {
+    throw new Error(`${label} must be an integer.`);
   }
 
   return value;
@@ -53,7 +57,7 @@ export function readBoolean(value: Data, label: string): boolean {
   throw new Error(`${label} must be a valid Bool constructor.`);
 }
 
-export function readOptionalInteger(value: Data, label: string): number | null {
+export function readOptionalInteger(value: Data, label: string): OnChainInteger | null {
   if (!isConstrData(value)) {
     throw new Error(`${label} must be an Option constructor.`);
   }

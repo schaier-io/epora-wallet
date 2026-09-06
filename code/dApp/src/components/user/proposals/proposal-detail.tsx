@@ -1,4 +1,6 @@
 "use client";
+
+import { StateTransitionReview } from "./state-transition-review";
 import { useTranslations } from "next-intl";
 
 import { useState } from "react";
@@ -99,6 +101,9 @@ export function ProposalDetail({
         if (canRebuild) return i18n("thisRequestExpiredMakingANewVersion");
         if (rebuildNeedsProposer) return i18n("thisRequestExpiredOnlyTheProposer");
         return i18n("thisRequestExpiredBuildItAgain");
+      }
+      if (!verification?.stateTransition && verification?.effect.inputs.every((input) => input.live === true)) {
+        return i18n("stateChangesUnavailable");
       }
       if (canRebuild) return i18n("thisRequestIsOutOfDateItUses");
       if (rebuildNeedsProposer) return i18n("thisRequestIsOutOfDateOnlyTheProposer");
@@ -208,19 +213,22 @@ export function ProposalDetail({
               : i18n("noteFromWhoeverCreatedThisRequest")}
           </p>
           <div className="flex flex-wrap items-center gap-2">
-            <CardTitle>{detail.title}</CardTitle>
+            <CardTitle className="min-w-0 wrap-anywhere">{detail.title}</CardTitle>
             <Badge variant="outline">{actionKindLabel(detail.actionKind)}</Badge>
             <Badge variant="outline">{authorityPathLabel(detail.authorityPath)}</Badge>
             {detail.status === "SUBMITTED" ? <Badge variant="info">{i18n("submitted")}</Badge> : null}
             {detail.status === "CANCELLED" ? <Badge variant="secondary">{i18n("cancelled")}</Badge> : null}
           </div>
           {detail.description ? (
-            <p className="text-sm text-muted-foreground">{detail.description}</p>
+            <p className="wrap-anywhere text-sm text-muted-foreground">{detail.description}</p>
           ) : null}
         </CardHeader>
         <CardContent className="space-y-4">
+          {detail.status === "OPEN" ? <StateTransitionReview transition={verification?.stateTransition ?? null} /> : null}
+
           {summary ? (
             <section className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
+              <p className="mb-2 text-xs font-semibold text-muted-foreground">{i18n("proposerSummarySource")}</p>
               {/* No `uppercase tracking-wide` here. The headline is a sentence about money:
                   it names the amount and the destination address, and a bech32 address is
                   canonically lowercase. Uppercasing changes the shape a co-signer compares
@@ -235,9 +243,9 @@ export function ProposalDetail({
               </p>
               <dl className="grid grid-cols-1 gap-1 text-sm sm:grid-cols-2">
                 {summary.rows.map((row, index) => (
-                  <div key={`${row.label}-${index}`} className="flex justify-between gap-2">
+                  <div key={`${row.label}-${index}`} className="flex min-w-0 flex-wrap justify-between gap-2">
                     <dt className="text-muted-foreground">{row.label}</dt>
-                    <dd className="text-right">{row.value}</dd>
+                    <dd className="min-w-0 wrap-anywhere text-right">{row.value}</dd>
                   </div>
                 ))}
               </dl>
@@ -487,7 +495,7 @@ function SignersSection({ verification }: { verification: ProposalVerification |
                 {signer.isAdmin ? <Badge variant="outline">{i18n("owner_89ff31")}</Badge> : null}
                 {signers.threshold != null ? (
                   <span className="text-muted-foreground">
-                    {signer.power} {i18n("approvalPower")}
+                    {signer.power.toString()} {i18n("approvalPower")}
                   </span>
                 ) : null}
                 {has ? (

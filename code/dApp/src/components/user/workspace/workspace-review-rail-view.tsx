@@ -1,4 +1,6 @@
 "use client";
+import { beneficiaryPreparationActiveAtom } from "./atoms/forms/consolidate-form.atoms";
+import { RecoveryFallbackView } from "./recovery-fallback-view";
 import { useTranslations } from "next-intl";
 
 import { activeBuildAtom, activeSubmitAtom, buildDiagnosticIdAtom, buildErrorAtom, buildErrorExpectedAtom, buildErrorStaleInputsAtom, previewAtom, submitConfirmedAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
@@ -30,6 +32,7 @@ export function WorkspaceReviewRailView() {
   const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceReviewRailView");
   const proposalI18n = useTranslations("ComponentsUserProposalsReviewDock");
   const state = useWorkspaceActions();
+  const preparationEnabled = useAtomValue(beneficiaryPreparationActiveAtom);
   const activeBuild = useAtomValue(activeBuildAtom);
   const activeSubmit = useAtomValue(activeSubmitAtom);
   const buildError = useAtomValue(buildErrorAtom);
@@ -40,6 +43,7 @@ export function WorkspaceReviewRailView() {
   const activeInferredSttStateForm = useAtomValue(activeInferredSttStateFormAtom);
   const walletBalanceSummary = useAtomValue(walletBalanceSummaryAtom);
   const selectedAction = useAtomValue(selectedActionAtom);
+  const preparationActive = preparationEnabled && selectedAction === "consolidate-utxo";
   const selectedWizardActionDescriptor = useAtomValue(selectedWizardActionDescriptorAtom);
   const submitHash = useAtomValue(submitHashAtom);
   const signingActions = useAtomValue(selectedSigningActionAvailabilityAtom);
@@ -59,6 +63,7 @@ export function WorkspaceReviewRailView() {
     activeReadinessIssues,
     buildAndSubmitSelectedActionTx,
     buildSelectedActionTx,
+    submitTransactionPreview,
     handleSaveProposalFromBuild,
     lastActionDisplayLabel,
     previewMatchesSelectedAction,
@@ -212,7 +217,20 @@ export function WorkspaceReviewRailView() {
                     isBuilding={approvalOnly ? preparingProposal : activeBuild === selectedAction}
                     isSubmitting={activeSubmit}
                     primaryActionLabel={
-                      approvalOnly ? approvalActionLabel : reviewPrimaryActionLabel
+                      approvalOnly ? approvalActionLabel
+                        : preparationActive
+                          ? previewMatchesSelectedAction && preview?.txHex
+                            ? i18n("confirmPreparation") : i18n("previewPreparation")
+                        : selectedAction === "distribute-beneficiaries"
+                          ? previewMatchesSelectedAction && preview?.txHex
+                            ? i18n("confirmDistribution") : i18n("previewDistribution")
+                        : selectedAction === "stop-beneficiary-stream"
+                          ? previewMatchesSelectedAction && preview?.txHex
+                            ? i18n("confirmStreamStop") : i18n("previewStreamStop")
+                        : selectedAction === "exit-beneficiary"
+                          ? previewMatchesSelectedAction && preview?.txHex
+                            ? i18n("confirmPermanentExit") : i18n("previewPermanentExit")
+                          : reviewPrimaryActionLabel
                     }
                     primaryActionKind={approvalOnly ? "approval" : "direct"}
                     primaryActionDisabled={
@@ -225,6 +243,14 @@ export function WorkspaceReviewRailView() {
                     onPrimaryAction={() => {
                       if (approvalOnly) {
                         void saveAsApprovalRequest();
+                        return;
+                      }
+                      if (preparationActive || selectedAction === "exit-beneficiary" || selectedAction === "stop-beneficiary-stream" || selectedAction === "distribute-beneficiaries") {
+                        if (previewMatchesSelectedAction && preview?.txHex) {
+                          void submitTransactionPreview(preview);
+                        } else {
+                          void buildSelectedActionTx(signingActions.directAuthorityPath ?? undefined);
+                        }
                         return;
                       }
                       void buildAndSubmitSelectedActionTx(
@@ -248,6 +274,7 @@ export function WorkspaceReviewRailView() {
                       signingActions.canSaveApprovalRequest ? approvalActionNote : null
                     }
                   />
+                <RecoveryFallbackView />
                 {buildError && buildErrorStaleInputs ? (
                   <div
                     role="status"

@@ -25,5 +25,9 @@
   "walletSettings": "Wallet settings",
   "walletStateIsInvalid": "Wallet state is invalid.",
   "walletWithNoOwner": "Wallet with no owner",
-  "youAlreadyHaveAWalletWithThisName": "You already have a wallet with this name. Choose a different name."
+  "youAlreadyHaveAWalletWithThisName": "You already have a wallet with this name. Choose a different name.",
+  "scheduledPayment": "Scheduled payment",
+  "distribution": "Exact distribution",
+  "preparation": "Recovery preparation",
+  "preparationRequirements": "Resolve the ADA requirement before preparing funds."
 }

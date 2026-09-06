@@ -112,10 +112,11 @@ function formatAssetNameHex(assetNameHex: string) {
   return shortenIdentifier(assetNameHex, 12, 8);
 }
 
-export function formatTimestampLabel(value: number) {
-  const date = new Date(value);
+export function formatTimestampLabel(value: number | bigint) {
+  const asNumber = Number(value);
+  const date = new Date(asNumber);
 
-  if (Number.isNaN(date.getTime())) {
+  if (!Number.isSafeInteger(asNumber) || Number.isNaN(date.getTime())) {
     return `${value}`;
   }
 
@@ -336,10 +337,13 @@ export function formatCountLabel(count: number, noun: CountLabelNoun) {
  * picks the largest whole unit for the duration editor, so prose reusing it names the
  * same amount the same way the editor does.
  */
-export function formatDurationMillisLabel(milliseconds: number): string {
+export function formatDurationMillisLabel(milliseconds: number | bigint): string {
+  if (typeof milliseconds === "bigint" && milliseconds > BigInt(Number.MAX_SAFE_INTEGER)) {
+    return i18n("invalidMillisecondValue", { value: milliseconds.toString() });
+  }
   const { amount, unit } = splitDurationMillis(String(milliseconds));
   if (amount.length === 0) {
-    return i18n("invalidMillisecondValue", { value: milliseconds });
+    return i18n("invalidMillisecondValue", { value: String(milliseconds) });
   }
   const count = Number(amount);
   switch (unit) {

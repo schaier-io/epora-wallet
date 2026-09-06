@@ -153,10 +153,18 @@ export function buildAvailableWizardActions(
 
   if (capabilityMap.hasBeneficiaryMatch) {
     actions.push({
-      kind: "use-beneficiary",
+      kind: "exit-beneficiary",
       pathLabels: [i18n("recoveryContact")],
       note: i18n("useRecoveryContactAccess")
     });
+  }
+
+  if (capabilityMap.hasBeneficiaryMatch) {
+    actions.push({ kind: "distribute-beneficiaries", pathLabels: [i18n("recoveryContact")], note: i18n("distributeBeneficiaries") });
+  }
+
+  if (capabilityMap.hasBeneficiaryMatch && capabilityMap.hasStreamingPayments) {
+    actions.push({ kind: "stop-beneficiary-stream", pathLabels: [i18n("recoveryContact")], note: i18n("stopBeneficiaryStream") });
   }
 
   if (capabilityMap.hasStreamingPayments) {
@@ -191,6 +199,10 @@ export function buildAdvancedWizardActions(
     capabilityMap.hasLockedUtxos
   ) {
     actions.push("consolidate-utxo");
+  }
+
+  if (capabilityMap.hasBeneficiaryMatch) {
+    actions.push("use-beneficiary");
   }
 
   if (capabilityMap.hasDirectProofOfLifeRenewalMatch) {

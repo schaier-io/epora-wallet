@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { getServerEnv } from "@/lib/env/server-env";
+import {
+  isKoiosNetwork,
+  requestKoiosCredentialUtxos
+} from "@/lib/discovery/koios-server";
 import { clientKey, rateLimit } from "@/lib/http/rate-limit";
 import { readBoundedJson, RequestBodyTooLargeError } from "@/lib/http/request-body";
 import { logger, serializeError } from "@/lib/observability/logger";
@@ -24,21 +27,6 @@ export const runtime = "nodejs";
 // Trade-off vs. the old direct-from-browser design: the app server now sees the
 // queried payment credential. Acceptable, because the call simply does not work from
 // the browser otherwise.
-
-const KOIOS_URLS = {
-  preprod: "https://preprod.koios.rest/api/v1",
-  preview: "https://preview.koios.rest/api/v1",
-  mainnet: "https://api.koios.rest/api/v1"
-} as const satisfies Record<string, string>;
-
-function isKoiosNetwork(network: string): network is keyof typeof KOIOS_URLS {
-  return network in KOIOS_URLS;
-}
-
-function koiosBaseUrl(network: string): string {
-  const networkUrl = isKoiosNetwork(network) ? KOIOS_URLS[network] : undefined;
-  return getServerEnv().KOIOS_URL ?? networkUrl ?? KOIOS_URLS.preprod;
-}
 
 export async function POST(request: Request) {
   const i18n = await getI18n();
@@ -78,7 +66,7 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
-  if (!(network in KOIOS_URLS)) {
+  if (!isKoiosNetwork(network)) {
     return NextResponse.json(
       { error: i18n("unknownNetworkExpectedPreprodPreviewOrMainnet") },
       { status: 400 }
@@ -86,18 +74,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const response = await fetch(`${koiosBaseUrl(network)}/credential_utxos`, {
-      method: "POST",
-      signal: AbortSignal.timeout(15_000),
-      headers: {
-        "content-type": "application/json",
-        accept: "application/json"
-      },
-      body: JSON.stringify({
-        _payment_credentials: [paymentCredential],
-        _extended: true
-      })
-    });
+    const response = await requestKoiosCredentialUtxos(paymentCredential, network);
 
     const text = await response.text();
     if (!response.ok) {

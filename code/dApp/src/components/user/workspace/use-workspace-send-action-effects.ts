@@ -37,7 +37,7 @@ export function useWorkspaceSendActionEffects(ctx: WorkspaceSendActionEffectsCtx
     const isSendAction =
       selectedAction === "use" ||
       selectedAction === "use-allowance" ||
-      selectedAction === "use-beneficiary";
+      (selectedAction === "use-beneficiary" || selectedAction === "exit-beneficiary");
     if (
       isSendAction &&
       sttExtraTransfers.length > 0 &&

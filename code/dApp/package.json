@@ -10,10 +10,11 @@
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
     "test": "DATABASE_URL='postgresql://postgres@localhost:5432/wallet?schema=stt_test' prisma db push && DATABASE_URL='postgresql://postgres@localhost:5432/wallet?schema=stt_test' node --import tsx --test --test-concurrency=1 'src/**/*.test.ts'",
-    "test:unit": "node --import tsx --test --test-concurrency=1 'src/app/globals/*.test.ts' 'src/lib/copy.test.ts' 'src/lib/copy-terms.test.ts' 'src/lib/layout-breakpoints.test.ts' 'src/lib/product-faq.test.ts' 'src/lib/stt-cache/chain.test.ts' 'src/lib/contracts/*.test.ts' 'src/lib/user-flow/*.test.ts' 'src/components/layout/*.test.ts' 'src/components/payee/*.test.ts' 'src/components/user/proposals/*.test.ts' 'src/components/user/*.test.ts' 'src/components/user/workspace/*.test.ts' 'src/components/user/workspace/atoms/*.test.ts' 'src/components/user/workspace/helpers/*.test.ts' 'src/lib/mesh/transactions/*.test.ts' 'src/lib/mesh/transactions/internals/*.test.ts'",
+    "test:unit": "node --import tsx --test --test-concurrency=1 'src/app/globals/*.test.ts' 'src/lib/copy.test.ts' 'src/lib/copy-terms.test.ts' 'src/lib/layout-breakpoints.test.ts' 'src/lib/product-faq.test.ts' 'src/lib/stt-cache/chain.test.ts' 'src/lib/stt-cache/participants.test.ts' 'src/lib/contracts/*.test.ts' 'src/lib/user-flow/*.test.ts' 'src/components/layout/*.test.ts' 'src/components/payee/*.test.ts' 'src/components/user/proposals/*.test.ts' 'src/components/user/*.test.ts' 'src/components/user/workspace/*.test.ts' 'src/components/user/workspace/atoms/*.test.ts' 'src/components/user/workspace/helpers/*.test.ts' 'src/lib/mesh/transactions/*.test.ts' 'src/lib/mesh/transactions/internals/*.test.ts'",
     "test:components": "vitest run",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "typecheck": "tsc --noEmit",
+    "entrypoint-budget:check-generated": "node ../smart-contract/scripts/check-entrypoint-budget.mjs --check-generated",
     "i18n:check": "node --test scripts/lib/i18n-static-coverage.test.mjs && node scripts/check-message-catalog.mjs && node scripts/check-intl-wiring.mjs && node scripts/generate-default-message-catalog.mjs --check && node scripts/migrate-jsx-copy-to-i18n.mjs --check && node scripts/migrate-static-copy-to-i18n.mjs --check && node scripts/check-i18n-static-coverage.mjs && node scripts/audit-i18n-internal-values.mjs",
     "i18n:extract": "node scripts/extract-ui-copy.mjs",
     "i18n:prune": "node scripts/prune-internal-messages.mjs",
@@ -37,20 +38,16 @@
       "@hono/node-server": "^2.0.5",
       "hono": "^4.12.27",
       "ip-address": "^10.1.1",
+      "mysql2": "3.24.3",
       "valibot": "^1.4.2",
       "sharp": "^0.35.0",
       "postcss": "^8.5.26",
       "fast-uri": "^3.1.4",
       "deepmerge-ts": "^8.0.1"
-    },
-    "auditConfig": {
-      "ignoreGhsas": [
-        "GHSA-3f6p-5ww8-9rcr"
-      ]
     }
   },
   "engines": {
-    "node": ">=22"
+    "node": "24.x"
   },
   "dependencies": {
     "@harmoniclabs/crypto": "0.3.1",

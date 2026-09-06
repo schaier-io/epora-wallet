@@ -22,6 +22,7 @@ import {
   withScheduledPaymentRate
 } from "@/components/user/workspace/helpers";
 import { type StateFormState, type StreamingPaymentFormState } from "@/lib/contracts/state-form";
+import { MAX_STREAMING_PAYMENTS } from "@/lib/contracts/state-validation";
 import { describeAddressProblem, looksLikeCardanoAddress } from "@/lib/contracts/payout-address";
 import { formatLovelaceAsAda } from "@/lib/user-flow/guided-helpers";
 import { CalendarPlus2, CalendarSearch, Plus, Repeat } from "lucide-react";
@@ -398,6 +399,7 @@ export function FocusedStreamingPaymentRulesEditor({
   const tasks = GUIDED_ADMIN_TASKS.filter((task) => task.group === "streamingPayments");
   const issueCount = countFieldErrorMessages(fieldErrors);
   const adding = selectedTask === "streaming-payments-add";
+  const scheduledAtCap = value.streamingPayments.length >= MAX_STREAMING_PAYMENTS;
   const shownPayments = value.streamingPayments
     .map((streamingPayment, index) => ({
       streamingPayment,
@@ -405,8 +407,11 @@ export function FocusedStreamingPaymentRulesEditor({
       existing: existingStreamingPaymentIds.has(streamingPayment.id)
     }))
     .filter((entry) => entry.existing !== adding);
-  const addStreamingPayment = () =>
-    onChange(withScheduledPaymentAdded(value));
+  const addStreamingPayment = () => {
+    if (!scheduledAtCap) {
+      onChange(withScheduledPaymentAdded(value));
+    }
+  };
 
   return (
     <FocusedTaskSurface
@@ -434,7 +439,12 @@ export function FocusedStreamingPaymentRulesEditor({
             : i18n("changeAPaymentYouAlreadySetUpOnly")}
         </p>
         {adding ? (
-          <Button type="button" variant="secondary" onClick={addStreamingPayment}>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={addStreamingPayment}
+            disabled={scheduledAtCap}
+          >
             <Plus className="h-4 w-4" />
             {i18n("addAPayment")}
           </Button>
@@ -449,8 +459,8 @@ export function FocusedStreamingPaymentRulesEditor({
               ? i18n("moneyBuildsUpForSomebodyOverTimeAnd")
               : i18n("addAPaymentOnTheOtherTabFirst")
           }
-          actionLabel={adding ? i18n("addAPayment") : undefined}
-          onAction={adding ? addStreamingPayment : undefined}
+          actionLabel={adding && !scheduledAtCap ? i18n("addAPayment") : undefined}
+          onAction={adding && !scheduledAtCap ? addStreamingPayment : undefined}
         />
       ) : (
         shownPayments.map(({ streamingPayment, index, existing }) => (

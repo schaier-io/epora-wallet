@@ -15,9 +15,15 @@ fn run_stt_spend(action: state_types.SttAction, tx: Transaction) -> Bool {
   stt.eval_spend(None, action, fixtures.stt_input_ref(), tx)
 }
 
-test allowance_use_accepts_exact_single_user_spend() {
+// Intentional wallet-less form. The input State is reachable from mint because
+// it retains a signable Admin. The allowance user may submit a non-empty draw
+// while only the STT UTxO moves.
+test allowance_use_accepts_wallet_less_draw_from_valid_configuration() {
   let state_input = states.secured_state(
-    [states.allowance_user(1, "user1", 1_000_000, 86_400_000, False)],
+    [
+      states.admin_user("admin"),
+      states.allowance_user(1, "user1", 1_000_000, 86_400_000, False),
+    ],
     [],
     [],
   )
@@ -25,6 +31,7 @@ test allowance_use_accepts_exact_single_user_spend() {
     ..state_input,
     access: state_types.AccessControl {
       users: [
+        states.admin_user("admin"),
         state_types.User {
           ..states.allowance_user(1, "user1", 1_000_000, 86_400_000, False),
           remaining_allowance: assets.from_lovelace(400_000)
@@ -291,6 +298,59 @@ test allowance_use_rejects_remaining_allowance_over_cap_padding() fail {
     state_output,
     [],
     fixtures.tx_id(#"2b30"),
+  )
+
+  expect
+    run_stt_spend(
+      state_types.UseAllowance(
+        assets.from_lovelace(600_000) |> asset_entries.flatten_to_entries,
+      ),
+      transaction,
+    )
+}
+
+// A spend cannot preserve a small current row count while expanding the room a
+// later allowance reset needs. The first user grows from one remaining entry to
+// five through zero-quantity padding. The second user's five-entry daily bundle
+// makes the output's reserved footprint 16 even though it stores only 11 rows.
+test allowance_use_rejects_reserved_footprint_growth_past_cap() fail {
+  let actor = states.allowance_user(1, "user1", 1_000_000, 86_400_000, False)
+  let other = state_types.User {
+    ..states.plain_user(2, "user2"),
+    per_day_allowance: [
+      asset_entries.asset_entry(fixtures.policy_id(#"02"), #"01", 1),
+      asset_entries.asset_entry(fixtures.policy_id(#"02"), #"02", 1),
+      asset_entries.asset_entry(fixtures.policy_id(#"02"), #"03", 1),
+      asset_entries.asset_entry(fixtures.policy_id(#"02"), #"04", 1),
+      asset_entries.asset_entry(fixtures.policy_id(#"02"), #"05", 1),
+    ],
+  }
+  let state_input = states.secured_state([actor, other], [], [])
+  let padded_actor = state_types.User {
+    ..actor,
+    remaining_allowance: [
+      asset_entries.asset_entry(#"", #"", 400_000),
+      asset_entries.asset_entry(fixtures.policy_id(#"01"), #"01", 0),
+      asset_entries.asset_entry(fixtures.policy_id(#"01"), #"02", 0),
+      asset_entries.asset_entry(fixtures.policy_id(#"01"), #"03", 0),
+      asset_entries.asset_entry(fixtures.policy_id(#"01"), #"04", 0),
+    ],
+    next_allowance_reset: 86_400_110,
+  }
+  let state_output = state_types.State {
+    ..state_input,
+    access: state_types.AccessControl {
+      ..state_input.access,
+      users: [padded_actor, other],
+    },
+  }
+  let transaction = fixtures.stt_spend_tx(
+    interval.between(100, 110),
+    ["user1"],
+    state_input,
+    state_output,
+    [],
+    fixtures.tx_id(#"2b31"),
   )
 
   expect

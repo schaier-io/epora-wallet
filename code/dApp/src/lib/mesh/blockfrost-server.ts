@@ -29,6 +29,7 @@ const MAX_STANDARD_ARG_LENGTH = 2_048;
 const MAX_TRANSACTION_HEX_LENGTH = 128 * 1_024;
 const MAX_ADDITIONAL_UTXOS = 64;
 const MAX_ADDITIONAL_TXS = 16;
+const MAX_ADDRESS_TX_PAGES = 8;
 
 function getStringArg(
   args: unknown[],
@@ -151,18 +152,37 @@ function getOptionalCursorArg(args: unknown[], index: number, label: string) {
   throw new Error(`Argument '${label}' at index ${index} must be a numeric string or number.`);
 }
 
-function getOptionalObjectArg(args: unknown[], index: number, label: string) {
+function getAddressTxOptionsArg(args: unknown[], index: number, label: string): IFetcherOptions {
   const value = args[index];
 
   if (typeof value === "undefined" || value === null) {
-    return undefined;
+    return { maxPage: MAX_ADDRESS_TX_PAGES, order: "desc" };
   }
 
   if (typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`Argument '${label}' at index ${index} must be an object.`);
   }
 
-  return value as IFetcherOptions;
+  const options = value as Record<string, unknown>;
+  const maxPage = options.maxPage ?? MAX_ADDRESS_TX_PAGES;
+  const order = options.order ?? "desc";
+
+  if (
+    typeof maxPage !== "number" ||
+    !Number.isSafeInteger(maxPage) ||
+    maxPage < 1 ||
+    maxPage > MAX_ADDRESS_TX_PAGES
+  ) {
+    throw new Error(
+      `Argument '${label}.maxPage' at index ${index} must be an integer between 1 and ${MAX_ADDRESS_TX_PAGES}.`
+    );
+  }
+  if (order !== "asc" && order !== "desc") {
+    throw new Error(`Argument '${label}.order' at index ${index} must be 'asc' or 'desc'.`);
+  }
+
+  // Bound the Blockfrost work caused by one public RPC request.
+  return { maxPage, order };
 }
 
 function getOptionalUtxosArg(args: unknown[], index: number, label: string) {
@@ -228,7 +248,7 @@ export async function executeMeshMethod(
       return toUnknown(
         provider.fetchAddressTxs(
           getStringArg(args, 0, "address"),
-          getOptionalObjectArg(args, 1, "options")
+          getAddressTxOptionsArg(args, 1, "options")
         )
       );
     }

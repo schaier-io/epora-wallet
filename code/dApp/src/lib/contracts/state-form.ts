@@ -18,7 +18,12 @@ import {
   encodeWalletNameForDatum
 } from "@/lib/contracts/state-wallet-name";
 import { parseValueData } from "@/lib/contracts/value-data";
-import { decodePayoutAddressFromData } from "@/lib/contracts/payout-address";
+import { decodePayoutAddressFromData, isAddressData } from "@/lib/contracts/payout-address";
+import {
+  isNonNegativeUint64Decimal,
+  isOnChainInteger,
+  MAX_ON_CHAIN_STATE_INTEGER
+} from "@/lib/contracts/on-chain-integer";
 import { LOVELACE_PER_ADA } from "@/lib/units/lovelace";
 import {
   parseNonNegativeIntegerString,
@@ -55,6 +60,7 @@ export type UserFormState = {
 
 export type BeneficiaryFormState = {
   id: string;
+  payoutAddress: string;
   wallets: string[];
   unlockAfterMode: OptionMode;
   unlockAfter: string;
@@ -95,14 +101,10 @@ export type StateFormState = {
   lastNonAdminPayoutAt: Data;
 };
 
-type OptionInteger = { kind: "none" } | { kind: "some"; value: number };
+type OptionInteger = { kind: "none" } | { kind: "some"; value: bigint };
 
-function isInteger(value: unknown): value is number {
-  return typeof value === "number" && Number.isInteger(value);
-}
-
-function readInteger(value: unknown): number | null {
-  return isInteger(value) ? value : null;
+function readInteger(value: unknown): bigint | null {
+  return isOnChainInteger(value) ? BigInt(value) : null;
 }
 
 function readBoolean(value: unknown): boolean | null {
@@ -130,8 +132,9 @@ function readOptionInteger(value: unknown): OptionInteger | null {
     return { kind: "none" };
   }
 
-  if (value.alternative === 0 && value.fields.length === 1 && isInteger(value.fields[0])) {
-    return { kind: "some", value: value.fields[0] };
+  const integer = value.fields.length === 1 ? readInteger(value.fields[0]) : null;
+  if (value.alternative === 0 && integer !== null) {
+    return { kind: "some", value: integer };
   }
 
   return null;
@@ -217,6 +220,7 @@ export function applyUserPreset(user: UserFormState, preset: UserPreset): UserFo
 function createDefaultBeneficiaryFormState(id = "0"): BeneficiaryFormState {
   return {
     id,
+    payoutAddress: "",
     wallets: [],
     unlockAfterMode: "none",
     unlockAfter: "",
@@ -296,16 +300,22 @@ function userFormStateFromValue(value: unknown): UserFormState {
   };
 }
 
-function beneficiaryFormStateFromValue(value: unknown): BeneficiaryFormState {
-  if (!isConstrData(value) || value.alternative !== 0 || value.fields.length !== 4) {
-    return createDefaultBeneficiaryFormState();
+function beneficiaryFormStateFromValue(value: unknown, index: number): BeneficiaryFormState {
+  const label = `Beneficiary ${index + 1}`;
+  if (!isConstrData(value) || value.alternative !== 0 || value.fields.length !== 5) {
+    throw new Error(`${label} uses an unsupported schema. Expected five fields including a payout address.`);
   }
 
-  const [id, wallets, unlockAfter, weight] = value.fields;
+  const [id, wallets, unlockAfter, weight, payoutAddress] = value.fields;
+  const decodedPayoutAddress = isAddressData(payoutAddress) ? decodePayoutAddressFromData(payoutAddress) : "";
+  if (!decodedPayoutAddress) {
+    throw new Error(`${label}'s payout address must be a Cardano address.`);
+  }
   const unlockAfterOption = readOptionInteger(unlockAfter);
 
   return {
     id: String(readInteger(id) ?? 0),
+    payoutAddress: decodedPayoutAddress,
     wallets: parseWalletList(wallets),
     unlockAfterMode: unlockAfterOption?.kind === "some" ? "some" : "none",
     unlockAfter:
@@ -463,15 +473,28 @@ export function stateFormToDatum(
 }
 
 function nextGeneratedId(items: Array<{ id: string }>) {
-  return String(
-    items.reduce((maxId, item) => {
-      if (!/^-?\d+$/.test(item.id.trim())) {
-        return maxId;
-      }
+  const ids = items.flatMap((item) => {
+    const value = item.id.trim();
+    if (!/^\d+$/.test(value)) {
+      return [];
+    }
 
-      return Math.max(maxId, Number(item.id));
-    }, -1) + 1
-  );
+    const canonical = value.replace(/^0+(?=\d)/, "");
+    return isNonNegativeUint64Decimal(canonical) ? [BigInt(canonical)] : [];
+  });
+  const next = ids.reduce((maximum, id) => (id > maximum ? id : maximum), -1n) + 1n;
+  if (next <= MAX_ON_CHAIN_STATE_INTEGER) {
+    return next.toString();
+  }
+
+  const used = new Set(ids.map(String));
+  for (let candidate = 0n; candidate <= BigInt(items.length); candidate += 1n) {
+    if (!used.has(candidate.toString())) {
+      return candidate.toString();
+    }
+  }
+
+  throw new Error("No unused on-chain id is available.");
 }
 
 export function withFallbackAdminUserInStateForm(
@@ -569,8 +592,8 @@ export function applyProofOfLifeOverrideToStateForm(
     form.proofOfLifeIncrement,
     "Proof-of-life increment"
   );
-  const earliestTxTimeMs = validityWindow?.earliestTimeMs ?? Date.now();
-  const latestTxTimeMs = validityWindow?.latestTimeMs ?? earliestTxTimeMs;
+  const earliestTxTimeMs = BigInt(validityWindow?.earliestTimeMs ?? Date.now());
+  const latestTxTimeMs = BigInt(validityWindow?.latestTimeMs ?? Number(earliestTxTimeMs));
   const maxLegalRenewal = earliestTxTimeMs + increment;
   if (maxLegalRenewal < latestTxTimeMs) {
     // No stamp inside [tx_latest, tx_earliest + increment] exists for this tx;
@@ -586,11 +609,11 @@ export function applyProofOfLifeOverrideToStateForm(
         )
       : null;
   const effectiveUnlockTime =
-    typeof currentUnlockTime === "number" && currentUnlockTime > nextUnlockTime
+    currentUnlockTime !== null && currentUnlockTime > nextUnlockTime
       ? currentUnlockTime
       : nextUnlockTime;
 
-  if (!Number.isSafeInteger(effectiveUnlockTime) || effectiveUnlockTime < 0) {
+  if (effectiveUnlockTime < 0n || effectiveUnlockTime > MAX_ON_CHAIN_STATE_INTEGER) {
     throw new Error(
       "Computed proof-of-life unlock time is outside the supported integer range."
     );
@@ -605,6 +628,45 @@ export function applyProofOfLifeOverrideToStateForm(
 
 export function countAdminUsersInStateForm(form: StateFormState) {
   return form.users.filter((user) => user.isAdmin).length;
+}
+
+function reservedAllowanceEntriesForUser(user: UserFormState) {
+  return (
+    user.perDayAllowance.length +
+    Math.max(user.perDayAllowance.length, user.remainingAllowance.length)
+  );
+}
+
+export function countReservedAllowanceEntriesInStateForm(form: StateFormState) {
+  return form.users.reduce(
+    (total, user) => total + reservedAllowanceEntriesForUser(user),
+    0
+  );
+}
+
+export function canAddAllowanceEntryInStateForm(
+  form: StateFormState,
+  userIndex: number,
+  list: "perDayAllowance" | "remainingAllowance",
+  maximum: number
+) {
+  const user = form.users[userIndex];
+  if (!user) {
+    return false;
+  }
+
+  const currentUserFootprint = reservedAllowanceEntriesForUser(user);
+  const perDayCount = user.perDayAllowance.length + (list === "perDayAllowance" ? 1 : 0);
+  const remainingCount =
+    user.remainingAllowance.length + (list === "remainingAllowance" ? 1 : 0);
+  const nextUserFootprint = perDayCount + Math.max(perDayCount, remainingCount);
+
+  return (
+    countReservedAllowanceEntriesInStateForm(form) -
+      currentUserFootprint +
+      nextUserFootprint <=
+    maximum
+  );
 }
 
 export {

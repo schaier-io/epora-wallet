@@ -60,3 +60,28 @@ describe("multisig transaction request schemas", () => {
     });
   }
 });
+
+describe("consolidation inputs", () => {
+  it("accepts every selected wallet input", () => {
+    const walletInputs = Array.from(
+      { length: 3 },
+      (_, outputIndex) => ({ txHash: TX_HASH, outputIndex })
+    );
+    const body = {
+      address: ADDRESS,
+      config: CONFIG,
+      sttInputTxHash: TX_HASH,
+      outputDatum: DATUM,
+      outputAssets: []
+    };
+
+    assert.equal(
+      ConsolidateTxRequestSchema.safeParse({ ...body, walletInputs }).success,
+      true
+    );
+    assert.equal(
+      ConsolidateTxRequestSchema.safeParse({ ...body, walletInputs: [] }).success,
+      false
+    );
+  });
+});

@@ -1,4 +1,6 @@
 "use client";
+import { beneficiaryPreparationActiveAtom } from "./atoms/forms/consolidate-form.atoms";
+import { BeneficiaryPreparationView } from "./beneficiary-preparation-view";
 import { useTranslations } from "next-intl";
 
 import { useEffect, useState } from "react";
@@ -20,11 +22,14 @@ import { suggestedSttAuthorityPathAtom } from "@/components/user/workspace/atoms
 import { lockingContractAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import { useAtomValue } from "jotai";
 import { SttSpendEditorsView } from "@/components/user/workspace/config-sttspend-editors-view";
+import { BeneficiaryDistributionView } from "./beneficiary-distribution-view";
+import { BeneficiaryStreamStopView } from "./beneficiary-stream-stop-view";
 import { SttSpendPayoutView } from "@/components/user/workspace/config-sttspend-payout-view";
 import { useConfigSttSpendState } from "@/components/user/workspace/use-config-sttspend-state";
 import { type PayoutRejection } from "@/components/user/workspace/workspace-stt-editors";
 
 export function SttSpendConfigView() {
+  const preparationActive = useAtomValue(beneficiaryPreparationActiveAtom);
   const i18n = useTranslations("ComponentsUserWorkspaceConfigSttspendView");
   // Staging rejections belong to the control that caused them, not to the review rail.
   const [payoutRejection, setPayoutRejection] = useState<PayoutRejection | null>(null);
@@ -98,7 +103,7 @@ export function SttSpendConfigView() {
       const isRecipientFirstGuidedAction =
         selectedAction === "use" ||
         selectedAction === "use-allowance" ||
-        selectedAction === "use-beneficiary";
+        (selectedAction === "use-beneficiary" || selectedAction === "exit-beneficiary");
       const isGuidedStreamingPaymentAction = selectedAction === "payout-streaming-payment";
       const usesFocusedPeopleEditor =
         selectedAction === "update-state" && selectedIntent === "manage-people";
@@ -108,6 +113,9 @@ export function SttSpendConfigView() {
 
       return (
         <div className="space-y-4">
+          {selectedAction === "consolidate-utxo" && preparationActive ? <BeneficiaryPreparationView /> : null}
+          {selectedAction === "distribute-beneficiaries" ? <BeneficiaryDistributionView /> : null}
+          {(selectedAction === "use-beneficiary" || selectedAction === "exit-beneficiary" || selectedAction === "stop-beneficiary-stream") ? <BeneficiaryStreamStopView /> : null}
           {activeSttActionTab.allowsStateEditing ? (
             <>
               {usesFocusedPeopleEditor ? (
@@ -207,7 +215,7 @@ export function SttSpendConfigView() {
                       "Not derived yet" said the app had not computed, rather than what to do. */}
                   <div className="grid gap-3 md:grid-cols-2">
                     <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                      {i18n("matchedAsSpender")}{useAllowancePreview.target.matchedUserId}
+                      {i18n("matchedAsSpender")}{useAllowancePreview.target.matchedUserId.toString()}
                     </div>
                     <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
                       {i18n("limitResets")}{" "}
@@ -218,19 +226,19 @@ export function SttSpendConfigView() {
                     </div>
                   </div>
                   <div className="grid gap-3 md:grid-cols-3">
-                    <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                    <div className="min-w-0 wrap-anywhere rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
                       {i18n("youCanSpendNow")}{" "}
                       {formatAmountSummary(
                         useAllowancePreview.target.effectiveRemainingAllowance
                       )}
                     </div>
-                    <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                    <div className="min-w-0 wrap-anywhere rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
                       {i18n("thisSendUses")}{" "}
                       {useAllowancePreview.computation
                         ? formatAmountSummary(useAllowancePreview.computation.spentAllowance)
                         : i18n("enterAnAmountFirst")}
                     </div>
-                    <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                    <div className="min-w-0 wrap-anywhere rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
                       {i18n("leftAfterThisSend")}{" "}
                       {useAllowancePreview.computation
                         ? formatAmountSummary(
@@ -457,7 +465,7 @@ export function SttSpendConfigView() {
                           </p>
                           <AddressCopyButton value={transfer.address} />
                         </div>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="wrap-anywhere text-xs text-muted-foreground">
                           {formatAmountSummary(transfer.amount)}
                         </p>
                       </div>

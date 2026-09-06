@@ -9,6 +9,9 @@
 //// `validators/stt.ak::eval_spend`.
 
 use cardano/address.{Credential}
+use cardano/assets.{Value}
+use cardano/transaction.{Transaction, ValidityRange}
+use numeric_bounds
 use state/authorization as state_authorization
 use state/configuration as state_configuration
 use state/credentials as credential_shape
@@ -16,7 +19,7 @@ use state/proof_of_life
 use state/types as state_types
 use streaming_payments/forwarding as streaming_payment_forwarding
 use streaming_payments/shape as streaming_payment_shape
-use stt/io.{TransitionContext, stt_value_preserved_or_increased}
+use stt/io.{stt_value_preserved_with_lovelace_top_up}
 use stt/preservation.{
   state_completely_unchanged, state_unchanged_except_access_index_removed,
   state_unchanged_except_pol_unlock_time,
@@ -24,25 +27,23 @@ use stt/preservation.{
 }
 use time/bounds
 
-/// Operator use: STT-side, the state may only change by renewing proof-of-life;
-/// the fund movement itself is governed by the wallet validator on any co-spent
-/// wallet UTxOs. Admin-use is the sole path that may move non-lovelace assets in
-/// the STT output.
+/// Operator use: STT-side, the State may only change by renewing proof-of-life.
+/// Admin or Multisig authorization may also change ADA and assets under other policies.
+/// The shared forwarding check keeps the active STT policy singleton and unchanged.
 pub fn eval_operator_use(
   operator_action: state_types.OperatorAction,
-  context: TransitionContext,
+  transaction: Transaction,
+  validity_range: ValidityRange,
+  input_state: state_types.State,
+  output_state: state_types.State,
 ) -> Bool {
   expect
     state_authorization.has_operator_authority(
-      context.transaction,
-      context.input_state,
+      transaction,
+      input_state,
       operator_action.path,
     )
-  expect
-    state_unchanged_except_pol_unlock_time(
-      context.input_state,
-      context.output_state,
-    )
+  expect state_unchanged_except_pol_unlock_time(input_state, output_state)
   // Operator-use MAY renew the proof-of-life window but does NOT require it:
   // `expect_valid_renewal_window` passes trivially when `unlock_time` is left
   // unchanged, and a state with no proof-of-life configured (unlock_time /
@@ -54,24 +55,13 @@ pub fn eval_operator_use(
   // inside the configured increment window (enforced by the call below).
   expect
     proof_of_life.expect_valid_renewal_window(
-      context.validity_range,
-      context.input_state,
-      context.output_state,
+      validity_range,
+      input_state,
+      output_state,
     )
-  // Admin operator-use carve-out: bypass the STT value-preservation check so
-  // admin can reshape the STT output's non-lovelace assets. The corresponding
-  // streaming_payment-funding invariant is enforced by the wallet validator ONLY
-  // on a tx that also spends a wallet UTxO (the wallet validator does not run
-  // otherwise). A pure STT-only admin Use therefore has no reserve check here —
-  // acceptable because the streaming-payment funds live at the WALLET address,
-  // not in this STT UTxO, so reshaping STT-output assets cannot underfund a
-  // payee; any later wallet spend re-checks the reserve. Admin is trusted with
-  // the STT UTxO's own (min-ADA-tier) contents under the authorization-gate model.
-  let is_admin_use = operator_action.path == state_types.Admin
-  expect or {
-      is_admin_use,
-      stt_value_preserved_or_increased(context),
-    }
+  // Use is the existing operator value-movement path. No second action is
+  // needed. The authority gate above admits only Admin or a Multisig quorum.
+  // Other actions keep their native-asset equality and ADA nondecrease checks.
   True
 }
 
@@ -106,29 +96,36 @@ pub fn eval_operator_use(
 /// limitation.
 pub fn eval_operator_state_update(
   operator_action: state_types.OperatorAction,
-  context: TransitionContext,
+  transaction: Transaction,
+  input_stt_value: Value,
+  output_stt_value: Value,
+  input_state: state_types.State,
+  output_state: state_types.State,
 ) -> Bool {
-  expect
-    state_configuration.expect_valid_state_configuration(context.output_state)
+  expect state_configuration.expect_valid_state_configuration(output_state)
   expect
     streaming_payment_forwarding.are_forwarded(
-      context.input_state.streaming_payments,
-      context.output_state.streaming_payments,
+      input_state.streaming_payments,
+      output_state.streaming_payments,
     )
   expect
     state_authorization.has_operator_authority(
-      context.transaction,
-      context.input_state,
+      transaction,
+      input_state,
       operator_action.path,
     )
   // Non-admin operators cannot rename the wallet.
   let is_admin_operator = operator_action.path == state_types.Admin
-  let wallet_name_unchanged = context.input_state.wallet_name == context.output_state.wallet_name
+  let wallet_name_unchanged = input_state.wallet_name == output_state.wallet_name
   expect or {
       is_admin_operator,
       wallet_name_unchanged,
     }
-  expect stt_value_preserved_or_increased(context)
+  expect
+    stt_value_preserved_with_lovelace_top_up(
+      input_stt_value: input_stt_value,
+      output_stt_value: output_stt_value,
+    )
   True
 }
 
@@ -136,14 +133,19 @@ pub fn eval_operator_state_update(
 /// proof-of-life; no wallet-side spend.
 pub fn eval_manage_streaming_payments(
   operator_action: state_types.OperatorAction,
-  context: TransitionContext,
+  transaction: Transaction,
+  validity_range: ValidityRange,
+  stt_payment_credential: Credential,
+  input_stt_value: Value,
+  output_stt_value: Value,
+  input_state: state_types.State,
+  output_state: state_types.State,
 ) -> Bool {
-  expect
-    streaming_payment_shape.is_valid(context.output_state.streaming_payments)
+  expect streaming_payment_shape.is_valid(output_state.streaming_payments)
   expect
     state_unchanged_except_pol_unlock_time_and_streaming_payments(
-      context.input_state,
-      context.output_state,
+      input_state,
+      output_state,
     )
   // The tx's `invalid_hereafter` (upper validity bound) is the no-clawback
   // floor for stopping a streaming payment's future accrual: `end_date` may be
@@ -152,26 +154,31 @@ pub fn eval_manage_streaming_payments(
   // streaming payments here (born unsettled); the `is_valid` above bounds the
   // grown set (count cap, id-uniqueness, shape) and the per-asset reserve is
   // recomputed from the live State on every spend, so adds stay covered.
-  let tx_latest_time = bounds.finite_upper(context.validity_range)
+  let tx_latest_time = bounds.finite_upper(validity_range)
   expect
     streaming_payment_forwarding.are_forwarded_rescheduled_or_added(
-      context.input_state.streaming_payments,
-      context.output_state.streaming_payments,
+      input_state.streaming_payments,
+      output_state.streaming_payments,
       tx_latest_time,
+      stt_payment_credential,
     )
   expect
     proof_of_life.expect_valid_renewal_window(
-      context.validity_range,
-      context.input_state,
-      context.output_state,
+      validity_range,
+      input_state,
+      output_state,
     )
   expect
     state_authorization.has_operator_authority(
-      context.transaction,
-      context.input_state,
+      transaction,
+      input_state,
       operator_action.path,
     )
-  expect stt_value_preserved_or_increased(context)
+  expect
+    stt_value_preserved_with_lovelace_top_up(
+      input_stt_value: input_stt_value,
+      output_stt_value: output_stt_value,
+    )
   True
 }
 
@@ -180,33 +187,45 @@ pub fn eval_manage_streaming_payments(
 /// `expect_valid_state_configuration`: removing one entry from an already-valid
 /// access set cannot introduce a duplicate id, a shared wallet, or an invalid
 /// allowance, so only the recovery-reachability shape is re-checked (the one
-/// invariant a removal can break). Linear cost, so it stays affordable even if
-/// execution-budget parameters tighten; and it bypasses the access-list size caps
-/// so an over-cap wallet can shrink back under them one entry at a time. No wallet
-/// spend — the wallet validator only lets `kind == Use` move funds.
+/// invariant a removal can break). The linear path bypasses the access-list size
+/// caps. A decodable over-cap list can shrink while each removal fits the current
+/// execution limits. The action does not spend wallet value. The wallet validator
+/// only lets `kind == Use` move funds.
 pub fn eval_remove_access_index(
   target: state_types.AccessIndexTarget,
   operator_action: state_types.OperatorAction,
-  context: TransitionContext,
+  transaction: Transaction,
+  input_stt_value: Value,
+  output_stt_value: Value,
+  input_state: state_types.State,
+  output_state: state_types.State,
 ) -> Bool {
+  let target_index = when target is {
+    state_types.UserIndex(index) -> index
+    state_types.BeneficiaryIndex(index) -> index
+  }
+  expect numeric_bounds.is_non_negative_bounded(target_index)
   expect
     state_authorization.has_operator_authority(
-      context.transaction,
-      context.input_state,
+      transaction,
+      input_state,
       operator_action.path,
     )
   expect
     state_unchanged_except_access_index_removed(
-      context.input_state,
-      context.output_state,
+      input_state,
+      output_state,
       target,
     )
   // A removal can only break ONE configuration invariant — leaving no reachable
   // access path — so re-check just this (linear) instead of re-running the full,
   // super-linear `expect_valid_state_configuration`.
+  expect state_configuration.has_reachable_access_path(output_state.access)
   expect
-    state_configuration.has_reachable_access_path(context.output_state.access)
-  expect stt_value_preserved_or_increased(context)
+    stt_value_preserved_with_lovelace_top_up(
+      input_stt_value: input_stt_value,
+      output_stt_value: output_stt_value,
+    )
   True
 }
 
@@ -219,21 +238,29 @@ pub fn eval_remove_access_index(
 pub fn eval_set_intended_stake_credential(
   target: Option<Credential>,
   operator_action: state_types.OperatorAction,
-  context: TransitionContext,
+  transaction: Transaction,
+  input_stt_value: Value,
+  output_stt_value: Value,
+  input_state: state_types.State,
+  output_state: state_types.State,
 ) -> Bool {
   expect
     state_authorization.has_operator_authority(
-      context.transaction,
-      context.input_state,
+      transaction,
+      input_state,
       operator_action.path,
     )
   // `intended_stake_credential` is not in the preservable field set (it is
   // guarded centrally in `eval_spend`, which exempts exactly this action), so
   // "completely unchanged" pins every OTHER field and the expect below pins
   // the one field this action exists to change.
-  expect state_completely_unchanged(context.input_state, context.output_state)
-  expect context.output_state.intended_stake_credential == target
+  expect state_completely_unchanged(input_state, output_state)
+  expect output_state.intended_stake_credential == target
   expect credential_shape.optional_is_valid(target)
-  expect stt_value_preserved_or_increased(context)
+  expect
+    stt_value_preserved_with_lovelace_top_up(
+      input_stt_value: input_stt_value,
+      output_stt_value: output_stt_value,
+    )
   True
 }

@@ -141,10 +141,9 @@ test stake_pinning_ignores_non_wallet_outputs() {
 // A continuing wallet output may carry NO reference script. This is the
 // wallet-side counterpart to the STT's G2 ban: the crank lets a party who is not
 // the owner choose this field, so without the ban it could bloat continuing
-// wallet outputs every cadence window — inflating the per-byte fee on every later
-// spend and threatening the ONE-SHOT `UseBeneficiary` sweep, which forfeits
-// whatever it cannot fit into a single transaction. Stake credential is correct
-// here, so the reference script is the sole reason for rejection.
+// wallet outputs every cadence window and increase every later transaction's
+// fee and size. Stake credential is correct here, so the reference script is
+// the sole reason for rejection.
 test stake_pinning_rejects_reference_script_on_wallet_output() {
   !stake_pinning.expect_wallet_outputs_are_well_formed(
     [

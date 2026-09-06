@@ -13,30 +13,12 @@ use aiken/collection/dict
 use aiken/collection/list
 use aiken/crypto.{ScriptHash}
 use aiken/primitive/bytearray.{concat, from_int_big_endian}
-use cardano/address.{Script}
-use cardano/assets.{PolicyId, policies}
+use cardano/address.{Credential, Script}
+use cardano/assets.{PolicyId, Value, policies}
 use cardano/transaction.{
   InlineDatum, Input, Output, OutputReference, Transaction, ValidityRange,
 }
 use state/types as state_types
-
-/// Shared per-spend facts. Computed once by `expect_transition_context` and
-/// passed to every per-action handler so they can stay free of UTxO-decoding
-/// boilerplate.
-pub type TransitionContext {
-  transaction: Transaction,
-  validity_range: ValidityRange,
-  input_reference: OutputReference,
-  transaction_outputs: List<Output>,
-  input_stt_value: assets.Value,
-  output_stt_value: assets.Value,
-  input_state: state_types.State,
-  output_state: state_types.State,
-  /// Reference script attached to the forwarded STT output. Almost always
-  /// must be `None` (see `is_admin_operator_action` carve-out below for the
-  /// admin exception that lets an admin re-host the STT reference script).
-  output_reference_script: Option<ScriptHash>,
-}
 
 /// THE single audited definition of the singleton-STT-token invariant: `value`
 /// carries EXACTLY one token name under `policy_id`, at quantity EXACTLY 1.
@@ -55,6 +37,18 @@ pub fn expect_sole_stt_token(
   asset_name
 }
 
+// The non-lovelace part of a freshly minted STT UTxO contains only its token.
+// Inputs and outputs already contain lovelace by ledger rule. Later Operator
+// Use transitions may place assets under other policies beside the STT.
+// The strict mint helper accepts any lovelace quantity in these ledger Values.
+fn stt_value_contains_only_token(
+  value: assets.Value,
+  policy_id: PolicyId,
+  asset_name: ByteArray,
+) -> Bool {
+  assets.has_nft_strict(value, policy_id, asset_name)
+}
+
 /// Find the minted STT output, confirm it stays at the STT script, and decode its state datum.
 /// `pub` so the extracted `stt_*_tests.ak` sibling modules can unit-test this
 /// core IO/validation invariant directly (white-box).
@@ -68,6 +62,7 @@ pub fn expect_minted_stt_state_and_asset_name(
   // Exactly one STT output, carrying exactly one token, must be produced.
   expect [stt_output] = policy_outputs
   let asset_name = expect_sole_stt_token(stt_output.value, policy_id)
+  expect stt_value_contains_only_token(stt_output.value, policy_id, asset_name)
 
   // Output must remain at the STT script and must not carry a reference
   // script — mint is the bootstrap path, never an admin upgrade, so we keep
@@ -132,19 +127,34 @@ pub fn output_reference_to_asset_name(
     |> blake2b_256
 }
 
-/// Gather the shared transaction facts used by every STT spend rule. Composed
-/// of three smaller helpers so each invariant is easy to locate and unit-test.
+/// Decode the STT transition and pass its fields to `then` through `<-`.
+/// Callback order: transaction, validity_range, input_reference,
+/// stt_payment_credential, input_stt_value, output_stt_value, input_state,
+/// output_state, output_reference_script. Each input/output pair is passed input first.
+/// Backpassing avoids constructing a temporary transition record.
 pub fn expect_transition_context(
   own_ref: OutputReference,
   self: Transaction,
-) -> TransitionContext {
-  let Transaction { outputs, validity_range, .. } = self
+  then: fn(
+    Transaction,
+    ValidityRange,
+    OutputReference,
+    Credential,
+    Value,
+    Value,
+    state_types.State,
+    state_types.State,
+    Option<ScriptHash>,
+  ) ->
+    result,
+) -> result {
+  let Transaction { validity_range, .. } = self
 
   let Pair(input_utxo, output_utxo) = expect_single_stt_io(own_ref, self)
 
-  // The single STT token (same policy + asset name) must be forwarded
-  // unchanged from input → output, and the output must remain locked at the
-  // STT script.
+  // The single STT token (same policy, asset name, and quantity) must be
+  // forwarded unchanged. Other policies may share the STT UTxO. Each action
+  // handler decides whether those values may change.
   expect expect_stt_token_is_forwarded_unchanged(input_utxo.output, output_utxo)
 
   // Decode the inline State datum on both sides so handlers can compare them.
@@ -153,21 +163,22 @@ pub fn expect_transition_context(
     output_utxo,
   )
 
-  TransitionContext {
-    transaction: self,
+  then(
+    self,
     validity_range,
-    input_reference: own_ref,
-    transaction_outputs: outputs,
-    input_stt_value: input_utxo.output.value,
-    output_stt_value: output_utxo.value,
+    own_ref,
+    input_utxo.output.address.payment_credential,
+    input_utxo.output.value,
+    output_utxo.value,
     input_state,
     output_state,
-    output_reference_script: output_utxo.reference_script,
-  }
+    output_utxo.reference_script,
+  )
 }
 
 // The single STT token under the same policy id and asset name must continue
-// to live at the STT script address.
+// to live at the STT script address. Other-policy assets are permitted here.
+// Per-action value checks decide whether a transaction may change them.
 fn expect_stt_token_is_forwarded_unchanged(
   input_utxo: Output,
   output_utxo: Output,
@@ -181,8 +192,6 @@ fn expect_stt_token_is_forwarded_unchanged(
   )
   expect output_asset_name == input_asset_name
 
-  // Forwarded STT output must stay locked at the STT script.
-  expect output_utxo.address.payment_credential == Script(stt_policy_id)
   True
 }
 
@@ -215,38 +224,15 @@ pub fn is_admin_operator_action(action: state_types.SttAction) -> Bool {
   }
 }
 
-/// The forwarded STT output may TOP UP lovelace but must carry every NON-lovelace
-/// asset at EXACTLY the consumed quantity — no decrease (would leak value out of the
-/// STT UTxO) and no increase (would let any actor bloat the singleton STT UTxO with
-/// junk tokens that every future spend then has to carry, and that only the admin
-/// carve-out could ever strip back out).
-///
-/// ┌─ DO NOT be misled by this function's name or by the `>=` below ───────────────┐
-/// │ The `>=` does NOT mean "every asset may grow". It applies to LOVELACE ONLY.   │
-/// │ Non-lovelace assets must be EXACTLY EQUAL — the comparator never touches them. │
-/// └───────────────────────────────────────────────────────────────────────────────┘
-///
-/// Why `assets.match(output, input, >=)` enforces exactly that — verified against the
-/// stdlib source (aiken-lang/stdlib `cardano/assets.{match,expect_match}`):
-///   1. ARGUMENT ORDER: `match(left, right, assert_lovelace)`. Here `left = output`
-///      and `right = input`, and the callback is invoked as
-///      `assert_lovelace(left_lovelace, right_lovelace)` — i.e.
-///      `assert_lovelace(output_lovelace, input_lovelace)`. So `>=` reads as
-///      `output_lovelace >= input_lovelace` (lovelace may be topped up).
-///      KEEP `output` FIRST: swapping the two value args silently INVERTS the
-///      lovelace direction (it would then require output lovelace to SHRINK).
-///   2. NON-LOVELACE: the comparator is the LOVELACE-ONLY callback. For every other
-///      asset, `expect_match` compares the non-ada maps with structural `==`
-///      (`left_assets == right` in the stdlib body), so the `>=` is irrelevant to
-///      them: ANY non-lovelace add OR remove fails, regardless of direction.
-/// Pinned by the add/remove non-lovelace `fail` tests in `stt_spend_value_tests.ak`
-/// — those tests are what would break first if a future stdlib bump changed this.
-///
-/// This is the default value-preservation gate for every non-admin spend; the admin
-/// operator-use carve-out is the only path that bypasses it (see `eval_operator_use`),
-/// so admins can still reshape the STT UTxO's own (min-ADA-tier) contents.
-pub fn stt_value_preserved_or_increased(context: TransitionContext) -> Bool {
-  // output first, input second — see the ARGUMENT ORDER note above; `>=` governs
-  // lovelace only, non-lovelace assets must be exactly equal.
-  assets.match(context.output_stt_value, context.input_stt_value, >=)
+/// Preserve every non-lovelace quantity and allow only a lovelace top-up.
+/// `assets.match` applies `>=` to lovelace alone; native-asset maps must match.
+/// Output comes first: reversing the arguments would allow lovelace withdrawal.
+/// Operator Use bypasses this gate after Admin or Multisig authorization. The
+/// shared forwarding check still fixes the STT policy, name, and quantity.
+/// Covered by the native-asset addition/removal tests in `stt_spend_value_tests.ak`.
+pub fn stt_value_preserved_with_lovelace_top_up(
+  input_stt_value: Value,
+  output_stt_value: Value,
+) -> Bool {
+  assets.match(output_stt_value, input_stt_value, >=)
 }

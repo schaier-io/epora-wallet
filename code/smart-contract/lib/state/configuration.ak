@@ -11,8 +11,8 @@
 ////   state with NO signable admin is accepted only if a satisfiable multisig
 ////   path or a signable beneficiary exists, so a wallet can never be bricked
 ////   by misconfiguration. See the whitepaper's Recovery-reachability theorem.
-//// - User wallets and beneficiary wallets may overlap intentionally
-////   (`security_intentional__multisig_shared_key_counts_each_role_*`).
+//// - Positive-power user records must use disjoint wallet credentials. User
+////   and beneficiary wallets may still overlap intentionally.
 //// - Multisig threshold satisfiability is checked only as part of recovery
 ////   reachability (`has_reachable_access_path`), which SHORT-CIRCUITS when an
 ////   admin exists. So a `multi_sig_threshold` higher than the total available
@@ -29,7 +29,7 @@
 ////   by design: the keeper is a trusted liveness role, and if its key is lost
 ////   (it stops renewing) proof-of-life lapses and beneficiaries unlock as
 ////   normal. Treat the keeper as at least as trusted as the operators. See
-////   `lib/stt/action_checks.ak::proof_of_life_user_signature_matches`.
+////   `lib/stt/user_handlers.ak::proof_of_life_user_signature_matches`.
 //// - INTENTIONAL — recovery reachability is a *shape* check, not a *timing*
 ////   check. On-chain we reject only a genuine FULL lock: no operator path
 ////   (admin or satisfiable multisig) AND no beneficiary that can ever unlock
@@ -42,12 +42,14 @@
 ////   bricked.
 
 use aiken/collection/list
-use aiken/crypto.{VerificationKeyHash}
 use aiken/option
 use aiken/primitive/bytearray
 use assets/entries as asset_entries
+use cardano/address.{Address}
 use collections
 use constants
+use numeric_bounds
+use state/allowance
 use state/credentials as credential_shape
 use state/proof_of_life
 use state/types.{AccessControl, Beneficiary, State, User}
@@ -68,6 +70,10 @@ pub fn expect_valid_state_configuration(state: State) -> Bool {
   // datum that every future spend must decode (audit A1; `constants.max_wallet_name_bytes`).
   expect bytearray.length(state.wallet_name) <= constants.max_wallet_name_bytes
   expect credential_shape.optional_is_valid(state.intended_stake_credential)
+  expect
+    numeric_bounds.option_is_non_negative_bounded(
+      state.last_non_admin_payout_at,
+    )
   expect streaming_payment_shape.is_valid(state.streaming_payments)
   expect proof_of_life.expect_valid_settings(state.proof_of_life)
   expect expect_access_control_is_valid(state.access, state)
@@ -76,6 +82,10 @@ pub fn expect_valid_state_configuration(state: State) -> Bool {
 
 // Access control must have valid users, beneficiaries, wallet separation, and a live recovery path.
 fn expect_access_control_is_valid(access: AccessControl, state: State) {
+  expect
+    numeric_bounds.option_is_non_negative_bounded(access.multi_sig_threshold)
+  expect
+    list.length(access.users) + list.length(access.beneficiaries) <= constants.max_access_records
   expect and {
       expect_users_are_valid(access.users),
       expect_beneficiaries_are_valid(access.beneficiaries),
@@ -94,20 +104,37 @@ fn expect_access_control_is_valid(access: AccessControl, state: State) {
 // Validating here (not only lazily at use time) fails fast on a misconfigured
 // allowance instead of silently producing a user who can never spend.
 fn expect_users_are_valid(users: List<User>) {
-  // Cap the record count so configuration validation (and every later spend
-  // that scans the user list) stays within the per-tx execution budget. See
-  // `constants.max_users`; removal stays reachable via `RemoveAccessIndex`.
+  // Cap the record count to bound configuration validation and later user-list
+  // scans. The repository budget gate measures named capped-list fixtures.
+  // `RemoveAccessIndex` can shrink a decodable list while each removal fits the
+  // current execution limits.
   expect list.length(users) <= constants.max_users
+  expect total_user_wallet_count(users) <= constants.max_total_user_wallets
+  expect
+    allowance.reserved_allowance_entry_count(users) <= constants.max_total_allowance_entries
   let user_ids = list.map(users, fn(user) { user.id })
+  let powered_wallets = list.flat_map(
+    users,
+    fn(user) {
+      if option.or_else(user.multi_sig_power, 0) > 0 {
+        list.unique(user.user_wallets)
+      } else {
+        []
+      }
+    },
+  )
   expect collections.all_unique(user_ids)
+  expect collections.all_unique(powered_wallets)
   expect
     list.all(
       users,
       fn(user) {
         and {
-          // Cap the per-record inner lists so the worst-case state stays inside
-          // the execution budget (audit A1). The allowance caps also bound the
-          // per-entry work every later `UseAllowance` / reserve scan performs.
+          numeric_bounds.is_non_negative_bounded(user.id)?,
+          numeric_bounds.is_non_negative_bounded(user.next_allowance_reset)?,
+          numeric_bounds.option_is_non_negative_bounded(user.multi_sig_power)?,
+          // The allowance caps also bound the work in `UseAllowance` and reserve
+          // scans.
           (list.length(user.user_wallets) <= constants.max_wallets_per_user)?,
           list.all(user.user_wallets, credential_shape.hash_has_ledger_width)?,
           (list.length(user.per_day_allowance) <= constants.max_allowance_entries)?,
@@ -120,40 +147,42 @@ fn expect_users_are_valid(users: List<User>) {
   True
 }
 
+fn total_user_wallet_count(users: List<User>) -> Int {
+  list.foldl(
+    users,
+    0,
+    fn(user, total) { total + list.length(user.user_wallets) },
+  )
+}
+
 // Beneficiaries must have unique ids and a positive weight (their proportional
 // share of the distributable pool — see `lib/wallet/beneficiary_share.ak`).
 fn expect_beneficiaries_are_valid(beneficiaries: List<Beneficiary>) {
-  // Cap the record count: beneficiary validation is quadratic (pairwise wallet
-  // distinctness), so bound it to keep transitions within budget. See
-  // `constants.max_beneficiaries`; removal stays reachable via `RemoveAccessIndex`.
-  expect list.length(beneficiaries) <= constants.max_beneficiaries
+  // The aggregate access-record cap also bounds this list to
+  // `constants.max_beneficiaries`. Removal stays reachable through
+  // `RemoveAccessIndex`.
   let beneficiary_ids = list.map(
     beneficiaries,
     fn(beneficiary) { beneficiary.id },
   )
 
   expect collections.all_unique(beneficiary_ids)
-  expect list.all(beneficiaries, fn(beneficiary) { beneficiary.weight >= 1 })
-  // Every beneficiary must carry at least one signable wallet. Under the
-  // weighted-share model a beneficiary's take is capped at
-  // `weight / remaining_weight` of the pool and the actor is removed one-shot,
-  // so the set only sweeps the WHOLE pool when every member can eventually sign.
-  // A wallet-less beneficiary can never withdraw yet still inflates
-  // `remaining_weight` (see `lib/wallet/beneficiary_share.ak`), permanently locking its
-  // proportional share — and because `beneficiaries_have_reachable_full_withdrawal_path`
-  // only needs ONE signable beneficiary, such a config would slip past the
-  // reachability gate and silently break the "never bricked by misconfiguration"
-  // invariant (whitepaper: Recovery-reachability theorem). Requiring a wallet
-  // on every beneficiary keeps the collective-sweep guarantee true. Mirrored
-  // off-chain in `state-validation.ts`.
   expect
     list.all(
       beneficiaries,
       fn(beneficiary) {
+        // Mint and UpdateState are the only paths that can introduce or
+        // replace this address. All other paths preserve each retained entry.
+        expect payout_address: Address = beneficiary.payout_address
         and {
+          numeric_bounds.is_non_negative_bounded(beneficiary.id)?,
+          numeric_bounds.option_is_non_negative_bounded(
+            beneficiary.unlock_after,
+          )?,
+          (beneficiary.weight >= 1)?,
+          (beneficiary.weight <= constants.max_state_integer)?,
+          credential_shape.address_is_valid(payout_address)?,
           (list.length(beneficiary.beneficiary_wallets) > 0)?,
-          // Upper-cap the wallet list so it cannot bloat the datum past the
-          // execution budget (audit A1; `constants.max_beneficiary_wallets`).
           (list.length(beneficiary.beneficiary_wallets) <= constants.max_beneficiary_wallets)?,
           list.all(
             beneficiary.beneficiary_wallets,
@@ -162,61 +191,36 @@ fn expect_beneficiaries_are_valid(beneficiaries: List<Beneficiary>) {
         }
       },
     )
+  // Every beneficiary must carry at least one signable wallet. A wallet-less
+  // beneficiary can never withdraw but still increases `remaining_weight` (see
+  // `lib/wallet/beneficiary_share.ak`). It can therefore leave value in a
+  // consumed pool after every signable beneficiary has acted. The reachability
+  // gate needs only one signable beneficiary, so the invalid record would
+  // otherwise pass that structural check. Requiring a wallet on every
+  // beneficiary removes this configuration trap. It does not guarantee recovery
+  // across separate wallet UTxOs. Mirrored off-chain in `state-validation.ts`.
   True
 }
 
-// Beneficiary wallets must be globally unique. Flattening once and running the
-// shared uniqueness check once is equivalent to checking self-duplicates plus
-// every beneficiary pair, but avoids repeating the full beneficiary scan for
-// each record on the already budget-critical configuration path.
+// Beneficiary wallets must stay within the aggregate execution-cost cap and be
+// globally unique. Check the cheap total before the quadratic uniqueness scan.
 fn expect_beneficiary_wallets_are_distinct(beneficiaries: List<Beneficiary>) {
-  let all_wallets = list.flat_map(
+  expect_wallet_groups_are_distinct_and_bounded(
     beneficiaries,
     fn(beneficiary) { beneficiary.beneficiary_wallets },
+    constants.max_total_beneficiary_wallets,
   )
+}
+
+fn expect_wallet_groups_are_distinct_and_bounded(
+  records: List<a>,
+  wallets: fn(a) -> List<ByteArray>,
+  maximum_wallets: Int,
+) {
+  let all_wallets = list.flat_map(records, wallets)
+  expect list.length(all_wallets) <= maximum_wallets
   expect collections.all_unique(all_wallets)
   True
-}
-
-/// Pure distinctness predicate: the beneficiary's own wallet list is
-/// duplicate-free AND no OTHER beneficiary (different id) shares any wallet
-/// with it. Consumed as a scan conjunct by
-/// `authorization.has_beneficiary_unlock_authority` (a non-distinct
-/// beneficiary loses authority rather than aborting — see the INTENTIONAL note
-/// there). The configuration path enforces the equivalent invariant globally
-/// by flattening all beneficiary wallets and checking uniqueness once.
-pub fn beneficiary_wallets_are_distinct_from_others(
-  beneficiary: Beneficiary,
-  beneficiaries: List<Beneficiary>,
-) -> Bool {
-  collections.all_unique(beneficiary.beneficiary_wallets) && !beneficiary_shares_wallet_with_another(
-    beneficiary,
-    beneficiaries,
-  )
-}
-
-// True if any OTHER beneficiary (different id) shares one of this one's wallets.
-fn beneficiary_shares_wallet_with_another(
-  beneficiary: Beneficiary,
-  beneficiaries: List<Beneficiary>,
-) -> Bool {
-  list.any(
-    beneficiaries,
-    fn(other_beneficiary) {
-      other_beneficiary.id != beneficiary.id && wallets_overlap(
-        beneficiary.beneficiary_wallets,
-        other_beneficiary.beneficiary_wallets,
-      )
-    },
-  )
-}
-
-// True if the two wallet lists share at least one entry.
-fn wallets_overlap(
-  wallets_a: List<VerificationKeyHash>,
-  wallets_b: List<VerificationKeyHash>,
-) -> Bool {
-  list.any(wallets_b, fn(wallet) { list.has(wallets_a, wallet) })
 }
 
 // Any beneficiary configuration requires proof-of-life settings to exist.
@@ -239,21 +243,16 @@ fn beneficiaries_require_proof_of_life_settings(
 /// recovery must remain possible through multisig or a signable beneficiary, so
 /// a wallet can never be bricked by misconfiguration.
 pub fn has_reachable_access_path(access: AccessControl) -> Bool {
-  let has_signable_admin = list.any(
-    access.users,
-    fn(user) { user.is_admin && list.length(user.user_wallets) > 0 },
-  )
-  if has_signable_admin {
-    True
-  } else {
-    let has_multisig_or_beneficiary_path = or {
-      users_have_reachable_multisig_access_path(
-        access.users,
-        access.multi_sig_threshold,
-      ),
-      beneficiaries_have_reachable_full_withdrawal_path(access.beneficiaries),
-    }
-    has_multisig_or_beneficiary_path
+  or {
+    list.any(
+      access.users,
+      fn(user) { user.is_admin && list.length(user.user_wallets) > 0 },
+    )?,
+    users_have_reachable_multisig_access_path(
+      access.users,
+      access.multi_sig_threshold,
+    )?,
+    (list.length(access.beneficiaries) > 0)?,
   }
 }
 
@@ -307,31 +306,5 @@ fn users_have_reachable_multisig_access_path(
     users,
     multi_sig_threshold,
     fn(user) { list.length(user.user_wallets) > 0 },
-  )
-}
-
-// Beneficiary recovery is reachable as long as at least one beneficiary exists
-// with a wallet that can sign. Under the weighted-share model the beneficiary
-// set collectively withdraws the entire distributable pool (each share is
-// weight/remaining_weight and weights are retired on use, so the last actor
-// sweeps the remainder). That collective-sweep guarantee holds ONLY because
-// `expect_beneficiaries_are_valid` requires EVERY beneficiary to carry a
-// signable wallet (and `weight >= 1`): with no wallet-less, high-weight
-// beneficiary able to lock its share, any present beneficiary is a sufficient
-// non-admin recovery path.
-//
-// TIMING CAVEAT (intentional): "reachable" here is *structural* — it does NOT
-// bound WHEN the unlock happens. A signable beneficiary whose effective unlock
-// (the max of its own `unlock_after` and the global `unlock_time`) is far in
-// the future still counts as reachable, even though the wallet is then
-// inaccessible until that time. A distant-but-finite unlock is recoverable, so
-// on-chain accepts it and the off-chain layer warns when such a beneficiary is
-// the sole recovery path (see module header).
-fn beneficiaries_have_reachable_full_withdrawal_path(
-  beneficiaries: List<Beneficiary>,
-) -> Bool {
-  list.any(
-    beneficiaries,
-    fn(beneficiary) { list.length(beneficiary.beneficiary_wallets) > 0 },
   )
 }

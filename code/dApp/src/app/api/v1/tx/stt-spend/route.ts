@@ -11,5 +11,11 @@ export const POST = createTxRoute({
   name: "stt-spend",
   schema: SttSpendTxRequestSchema,
   build: async ({ address: _address, config, action, ...input }, wallet, fetcher) =>
-    buildSttSpendTx(wallet, config, action, input as SttSpendFormInput, fetcher)
+    buildSttSpendTx(
+      wallet,
+      config,
+      action,
+      input as SttSpendFormInput,
+      fetcher
+    )
 });

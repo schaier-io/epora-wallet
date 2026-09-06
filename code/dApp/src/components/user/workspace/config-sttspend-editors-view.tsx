@@ -29,6 +29,7 @@ import { DisclosureSection, GuidedDateTimeField, GuidedLockedUtxoSelector, Inlin
 import { formatAmountSummary, formatDurationMillisLabel, formatTimestampLabel, formatTransferControlId, getFirstFieldError, supportsSttFundPoolInputs } from "@/components/user/workspace/helpers";
 
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
+import { beneficiaryPreparationActiveAtom } from "./atoms/forms/consolidate-form.atoms";
 import { useConsolidateForm } from "@/components/user/workspace/forms/use-consolidate-form";
 import { useSttSpendForm } from "@/components/user/workspace/forms/use-stt-spend-form";
 
@@ -52,18 +53,22 @@ export function SttSpendEditorsView() {
     refreshLockedContractUtxos,
     updateSttTransferAmount
   } = state;
+  const preparationActive = useAtomValue(beneficiaryPreparationActiveAtom);
   const { consolidateWalletInputs, setConsolidateWalletInputs } = useConsolidateForm();
   const { setSttProofOfLifeOverrideMode, setSttProofOfLifeSpecificDateTime, setSttTransferAddress, setSttWalletInputs, sttProofOfLifeOverrideMode, sttProofOfLifeSpecificDateTime, sttTransferAddress, sttTransferAmounts, sttWalletInputs } = useSttSpendForm();
   const isRecipientFirstGuidedAction =
     selectedAction === "use" ||
     selectedAction === "use-allowance" ||
-    selectedAction === "use-beneficiary";
+    (selectedAction === "use-beneficiary" || selectedAction === "exit-beneficiary");
   const isGuidedStreamingPaymentAction = selectedAction === "payout-streaming-payment";
   const usesGuidedLockedInputSelector =
     isRecipientFirstGuidedAction || isGuidedStreamingPaymentAction;
   const currentWalletInputs =
     selectedAction === "consolidate-utxo" ? consolidateWalletInputs : sttWalletInputs;
   const supportsFundPoolInputs = supportsSttFundPoolInputs(activeSttActionTab.value);
+
+  // Exact distribution owns its single selector and immutable payout review.
+  if (selectedAction === "distribute-beneficiaries" || selectedAction === "consolidate-utxo" && preparationActive) return null;
 
   return (
     <>
@@ -125,7 +130,7 @@ export function SttSpendEditorsView() {
                           <p className="break-all font-mono text-xs">
                             {utxo.input.txHash}#{utxo.input.outputIndex}
                           </p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="wrap-anywhere text-xs text-muted-foreground">
                             {formatAmountSummary(utxo.output.amount)}
                           </p>
                         </div>
@@ -134,6 +139,11 @@ export function SttSpendEditorsView() {
                             type="button"
                             variant="secondary"
                             onClick={() => addLockedContractInputRef(utxo)}
+                            disabled={currentWalletInputs.some(
+                              (ref) =>
+                                ref.txHash === utxo.input.txHash &&
+                                ref.outputIndex === utxo.input.outputIndex
+                            )}
                           >
                             {/* Not "Add fund pool": that is the label on the manual editor's
                                 button lower down (`editors/asset-editors.tsx:321`), which adds
@@ -221,7 +231,7 @@ export function SttSpendEditorsView() {
                       >
                         <div className="space-y-1">
                           <div className="flex items-center justify-between gap-2">
-                            <Label htmlFor={`userSttTransferAmountRange-${controlId}`}>
+                            <Label className="min-w-0 wrap-anywhere" htmlFor={`userSttTransferAmountRange-${controlId}`}>
                               {i18n("sendAmount")}{resolveAssetIdentity(asset.unit).symbol})
                             </Label>
                             <span className="text-xs text-muted-foreground">
@@ -240,7 +250,7 @@ export function SttSpendEditorsView() {
                             }
                             className="h-10 w-full cursor-pointer accent-primary"
                           />
-                          <p className="text-xs text-muted-foreground">
+                          <p className="wrap-anywhere text-xs text-muted-foreground">
                             {i18n("availableFromChosenFundPools")} {asset.quantity}{" "}
                             {resolveAssetIdentity(asset.unit).symbol}
                           </p>

@@ -5,7 +5,7 @@
 #
 # Required repository secrets: VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID.
 # The token comes from the Vercel account tokens page; the two IDs are in
-# code/dApp/.vercel/project.json after `vercel link`.
+# .vercel/project.json after `vercel link` from the repository root.
 name: dapp-preview-deploy
 
 on:
@@ -14,14 +14,17 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
+
+env:
+  PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
 
 jobs:
   guard:
-    # Only the documented command on a pull request may reach the deploy's
-    # concurrency group. Other comments cannot cancel a running deployment.
-    if: ${{ github.event.issue.pull_request && github.event.comment.body == '/deploy' }}
+    # Ignore unrelated comments before entering deploy concurrency.
+    if: github.event.issue.pull_request && github.event.comment.body == '/deploy'
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
     outputs:
       allowed: ${{ steps.check.outputs.allowed }}
       head: ${{ steps.check.outputs.head }}
@@ -29,38 +32,47 @@ jobs:
       - id: check
         env:
           GH_TOKEN: ${{ github.token }}
+          COMMENT_AUTHOR_ASSOCIATION: ${{ github.event.comment.author_association }}
         run: |
-          pr=$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.issue.number }}")
+          pr=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER")
           state=$(jq -r .state <<<"$pr")
           base=$(jq -r .base.ref <<<"$pr")
-          assoc="${{ github.event.comment.author_association }}"
+          head_repo=$(jq -r .head.repo.full_name <<<"$pr")
 
           if [ "$state" != "open" ]; then
             echo "::notice::pull request is $state, skipping"
             echo "allowed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          if [ "$base" != "dev" ] && [ "$base" != "main" ]; then
-            echo "::notice::base branch '$base' is not dev or main, skipping"
+          if [ "$base" != "main" ]; then
+            echo "::notice::base branch '$base' is not main, skipping"
             echo "allowed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          case "$assoc" in
+          if [ "$head_repo" != "$GITHUB_REPOSITORY" ]; then
+            echo "::notice::fork pull requests cannot use deployment secrets, skipping"
+            echo "allowed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          case "$COMMENT_AUTHOR_ASSOCIATION" in
             OWNER|MEMBER|COLLABORATOR) ;;
             *)
-              echo "::notice::comment author_association is '$assoc', skipping"
+              echo "::notice::comment author cannot request deployments, skipping"
               echo "allowed=false" >> "$GITHUB_OUTPUT"
               exit 0
               ;;
           esac
 
           echo "allowed=true" >> "$GITHUB_OUTPUT"
-          echo "head=$(jq -r .head.ref <<<"$pr")" >> "$GITHUB_OUTPUT"
+          echo "head=$(jq -r .head.sha <<<"$pr")" >> "$GITHUB_OUTPUT"
 
   deploy-preview:
     needs: guard
     if: needs.guard.outputs.allowed == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     concurrency:
       group: dapp-preview-${{ github.event.issue.number }}
       cancel-in-progress: true
@@ -71,14 +83,20 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.guard.outputs.head }}
+          persist-credentials: false
 
       - id: deploy
         name: Deploy preview with Vercel CLI
-        working-directory: code/dApp
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          url=$(npx --yes vercel@54.11.1 deploy --yes --token "$VERCEL_TOKEN" -F json | jq -r '.url // empty')
+          runner=(npx)
+          if command -v sfw >/dev/null 2>&1; then
+            runner=(sfw npx)
+          else
+            echo "::notice::sfw is not installed on this runner; using npx"
+          fi
+          url=$("${runner[@]}" --yes vercel@54.11.1 deploy --yes --target=preview --token "$VERCEL_TOKEN")
           if [ -z "$url" ]; then
             echo "deployment returned no URL"
             exit 1
@@ -88,7 +106,8 @@ jobs:
       - name: Post preview URL on the pull request
         env:
           GH_TOKEN: ${{ github.token }}
+          PREVIEW_URL: ${{ steps.deploy.outputs.url }}
         run: |
-          gh pr comment "${{ github.event.issue.number }}" \
-            --repo "${{ github.repository }}" \
-            --body "Preview deployed: ${{ steps.deploy.outputs.url }}"
+          gh pr comment "$PR_NUMBER" \
+            --repo "$GITHUB_REPOSITORY" \
+            --body "Preview deployed: $PREVIEW_URL"

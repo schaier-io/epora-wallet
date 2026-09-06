@@ -2,9 +2,14 @@
 //// transition rules for the no-payout paths, including the payee self-cancel
 //// rewrite rule `is_payee_cancelled`).
 
+use cardano/address.{Credential}
 use streaming_payments/forwarding
 use test_support/streaming_payment_test_helpers.{
   mk_address, mk_streaming_payment,
+}
+
+fn unrelated_stt_credential() -> Credential {
+  mk_address("stt").payment_credential
 }
 
 test are_forwarded_accept_exact_match() {
@@ -35,6 +40,7 @@ test are_forwarded_rescheduled_or_added_accept_longer_end_date() {
       input_streaming_payments,
       output_streaming_payments,
       None,
+      unrelated_stt_credential(),
     )
 }
 
@@ -54,6 +60,7 @@ test are_forwarded_rescheduled_or_added_accept_stop_future_accrual() {
       input_streaming_payments,
       output_streaming_payments,
       Some(50),
+      unrelated_stt_credential(),
     )
 }
 
@@ -72,6 +79,7 @@ test are_forwarded_rescheduled_or_added_reject_clawback_below_now() fail {
       input_streaming_payments,
       output_streaming_payments,
       Some(50),
+      unrelated_stt_credential(),
     )
 }
 
@@ -90,6 +98,7 @@ test are_forwarded_rescheduled_or_added_reject_shorten_when_unbounded() fail {
       input_streaming_payments,
       output_streaming_payments,
       None,
+      unrelated_stt_credential(),
     )
 }
 
@@ -103,6 +112,7 @@ test are_forwarded_rescheduled_or_added_reject_drop() fail {
       [mk_streaming_payment(0, mk_address(#"01"), 0, 1, 100)],
       [],
       Some(50),
+      unrelated_stt_credential(),
     )
 }
 
@@ -115,6 +125,7 @@ test are_forwarded_rescheduled_or_added_accept_add_new() {
       [existing],
       [existing, mk_streaming_payment(1, mk_address(#"02"), 0, 2, 200)],
       Some(50),
+      unrelated_stt_credential(),
     )
 }
 
@@ -126,6 +137,7 @@ test are_forwarded_rescheduled_or_added_accept_add_to_empty() {
       [],
       [mk_streaming_payment(0, mk_address(#"01"), 0, 1, 100)],
       Some(50),
+      unrelated_stt_credential(),
     )
 }
 
@@ -137,6 +149,7 @@ test are_forwarded_rescheduled_or_added_reject_new_with_paid_out() fail {
       [],
       [mk_streaming_payment(0, mk_address(#"01"), 5, 1, 100)],
       Some(50),
+      unrelated_stt_credential(),
     )
 }
 
@@ -148,6 +161,7 @@ test are_forwarded_rescheduled_or_added_reject_new_zero_duration() fail {
       [],
       [mk_streaming_payment(0, mk_address(#"01"), 0, 1, 0)],
       Some(50),
+      unrelated_stt_credential(),
     )
 }
 
@@ -160,6 +174,7 @@ test are_forwarded_rescheduled_or_added_accept_existing_zero_duration() {
       [zero_duration],
       [zero_duration],
       Some(50),
+      unrelated_stt_credential(),
     )
 }
 
@@ -171,6 +186,7 @@ test are_forwarded_rescheduled_or_added_accept_extend_zero_duration() {
       [mk_streaming_payment(0, mk_address(#"01"), 0, 1, 0)],
       [mk_streaming_payment(0, mk_address(#"01"), 0, 1, 100)],
       Some(50),
+      unrelated_stt_credential(),
     )
 }
 
@@ -188,6 +204,7 @@ test are_forwarded_rescheduled_or_added_reject_add_while_dropping() fail {
         mk_streaming_payment(2, mk_address(#"03"), 0, 1, 100),
       ],
       Some(50),
+      unrelated_stt_credential(),
     )
 }
 
@@ -202,6 +219,34 @@ test are_forwarded_rescheduled_or_added_reject_add_while_mutating_existing() fai
         mk_streaming_payment(1, mk_address(#"02"), 0, 1, 100),
       ],
       Some(50),
+      unrelated_stt_credential(),
+    )
+}
+
+// A fresh id cannot target the STT payment credential. Stake variants compare
+// equal here because the guard is intentionally payment-credential scoped.
+test are_forwarded_rescheduled_or_added_rejects_new_stt_credential() fail {
+  let forbidden_address = mk_address("stt")
+  expect
+    forwarding.are_forwarded_rescheduled_or_added(
+      [],
+      [mk_streaming_payment(0, forbidden_address, 0, 1, 100)],
+      Some(50),
+      forbidden_address.payment_credential,
+    )
+}
+
+// The guard applies only when an id first enters State. This preserves the
+// operator's ability to forward or reschedule an already-stored bad address.
+test are_forwarded_rescheduled_or_added_accepts_existing_stt_credential() {
+  let forbidden_address = mk_address("stt")
+  let existing = mk_streaming_payment(0, forbidden_address, 0, 1, 100)
+  expect
+    forwarding.are_forwarded_rescheduled_or_added(
+      [existing],
+      [existing],
+      Some(50),
+      forbidden_address.payment_credential,
     )
 }
 
@@ -349,5 +394,6 @@ test are_forwarded_rescheduled_or_added_accepts_extending_receiver_shortened_pay
       [mk_streaming_payment(0, mk_address(#"01"), 0, 1, 50)],
       [mk_streaming_payment(0, mk_address(#"01"), 0, 1, 100)],
       Some(60),
+      unrelated_stt_credential(),
     )
 }

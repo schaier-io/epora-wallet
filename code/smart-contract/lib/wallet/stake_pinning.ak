@@ -43,10 +43,8 @@ pub fn expect_wallet_outputs_are_well_formed(
           // consumes the UTxO and counts toward the per-tx reference-script size
           // limit. The wallet needs the ban MORE than the STT does, because the
           // crank lets a party who is not the owner choose this field — it could
-          // bloat continuing wallet outputs every cadence window, and a bloated
-          // UTxO set is exactly what breaks the ONE-SHOT `UseBeneficiary` sweep
-          // (a beneficiary that cannot fit every wallet UTxO into one transaction
-          // forfeits the remainder). Hosting a reference script at the wallet
+          // bloat continuing wallet outputs every cadence window and increase
+          // later transaction costs. Hosting a reference script at the wallet
           // address is not a supported use; put it at the STT reference store.
           (output.reference_script == None)?,
           // Even with Plutus V3, spending a hashed datum requires its preimage.
@@ -72,10 +70,8 @@ fn output_stake_matches_intended(
   output_stake_credential: Option<Referenced<Credential>>,
   intended_stake_credential: Option<Credential>,
 ) -> Bool {
-  when (output_stake_credential, intended_stake_credential) is {
-    (None, None) -> True
-    (Some(Inline(output_credential)), Some(intended_credential)) ->
-      output_credential == intended_credential
-    _ -> False
+  when intended_stake_credential is {
+    None -> output_stake_credential == None
+    Some(credential) -> output_stake_credential == Some(Inline(credential))
   }
 }

@@ -51,3 +51,38 @@ test("get rejects absolute, scheme-prefixed, protocol-relative, backslash and tr
     assert.deepEqual(calls, [], `provider must not be called for: ${path}`);
   }
 });
+
+test("fetchAddressTxs rejects pagination beyond the public route budget", async () => {
+  const calls: unknown[] = [];
+  const provider = {
+    fetchAddressTxs: async (_address: string, options: unknown) => {
+      calls.push(options);
+      return [];
+    }
+  } as unknown as BlockfrostProvider;
+
+  await assert.rejects(
+    executeMeshMethod(provider, "fetchAddressTxs", [
+      "addr_test1probe",
+      { maxPage: 1_000_000, order: "desc" }
+    ]),
+    /maxPage/
+  );
+  assert.deepEqual(calls, []);
+});
+
+test("fetchAddressTxs accepts the page budget and strips unrelated options", async () => {
+  const calls: unknown[] = [];
+  const provider = {
+    fetchAddressTxs: async (_address: string, options: unknown) => {
+      calls.push(options);
+      return [];
+    }
+  } as unknown as BlockfrostProvider;
+
+  await executeMeshMethod(provider, "fetchAddressTxs", [
+    "addr_test1probe",
+    { maxPage: 8, order: "asc", ignored: true }
+  ]);
+  assert.deepEqual(calls, [{ maxPage: 8, order: "asc" }]);
+});

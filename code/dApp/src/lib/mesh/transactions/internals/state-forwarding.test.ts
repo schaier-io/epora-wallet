@@ -3,6 +3,7 @@ import test from "node:test";
 import { DEFAULT_PROTOCOL_PARAMETERS, type Budget } from "@meshsdk/common";
 import {
   resolveScriptHash,
+  serializeData,
   type Transaction,
   type UTxO
 } from "@meshsdk/core";
@@ -14,6 +15,8 @@ import {
 import { STT_SPEND_VALIDATOR } from "@/lib/mesh/transactions/internals/constants";
 import type { TxFetcher } from "@/lib/mesh/tx-context";
 
+import { createDefaultStateForm, stateFormToDatum } from "@/lib/contracts/state-form";
+
 const POLICY_ID = "ab".repeat(28);
 const ASSET_NAME = "deadbeef";
 const STATE_TX_HASH = "11".repeat(32);
@@ -24,6 +27,7 @@ function makeStateInput(address: string, unit: string): UTxO {
     input: { txHash: STATE_TX_HASH, outputIndex: 1 },
     output: {
       address,
+      plutusData: serializeData(stateFormToDatum(createDefaultStateForm()), "Mesh"),
       amount: [
         { unit: "lovelace", quantity: "5000000" },
         { unit, quantity: "1" }
@@ -61,17 +65,32 @@ function createFetcher(
   const fetcher = {
     fetchAddressUTxOs: async (address: string) => {
       addressCalls.push(address);
-      lifecycleCalls?.push({ name: "fetchStateInput", value: address });
-      return [stateInput];
+      throw new Error("State address scans must not run.");
     },
     fetchUTxOs: async (txHash: string, outputIndex?: number) => {
+      if (txHash === STATE_TX_HASH) {
+        lifecycleCalls?.push({ name: "fetchStateInput", value: { txHash, outputIndex } });
+        return [stateInput];
+      }
       referenceCalls.push({ txHash, outputIndex });
       lifecycleCalls?.push({
         name: "fetchStateReference",
         value: { txHash, outputIndex }
       });
       return [referenceInput];
-    }
+    },
+    get: async () => ({
+      outputs: [
+        {
+          output_index: stateInput.input.outputIndex,
+          consumed_by_tx: null
+        },
+        {
+          output_index: referenceInput.input.outputIndex,
+          consumed_by_tx: null
+        }
+      ]
+    })
   } as unknown as TxFetcher;
 
   return { fetcher, addressCalls, referenceCalls };
@@ -147,7 +166,7 @@ test("runStateForwarding resolves the current State input", async () => {
 
   assert.equal(forwarding.input.input, stateInput);
   assert.equal(forwarding.input.inputRef, `${STATE_TX_HASH}#1`);
-  assert.deepEqual(addressCalls, [definition.address]);
+  assert.deepEqual(addressCalls, []);
   assert.deepEqual(referenceCalls, [
     { txHash: REFERENCE_TX_HASH, outputIndex: 2 }
   ]);
@@ -214,6 +233,43 @@ test("runStateForwarding excludes the consumed State input from reference use", 
           stage: "wallet-vote:fetchSttUtxos"
         },
         reference: { stage: "wallet-vote:resolveSharedSttReferenceScript" },
+        spendValidatorsByRef: new Map(),
+        afterInput: () => undefined,
+        beforeRedeem: () => ({
+          assets: stateInput.output.amount,
+          datum: { alternative: 0, fields: [] },
+          redeemer: { alternative: 1, fields: [] }
+        })
+      }),
+    /also being spent in this transaction/
+  );
+});
+
+test("runStateForwarding excludes other consumed inputs from reference use", async () => {
+  const definition = createStateForwarding({
+    sttAssetNameHex: ASSET_NAME,
+    walletPolicyId: POLICY_ID,
+    sttSpendReference: `${REFERENCE_TX_HASH.toUpperCase()}#2`
+  });
+  const stateInput = makeStateInput(definition.address, definition.unit);
+  const referenceInput = makeReferenceInput(definition.address, definition.script);
+  const { fetcher } = createFetcher(stateInput, referenceInput);
+
+  await assert.rejects(
+    () =>
+      runStateForwarding({
+        definition,
+        fetcher,
+        tx: createNoopTransaction(),
+        input: {
+          txHash: STATE_TX_HASH,
+          outputIndex: 1,
+          stage: "wallet-vote:fetchSttUtxos"
+        },
+        reference: {
+          stage: "wallet-vote:resolveSharedSttReferenceScript",
+          excludedRefs: [`${REFERENCE_TX_HASH}#2`]
+        },
         spendValidatorsByRef: new Map(),
         afterInput: () => undefined,
         beforeRedeem: () => ({
@@ -341,3 +397,41 @@ test("State forwarding owns phase order, budgets, outputs, and diagnostics", asy
   );
   assert.match(forwarding.referenceScriptUsage, /reference script/i);
 });
+
+// Lookup invariant: exact state identity must be checked before any state transition.
+for (const [name, change, message] of [
+  ["wrong address", (input: UTxO) => { input.output.address = "addr_test1wrong"; }, /STT input.*address/],
+  ["wrong token quantity", (input: UTxO) => { input.output.amount[1]!.quantity = "2"; }, /exactly one/],
+  ["missing datum", (input: UTxO) => { delete input.output.plutusData; }, /inline.*datum/],
+  ["wrong reference", (input: UTxO) => { input.input.txHash = REFERENCE_TX_HASH; }, /UTxO not found/]
+] as const) {
+  test(`State forwarding rejects ${name}`, async () => {
+    const definition = createStateForwarding({ sttAssetNameHex: ASSET_NAME, walletPolicyId: POLICY_ID });
+    const input = makeStateInput(definition.address, definition.unit);
+    change(input);
+    const { fetcher } = createFetcher(input, makeReferenceInput(definition.address, definition.script));
+    await assert.rejects(runStateForwarding({
+      definition, fetcher, tx: createNoopTransaction(),
+      input: { txHash: STATE_TX_HASH, outputIndex: 1, stage: "test:state" },
+      reference: { stage: "test:reference" }, spendValidatorsByRef: new Map(),
+      afterInput: () => assert.fail("Invalid input reached transition"),
+      beforeRedeem: () => assert.fail("Invalid input reached redemption")
+    }), message);
+  });
+}
+for (const status of [undefined, {}, { outputs: [] }, { outputs: [{ output_index: 1 }] },
+  { outputs: [{ output_index: 1, consumed_by_tx: REFERENCE_TX_HASH }] }]) {
+  test(`State forwarding requires explicit unspent status: ${JSON.stringify(status)}`, async () => {
+    const definition = createStateForwarding({ sttAssetNameHex: ASSET_NAME, walletPolicyId: POLICY_ID });
+    const input = makeStateInput(definition.address, definition.unit);
+    const { fetcher } = createFetcher(input, makeReferenceInput(definition.address, definition.script));
+    fetcher.get = async () => status;
+    await assert.rejects(runStateForwarding({
+      definition, fetcher, tx: createNoopTransaction(),
+      input: { txHash: STATE_TX_HASH, outputIndex: 1, stage: "test:state" },
+      reference: { stage: "test:reference" }, spendValidatorsByRef: new Map(),
+      afterInput: () => assert.fail("Unverified input reached transition"),
+      beforeRedeem: () => assert.fail("Unverified input reached redemption")
+    }), /spent|unspent status/);
+  });
+}

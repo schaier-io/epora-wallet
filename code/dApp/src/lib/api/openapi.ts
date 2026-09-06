@@ -39,6 +39,14 @@ const RATE_LIMITS = {
   txGlobal: {
     requests: TX_RATE_LIMIT_DEFAULTS.globalRequests,
     windowSeconds: TX_RATE_LIMIT_DEFAULTS.globalWindowMs / 1000
+  },
+  txWalletInputs: {
+    units: TX_RATE_LIMIT_DEFAULTS.perClientWalletInputs,
+    windowSeconds: TX_RATE_LIMIT_DEFAULTS.perClientWindowMs / 1000
+  },
+  txGlobalWalletInputs: {
+    units: TX_RATE_LIMIT_DEFAULTS.globalWalletInputs,
+    windowSeconds: TX_RATE_LIMIT_DEFAULTS.globalWindowMs / 1000
   }
 } as const;
 
@@ -79,7 +87,7 @@ const txResponses = {
   "413": jsonError("The request body is larger than 32 KB."),
   "429": tooManyRequests(
     RATE_LIMITS.tx,
-    ` The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of ${RATE_LIMITS.txGlobal.requests} builds per ${RATE_LIMITS.txGlobal.windowSeconds} seconds also applies, and answers with a different message. Both caps are configurable per deployment, so read these two numbers as defaults and treat \`Retry-After\` as the authority.`,
+    ` The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of ${RATE_LIMITS.txGlobal.requests} builds per ${RATE_LIMITS.txGlobal.windowSeconds} seconds also applies, and answers with a different message. Wallet inputs use weighted budgets: one unit per declared wallet input. The default client budget is ${RATE_LIMITS.txWalletInputs.units} units per ${RATE_LIMITS.txWalletInputs.windowSeconds} seconds; one request may exceed it and exhaust that window. The deployment-wide default is ${RATE_LIMITS.txGlobalWalletInputs.units} units per ${RATE_LIMITS.txGlobalWalletInputs.windowSeconds} seconds and rejects one request above that capacity. All four caps are configurable per deployment, so read these numbers as defaults and treat \`Retry-After\` as the authority.`,
     true
   ),
   "500": jsonError("Unexpected server error."),
@@ -121,7 +129,7 @@ const TX_PATHS: Array<[string, string, string, string, z.ZodType]> = [
     "/api/v1/tx/stt-spend",
     "buildSttSpendTx",
     "Spend the state token",
-    "Run one of the nine State transitions: `use`, `renew-proof-of-life`, `update-state`, `manage-streaming-payments`, `use-allowance`, `use-beneficiary`, `payout-streaming-payment`, `cancel-streaming-payment` and `remove-access-index`. `action` selects which.",
+    "Run one of the twelve State transitions: `use`, `renew-proof-of-life`, `update-state`, `manage-streaming-payments`, `use-allowance`, `use-beneficiary`, `exit-beneficiary`, `stop-beneficiary-stream`, `distribute-beneficiaries`, `payout-streaming-payment`, `cancel-streaming-payment` and `remove-access-index`. `action` selects which.",
     SttSpendTxRequestSchema
   ],
   [
@@ -134,8 +142,8 @@ const TX_PATHS: Array<[string, string, string, string, z.ZodType]> = [
   [
     "/api/v1/tx/consolidate",
     "buildConsolidateTx",
-    "Consolidate wallet UTxOs",
-    "Merge wallet-script UTxOs, and migrate them to the wallet's current base address after a stake-credential change.",
+    "Repartition wallet UTxOs",
+    "Merge or split wallet-script UTxOs without changing their aggregate Value. Set beneficiaryPreparation to derive a divisible pool and remainder from fresh inputs under the existing beneficiary Consolidate permission. Minimum ADA comes from the selected wallet value; fees use external funds.",
     ConsolidateTxRequestSchema
   ],
   [
@@ -192,7 +200,11 @@ ${RATE_LIMITS.sttLookup.requests} per ${RATE_LIMITS.sttLookup.windowSeconds}s fo
 ${RATE_LIMITS.pools.requests} per ${RATE_LIMITS.pools.windowSeconds}s for pool lookups. Builds also
 share a deployment-wide cap of ${RATE_LIMITS.txGlobal.requests} per
 ${RATE_LIMITS.txGlobal.windowSeconds}s, because one build costs the chain provider tens of
-requests. Every \`429\` carries \`Retry-After\`. Deployments may set their own caps.
+requests. Each declared wallet input also consumes one weighted unit. The default client bucket
+holds ${RATE_LIMITS.txWalletInputs.units} units per ${RATE_LIMITS.txWalletInputs.windowSeconds}s,
+and the deployment bucket holds ${RATE_LIMITS.txGlobalWalletInputs.units} units per
+${RATE_LIMITS.txGlobalWalletInputs.windowSeconds}s. Every \`429\` carries \`Retry-After\`.
+Deployments may set their own caps.
 
 See [the developer guide](https://github.com/schaier-io/epora-wallet/blob/main/docs/api/README.md).`;
 

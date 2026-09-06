@@ -328,8 +328,9 @@
   },
   "ComponentsPayeePayeeCollect": {
     "nothingIsOwedYet": "Nothing is owed to you yet. The amount grows each day the schedule runs.",
+    "theFinalBackupPersonMustApprovePaymentsAfterRecoveryOpens": "The final backup person must approve payments after recovery opens.",
     "thePayingWalletCannotPayInFull": "The paying wallet holds {held} of the {owed} owed to you, so it cannot pay in full yet.",
-    "thePayingWalletHasNoLockedFunds": "The paying wallet has no locked funds to pay from right now.",
+    "thePayingWalletCannotSelectFundPools": "The paying wallet's loaded fund pools cannot fund this payout. Ask the wallet owner to refresh the wallet or add funds.",
     "thePayoutAddressCouldNotBeRead": "The payout address on this payment could not be read, so no payout can be built.",
     "thisWalletSettledAPaymentRecently": "This wallet settled a payment recently. It shares one 30-minute cooldown across every receiver action, so collecting has to wait."
   },
@@ -362,6 +363,7 @@
     "payment": "· payment #",
     "paymentsOtherWalletsSendToYouALittle": "Payments other wallets send to you a little at a time. Collect what you are owed whenever you like. Shortening a payment stops it building up further, and never reduces what is already owed. The paying wallet’s owners can change a payment later.",
     "refresh": "Refresh",
+    "reviewTheseWarningsBeforeYouSignContinue": "Review these warnings before you sign:\n\n{warnings}\n\nContinue?",
     "runs": "· runs",
     "scheduledPaymentsToYou": "Scheduled payments to you",
     "sentTheListUpdatesAfterTheNextRefresh": "Sent. The list updates after the next refresh.",
@@ -374,7 +376,8 @@
     "thisPaymentEndsTooSoonToShortenIt": "This payment ends too soon to shorten. It will finish on its own.",
     "to": "to",
     "unableToLoadScheduledPayments": "Unable to load scheduled payments.",
-    "yourWalletIsOnCardanoMainnetEporaRuns": "Your wallet is on Cardano mainnet. Epora runs on the Preprod test network, so nothing on this page can find payments made to you. Switch your wallet to Preprod, then press Refresh."
+    "yourWalletIsOnCardanoMainnetEporaRuns": "Your wallet is on Cardano mainnet. Epora runs on the Preprod test network, so nothing on this page can find payments made to you. Switch your wallet to Preprod, then press Refresh.",
+    "theWalletHoldingThisPaymentCouldNotBe": "The wallet holding this payment could not be read again. Press Refresh and try once more."
   },
   "ComponentsProfileCard": {
     "contactValue1": "Contact {value1}",
@@ -468,7 +471,11 @@
     "value1PathValue2Value3": "{value1} path, {value2}, {value3}",
     "value1ReadyToLock": "{value1} ready to lock",
     "value1Value2": "{value1}: {value2}",
-    "value1Value2_4c86b7": "{value1}, {value2}"
+    "value1Value2_4c86b7": "{value1}, {value2}",
+    "stopBeneficiaryStreamSummary": "Stop one scheduled payment and retain its unpaid debt.",
+    "stopBeneficiaryStreamNext": "Select a payment, review its cutoff and unpaid debt, then confirm.",
+    "distributionSummary": "Distribute exact shares from one fund pool.",
+    "distributionNext": "Select one fund pool and review every payout before confirming."
   },
   "ComponentsUserLockedAssetsPanel": {
     "assets": "Assets",
@@ -491,6 +498,8 @@
     "moveItBack": "Move it back",
     "moving": "Moving…",
     "reCheck": "Re-check",
+    "recoverFunds": "Recover funds",
+    "theFinalRecoveryContactCanWithdrawThisMoneyDirectly": "As the final recovery contact, you can withdraw this money directly. You can also move it back first.",
     "thisMoneyIsYoursAndItIsSafe": "This money is yours and it is safe. It just is not earning staking rewards, and it may be missing from your balance. Moving it back fixes both.",
     "thisTakes": "This takes",
     "transactionsSignTheFirstThenChooseReCheck": "transactions. Sign the first, then choose Re-check to move the rest."
@@ -624,26 +633,14 @@
     "withdrawRequest": "Withdraw request",
     "youHaveSignedItWaitsForTheOthers": "You have signed. It waits for the others.",
     "yourSignatureWasAdded": "Your signature was added.",
-    "youWroteThisTitleAndNote": "You wrote this when you created the request."
-  },
-  "ComponentsUserProposalsProposalList": {
-    "cancelled": "Cancelled",
-    "checking": "Checking",
-    "loadMore": "Load more",
-    "message_1Person": "1 person",
-    "noApprovalRequestsYetBuildATransactionOn": "No approval requests yet. Build a transaction on the wallet page, then choose “Save as approval request”.",
-    "notChecked": "Not checked",
-    "open": "Open",
-    "outOfDate": "Out of date",
-    "outstandingPeople": "{outstanding} people",
-    "refresh": "Refresh",
-    "requests": "Requests",
-    "sending": "Sending",
-    "signed": "signed",
-    "stillToSign": "still to sign.",
-    "submitted": "Submitted",
-    "valid": "Valid",
-    "wallet": "wallet",
-    "walletId": "Wallet ID"
+    "youWroteThisTitleAndNote": "You wrote this when you created the request.",
+    "stateChanges": "Wallet State changes",
+    "stateChangesSource": "Compared field by field using the consumed State and the continuing State in this transaction. Token amounts use raw units. Times use POSIX milliseconds. Field names follow the contract.",
+    "stateChangesUnavailable": "State changes could not be fully checked. Signing is blocked.",
+    "stateUnchanged": "Every State field is unchanged.",
+    "stateBefore": "Before",
+    "stateAfter": "After",
+    "stateAbsent": "Not present",
+    "proposerSummarySource": "Proposer-provided summary. Not verified against the transaction."
   }
 }

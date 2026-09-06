@@ -1,10 +1,10 @@
 import { configAtom } from "@/components/user/workspace/atoms/workspace-config.atoms";
-import { consolidateSttAssetsAtom, consolidateSttInputHashAtom, consolidateSttInputIndexAtom, consolidateWalletInputsAtom, consolidateWalletOutputsAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
+import { beneficiaryPreparationActiveAtom, beneficiaryPreparationPoolAssetsAtom, consolidateSttAssetsAtom, consolidateSttInputHashAtom, consolidateSttInputIndexAtom, consolidateWalletInputsAtom, consolidateWalletOutputsAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
 import { lockFundsAssetsAtom } from "@/components/user/workspace/atoms/forms/lock-funds-form.atoms";
 import { mintReferenceAtom, mintStarterAssetsAtom, mintStateFormAtom } from "@/components/user/workspace/atoms/forms/mint-form.atoms";
 import { voteJsonAtom, voteSttAssetsAtom, voteSttInputHashAtom, voteSttInputIndexAtom, voteSttStateFormAtom } from "@/components/user/workspace/atoms/forms/vote-form.atoms";
 import { publishCertificateJsonAtom, publishSttAssetsAtom, publishSttInputHashAtom, publishSttInputIndexAtom, publishSttStateFormAtom } from "@/components/user/workspace/atoms/forms/publish-form.atoms";
-import { consolidateAuthorityPathAtom, streamingPaymentPayoutAmountsAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputOutputIndexAtom, sttInputTxHashAtom, sttOutputAssetsAtom, sttProofOfLifeOverrideModeAtom, sttProofOfLifeSpecificDateTimeAtom, sttStateFormAtom, sttWalletInputsAtom, sttWalletOutputsAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import { consolidateAuthorityPathAtom, beneficiaryStreamStopIdAtom, streamingPaymentPayoutAmountsAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputOutputIndexAtom, sttInputTxHashAtom, sttOutputAssetsAtom, sttProofOfLifeOverrideModeAtom, sttProofOfLifeSpecificDateTimeAtom, sttStateFormAtom, sttWalletInputsAtom, sttWalletOutputsAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { withdrawAmountAtom, withdrawSttAssetsAtom, withdrawSttInputHashAtom, withdrawSttInputIndexAtom, withdrawSttStateFormAtom } from "@/components/user/workspace/atoms/forms/withdraw-form.atoms";
 import { effectiveWithdrawRewardAddressAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import type { WorkspaceTransactionsCtx } from "@/components/user/workspace/workspace-transactions-types";
@@ -22,6 +22,8 @@ export function resolveWorkspaceTransactionInputs(
     consolidateSttInputHash: jotaiStore.get(consolidateSttInputHashAtom),
     consolidateSttInputIndex: jotaiStore.get(consolidateSttInputIndexAtom),
     consolidateWalletInputs: jotaiStore.get(consolidateWalletInputsAtom),
+    beneficiaryPreparationActive: jotaiStore.get(beneficiaryPreparationActiveAtom),
+    beneficiaryPreparationPoolAssets: jotaiStore.get(beneficiaryPreparationPoolAssetsAtom),
     consolidateWalletOutputs: jotaiStore.get(consolidateWalletOutputsAtom),
     lockFundsAssets: jotaiStore.get(lockFundsAssetsAtom),
     mintReference: jotaiStore.get(mintReferenceAtom),
@@ -37,6 +39,7 @@ export function resolveWorkspaceTransactionInputs(
     publishSttInputHash: jotaiStore.get(publishSttInputHashAtom),
     publishSttInputIndex: jotaiStore.get(publishSttInputIndexAtom),
     publishSttStateForm: jotaiStore.get(publishSttStateFormAtom),
+    beneficiaryStreamStopId: jotaiStore.get(beneficiaryStreamStopIdAtom),
     streamingPaymentPayoutAmounts: jotaiStore.get(streamingPaymentPayoutAmountsAtom),
     sttAuthorityPath: jotaiStore.get(sttAuthorityPathAtom),
     sttExtraTransfers: jotaiStore.get(sttExtraTransfersAtom),

@@ -32,13 +32,17 @@ describe("readTxRateLimits", () => {
         TX_RATE_LIMIT_REQUESTS: "3",
         TX_RATE_LIMIT_WINDOW_MS: "30000",
         TX_RATE_LIMIT_GLOBAL_REQUESTS: "12",
-        TX_RATE_LIMIT_GLOBAL_WINDOW_MS: "90000"
+        TX_RATE_LIMIT_GLOBAL_WINDOW_MS: "90000",
+        TX_RATE_LIMIT_WALLET_INPUTS: "40",
+        TX_RATE_LIMIT_GLOBAL_WALLET_INPUTS: "120"
       }),
       {
         perClientRequests: 3,
         perClientWindowMs: 30_000,
         globalRequests: 12,
-        globalWindowMs: 90_000
+        globalWindowMs: 90_000,
+        perClientWalletInputs: 40,
+        globalWalletInputs: 120
       }
     );
   });
@@ -60,6 +64,11 @@ describe("readTxRateLimits", () => {
     assert.ok(
       TX_RATE_LIMIT_DEFAULTS.perClientRequests < TX_RATE_LIMIT_DEFAULTS.globalRequests,
       "per-client default must be below the deployment default"
+    );
+    assert.ok(
+      TX_RATE_LIMIT_DEFAULTS.perClientWalletInputs <
+        TX_RATE_LIMIT_DEFAULTS.globalWalletInputs,
+      "per-client wallet-input default must be below the deployment default"
     );
   });
 });

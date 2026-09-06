@@ -1,5 +1,6 @@
 "use client";
 
+import { beneficiaryPreparationActiveAtom } from "./forms/consolidate-form.atoms";
 import { atom } from "jotai";
 import type { AuthorityPath, OperatorAuthorityPath } from "@/lib/types/contracts";
 import {
@@ -87,7 +88,7 @@ export const suggestedSttAuthorityPathAtom = atom<AuthorityPath>((get) => {
 
 export const canProposeSelectedActionAtom = atom((get) => {
   const action = get(selectedActionAtom);
-  if (!isSttFlowAction(action)) {
+  if ((action === "consolidate-utxo" && get(beneficiaryPreparationActiveAtom)) || action === "stop-beneficiary-stream" || action === "distribute-beneficiaries" || !isSttFlowAction(action)) {
     return false;
   }
   const path = get(sttAuthorityPathAtom);
@@ -114,9 +115,13 @@ export const canProposeSelectedActionAtom = atom((get) => {
   return true;
 });
 
-export const selectedSigningActionAvailabilityAtom = atom((get) =>
-  resolveSigningActionAvailability(
-    get(selectedActionAtom),
-    get(selectedTokenCapabilityMapAtom)
-  )
-);
+export const selectedSigningActionAvailabilityAtom = atom((get) => {
+  const action = get(selectedActionAtom);
+  const capabilities = get(selectedTokenCapabilityMapAtom);
+  if (action === "consolidate-utxo" && get(beneficiaryPreparationActiveAtom)) return {
+    canDirectSign: Boolean(capabilities?.hasBeneficiaryMatch),
+    directAuthorityPath: "beneficiary" as const,
+    canSaveApprovalRequest: false
+  };
+  return resolveSigningActionAvailability(action, capabilities);
+});

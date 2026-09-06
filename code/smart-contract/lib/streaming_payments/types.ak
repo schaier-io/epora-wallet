@@ -9,6 +9,7 @@ use aiken/crypto.{Blake2b_256, Hash}
 use cardano/address.{Address}
 use cardano/transaction.{InlineDatum, Output, OutputReference, Transaction}
 use collections
+use numeric_bounds
 use time/types.{POSIXTime}
 
 /// One scheduled payment stream: `amount_per_day` of (`policy_id`, `asset_name`)
@@ -25,12 +26,10 @@ pub type StreamingPayment {
   end_date: POSIXTime,
 }
 
-/// True when every streaming-payment id occurs at most once in the list. THE
-/// single id-uniqueness gate for streaming payments (the quantifier itself is
-/// `collections.all_unique`): all by-id matching (`find_by_id`) is unambiguous
-/// only under it, so every path that accepts or rewrites the list must hold it
-/// (`shape.is_valid` at mint/add, `payout.payout_is_valid` on settlement
-/// rewrites).
+/// True when every streaming-payment id occurs at most once in the list.
+/// `shape.is_valid` establishes uniqueness at mint and addition. Settlement's
+/// ordered subsequence in `payout.validated_value_change` preserves it.
+/// Matching by id requires this invariant.
 pub fn ids_are_unique(streaming_payments: List<StreamingPayment>) -> Bool {
   let streaming_payment_ids = list.map(
     streaming_payments,
@@ -74,13 +73,12 @@ pub fn core_fields_match(
   input: StreamingPayment,
   output: StreamingPayment,
 ) -> Bool {
-  and {
-    (output.payout_address == input.payout_address)?,
-    (output.policy_id == input.policy_id)?,
-    (output.asset_name == input.asset_name)?,
-    (output.amount_per_day == input.amount_per_day)?,
-    (output.start_date == input.start_date)?,
-  }
+  (StreamingPayment {
+    ..input,
+    id: output.id,
+    paid_out_amount: output.paid_out_amount,
+    end_date: output.end_date,
+  } == output)?
 }
 
 /// Read an output's payout tag, if it carries one: `Some(OutputId)` when the
@@ -92,7 +90,15 @@ pub fn output_payout_tag(output: Output) -> Option<OutputId> {
   when output.datum is {
     InlineDatum(datum) ->
       if datum is tag: OutputId {
-        Some(tag)
+        if numeric_bounds.is_non_negative_bounded(tag.id) {
+          if numeric_bounds.is_non_negative_bounded(tag.output_index) {
+            Some(tag)
+          } else {
+            None
+          }
+        } else {
+          None
+        }
       } else {
         None
       }
