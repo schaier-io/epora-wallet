@@ -417,6 +417,7 @@ export function deriveAllowanceWithdrawalStateDatum(input: {
   const nextProofOfLifeUnlockTime = nextProofOfLifeUnlockTimeForUser(
     parsedState,
     matchedUser,
+    input.txEarliestTimeMs,
     input.txLatestTimeMs
   );
   nextProofOfLifeFields[0] =
@@ -460,9 +461,25 @@ export function deriveAllowanceWithdrawalStateDatum(input: {
   };
 }
 
+/**
+ * The renewed proof-of-life stamp an allowance withdrawal should forward.
+ *
+ * `lib/state/proof_of_life.ak :: expect_valid_renewal_window` accepts a moved
+ * `unlock_time` only inside `[tx_latest, tx_earliest + increment]`. Anchoring
+ * the stamp to the tx's LATEST time (as this used to do) overshoots the upper
+ * bound by the validity window's own width, so every renewing allowance spend
+ * was rejected on-chain. The largest legal stamp is `tx_earliest + increment`,
+ * so that is what we renew to. When the increment is shorter than the validity
+ * window no legal renewal exists at all, and the stamp is left unchanged (an
+ * unchanged `unlock_time` passes the renewal check trivially).
+ *
+ * `state-form.ts :: applyProofOfLifeOverrideToStateForm` carries the same rule
+ * for the operator-action path.
+ */
 function nextProofOfLifeUnlockTimeForUser(
   parsedState: ParsedState,
   matchedUser: ParsedUser,
+  txEarliestTimeMs: number,
   txLatestTimeMs: number
 ) {
   if (!matchedUser.canRenewProofOfLife || matchedUser.isAdmin) {
@@ -473,10 +490,14 @@ function nextProofOfLifeUnlockTimeForUser(
     return parsedState.proofOfLifeUnlockTime;
   }
 
-  const renewedUnlockTime = txLatestTimeMs + parsedState.proofOfLifeIncrement;
-  if (parsedState.proofOfLifeUnlockTime !== null && parsedState.proofOfLifeUnlockTime > renewedUnlockTime) {
+  const maxLegalRenewal = txEarliestTimeMs + parsedState.proofOfLifeIncrement;
+  if (maxLegalRenewal < txLatestTimeMs) {
     return parsedState.proofOfLifeUnlockTime;
   }
 
-  return renewedUnlockTime;
+  if (parsedState.proofOfLifeUnlockTime !== null && parsedState.proofOfLifeUnlockTime > maxLegalRenewal) {
+    return parsedState.proofOfLifeUnlockTime;
+  }
+
+  return maxLegalRenewal;
 }
