@@ -24,6 +24,17 @@ const BANNED = [
 const SCAN_DIRS = ["lib", "validators", "offchain", "scripts"];
 const SCAN_FILES = ["README.md", "INTERACTIONS.md", "SECURITY.md"];
 const SCAN_EXT = new Set([".ak", ".mjs", ".md"]);
+const FILE_REFERENCE = /^(?:[\w@.-]+\/|\/)*[\w@.-]+\.(?:ak|[cm]?[jt]sx?|md|json|tex|pdf)(?::\d+(?::\d+)?)?(?:#[\w.-]+)?$/;
+
+function withoutMarkdownFileReferences(line) {
+  // Keep prose labels and inline identifiers subject to the vocabulary rules.
+  return line
+    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (match, label, target) => {
+      if (!FILE_REFERENCE.test(target)) return match;
+      return FILE_REFERENCE.test(label) ? "" : label;
+    })
+    .replace(/`([^`]+)`/g, (match, text) => FILE_REFERENCE.test(text) ? "" : match);
+}
 
 function* walk(dir) {
   for (const entry of readdirSync(dir)) {
@@ -44,8 +55,9 @@ for (const file of targets) {
   if (file.endsWith("check-vocabulary.mjs")) continue;
   const lines = readFileSync(file, "utf8").split("\n");
   lines.forEach((line, i) => {
+    const text = file.endsWith(".md") ? withoutMarkdownFileReferences(line) : line;
     for (const [pattern, canonical] of BANNED) {
-      if (pattern.test(line)) {
+      if (pattern.test(text)) {
         hits++;
         console.error(
           `${relative(projectRoot, file)}:${i + 1}: banned term ${pattern} (use "${canonical}")`,
