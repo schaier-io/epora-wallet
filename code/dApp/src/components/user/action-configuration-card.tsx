@@ -42,6 +42,7 @@ const ACTION_SILK_SECTION: Partial<Record<UserActionKind, CardSilkSection>> = {
   "lock-funds": "receive",
   "use-allowance": "send",
   "use-beneficiary": "send",
+  "exit-beneficiary": "send",
   "payout-streaming-payment": "streamingPayments",
   "manage-streaming-payments": "streamingPayments",
   "update-state": "settings",
@@ -78,7 +79,7 @@ function supportsDetectedTokenReset(action: UserActionKind) {
     action === "update-state" ||
     action === "manage-streaming-payments" ||
     action === "use-allowance" ||
-    action === "use-beneficiary" ||
+    (action === "use-beneficiary" || action === "exit-beneficiary") ||
     action === "payout-streaming-payment" ||
     action === "consolidate-utxo" ||
     action === "wallet-withdraw" ||

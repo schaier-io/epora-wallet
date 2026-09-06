@@ -281,7 +281,7 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
       return;
     }
     const refs = orphanUtxosToWalletInputRefs(orphans);
-    openWorkspaceIntent("send", "use-beneficiary");
+    openWorkspaceIntent("send", "exit-beneficiary");
     jotaiStore.set(lockedContractUtxosAtom, (loaded) =>
       mergeDiscoveredWalletUtxos(loaded, orphans)
     );

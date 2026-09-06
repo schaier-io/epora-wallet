@@ -20,6 +20,7 @@ export type StructuredSttAction =
   | "manage-streaming-payments"
   | "use-allowance"
   | "use-beneficiary"
+  | "exit-beneficiary"
   | "payout-streaming-payment"
   | "consolidate-utxo"
   | "cancel-streaming-payment";
@@ -46,6 +47,10 @@ export type OnChainStructuredAction =
     }
   | {
       kind: "beneficiary-withdrawal";
+      beneficiaryId?: OnChainInteger;
+    }
+  | {
+      kind: "beneficiary-exit";
       beneficiaryId?: OnChainInteger;
     }
   | {
@@ -180,6 +185,7 @@ function buildStakeCredentialOptionData(
 //   alt 4 PayStreamingPayment(AssetEntries)          // payout_delta triples
 //   alt 5 Consolidate(ConsolidatePath)
 //   alt 6 CancelStreamingPayment(Int)                // streaming-payment id
+//   alt 7 ExitBeneficiary(Int)                         // permanent beneficiary exit
 function buildSttActionData(
   action: "mint" | OnChainStructuredAction
 ): ConstrData {
@@ -221,6 +227,14 @@ function buildSttActionData(
       return {
         alternative: 3,
         fields: [normalizeStateInteger(action.beneficiaryId, "UseBeneficiary beneficiary id")]
+      };
+    case "beneficiary-exit":
+      if (action.beneficiaryId === undefined) {
+        throw new Error("ExitBeneficiary requires a beneficiary id before redeemer encoding.");
+      }
+      return {
+        alternative: 7,
+        fields: [normalizeStateInteger(action.beneficiaryId, "ExitBeneficiary beneficiary id")]
       };
     case "streaming-payment-payout":
       if (action.payoutDelta === undefined) {
@@ -378,6 +392,10 @@ export function resolveStructuredOnChainAction(
 
   if (action === "use-allowance") {
     return { kind: "allowance-withdrawal" };
+  }
+
+  if (action === "exit-beneficiary") {
+    return { kind: "beneficiary-exit" };
   }
 
   if (action === "use-beneficiary") {

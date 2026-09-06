@@ -46,6 +46,22 @@ function transfer(address: string, lovelace: string) {
   };
 }
 
+test("permanent exit review states the loss of recovery rights", () => {
+  const ctx = { ...sendCtx([transfer(ADDRESS_ONE, "5000000")]), selectedAction: "exit-beneficiary" as const };
+  const receipt = computeReviewReceipt(ctx);
+  assert.equal(receipt.title, "Permanent withdrawal");
+  const access = receipt.items.find((item) => item.label === "Recovery access");
+  assert.equal(access?.tone, "warning");
+  assert.equal(access?.value, "Permanently removed");
+  assert.match(access?.detail ?? "", /unused share.*future deposits/);
+});
+
+test("legacy beneficiary review is not labeled as an unconditional permanent exit", () => {
+  const ctx = { ...sendCtx([transfer(ADDRESS_ONE, "5000000")]), selectedAction: "use-beneficiary" as const };
+  const receipt = computeReviewReceipt(ctx);
+  assert.equal(receipt.items.some((item) => item.label === "Recovery access"), false);
+});
+
 /**
  * The send receipt used to say `1 recipient`, a count the user could not check. The
  * destination is the one field on this screen that address-swapping malware targets, so the

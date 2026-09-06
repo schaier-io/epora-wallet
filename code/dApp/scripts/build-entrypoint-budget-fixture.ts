@@ -29,6 +29,7 @@ import { buildConsolidateUtxosTx } from "@/lib/mesh/transactions/consolidate-utx
 import { buildStreamingPaymentPayoutTransfer } from "@/lib/user-flow/guided-helpers";
 import {
   deserializeTx,
+  type CstKeyHash,
   type CstTransactionInput,
   type CstTransactionOutput
 } from "@/lib/mesh/cst";
@@ -54,7 +55,7 @@ const CONSOLIDATION_FUNDING_TX_HASH = "cc".repeat(32);
 const CONSOLIDATION_COLLATERAL_TX_HASH = "dd".repeat(32);
 const STT_ASSET_NAME = "deadbeef";
 // Keep this fixture near the transaction-size limit as compiled scripts shrink.
-const WIDE_VALUE_NATIVE_ASSET_COUNT = 450;
+const WIDE_VALUE_NATIVE_ASSET_COUNT = 400;
 const POLICY_DEEP_NATIVE_ASSET_COUNT = 151;
 const SHORT_ASSETS_PER_POLICY = 257;
 
@@ -319,6 +320,13 @@ async function buildPartialPayoutFixture(outputDirectory: string) {
   );
 
   const transaction = deserializeTx(result.txHex);
+  // Funding, collateral, and the crank share one key. The size gate reserves
+  // one serialized vkey witness, so reject a change to that signing shape.
+  assertExactJson(
+    collectionValues<CstKeyHash>(transaction.body().requiredSigners()).map((keyHash) => keyHash.value()),
+    [crankSignerKeyHash],
+    "The partial payout fixture must require only its crank key."
+  );
   const transactionInputs = collectionValues<CstTransactionInput>(
     transaction.body().inputs()
   );

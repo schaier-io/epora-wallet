@@ -107,6 +107,7 @@ export function computeActionSignature(action: UserActionKind, ctx: BuildActionS
       case "manage-streaming-payments":
       case "use-allowance":
       case "use-beneficiary":
+    case "exit-beneficiary":
       case "payout-streaming-payment":
         return safeStringify({
           config,

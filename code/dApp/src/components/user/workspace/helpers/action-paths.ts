@@ -49,7 +49,7 @@ export function isSttFlowAction(value: UserActionKind): value is SttSpendActionM
     value === "update-state" ||
     value === "manage-streaming-payments" ||
     value === "use-allowance" ||
-    value === "use-beneficiary" ||
+    (value === "use-beneficiary" || value === "exit-beneficiary") ||
     value === "payout-streaming-payment" ||
     value === "consolidate-utxo"
   );
@@ -97,7 +97,7 @@ export function getSttAuthorityOptions(
     ];
   }
 
-  if (action === "use-beneficiary") {
+  if ((action === "use-beneficiary" || action === "exit-beneficiary")) {
     return [{ value: "beneficiary", label: i18n("recoveryContact") }];
   }
 

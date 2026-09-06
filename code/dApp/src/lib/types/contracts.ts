@@ -81,6 +81,7 @@ export type ActionKind =
   | "manage-streaming-payments"
   | "use-allowance"
   | "use-beneficiary"
+  | "exit-beneficiary"
   | "payout-streaming-payment"
   | "consolidate-utxo"
   | "lock-funds"
@@ -145,7 +146,7 @@ export type MintFormInput = {
 export type SttSpendFormInput = {
   sttInputTxHash: string;
   sttInputOutputIndex?: number;
-  // Optional because "use-allowance", "use-beneficiary",
+  // Optional because "use-allowance", "use-beneficiary", "exit-beneficiary",
   // "cancel-streaming-payment" and "remove-access-index" derive the forwarded
   // State from the consumed one.
   // The builder requires both for every other action.

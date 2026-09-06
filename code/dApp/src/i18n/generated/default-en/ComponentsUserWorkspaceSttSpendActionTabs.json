@@ -88,5 +88,11 @@
   "useBeneficiaryStateHelper": "Recovery contacts can step in after the proof of life expires.",
   "useBeneficiaryTabHint": "Recovery spend",
   "useBeneficiaryTransfersHelper": "Recipients of this recovery spend.",
-  "walletFunds": "Wallet funds"
+  "walletFunds": "Wallet funds",
+  "permanentExitLabel": "Withdraw and leave recovery",
+  "permanentExitHint": "Permanent withdrawal",
+  "permanentExitDescription": "Withdraw your share and permanently remove your recovery access.",
+  "permanentExitStateHelper": "This transaction removes you as a recovery contact, including when you are the final contact.",
+  "permanentExitBuild": "Preview permanent withdrawal",
+  "permanentExitOutputAssetsHelper": "Withdrawn assets count toward your weighted share. Unwithdrawn assets remain in the wallet."
 }

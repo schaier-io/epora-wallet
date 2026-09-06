@@ -153,7 +153,7 @@ export function buildAvailableWizardActions(
 
   if (capabilityMap.hasBeneficiaryMatch) {
     actions.push({
-      kind: "use-beneficiary",
+      kind: "exit-beneficiary",
       pathLabels: [i18n("recoveryContact")],
       note: i18n("useRecoveryContactAccess")
     });
@@ -191,6 +191,10 @@ export function buildAdvancedWizardActions(
     capabilityMap.hasLockedUtxos
   ) {
     actions.push("consolidate-utxo");
+  }
+
+  if (capabilityMap.hasBeneficiaryMatch) {
+    actions.push("use-beneficiary");
   }
 
   if (capabilityMap.hasDirectProofOfLifeRenewalMatch) {

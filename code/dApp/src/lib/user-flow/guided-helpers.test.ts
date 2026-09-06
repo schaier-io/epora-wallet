@@ -4,6 +4,7 @@ import type { UTxO } from "@meshsdk/core";
 import type { StreamingPaymentFormState } from "@/lib/contracts/state-form";
 import type { Asset } from "@/lib/types/contracts";
 import {
+  resolveAutomaticSendPath,
   computeStreamingPaymentDueAmount,
   computeStreamingPaymentLifetimeAmount,
   computeStreamingPaymentRemainingObligation,
@@ -413,4 +414,15 @@ test("suggestLockedInputsForSpend keeps valid aggregate requirements above uint6
       { txHash: "bb", outputIndex: 0 }
     ]
   );
+});
+
+
+test("guided beneficiary sending defaults to permanent exit", () => {
+  assert.equal(resolveAutomaticSendPath({
+    hasAdminPath: false, hasDirectAdminSigner: false, hasMultisigPath: false,
+    hasDirectUserMatch: false, hasDirectProofOfLifeRenewalMatch: false,
+    hasBeneficiaryMatch: true, hasStreamingPayments: false,
+    hasLockedUtxos: true, lockedUtxosLoading: false,
+    availableOperatorPaths: [], availableConsolidatePaths: ["beneficiary"]
+  }), "exit-beneficiary");
 });

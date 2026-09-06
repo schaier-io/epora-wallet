@@ -57,7 +57,7 @@ export function SttSpendEditorsView() {
   const isRecipientFirstGuidedAction =
     selectedAction === "use" ||
     selectedAction === "use-allowance" ||
-    selectedAction === "use-beneficiary";
+    (selectedAction === "use-beneficiary" || selectedAction === "exit-beneficiary");
   const isGuidedStreamingPaymentAction = selectedAction === "payout-streaming-payment";
   const usesGuidedLockedInputSelector =
     isRecipientFirstGuidedAction || isGuidedStreamingPaymentAction;

@@ -148,7 +148,10 @@
     "walletSpend": "Spend funds from the selected smart-wallet fund pools."
   },
   "LibMeshTransactionsSttSpend": {
-    "adaPayoutTopUp": "ADA payout top-up: {payoutTopUpAda} ADA extra goes to {payoutAddress}. Final output: {finalOutputAda} ADA. Scheduled settlement: {settlementAda} ADA. Review before signing."
+    "adaPayoutTopUp": "ADA payout top-up: {payoutTopUpAda} ADA extra goes to {payoutAddress}. Final output: {finalOutputAda} ADA. Scheduled settlement: {settlementAda} ADA. Review before signing.",
+    "beneficiaryExitExternalFees": "The connected wallet funds the transaction fee externally.",
+    "beneficiaryExitPartialExternalFees": "At least {amount} ADA of the transaction fee comes from external funds.",
+    "beneficiaryExitFeeSourceUnknown": "The fee source could not be established. Review the funding before signing."
   },
   "LibProductFaq": {
     "costAnswer": "Epora itself is free. There is no service fee, no subscription and no token to buy. You pay only the ordinary Cardano network fee for each transaction you sign. That fee goes to the network, not to us. On Preprod you pay it in test ADA, so it costs nothing real.",
@@ -356,7 +359,15 @@
     "withdrawRouteExplanation": "This collects staking rewards for this wallet.",
     "withdrawStartingPoint": "Open the wallet, then enter the staking address and reward amount.",
     "withdrawWhenToUse": "Use this when this wallet should claim available staking rewards.",
-    "walletSettings": "Wallet settings"
+    "walletSettings": "Wallet settings",
+    "permanentExitRouteExplanation": "Withdraw through your recovery access and then give up that access.",
+    "permanentExitLabel": "Withdraw and leave recovery",
+    "permanentExitShortLabel": "Permanent withdrawal",
+    "permanentExitDescription": "Withdraw your share and permanently remove your recovery access.",
+    "permanentExitOutcome": "Your recovery access ends after this withdrawal.",
+    "permanentExitWhenToUse": "Use this when you are ready to give up rights to remaining funds and future deposits.",
+    "permanentExitWhatChanges": "The transaction removes your recovery contact entry, including when you are the final contact.",
+    "permanentExitStartingPoint": "Choose the funds and payout amounts before reviewing the permanent exit."
   },
   "LibUserFlowGuidedHelpers": {
     "allowance": "Allowance",
@@ -443,5 +454,22 @@
     "walletDidNotRespond": "{walletName} did not respond. Approve the connection in its popup, then try again.",
     "walletNotAvailable": "{walletName} is not available in this tab. Enable the extension for this site, then refresh the wallet list.",
     "walletReturnedNoAddress": "{walletName} connected but returned no payment address. Open an account in the wallet, then try again."
+  },
+  "ComponentsUserWorkspaceWorkspaceTransactions": {
+    "connectWalletFirst": "Connect wallet first.",
+    "demoWalletCannotConfirmActionsConnectABrowser": "Demo wallet cannot confirm actions. Connect a browser wallet to continue.",
+    "finishTheSetupChecklistBeforeContinuing": "Finish the setup checklist before continuing.",
+    "fixTheHighlightedFieldsBeforeContinuing": "Fix the highlighted fields before continuing.",
+    "reviewTheseWarningsBeforeYouSignContinue": "Review these warnings before you sign:\n\n{warnings}\n\nContinue?",
+    "theSelectedActionIsNotWiredToA_ee5fb7": "The selected action is not wired to a builder yet.",
+    "theTransactionCouldNotBePreparedTryAgain": "The transaction could not be prepared. Try again.",
+    "theTransactionDetailsAreStaleContinueAgainTo_34b074": "The transaction details are stale. Continue again to refresh them.",
+    "thisActionWasAlreadyCompletedChangeSomethingBefore": "This action was already completed. Change something before trying again.",
+    "value1Value2": "{value1}{value2}",
+    "exitDiscoveryAddressRequired": "Load the wallet address before reviewing a permanent withdrawal.",
+    "exitRightsWarning": "This withdrawal permanently removes your recovery access. You give up rights to remaining funds and future deposits.",
+    "exitUnusedShareWarning": "Any part of your share that you leave unwithdrawn is forfeited when you exit.",
+    "exitOmittedFundsWarning": "This transaction omits {count} discovered wallet UTxOs. You cannot return through this recovery entry to claim them.",
+    "exitAllDiscoveredSelectedWarning": "All discovered UTxOs are selected. Discovery cannot prove that no other funds or future deposits exist."
   }
 }

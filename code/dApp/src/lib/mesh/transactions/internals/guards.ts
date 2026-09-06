@@ -1,3 +1,4 @@
+import { readStateSections } from "@/lib/contracts/state-layout";
 import { createStageError } from "./errors";
 import { type OnChainStructuredAction } from "@/lib/contracts/action-data";
 import {
@@ -210,12 +211,16 @@ export function assertStateDatumShape(stateDatum: ConstrData, label: string) {
 
 export function validateForwardedStateDatum(
   stateDatum: ConstrData,
-  _action: OnChainStructuredAction,
+  action: OnChainStructuredAction,
   stage: string,
   invalidMessage: string
 ): string[] {
   const unwrappedStateDatum = unwrapStateDatum(stateDatum, "Forwarded STT datum");
-  const stateValidationErrors = validateCurrentStateDatum(unwrappedStateDatum);
+  const sections = readStateSections(unwrappedStateDatum, "Forwarded STT datum");
+  const stateValidationErrors = validateCurrentStateDatum(unwrappedStateDatum, {
+    allowNoReachableAccessPath: action.kind === "beneficiary-exit" &&
+      sections.beneficiaries.length === 0 && sections.streamingPayments.length === 0
+  });
   if (stateValidationErrors.length > 0) {
     throw createStageError(
       stage,

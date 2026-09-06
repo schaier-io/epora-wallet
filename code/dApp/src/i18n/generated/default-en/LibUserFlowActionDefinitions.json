@@ -137,5 +137,13 @@
   "withdrawRouteExplanation": "This collects staking rewards for this wallet.",
   "withdrawStartingPoint": "Open the wallet, then enter the staking address and reward amount.",
   "withdrawWhenToUse": "Use this when this wallet should claim available staking rewards.",
-  "walletSettings": "Wallet settings"
+  "walletSettings": "Wallet settings",
+  "permanentExitRouteExplanation": "Withdraw through your recovery access and then give up that access.",
+  "permanentExitLabel": "Withdraw and leave recovery",
+  "permanentExitShortLabel": "Permanent withdrawal",
+  "permanentExitDescription": "Withdraw your share and permanently remove your recovery access.",
+  "permanentExitOutcome": "Your recovery access ends after this withdrawal.",
+  "permanentExitWhenToUse": "Use this when you are ready to give up rights to remaining funds and future deposits.",
+  "permanentExitWhatChanges": "The transaction removes your recovery contact entry, including when you are the final contact.",
+  "permanentExitStartingPoint": "Choose the funds and payout amounts before reviewing the permanent exit."
 }

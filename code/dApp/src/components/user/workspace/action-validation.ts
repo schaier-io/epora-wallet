@@ -208,6 +208,7 @@ export function computeActionFieldErrors(
       updateErrors,
       manageStreamingPaymentsErrors,
       limitedErrors,
+      exitErrors,
       useAllowanceErrors,
       streamingPaymentErrors
     } = computeSpendActionErrors(input, {
@@ -447,6 +448,7 @@ export function computeActionFieldErrors(
       "manage-streaming-payments": manageStreamingPaymentsErrors,
       "use-allowance": useAllowanceErrors,
       "use-beneficiary": limitedErrors,
+      "exit-beneficiary": exitErrors,
       "payout-streaming-payment": streamingPaymentErrors,
       "consolidate-utxo": consolidateErrors,
       "lock-funds": lockFundsErrors,
