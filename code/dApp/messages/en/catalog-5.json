@@ -152,7 +152,9 @@
     "adaPayoutTopUp": "ADA payout top-up: {payoutTopUpAda} ADA extra goes to {payoutAddress}. Final output: {finalOutputAda} ADA. Scheduled settlement: {settlementAda} ADA. Review before signing.",
     "beneficiaryExitExternalFees": "The connected wallet funds the transaction fee externally.",
     "beneficiaryExitPartialExternalFees": "At least {amount} ADA of the transaction fee comes from external funds.",
-    "beneficiaryExitFeeSourceUnknown": "The fee source could not be established. Review the funding before signing."
+    "beneficiaryExitFeeSourceUnknown": "The fee source could not be established. Review the funding before signing.",
+    "beneficiaryStreamStopDetails": "Stream {id}: end changes from {oldEnd} to {cutoff}. Already paid: {paid} {unit}. Retained debt through cutoff: {debt} {unit}. Settle this debt separately. The connected wallet funds fees.",
+    "beneficiaryStreamStopRawTimestamp": "{milliseconds} ms (Unix)"
   },
   "LibProductFaq": {
     "costAnswer": "Epora itself is free. There is no service fee, no subscription and no token to buy. You pay only the ordinary Cardano network fee for each transaction you sign. That fee goes to the network, not to us. On Preprod you pay it in test ADA, so it costs nothing real.",
@@ -368,7 +370,15 @@
     "permanentExitOutcome": "Your recovery access ends after this withdrawal.",
     "permanentExitWhenToUse": "Use this when you are ready to give up rights to remaining funds and future deposits.",
     "permanentExitWhatChanges": "The transaction removes your recovery contact entry, including when you are the final contact.",
-    "permanentExitStartingPoint": "Choose the funds and payout amounts before reviewing the permanent exit."
+    "permanentExitStartingPoint": "Choose the funds and payout amounts before reviewing the permanent exit.",
+    "beneficiaryStopRouteExplanation": "Use an unlocked recovery contact to stop one scheduled payment. Earned funds remain owed.",
+    "beneficiaryStopLabel": "Stop a scheduled payment",
+    "beneficiaryStopShortLabel": "Stop payment",
+    "beneficiaryStopDescription": "Stop future accrual for one scheduled payment as an unlocked recovery contact.",
+    "beneficiaryStopOutcome": "The payment stops at the reviewed cutoff. Its unpaid debt remains.",
+    "beneficiaryStopWhenToUse": "Before settling scheduled payments during recovery.",
+    "beneficiaryStopWhatChanges": "Only one payment end date and the shared cooldown change. No funds are paid out.",
+    "beneficiaryStopStartingPoint": "Select a scheduled payment, preview its cutoff and debt, then confirm."
   },
   "LibUserFlowGuidedHelpers": {
     "allowance": "Allowance",
@@ -472,5 +482,27 @@
     "exitUnusedShareWarning": "Any part of your share that you leave unwithdrawn is forfeited when you exit.",
     "exitOmittedFundsWarning": "This transaction omits {count} discovered wallet UTxOs. You cannot return through this recovery entry to claim them.",
     "exitAllDiscoveredSelectedWarning": "All discovered UTxOs are selected. Discovery cannot prove that no other funds or future deposits exist."
+  },
+  "ComponentsUserWorkspaceBeneficiaryStreamStopView": {
+    "title": "Stop scheduled payments",
+    "description": "An unlocked recovery contact can stop one payment at a time. Earned funds remain owed. Preview the exact cutoff before confirming.",
+    "payment": "Scheduled payment {id}",
+    "currentEnd": "Current end: {date}",
+    "estimatedCutoff": "Estimated stop time: {date}",
+    "debt": "Estimated amount owed after stopping: {amount} {asset}",
+    "selected": "Selected for stopping",
+    "select": "Select payment to stop",
+    "settle": "Settle scheduled payments",
+    "active": "Accruing",
+    "upcoming": "Not started",
+    "ended": "Ended",
+    "finished": "Fully settled",
+    "refreshTime": "Check availability again"
+  },
+  "ComponentsUserWorkspaceBeneficiaryStreamStopModel": {
+    "connect": "Connect an unlocked recovery contact wallet.",
+    "select": "Select a scheduled payment to stop.",
+    "clock": "Reading the current time.",
+    "unavailable": "Cannot stop this scheduled payment."
   }
 }

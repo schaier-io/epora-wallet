@@ -2,6 +2,7 @@ import { createStore } from "jotai";
 import { beforeEach, expect, it, vi } from "vitest";
 import { lockFundsAssetsAtom } from "@/components/user/workspace/atoms/forms/lock-funds-form.atoms";
 import {
+  beneficiaryStreamStopIdAtom,
   streamingPaymentPayoutAmountsAtom,
   sttStateFormAtom
 } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
@@ -107,4 +108,22 @@ it("compares a draft that contains an exact bigint State field", async () => {
 
   expect(mocks.signAndSubmitTx).toHaveBeenCalledWith({}, "84a1");
   expect(setBuildError).not.toHaveBeenCalledWith(expect.stringMatching(/stale/i));
+});
+
+it("a stop target edit during build cannot lead to signing", async () => {
+  const store = createStore();
+  const { ctx, setBuildError } = contextFor(store, () => store.set(beneficiaryStreamStopIdAtom, "8"));
+  ctx.selectedAction = "stop-beneficiary-stream";
+  ctx.effectiveSttAction = "stop-beneficiary-stream";
+  await createWorkspaceTransactions(ctx).buildAndSubmitSelectedActionTx();
+  expect(mocks.signAndSubmitTx).not.toHaveBeenCalled();
+  expect(setBuildError).toHaveBeenCalledWith(expect.stringMatching(/stale/i));
+});
+
+it("a stop build always returns for explicit confirmation before signing", async () => {
+  const { ctx } = contextFor(createStore(), null);
+  ctx.selectedAction = "stop-beneficiary-stream";
+  ctx.effectiveSttAction = "stop-beneficiary-stream";
+  await createWorkspaceTransactions(ctx).buildAndSubmitSelectedActionTx();
+  expect(mocks.signAndSubmitTx).not.toHaveBeenCalled();
 });

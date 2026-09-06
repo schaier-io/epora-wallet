@@ -94,6 +94,10 @@ export function resolveSigningActionAvailability(
   action: UserActionKind,
   capabilityMap: TokenCapabilityMap | null
 ): SigningActionAvailability {
+  if (action === "stop-beneficiary-stream") {
+    return { canDirectSign: capabilityMap?.hasBeneficiaryMatch ?? true,
+      directAuthorityPath: "beneficiary", canSaveApprovalRequest: false };
+  }
   if (!capabilityMap) {
     return {
       canDirectSign: true,

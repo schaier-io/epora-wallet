@@ -14,9 +14,9 @@ import {
   WalletScriptOutputSchema
 } from "./tx-primitives";
 
-// The ten STT-spend actions. They share one builder and one STT input, and
+// The eleven STT-spend actions. They share one builder and one STT input, and
 // differ in what they must be told about the signer or the target, so this is a
-// discriminated union on `action` rather than one schema with ten optional
+// discriminated union on `action` rather than one schema with action-specific
 // fields. Each `.min(1)` and required field below mirrors a throw in
 // transactions/stt-spend.ts, so the spec documents the same contract the
 // builder enforces.
@@ -59,7 +59,7 @@ const SttSpendBase = TxRequestBaseSchema.extend({
 });
 
 /**
- * Five actions derive the forwarded State from the consumed one and never read
+ * Six actions derive the forwarded State from the consumed one and never read
  * the caller's copy: `stt-spend.ts` skips its `assertValidConstrData` for them.
  * Requiring the fields anyway would reject a request that followed the
  * descriptions above and omitted what the builder ignores.
@@ -117,6 +117,19 @@ const beneficiaryExitSchema = beneficiarySchema.extend({
     "Permanently claim and give up beneficiary rights, including the final beneficiary. The final exit requires an empty stream list and the non-admin recovery cooldown. Omitted funds and later deposits are excluded from this claim."
 });
 
+const beneficiaryStreamStopSchema = SttSpendDerivedBase.extend({
+  action: z.literal("stop-beneficiary-stream"),
+  beneficiarySignerKeyHash: HashHexSchema.meta({
+    description: "Connected beneficiary payment key hash. It must match the building wallet and be unlocked at the transaction lower bound."
+  }),
+  beneficiaryStreamStopId: OnChainUint64Schema.meta({ description: "Id of the streaming payment to shorten." }),
+  walletInputs: z.array(WalletInputRefSchema).max(0).optional(),
+  walletOutputs: z.array(WalletScriptOutputSchema).max(0).optional(),
+  extraTransfers: z.array(PayoutTransferSchema).max(0).optional()
+}).meta({
+  description: "Stop one stream as an unlocked beneficiary. The end becomes max(start, transaction upper bound), strictly before its old end. Preserves paid amounts and retained debt. No wallet inputs, wallet outputs or transfers are allowed. Shares the 30-minute non-admin cadence with no owner bypass."
+});
+
 const payoutSchema = SttSpendBase.extend({
   action: z.literal("payout-streaming-payment"),
   extraTransfers: z
@@ -167,6 +180,7 @@ export const SttSpendTxRequestSchema = z
     allowanceSchema,
     beneficiarySchema,
     beneficiaryExitSchema,
+    beneficiaryStreamStopSchema,
     payoutSchema,
     cancelSchema,
     removeAccessSchema
@@ -174,7 +188,7 @@ export const SttSpendTxRequestSchema = z
   .meta({
     id: "SttSpendTxRequest",
     description:
-      "Spend the wallet's state-thread token, forwarding its State. `action` selects which of the ten transitions to build."
+      "Spend the wallet's state-thread token, forwarding its State. `action` selects which of the eleven transitions to build."
   });
 
 export type SttSpendTxRequestDto = z.infer<typeof SttSpendTxRequestSchema>;

@@ -145,5 +145,13 @@
   "permanentExitOutcome": "Your recovery access ends after this withdrawal.",
   "permanentExitWhenToUse": "Use this when you are ready to give up rights to remaining funds and future deposits.",
   "permanentExitWhatChanges": "The transaction removes your recovery contact entry, including when you are the final contact.",
-  "permanentExitStartingPoint": "Choose the funds and payout amounts before reviewing the permanent exit."
+  "permanentExitStartingPoint": "Choose the funds and payout amounts before reviewing the permanent exit.",
+  "beneficiaryStopRouteExplanation": "Use an unlocked recovery contact to stop one scheduled payment. Earned funds remain owed.",
+  "beneficiaryStopLabel": "Stop a scheduled payment",
+  "beneficiaryStopShortLabel": "Stop payment",
+  "beneficiaryStopDescription": "Stop future accrual for one scheduled payment as an unlocked recovery contact.",
+  "beneficiaryStopOutcome": "The payment stops at the reviewed cutoff. Its unpaid debt remains.",
+  "beneficiaryStopWhenToUse": "Before settling scheduled payments during recovery.",
+  "beneficiaryStopWhatChanges": "Only one payment end date and the shared cooldown change. No funds are paid out.",
+  "beneficiaryStopStartingPoint": "Select a scheduled payment, preview its cutoff and debt, then confirm."
 }

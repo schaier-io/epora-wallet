@@ -1,7 +1,8 @@
 //// User-path STT spend decision bodies: the individually-signed, non-operator
 //// actions — `RenewProofOfLife` (a liveness keeper's renewal), `UseAllowance`
 //// (one user draws on their per-day allowance), and `UseBeneficiary` (an
-//// unlocked beneficiary's recovery draw). Authority on every path here
+//// unlocked beneficiary's recovery draw), permanent exit, and stream stopping.
+//// Authority on every path here
 //// is a specific user's or beneficiary's own signature, never the operator gate.
 ////
 //// Each `eval_*` here owns the full invariant set for one individually-signed
@@ -17,6 +18,7 @@ use state/allowance as state_allowance
 use state/authorization as state_authorization
 use state/proof_of_life
 use state/types as state_types
+use streaming_payments/types as streaming_payment_type
 use stt/action_checks.{
   allowance_pol_renewal_is_valid, allowance_update_is_signed_by_changed_user,
   proof_of_life_user_signature_matches,
@@ -27,7 +29,9 @@ use stt/preservation.{
   state_unchanged_except_pol_unlock_time,
   state_unchanged_except_users_and_pol_unlock_time,
 }
-use stt/settlement_handlers.{non_admin_cadence_is_valid}
+use stt/settlement_handlers.{
+  expect_streaming_payment_stopped, non_admin_cadence_is_valid,
+}
 use time/bounds
 
 /// Proof-of-life renewal by an opted-in non-admin user; no wallet-side spend.
@@ -191,4 +195,27 @@ pub fn eval_exit_beneficiary(
   }
   expect stt_value_preserved_or_increased(context)
   True
+}
+
+/// Stop future accrual without changing the debt already recorded by the stream.
+/// Beneficiary authority is independent of the payee's address credential type.
+/// The shared stop checks preserve the stream and enforce non-admin cadence.
+pub fn eval_stop_beneficiary_stream(
+  declared_beneficiary_id: Int,
+  declared_streaming_payment_id: Int,
+  context: TransitionContext,
+) -> Bool {
+  expect numeric_bounds.is_non_negative_bounded(declared_beneficiary_id)
+  expect numeric_bounds.is_non_negative_bounded(declared_streaming_payment_id)
+  let beneficiary = state_authorization.expect_single_beneficiary_with_unlock_authority(
+    context.transaction,
+    context.validity_range,
+    context.input_state,
+  )
+  expect declared_beneficiary_id == beneficiary.id
+  expect Some(target_streaming_payment) = streaming_payment_type.find_by_id(
+    context.input_state.streaming_payments,
+    declared_streaming_payment_id,
+  )
+  expect_streaming_payment_stopped(target_streaming_payment, True, context)
 }

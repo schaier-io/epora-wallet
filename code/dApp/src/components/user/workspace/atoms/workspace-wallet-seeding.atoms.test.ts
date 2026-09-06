@@ -22,6 +22,7 @@ import {
 import {
   consolidateAuthorityPathAtom,
   selectedSttActionAtom,
+  beneficiaryStreamStopIdAtom,
   streamingPaymentPayoutAmountsAtom,
   sttAuthorityPathAtom,
   sttExtraTransfersAtom,
@@ -126,6 +127,7 @@ function dirtyWalletBoundDrafts(store: Store) {
   store.set(sttTransferAddressAtom, "dirty");
   store.set(sttTransferAmountsAtom, { dirty: "1" });
   store.set(streamingPaymentPayoutAmountsAtom, { dirty: "1" });
+  store.set(beneficiaryStreamStopIdAtom, "7");
 
   store.set(transferRecipientModeAtom, "custom");
   store.set(transferCustomAddressAtom, "dirty");
@@ -180,6 +182,7 @@ function assertSeeded(store: Store, token: DetectedSttToken) {
   assert.equal(store.get(sttTransferAddressAtom), "");
   assert.deepEqual(store.get(sttTransferAmountsAtom), {});
   assert.deepEqual(store.get(streamingPaymentPayoutAmountsAtom), {});
+  assert.equal(store.get(beneficiaryStreamStopIdAtom), "");
 
   assert.equal(store.get(transferRecipientModeAtom), "");
   assert.equal(store.get(transferCustomAddressAtom), "");

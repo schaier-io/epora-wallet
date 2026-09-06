@@ -20,22 +20,22 @@
     }
   ],
   "walletParameters": {
-    "sttPolicyId": "844164eb7f41feb486b8ff39d5571afae9df707493d352089fd02c1f",
+    "sttPolicyId": "cea65c0790567f8cfd33ad77af0ad9e3e7f8078068f0ea5b9abdfb2c",
     "sttAssetNameHex": "deadbeef"
   },
   "blueprintCodeSha256": {
-    "stt.stt.spend": "453a524e227ebb64bbb6a005f583b0c7d94efe0673ee300ffd64728ff40705f7",
-    "wallet.wallet.spend": "851c5b4861fb0e5f7e1ca426a5da237c529bb6cd903c750c6f840478ee46fa4c"
+    "stt.stt.spend": "2b76eff2a90da28b27c857423cae88a794ec0d6106264a82bbc3e1318de554f3",
+    "wallet.wallet.spend": "3d247badd546770cf5f34c02e9f7b80c4a74d91cd057fa48b55ec868336cbf14"
   },
   "appliedScripts": {
-    "sttScriptHash": "844164eb7f41feb486b8ff39d5571afae9df707493d352089fd02c1f",
-    "walletScriptHash": "80eb5b763e12b9497317dd6c6c10de58c208d38c46ea38d13df523db",
-    "sttScriptCodeSha256": "48fbe4d08d1cc7a8f1fe5b6c6cbb4955a37d5cbdcc867717a755b855518be050",
-    "walletScriptCodeSha256": "2e27aa2528c9728a00bcd00f9afb4d4500bef8908e21842e5e61698375dbf33a"
+    "sttScriptHash": "cea65c0790567f8cfd33ad77af0ad9e3e7f8078068f0ea5b9abdfb2c",
+    "walletScriptHash": "43bc7e2c0718206e2204b8678ef26269f1c6df36dabecbf9814f729f",
+    "sttScriptCodeSha256": "038257c6053339cedfec3e7f5bfd2daca955b745382153eada48a2905c17ff9f",
+    "walletScriptCodeSha256": "60f610f3053b55d3dc2f684e9dfa79bef69f8b8b23c635b80ce56906676b8216"
   },
   "fixture": {
     "scenario": "capped-list-and-scalar-near-transaction-limit-partial-streaming-payout",
-    "transactionBytes": 16068,
+    "transactionBytes": 16127,
     "nativeAssetCount": 250,
     "walletValueCborBytes": 788,
     "walletValueCborSha256": "2ccd8ef5085810cd8096eba46784cc51e6525a2461d2a6dabfc3ce273a2a5758",
@@ -61,9 +61,9 @@
     }
   },
   "fixtureCborSha256": {
-    "transaction.cbor": "e14b5717371604106a4fd5c79d85d83bfc07744b2803184bb2145c34a4d996d1",
+    "transaction.cbor": "c95755eb58d9f767bd0981f4470010427722454e164e95466fe29d834c6f0dfd",
     "inputs.cbor": "b0eb5bdf7dc90499d68fd99b2ac49e6e7dc923802c98520831ac3cda43d1012f",
-    "outputs.cbor": "186a769466fef80d4a0e59b3131660947098e249fa04f2e7982c1bd5c420582b"
+    "outputs.cbor": "4bcbff1144c0e347814dfe0c35b4ed895f8e19169c0c5f712953595118ad30e7"
   },
   "executionUnits": {
     "legs": [
@@ -71,8 +71,8 @@
         "tag": "Spend",
         "index": 0,
         "script": "stt.stt.spend",
-        "mem": 4338144,
-        "cpu": 1480833140
+        "mem": 4339646,
+        "cpu": 1481201522
       },
       {
         "tag": "Spend",
@@ -83,8 +83,8 @@
       }
     ],
     "total": {
-      "mem": 10108517,
-      "cpu": 3331203599
+      "mem": 10110019,
+      "cpu": 3331571981
     }
   },
   "consolidationFixture": {
@@ -119,9 +119,9 @@
     }
   },
   "consolidationFixtureCborSha256": {
-    "consolidation-transaction.cbor": "864c33f262ca142b1fcb4eee1f61f1c266ba86aab3dd28f3021594d1876c70bb",
+    "consolidation-transaction.cbor": "8a96a4a1b286bf470aeddda35c6f58f5fac958776b74b3445e9bce3d9f4d8039",
     "consolidation-inputs.cbor": "904ca33e79749e5b32f96e1e6d1269279f10470c6d1ee2e1c67ec55ea49c2266",
-    "consolidation-outputs.cbor": "38eecf6a7a1d2b209bfec58c9af40b03ffb166270d92900470e52d85634002cf"
+    "consolidation-outputs.cbor": "279e69ee5c157fc0b53255004a57c58d29fb7f5d6e38fe7b9d3d7ab5acacce93"
   },
   "consolidationExecutionUnits": {
     "legs": [
@@ -129,8 +129,8 @@
         "tag": "Spend",
         "index": 0,
         "script": "stt.stt.spend",
-        "mem": 2880300,
-        "cpu": 976209701
+        "mem": 2882704,
+        "cpu": 976850465
       },
       {
         "tag": "Spend",
@@ -141,8 +141,8 @@
       }
     ],
     "total": {
-      "mem": 5578885,
-      "cpu": 1920901610
+      "mem": 5581289,
+      "cpu": 1921542374
     }
   }
 }

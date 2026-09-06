@@ -59,3 +59,10 @@ test("scheduled payout transfers do not affect other STT action signatures", () 
 
   assert.equal(changedSignature, firstSignature);
 });
+
+test("changing the stop target or signer invalidates its preview", () => {
+  const ctx = { ...payoutContext("0"), beneficiaryStreamStopId: "1" };
+  const signature = computeActionSignature("stop-beneficiary-stream", ctx);
+  assert.notEqual(signature, computeActionSignature("stop-beneficiary-stream", { ...ctx, beneficiaryStreamStopId: "2" }));
+  assert.notEqual(signature, computeActionSignature("stop-beneficiary-stream", { ...ctx, activePaymentKeyHash: "another-key" }));
+});

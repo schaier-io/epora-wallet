@@ -143,7 +143,8 @@ pub type State {
   intended_stake_credential: Option<Credential>,
   /// Upper-bound timestamp of the most recent cadence-limited action: a
   /// NON-ADMIN `PayStreamingPayment` crank, receiver
-  /// `CancelStreamingPayment`, or final-beneficiary recovery or exit.
+  /// `CancelStreamingPayment`, `StopBeneficiaryStream`, or final-beneficiary
+  /// recovery or exit.
   /// It is `None` before any such action. The next cadence-limited action's lower
   /// bound must be at least `constants.non_admin_payout_cooldown_ms` past this
   /// stamp. An ADMIN-signed payout bypasses that limit and does NOT advance this
@@ -247,6 +248,9 @@ pub type SttAction {
   /// Final exit requires no streaming payments and obeys the recovery cadence.
   /// Appended at index 7. Existing constructor indices 0..6 remain unchanged.
   ExitBeneficiary(Int)
+  /// An unlocked beneficiary stops one stream at its exact safe cutoff.
+  /// Appended at index 8. Existing constructor indices 0..7 remain unchanged.
+  StopBeneficiaryStream(Int, Int)
 }
 
 /// True iff `action` is the dedicated `SetIntendedStakeCredential` operator
@@ -285,6 +289,7 @@ pub fn is_non_admin_cadence_action(action: SttAction) -> Bool {
     CancelStreamingPayment(_) -> True
     UseBeneficiary(_) -> True
     ExitBeneficiary(_) -> True
+    StopBeneficiaryStream(_, _) -> True
     _ -> False
   }
 }

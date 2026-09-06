@@ -33,6 +33,7 @@
 ////   PayStreamingPayment(_)                  |   -    |     -      |    -     |    y    |  -   | state_unchanged_except_streaming_payments
 ////   Consolidate(_)                          |   -    |     -      |    -     |    -    |  -   | state_completely_unchanged
 ////   CancelStreamingPayment(_)               |   -    |     -      |    -     |    y⁶   |  -   | state_unchanged_except_streaming_payments ⁷
+////   StopBeneficiaryStream(_, _)             |   -    |     -      |    -     |    y⁶   |  -   | state_unchanged_except_streaming_payments ⁷
 ////
 ////   y  = field may change
 ////   -  = field must equal input
@@ -162,7 +163,8 @@ pub fn state_unchanged_except_beneficiary_removed(
 
 /// Access + proof-of-life + wallet_name preserved; only streaming_payments may
 /// change.
-/// Used by: PayStreamingPayment and CancelStreamingPayment. Their cadence-clock
+/// Used by: PayStreamingPayment, CancelStreamingPayment, and beneficiary stops.
+/// Their cadence-clock
 /// handling is enforced separately because that field sits outside this matrix.
 pub fn state_unchanged_except_streaming_payments(
   input: state_types.State,

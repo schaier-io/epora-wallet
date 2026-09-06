@@ -16,7 +16,7 @@ import {
   publishZeroAdminConfirmedAtom
 } from "@/components/user/workspace/atoms/forms/publish-form.atoms";
 import {
-  streamingPaymentPayoutAmountsAtom,
+  beneficiaryStreamStopIdAtom, streamingPaymentPayoutAmountsAtom,
   sttExtraTransfersAtom,
   sttInputOutputIndexAtom,
   sttInputTxHashAtom,
@@ -83,6 +83,7 @@ export const seedWorkspaceWalletAtom = atom(
     set(sttTransferAddressAtom, "");
     set(sttTransferAmountsAtom, {});
     set(streamingPaymentPayoutAmountsAtom, {});
+    set(beneficiaryStreamStopIdAtom, "");
 
     set(transferRecipientModeAtom, "");
     set(transferCustomAddressAtom, "");

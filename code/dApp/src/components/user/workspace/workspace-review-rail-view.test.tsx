@@ -172,6 +172,43 @@ it("signs the reviewed permanent withdrawal only on the confirmation click", () 
   expect(build).not.toHaveBeenCalled();
 });
 
+it("builds a stream stop for review without opening the signing wallet", () => {
+  const build = vi.fn();
+  const submit = vi.fn();
+  const combined = vi.fn();
+  renderRail({
+    selectedAction: "stop-beneficiary-stream",
+    previewMatchesSelectedAction: false,
+    buildSelectedActionTx: build,
+    submitTransactionPreview: submit,
+    buildAndSubmitSelectedActionTx: combined,
+    handleSaveProposalFromBuild: vi.fn(),
+    signingAvailability: { canDirectSign: true, directAuthorityPath: "beneficiary", canSaveApprovalRequest: false }
+  });
+  expect(reviewPanelProps.latest.primaryActionLabel).toBe("Preview stop");
+  (reviewPanelProps.latest.onPrimaryAction as () => void)();
+  expect(build).toHaveBeenCalledWith("beneficiary");
+  expect(submit).not.toHaveBeenCalled();
+  expect(combined).not.toHaveBeenCalled();
+});
+
+it("signs the reviewed stream stop only on the confirmation click", () => {
+  const build = vi.fn();
+  const submit = vi.fn();
+  renderRail({
+    selectedAction: "stop-beneficiary-stream",
+    previewMatchesSelectedAction: true,
+    buildSelectedActionTx: build,
+    submitTransactionPreview: submit,
+    handleSaveProposalFromBuild: vi.fn(),
+    signingAvailability: { canDirectSign: true, directAuthorityPath: "beneficiary", canSaveApprovalRequest: false }
+  });
+  expect(reviewPanelProps.latest.primaryActionLabel).toBe("Confirm stop");
+  (reviewPanelProps.latest.onPrimaryAction as () => void)();
+  expect(submit).toHaveBeenCalledWith(expect.objectContaining({ txHex: "old-payout-tx" }));
+  expect(build).not.toHaveBeenCalled();
+});
+
 describe("context-aware signing actions", () => {
   it("hands the connected wallet's address to the review panel as the signer", () => {
     renderRail({

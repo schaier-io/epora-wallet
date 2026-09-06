@@ -10,5 +10,6 @@
   "useAllowance": "Use allowance.",
   "user": "User",
   "useRecoveryContactAccess": "Use recovery-contact access.",
-  "walletSigner": "Wallet signer"
+  "walletSigner": "Wallet signer",
+  "stopBeneficiaryStream": "Stop future scheduled payments"
 }

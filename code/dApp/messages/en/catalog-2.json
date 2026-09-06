@@ -226,7 +226,8 @@
     "useAllowance": "Use allowance.",
     "user": "User",
     "useRecoveryContactAccess": "Use recovery-contact access.",
-    "walletSigner": "Wallet signer"
+    "walletSigner": "Wallet signer",
+    "stopBeneficiaryStream": "Stop future scheduled payments"
   },
   "ComponentsUserWorkspaceActionConfigView": {
     "notAvailableDescription": "Your current key has no role that can perform it here. Pick another action from the menu, or switch to a wallet your key manages.",
@@ -259,7 +260,8 @@
     "walletSettings": "Wallet settings",
     "walletStateIsInvalid": "Wallet state is invalid.",
     "walletWithNoOwner": "Wallet with no owner",
-    "youAlreadyHaveAWalletWithThisName": "You already have a wallet with this name. Choose a different name."
+    "youAlreadyHaveAWalletWithThisName": "You already have a wallet with this name. Choose a different name.",
+    "scheduledPayment": "Scheduled payment"
   },
   "ComponentsUserWorkspaceActionValidationShared": {
     "aVoteHasToSayWhoIsVoting": "A vote has to say who is voting, which proposal, and how you vote.",

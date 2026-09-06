@@ -1,4 +1,5 @@
 "use client";
+import { renderNowMsAtom } from "./atoms/workspace-ui.atoms";
 import { useMemo } from "react";
 import { useAtomValue } from "jotai";
 import { consolidateSttAssetsAtom, consolidateSttInputHashAtom, consolidateSttInputIndexAtom, consolidateWalletInputsAtom, consolidateWalletOutputsAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
@@ -6,7 +7,7 @@ import { lockFundsAssetsAtom } from "@/components/user/workspace/atoms/forms/loc
 import { mintStarterAssetsAtom, mintStateFormAtom, mintZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/mint-form.atoms";
 import { voteJsonAtom, voteSttAssetsAtom, voteSttInputHashAtom, voteSttInputIndexAtom, voteSttStateFormAtom, voteZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/vote-form.atoms";
 import { publishCertificateJsonAtom, publishSttAssetsAtom, publishSttInputHashAtom, publishSttInputIndexAtom, publishSttStateFormAtom, publishZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/publish-form.atoms";
-import { consolidateAuthorityPathAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputOutputIndexAtom, sttInputTxHashAtom, sttOutputAssetsAtom, sttProofOfLifeOverrideModeAtom, sttProofOfLifeSpecificDateTimeAtom, sttStateFormAtom, sttWalletInputsAtom, sttWalletOutputsAtom, sttZeroAdminConfirmedAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import { beneficiaryStreamStopIdAtom, consolidateAuthorityPathAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputOutputIndexAtom, sttInputTxHashAtom, sttOutputAssetsAtom, sttProofOfLifeOverrideModeAtom, sttProofOfLifeSpecificDateTimeAtom, sttStateFormAtom, sttWalletInputsAtom, sttWalletOutputsAtom, sttZeroAdminConfirmedAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { withdrawAmountAtom, withdrawSttAssetsAtom, withdrawSttInputHashAtom, withdrawSttInputIndexAtom, withdrawSttStateFormAtom, withdrawZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/withdraw-form.atoms";
 import { effectiveWithdrawRewardAddressAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import { computeActionFieldErrors } from "@/components/user/workspace/action-validation";
@@ -33,6 +34,8 @@ export function useWorkspaceActionFieldErrors(ctx: WorkspaceActionFieldErrorsCtx
     streamingPaymentPayoutTransfers,
     useAllowancePreview
   } = ctx;
+  const beneficiaryStreamStopId = useAtomValue(beneficiaryStreamStopIdAtom);
+  const nowMs = useAtomValue(renderNowMsAtom);
   const consolidateAuthorityPath = useAtomValue(consolidateAuthorityPathAtom);
   const consolidateSttAssets = useAtomValue(consolidateSttAssetsAtom);
   const consolidateSttInputHash = useAtomValue(consolidateSttInputHashAtom);
@@ -81,6 +84,7 @@ export function useWorkspaceActionFieldErrors(ctx: WorkspaceActionFieldErrorsCtx
 
   return useMemo(
     () => computeActionFieldErrors({
+        beneficiaryStreamStopId, nowMs,
         activeInferredSttStateForm,
         activePaymentKeyHash,
         consolidateAuthorityPath,
@@ -131,6 +135,7 @@ export function useWorkspaceActionFieldErrors(ctx: WorkspaceActionFieldErrorsCtx
         withdrawSttStateForm,
         withdrawZeroAdminConfirmed }),
     [
+    beneficiaryStreamStopId, nowMs,
     activeInferredSttStateForm,
     activePaymentKeyHash,
     consolidateAuthorityPath,

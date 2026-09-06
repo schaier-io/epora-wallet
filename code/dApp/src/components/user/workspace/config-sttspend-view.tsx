@@ -20,6 +20,7 @@ import { suggestedSttAuthorityPathAtom } from "@/components/user/workspace/atoms
 import { lockingContractAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import { useAtomValue } from "jotai";
 import { SttSpendEditorsView } from "@/components/user/workspace/config-sttspend-editors-view";
+import { BeneficiaryStreamStopView } from "./beneficiary-stream-stop-view";
 import { SttSpendPayoutView } from "@/components/user/workspace/config-sttspend-payout-view";
 import { useConfigSttSpendState } from "@/components/user/workspace/use-config-sttspend-state";
 import { type PayoutRejection } from "@/components/user/workspace/workspace-stt-editors";
@@ -108,6 +109,7 @@ export function SttSpendConfigView() {
 
       return (
         <div className="space-y-4">
+          {(selectedAction === "use-beneficiary" || selectedAction === "exit-beneficiary" || selectedAction === "stop-beneficiary-stream") ? <BeneficiaryStreamStopView /> : null}
           {activeSttActionTab.allowsStateEditing ? (
             <>
               {usesFocusedPeopleEditor ? (

@@ -1268,3 +1268,73 @@ it("returns the actual deployed reference output index without store discovery",
   expect(outputs[result.referenceScriptOutputIndex!]!.address().toBech32().toString())
     .toBe(resolveSttReferenceStoreAddress());
 });
+
+describe("beneficiary stream stop builder", () => {
+  function setupStop() {
+    const sttScript = getSttSpendScript();
+    const policyId = getSttMintPolicyId();
+    const stateAddress = resolveScriptAddress(sttScript);
+    const form = withFallbackAdminUserInStateForm(createDefaultStateForm(), PAYMENT_KEY_HASH);
+    form.proofOfLifeUnlockTimeMode = "some";
+    form.proofOfLifeUnlockTime = "1";
+    form.proofOfLifeIncrementMode = "some";
+    form.proofOfLifeIncrement = "60";
+    form.beneficiaries = [{id:"9",wallets:[PAYMENT_KEY_HASH],unlockAfterMode:"none",unlockAfter:"",weight:"1",payoutAddress:PAYMENT_ADDRESS}];
+    form.streamingPayments = [{id:"7",payoutAddress:PAYOUT_ADDRESS,paidOutAmount:"100",policyId:"",assetName:"",amountPerDay:"86400000",startDate:"0",endDate:"10000000"}];
+    const datum = stateFormToDatum(form);
+    const stateAmount = [{unit:"lovelace",quantity:"3000000"},{unit:policyId+ASSET_NAME,quantity:"1"}];
+    const stateUtxo: UTxO = {input:{txHash:STATE_TX_HASH,outputIndex:0},output:{address:stateAddress,amount:stateAmount,plutusData:serializeData(datum,"Mesh")}};
+    chain.referencedUtxos.set(`${STATE_TX_HASH}#0`,stateUtxo);
+    chain.referencedUtxos.set(`${REFERENCE_TX_HASH}#0`,{
+      input:{txHash:REFERENCE_TX_HASH,outputIndex:0},output:{address:PAYMENT_ADDRESS,amount:[{unit:"lovelace",quantity:"2000000"}],
+        scriptRef:String(toScriptRef(sttScript).toCbor()),scriptHash:resolveScriptHash(sttScript.code,sttScript.version)}
+    } as UTxO);
+    const wallet = {
+      getUtxos:async () => [adaUtxo("aa","20000000"),adaUtxo("bb","7000000")],
+      getChangeAddress:async () => PAYMENT_ADDRESS,getUsedAddresses:async () => [PAYMENT_ADDRESS],getUnusedAddresses:async () => []
+    } as unknown as BrowserWallet;
+    const config = {walletPolicyId:policyId,walletAssetNameHex:ASSET_NAME,sttAssetNameHex:ASSET_NAME,sttSpendReference:`${REFERENCE_TX_HASH}#0`};
+    const input = {sttInputTxHash:STATE_TX_HASH,sttInputOutputIndex:0,beneficiarySignerKeyHash:PAYMENT_KEY_HASH,beneficiaryStreamStopId:7,validityWindowReferenceTimeMs:REFERENCE_TIME_MS};
+    return {wallet,config,input,datum,stateUtxo,stateAddress,stateAmount};
+  }
+  it("derives target, actor, unchanged State value and review debt from the consumed State", async () => {
+    const context = setupStop();
+    const result = await buildSttSpendTx(context.wallet,context.config,"stop-beneficiary-stream",{
+      ...context.input, outputDatum:{alternative:99,fields:[]},outputAssets:[{unit:"lovelace",quantity:"1"}]
+    });
+    const tx = deserializeTx(result.txHex);
+    const outputs = Array.from((tx.body().outputs() as {values():CstTransactionOutput[]}).values());
+    const stateOutput = outputs.find(output => output.address().toBech32().toString() === context.stateAddress)!;
+    const cutoff = getValidityWindow(REFERENCE_TIME_MS).latestTimeMs;
+    const expected = structuredClone(context.datum);
+    (expected.fields[2] as ConstrData[])[0]!.fields[7] = cutoff;
+    expected.fields[5] = {alternative:0,fields:[cutoff]};
+    expect(inlineDatumCbor(stateOutput)).toBe(serializeData(expected,"Mesh"));
+    expect(BigInt(stateOutput.amount().coin().toString())).toBe(3_000_000n);
+    expect(nativeQuantity(stateOutput,context.config.walletPolicyId+ASSET_NAME)).toBe(1n);
+    expect(outputs.every(output => [context.stateAddress,PAYMENT_ADDRESS].includes(output.address().toBech32().toString()))).toBe(true);
+    const redeemers = (tx.witnessSet().redeemers() as unknown as {values():{data():{toCbor():string}}[]}).values();
+    expect(redeemers.map(redeemer => redeemer.data().toCbor())).toEqual([
+      serializeData({alternative:8,fields:[9,7]},"Mesh")
+    ]);
+    expect(result.warnings?.some(warning => warning.includes("Stream 7:") && warning.includes(formatLovelaceAsAda(String(cutoff-100))) && warning.includes("connected wallet funds fees"))).toBe(true);
+  });
+  it.each(["wrong-connected-signer","locked","stale-target","cooldown","wallet-input","wallet-output","transfer"] as const)("rejects %s before producing a transaction", async (reason) => {
+    const context = setupStop();
+    const input: Parameters<typeof buildSttSpendTx>[3] = {...context.input};
+    if (reason === "wrong-connected-signer") input.beneficiarySignerKeyHash = "77".repeat(28);
+    if (reason === "stale-target") input.beneficiaryStreamStopId = 99;
+    if (reason === "locked") (context.datum.fields[1] as ConstrData).fields[0] = {alternative:0,fields:[REFERENCE_TIME_MS+10_000_000]};
+    if (reason === "cooldown") context.datum.fields[5] = {alternative:0,fields:[REFERENCE_TIME_MS]};
+    if (reason === "wallet-input") input.walletInputs = [{txHash:"55".repeat(32),outputIndex:0}];
+    if (reason === "wallet-output") input.walletOutputs = [{amount:[{unit:"lovelace",quantity:"2000000"}]}];
+    if (reason === "transfer") input.extraTransfers = [{address:PAYOUT_ADDRESS,amount:[{unit:"lovelace",quantity:"2000000"}]}];
+    context.stateUtxo.output.plutusData = serializeData(context.datum,"Mesh");
+    const expected = {
+      "wrong-connected-signer":/must match the connected wallet/,
+      locked:/unlocked beneficiary/,"stale-target":/unknown streaming payment/,cooldown:/30-minute/,
+      "wallet-input":/cannot spend wallet inputs/,"wallet-output":/cannot spend wallet inputs/,transfer:/cannot spend wallet inputs/
+    }[reason];
+    await expect(buildSttSpendTx(context.wallet,context.config,"stop-beneficiary-stream",input)).rejects.toThrow(expected);
+  });
+});

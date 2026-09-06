@@ -37,6 +37,7 @@ function baseBody(action: string) {
   };
   if (action === "use-allowance") body.allowanceSignerKeyHash = HASH_HEX;
   if (action === "use-beneficiary" || action === "exit-beneficiary") body.beneficiarySignerKeyHash = HASH_HEX;
+  if (action === "stop-beneficiary-stream") { body.beneficiarySignerKeyHash = HASH_HEX; body.beneficiaryStreamStopId = 0; }
   if (action === "payout-streaming-payment") body.crankSignerKeyHash = HASH_HEX;
   if (action === "cancel-streaming-payment") body.streamingPaymentCancelId = 0;
   if (action === "remove-access-index") body.removeAccessTarget = { list: "user", index: 0 };
@@ -51,6 +52,7 @@ const ALL_ACTIONS = [
   "use-allowance",
   "use-beneficiary",
   "exit-beneficiary",
+  "stop-beneficiary-stream",
   "payout-streaming-payment",
   "cancel-streaming-payment",
   "remove-access-index"
@@ -181,4 +183,19 @@ describe("SttSpendTxRequestSchema", () => {
     }
     assert.equal(parsed.streamingPaymentCancelId, MAX_ON_CHAIN_STATE_INTEGER);
   });
+});
+
+it("beneficiary stop requires a signer and target, accepts uint64, and rejects every fund movement", () => {
+  const body = baseBody("stop-beneficiary-stream");
+  assert.equal(SttSpendTxRequestSchema.safeParse(body).success, true);
+  for (const key of ["beneficiarySignerKeyHash", "beneficiaryStreamStopId"]) {
+    assert.equal(SttSpendTxRequestSchema.safeParse({...body,[key]:undefined}).success,false);
+  }
+  const parsed = SttSpendTxRequestSchema.parse({...body,beneficiaryStreamStopId:{int:MAX_ON_CHAIN_STATE_INTEGER.toString()}});
+  assert.equal(parsed.action === "stop-beneficiary-stream" && parsed.beneficiaryStreamStopId,MAX_ON_CHAIN_STATE_INTEGER);
+  for (const extra of [
+    {walletInputs:[{txHash:TX_HASH,outputIndex:0}]},
+    {walletOutputs:[{amount:[{unit:"lovelace",quantity:"2000000"}]}]},
+    {extraTransfers:[{address:ADDRESS,amount:[{unit:"lovelace",quantity:"2000000"}]}]}
+  ]) assert.equal(SttSpendTxRequestSchema.safeParse({...body,...extra}).success,false);
 });

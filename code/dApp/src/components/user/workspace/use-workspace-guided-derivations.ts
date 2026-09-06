@@ -253,6 +253,8 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
   const sendRouteExplanation =
     selectedIntent !== "send"
       ? null
+      : selectedAction === "stop-beneficiary-stream"
+        ? selectedActionRouteExplanation
       : selectedAction === "use-allowance"
         ? useAllowancePreview.target
           ? `Using the daily limit for user ${useAllowancePreview.target.matchedUserId}.`
