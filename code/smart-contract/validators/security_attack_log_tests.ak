@@ -332,6 +332,7 @@ test security_attack_log__attack_beneficiary_cannot_exceed_weighted_share_across
             unlock_after: Some(100),
           },
           state_types.Beneficiary {
+            ..states.base_beneficiary(),
             id: 8,
             beneficiary_wallets: ["beneficiary2"],
             unlock_after: Some(100),

@@ -106,6 +106,7 @@ function describeBeneficiary(entry: BeneficiaryFormState): string {
   return i18n("beneficiaryDescription", {
     keys: formatKeyList(entry.wallets),
     weight: entry.weight || "1",
+    address: entry.payoutAddress,
     wait
   });
 }

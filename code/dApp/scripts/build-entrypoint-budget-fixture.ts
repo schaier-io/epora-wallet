@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import {
   pubKeyAddress,
   resolveScriptHash,
+  scriptAddress,
   serializeAddressObj,
   serializeData,
   type UTxO
@@ -55,7 +56,7 @@ const CONSOLIDATION_FUNDING_TX_HASH = "cc".repeat(32);
 const CONSOLIDATION_COLLATERAL_TX_HASH = "dd".repeat(32);
 const STT_ASSET_NAME = "deadbeef";
 // Keep this fixture near the transaction-size limit as compiled scripts shrink.
-const WIDE_VALUE_NATIVE_ASSET_COUNT = 400;
+const WIDE_VALUE_NATIVE_ASSET_COUNT = 250;
 const POLICY_DEEP_NATIVE_ASSET_COUNT = 151;
 const SHORT_ASSETS_PER_POLICY = 257;
 
@@ -157,7 +158,11 @@ function cappedListAndScalarState(
       ),
       unlockAfterMode: "some" as const,
       unlockAfter: MAX_UINT64.toString(),
-      weight: MAX_UINT64.toString()
+      weight: MAX_UINT64.toString(),
+      payoutAddress: serializeAddressObj(
+        scriptAddress(bigEndianHex(101, 28), bigEndianHex(102, 28), true),
+        0
+      )
     };
   });
   form.streamingPayments = streamingPayments(targetPolicyId, targetAssetName);

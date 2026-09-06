@@ -13,6 +13,8 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { InlineFieldError } from "./primitives";
+import { describeAddressProblem, looksLikeCardanoAddress } from "@/lib/contracts/payout-address";
 import {
   approvalThresholdCeiling,
   personApprovalPowerCeiling,
@@ -56,6 +58,8 @@ export function BeneficiaryEditor({
       ? ((ownWeight / totalWeight) * 100).toFixed(1)
       : null;
   const hasExtraWait = beneficiary.unlockAfterMode === "some";
+  const payoutAddressError = looksLikeCardanoAddress(beneficiary.payoutAddress)
+    ? describeAddressProblem(beneficiary.payoutAddress) : null;
 
   return (
     <div className="user-surface user-list-item space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
@@ -131,6 +135,21 @@ export function BeneficiaryEditor({
             }
           />
         </div>
+      </div>
+      <div className="space-y-1">
+        <Label htmlFor={`${uid}-payout-address`}>{i18n("exactPayoutAddress")}</Label>
+        <Input
+          id={`${uid}-payout-address`}
+          value={beneficiary.payoutAddress}
+          onChange={(event) => onChange({ ...beneficiary, payoutAddress: event.target.value })}
+          placeholder={i18n("payoutAddressPlaceholder")}
+          aria-invalid={payoutAddressError ? true : undefined}
+          aria-describedby={`${uid}-payout-address-help${payoutAddressError ? ` ${uid}-payout-address-error` : ""}`}
+        />
+        <InlineFieldError id={`${uid}-payout-address-error`} message={payoutAddressError} />
+        <p id={`${uid}-payout-address-help`} className="text-xs text-muted-foreground">
+          {i18n("exactPayoutAddressHelp")}
+        </p>
       </div>
       <WalletHashesEditor
         label={i18n("walletsThisPersonSignsWith")}

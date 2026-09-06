@@ -1,3 +1,4 @@
+import { encodePayoutAddressToData } from "@/lib/contracts/payout-address";
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -59,7 +60,8 @@ function beneficiary(opts: {
       opts.id,
       opts.wallets,
       opts.unlockAfter === undefined ? NONE : some(opts.unlockAfter),
-      opts.weight ?? 1
+      opts.weight ?? 1,
+      encodePayoutAddressToData("addr_test1vqg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygxrcya6")
     ]
   };
 }

@@ -102,7 +102,8 @@ test("final beneficiary recovery requires at least one selected fund pool", () =
       wallets: ["aa".repeat(28)],
       unlockAfterMode: "none",
       unlockAfter: "",
-      weight: "1"
+      weight: "1",
+      payoutAddress: ""
     }
   ];
 
@@ -120,14 +121,16 @@ test("earlier beneficiary withdrawal keeps the fund pool optional", () => {
       wallets: ["aa".repeat(28)],
       unlockAfterMode: "none",
       unlockAfter: "",
-      weight: "1"
+      weight: "1",
+      payoutAddress: ""
     },
     {
       id: "8",
       wallets: ["bb".repeat(28)],
       unlockAfterMode: "none",
       unlockAfter: "",
-      weight: "1"
+      weight: "1",
+      payoutAddress: ""
     }
   ];
 

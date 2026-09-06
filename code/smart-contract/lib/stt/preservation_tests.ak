@@ -17,6 +17,7 @@ use cardano/address.{Address, Script}
 use state/types as state_types
 use streaming_payments/types.{StreamingPayment}
 use stt/preservation
+use test_support/state_builders as states
 
 // --- fixtures ---------------------------------------------------------------
 
@@ -35,6 +36,7 @@ fn mk_user(id: Int) -> state_types.User {
 
 fn mk_beneficiary(id: Int) -> state_types.Beneficiary {
   state_types.Beneficiary {
+    ..states.base_beneficiary(),
     id,
     beneficiary_wallets: [#"bb"],
     unlock_after: None,

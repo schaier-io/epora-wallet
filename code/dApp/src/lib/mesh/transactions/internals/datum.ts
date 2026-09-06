@@ -111,7 +111,7 @@ export function deriveBeneficiaryWithdrawalId(stateDatum: ConstrData, signerKeyH
   );
 
   const matches = beneficiaries.flatMap((beneficiary, index) => {
-    if (!isConstrData(beneficiary) || beneficiary.alternative !== 0 || beneficiary.fields.length !== 4) {
+    if (!isConstrData(beneficiary) || beneficiary.alternative !== 0 || beneficiary.fields.length !== 5) {
       throw new Error(
         `Beneficiary Withdrawal beneficiaries[${index}] must be a Beneficiary constructor.`
       );
@@ -177,7 +177,7 @@ export function deriveBeneficiaryWithdrawalStateDatum(
     if (
       !isConstrData(beneficiary) ||
       beneficiary.alternative !== 0 ||
-      beneficiary.fields.length !== 4
+      beneficiary.fields.length !== 5
     ) {
       throw new Error(
         `Beneficiary withdrawal beneficiaries[${index}] must be a Beneficiary constructor.`

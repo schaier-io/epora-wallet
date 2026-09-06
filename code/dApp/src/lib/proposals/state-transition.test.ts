@@ -1,3 +1,4 @@
+import { encodePayoutAddressToData } from "@/lib/contracts/payout-address";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { MeshTxBuilder, serializeData, type UTxO } from "@meshsdk/core";
@@ -84,7 +85,7 @@ test("State comparison shows each field of an added beneficiary and its removal"
   const after = structuredClone(before);
   (after.fields[0] as ConstrData).fields[2] = [{
     alternative: 0,
-    fields: [1, ["22".repeat(28)], { alternative: 1, fields: [] }, 3]
+    fields: [1, ["22".repeat(28)], { alternative: 1, fields: [] }, 3, encodePayoutAddressToData(ADDRESS)]
   }];
   const validation = validateCurrentStateDatum(after);
   assert.deepEqual(validation, []);
@@ -152,4 +153,21 @@ test("full proposal verification requires a decoded continuing State even with l
     assert.equal(result.stateTransition?.txBodyHash ?? null, datum ? proposal.txBodyHash : null);
   }
   assert.equal(get.mock.callCount(), 2);
+});
+
+
+test("State comparison exposes beneficiary payout payment and staking credential changes", () => {
+  const before = state();
+  (before.fields[0] as ConstrData).fields[2] = [{
+    alternative: 0,
+    fields: [1, ["22".repeat(28)], { alternative: 1, fields: [] }, 3, encodePayoutAddressToData(ADDRESS)]
+  }];
+  const after = structuredClone(before);
+  const payout = ((after.fields[0] as ConstrData).fields[2] as ConstrData[])[0]!.fields[4] as ConstrData;
+  payout.fields[0] = { alternative: 1, fields: ["33".repeat(28)] };
+  payout.fields[1] = { alternative: 0, fields: [{ alternative: 0, fields: [{ alternative: 1, fields: ["44".repeat(28)] }] }] };
+  const changes = compareStates(before, after);
+  assert.ok(changes.some((change) => change.path.includes("payout_address") && change.after === `0x${"33".repeat(28)}`));
+  assert.ok(changes.some((change) => change.path.includes("payout_address") && change.after === `0x${"44".repeat(28)}`));
+  assert.ok(changes.every((change) => change.path.includes("payout_address")));
 });

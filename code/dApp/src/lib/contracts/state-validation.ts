@@ -116,7 +116,7 @@ function readAdminUserCount(users: Data[]) {
 }
 
 function readBeneficiaryAccessSummary(value: Data) {
-  if (!isConstrData(value) || value.alternative !== 0 || value.fields.length !== 4) {
+  if (!isConstrData(value) || value.alternative !== 0 || value.fields.length !== 5) {
     return null;
   }
 
@@ -346,7 +346,7 @@ export function validateStateDatum(
   for (const [index, beneficiary] of sections.beneficiaries.entries()) {
     const id = validateBeneficiary(beneficiary, `state.beneficiaries[${index}]`, errors);
     const walletEntries =
-      isConstrData(beneficiary) && beneficiary.alternative === 0 && beneficiary.fields.length === 4
+      isConstrData(beneficiary) && beneficiary.alternative === 0 && beneficiary.fields.length === 5
         ? readWalletEntries(beneficiary.fields[1]!)
         : [];
     beneficiaryWalletLists[index] = walletEntries;
@@ -642,7 +642,7 @@ export function collectStateDatumWarnings(
     hasSignableBeneficiary = true;
 
     const unlockAfter =
-      isConstrData(beneficiary) && beneficiary.fields.length === 4
+      isConstrData(beneficiary) && beneficiary.fields.length === 5
         ? readOptionIntegerValue(beneficiary.fields[2]!)
         : null;
     const effectiveUnlock = unlockAfter !== null && unlockAfter > (proofUnlock ?? 0n)

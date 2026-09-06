@@ -2,7 +2,7 @@
   "afterValue": "after {value}",
   "anySingleOwner": "any single owner",
   "approvalsNeeded": "Approvals needed",
-  "beneficiaryDescription": "{keys} · share {weight} · {wait}",
+  "beneficiaryDescription": "{keys} · share {weight} · payout {address} · {wait}",
   "canCheckIn": "can check in",
   "cannotCheckIn": "cannot check in",
   "dailyLimitValue": "daily limit {value}",

@@ -73,7 +73,7 @@ function describeState(state: ConstrData): ReviewValue {
   });
   result.access.multi_sig_threshold = option(access.fields[1]!);
   result.access.beneficiaries = records(access.fields[2]!, [
-    "id", "beneficiary_wallets", "unlock_after", "weight"
+    "id", "beneficiary_wallets", "unlock_after", "weight", "payout_address"
   ]);
   result.proof_of_life = {
     unlock_time: option(proof.fields[0]!), increment: option(proof.fields[1]!)

@@ -244,6 +244,7 @@ classDiagram
       all beneficiaries: max 15 wallet ids
       unlock_after: Option~POSIXTime~
       weight: Int, at least 1
+      payout_address: Data encoding Address, fifth field
     }
     class ProofOfLifeSettings {
       unlock_time: Option~POSIXTime~
@@ -464,6 +465,13 @@ code site and in the whitepaper's *Limitations and Trust Assumptions*.
 - **Abuse analysis:** wide validity window faking an early reset → lower-bound gating (see `allowance.remaining_allowance_available_for_use` doc); padding or reset growth → reserved footprint cap; draining twice through duplicate keys → `entries_are_valid` duplicate guard; spending more wallet value than declared → wallet arm equality.
 - **Tests:** `stt_allowance_tests.ak`, `allowance.ak` co-located property tests, `wallet_rule_tests.ak`.
 - **Verdict:** ✅ sound; the boundary arithmetic is the best-covered code in the suite (property tests pin the exact floors).
+
+Beneficiary `payout_address` stores the encoded full `Address` as `Data`. Mint and
+`UpdateState` decode it and apply shared address validation. All other actions
+preserve its encoded value for each retained beneficiary. It permits key or
+script payment credentials and optional inline
+key or script stake credentials. Pointer stake credentials are rejected.
+`UseBeneficiary` and `ExitBeneficiary` do not route funds through this stored field.
 
 ### P9 — UseBeneficiary (recovery draw)
 

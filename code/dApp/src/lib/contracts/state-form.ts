@@ -18,7 +18,7 @@ import {
   encodeWalletNameForDatum
 } from "@/lib/contracts/state-wallet-name";
 import { parseValueData } from "@/lib/contracts/value-data";
-import { decodePayoutAddressFromData } from "@/lib/contracts/payout-address";
+import { decodePayoutAddressFromData, isAddressData } from "@/lib/contracts/payout-address";
 import {
   isNonNegativeUint64Decimal,
   isOnChainInteger,
@@ -60,6 +60,7 @@ export type UserFormState = {
 
 export type BeneficiaryFormState = {
   id: string;
+  payoutAddress: string;
   wallets: string[];
   unlockAfterMode: OptionMode;
   unlockAfter: string;
@@ -219,6 +220,7 @@ export function applyUserPreset(user: UserFormState, preset: UserPreset): UserFo
 function createDefaultBeneficiaryFormState(id = "0"): BeneficiaryFormState {
   return {
     id,
+    payoutAddress: "",
     wallets: [],
     unlockAfterMode: "none",
     unlockAfter: "",
@@ -298,16 +300,22 @@ function userFormStateFromValue(value: unknown): UserFormState {
   };
 }
 
-function beneficiaryFormStateFromValue(value: unknown): BeneficiaryFormState {
-  if (!isConstrData(value) || value.alternative !== 0 || value.fields.length !== 4) {
-    return createDefaultBeneficiaryFormState();
+function beneficiaryFormStateFromValue(value: unknown, index: number): BeneficiaryFormState {
+  const label = `Beneficiary ${index + 1}`;
+  if (!isConstrData(value) || value.alternative !== 0 || value.fields.length !== 5) {
+    throw new Error(`${label} uses an unsupported schema. Expected five fields including a payout address.`);
   }
 
-  const [id, wallets, unlockAfter, weight] = value.fields;
+  const [id, wallets, unlockAfter, weight, payoutAddress] = value.fields;
+  const decodedPayoutAddress = isAddressData(payoutAddress) ? decodePayoutAddressFromData(payoutAddress) : "";
+  if (!decodedPayoutAddress) {
+    throw new Error(`${label}'s payout address must be a Cardano address.`);
+  }
   const unlockAfterOption = readOptionInteger(unlockAfter);
 
   return {
     id: String(readInteger(id) ?? 0),
+    payoutAddress: decodedPayoutAddress,
     wallets: parseWalletList(wallets),
     unlockAfterMode: unlockAfterOption?.kind === "some" ? "some" : "none",
     unlockAfter:

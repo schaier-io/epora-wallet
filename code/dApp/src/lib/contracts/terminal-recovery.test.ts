@@ -9,9 +9,12 @@ import {
   stateFormToDatum
 } from "@/lib/contracts/state-form";
 
+const BENEFICIARY_PAYOUT_ADDRESS = "addr_test1vqg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygxrcya6";
+
 function recoveryState(beneficiaryCount: number) {
   const state = createDefaultStateForm();
   state.beneficiaries = Array.from({ length: beneficiaryCount }, (_, index) => ({
+    payoutAddress: BENEFICIARY_PAYOUT_ADDRESS,
     id: String(index + 1),
     wallets: [String(index + 1).padStart(56, "0")],
     unlockAfterMode: "none" as const,

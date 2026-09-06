@@ -79,6 +79,8 @@ import { buildSetIntendedStakeCredentialTx } from "./set-intended-stake-credenti
 import { buildWalletPublishTx, buildWalletVoteTx } from "./wallet-governance";
 import { buildWalletWithdrawTx } from "./wallet-withdraw";
 
+const BENEFICIARY_PAYOUT_ADDRESS = "addr_test1vqg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygxrcya6";
+
 const KEY = "ab".repeat(28);
 const CONFIG: ContractConfig = { sttAssetNameHex: "01" };
 const TX_HASH = "cd".repeat(32);
@@ -96,6 +98,7 @@ function poweredUser(id: string, power: string): UserFormState {
 
 function warningState() {
   const beneficiary: BeneficiaryFormState = {
+    payoutAddress: BENEFICIARY_PAYOUT_ADDRESS,
     id: "0",
     wallets: ["ef".repeat(28)],
     unlockAfterMode: "none",

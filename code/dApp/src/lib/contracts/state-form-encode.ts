@@ -1,6 +1,6 @@
 import type { ConstrData } from "@/lib/types/contracts";
 import { assertValidAssetIdParts, serializeValueEntries } from "@/lib/contracts/value-data";
-import { encodePayoutAddressToData } from "@/lib/contracts/payout-address";
+import { decodePayoutAddressFromData, describeAddressProblem, encodePayoutAddressToData } from "@/lib/contracts/payout-address";
 import { parseAdaToLovelace } from "@/lib/units/lovelace";
 import {
   isNonNegativeUint64Decimal,
@@ -171,6 +171,15 @@ export function serializeUser(form: UserFormState, index: number): ConstrData {
 }
 
 export function serializeBeneficiary(form: BeneficiaryFormState, index: number): ConstrData {
+  if (typeof form.payoutAddress !== "string" || !form.payoutAddress.trim()) {
+    throw new Error(`Beneficiary ${index + 1} requires a payout address.`);
+  }
+  const addressProblem = describeAddressProblem(form.payoutAddress);
+  if (addressProblem) throw new Error(`Beneficiary ${index + 1} payout address: ${addressProblem}`);
+  const payoutAddress = encodePayoutAddressToData(form.payoutAddress, `Beneficiary ${index + 1} payout address`);
+  if (decodePayoutAddressFromData(payoutAddress).toLowerCase() !== form.payoutAddress.trim().toLowerCase()) {
+    throw new Error(`Beneficiary ${index + 1} payout address encoding cannot preserve the full address.`);
+  }
   return {
     alternative: 0,
     fields: [
@@ -181,7 +190,8 @@ export function serializeBeneficiary(form: BeneficiaryFormState, index: number):
         form.unlockAfter,
         `Beneficiary ${index + 1} unlock after`
       ),
-      toDataInteger(parsePositiveIntegerString(form.weight, `Beneficiary ${index + 1} weight`))
+      toDataInteger(parsePositiveIntegerString(form.weight, `Beneficiary ${index + 1} weight`)),
+      payoutAddress
     ]
   };
 }

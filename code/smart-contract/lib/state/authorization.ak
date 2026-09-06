@@ -273,6 +273,12 @@ test beneficiary_unlock_authority_accepts_signed_unlocked_beneficiary() {
     beneficiary_wallets: ["beneficiary1"],
     unlock_after: Some(100),
     weight: 1,
+    payout_address: Address {
+      payment_credential: VerificationKey(
+        #"00000000000000000000000000000000000000000000000000000000",
+      ),
+      stake_credential: None,
+    },
   }
   let state = State {
     access: state_types.AccessControl {

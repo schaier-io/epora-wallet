@@ -72,6 +72,7 @@ pub fn snapshot(
 
 pub fn mk_beneficiary(id: Int, weight: Int) -> state_types.Beneficiary {
   state_types.Beneficiary {
+    ..states.base_beneficiary(),
     id,
     beneficiary_wallets: ["beneficiary1"],
     unlock_after: Some(100),

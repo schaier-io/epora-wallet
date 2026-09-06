@@ -45,5 +45,6 @@
   "pathPerDayAllowanceCanListAtMost": "{path} can have a daily limit for at most {limit} tokens.",
   "pathRemainingAllowanceCanListAtMostMax": "{path} can have a remaining allowance for at most {limit} tokens.",
   "pathTheStartDateCannotBeAfterThe": "{path}: the start date cannot be after the end date.",
-  "pathUserWalletsCanListAtMostMax": "{path} can have at most {limit} wallet IDs."
+  "pathUserWalletsCanListAtMostMax": "{path} can have at most {limit} wallet IDs.",
+  "pathBeneficiaryNeedsPayoutAddress": "{path} uses an unsupported beneficiary schema. Expected five fields including a payout address."
 }

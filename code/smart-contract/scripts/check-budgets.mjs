@@ -37,8 +37,10 @@ const TOLERANCE = 0.01;
 const CI_TX_MEMORY_CEILING = 14_000_000;
 const CI_TX_CPU_CEILING = 9_000_000_000;
 const TRANSACTION_TEST_MODULE = "transaction_budget_tests";
-const TRANSACTION_FIXTURE_SHAPE_TEST =
-  "fixture_shape_declared_wallet_execution_counts_match";
+const TRANSACTION_FIXTURE_SHAPE_TESTS = new Set([
+  "fixture_shape_state_and_value_bounds_match",
+  "fixture_shape_declared_wallet_execution_counts_match",
+]);
 const TRANSACTION_LEG =
   /^(?<scenario>[a-z0-9_]+)_w(?<walletCount>\d{2})__(?<script>stt|wallet)(?:_(?<index>\d{2}))?$/;
 const SCRIPT_TITLE_BY_LEG = {
@@ -97,7 +99,7 @@ for (const module of report.modules) {
     };
 
     if (module.name !== TRANSACTION_TEST_MODULE) continue;
-    if (test.title === TRANSACTION_FIXTURE_SHAPE_TEST) continue;
+    if (TRANSACTION_FIXTURE_SHAPE_TESTS.has(test.title)) continue;
     const match = test.title.match(TRANSACTION_LEG);
     if (!match) {
       fail(
