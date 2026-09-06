@@ -140,9 +140,7 @@ describe("workspace chain-read gating", () => {
     const { rerender } = renderHook(
       ({ enabled }) =>
         useSharedSttReference({
-          activeWallet: null,
-          enabled,
-          isDemoWallet: false
+          enabled
         }),
       {
         initialProps: { enabled: false },

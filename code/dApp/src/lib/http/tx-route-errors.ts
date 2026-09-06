@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import { SHARED_HELPER_UNAVAILABLE_CODE } from "./errors";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/LibHttpTxRouteErrors.json";
 
@@ -130,7 +131,7 @@ export function describeZodIssue(error: z.ZodError) {
 }
 
 export type BuildFailure = {
-  status: 400 | 500 | 502;
+  status: 400 | 500 | 502 | 503;
   /** Safe to return to the caller. Never carries provider detail. */
   message: string;
   /** Whether the failure is ours to investigate, or the caller's to fix. */
@@ -148,6 +149,10 @@ export type BuildFailure = {
  * ("Wallet script parameters are missing."), and both are the caller's.
  */
 export function classifyBuildFailure(error: unknown): BuildFailure {
+  if (error instanceof Error && error.message === SHARED_HELPER_UNAVAILABLE_CODE) {
+    return { status: 503, message: SHARED_HELPER_UNAVAILABLE_CODE, severity: "error" };
+  }
+
   if (looksLikeProviderFailure(error)) {
     // The provider's own message can name hosts, keys and internal endpoints,
     // so it is logged, never returned.

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { detectSttInfo } from "./detection";
+import { detectSharedSttReferenceStore, detectSttInfo } from "./detection";
 import { getSttMintPolicyId, getSttSpendScript, resolveScriptAddress } from "@/lib/contracts/blueprint";
 
 type MeshCall = { method: string; args: unknown[] };
@@ -96,4 +96,29 @@ test("known wallet lookup rejects a foreign policy without querying the chain", 
     await assert.rejects(detectSttInfo(`${"ff".repeat(28)}01`), /current STT policy/);
     assert.equal(stub.calls.length, 0);
   } finally { stub.restore(); }
+});
+
+test("shared helper detection reads the server result without browser discovery", async () => {
+  const originalFetch = globalThis.fetch;
+  const result = {
+    status: "ready", activeReference: `${"ab".repeat(32)}#0`,
+    policyId: getSttMintPolicyId(), sttScriptHash: getSttMintPolicyId(), storeAddress: "addr_test1store",
+    matchingReferences: [`${"ab".repeat(32)}#0`], matchingCount: 1, checkedReferenceCount: 1
+  };
+  globalThis.fetch = (async (url: unknown, init?: RequestInit) => {
+    assert.equal(url, "/api/shared-helper");
+    assert.notEqual(init?.method, "POST");
+    return new Response(JSON.stringify({ result }), { status: 200 });
+  }) as typeof fetch;
+  try {
+    assert.deepEqual(await detectSharedSttReferenceStore(), result);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test("shared helper detection reports server failure instead of creating a helper", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => new Response(JSON.stringify({ error: "SHARED_HELPER_UNAVAILABLE" }), { status: 503 })) as typeof fetch;
+  try {
+    await assert.rejects(detectSharedSttReferenceStore(), /Wallet service is temporarily unavailable/);
+  } finally { globalThis.fetch = originalFetch; }
 });
