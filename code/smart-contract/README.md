@@ -469,7 +469,11 @@ stops it and discards all chain state. Requires Docker.
 The maintained scripts cover bootstrap and funding only:
 
 1. `generate-credentials.mjs` — create and fund the local example key.
-2. `mint-stt.mjs` (`pnpm mint`) — mint a fresh STT / wallet; prints the policy id.
+2. `mint-stt.mjs` (`pnpm mint`): mint a fresh STT / wallet; prints the policy id.
+   Set `STT_SPEND_REFERENCE="txHash#index"` in `.env` first. The script checks
+   that this exact output is unspent and contains the current STT script.
+   It uses that reference because the inline script exceeds the transaction size limit.
+   Prepare wallet collateral without a reference script before running the command.
 3. `fund-wallet-example.mjs` — deposit funds at the wallet spend address.
 4. `cleanup-utxo.mjs` — sweep stray example-key UTxOs between runs (anytime).
 
@@ -483,7 +487,8 @@ If you are setting up a fresh deployment after rebuilding the contracts:
 1. Build the new blueprint.
 2. Open the frontend route `/user`.
 3. Create the shared STT reference-script UTxO from the wallet-home setup prompt.
-4. Mint fresh STTs from the rebuilt artifacts.
+4. For the CLI, copy its output reference into `STT_SPEND_REFERENCE` in `.env`.
+5. Mint fresh STTs from the rebuilt artifacts.
 
 ## Test Guidance
 
