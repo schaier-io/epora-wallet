@@ -105,3 +105,31 @@ test("choosing an action leaves the overview behind", () => {
   assert.equal(sending.overviewSection, "home");
   assert.equal(sending.assetDetailUnit, null);
 });
+
+/**
+ * Two handlers used to raise a second dispatch that the reducer already covers.
+ * Every dispatch in one tick reduces from the same captured route state and
+ * commits its own history entry, so the extra one either cost a Back press
+ * (`handleCreateAnotherWallet`) or wrote the state it was meant to clear back
+ * into the URL (the action clamp in `use-workspace-wizard-effects.ts`). These
+ * pin what makes the single dispatch sufficient.
+ */
+test("starting a new wallet clears the selected wallet by itself", () => {
+  const open = parseWorkspaceRouteState(
+    new URLSearchParams("wallet=unit&action=use&step=configure")
+  );
+  const creating = reduceWorkspaceRouteState(open, { type: "start-create-wallet" });
+
+  assert.equal(creating.selectedWalletUnit, null);
+  assert.equal(creating.workspaceMode, "new-wallet");
+});
+
+test("clearing the action lands on the overview step by itself", () => {
+  const open = parseWorkspaceRouteState(
+    new URLSearchParams("wallet=unit&action=use&step=configure")
+  );
+  const cleared = reduceWorkspaceRouteState(open, { type: "clear-selected-action" });
+
+  assert.equal(cleared.selectedAction, null);
+  assert.equal(cleared.flowStep, "overview");
+});

@@ -270,7 +270,11 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
   function handleCreateAnotherWallet() {
     jotaiStore.set(mintConfirmationRunAtom, jotaiStore.get(mintConfirmationRunAtom) + 1);
     setMintConfirmation(null);
-    setSelectedDetectedTokenUnit("");
+    // No `setSelectedDetectedTokenUnit("")` here. It dispatched
+    // `clear-selected-wallet`, and `start-create-wallet` below already returns a
+    // state with no selected wallet. Both dispatches push, so one click filed two
+    // history entries and Back landed on a bare landing screen nobody asked for
+    // before returning to the confirmation.
     handleFlowBranchSelect("new-wallet");
     resetActionDraft("mint");
   }
