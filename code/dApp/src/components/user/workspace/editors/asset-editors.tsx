@@ -192,7 +192,9 @@ export function StateAssetAmountListEditor({
                     )}
                   </div>
                   <div className="space-y-1">
-                    <Label htmlFor={`${uid}-amount-${index}`}>{i18n("amount")}</Label>
+                    <Label htmlFor={`${uid}-amount-${index}`}>
+                      {unit === LOVELACE_UNIT ? i18n("amountAda") : i18n("amount")}
+                    </Label>
                     <Input
                       id={`${uid}-amount-${index}`}
                       value={asset.amount}

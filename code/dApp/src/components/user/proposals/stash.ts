@@ -17,6 +17,7 @@ export { fitProposalSummaryForStorage } from "@/lib/proposals/summary";
 // because the build context carries Plutus datum values.
 
 const STASH_KEY = "pw:proposal-draft";
+const STASH_VERSION = 1;
 
 export type StashedProposalDraft = {
   walletUnit: string;
@@ -35,6 +36,23 @@ export type StashedProposalDraft = {
   stateForm?: StateFormState;
 };
 
+function isStashedProposalDraft(value: unknown): value is StashedProposalDraft {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const draft = value as Partial<StashedProposalDraft>;
+  return (
+    typeof draft.walletUnit === "string" &&
+    typeof draft.walletPolicyId === "string" &&
+    typeof draft.actionKind === "string" &&
+    typeof draft.authorityPath === "string" &&
+    typeof draft.builder === "string" &&
+    typeof draft.unsignedTxHex === "string" &&
+    typeof draft.buildContext === "object" &&
+    draft.buildContext !== null
+  );
+}
+
 export function writeProposalDraft(draft: StashedProposalDraft): void {
   if (typeof window === "undefined") {
     return;
@@ -43,8 +61,11 @@ export function writeProposalDraft(draft: StashedProposalDraft): void {
     window.sessionStorage.setItem(
       STASH_KEY,
       serializeJsonSafe({
-        ...draft,
-        summary: draft.summary ? fitProposalSummaryForStorage(draft.summary) : undefined
+        version: STASH_VERSION,
+        draft: {
+          ...draft,
+          summary: draft.summary ? fitProposalSummaryForStorage(draft.summary) : undefined
+        }
       })
     );
   } catch {
@@ -59,7 +80,11 @@ export function readProposalDraft(): StashedProposalDraft | null {
   }
   try {
     const raw = window.sessionStorage.getItem(STASH_KEY);
-    return raw ? parseJsonSafe<StashedProposalDraft>(raw) : null;
+    if (!raw) return null;
+    const stored = parseJsonSafe<{ version?: unknown; draft?: unknown }>(raw);
+    return stored?.version === STASH_VERSION && isStashedProposalDraft(stored.draft)
+      ? stored.draft
+      : null;
   } catch {
     return null;
   }

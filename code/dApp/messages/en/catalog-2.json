@@ -265,7 +265,13 @@
     "scheduledPayment": "Scheduled payment",
     "distribution": "Exact distribution",
     "preparation": "Recovery preparation",
-    "preparationRequirements": "Resolve the ADA requirement before preparing funds."
+    "preparationRequirements": "Resolve the ADA requirement before preparing funds.",
+    "fundPools": "Fund pools",
+    "newFundPools": "New fund pools",
+    "forwardedSttAssets": "Forwarded STT assets",
+    "stakingAddress": "Staking address",
+    "withdrawalAmount": "Withdrawal amount",
+    "voteJson": "Vote JSON"
   },
   "ComponentsUserWorkspaceActionValidationShared": {
     "aVoteHasToSayWhoIsVoting": "A vote has to say who is voting, which proposal, and how you vote.",
@@ -582,7 +588,8 @@
     "value1": "({value1})",
     "value1Value2": "{value1}{value2}",
     "walletId": "Wallet id",
-    "walletIdOrAddress": "Wallet id or Cardano address"
+    "walletIdOrAddress": "Wallet id or Cardano address",
+    "amountAda": "Amount (ADA)"
   },
   "ComponentsUserWorkspaceEditorsAssetListEditor": {
     "adaOrTokenPolicyAsset": "ADA or token policy+asset",

@@ -149,7 +149,8 @@
     "yes": "Yes",
     "exactPayoutAddress": "Exact-distribution payout address",
     "exactPayoutAddressHelp": "Used for exact distribution. A script must accept our existing payout datum. Signing wallets are configured separately.",
-    "payoutAddressPlaceholder": "addr_test1..."
+    "payoutAddressPlaceholder": "addr_test1...",
+    "recoveryContact": "Recovery contact"
   },
   "ComponentsUserWorkspaceEditorsPrimitives": {
     "chooseAnAsset": "Choose an asset",
@@ -346,7 +347,8 @@
     "walletIdsAllowedToSpend": "Wallet IDs allowed to spend",
     "walletName": "Wallet name",
     "walletNameAtLimit": "That is as long as a wallet name can be. Emoji and accented letters take up more room than plain letters.",
-    "walletNamePreview": "This wallet will show as <strong>{name}</strong>."
+    "walletNamePreview": "This wallet will show as <strong>{name}</strong>.",
+    "spender": "Spender"
   },
   "ComponentsUserWorkspaceGuidedAdminCatalog": {
     "add": "Add",

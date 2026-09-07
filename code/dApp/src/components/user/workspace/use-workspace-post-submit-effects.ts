@@ -18,6 +18,7 @@ import { type MintCelebration } from "@/components/user/workspace/atoms/transact
  * on unmount. Display + cleanup only; no signing. A hook (owns useEffect), called once.
  */
 export interface WorkspacePostSubmitEffectsCtx {
+  lockingContractAddress: string | null;
   mintCelebrationRef: MutableRefObject<string | null>;
   mintConfirmation: MintConfirmationState | null;
   mintStateForm: StateFormState;
@@ -28,6 +29,7 @@ export interface WorkspacePostSubmitEffectsCtx {
 
 export function useWorkspacePostSubmitEffects(ctx: WorkspacePostSubmitEffectsCtx): void {
   const {
+    lockingContractAddress,
     mintCelebrationRef,
     mintConfirmation,
     mintStateForm,
@@ -67,8 +69,10 @@ export function useWorkspacePostSubmitEffects(ctx: WorkspacePostSubmitEffectsCtx
 
   useEffect(
     () => () => {
-      postSubmitRefreshTimersRef.current.forEach((id) => window.clearTimeout(id));
+      const timers = postSubmitRefreshTimersRef.current;
+      postSubmitRefreshTimersRef.current = [];
+      timers.forEach((id) => window.clearTimeout(id));
     },
-    [postSubmitRefreshTimersRef]
+    [lockingContractAddress, postSubmitRefreshTimersRef]
   );
 }

@@ -78,6 +78,25 @@ describe("wallet balance reads", () => {
     expect(store.get(walletBalanceSummaryAtom).assets[0]?.quantity).toBe("222");
   });
 
+  it("drops a same-wallet read that answers after a newer read", async () => {
+    const reads: Array<(value: ReturnType<typeof lovelace>) => void> = [];
+    const wallet = {
+      getUtxos: () => new Promise<ReturnType<typeof lovelace>>((resolve) => reads.push(resolve))
+    } as unknown as BrowserWallet;
+    const { store, result } = renderWithWallet(wallet);
+    let refreshing!: Promise<void>;
+    await act(async () => {
+      refreshing = result.current.refreshWalletBalance();
+    });
+    expect(reads).toHaveLength(2);
+    await act(async () => {
+      reads[1](lovelace("222"));
+      await refreshing;
+    });
+    await act(async () => reads[0](lovelace("111")));
+    expect(store.get(walletBalanceSummaryAtom).assets[0]?.quantity).toBe("222");
+  });
+
   it("still reports the balance of the wallet that is connected", async () => {
     const { store } = renderWithWallet(immediateWallet("333"));
 

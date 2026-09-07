@@ -297,7 +297,6 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
   function handleCreateAnotherWallet() {
     jotaiStore.set(mintConfirmationRunAtom, jotaiStore.get(mintConfirmationRunAtom) + 1);
     setMintConfirmation(null);
-    setSelectedDetectedTokenUnit("");
     handleFlowBranchSelect("new-wallet");
     resetActionDraft("mint");
   }

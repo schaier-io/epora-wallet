@@ -519,7 +519,7 @@ describe("buildConsolidateUtxosTx integration", () => {
       }
     }
     expect(result.preview.summary).toBe(
-      "Reorganize 1 wallet fund pool into 2 resulting fund pools."
+      "Reorganize 1 wallet fund pool into 2 resulting fund pools using 1 reference script."
     );
     expect(tx.witnessSet().plutusV3Scripts()?.values()).toHaveLength(1);
     expect(tx.witnessSet().redeemers()?.size()).toBe(2);
