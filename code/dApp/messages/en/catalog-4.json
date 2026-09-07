@@ -54,7 +54,8 @@
     "theWalletInThisLinkIsNotOne": "The wallet in this link is not one of yours, or it has not finished loading. Choose a wallet below to open one you control.",
     "theWalletYouConnectedCannotManageThisSmart": "The wallet you connected cannot manage this smart wallet.",
     "value1": "{value1}",
-    "wallet": "Wallet"
+    "wallet": "Wallet",
+    "walletNavigation": "Wallet navigation"
   },
   "ComponentsUserWorkspaceWorkspaceStateDiff": {
     "approvalsNeeded": "Approvals needed",

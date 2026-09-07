@@ -56,7 +56,11 @@ export function StakeAddressDiscoveryPanel({
     // above it (`workspace/workspace-sidebar-view.tsx:227`). It was rounded-xl, so the one
     // slot rounded differently depending on what it found.
     <div className="flex items-center justify-between gap-3 rounded-lg border border-border/40 bg-background/20 px-3 py-2 text-xs text-muted-foreground">
-      <span>
+      {/* A stable `role="status"` region: this span is always rendered and only its text
+          swaps, which is the shape a polite live region needs to announce reliably. The
+          check runs on its own when the wallet opens, so without it the result never
+          reaches a screen reader. */}
+      <span role="status">
         {/* The all-clear used to show whenever the list was empty, including when the query
             never ran: `useOrphanWalletUtxos` clears `orphans` and reports no error when it
             cannot run, so the panel promised that every fund was in place without having

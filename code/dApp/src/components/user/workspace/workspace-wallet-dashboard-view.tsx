@@ -396,7 +396,7 @@ export function WorkspaceWalletDashboardView() {
                                         <button
                                           type="button"
                                           onClick={row.onClick}
-                                          className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:underline"
+                                          className="mt-2 inline-flex items-center gap-1 rounded-sm text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                                         >
                                           {row.cta}
                                           <ChevronRight className="h-3 w-3" aria-hidden="true" />

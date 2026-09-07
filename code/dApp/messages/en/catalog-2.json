@@ -88,6 +88,7 @@
     "balance": "Balance",
     "copyWalletAddress": "Copy wallet address",
     "hideFullAddress": "Hide full address",
+    "loadingAddress": "Loading address…",
     "noFundsInThisWalletYet": "No funds in this wallet yet",
     "onlyAdaInsideThisWallet": "Only ADA inside this wallet",
     "receive": "Receive",

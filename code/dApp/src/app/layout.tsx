@@ -10,6 +10,7 @@ import {
 import { COPY } from "@/lib/copy";
 import "@/app/globals.css";
 import "@/app/globals/animations.css";
+import { MotionConfig } from "motion/react";
 import "@/components/ProfileCard.css";
 import { WalletProvider } from "@/providers/wallet-provider";
 import { WalletConnectProvider } from "@/providers/walletconnect-provider";
@@ -180,6 +181,15 @@ export default async function RootLayout({
           locale={locale}
           timeZone={timeZone}
         >
+          {/*
+            `motion` defaults to `reducedMotion: "never"` (verified in
+            motion@13.1.1's MotionConfigContext), so every `motion.*` element
+            animated regardless of the user's preference. The `*` catch-all in
+            globals/animations.css cannot reach these: it flattens CSS
+            animations and transitions, and this library drives transforms from
+            JS. One provider covers every consumer.
+          */}
+          <MotionConfig reducedMotion="user">
           <GlobalBackground />
           <RiskDisclaimerGate />
           <ToastProvider>
@@ -214,6 +224,7 @@ export default async function RootLayout({
               </WalletConnectProvider>
             </WalletProvider>
           </ToastProvider>
+          </MotionConfig>
         </NextIntlClientProvider>
       </body>
     </html>

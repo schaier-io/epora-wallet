@@ -18,6 +18,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils/cn";
 import type { ProposalVerification } from "@/lib/proposals/types";
 import { actionKindLabel, lovelaceToAda, truncateMiddle } from "./format";
 import { authorityPathLabel, describeSignerProgress } from "./signer-progress";
@@ -182,7 +183,10 @@ export function ProposalDetail({
       <Card>
         <CardHeader>
           <div className="flex flex-wrap items-center gap-2">
-            <CardTitle>{detail.title}</CardTitle>
+            {/* `h2`: this card sits under the workspace's `<h1>`, and below `lg` the list
+                column (which owns the only other `<h2>`) is `display: none`, so the
+                default `h3` left the outline jumping h1 → h3 on every narrow screen. */}
+            <CardTitle as="h2">{detail.title}</CardTitle>
             <Badge variant="outline">{actionKindLabel(detail.actionKind)}</Badge>
             <Badge variant="outline">{authorityPathLabel(detail.authorityPath)}</Badge>
             {detail.status === "SUBMITTED" ? <Badge variant="info">{i18n("submitted")}</Badge> : null}
@@ -240,13 +244,31 @@ export function ProposalDetail({
               {actionError}
             </p>
           ) : null}
-          {actionInfo ? (
-            <p role="status" className="text-sm text-emerald-300">
-              {actionInfo}
-            </p>
-          ) : null}
+          {/*
+            Both regions stay mounted and go `sr-only` when empty rather than unmounting.
+            A polite region that is inserted at the same moment it gains text is announced
+            inconsistently, and every handler clears `actionInfo` before it sets the next
+            one, so "Your signature was added." then "Submitted on-chain: …" is exactly the
+            repeated-update case that needs a stable region. `sr-only` is absolutely
+            positioned, so an empty region costs no space in the `space-y-4` column.
+          */}
+          <p
+            role="status"
+            className={cn("text-sm text-emerald-300", !actionInfo && "sr-only")}
+          >
+            {actionInfo}
+          </p>
 
-          {statusNote ? <p className="text-sm text-muted-foreground">{statusNote}</p> : null}
+          {/* Same treatment: this line is the only thing that says why Sign is switched
+              off, and it flips from "Checking this request against the blockchain." to its
+              verdict seconds after the panel opens, at the same moment Sign becomes
+              usable. Nothing else announces that. */}
+          <p
+            role="status"
+            className={cn("text-sm text-muted-foreground", !statusNote && "sr-only")}
+          >
+            {statusNote}
+          </p>
 
           <div className="flex flex-wrap gap-2">
             <Button
@@ -295,10 +317,15 @@ export function ProposalDetail({
               </Button>
             ) : null}
 
+            {/* `destructive`, not `ghost`. Withdrawing is the one irreversible action on
+                this panel. It kills a request other people are waiting to sign, and it
+                cannot be undone. It used to wear the same treatment as "Sign out", two
+                buttons along from "Sign this request". Same idiom as the cancel action in
+                `payee-view.tsx:388`. */}
             {isCreator && isOpen ? (
               <Button
                 type="button"
-                variant="ghost"
+                variant="destructive"
                 onClick={() => void handleCancel()}
                 disabled={busy !== null}
                 aria-busy={busy === "cancel"}
@@ -340,7 +367,10 @@ function EffectSection({ verification }: { verification: ProposalVerification | 
                 key={`${input.txHash}#${input.outputIndex}`}
                 className="flex items-center justify-between gap-2"
               >
-                <span className="font-mono">
+                {/* 8+4 of a 64-character hash cannot be checked against an explorer, and
+                    this panel exists so a co-signer can check the transaction before they
+                    sign it. `title` keeps the whole hash reachable. */}
+                <span className="font-mono" title={input.txHash}>
                   {truncateMiddle(input.txHash, 8, 4)}#{input.outputIndex}
                 </span>
                 <span className="flex items-center gap-1">
@@ -370,7 +400,12 @@ function EffectSection({ verification }: { verification: ProposalVerification | 
               <li key={index} className="space-y-1">
                 <div className="flex items-center justify-between gap-2">
                   <span className="break-all text-left font-mono">{output.address}</span>
-                  <span className="shrink-0 font-semibold">{lovelaceToAda(output.lovelace)}</span>
+                  {/* `tabular-nums`: this is a right-aligned column of amounts, and
+                      proportional digits leave the decimal points off one another. Same
+                      idiom as `locked-assets-panel.tsx:326`. */}
+                  <span className="shrink-0 font-semibold tabular-nums">
+                    {lovelaceToAda(output.lovelace)}
+                  </span>
                 </div>
                 {(output.assets.length > 0 || output.hasInlineDatum) && (
                   <div className="space-y-1 text-xs text-muted-foreground">
@@ -394,7 +429,8 @@ function EffectSection({ verification }: { verification: ProposalVerification | 
       </div>
 
       <p className="text-xs text-muted-foreground">
-        {i18n("networkFee")} <span className="font-semibold">{lovelaceToAda(effect.feeLovelace)}</span>
+        {i18n("networkFee")}{" "}
+        <span className="font-semibold tabular-nums">{lovelaceToAda(effect.feeLovelace)}</span>
       </p>
     </section>
   );
@@ -433,7 +469,11 @@ function SignersSection({ verification }: { verification: ProposalVerification |
               key={`${signer.keyHash}-${index}`}
               className="flex items-center justify-between gap-2"
             >
-              <span className="font-mono">{truncateMiddle(signer.keyHash, 10, 6)}</span>
+              {/* A signer checks this list for their own key hash, so the truncated form
+                  has to lead back to the full value. */}
+              <span className="font-mono" title={signer.keyHash}>
+                {truncateMiddle(signer.keyHash, 10, 6)}
+              </span>
               <span className="flex items-center gap-2">
                 {signer.isAdmin ? <Badge variant="outline">{i18n("owner_89ff31")}</Badge> : null}
                 {signers.threshold != null ? (

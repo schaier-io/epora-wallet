@@ -78,12 +78,19 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
   return (
     <Card className="mx-auto w-full max-w-2xl">
       <CardHeader>
-        <CardTitle>{i18n("saveAsApprovalRequest")}</CardTitle>
+        {/* `h2`: this panel replaces the list beneath the workspace's own `<h1>`, so the
+            default `h3` skipped a level. */}
+        <CardTitle as="h2">{i18n("saveAsApprovalRequest")}</CardTitle>
         <p className="text-sm text-muted-foreground">
           {/* `authorityPathLabel`, not the raw `authorityPath`: the stored value is
               `admin`, the role word the product retired, and this was the one call site
               that skipped the helper the two detail sites already use. */}
-          {actionKindLabel(draft.actionKind)} · {authorityPathLabel(draft.authorityPath)}{i18n("thePeopleWhoHaveToSignWillSee")}
+          {actionKindLabel(draft.actionKind)} · {authorityPathLabel(draft.authorityPath)}
+        </p>
+        {/* Its own sentence, not a catalog entry beginning with ". " glued onto the two
+            labels above. A translator cannot move a fragment that has no subject. */}
+        <p className="text-sm text-muted-foreground">
+          {i18n("thePeopleWhoHaveToSignWillSee")}
         </p>
       </CardHeader>
       <CardContent className="space-y-4">

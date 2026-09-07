@@ -162,14 +162,23 @@ export function WalletSelectionDialogView() {
             ) : null}
 
             {detectedSttTokensError ? (
-              <FadeContent className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-100">
+              <FadeContent
+                role="alert"
+                className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-100"
+              >
                 {detectedSttTokensError}
               </FadeContent>
             ) : null}
 
             <div className="user-scrollbar max-h-[420px] overflow-y-auto">
               {filteredPermissionWalletCards.length === 0 ? (
-                <FadeContent className="rounded-lg border border-dashed border-border/70 bg-background/30 p-3 sm:p-4 text-sm text-muted-foreground">
+                // `role="status"`: typing in the search box swaps the whole list for this
+                // message with no other cue, so a screen-reader user got no answer at all
+                // when a query matched nothing.
+                <FadeContent
+                  role="status"
+                  className="rounded-lg border border-dashed border-border/70 bg-background/30 p-3 sm:p-4 text-sm text-muted-foreground"
+                >
                   {detectedSttTokensLoading
                     ? i18n("lookingForYourSmartWallets")
                     : permissionWalletCards.length === 0
@@ -208,7 +217,10 @@ export function WalletSelectionDialogView() {
                             setWalletConnectionDialogOpen(false);
                           }}
                           className={cn(
-                            "relative z-10 w-full rounded-lg border p-3 text-left transition-all",
+                            // Named properties, matching the "Create new smart wallet" card
+                            // above, rather than `transition-all`.
+                            "relative z-10 w-full rounded-lg border p-3 text-left",
+                            "transition-[background-color,border-color,box-shadow] duration-200 ease-out",
                             isSelected
                               ? "border-primary/50 bg-primary/10 shadow-[0_0_0_1px_hsl(var(--primary)/0.2)]"
                               : "border-border/70 bg-background/50 hover:border-primary/30 hover:bg-background/70"

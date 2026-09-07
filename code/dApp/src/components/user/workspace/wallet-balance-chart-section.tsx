@@ -172,6 +172,7 @@ export function WalletBalanceChartSection() {
               aria-pressed={active}
               className={cn(
                 "rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-colors",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 active
                   ? "border-primary/40 bg-primary/15 text-foreground"
                   : "border-border/60 bg-background/40 text-muted-foreground hover:text-foreground"

@@ -235,10 +235,13 @@ export function LockedAssetsOverviewPanel({
         ) : null}
       </div>
       {loading && sortedAssets.length === 0 && !loadError ? (
+        // Row-shaped, not three text bars. A loaded row is a 36px icon inside `px-3 py-2`
+        // plus its border, so the old 16px bars stood at roughly a third of the height the
+        // list lands at and the panel jumped when the assets arrived.
         <div className="mt-3 space-y-2" aria-busy="true" aria-live="polite">
-          <Skeleton className="h-4 w-32" />
-          <Skeleton className="h-4 w-48" />
-          <Skeleton className="h-4 w-40" />
+          <Skeleton className="h-[54px] w-full rounded-md" />
+          <Skeleton className="h-[54px] w-full rounded-md" />
+          <Skeleton className="h-[54px] w-full rounded-md" />
         </div>
       ) : null}
       {loadError ? (
@@ -359,7 +362,7 @@ export function LockedAssetsOverviewPanel({
           </ul>
           {sortedAssets.length > assetPageSize ? (
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs tabular-nums text-muted-foreground">
                 {visibleStart}-{visibleEnd} {i18n("of")} {sortedAssets.length}
               </p>
               <div className="flex items-center gap-2">

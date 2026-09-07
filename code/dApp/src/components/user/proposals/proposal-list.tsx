@@ -179,12 +179,23 @@ export function ProposalList({
                   <span aria-hidden="true">·</span>
                   <span>{formatTimestamp(proposal.createdAt)}</span>
                 </div>
+                {/* One whole sentence per branch, not a count glued to a trailing
+                    "still to sign." Word order moves between languages, so a sentence
+                    assembled from fragments around a variable cannot be translated. */}
                 {outstanding != null && outstanding > 0 ? (
                   <p className="mt-1 text-xs text-amber-200">
-                    {outstanding === 1 ? i18n("message_1Person") : i18n("outstandingPeople", { outstanding: outstanding })} {i18n("stillToSign")}
+                    {outstanding === 1
+                      ? i18n("message_1PersonStillToSign")
+                      : i18n("outstandingPeopleStillToSign", { outstanding: outstanding })}
                   </p>
                 ) : null}
-                <p className="mt-1 truncate text-xs text-muted-foreground">
+                {/* `title` carries the untruncated unit: nothing else on this surface shows
+                    it in full, so without it the row truncates an identifier the reader has
+                    no way to get back. Same idiom as `wallet-membership-card.tsx:494`. */}
+                <p
+                  className="mt-1 truncate text-xs text-muted-foreground"
+                  title={proposal.walletUnit}
+                >
                   {i18n("wallet")} {truncateMiddle(proposal.walletUnit, 14, 6)}
                 </p>
               </button>

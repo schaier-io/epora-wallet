@@ -459,8 +459,13 @@ body:has(> [role="alertdialog"]) .user-soft-aurora-blob {
 }
 
 @layer base {
+  /* Full-strength `--ring`, not shadcn's default `/50`. This is the outline colour
+     every element falls back to when it authors no focus style of its own, and at
+     50% alpha it composites to 1.87:1 against card, background and muted alike --
+     under the 3:1 floor WCAG 1.4.11 sets for a focus indicator. At full strength
+     the same three pairs measure 3.79:1, 4.18:1 and 3.19:1. */
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border outline-ring;
   }
   body {
     @apply bg-background text-foreground;
