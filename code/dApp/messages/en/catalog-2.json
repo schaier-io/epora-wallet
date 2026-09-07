@@ -330,9 +330,7 @@
     "transfersForwardedOutputs": "Transfers / forwarded outputs",
     "wakeUpTimerRenewal": "Proof of life renewal",
     "walletName": "Wallet name",
-    "walletSettings": "Wallet settings",
-    "permanentExit": "Permanent withdrawal",
-    "settleStreamsBeforeFinalExit": "Settle and remove all scheduled payments before the final permanent withdrawal."
+    "walletSettings": "Wallet settings"
   },
   "ComponentsUserWorkspaceAtomsWorkspaceActivityAtoms": {
     "noneShown": "0 shown",
@@ -397,7 +395,7 @@
     "refresh": "Refresh funds and costs",
     "loading": "Reading current transaction costs.",
     "distribute": "Distribute a prepared pool",
-    "finish": "Finish with permanent withdrawal"
+    "finish": "Continue to withdrawal"
   },
   "ComponentsUserWorkspaceBeneficiaryStreamStopModel": {
     "connect": "Connect an unlocked recovery contact wallet.",

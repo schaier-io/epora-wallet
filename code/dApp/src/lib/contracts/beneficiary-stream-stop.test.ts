@@ -87,7 +87,6 @@ test("stop codec appends constructor 8 and requires both uint64 ids", () => {
   assert.throws(() => buildSttSpendRedeemerData({kind:"stop-beneficiary-stream", beneficiaryId:9}), /requires beneficiary and streaming/);
   assert.throws(() => buildSttSpendRedeemerData({kind:"stop-beneficiary-stream", beneficiaryId:-1, streamingPaymentId:7}), /must be between/);
   assert.deepEqual(buildSttSpendRedeemerData({kind:"beneficiary-withdrawal",beneficiaryId:9}),{alternative:3,fields:[9]});
-  assert.deepEqual(buildSttSpendRedeemerData({kind:"beneficiary-exit",beneficiaryId:9}),{alternative:7,fields:[9]});
 });
 
 test("stop rejects a second unlocked beneficiary signer but allows owner or same-beneficiary keys", () => {

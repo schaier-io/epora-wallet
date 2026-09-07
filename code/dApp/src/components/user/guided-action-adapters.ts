@@ -120,7 +120,7 @@ export function buildGuidedActionDrafts(
     return [formHint, setupHint].filter(Boolean).join(" ");
   })();
 
-  const beneficiaryDraft = (action: "use-beneficiary" | "exit-beneficiary") => ({
+  const beneficiaryDraft = (action: "use-beneficiary") => ({
       dirty:
         context.stt.inputHash.trim().length > 0 ||
         context.stt.walletInputCount > 0 ||
@@ -229,7 +229,6 @@ export function buildGuidedActionDrafts(
               : i18n("reviewTheDerivedAllowanceStateAndBuildThe"))
     },
     "use-beneficiary": beneficiaryDraft("use-beneficiary"),
-    "exit-beneficiary": beneficiaryDraft("exit-beneficiary"),
     "distribute-beneficiaries": {
       dirty: context.stt.walletInputCount > 0,
       ready: !context.actionReadinessMap["distribute-beneficiaries"].some((issue) => issue.blocking),

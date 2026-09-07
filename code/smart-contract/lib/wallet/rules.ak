@@ -53,7 +53,6 @@ fn exact_withdrawal(
 ///   RenewProofOfLife                  |  no    | —
 ///   UseAllowance(spent_allowance)     |  yes   | exact delta; outputs <= inputs
 ///   UseBeneficiary(id)                |  yes   | weighted share; outputs <= inputs
-///   ExitBeneficiary(id)               |  yes   | weighted share; outputs <= inputs
 ///   DistributeBeneficiaries(id)       |  yes   | exact weighted outputs; one input, zero change
 ///   PayStreamingPayment(payout_delta) |  yes   | exact delta + routing; outputs <= inputs
 ///   Consolidate(_)                    |  no¹   | exact aggregate value; no count cap
@@ -102,11 +101,8 @@ pub fn stt_action_allows_spend(
     // Beneficiary use is bounded by the beneficiary's weighted share of the
     // distributable pool. Weights come from the input state. The STT validator
     // removes an earlier beneficiary, but preserves the final beneficiary so
-    // it can retry recovery for any wallet UTxOs that remain. ExitBeneficiary
-    // always removes the actor and uses the weighted-share check, including
-    // the final actor whose share is 100%.
-    state_types.UseBeneficiary(beneficiary_id) |
-    state_types.ExitBeneficiary(beneficiary_id) -> {
+    // it can retry recovery for any wallet UTxOs that remain.
+    state_types.UseBeneficiary(beneficiary_id) -> {
       let beneficiary = list.expect_find(
         input_state.access.beneficiaries,
         fn(beneficiary) { beneficiary.id == beneficiary_id },
@@ -180,6 +176,9 @@ pub fn stt_action_allows_spend(
       expect wallet_values.input_value == wallet_values.output_value
       True
     }
+
+    // Constructor 7 is reserved and never authorizes wallet movement.
+    state_types.ReservedBeneficiaryExit(_) -> False
 
     // No wallet spend permitted on proof-of-life renewal.
     state_types.RenewProofOfLife -> False

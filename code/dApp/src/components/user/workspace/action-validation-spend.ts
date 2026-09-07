@@ -330,11 +330,6 @@ export function computeSpendActionErrors(
     );
   }
 
-  const exitErrors: FieldErrors = { ...limitedErrors };
-  if (activeInferredSttStateForm.beneficiaries.length === 1 && activeInferredSttStateForm.streamingPayments.length > 0) {
-    pushFieldError(exitErrors, i18n("permanentExit"), i18n("settleStreamsBeforeFinalExit"));
-  }
-
   const useAllowanceErrors: FieldErrors = {};
   validateSttInputRef(useAllowanceErrors, sttInputTxHash, sttInputOutputIndex);
   validateWalletInputRefs(useAllowanceErrors, "Fund pools", sttWalletInputs, 1);
@@ -385,7 +380,6 @@ export function computeSpendActionErrors(
     updateErrors,
     manageStreamingPaymentsErrors,
     limitedErrors,
-    exitErrors,
     useAllowanceErrors,
     streamingPaymentErrors
   };

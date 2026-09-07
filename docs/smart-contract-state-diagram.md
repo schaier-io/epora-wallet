@@ -50,24 +50,22 @@ stateDiagram-v2
     state "None unlocked" as Waiting
     state "Multiple remain; some unlocked" as Multiple
     state "Sole beneficiary; unlocked" as Final
-    state "No beneficiaries; STT exists" as Empty
     Waiting --> Multiple: Time unlocks a record
     Waiting --> Final: Time unlocks the sole record
     Multiple --> Final: Removal leaves one unlocked record
     Multiple --> Waiting: Removal leaves only locked records
     Multiple --> Multiple: Distribution or removal
     Final --> Final: UseBeneficiary or DistributeBeneficiaries
-    Final --> Empty: ExitBeneficiary
 ```
 
 VERIFIED: The final beneficiary remains listed after `UseBeneficiary`.
-`ExitBeneficiary` removes it. `DistributeBeneficiaries` preserves the list.
-These transitions follow [user_handlers.ak:224](../code/smart-contract/lib/stt/user_handlers.ak#L224),
-[:269](../code/smart-contract/lib/stt/user_handlers.ak#L269), and [:343](../code/smart-contract/lib/stt/user_handlers.ak#L343).
+`DistributeBeneficiaries` preserves the list.
+These transitions follow [user_handlers.ak:224](../code/smart-contract/lib/stt/user_handlers.ak#L224)
+and [:302](../code/smart-contract/lib/stt/user_handlers.ak#L302).
 The diagram does not imply that expiry itself spends a UTxO or writes a datum.
-Removal means `UseBeneficiary` or `ExitBeneficiary` by the authorized actor.
+Removal means `UseBeneficiary` by the authorized nonfinal actor.
 Distribution requires all records unlocked and no streams. Final recovery and distribution use the shared cooldown.
-Final exit also requires no streams. An authorized renewal can put either unlocked state back into `None unlocked`.
+An authorized renewal can put either unlocked state back into `None unlocked`.
 
 ## Permissions and shared checks
 
@@ -167,13 +165,11 @@ flowchart LR
     S --> A["UseAllowance<br/>Changed user's key"]
     S --> B["UseBeneficiary<br/>Single authorized beneficiary"]
     S --> D["DistributeBeneficiaries<br/>All unlocked; declared initiator signs"]
-    S --> E["ExitBeneficiary<br/>Single authorized beneficiary"]
     S --> T["StopBeneficiaryStream<br/>Single authorized beneficiary"]
     R -->|"Extend unlock timestamp"| N["State S'"]
     A -->|"Debit allowance; advance reset"| N
     B -->|"Remove earlier actor; retain final actor"| N
     D -->|"Retain all beneficiary records"| N
-    E -->|"Remove actor, including final actor"| N
     T -->|"Shorten stream; stamp cooldown"| N
 ```
 
@@ -182,9 +178,8 @@ flowchart LR
 | `RenewProofOfLife` | Renewal user must strictly increase unlock within the bounded-renewal window. | Rejected. | [user_handlers.ak:36](../code/smart-contract/lib/stt/user_handlers.ak#L36), [:201](../code/smart-contract/lib/stt/user_handlers.ak#L201) |
 | `UseAllowance(spent_assets)` | Exactly one user changes remaining allowance and reset. Declared spend equals the nonempty allowance decrease. Optional renewal requires that same user to be renewal-eligible. | Exact aggregate outflow equals declared spend. Recipient is unrestricted by this action. | [user_handlers.ak:76](../code/smart-contract/lib/stt/user_handlers.ak#L76), [allowance.ak:134](../code/smart-contract/lib/state/allowance.ak#L134) |
 | `UseBeneficiary(id)` | Single authorized beneficiary. Remove actor when the input has multiple beneficiaries. Retain sole actor and apply cooldown. | Weighted-share cap for earlier actors. Sole actor can recover the free pool repeatedly. Recipient is unrestricted by this action. | [user_handlers.ak:224](../code/smart-contract/lib/stt/user_handlers.ak#L224), [rules.ak:108](../code/smart-contract/lib/wallet/rules.ak#L108) |
-| `DistributeBeneficiaries(id)` | All beneficiaries unlocked, declared initiator signed, and no streams. Preserve beneficiary list. Apply cooldown only with one input-state beneficiary. | Exactly one wallet input, zero wallet change outputs. Pay tagged shares to every configured full payout address. | [user_handlers.ak:343](../code/smart-contract/lib/stt/user_handlers.ak#L343), [rules.ak:92](../code/smart-contract/lib/wallet/rules.ak#L92) |
-| `ExitBeneficiary(id)` | Single authorized beneficiary. Always remove actor. Final exit also requires no streams and cooldown. | Actor's weighted-share cap, including 100% for final actor. Recipient is unrestricted by this action. | [user_handlers.ak:269](../code/smart-contract/lib/stt/user_handlers.ak#L269), [rules.ak:108](../code/smart-contract/lib/wallet/rules.ak#L108) |
-| `StopBeneficiaryStream(beneficiary_id, stream_id)` | Single authorized beneficiary. Set target end exactly to `max(start, U)`, strictly below old end. Preserve paid amount and beneficiary list. Always apply cooldown. | Rejected. | [user_handlers.ak:308](../code/smart-contract/lib/stt/user_handlers.ak#L308), [settlement_handlers.ak:297](../code/smart-contract/lib/stt/settlement_handlers.ak#L297) |
+| `DistributeBeneficiaries(id)` | All beneficiaries unlocked, declared initiator signed, and no streams. Preserve beneficiary list. Apply cooldown only with one input-state beneficiary. | Exactly one wallet input, zero wallet change outputs. Pay tagged shares to every configured full payout address. | [user_handlers.ak:302](../code/smart-contract/lib/stt/user_handlers.ak#L302), [rules.ak:92](../code/smart-contract/lib/wallet/rules.ak#L92) |
+| `StopBeneficiaryStream(beneficiary_id, stream_id)` | Single authorized beneficiary. Set target end exactly to `max(start, U)`, strictly below old end. Preserve paid amount and beneficiary list. Always apply cooldown. | Rejected. | [user_handlers.ak:267](../code/smart-contract/lib/stt/user_handlers.ak#L267), [settlement_handlers.ak:297](../code/smart-contract/lib/stt/settlement_handlers.ak#L297) |
 
 VERIFIED allowance math: At `L >= old_reset`, available allowance becomes the daily grant. Otherwise, use the old remaining amount.
 Every use sets `new_reset = max(old_reset, U+D)`, even when no reset was due.
@@ -193,12 +188,12 @@ See [allowance availability](../code/smart-contract/lib/state/allowance.ak#L228)
 VERIFIED share math: For each withdrawn asset, the earlier beneficiary's cap is
 `floor(weight * max(0, consumed_wallet_amount - reserve) / total_input_beneficiary_weight)`.
 This uses consumed wallet inputs, not all funds at the wallet address. There is no minimum withdrawal.
-Allowance, beneficiary use, and exit require wallet output count no greater than input count.
+Allowance and beneficiary use require wallet output count no greater than input count.
 See [beneficiary_share.ak:46](../code/smart-contract/lib/wallet/beneficiary_share.ak#L46) and [wallet/rules.ak:31](../code/smart-contract/lib/wallet/rules.ak#L31).
 
 VERIFIED reserves: An unsettled stream reserves `max(0, accrued_at(U)+1-paid_out_amount)` units of its asset.
 A fully settled stream contributes zero. The extra unit is one lovelace for an ADA stream.
-Operator use and final-beneficiary use check the full reserve. Allowance, earlier beneficiary use, and exit check reserves for withdrawn assets.
+Operator use and final-beneficiary use check the full reserve. Allowance and earlier beneficiary use check reserves for withdrawn assets.
 These checks prevent withdrawals from reducing protected funds. They do not require an actor to repair an existing shortfall.
 See [funding.ak:332](../code/smart-contract/lib/streaming_payments/funding.ak#L332),
 [reserve.ak:35](../code/smart-contract/lib/wallet/reserve.ak#L35), and [funding checks](../code/smart-contract/lib/streaming_payments/funding.ak#L119).
@@ -385,20 +380,16 @@ flowchart TB
 VERIFIED rule: All beneficiaries must be unlocked, but only the declared initiator needs to sign.
 Each payout uses its configured address and a tag bound to the current STT input.
 With multiple beneficiaries, this cycle preserves the cooldown stamp. A singleton distribution uses cooldown.
-Evidence: [distribution authority](../code/smart-contract/lib/stt/user_handlers.ak#L343), [exact shares](../code/smart-contract/lib/wallet/beneficiary_distribution.ak#L12).
+Evidence: [distribution authority](../code/smart-contract/lib/stt/user_handlers.ak#L302), [exact shares](../code/smart-contract/lib/wallet/beneficiary_distribution.ak#L12).
 
-### 11. ExitBeneficiary
+### 11. Reserved constructor index 7
 
-```mermaid
-flowchart TB
-    A["Sole B2 unlocked<br/>No streams; wallet 50 ADA"] -->|"B2 signs ExitBeneficiary; cooldown passes"| B["B2 receives 50 ADA<br/>Beneficiaries empty; stamp U"]
-    B --> C["STT still exists<br/>B2 has no beneficiary permission"]
-```
-
-VERIFIED rule: Earlier beneficiaries can also exit under their weighted-share cap. They preserve the stamp.
-Final exit requires an empty stream list and removes the final beneficiary.
-This sequence ends that beneficiary's access. Separately configured operator access remains.
-Evidence: [exit handler](../code/smart-contract/lib/stt/user_handlers.ak#L269), [state preservation](../code/smart-contract/lib/stt/preservation.ak#L182).
+VERIFIED: Both validators reject constructor index 7, formerly `ExitBeneficiary`.
+It cannot change State or spend wallet funds.
+`UseBeneficiary` keeps the final beneficiary for repeated recovery.
+Evidence: [STT dispatch](../code/smart-contract/validators/stt.ak),
+[wallet rules](../code/smart-contract/lib/wallet/rules.ak), and
+[beneficiary use](../code/smart-contract/lib/stt/user_handlers.ak).
 
 ### 12. StopBeneficiaryStream
 
@@ -411,7 +402,7 @@ flowchart TB
 INFERRED stop interval: `[10D-60,000,10D]`. The existing stamp permits this interval.
 The stop fixes lifetime value at 1,000 ADA. Later settlement pays the unpaid 400 ADA.
 The payee does not need to sign the stop.
-Evidence: [beneficiary stop](../code/smart-contract/lib/stt/user_handlers.ak#L308), [exact cutoff](../code/smart-contract/lib/stt/settlement_handlers.ak#L328).
+Evidence: [beneficiary stop](../code/smart-contract/lib/stt/user_handlers.ak#L267), [exact cutoff](../code/smart-contract/lib/stt/settlement_handlers.ak#L328).
 
 ### 13. PayStreamingPayment
 

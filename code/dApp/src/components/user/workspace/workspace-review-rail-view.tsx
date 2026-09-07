@@ -233,9 +233,9 @@ export function WorkspaceReviewRailView() {
                         : selectedAction === "stop-beneficiary-stream"
                           ? previewMatchesSelectedAction && preview?.txHex
                             ? i18n("confirmStreamStop") : i18n("previewStreamStop")
-                        : selectedAction === "exit-beneficiary"
+                        : selectedAction === "use-beneficiary"
                           ? previewMatchesSelectedAction && preview?.txHex
-                            ? i18n("confirmPermanentExit") : i18n("previewPermanentExit")
+                            ? i18n("confirmBeneficiaryWithdrawal") : i18n("previewBeneficiaryWithdrawal")
                           : reviewPrimaryActionLabel
                     }
                     primaryActionKind={approvalOnly ? "approval" : "direct"}
@@ -251,7 +251,7 @@ export function WorkspaceReviewRailView() {
                         void saveAsApprovalRequest();
                         return;
                       }
-                      if (preparationActive || selectedAction === "exit-beneficiary" || selectedAction === "stop-beneficiary-stream" || selectedAction === "distribute-beneficiaries") {
+                      if (preparationActive || selectedAction === "use-beneficiary" || selectedAction === "stop-beneficiary-stream" || selectedAction === "distribute-beneficiaries") {
                         if (previewMatchesSelectedAction && preview?.txHex) {
                           void submitTransactionPreview(preview);
                         } else {

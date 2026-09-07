@@ -680,13 +680,13 @@ describe("buildConsolidateUtxosTx integration", () => {
 });
 
 describe("buildSttSpendTx ADA payout integration", () => {
-  it.each(["use", "multisig-use", "use-allowance", "use-beneficiary", "exit-beneficiary", "final-beneficiary-exit"] as const)("builds %s with two wallet-script inputs and preserves unrelated assets", async (mode) => {
-    const action = mode === "final-beneficiary-exit"
-      ? "exit-beneficiary"
+  it.each(["use", "multisig-use", "use-allowance", "use-beneficiary", "final-beneficiary-recovery"] as const)("builds %s with two wallet-script inputs and preserves unrelated assets", async (mode) => {
+    const action = mode === "final-beneficiary-recovery"
+      ? "use-beneficiary"
       : mode === "multisig-use"
         ? "use"
         : mode;
-    const isBeneficiary = action === "use-beneficiary" || action === "exit-beneficiary";
+    const isBeneficiary = action === "use-beneficiary";
     const sttScript = getSttSpendScript();
     const policyId = getSttMintPolicyId();
     const stateAddress = resolveScriptAddress(sttScript);
@@ -718,7 +718,7 @@ describe("buildSttSpendTx ADA payout integration", () => {
         id: String(index + 1), wallets: [key], unlockAfterMode: "none", unlockAfter: "", weight: "1"
       }));
     }
-    if (mode === "final-beneficiary-exit") {
+    if (mode === "final-beneficiary-recovery") {
       stateForm.users = [];
       stateForm.multiSigThresholdMode = "none";
       stateForm.beneficiaries = stateForm.beneficiaries.slice(0, 1);
@@ -786,7 +786,7 @@ describe("buildSttSpendTx ADA payout integration", () => {
       getUnusedAddresses: async () => []
     } as unknown as BrowserWallet;
     const operatorAction: OnChainStructuredAction = isBeneficiary ? {
-      kind: action === "exit-beneficiary" ? "beneficiary-exit" : "beneficiary-withdrawal", beneficiaryId: 1n
+      kind: "beneficiary-withdrawal", beneficiaryId: 1n
     } : action === "use-allowance" ? {
       kind: "allowance-withdrawal",
       userId: BigInt(stateForm.users[0]!.id),
@@ -862,14 +862,22 @@ describe("buildSttSpendTx ADA payout integration", () => {
       expect(nativeQuantity(stateOutput!, NATIVE_UNIT)).toBe(3n);
     }
 
-    if (action === "exit-beneficiary") {
-      expect(result.warnings).toContain("The connected wallet funds the transaction fee externally.");
+    if (action === "use-beneficiary") {
+      expect(result.beneficiaryAccess).toBe(mode === "final-beneficiary-recovery" ? "retained" : "removed");
+      if (mode !== "final-beneficiary-recovery") {
+        expect(result.warnings).toEqual(expect.arrayContaining([
+          expect.stringContaining("removes your recovery access"),
+          expect.stringContaining("unused share")
+        ]));
+      }
       const outputs = Array.from((tx.body().outputs() as { values(): CstTransactionOutput[] }).values());
       const stateOutput = outputs.find((output) => output.address().toBech32().toString() === stateAddress)!;
       const expectedState = structuredClone(stateDatum);
       const access = expectedState.fields[0] as ConstrData;
-      access.fields[2] = (access.fields[2] as ConstrData[]).slice(1);
-      if (mode === "final-beneficiary-exit") {
+      if (mode !== "final-beneficiary-recovery") {
+        access.fields[2] = (access.fields[2] as ConstrData[]).slice(1);
+      }
+      if (mode === "final-beneficiary-recovery") {
         expectedState.fields[5] = { alternative: 0, fields: [getValidityWindow(REFERENCE_TIME_MS).latestTimeMs] };
       }
       expect(inlineDatumCbor(stateOutput)).toBe(serializeData(expectedState, "Mesh"));

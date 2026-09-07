@@ -632,7 +632,7 @@
   },
   "ComponentsUserWorkspaceRecoveryFallbackView": {
     "title": "This withdrawal exceeds transaction capacity.",
-    "description": "Prepare smaller fund pools, then distribute them one at a time. Finish with a permanent withdrawal when ready.",
+    "description": "Prepare smaller fund pools, then distribute them one at a time. You can also withdraw selected funds through recovery access.",
     "prepare": "Prepare smaller fund pools",
     "distribute": "Distribute one fund pool"
   }

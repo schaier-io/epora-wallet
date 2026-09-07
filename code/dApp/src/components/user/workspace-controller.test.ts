@@ -195,3 +195,12 @@ test("clearing the action lands on the overview step by itself", () => {
   assert.equal(cleared.selectedAction, null);
   assert.equal(cleared.flowStep, "overview");
 });
+
+
+test("legacy beneficiary exit URLs do not select a replacement action", () => {
+  const parsed = parseWorkspaceRouteState(
+    new URLSearchParams("wallet=unit&action=exit-beneficiary&step=configure")
+  );
+  assert.equal(parsed.selectedAction, null);
+  assert.equal(parsed.selectedIntent, null);
+});

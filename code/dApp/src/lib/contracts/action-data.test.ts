@@ -348,13 +348,14 @@ test("resolveOperatorOnChainAction defaults to admin/use and honours multisig", 
 });
 
 
-test("ExitBeneficiary uses index 7 and validates its id", () => {
-  assert.deepEqual(resolveStructuredOnChainAction("exit-beneficiary"), { kind: "beneficiary-exit" });
-  assert.deepEqual(buildSttSpendRedeemerData({ kind: "beneficiary-exit", beneficiaryId: MAX_ON_CHAIN_STATE_INTEGER }), {
-    alternative: 7, fields: [MAX_ON_CHAIN_STATE_INTEGER]
+test("removed beneficiary exit actions are rejected before encoding", () => {
+  assert.throws(() => resolveStructuredOnChainAction(
+    "exit-beneficiary" as Parameters<typeof resolveStructuredOnChainAction>[0]
+  ), /Unsupported State action/);
+  assert.throws(() => buildSttSpendRedeemerData(
+    { kind: "beneficiary-exit", beneficiaryId: 1 } as unknown as Parameters<typeof buildSttSpendRedeemerData>[0]
+  ), /Unsupported State action/);
+  assert.deepEqual(buildSttSpendRedeemerData({ kind: "beneficiary-withdrawal", beneficiaryId: 1 }), {
+    alternative: 3, fields: [1]
   });
-  assert.deepEqual(buildSttSpendRedeemerData({ kind: "beneficiary-withdrawal", beneficiaryId: 1 }), { alternative: 3, fields: [1] });
-  assert.throws(() => buildSttSpendRedeemerData({ kind: "beneficiary-exit" }), /requires a beneficiary id/);
-  assert.throws(() => buildSttSpendRedeemerData({ kind: "beneficiary-exit", beneficiaryId: -1 }), /between 0 and/);
-  assert.throws(() => buildSttSpendRedeemerData({ kind: "beneficiary-exit", beneficiaryId: MAX_ON_CHAIN_STATE_INTEGER + 1n }), /between 0 and/);
 });

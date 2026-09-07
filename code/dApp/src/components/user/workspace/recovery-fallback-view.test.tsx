@@ -11,7 +11,7 @@ import { consolidateAuthorityPathAtom, sttWalletInputsAtom } from "./atoms/forms
 import { beneficiaryPreparationActiveAtom, consolidateWalletInputsAtom } from "./atoms/forms/consolidate-form.atoms";
 function fixture(show: boolean) {
   const store = createStore();
-  store.set(routeStateAtom, parseWorkspaceRouteState(new URLSearchParams("mode=existing-wallet&action=exit-beneficiary")));
+  store.set(routeStateAtom, parseWorkspaceRouteState(new URLSearchParams("mode=existing-wallet&action=use-beneficiary")));
   const ref = { txHash: "aa".repeat(32), outputIndex: 0 }; store.set(sttWalletInputsAtom, [ref]);
   const navigate = vi.fn(() => { store.set(consolidateAuthorityPathAtom, "admin"); store.set(beneficiaryPreparationActiveAtom, false); store.set(consolidateWalletInputsAtom, []); });
   if (show) store.set(recoveryCapacityFailureAtom, { kind: "bytes", signature: store.get(recoveryCapacitySignatureAtom) });

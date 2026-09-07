@@ -94,7 +94,7 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
           description:
             defaultSendAction === "use-allowance"
               ? i18n("useYourAllowance")
-              : defaultSendAction === "exit-beneficiary"
+              : defaultSendAction === "use-beneficiary"
                 ? i18n("useRecoveryContactAccess")
                 : i18n("normalWalletSend")
         }
@@ -259,7 +259,7 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
         ? useAllowancePreview.target
           ? `Using the daily limit for user ${useAllowancePreview.target.matchedUserId}.`
           : "Will use a daily limit when the connected wallet matches one."
-        : (selectedAction === "use-beneficiary" || selectedAction === "exit-beneficiary")
+        : selectedAction === "use-beneficiary"
           ? "Spending as a recovery contact."
           : sttAuthorityPath === "multisig"
             ? "Needs co-signers before signing."

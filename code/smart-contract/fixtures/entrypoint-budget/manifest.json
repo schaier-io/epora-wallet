@@ -20,27 +20,27 @@
     }
   ],
   "walletParameters": {
-    "sttPolicyId": "29d1fb73b6d5940cdd023cfbe5fb553cde2e2adf17299f4193317c59",
+    "sttPolicyId": "0dac00be80879dcf585cdb9d0acf6e0ecf52c417ded30d8b72d0ebf1",
     "sttAssetNameHex": "deadbeef"
   },
   "blueprintCodeSha256": {
-    "stt.stt.spend": "7cbadc1899b141c3737e6bf6c96270263864158cd64c9a6a7e7304fba12d0eb8",
-    "wallet.wallet.spend": "dd0186ce6111d539c95ec6918d0039fde78ef1e92d729b1c3d918b7a949634b7"
+    "stt.stt.spend": "9b5ba5b0543dfab6e1c978906626992c19adb554818400a40aa18477033569c4",
+    "wallet.wallet.spend": "271f78fc19656920a1817e5dde32315fe660c19539001980fe938d002d4ad797"
   },
   "appliedScripts": {
-    "sttScriptHash": "29d1fb73b6d5940cdd023cfbe5fb553cde2e2adf17299f4193317c59",
-    "walletScriptHash": "14c1e95e7dda519a9d15b687b79468533cc3c43728bedba7aa886ac5",
-    "sttScriptCodeSha256": "0e834f2ddc43ead9863565dec1893a320c96892bd4a38e1b8a544e8dbdc12984",
-    "walletScriptCodeSha256": "617898e130f5c9e6f3f647ede9d9414e47426d07241f3b9d76907d2d68128e86"
+    "sttScriptHash": "0dac00be80879dcf585cdb9d0acf6e0ecf52c417ded30d8b72d0ebf1",
+    "walletScriptHash": "2d255957e3de817d849df94bd9010c16c4d4da3b0940be47864a16ff",
+    "sttScriptCodeSha256": "969ddff8a27e2401218ba47e9b3e7969d33f2e70535580489d4ee7688381bae2",
+    "walletScriptCodeSha256": "0f53cca05836001292507ca594742ad980897edaf4b82f4526ae7f20bd9a0a33"
   },
   "fixture": {
     "scenario": "capped-list-and-scalar-near-transaction-limit-partial-streaming-payout",
-    "transactionBytes": 16013,
-    "nativeAssetCount": 133,
-    "walletValueCborBytes": 437,
-    "walletValueCborSha256": "3842f359eeda3a18dda4bc39123efe85a54cab813f6dbd34c951e020987c7c64",
+    "transactionBytes": 16041,
+    "nativeAssetCount": 210,
+    "walletValueCborBytes": 668,
+    "walletValueCborSha256": "a9c7beacf1f01940ecb3fe7b6210b5afb9ec6e383827ee2f69023ed251d1acf7",
     "stateDatumCborBytes": 5470,
-    "stateDatumCborSha256": "e6f44abcfbbaaf3a71350620320ae70e467a6ced35ce9babaf281d045718d7cc",
+    "stateDatumCborSha256": "1013ffd7cc68807b7d471cb0482002c2430263f677bfd8968809b9cb0679db88",
     "stateShape": {
       "users": 10,
       "userWallets": 15,
@@ -56,14 +56,14 @@
         14
       ],
       "targetStreamingPaymentIndex": 14,
-      "targetNativeAssetIndex": 132,
+      "targetNativeAssetIndex": 209,
       "payoutQuantity": "1"
     }
   },
   "fixtureCborSha256": {
-    "transaction.cbor": "2a279f32597b86b2dde48c733e4b54f669cbc5fb0c9989c3cb5bf1460232522c",
+    "transaction.cbor": "50fb57ec02cdb152a69d64abc9f555d4e1d24e78069961856b6e08b35c613be0",
     "inputs.cbor": "b0eb5bdf7dc90499d68fd99b2ac49e6e7dc923802c98520831ac3cda43d1012f",
-    "outputs.cbor": "a1147a1e3eb024e92ee35cf3903d4e400623f29f01039b62e82b40e6c5a88908"
+    "outputs.cbor": "4e008b7f49740829824a3da340a2855919aaa9c7b52eeacb29d878c821cc252c"
   },
   "executionUnits": {
     "legs": [
@@ -71,20 +71,20 @@
         "tag": "Spend",
         "index": 0,
         "script": "stt.stt.spend",
-        "mem": 4216905,
-        "cpu": 1453832852
+        "mem": 4216505,
+        "cpu": 1453768852
       },
       {
         "tag": "Spend",
         "index": 1,
         "script": "wallet.wallet.spend",
-        "mem": 4452773,
-        "cpu": 1425113090
+        "mem": 5279227,
+        "cpu": 1691368201
       }
     ],
     "total": {
-      "mem": 8669678,
-      "cpu": 2878945942
+      "mem": 9495732,
+      "cpu": 3145137053
     }
   },
   "consolidationFixture": {
@@ -119,9 +119,9 @@
     }
   },
   "consolidationFixtureCborSha256": {
-    "consolidation-transaction.cbor": "21b799e04121a47a749a289fbe46d3f76309b90b0bfd128ea03d506c16cd6da4",
+    "consolidation-transaction.cbor": "cfce5deba0f5c4b81c86c70a98612ccca40b9bafa49ac36dc98715394f5a3bcd",
     "consolidation-inputs.cbor": "904ca33e79749e5b32f96e1e6d1269279f10470c6d1ee2e1c67ec55ea49c2266",
-    "consolidation-outputs.cbor": "d539ddcf1e93a842788e1173ef77a393598f5015912caaccfe38c8ffe320a135"
+    "consolidation-outputs.cbor": "5328f9ac5d334e04cd11ef95ab8217b0753b0efd942defd79fcfaaae9eb8aecf"
   },
   "consolidationExecutionUnits": {
     "legs": [
@@ -129,20 +129,20 @@
         "tag": "Spend",
         "index": 0,
         "script": "stt.stt.spend",
-        "mem": 2820243,
-        "cpu": 948109669
+        "mem": 2818941,
+        "cpu": 947773287
       },
       {
         "tag": "Spend",
         "index": 1,
         "script": "wallet.wallet.spend",
-        "mem": 2652989,
-        "cpu": 930406968
+        "mem": 2649383,
+        "cpu": 929445822
       }
     ],
     "total": {
-      "mem": 5473232,
-      "cpu": 1878516637
+      "mem": 5468324,
+      "cpu": 1877219109
     }
   }
 }

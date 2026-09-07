@@ -403,8 +403,8 @@ describe("POST /api/proposals", () => {
     }
   );
 
-  it.each(DIRECT_ONLY_STT_SPEND_MODES)(
-    "rejects the non-operator stt-spend mode %s",
+  it.each([...DIRECT_ONLY_STT_SPEND_MODES, "exit-beneficiary"])(
+    "rejects the unsupported proposal stt-spend mode %s",
     async (mode) => {
       store.isWalletParticipant.mockResolvedValue(true);
 

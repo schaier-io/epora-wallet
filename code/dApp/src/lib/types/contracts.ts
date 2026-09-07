@@ -81,7 +81,6 @@ export type ActionKind =
   | "manage-streaming-payments"
   | "use-allowance"
   | "use-beneficiary"
-  | "exit-beneficiary"
   | "stop-beneficiary-stream"
   | "distribute-beneficiaries"
   | "payout-streaming-payment"
@@ -148,7 +147,7 @@ export type MintFormInput = {
 export type SttSpendFormInput = {
   sttInputTxHash: string;
   sttInputOutputIndex?: number;
-  // Optional because "use-allowance", "use-beneficiary", "exit-beneficiary",
+  // Optional because "use-allowance", "use-beneficiary",
   // "stop-beneficiary-stream", "cancel-streaming-payment" and "remove-access-index" derive the forwarded
   // State from the consumed one.
   // The builder requires both for every other action.
@@ -291,6 +290,8 @@ export type SetIntendedStakeCredentialFormInput = {
 };
 
 export type BuildResult = {
+  /** Recovery rights after a beneficiary withdrawal, derived from the consumed State. */
+  beneficiaryAccess?: "removed" | "retained";
   /** Output containing a newly deployed shared STT reference script. */
   referenceScriptOutputIndex?: number;
   txHex: string;

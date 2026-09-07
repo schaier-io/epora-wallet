@@ -174,17 +174,17 @@ it("clears the consumed distribution input after submission so another can be se
   expect(deps.rememberRecipients).not.toHaveBeenCalled();
 });
 
-it("a signed-size failure offers fallback only for the reviewed permanent Exit", async () => {
-  const deps = makeDeps({ selectedAction: "exit-beneficiary" });
-  deps.jotaiStore.set(routeStateAtom, parseWorkspaceRouteState(new URLSearchParams("mode=existing-wallet&action=exit-beneficiary")));
+it("a signed-size failure offers fallback only for the reviewed beneficiary withdrawal", async () => {
+  const deps = makeDeps({ selectedAction: "use-beneficiary" });
+  deps.jotaiStore.set(routeStateAtom, parseWorkspaceRouteState(new URLSearchParams("mode=existing-wallet&action=use-beneficiary")));
   mocks.signAndSubmitTx.mockRejectedValueOnce(new Error("Serialized transaction uses 17000 bytes. The protocol limit is 16384."));
   await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
   expect(deps.jotaiStore.get(currentRecoveryCapacityFailureAtom)?.kind).toBe("bytes");
   expect(deps.setSubmitHash).not.toHaveBeenCalled();
 });
 it("a signed transaction failure after a wallet switch cannot offer fallback", async () => {
-  const deps = makeDeps({ selectedAction: "exit-beneficiary" });
-  deps.jotaiStore.set(routeStateAtom, parseWorkspaceRouteState(new URLSearchParams("mode=existing-wallet&action=exit-beneficiary")));
+  const deps = makeDeps({ selectedAction: "use-beneficiary" });
+  deps.jotaiStore.set(routeStateAtom, parseWorkspaceRouteState(new URLSearchParams("mode=existing-wallet&action=use-beneficiary")));
   mocks.signAndSubmitTx.mockImplementationOnce(() => {
     deps.jotaiStore.set(routeStateAtom, { ...deps.jotaiStore.get(routeStateAtom), selectedWalletUnit: "different-wallet" });
     return Promise.reject(new Error("Serialized transaction uses 17000 bytes. The protocol limit is 16384."));

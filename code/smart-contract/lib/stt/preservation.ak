@@ -27,7 +27,6 @@
 ////   UseAllowance(_)                         |   y²   |     y      |    -     |    -    |  -   | state_unchanged_except_users_and_pol_unlock_time
 ////   UseBeneficiary(_)                       |   y³   |     -      |    -     |    -    |  -   | earlier removed; final stays unchanged
 ////   DistributeBeneficiaries(_)              |   -    |     -      |    -     |    -    |  -   | state_completely_unchanged
-////   ExitBeneficiary(_)                      |   y³   |     -      |    -     |    -    |  -   | actor always removed
 ////   PayStreamingPayment(_)                  |   -    |     -      |    -     |    y    |  -   | state_unchanged_except_streaming_payments
 ////   Consolidate(_)                          |   -    |     -      |    -     |    -    |  -   | state_completely_unchanged
 ////   CancelStreamingPayment(_)               |   -    |     -      |    -     |    y⁶   |  -   | state_unchanged_except_streaming_payments ⁷
@@ -39,7 +38,7 @@
 ////   y² = only the changed user's mutable allowance fields; static user fields
 ////        and the access-level multi_sig_threshold / beneficiaries are preserved
 ////   y³ = only the acting beneficiary is removed. UseBeneficiary preserves
-////        the final actor, while ExitBeneficiary removes it.
+////        the final actor.
 ////   y⁴ = exactly one entry (user or beneficiary, by index) is removed from the
 ////        targeted access list; the other access sub-fields are preserved
 ////   ⁵  = the new credential value itself is not a matrix column — it is guarded
@@ -178,7 +177,7 @@ pub fn state_completely_unchanged(
 /// its unique id) is removed from the beneficiary list. Beneficiary ids are
 /// guaranteed unique by `expect_valid_state_configuration`, so filtering by
 /// `id != removed` drops exactly one entry.
-/// Used by: UseBeneficiary and ExitBeneficiary.
+/// Used by: UseBeneficiary.
 pub fn state_unchanged_except_beneficiary_removed(
   input: state_types.State,
   output: state_types.State,

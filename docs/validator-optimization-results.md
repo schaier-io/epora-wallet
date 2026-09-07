@@ -1,5 +1,9 @@
 # Validator optimization measurements
 
+This report records the optimization stack before beneficiary-exit removal. Its tables are historical snapshots.
+The linked artifacts follow the current branch and can differ from these recorded results.
+For current measurements, see the [contract README](../code/smart-contract/README.md#execution-cost-gate).
+
 VERIFIED on 2026-09-07. Baseline commit: `cd5b89e11919b0f9613d3ea4e522a476503e8432`.
 After means the three source changes in this stack. The compiler is `aiken v1.1.23+8949565`.
 

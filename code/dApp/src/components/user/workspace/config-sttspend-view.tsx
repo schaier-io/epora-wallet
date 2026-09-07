@@ -103,7 +103,7 @@ export function SttSpendConfigView() {
       const isRecipientFirstGuidedAction =
         selectedAction === "use" ||
         selectedAction === "use-allowance" ||
-        (selectedAction === "use-beneficiary" || selectedAction === "exit-beneficiary");
+        selectedAction === "use-beneficiary";
       const isGuidedStreamingPaymentAction = selectedAction === "payout-streaming-payment";
       const usesFocusedPeopleEditor =
         selectedAction === "update-state" && selectedIntent === "manage-people";
@@ -115,7 +115,7 @@ export function SttSpendConfigView() {
         <div className="space-y-4">
           {selectedAction === "consolidate-utxo" && preparationActive ? <BeneficiaryPreparationView /> : null}
           {selectedAction === "distribute-beneficiaries" ? <BeneficiaryDistributionView /> : null}
-          {(selectedAction === "use-beneficiary" || selectedAction === "exit-beneficiary" || selectedAction === "stop-beneficiary-stream") ? <BeneficiaryStreamStopView /> : null}
+          {(selectedAction === "use-beneficiary" || selectedAction === "stop-beneficiary-stream") ? <BeneficiaryStreamStopView /> : null}
           {activeSttActionTab.allowsStateEditing ? (
             <>
               {usesFocusedPeopleEditor ? (

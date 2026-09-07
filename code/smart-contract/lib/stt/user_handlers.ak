@@ -1,7 +1,7 @@
 //// User-path STT spend decision bodies: the individually-signed, non-operator
 //// actions — `RenewProofOfLife` (a liveness keeper's renewal), `UseAllowance`
 //// (one user draws on their per-day allowance), and `UseBeneficiary` (an
-//// unlocked beneficiary's recovery draw), permanent exit, and stream stopping.
+//// unlocked beneficiary's recovery draw), and stream stopping.
 //// Authority on every path here
 //// is a specific user's or beneficiary's own signature, never the operator gate.
 ////
@@ -258,47 +258,6 @@ pub fn eval_use_beneficiary(
   // The final beneficiary remains available after each withdrawal. This is the
   // only on-chain way to keep recovery retryable because a transaction cannot
   // prove that no other UTxO exists under the wallet payment credential.
-  True
-}
-
-/// Permanent exit uses the same unlock authority as beneficiary use, but always
-/// removes the actor. Final exit may leave no access path. This deliberate
-/// terminal State cannot recover remaining or future deposits without another
-/// operator path (see the whitepaper's recovery limitations). Mint and
-/// UpdateState still enforce configuration reachability.
-pub fn eval_exit_beneficiary(
-  declared_beneficiary_id: Int,
-  transaction: Transaction,
-  validity_range: ValidityRange,
-  input_stt_value: Value,
-  output_stt_value: Value,
-  input_state: state_types.State,
-  output_state: state_types.State,
-) -> Bool {
-  let beneficiary = expect_declared_beneficiary(
-    declared_beneficiary_id,
-    transaction: transaction,
-    validity_range: validity_range,
-    input_state: input_state,
-  )
-  expect
-    state_unchanged_except_beneficiary_removed(
-      input_state,
-      output_state,
-      beneficiary.id,
-    )
-  expect
-    list.length(input_state.access.beneficiaries) != 1 || list.is_empty(
-      input_state.streaming_payments,
-    )
-  expect
-    beneficiary_cadence_and_value_are_valid(
-      validity_range: validity_range,
-      input_stt_value: input_stt_value,
-      output_stt_value: output_stt_value,
-      input_state: input_state,
-      output_state: output_state,
-    )
   True
 }
 

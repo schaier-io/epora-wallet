@@ -237,7 +237,7 @@ export async function buildConsolidateUtxosTx(
           walletInputCount: walletInputs.length,
           walletOutputCount,
           migratesAddress,
-          warnings: preparation ? [i18n("beneficiaryExitExternalFees")] : forwardedStateWarnings,
+          warnings: preparation ? [i18n("beneficiaryPreparationExternalFees")] : forwardedStateWarnings,
           referenceScriptUsage: forwarding.referenceScriptUsage
         }
       };

@@ -32,7 +32,6 @@ const GUIDED_USER_ACTION_KINDS = [
   "manage-streaming-payments",
   "use-allowance",
   "use-beneficiary",
-  "exit-beneficiary",
   "stop-beneficiary-stream",
   "distribute-beneficiaries",
   "payout-streaming-payment"
@@ -157,7 +156,7 @@ export function derivePermissionWalletBadgeLabels(
 
 export function resolveAutomaticSendPath(
   capabilityMap: TokenCapabilityMap | null
-): "use" | "use-allowance" | "exit-beneficiary" {
+): "use" | "use-allowance" | "use-beneficiary" {
   if (!capabilityMap) {
     return "use";
   }
@@ -174,7 +173,7 @@ export function resolveAutomaticSendPath(
   }
 
   if (capabilityMap.hasBeneficiaryMatch) {
-    return "exit-beneficiary";
+    return "use-beneficiary";
   }
 
   if (capabilityMap.availableOperatorPaths.length > 0) {

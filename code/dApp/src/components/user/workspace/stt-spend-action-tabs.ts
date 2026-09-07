@@ -258,16 +258,6 @@ export const STT_SPEND_ACTION_TABS: Array<{
   },
   beneficiaryWithdrawalTab,
   {
-    ...beneficiaryWithdrawalTab,
-    value: "exit-beneficiary",
-    label: i18n("permanentExitLabel"),
-    tabHint: i18n("permanentExitHint"),
-    description: i18n("permanentExitDescription"),
-    stateHelper: i18n("permanentExitStateHelper"),
-    outputAssetsHelper: i18n("permanentExitOutputAssetsHelper"),
-    buildLabel: i18n("permanentExitBuild")
-  },
-  {
     value: "payout-streaming-payment",
     label: i18n("payScheduledPayments"),
     tabHint: i18n("payoutScheduledPaymentTabHint"),
