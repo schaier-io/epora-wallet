@@ -13,6 +13,7 @@ on-ramp: it shows the calls, the shapes, and the one flow that matters.
 
 - Spec, live: `GET /api/v1/openapi.json`
 - Spec, committed: [`docs/api/openapi.json`](openapi.json)
+- Interactive reference (Swagger UI): `/api/v1/docs`
 - Source of both: [`code/dApp/src/lib/api/`](../../code/dApp/src/lib/api)
 
 ## Network and base URL
