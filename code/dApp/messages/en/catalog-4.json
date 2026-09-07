@@ -403,6 +403,7 @@
     "thisWalletNeedsItsSharedSetupHelperBefore": "Epora must finish checking service availability before this action can continue. Please try again shortly.",
     "yourWalletWillOpenToApproveThisHelper": "Your wallet will open to approve this helper.",
     "checkAgain": "Check again",
+    "setUpSttReference": "Set up STT reference",
     "checkingSharedHelper": "Checking service availability"
   },
   "ComponentsUserWorkspaceWorkspaceSidebarView": {

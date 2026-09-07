@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 
 import { lockedContractUtxosLoadingAtom, sharedSttReferenceStoreLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
@@ -8,7 +9,7 @@ import {
   Loader2
 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 
@@ -65,10 +66,13 @@ export function SetupCheckpointCardView() {
             {i18n("thisWalletNeedsItsSharedSetupHelperBefore")}
           </p>
           {!helperLoading ? (
-            <div className="mt-3 space-y-3">
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Link href="/setup" className={buttonVariants()}>
+                {i18n("setUpSttReference")}
+              </Link>
               <Button type="button" onClick={() => {
                 void refreshSharedSttReferenceStore().catch(() => undefined);
-              }}>
+              }} variant="secondary">
                 {i18n("checkAgain")}
               </Button>
             </div>

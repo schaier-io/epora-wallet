@@ -84,10 +84,11 @@ describe("setup checkpoint, funding", () => {
   });
 });
 
-it("offers only a read-only retry when the shared helper is unavailable", () => {
+it("links to setup and keeps the read-only retry when the shared helper is unavailable", () => {
   setupCheckpoint.value = "shared-reference";
   renderWith(false);
   expect(screen.queryByText(/helper/i)).not.toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Set up STT reference" })).toHaveAttribute("href", "/setup");
   fireEvent.click(screen.getByRole("button", { name: "Check again" }));
   expect(refreshHelper).toHaveBeenCalledTimes(1);
 });
