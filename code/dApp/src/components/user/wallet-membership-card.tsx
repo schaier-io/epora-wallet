@@ -38,6 +38,7 @@ const LOGO_SRC = "/logo-mark.svg";
 // low membership numbers as an early-adopter status signal. Past it the label
 // degrades gracefully to a plain member number.
 const FOUNDING_MEMBER_LIMIT = 1000;
+const RASTERISE_TIMEOUT_MS = 10_000;
 
 /**
  * Membership label from the 1-based on-chain wallet number. The number is the
@@ -246,10 +247,22 @@ async function renderCardPng(options: {
   const url = URL.createObjectURL(svgBlob);
 
   try {
+    // The timeout bounds the object URL's lifetime: a decode that neither loads nor errors
+    // would otherwise keep the URL and the detached image alive for the rest of the tab.
     const image = await new Promise<HTMLImageElement>((resolve, reject) => {
       const img = new window.Image();
-      img.onload = () => resolve(img);
-      img.onerror = () => reject(new Error("Failed to rasterise membership card."));
+      const timer = window.setTimeout(
+        () => reject(new Error("Timed out rasterising membership card.")),
+        RASTERISE_TIMEOUT_MS
+      );
+      img.onload = () => {
+        window.clearTimeout(timer);
+        resolve(img);
+      };
+      img.onerror = () => {
+        window.clearTimeout(timer);
+        reject(new Error("Failed to rasterise membership card."));
+      };
       img.src = url;
     });
 
