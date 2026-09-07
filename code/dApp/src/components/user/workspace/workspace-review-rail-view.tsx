@@ -83,6 +83,9 @@ export function WorkspaceReviewRailView() {
   const transactionInFlight = activeBuild !== null || activeSubmit;
   const directActionInFlight = !preparingProposal && transactionInFlight;
   const proposalBlockingIssue = activeReadinessIssues.find((issue) => issue.blocking);
+  // Both sentences were English literals here. The i18n migrator only reads JSX, so a
+  // string built in the component body ships untranslated and `i18n:check` never sees it.
+  // The issue text stays a placeholder: it is data the readiness gate produced, not copy.
   const proposalBlockedReason = proposalBlockingIssue
     ? proposalBlockingIssue.recovery
       ? i18n("proposalBlockedWithRecovery", {
@@ -301,7 +304,11 @@ export function WorkspaceReviewRailView() {
                         : i18n("refreshChainState")}
                     </Button>
                     {refreshChainStateFailed ? (
-                      <p role="status" className="text-xs leading-relaxed text-rose-200">
+                      // No `role="status"` of its own: the wrapper above is already one,
+                      // so text appearing inside it is announced. A live region nested in
+                      // a live region is announced twice or not at all, depending on the
+                      // screen reader.
+                      <p className="text-xs leading-relaxed text-rose-200">
                         {i18n("refreshChainStateFailed")}
                       </p>
                     ) : null}

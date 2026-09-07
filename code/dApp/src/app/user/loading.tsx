@@ -33,7 +33,10 @@ const FAQ_ROW_HEIGHTS = ["h-5", "h-5", "h-[41px]", "h-[41px]", "h-5", "h-5", "h-
 export default function UserLoading() {
   const i18n = useTranslations("AppUserLoading");
   return (
-    <div
+    // `<main>` for the same reason as `app/loading.tsx`: this fallback stands in for
+    // `app/user/page.tsx`, which opens the route's only `main`. As a `<div>` it left the
+    // busiest screen's loading state with no landmark for "Skip to content" to reach.
+    <main
       className="page-shell flex flex-1 flex-col motion-safe:animate-[section-fade-in_320ms_cubic-bezier(0.22,1,0.36,1)_both]"
       aria-busy="true"
       aria-live="polite"
@@ -115,6 +118,6 @@ export default function UserLoading() {
           </div>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

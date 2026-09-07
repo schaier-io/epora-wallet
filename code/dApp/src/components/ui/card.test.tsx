@@ -9,7 +9,7 @@ import { Card, CardHeader, CardTitle } from "@/components/ui/card";
  * payments to you" twice, at two levels, with a level skipped in between.
  */
 describe("card title heading level", () => {
-  function renderTitle(as?: "h1" | "h2" | "h3") {
+  function renderTitle(as?: "h1" | "h2" | "h3" | "h4") {
     render(
       <Card>
         <CardHeader>
@@ -26,6 +26,10 @@ describe("card title heading level", () => {
 
   it("becomes the page heading when the card is the page", () => {
     expect(renderTitle("h1").tagName).toBe("H1");
+  });
+
+  it("supports a nested section heading", () => {
+    expect(renderTitle("h4").tagName).toBe("H4");
   });
 
   it("keeps the shared title styling at every level", () => {

@@ -162,7 +162,10 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
                 <div className="space-y-1">
                   <p className="eyebrow inline-flex items-center gap-2 font-semibold text-[#9bd0ff]">
                     <span aria-hidden="true" className="relative flex h-2 w-2">
-                      <span className="absolute inset-0 animate-ping rounded-full bg-[#3396ff]/70" />
+                      {/* `motion-safe:` gates the loop: an indefinite pulse must not run for
+                          a reader who asked for reduced motion. The static dot below still
+                          marks the waiting state, so nothing is carried by motion alone. */}
+                      <span className="absolute inset-0 rounded-full bg-[#3396ff]/70 motion-safe:animate-ping" />
                       <span className="relative h-2 w-2 rounded-full bg-[#3396ff]" />
                     </span>
                     {i18n("waitingForYourWallet")}
@@ -175,7 +178,7 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
                   <li className="flex gap-2">
                     <span
                       aria-hidden="true"
-                      className="mt-[2px] inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-[#3396ff]/40 bg-[#3396ff]/10 text-[9px] font-semibold text-[#9bd0ff]"
+                      className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-[#3396ff]/40 bg-[#3396ff]/10 text-xs font-semibold text-[#9bd0ff]"
                     >
                       1
                     </span>
@@ -184,7 +187,7 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
                   <li className="flex gap-2">
                     <span
                       aria-hidden="true"
-                      className="mt-[2px] inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-[#3396ff]/40 bg-[#3396ff]/10 text-[9px] font-semibold text-[#9bd0ff]"
+                      className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-[#3396ff]/40 bg-[#3396ff]/10 text-xs font-semibold text-[#9bd0ff]"
                     >
                       2
                     </span>
@@ -235,7 +238,12 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
               <Button
                 type="button"
                 onClick={() => void wc.connect()}
-                className="shrink-0 bg-[#3396ff] text-white shadow-[0_8px_24px_-12px_rgba(51,150,255,0.7)] hover:bg-[#1f7fe6]"
+                // WalletConnect blue, held at its own hue (211°) and full chroma but dropped
+                // in lightness: white on the brand `#3396ff` measures 3.02:1 and on the old
+                // `#1f7fe6` hover 4.01:1, both under the 4.5:1 floor this 14px semibold label
+                // needs. `#006fe6` measures 4.75:1 and `#005ec2` 6.21:1. The glow keeps the
+                // original brand value, since no text sits on it.
+                className="shrink-0 bg-[#006fe6] text-white shadow-[0_8px_24px_-12px_rgba(51,150,255,0.7)] hover:bg-[#005ec2]"
               >
                 <QrCode className="h-4 w-4" />
                 {i18n("pairViaWalletconnect")}
@@ -268,6 +276,8 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
           )}
         </AnimatePresence>
         {wc.error ? (
+          // `role="alert"`: a failed pairing replaces the QR in place, so without an
+          // announcement a screen-reader user waits at a code that is no longer live.
           <div
             role="alert"
             className="mt-3 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-100"

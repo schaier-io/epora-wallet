@@ -199,7 +199,7 @@ export function computeActionFieldErrors(
         i18n("walletRules"),
         validateMintStateDatum(mintDatum, undefined, getSttMintPolicyId())
       );
-      appendValidationErrors(mintErrors, "Wallet rules", validateStreamingAssetProofDraft(
+      appendValidationErrors(mintErrors, i18n("walletRules"), validateStreamingAssetProofDraft(
         mintDatum,
         input.walletBalanceSummary ? [input.walletBalanceSummary] : []
       ));

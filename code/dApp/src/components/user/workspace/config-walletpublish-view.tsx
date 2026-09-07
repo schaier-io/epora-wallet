@@ -121,7 +121,11 @@ export function WalletPublishConfigView() {
               value={publishCertificateJson}
               onChange={(event) => setPublishCertificateJson(event.target.value)}
               rows={10}
-              className="font-mono text-xs"
+              // No `text-xs`: `tailwind-merge` resolves the conflict in favour of the call
+              // site, so it deleted the primitive's `text-base` and left this box at 12px on
+              // mobile. iOS Safari zooms the page when a focused control's text is under 16px
+              // and never zooms back. The primitive's own `text-base sm:text-sm` stands.
+              className="font-mono"
               aria-invalid={certificateJsonError ? true : undefined}
               aria-describedby={
                 certificateJsonError ? "userPublishCertificateJson-error" : undefined

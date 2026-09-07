@@ -111,9 +111,9 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
     jotaiStore.set(recoveryCapacityFailureAtom, null);
     const recoverySignature = jotaiStore.get(recoveryCapacitySignatureAtom);
 
-    // Synchronous re-entry guard: blocks the second handler call when the
-    // user double-clicks before React re-renders the button as disabled.
-    if (submitInFlightRef.current) {
+    const session = jotaiStore.get(workspaceSessionAtom);
+    // Block duplicate calls in this session without blocking a new wallet.
+    if (submitInFlightRef.current === session) {
       return;
     }
 
@@ -167,7 +167,7 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
       return;
     }
 
-    submitInFlightRef.current = true;
+    submitInFlightRef.current = session;
     setActiveSubmit(true);
     setBuildError(null);
     setBuildErrorExpected(false);
@@ -186,7 +186,6 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
       });
     }
 
-    const session = jotaiStore.get(workspaceSessionAtom);
     const isCurrent = () => jotaiStore.get(workspaceSessionAtom) === session;
     let txHash: string;
     try {
@@ -218,7 +217,7 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
       return;
     } finally {
       if (isCurrent()) setActiveSubmit(false);
-      submitInFlightRef.current = false;
+      if (submitInFlightRef.current === session) submitInFlightRef.current = null;
     }
 
     if (!isCurrent()) return;

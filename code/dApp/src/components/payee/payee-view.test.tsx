@@ -21,8 +21,11 @@ const chain = vi.hoisted(() => ({ detect: vi.fn(), scan: vi.fn(), due: vi.fn() }
 const actions = vi.hoisted(() => ({
   build: vi.fn(),
   collect: vi.fn(),
-  submit: vi.fn()
+  submit: vi.fn(),
+  copy: vi.fn()
 }));
+
+vi.mock("@/lib/utils/clipboard", () => ({ copyTextToClipboard: actions.copy }));
 
 vi.mock("@/providers/wallet-provider", () => ({ useWalletContext: () => wallet.value }));
 vi.mock("@/lib/mesh/detection", () => ({ detectSttInfo: chain.detect }));
@@ -186,6 +189,8 @@ beforeEach(() => {
   actions.collect.mockResolvedValue("ab".repeat(32));
   actions.submit.mockReset();
   actions.submit.mockResolvedValue("cd".repeat(32));
+  actions.copy.mockReset();
+  actions.copy.mockResolvedValue(true);
 });
 
 async function renderView() {
@@ -293,7 +298,7 @@ describe("amounts and asset names", () => {
     chain.scan.mockReturnValue(scanOf([payment({ amountPerDay: 400 })]));
     await renderView();
 
-    expect(screen.getByText(/0\.0004 ADA \/ day/)).toBeInTheDocument();
+    expect(screen.getByText(/0\.0004 ADA per day/)).toBeInTheDocument();
   });
 
   it("names a token by its decoded asset name, not the datum hex", async () => {
@@ -302,7 +307,7 @@ describe("amounts and asset names", () => {
     );
     await renderView();
 
-    expect(screen.getByText(/12 USDM \/ day/)).toBeInTheDocument();
+    expect(screen.getByText(/12 USDM per day/)).toBeInTheDocument();
     expect(screen.queryByText(/5553444d/)).toBeNull();
   });
 
@@ -494,7 +499,7 @@ describe("a row", () => {
     chain.scan.mockReturnValue(scanOf([]));
     await act(async () => refresh.resolve({ tokens: [] }));
 
-    expect(screen.getByRole("status")).toHaveTextContent(
+    expect(screen.getAllByRole("status").map((region) => region.textContent)).toContain(
       "Sent. The list updates after the next refresh."
     );
     expect(screen.queryByRole("button", { name: "Collect payment" })).toBeNull();
@@ -747,6 +752,24 @@ describe("a row", () => {
       "The wallet holding this payment could not be read again. Press Refresh and try once more."
     );
     expect(actions.collect).not.toHaveBeenCalled();
+  });
+
+  it("copies the full submitted transaction hash from the row", async () => {
+    const current = payment();
+    const txHash = "ab".repeat(32);
+    chain.scan.mockReturnValue(scanOf([current]));
+    chain.detect.mockResolvedValue({ tokens: [detectedTokenFor(current)] });
+    await renderView();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Collect payment" }));
+    });
+    expect(screen.getByTitle(txHash)).toHaveTextContent(txHash.slice(0, 10));
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Copy" }));
+    });
+    expect(actions.copy).toHaveBeenCalledWith(txHash);
   });
 
   it("announces a successful action through a polite status region", async () => {

@@ -70,11 +70,18 @@ function classify(raw: string): Kind {
 
 // Green-monochrome ramp: a proper phosphor terminal speaks in one colour, with
 // brightness (not hue) carrying the hierarchy.
+//
+// The dim end has a floor. Measured against this terminal's own `#03110d`, the ramp used to
+// bottom out below the 4.5:1 that body text needs: `emerald-100/40` rendered 3.50:1,
+// `emerald-100/45` 4.13:1, `emerald-200/40` 3.23:1 and `emerald-400/50` 3.26:1, and most of
+// the shell's own output sat on those rungs. The dim rungs are now `emerald-100/50` (4.84:1),
+// `emerald-200/55` (5.11:1) and `emerald-400/70` (5.37:1). Order is unchanged, so brightness
+// still carries the hierarchy; it just does it inside the legible band.
 const TONE_CLASS: Record<Tone, string> = {
   ok: "text-emerald-300",
   warn: "text-emerald-300",
   accent: "text-emerald-100",
-  muted: "text-emerald-100/45"
+  muted: "text-emerald-100/50"
 };
 
 type LogEntry = { cmd: string; kind: Kind };
@@ -197,11 +204,11 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
       <div className="rounded-md border border-emerald-300/20 bg-emerald-400/[0.05] px-3 py-2.5">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <span className="text-[10px] uppercase tracking-[0.16em] text-emerald-200/45">
+            <span className="text-[10px] uppercase tracking-[0.16em] text-emerald-200/55">
               {i18n("launchReward")}
             </span>
             <div className="mt-0.5 flex items-center gap-1.5">
-              <span className="text-emerald-400/50">$</span>
+              <span className="text-emerald-400/70">$</span>
               <span
                 className={cn(
                   "egg-code select-all font-mono text-[15px] font-bold tracking-[0.18em] text-emerald-200 [text-shadow:0_0_10px_rgba(52,211,153,0.18)]",
@@ -279,7 +286,7 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
         );
       case "already":
         return (
-          <div className="text-emerald-100/45">
+          <div className="text-emerald-100/50">
             {i18n("rewardAlreadyClaimed")} <span className="text-cyan-300/80">{DISCOUNT_CODE}</span>
           </div>
         );
@@ -301,24 +308,24 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
         return (
           <div className="mt-0.5 text-emerald-100/70">
             <div className="text-emerald-100/85">{i18n("konamiRecoveryWalletShell")}</div>
-            <div className="mt-1 text-emerald-100/40">{i18n("commands")}</div>
+            <div className="mt-1 text-emerald-100/50">{i18n("commands")}</div>
             <div>
               <span className="text-emerald-300">{i18n("konamiInfo")}</span>
-              <span className="text-emerald-100/45"> {i18n("whatThisWalletDoes")}</span>
+              <span className="text-emerald-100/50"> {i18n("whatThisWalletDoes")}</span>
             </div>
             <div>
               <span className="text-emerald-300">{i18n("konamiRedeem")}</span>
-              <span className="text-emerald-100/45"> {i18n("claimYourLaunchReward")}</span>
+              <span className="text-emerald-100/50"> {i18n("claimYourLaunchReward")}</span>
             </div>
             <div>
               <span className="text-emerald-300">{i18n("konamiH")}</span>
-              <span className="text-emerald-100/45"> {i18n("showThisHelp")}</span>
+              <span className="text-emerald-100/50"> {i18n("showThisHelp")}</span>
             </div>
           </div>
         );
       case "konami-bare":
         return (
-          <div className="text-emerald-100/45">
+          <div className="text-emerald-100/50">
             {i18n.rich("konamiMissingCommand", {
               command: (children) => <span className="text-emerald-300/80">{children}</span>
             })}
@@ -326,7 +333,7 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
         );
       case "konami-opt":
         return (
-          <div className="text-emerald-100/45">
+          <div className="text-emerald-100/50">
             {i18n.rich("konamiUnknownCommand", {
               command: (children) => <span className="text-emerald-300/80">{children}</span>
             })}
@@ -336,17 +343,17 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
         // `konami` is the executable, bold green with the ls -F "*" classifier.
         return (
           <div className="flex flex-wrap gap-x-5 gap-y-0.5">
-            <span className="text-emerald-100/40">{i18n("recoveryLog")}</span>
-            <span className="text-emerald-100/40">{i18n("notesTxt")}</span>
+            <span className="text-emerald-100/50">{i18n("recoveryLog")}</span>
+            <span className="text-emerald-100/50">{i18n("notesTxt")}</span>
             <span className="font-bold text-emerald-300">
-              {i18n("konami")}<span className="font-normal text-emerald-400/50">*</span>
+              {i18n("konami")}<span className="font-normal text-emerald-400/70">*</span>
             </span>
           </div>
         );
       case "denied":
-        return <div className="text-emerald-100/45">{i18n("permissionDenied", { command: firstRaw })}</div>;
+        return <div className="text-emerald-100/50">{i18n("permissionDenied", { command: firstRaw })}</div>;
       default:
-        return <div className="text-emerald-100/40">{i18n("commandNotFound", { command: firstRaw })}</div>;
+        return <div className="text-emerald-100/50">{i18n("commandNotFound", { command: firstRaw })}</div>;
     }
   };
 
@@ -368,7 +375,7 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
             <span className="h-2.5 w-2.5 rounded-full bg-amber-400/70" />
             <span className="h-2.5 w-2.5 rounded-full bg-emerald-400/70" />
           </span>
-          <span className="ml-1 font-mono text-[10.5px] uppercase tracking-[0.16em] text-emerald-200/50">
+          <span className="ml-1 font-mono text-[10.5px] uppercase tracking-[0.16em] text-emerald-200/55">
             {i18n("secureShell")}
           </span>
         </div>
@@ -435,9 +442,9 @@ export function SparkleEasterEgg({ open, onOpenChange }: SparkleEasterEggProps) 
             <span className="rounded-[3px] bg-emerald-400/85 px-1.5 py-0.5 font-semibold text-emerald-950">
               {i18n("secureShell")}
             </span>
-            <span className="truncate text-emerald-200/40">{i18n("message_0Konami")}</span>
+            <span className="truncate text-emerald-200/55">{i18n("message_0Konami")}</span>
           </div>
-          <div className="flex shrink-0 items-center gap-2.5 text-emerald-200/40">
+          <div className="flex shrink-0 items-center gap-2.5 text-emerald-200/55">
             <span>
               <span className="text-emerald-300/70">↑↓</span> {i18n("history")}
             </span>

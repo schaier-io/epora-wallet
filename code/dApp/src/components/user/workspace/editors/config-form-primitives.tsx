@@ -66,7 +66,9 @@ export function LabeledField({
       <Label htmlFor={htmlFor}>{label}</Label>
       {children}
       {helper !== undefined ? (
-        <p className="text-xs text-muted-foreground">{helper}</p>
+        <p id={`${htmlFor}-helper`} className="text-xs text-muted-foreground">
+          {helper}
+        </p>
       ) : null}
       <InlineFieldError id={errorId} message={error} />
     </div>
@@ -108,7 +110,13 @@ export function LabeledInputField({
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
         aria-invalid={error ? true : undefined}
-        aria-describedby={error ? `${id}-error` : undefined}
+        // The helper line says what the box will accept, so it belongs in the field's
+        // description too; without it the sentence is visible only to sighted readers.
+        aria-describedby={
+          [helper !== undefined ? `${id}-helper` : null, error ? `${id}-error` : null]
+            .filter(Boolean)
+            .join(" ") || undefined
+        }
       />
     </LabeledField>
   );
@@ -148,7 +156,7 @@ export function AdaAmountInput({
     <Input
       {...inputProps}
       inputMode="decimal"
-      aria-invalid={invalid || undefined}
+      aria-invalid={invalid || inputProps["aria-invalid"] || undefined}
       value={draft ?? stored}
       onFocus={(event) => {
         setFocused(true);

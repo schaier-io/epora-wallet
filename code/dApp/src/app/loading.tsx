@@ -14,11 +14,15 @@ import { COPY } from "@/lib/copy";
  * `aria-busy` and `aria-live` are here because the text is: a live region with nothing to
  * read announces nothing, and text with no live region is never announced. `app/user/loading.tsx`
  * had the region without the text; this had the text without the region.
+ *
+ * `<main>`, not a `<div>`: this fallback stands in for the route's own `<main>` while the
+ * segment loads, and a `<div>` left the loading state as the one screen with no main
+ * landmark for the shell's "Skip to content" link to reach.
  */
 export default function RootLoading() {
   const i18n = useTranslations("AppLoading");
   return (
-    <div
+    <main
       className="page-shell flex flex-1 flex-col"
       aria-busy="true"
       aria-live="polite"
@@ -26,10 +30,12 @@ export default function RootLoading() {
       <div className="container flex flex-1 flex-col space-y-4 py-3 md:py-4">
         <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-          {i18n("loading")} {COPY.brand.name}…
+          {/* One templated string, not "Loading" + a variable + an ellipsis: word order
+              around the product name is not the same in every language. */}
+          {i18n("loadingBrand", { brand: COPY.brand.name })}
         </div>
         <SkeletonCard />
       </div>
-    </div>
+    </main>
   );
 }

@@ -52,7 +52,7 @@ function contextFor(store: ReturnType<typeof createStore>, editDuringBuild: (() 
     setMintedWalletName: vi.fn(),
     setSubmitHash: vi.fn(),
     submitHash: null,
-    submitInFlightRef: { current: false },
+    submitInFlightRef: { current: null },
     watchMintCreationConfirmation: vi.fn(),
     withBuildGuard: async () => {
       editDuringBuild?.();

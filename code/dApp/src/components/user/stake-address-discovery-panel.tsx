@@ -54,7 +54,7 @@ export function StakeAddressDiscoveryPanel({
 
   if (error) {
     return (
-      <p className="rounded-lg border border-border/40 bg-background/20 px-3 py-2 text-xs text-muted-foreground">
+      <p role="alert" className="rounded-lg border border-border/40 bg-background/20 px-3 py-2 text-xs text-muted-foreground">
         {i18n("couldNotCheckWhereThisWalletSFunds")}
       </p>
     );

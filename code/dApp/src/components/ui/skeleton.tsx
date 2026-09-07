@@ -8,7 +8,12 @@ export function Skeleton({ className, ...props }: SkeletonProps) {
       role="presentation"
       aria-hidden="true"
       className={cn(
-        "relative overflow-hidden rounded-md bg-[hsl(195_25%_10%)]",
+        // `--muted` is the role token for a placeholder surface. The hardcoded
+        // `hsl(195 25% 10%)` it replaces measured 1.04:1 against the card a SkeletonCard
+        // draws it on, so under `prefers-reduced-motion` -- where the shimmer below is
+        // switched off -- the loading state was very close to invisible. `bg-muted`
+        // measures 1.18:1 on the card and 1.20:1 on the page background.
+        "relative overflow-hidden rounded-md bg-muted",
         "ring-1 ring-inset ring-border/30",
         "before:absolute before:inset-0 before:-translate-x-full before:animate-[skeleton-shimmer_1.6s_ease-in-out_infinite]",
         "before:bg-gradient-to-r before:from-transparent before:via-primary/8 before:to-transparent",

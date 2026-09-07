@@ -1,4 +1,66 @@
 {
+  "ComponentsUserWorkspaceEditorsAssetEditors": {
+    "adaOrTokenPolicyAsset": "ADA or a token policy id + asset name",
+    "addAToken": "Add a token",
+    "addAWallet": "Add a wallet",
+    "addFundPool": "Add fund pool",
+    "addrTest": "addr_test...",
+    "advanced": "Advanced:",
+    "amount": "Amount",
+    "asset": "Asset",
+    "assetNameHex": "Token name",
+    "assetNameHex_559b83": "token name in hex",
+    "cardanoWalletId": "Cardano wallet id",
+    "connectedWallet": "Connected wallet",
+    "customAsset": "Custom asset",
+    "customAssetHint": "Type the policy id and asset name yourself",
+    "enterACardanoAddressOrA56Character": "Enter a Cardano address (addr_test1…) or a 56-character wallet id made of 0 to 9 and a to f. This one has {value1} characters.",
+    "labelWalletValue2": "{label}, wallet {value2}",
+    "leaveTheTwoIdBoxesEmptyForAda": "Leave the two id boxes empty for ADA. Fill them in only for another Cardano token.",
+    "noInputRefsAdded": "No input refs added.",
+    "none": "None",
+    "nothingAddedYet": "Nothing added yet.",
+    "noWalletAddedYet": "No wallet added yet.",
+    "outputIndex": "Output number",
+    "outputIndex_7d014b": "Output number",
+    "policyId": "Policy ID",
+    "policyId_f606df": "policy id",
+    "pro": "Pro",
+    "remove": "Remove",
+    "tokenNameHex": "Token name",
+    "tokenPolicyId": "Token policy id",
+    "txHash": "Transaction hash",
+    "txHash_deff4e": "transaction hash",
+    "value1": "({value1})",
+    "value1Value2": "{value1}{value2}",
+    "walletId": "Wallet id",
+    "walletIdOrAddress": "Wallet id or Cardano address",
+    "amountAda": "Amount (ADA)",
+    "amountLovelace": "Amount (lovelace)",
+    "oneAdaIsAMillionLovelace": "1 ADA is 1,000,000 lovelace.",
+    "removeFundPoolNumber": "Remove fund pool {number}",
+    "removeTokenNumber": "Remove token {number}",
+    "removeWalletNumber": "Remove wallet {number}"
+  },
+  "ComponentsUserWorkspaceEditorsAssetListEditor": {
+    "adaOrTokenPolicyAsset": "ADA or token policy+asset",
+    "addAsset": "Add asset",
+    "addAsset_f05393": "Add Asset",
+    "asset": "Asset",
+    "howMuch": "How much",
+    "howMuchAda": "How much (ADA)",
+    "max": "Max",
+    "noAssetRowsAdded": "No asset rows added.",
+    "notInYourWalletYet": "Not in your wallet yet",
+    "remove": "Remove",
+    "value1Value2": "{value1} · {value2}",
+    "everyAssetInThisWalletIsAlreadyOnTheList": "Every asset this wallet holds is already on the list.",
+    "removeAssetNumber": "Remove asset {number}"
+  },
+  "ComponentsUserWorkspaceEditorsConfigFormPrimitives": {
+    "signAs": "Sign as",
+    "signingAs": "Signing as:"
+  },
   "ComponentsUserWorkspaceEditorsFocusedPeopleEditor": {
     "aCardanoWalletHasToBeLinkedTo": "A Cardano wallet has to be linked to a person before they can use this smart wallet.",
     "addASpenderThenLinkTheCardanoWallet": "Add a spender, then link the Cardano wallet they will sign with.",
@@ -175,7 +237,11 @@
     "viewOnCardanoscan": "View on Cardanoscan",
     "waitingForTheNetwork": "Waiting for the network…",
     "walletFunds": "Wallet funds",
-    "walletToken": "Wallet token"
+    "walletToken": "Wallet token",
+    "stepDone": "Done",
+    "stepNow": "Now",
+    "stepBlocked": "Blocked",
+    "stepWaiting": "Waiting"
   },
   "ComponentsUserWorkspaceEditorsStateFormEditor": {
     "addACosigner": "Add a co-signer",
@@ -563,5 +629,11 @@
     "waitingForTheNetworkToConfirm": "Waiting for the network to confirm.",
     "yourSmartWalletIsLiveOnCardanoPreprod": "Your smart wallet is live on Cardano Preprod. Save or share your membership card below, then open your wallet whenever you're ready.",
     "yourTransactionIsOnTheNetwork": "Your transaction is on the network. This usually takes a block or two."
+  },
+  "ComponentsUserWorkspaceRecoveryFallbackView": {
+    "title": "This withdrawal exceeds transaction capacity.",
+    "description": "Prepare smaller fund pools, then distribute them one at a time. You can also withdraw selected funds through recovery access.",
+    "prepare": "Prepare smaller fund pools",
+    "distribute": "Distribute one fund pool"
   }
 }
