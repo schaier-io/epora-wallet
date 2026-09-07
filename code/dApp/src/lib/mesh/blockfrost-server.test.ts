@@ -3,6 +3,7 @@ import test from "node:test";
 
 import type { BlockfrostProvider } from "@meshsdk/core";
 
+import { RECENT_STT_TRANSACTION_FETCH_PAGES } from "@/components/user/workspace/constants";
 import { executeMeshMethod } from "./blockfrost-server";
 
 // Records `get` calls without touching the network; validation must throw
@@ -85,6 +86,24 @@ test("fetchAddressTxs accepts the page budget and strips unrelated options", asy
     { maxPage: 8, order: "asc", ignored: true }
   ]);
   assert.deepEqual(calls, [{ maxPage: 8, order: "asc" }]);
+});
+
+test("the STT activity depth fits the public route budget", async () => {
+  const calls: unknown[] = [];
+  const provider = {
+    fetchAddressTxs: async (_address: string, options: unknown) => {
+      calls.push(options);
+      return [];
+    }
+  } as unknown as BlockfrostProvider;
+
+  await executeMeshMethod(provider, "fetchAddressTxs", [
+    "addr_test1stt",
+    { maxPage: RECENT_STT_TRANSACTION_FETCH_PAGES, order: "desc" }
+  ]);
+  assert.deepEqual(calls, [
+    { maxPage: RECENT_STT_TRANSACTION_FETCH_PAGES, order: "desc" }
+  ]);
 });
 
 test("fetchAddressTxs treats an unseen address as empty history", async () => {
