@@ -18,13 +18,18 @@ export type CopyFeedbackController = {
  * against its own success label -- `copyFeedback === "Wallet address copied"` and friends -- so
  * a failure label written there matches no branch anywhere and renders as nothing at all.
  */
+const FEEDBACK_CLEAR_MS = 1800;
+
 export function useCopyFeedback(): CopyFeedbackController {
   const setCopyFeedback = useSetAtom(copyFeedbackAtom);
   const toast = useToast();
   // The atom is module-global, so a pending timer must not just be dropped on unmount:
   // clearing it applies the same guarded reset the timer would have, immediately.
   const pendingRef = useRef<{ id: number; label: string } | null>(null);
+  const mountedRef = useRef(true);
 
+  // The one guarded-clear body; the auto-clear timer calls it too (clearTimeout on an
+  // already-fired timer is a no-op).
   const clearPending = useCallback(() => {
     const pending = pendingRef.current;
     if (!pending) return;
@@ -33,7 +38,13 @@ export function useCopyFeedback(): CopyFeedbackController {
     setCopyFeedback((current) => (current === pending.label ? null : current));
   }, [setCopyFeedback]);
 
-  useEffect(() => clearPending, [clearPending]);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      clearPending();
+    };
+  }, [clearPending]);
 
   const copyTextToClipboard = useCallback(
     async (value: string, successLabel: string) => {
@@ -44,14 +55,17 @@ export function useCopyFeedback(): CopyFeedbackController {
         return;
       }
 
+      // The clipboard write is async; a copy still in flight when the hook unmounts must
+      // not write the label into the module-global atom or arm an ownerless timer.
+      if (!mountedRef.current) {
+        return;
+      }
+
       clearPending();
       setCopyFeedback(successLabel);
       pendingRef.current = {
         label: successLabel,
-        id: window.setTimeout(() => {
-          pendingRef.current = null;
-          setCopyFeedback((current) => (current === successLabel ? null : current));
-        }, 1800)
+        id: window.setTimeout(clearPending, FEEDBACK_CLEAR_MS)
       };
     },
     [clearPending, setCopyFeedback, toast]
