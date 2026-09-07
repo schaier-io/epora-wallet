@@ -60,6 +60,8 @@ type WalletContextType = {
   activeRewardAddress: string | null;
   activePaymentKeyHash: string | null;
   isConnecting: boolean;
+  /** True until the first saved-wallet restore decision has settled. */
+  walletSessionLoading: boolean;
   networkId: number | null;
   connectError: string | null;
   clearConnectError: () => void;
@@ -141,6 +143,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
   const [activeRewardAddress, setActiveRewardAddress] = useAtom(activeRewardAddressAtom);
   const [activePaymentKeyHash, setActivePaymentKeyHash] = useAtom(activePaymentKeyHashAtom);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [walletSessionLoading, setWalletSessionLoading] = useState(true);
   const [networkId, setNetworkId] = useAtom(networkIdAtom);
   const [connectError, setConnectError] = useState<string | null>(null);
   const [walletsLoaded, setWalletsLoaded] = useState(false);
@@ -360,6 +363,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
       if (stillActive()) {
         setIsConnecting(false);
         setConnectingWalletName(null);
+        setWalletSessionLoading(false);
       }
     }
   }, [
@@ -388,6 +392,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
     setActivePaymentKeyHash(null);
     setNetworkId(null);
     setConnectError(null);
+    setWalletSessionLoading(false);
     clearLastConnectedWalletName();
   }, [
     setActiveWallet,
@@ -405,6 +410,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
     setIsConnecting(false);
     setConnectingWalletName(null);
     setConnectError(null);
+    setWalletSessionLoading(false);
   }, []);
 
   useEffect(() => {
@@ -446,13 +452,20 @@ export function WalletProvider({ children }: PropsWithChildren) {
   }, [refreshWallets, syncActiveAccount]);
 
   useEffect(() => {
-    if (hasAttemptedAutoReconnect.current || !walletsLoaded || activeWallet || isConnecting) {
+    if (activeWallet) {
+      return;
+    }
+
+    if (hasAttemptedAutoReconnect.current || !walletsLoaded || isConnecting) {
       return;
     }
 
     const lastConnectedWalletName = readLastConnectedWalletName();
     if (!lastConnectedWalletName) {
       hasAttemptedAutoReconnect.current = true;
+      queueMicrotask(() => {
+        if (isMountedRef.current) setWalletSessionLoading(false);
+      });
       return;
     }
 
@@ -468,11 +481,17 @@ export function WalletProvider({ children }: PropsWithChildren) {
         (wallet) => wallet.id !== DEMO_WALLET_ID
       );
       if (!hasDetectedExtensionWallet && lastConnectedWalletName !== DEMO_WALLET_ID) {
+        queueMicrotask(() => {
+          if (isMountedRef.current) setWalletSessionLoading(false);
+        });
         return;
       }
 
       clearLastConnectedWalletName();
       hasAttemptedAutoReconnect.current = true;
+      queueMicrotask(() => {
+        if (isMountedRef.current) setWalletSessionLoading(false);
+      });
       return;
     }
 
@@ -507,6 +526,10 @@ export function WalletProvider({ children }: PropsWithChildren) {
         }
       } catch {
         // Stay disconnected; the user can reconnect with a click.
+      } finally {
+        if (connectAttemptRef.current === attemptBeforeCheck) {
+          setWalletSessionLoading(false);
+        }
       }
     })();
   }, [activeWallet, connect, installedWallets, isConnecting, walletsLoaded]);
@@ -525,6 +548,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
       activeRewardAddress,
       activePaymentKeyHash,
       isConnecting,
+      walletSessionLoading: walletSessionLoading && !activeWallet,
       networkId,
       connectError,
       clearConnectError,
@@ -545,6 +569,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
       activeRewardAddress,
       activePaymentKeyHash,
       isConnecting,
+      walletSessionLoading,
       networkId,
       connectError,
       clearConnectError,

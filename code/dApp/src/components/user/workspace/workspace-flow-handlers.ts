@@ -25,6 +25,7 @@ import { type useWalletBalance } from "@/components/user/workspace/use-wallet-ba
 import { type useWalletActivity } from "@/components/user/workspace/use-wallet-activity";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceWorkspaceFlowHandlers.json";
+import { resolveWalletSpendAddress } from "@/lib/contracts/blueprint";
 
 const i18n = createDefaultTranslator("ComponentsUserWorkspaceWorkspaceFlowHandlers", defaultMessages);
 
@@ -49,6 +50,7 @@ export interface WorkspaceFlowHandlersCtx {
   refreshDetectedTokens: ReturnType<typeof useDetectedSttTokens>["refreshDetectedTokens"];
   refreshLockedContractUtxos: ReturnType<typeof useLockedContractUtxos>["refreshLockedContractUtxos"];
   refreshPermissionWalletSummaries: ReturnType<typeof useDetectedSttTokens>["refreshPermissionWalletSummaries"];
+  runWalletTransactionsRefresh: ReturnType<typeof useWalletActivity>["runWalletTransactionsRefresh"];
   refreshWalletBalance: ReturnType<typeof useWalletBalance>["refreshWalletBalance"];
   setActiveBuild: Dispatch<SetStateAction<string | null>>;
   setBuildError: SetBuildError;
@@ -74,6 +76,7 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
     refreshDetectedTokens,
     refreshLockedContractUtxos,
     refreshPermissionWalletSummaries,
+    runWalletTransactionsRefresh,
     refreshWalletBalance,
     setActiveBuild,
     setBuildError,
@@ -234,7 +237,20 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
           addSubmittedTransactionToActivity(txHash),
           refreshWalletBalance(),
           refreshLockedContractUtxos(lockingContract.address),
-          refreshPermissionWalletSummaries(detected.tokens)
+          refreshPermissionWalletSummaries(detected.tokens),
+          ...(createdToken
+            ? [
+                runWalletTransactionsRefresh({
+                  walletAddress: resolveWalletSpendAddress({
+                    sttPolicyId: createdToken.policyId,
+                    sttAssetNameHex: createdToken.assetNameHex
+                  }),
+                  sttScriptAddress: createdToken.scriptAddress,
+                  sttUnit: createdToken.unit,
+                  anchorTxHashes: [txHash]
+                })
+              ]
+            : [])
         ]);
 
         if (jotaiStore.get(mintConfirmationRunAtom) !== runId) {

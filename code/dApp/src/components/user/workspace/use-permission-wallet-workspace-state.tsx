@@ -265,6 +265,7 @@ export function usePermissionWalletWorkspaceState() {
     refreshDetectedTokens,
     refreshLockedContractUtxos,
     refreshPermissionWalletSummaries,
+    runWalletTransactionsRefresh,
     refreshWalletBalance,
     setActiveBuild,
     setBuildError,
