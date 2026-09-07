@@ -117,10 +117,9 @@ export function buildWalletActivityEvents(
     activeWalletName?: string | null;
   } = {}
 ) {
-  const currentWalletOutputsForTx = (options.currentWalletUtxos ?? []).filter(
+  const currentOutputsForTx = (options.currentWalletUtxos ?? []).filter(
     (utxo) =>
-      utxo.input.txHash.toLowerCase() === transaction.hash.toLowerCase() &&
-      utxo.output.address === address
+      utxo.input.txHash.toLowerCase() === transaction.hash.toLowerCase()
   );
   // The raw tx-utxos payload can carry the same input entry twice. Everything the
   // event derives — address counts, the wallet's balance delta, the STT tally, the
@@ -128,7 +127,10 @@ export function buildWalletActivityEvents(
   // collection, or a repeated wallet-owned entry would double the balance delta and
   // flip tidy/sent classification.
   const inputs = dedupeUtxosByRef(transaction.inputs);
-  const outputUtxos = dedupeUtxosByRef([...transaction.outputs, ...currentWalletOutputsForTx]);
+  const outputUtxos = dedupeUtxosByRef([...transaction.outputs, ...currentOutputsForTx]);
+  const currentWalletOutputsForTx = currentOutputsForTx.filter(
+    (utxo) => utxo.output.address === address
+  );
   const rawOutputCountAtAddress = countAddressUtxos(transaction.outputs, address);
   const inputCountAtAddress = countAddressUtxos(inputs, address);
   const outputCountAtAddress =
@@ -142,7 +144,7 @@ export function buildWalletActivityEvents(
   const spendsFromWallet = inputCountAtAddress > 0 || inputsAtAddress.length > 0;
   const sendsToWallet = outputCountAtAddress > 0 || outputsAtAddress.length > 0;
   const sttInputCount = options.sttUnit ? countAssetUtxos(inputs, options.sttUnit) : 0;
-  const sttOutputCount = options.sttUnit ? countAssetUtxos(transaction.outputs, options.sttUnit) : 0;
+  const sttOutputCount = options.sttUnit ? countAssetUtxos(outputUtxos, options.sttUnit) : 0;
   const sttTouched = sttInputCount > 0 || sttOutputCount > 0;
   const sttCreated = sttOutputCount > 0 && sttInputCount === 0;
   const amountComparison = compareAssetAmounts(inputsAtAddress, outputsAtAddress);

@@ -307,6 +307,25 @@ test("a co-signer sees another signer's fee change as a settings update", () => 
   assert.equal(events[0]!.label, "Settings");
 });
 
+test("a current continuing STT output completes partial provider transaction data", () => {
+  const tx = transaction({
+    inputs: [
+      utxo("cc".repeat(32), 0, SCRIPT, withStt("2000000")),
+      utxo("dd".repeat(32), 0, EXTERNAL, lovelace("5000000"))
+    ],
+    outputs: [utxo("ab".repeat(32), 1, EXTERNAL, lovelace("4849905"))]
+  });
+  const continuingState = utxo(tx.hash, 0, SCRIPT, withStt("2000000"));
+
+  const events = buildWalletActivityEvents(tx, WALLET, {
+    sttUnit: STT,
+    currentWalletUtxos: [continuingState]
+  });
+
+  assert.equal(events[0]!.title, "Wallet settings updated");
+  assert.equal(events[0]!.label, "Settings");
+});
+
 test("a state rewrite that also pays an outside address is a send, not a settings edit", () => {
   const tx = transaction({
     inputs: [utxo("cc".repeat(32), 0, SCRIPT, withStt("2000000"))],

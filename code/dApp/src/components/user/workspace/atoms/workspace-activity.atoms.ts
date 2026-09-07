@@ -57,8 +57,12 @@ export const recentWalletTransactionsAtom = atom((get) =>
 export const recentWalletActivityEventsAtom = atom((get) => {
   const walletAddress = get(lockingContractAtom).address;
   if (!walletAddress) return [];
-  const sttUnit = get(selectedDetectedTokenAtom)?.unit ?? null;
-  const currentWalletUtxos = get(lockedContractUtxosAtom);
+  const selectedDetectedToken = get(selectedDetectedTokenAtom);
+  const sttUnit = selectedDetectedToken?.unit ?? null;
+  const currentWalletUtxos = [
+    ...get(lockedContractUtxosAtom),
+    ...(selectedDetectedToken ? [selectedDetectedToken.utxo] : [])
+  ];
   const activeAddress = get(activeAddressAtom);
   const activeWalletName = get(activeWalletNameAtom);
   return get(recentWalletTransactionsAtom).flatMap((transaction) =>
