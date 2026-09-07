@@ -166,7 +166,7 @@
   "ComponentsUserWorkspaceWalletBalanceChartSection": {
     "ada": "ADA",
     "availableOnly": "Available only",
-    "availableOnlyHelper": "Shows what is actually spendable: everything this asset's scheduled payments still owe is held back.",
+    "availableOnlyHelper": "Accrued unpaid scheduled payments are subtracted at each point. Future amounts are not included.",
     "chartPickerLabel": "Pick the assets to chart",
     "noStreamsPayingTheChartedAssets": "No scheduled payment pays the charted assets, so total and available are the same.",
     "value1": "{value1}",

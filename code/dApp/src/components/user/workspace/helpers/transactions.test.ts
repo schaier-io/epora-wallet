@@ -61,6 +61,20 @@ function rawTransaction(): TransactionInfo {
   } as TransactionInfo;
 }
 
+test("normalizeTransactionIo preserves a continuing output's inline datum", () => {
+  const normalized = normalizeTransactionIo({
+    ...rawTransaction(),
+    outputs: [
+      {
+        ...rawOutput(0, WALLET, "6000000"),
+        inline_datum: "d87980"
+      }
+    ] as never
+  });
+
+  assert.equal(normalized.outputs[0]!.output.plutusData, "d87980");
+});
+
 test("normalizeTransactionIo translates raw Blockfrost entries into the Mesh UTxO shape", () => {
   const normalized = normalizeTransactionIo(rawTransaction());
 
