@@ -38,7 +38,10 @@ const LOGO_SRC = "/logo-mark.svg";
 // low membership numbers as an early-adopter status signal. Past it the label
 // degrades gracefully to a plain member number.
 const FOUNDING_MEMBER_LIMIT = 1000;
-const RASTERISE_TIMEOUT_MS = 10_000;
+// Generous on purpose: decodes finish in milliseconds, but a backgrounded tab deprioritises
+// decoding while the timer keeps counting, and a rejection here turns a save into a hard
+// failure. The timeout only has to bound the object URL's lifetime, not police slowness.
+const RASTERISE_TIMEOUT_MS = 30_000;
 
 /**
  * Membership label from the 1-based on-chain wallet number. The number is the
