@@ -304,6 +304,10 @@ const ProfileCardComponent: React.FC<ProfileCardProps> = ({
     shell.addEventListener('pointermove', pointerMoveHandler);
     shell.addEventListener('pointerleave', pointerLeaveHandler);
 
+    // The permission prompt resolves after user interaction, possibly after this effect's
+    // cleanup already ran; registering then would leak the listener and its rAF loop.
+    let disposed = false;
+
     const handleClick = () => {
       if (!enableMobileTilt || location.protocol !== 'https:') return;
       const motionEvent = window.DeviceMotionEvent as DeviceMotionPermissionEvent | undefined;
@@ -311,7 +315,7 @@ const ProfileCardComponent: React.FC<ProfileCardProps> = ({
         motionEvent
           .requestPermission()
           .then((state) => {
-            if (state === 'granted') {
+            if (state === 'granted' && !disposed) {
               window.addEventListener('deviceorientation', deviceOrientationHandler);
             }
           })
@@ -331,6 +335,7 @@ const ProfileCardComponent: React.FC<ProfileCardProps> = ({
     tiltEngine.beginInitial(ANIMATION_CONFIG.INITIAL_DURATION);
 
     return () => {
+      disposed = true;
       shell.removeEventListener('pointerenter', pointerEnterHandler);
       shell.removeEventListener('pointermove', pointerMoveHandler);
       shell.removeEventListener('pointerleave', pointerLeaveHandler);
