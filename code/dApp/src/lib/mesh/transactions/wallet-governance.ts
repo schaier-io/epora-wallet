@@ -1,4 +1,4 @@
-import { type RuntimeTxBuilder, assertRecordPayload, buildGovernanceScriptSource, buildTransactionWithReestimatedLimits, createMeshRedeemer, createStateForwarding, createTxPreview, fetchChangeAddressReferenceUtxos, mergeAssetsByUnit, resolveReferenceScript, runStateForwarding, setupTransaction, validateForwardedStateDatum } from "./internals";
+import { type RuntimeTxBuilder, WALLET_PUBLISH_VALIDATOR, WALLET_VOTE_VALIDATOR, addExtraRequiredSigners, assertRecordPayload, buildGovernanceScriptSource, buildTransactionWithReestimatedLimits, createMeshRedeemer, createStateForwarding, createTxPreview, fetchChangeAddressReferenceUtxos, mergeAssetsByUnit, resolveReferenceScript, runStateForwarding, setupTransaction, validateForwardedStateDatum } from "./internals";
 import { formatGovernancePreview } from "./preview-copy";
 import { buildOperatorPathData, buildSttSpendRedeemerData, resolveOperatorOnChainAction } from "@/lib/contracts/action-data";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
@@ -18,6 +18,7 @@ async function buildWalletGovernanceTx(
     sttInputOutputIndex?: number;
     sttOutputDatum: ConstrData;
     sttOutputAssets: Asset[];
+    requiredSignerKeyHashes?: string[];
   },
   txFetcher?: TxFetcher
 ): Promise<BuildResult> {
@@ -25,7 +26,7 @@ async function buildWalletGovernanceTx(
   const stateForwarding = createStateForwarding(config);
   const sttParams = stateForwarding.params;
   const forwardedDatum = unwrapStateDatum(input.sttOutputDatum, "STT state datum");
-  validateForwardedStateDatum(
+  const forwardedStateWarnings = validateForwardedStateDatum(
     forwardedDatum,
     onChainAction,
     `${input.action}:validateStateDatum`,
@@ -49,6 +50,7 @@ async function buildWalletGovernanceTx(
     async (overrides) => {
       const { tx, fetcher, changeAddress, setupDiagnostics, walletUtxos } =
         await setupTransaction(wallet, undefined, txFetcher);
+      addExtraRequiredSigners(tx, changeAddress, input.requiredSignerKeyHashes);
       const spendValidatorsByRef = new Map<string, string>();
       const changeAddressUtxos = await fetchChangeAddressReferenceUtxos(
         fetcher,
@@ -117,7 +119,10 @@ async function buildWalletGovernanceTx(
                       governanceScript,
                       governanceReferenceScript
                     ),
-                    redeemer: createMeshRedeemer(buildOperatorPathData(input.authorityPath))
+                    redeemer: createMeshRedeemer(
+                      buildOperatorPathData(input.authorityPath),
+                      overrides?.certificateBudgets[0]
+                    )
                   }
                 ];
               } else {
@@ -130,7 +135,10 @@ async function buildWalletGovernanceTx(
                       governanceScript,
                       governanceReferenceScript
                     ),
-                    redeemer: createMeshRedeemer(buildOperatorPathData(input.authorityPath))
+                    redeemer: createMeshRedeemer(
+                      buildOperatorPathData(input.authorityPath),
+                      overrides?.voteBudgets[0]
+                    )
                   }
                 ];
               }
@@ -149,11 +157,18 @@ async function buildWalletGovernanceTx(
           sttInputOutputIndex: input.sttInputOutputIndex
         },
         executionLabels: {
+          certificateValidators:
+            input.action === "wallet-publish"
+              ? [WALLET_PUBLISH_VALIDATOR]
+              : [],
           mintValidators: [],
           rewardValidators: [],
-          spendValidatorsByRef
+          spendValidatorsByRef,
+          voteValidators:
+            input.action === "wallet-vote" ? [WALLET_VOTE_VALIDATOR] : []
         },
         context: {
+          warnings: forwardedStateWarnings,
           referenceScriptUsage: forwarding.referenceScriptUsage
         }
       };
@@ -174,7 +189,10 @@ async function buildWalletGovernanceTx(
     ),
     estimatedFeeLovelace: prepared.estimatedFeeLovelace,
     signerAddress: prepared.signerAddress,
-    executionUnits: prepared.executionUnits
+    executionUnits: prepared.executionUnits,
+    warnings: Array.isArray(prepared.context?.warnings)
+      ? (prepared.context.warnings as string[])
+      : undefined
   };
 }
 
@@ -194,7 +212,8 @@ export async function buildWalletPublishTx(
     sttInputTxHash: input.sttInputTxHash,
     sttInputOutputIndex: input.sttInputOutputIndex,
     sttOutputDatum: input.sttOutputDatum,
-    sttOutputAssets: input.sttOutputAssets
+    sttOutputAssets: input.sttOutputAssets,
+    requiredSignerKeyHashes: input.requiredSignerKeyHashes
   }, txFetcher);
 }
 
@@ -214,6 +233,7 @@ export async function buildWalletVoteTx(
     sttInputTxHash: input.sttInputTxHash,
     sttInputOutputIndex: input.sttInputOutputIndex,
     sttOutputDatum: input.sttOutputDatum,
-    sttOutputAssets: input.sttOutputAssets
+    sttOutputAssets: input.sttOutputAssets,
+    requiredSignerKeyHashes: input.requiredSignerKeyHashes
   }, txFetcher);
 }

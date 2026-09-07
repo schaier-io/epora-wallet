@@ -23,15 +23,20 @@ export async function walletParticipantExists(
   return count > 0;
 }
 
-// True when the chain indexer has seen the STT wallet at all. It answers a
-// different question from `walletParticipantExists`: no participant row means
-// either "this caller is not a member" or "nothing about this wallet has been
-// indexed yet", and only the first justifies telling the caller they are not a
-// participant. A freshly-minted wallet sits in the second state until the
-// indexer catches up.
+// True when the chain indexer holds a live STT wallet. It answers a different
+// question from `walletParticipantExists`: no participant row means either "this
+// caller is not a member" or "nothing about this wallet has been indexed yet", and
+// only the first justifies telling the caller they are not a participant. A
+// freshly-minted wallet sits in the second state until the indexer catches up.
+//
+// A CLOSED row is not an answer to the membership question. Reconciling a unit
+// whose mint is not confirmed writes exactly that row, so counting rows made the
+// first attempt retryable and every attempt after it a 403: the row the failed
+// attempt left behind reads as "indexed", and the reconcile that would settle it
+// never runs again.
 export async function walletIsIndexed(db: PrismaClient, walletUnit: string): Promise<boolean> {
   const count = await db.sttWallet.count({
-    where: { network: STT_CACHE_NETWORK, unit: walletUnit }
+    where: { network: STT_CACHE_NETWORK, unit: walletUnit, status: "ACTIVE" }
   });
   return count > 0;
 }

@@ -1,13 +1,17 @@
 import { buildTransactionWithReestimatedLimits, createEmptyExecutionValidatorLabels, createTxPreview, getLovelaceQuantity, inspectSharedSttReferenceStore, sendReferenceScriptOnlyOutput, setupTransaction } from "./internals";
+import { deserializeTx, type CstTransactionOutput } from "@/lib/mesh/cst";
 import { formatSharedReferenceDeployment } from "./preview-copy";
 import { getSttSpendScript, resolveSttReferenceStoreAddress } from "@/lib/contracts/blueprint";
 import { type BuildResult } from "@/lib/types/contracts";
 import { resolveScriptHash } from "@meshsdk/core";
 import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
 
+export const DEFAULT_SHARED_STT_REFERENCE_LOVELACE = "5000000";
+
 export async function buildDeploySharedSttReferenceTx(
   wallet: WalletSource,
   options?: {
+    sttSpendReference?: string;
     lockedLovelace?: string;
     useExactLovelace?: boolean;
     allowDuplicateCurrentScriptReferences?: boolean;
@@ -16,7 +20,8 @@ export async function buildDeploySharedSttReferenceTx(
 ): Promise<BuildResult> {
   const sttScript = getSttSpendScript();
   const sttScriptHash = resolveScriptHash(sttScript.code, sttScript.version);
-  const requestedLovelace = options?.lockedLovelace?.trim() || "5000000";
+  const requestedLovelace =
+    options?.lockedLovelace?.trim() || DEFAULT_SHARED_STT_REFERENCE_LOVELACE;
   const useExactLovelace = options?.useExactLovelace ?? false;
   const allowDuplicateCurrentScriptReferences =
     options?.allowDuplicateCurrentScriptReferences ?? false;
@@ -33,6 +38,7 @@ export async function buildDeploySharedSttReferenceTx(
     async () => {
       const { tx, fetcher, setupDiagnostics } = await setupTransaction(wallet, undefined, txFetcher);
       const inspection = await inspectSharedSttReferenceStore(fetcher, {
+        configuredReference: options?.sttSpendReference,
         script: sttScript,
         stage: "stt-reference-store:inspect",
         details: setupDiagnostics
@@ -70,8 +76,7 @@ export async function buildDeploySharedSttReferenceTx(
           useExactLovelace,
           allowDuplicateCurrentScriptReferences,
           existingMatchingReferenceCount: inspection.matchingReferences.length,
-          staleReferenceCount: inspection.staleReferenceCount,
-          storeUtxoCount: inspection.storeUtxoCount
+          checkedReferenceCount: inspection.checkedReferenceCount
         },
         executionLabels: createEmptyExecutionValidatorLabels(),
         context: {
@@ -107,7 +112,16 @@ export async function buildDeploySharedSttReferenceTx(
       ? prepared.context.existingMatchingReferenceCount
       : 0;
 
+  const outputs = deserializeTx(prepared.txHex).body().outputs() as CstTransactionOutput[];
+  const references = outputs.flatMap((output, index) =>
+    output.address().toBech32().toString() === resolveSttReferenceStoreAddress() ? [index] : []
+  );
+  if (references.length !== 1) {
+    throw new Error("Deployment must create exactly one shared STT reference output.");
+  }
+
   return {
+    referenceScriptOutputIndex: references[0]!,
     txHex: prepared.txHex,
     preview: createTxPreview(
       "setup-stt-reference",

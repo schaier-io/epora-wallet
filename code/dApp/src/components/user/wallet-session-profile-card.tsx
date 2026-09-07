@@ -136,8 +136,12 @@ export function WalletSessionProfileCard({
   // "Connect wallet: Connect wallet" to anything using the accessible name.
   const accessibleName =
     displayName === resolvedPrimaryActionLabel
-      ? `${resolvedPrimaryActionLabel}, ${resolvedTitle}`
-      : `${resolvedPrimaryActionLabel}: ${displayName}, ${resolvedTitle}`;
+      ? i18n("actionAndTitle", { action: resolvedPrimaryActionLabel, title: resolvedTitle })
+      : i18n("actionNameAndTitle", {
+          action: resolvedPrimaryActionLabel,
+          name: displayName,
+          title: resolvedTitle
+        });
 
   if (useSimpleEffects) {
     // Static twin of the animated ProfileCard: same teal/navy gradient, grain

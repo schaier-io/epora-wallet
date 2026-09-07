@@ -1,0 +1,5 @@
+{
+  "invalidTransactionBuildRequest": "Invalid transaction build request.",
+  "theChainDataProviderIsUnavailable": "The chain data provider is unavailable. Try again shortly.",
+  "transactionBuildFailed": "Transaction build failed."
+}

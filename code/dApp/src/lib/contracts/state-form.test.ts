@@ -3,12 +3,16 @@ import test from "node:test";
 
 import {
   INTENDED_STAKE_CREDENTIAL_NONE,
-  LAST_NON_ADMIN_PAYOUT_AT_NONE
+  LAST_NON_ADMIN_PAYOUT_AT_NONE,
+  readStateSections
 } from "@/lib/contracts/state-layout";
+import { parseValueData } from "@/lib/contracts/value-data";
 import {
   applyProofOfLifeOverrideToStateForm,
   applyUserPreset,
+  canAddAllowanceEntryInStateForm,
   countAdminUsersInStateForm,
+  countReservedAllowanceEntriesInStateForm,
   createDefaultStateForm,
   createDefaultUserFormState,
   nextGeneratedId,
@@ -18,6 +22,25 @@ import {
   type StateFormState,
   type UserFormState
 } from "@/lib/contracts/state-form";
+import {
+  MAX_TOTAL_ALLOWANCE_ENTRIES,
+  validateStateDatum
+} from "@/lib/contracts/state-validation";
+import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
+import type { StateSections } from "@/lib/contracts/state-layout";
+
+const BENEFICIARY_PAYOUT_ADDRESS = "addr_test1vqg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygxrcya6";
+
+type Equal<Left, Right> =
+  (<Value>() => Value extends Left ? 1 : 2) extends
+  (<Value>() => Value extends Right ? 1 : 2)
+    ? true
+    : false;
+type Expect<Condition extends true> = Condition;
+type _WalletNameIsAlwaysPresent = Expect<Equal<StateSections["walletName"], string>>;
+
+const PREPROD_ADDRESS =
+  "addr_test1qra89xrexu3vq28g5glatk44s96mysv345rvxsve4x5uh9vvmn2lu5e2ma4eavm9sx3jk5unu0n8vl93k0h3lcqkauwqpcpttu";
 
 // --- applyUserPreset ---------------------------------------------------------
 
@@ -100,6 +123,61 @@ test("countAdminUsersInStateForm counts only admin users", () => {
 
   assert.equal(countAdminUsersInStateForm(form), 2);
   assert.equal(countAdminUsersInStateForm(createDefaultStateForm()), 0);
+});
+
+test("allowance capacity reserves reset growth for each user", () => {
+  const entries = (count: number) =>
+    Array.from({ length: count }, () => ({ policyId: "", assetName: "", amount: "1" }));
+  const form: StateFormState = {
+    ...createDefaultStateForm(),
+    users: Array.from({ length: 3 }, (_, index) => ({
+      ...createDefaultUserFormState(String(index)),
+      perDayAllowance: entries(5),
+      remainingAllowance: []
+    }))
+  };
+
+  assert.equal(countReservedAllowanceEntriesInStateForm(form), 30);
+});
+
+test("allowance add capacity accounts for the selected list", () => {
+  const entries = (count: number) =>
+    Array.from({ length: count }, () => ({ policyId: "", assetName: "", amount: "1" }));
+  const form: StateFormState = {
+    ...createDefaultStateForm(),
+    users: [
+      {
+        ...createDefaultUserFormState("0"),
+        perDayAllowance: entries(5),
+        remainingAllowance: entries(5)
+      },
+      {
+        ...createDefaultUserFormState("1"),
+        perDayAllowance: entries(2),
+        remainingAllowance: entries(2)
+      }
+    ]
+  };
+
+  assert.equal(countReservedAllowanceEntriesInStateForm(form), 14);
+  assert.equal(
+    canAddAllowanceEntryInStateForm(
+      form,
+      1,
+      "perDayAllowance",
+      MAX_TOTAL_ALLOWANCE_ENTRIES
+    ),
+    false
+  );
+  assert.equal(
+    canAddAllowanceEntryInStateForm(
+      form,
+      1,
+      "remainingAllowance",
+      MAX_TOTAL_ALLOWANCE_ENTRIES
+    ),
+    true
+  );
 });
 
 // --- withFallbackAdminUserInStateForm ---------------------------------------
@@ -256,6 +334,139 @@ test("default state form round-trips through datum encoding", () => {
   assert.deepEqual(stateFormFromDatum(stateFormToDatum(form)), form);
 });
 
+test("uint64 maximum ids, times, and weights round-trip exactly", () => {
+  const maximum = MAX_ON_CHAIN_STATE_INTEGER.toString();
+  const form: StateFormState = {
+    ...createDefaultStateForm(),
+    users: [
+      {
+        ...createDefaultUserFormState(maximum),
+        wallets: ["aa".repeat(28)],
+        nextAllowanceReset: maximum,
+        canRenewProofOfLife: true,
+        isAdmin: true,
+        preset: "admin"
+      }
+    ],
+    beneficiaries: [
+      {
+        payoutAddress: BENEFICIARY_PAYOUT_ADDRESS,
+        id: maximum,
+        wallets: ["bb".repeat(28)],
+        unlockAfterMode: "some",
+        unlockAfter: maximum,
+        weight: maximum
+      }
+    ],
+    proofOfLifeUnlockTimeMode: "some",
+    proofOfLifeUnlockTime: maximum,
+    proofOfLifeIncrementMode: "some",
+    proofOfLifeIncrement: maximum,
+    lastNonAdminPayoutAt: {
+      alternative: 0,
+      fields: [MAX_ON_CHAIN_STATE_INTEGER]
+    }
+  };
+
+  const datum = stateFormToDatum(form);
+  assert.deepEqual(validateStateDatum(datum), []);
+  assert.deepEqual(stateFormFromDatum(datum), form);
+
+  const sections = readStateSections(datum);
+  const user = sections.users[0] as { fields: unknown[] };
+  const recoveryContact = sections.beneficiaries[0] as { fields: unknown[] };
+  assert.equal(user.fields[0], MAX_ON_CHAIN_STATE_INTEGER);
+  assert.equal(user.fields[4], MAX_ON_CHAIN_STATE_INTEGER);
+  assert.equal(recoveryContact.fields[0], MAX_ON_CHAIN_STATE_INTEGER);
+  assert.equal(recoveryContact.fields[3], MAX_ON_CHAIN_STATE_INTEGER);
+});
+
+// The ADA allowance row is entered in ADA and must land on chain as lovelace:
+// a "3" typed into the daily limit once serialized as 3 lovelace, which the
+// ledger then treated as 0.000003 ₯ and no payout could ever pass.
+test("stateFormToDatum scales ADA allowance rows to lovelace", () => {
+  const form: StateFormState = {
+    ...createDefaultStateForm(),
+    users: [
+      {
+        ...createDefaultUserFormState("1"),
+        perDayAllowance: [
+          { policyId: "", assetName: "", amount: "3" },
+          { policyId: "a".repeat(56), assetName: "", amount: "7" }
+        ]
+      }
+    ]
+  };
+
+  const datum = stateFormToDatum(form);
+  const sections = readStateSections(datum);
+  const user = sections.users[0]! as { fields: unknown[] };
+  const perDay = parseValueData(user.fields[2]!, "per_day");
+
+  assert.deepEqual(
+    perDay.map((entry) => [entry.policyId, entry.amount.toString()]),
+    [
+      ["", "3000000"],
+      ["a".repeat(56), "7"]
+    ]
+  );
+});
+
+test("stateFormToDatum accepts decimal ADA allowance amounts", () => {
+  const form: StateFormState = {
+    ...createDefaultStateForm(),
+    users: [
+      {
+        ...createDefaultUserFormState("1"),
+        perDayAllowance: [{ policyId: "", assetName: "", amount: "2.777777" }]
+      }
+    ]
+  };
+
+  const sections = readStateSections(stateFormToDatum(form));
+  const perDay = parseValueData(
+    (sections.users[0]! as { fields: unknown[] }).fields[2]!,
+    "per_day"
+  );
+  assert.equal(perDay[0]!.amount.toString(), "2777777");
+  // ...and the decoded form carries the same ADA text back.
+  const decoded = stateFormFromDatum(stateFormToDatum(form));
+  assert.deepEqual(decoded.users[0]!.perDayAllowance, [
+    { policyId: "", assetName: "", amount: "2.777777" }
+  ]);
+});
+
+test("stateFormToDatum rejects allowance amounts with sub-lovelace precision", () => {
+  const form: StateFormState = {
+    ...createDefaultStateForm(),
+    users: [
+      {
+        ...createDefaultUserFormState("1"),
+        perDayAllowance: [{ policyId: "", assetName: "", amount: "0.0000001" }]
+      }
+    ]
+  };
+
+  assert.throws(() => stateFormToDatum(form), /must be zero or greater/);
+});
+
+test("stateFormFromDatum decodes allowance lovelace back into ADA text", () => {
+  const form: StateFormState = {
+    ...createDefaultStateForm(),
+    users: [
+      {
+        ...createDefaultUserFormState("1"),
+        perDayAllowance: [{ policyId: "", assetName: "", amount: "9.5" }]
+      }
+    ]
+  };
+
+  const decoded = stateFormFromDatum(stateFormToDatum(form));
+  assert.deepEqual(decoded.users[0]!.perDayAllowance, [
+    { policyId: "", assetName: "", amount: "9.5" }
+  ]);
+});
+
 test("a populated state form round-trips losslessly", () => {
   const adminUser: UserFormState = {
     id: "0",
@@ -287,7 +498,7 @@ test("a populated state form round-trips losslessly", () => {
     multiSigThresholdMode: "some",
     multiSigThreshold: "2",
     beneficiaries: [
-      { id: "0", wallets: ["cc"], unlockAfterMode: "some", unlockAfter: "123", weight: "3" }
+      { payoutAddress: BENEFICIARY_PAYOUT_ADDRESS, id: "0", wallets: ["cc"], unlockAfterMode: "some", unlockAfter: "123", weight: "3" }
     ],
     proofOfLifeUnlockTimeMode: "some",
     proofOfLifeUnlockTime: "9999",
@@ -316,17 +527,29 @@ test("stateFormToDatum rejects a non-integer user id", () => {
     ...createDefaultStateForm(),
     users: [{ ...createDefaultUserFormState("abc") }]
   };
-  assert.throws(() => stateFormToDatum(form), /User 1 id must be an integer/);
+  assert.throws(() => stateFormToDatum(form), /User 1 id needs a whole number/);
 });
 
 test("stateFormToDatum rejects a beneficiary weight below 1", () => {
   const form: StateFormState = {
     ...createDefaultStateForm(),
     beneficiaries: [
-      { id: "0", wallets: [], unlockAfterMode: "none", unlockAfter: "", weight: "0" }
+      { payoutAddress: BENEFICIARY_PAYOUT_ADDRESS, id: "0", wallets: [], unlockAfterMode: "none", unlockAfter: "", weight: "0" }
     ]
   };
   assert.throws(() => stateFormToDatum(form), /weight must be at least 1/);
+});
+
+test("stateFormToDatum rejects a proof-of-life increment below 1", () => {
+  const form: StateFormState = {
+    ...createDefaultStateForm(),
+    proofOfLifeUnlockTimeMode: "some",
+    proofOfLifeUnlockTime: "1000",
+    proofOfLifeIncrementMode: "some",
+    proofOfLifeIncrement: "0"
+  };
+
+  assert.throws(() => stateFormToDatum(form), /Proof-of-life increment must be at least 1/);
 });
 
 test("stateFormToDatum rejects a negative allowance amount", () => {
@@ -363,8 +586,41 @@ test("stateFormToDatum rejects a streaming payment with a half-specified asset",
 
 // --- stateFormFromDatum fallbacks -------------------------------------------
 
-test("stateFormFromDatum falls back to the default form for malformed datums", () => {
-  assert.deepEqual(stateFormFromDatum({ alternative: 1, fields: [] }), createDefaultStateForm());
+test("stateFormFromDatum rejects a malformed State instead of replacing it", () => {
+  assert.throws(
+    () => stateFormFromDatum({ alternative: 1, fields: [] }),
+    /State form datum must be a State constructor/
+  );
+});
+
+test("stateFormFromDatum rejects an unreadable streaming-payment id", () => {
+  const datum = stateFormToDatum(createDefaultStateForm());
+  datum.fields[2] = [
+    {
+      alternative: 0,
+      fields: ["not-an-integer", PREPROD_ADDRESS, 0, "", "", 1, 0, 1]
+    }
+  ];
+
+  assert.throws(
+    () => stateFormFromDatum(datum),
+    /Scheduled payment 1's id must be an integer/
+  );
+});
+
+test("stateFormFromDatum rejects a malformed legacy payout address", () => {
+  const datum = stateFormToDatum(createDefaultStateForm());
+  datum.fields[2] = [
+    {
+      alternative: 0,
+      fields: [0, "not-an-address", 0, "", "", 1, 0, 1]
+    }
+  ];
+
+  assert.throws(
+    () => stateFormFromDatum(datum),
+    /Scheduled payment 1's payout address must be a Cardano address/
+  );
 });
 
 test("stateFormFromDatum decodes the canonical default state datum from null", () => {

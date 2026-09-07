@@ -7,8 +7,15 @@ import {
   assertValidOptionalConstrData,
   assertValidPayoutTransfers,
   assertValidWalletInputRefs,
-  assertValidWalletOutputs
+  assertValidWalletOutputs,
+  validateForwardedStateDatum
 } from "@/lib/mesh/transactions/internals/guards";
+import {
+  createDefaultStateForm,
+  createDefaultUserFormState,
+  stateFormToDatum
+} from "@/lib/contracts/state-form";
+import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
 
 // These guards are the first line of defence against malformed builder input on
 // the fund-moving path: every builder calls them and they throw on bad shapes.
@@ -65,6 +72,19 @@ test("assertValidAssetList rejects non-arrays and malformed entries", () => {
     () => assertValidAssetList([{ unit: "lovelace", quantity: "-1" }], "Amount"),
     /entry 0 quantity must be zero or greater/
   );
+  assert.throws(
+    () =>
+      assertValidAssetList(
+        [
+          {
+            unit: "lovelace",
+            quantity: (MAX_ON_CHAIN_STATE_INTEGER + 1n).toString()
+          }
+        ],
+        "Amount"
+      ),
+    /must not exceed 18446744073709551615/
+  );
 });
 
 test("assertValidWalletInputRefs requires a hex txHash and non-negative integer index", () => {
@@ -84,6 +104,15 @@ test("assertValidWalletInputRefs requires a hex txHash and non-negative integer 
     () => assertValidWalletInputRefs([{ txHash: TX_HASH, outputIndex: 1.5 }], "Inputs"),
     /entry 0 must include a hex txHash/
   );
+});
+
+test("assertValidWalletInputRefs accepts multiple well-formed wallet inputs", () => {
+  const inputs = [
+    { txHash: TX_HASH, outputIndex: 0 },
+    { txHash: "b".repeat(64), outputIndex: 1 }
+  ];
+
+  assert.doesNotThrow(() => assertValidWalletInputRefs(inputs, "Inputs"));
 });
 
 test("assertValidWalletOutputs validates the nested amount and optional inline datum", () => {
@@ -133,4 +162,58 @@ test("assertRecordPayload accepts objects and rejects primitives and null", () =
   assert.throws(() => assertRecordPayload(null, "Payload"), /Payload must be an object/);
   assert.throws(() => assertRecordPayload("x", "Payload"), /Payload must be an object/);
   assert.throws(() => assertRecordPayload(42, "Payload"), /Payload must be an object/);
+});
+
+test("forwarded State validation accepts six fields and rejects every other readable length", () => {
+  const sixFieldState = stateFormToDatum({
+    ...createDefaultStateForm(),
+    users: [
+      {
+        ...createDefaultUserFormState("0"),
+        wallets: ["aa".repeat(28)],
+        isAdmin: true,
+        canRenewProofOfLife: true,
+        preset: "admin"
+      }
+    ]
+  });
+  const sevenFieldState = {
+    ...sixFieldState,
+    fields: [...sixFieldState.fields, { alternative: 1, fields: [] }]
+  };
+  const legacyStates = [
+    { ...sixFieldState, fields: sixFieldState.fields.slice(0, 4) },
+    { ...sixFieldState, fields: sixFieldState.fields.slice(0, 5) }
+  ];
+  const action = {
+    kind: "operator" as const,
+    operatorPath: "admin" as const,
+    operatorIntent: "use" as const
+  };
+
+  assert.doesNotThrow(() =>
+    validateForwardedStateDatum(sixFieldState, action, "test", "Invalid State.")
+  );
+  legacyStates.forEach((legacyState) => {
+    assert.throws(
+      () => validateForwardedStateDatum(legacyState, action, "test", "Invalid State."),
+      /exactly six fields/
+    );
+  });
+  assert.throws(
+    () => validateForwardedStateDatum(sevenFieldState, action, "test", "Invalid State."),
+    /exactly six fields/
+  );
+});
+
+
+test("only permanent exit accepts a structurally valid terminal forwarded State", () => {
+  const terminal = stateFormToDatum({ ...createDefaultStateForm(), users: [], beneficiaries: [] });
+  assert.doesNotThrow(() => validateForwardedStateDatum(terminal, { kind: "beneficiary-exit", beneficiaryId: 0 }, "test", "Invalid State."));
+  for (const action of [
+    { kind: "beneficiary-withdrawal" as const, beneficiaryId: 0 },
+    { kind: "operator" as const, operatorPath: "admin" as const, operatorIntent: "update-state" as const }
+  ]) assert.throws(() => validateForwardedStateDatum(terminal, action, "test", "Invalid State."));
+  const malformed = { ...terminal, fields: terminal.fields.slice(0, 5) };
+  assert.throws(() => validateForwardedStateDatum(malformed, { kind: "beneficiary-exit", beneficiaryId: 0 }, "test", "Invalid State."), /exactly six fields/);
 });

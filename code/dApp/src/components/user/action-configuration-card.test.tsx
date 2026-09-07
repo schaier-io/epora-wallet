@@ -14,7 +14,6 @@ const BASE: ComponentProps<typeof UserActionConfigurationCard> = {
   definition: USER_ACTION_DEFINITION_MAP["lock-funds"],
   selectedAction: "lock-funds",
   selectedDetectedToken: false,
-  primaryIssue: null,
   onReset: () => {},
   onClear: () => {},
   compact: true,
@@ -73,5 +72,49 @@ describe("action configuration card header", () => {
     );
 
     expect(screen.getByText("High risk")).toBeInTheDocument();
+  });
+
+  /**
+   * DESIGN.md forbids nested cards. The body nested Card > bordered wrapper > bordered
+   * details > bordered tiles, four levels deep. The Card is the one border now.
+   */
+  it("draws no border inside the card", () => {
+    const { container } = render(<UserActionConfigurationCard {...BASE} title="Add funds details" />);
+
+    const card = container.firstElementChild as HTMLElement;
+    // Chips are `rounded-full` and keep their border: they are not containers.
+    const bordered = Array.from(card.querySelectorAll("*")).filter(
+      (node) =>
+        /(^|\s)border(\s|$)/.test(node.className) && !node.className.includes("rounded-full")
+    );
+    expect(bordered.map((node) => node.tagName + "." + node.className)).toEqual([]);
+  });
+
+  it("shows only the approval path selected for this action", () => {
+    render(
+      <UserActionConfigurationCard
+        {...BASE}
+        definition={USER_ACTION_DEFINITION_MAP["update-state"]}
+        selectedAction="update-state"
+        approvalLabels={["Owner"]}
+      />
+    );
+
+    expect(screen.getByText("Owner")).toBeInTheDocument();
+    expect(screen.queryByText("Co-signers")).not.toBeInTheDocument();
+  });
+
+  it("shows the threshold with a selected co-signer path", () => {
+    render(
+      <UserActionConfigurationCard
+        {...BASE}
+        definition={USER_ACTION_DEFINITION_MAP["update-state"]}
+        selectedAction="update-state"
+        approvalLabels={["Co-signers · 2/2 power"]}
+      />
+    );
+
+    expect(screen.getByText("Co-signers · 2/2 power")).toBeInTheDocument();
+    expect(screen.queryByText("Owner")).not.toBeInTheDocument();
   });
 });

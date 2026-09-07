@@ -1,0 +1,16 @@
+{
+  "addressHasNoPaymentPart": "That address has no payment part, so it cannot receive funds.",
+  "enterTheAddressYouWantToSendTo": "Enter the address you want to send to.",
+  "invalidCardanoAddress": "That is not a valid Cardano address. Check for a missing, extra, or mistyped character.",
+  "labelMustBeBech32Address": "{label} must be a bech32 Cardano address.",
+  "labelValueIsInvalidAddress": "{label} \"{value}\" is not a valid Cardano address.",
+  "labelValueNeedsPaymentCredential": "{label} \"{value}\" must include a payment credential.",
+  "mainnet": "Mainnet",
+  "mainnetLowercase": "mainnet",
+  "payoutAddress": "Payout address",
+  "preprod": "Preprod",
+  "preview": "Preview",
+  "stakingAddressCannotReceivePayment": "That is a staking (reward) address, so it cannot receive a payment. Use a payment address starting with {prefix}.",
+  "testnet": "testnet",
+  "wrongNetworkAddress": "That is a Cardano {pastedNetwork} address. This wallet is on {network}, so it needs an address starting with {prefix}."
+}

@@ -21,8 +21,9 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(await searchParams)) {
-    if (typeof value === "string") {
-      params.set(key, value);
+    const values = Array.isArray(value) ? value : value === undefined ? [] : [value];
+    for (const entry of values) {
+      params.append(key, entry);
     }
   }
   const fragment = workspaceTitleFragment(parseWorkspaceRouteState(params));

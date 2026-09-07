@@ -20,9 +20,7 @@ export function lovelaceToAdaNumber(value: string | bigint | number): number {
   return Number(value) / LOVELACE_PER_ADA_NUMBER;
 }
 
-// BigInt() reads more than a decimal integer: BigInt("") and BigInt("   ") are
-// both 0n, and BigInt("0x10") is 16n. A half-typed or empty amount field was
-// therefore shown as a real "0" balance, and a hex string as 0.000016 ADA.
+// Accept decimal amounts only. BigInt also accepts empty and hexadecimal text.
 function toLovelace(value: string | bigint): bigint | null {
   if (typeof value === "bigint") {
     return value;
@@ -56,8 +54,19 @@ export function formatLovelaceAsAda(value: string | bigint) {
   }
 }
 
-// Like formatLovelaceAsAda but rounded to `fractionDigits` decimals (banker's
-// half-up), for compact balance displays.
+// Like formatLovelaceAsAda but shortened to `fractionDigits` decimals, for
+// compact balance displays. Truncates toward zero; it does NOT round to nearest.
+// A displayed balance that rounds UP promises money that is not there: 0.999999
+// ADA shown as "1" gets a 1 ADA send refused. The error is under one unit of
+// display precision either way, so a balance never reads higher than it is.
+// (The previous comment here claimed "banker's half-up". Those are two different
+// modes and the code implemented neither - it was half-away-from-zero.)
+//
+// Truncation is applied to the magnitude, so a NEGATIVE value reads toward zero
+// instead: -1.95 shows as "-1.9", and -0.999999 at 0 digits shows as "-0". The one
+// caller (workspace-header-view.tsx) passes a wallet balance, which cannot be
+// negative, so neither shape is reachable. Anything that starts formatting deltas
+// here has to decide the direction for itself first.
 export function formatLovelaceAsAdaRounded(
   value: string | bigint,
   fractionDigits = 1
@@ -76,15 +85,15 @@ export function formatLovelaceAsAdaRounded(
     const digits = Math.min(Math.trunc(fractionDigits), 6);
 
     if (digits <= 0) {
-      const roundedWhole = (absolute + LOVELACE_PER_ADA / 2n) / LOVELACE_PER_ADA;
-      return `${sign}${roundedWhole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+      const truncatedWhole = absolute / LOVELACE_PER_ADA;
+      return `${sign}${truncatedWhole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
     }
 
     const scale = 10n ** BigInt(digits);
     const roundingFactor = LOVELACE_PER_ADA / scale;
-    const roundedScaled = (absolute + roundingFactor / 2n) / roundingFactor;
-    const whole = roundedScaled / scale;
-    const fraction = roundedScaled % scale;
+    const truncatedScaled = absolute / roundingFactor;
+    const whole = truncatedScaled / scale;
+    const fraction = truncatedScaled % scale;
     const formattedWhole = whole
       .toString()
       .replace(/\B(?=(\d{3})+(?!\d))/g, ",");
@@ -100,12 +109,14 @@ export function formatLovelaceAsAdaRounded(
 }
 
 // ADA string (accepts thousands separators, up to 6 decimals) -> lovelace string.
-// Returns null when the input isn't a well-formed ADA amount.
+// Returns null when the input isn't a well-formed ADA amount. A comma is only a
+// thousands separator: "1,5" is not an amount, and never 15 ADA.
 export function parseAdaToLovelace(value: string) {
-  const normalized = value.trim().replace(/,/g, "");
-  if (!/^\d+(?:\.\d{0,6})?$/.test(normalized)) {
+  const trimmed = value.trim();
+  if (!/^(?:\d{1,3}(?:,\d{3})+|\d*)(?:\.\d{0,6})?$/.test(trimmed) || !/\d/.test(trimmed)) {
     return null;
   }
+  const normalized = trimmed.replace(/,/g, "");
 
   const [wholePart, fractionPart = ""] = normalized.split(".");
   const whole = BigInt(wholePart || "0");

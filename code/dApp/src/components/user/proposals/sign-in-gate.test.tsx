@@ -40,6 +40,17 @@ beforeEach(() => {
 
 describe("proposals sign-in gate", () => {
   /**
+   * The gate returns instead of the workspace, and the workspace owns the route's only `h1`.
+   * Signed out, `/user/proposals` therefore had no page heading at all.
+   */
+  it("carries the page heading while it stands in for the workspace", () => {
+    render(<SignInGate session={controller()} />);
+
+    const heading = screen.getByRole("heading", { level: 1 });
+    expect(heading).toHaveTextContent(/sign in to see approval requests/i);
+  });
+
+  /**
    * The button is disabled in exactly two situations, and a disabled button is not
    * focusable, so the reason has to be on the page beside it rather than on the control.
    */

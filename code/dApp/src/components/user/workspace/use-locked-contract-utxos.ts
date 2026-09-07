@@ -47,14 +47,12 @@ export function useLockedContractUtxos() {
           return;
         }
         setLockedContractUtxos(utxos);
-      } catch (error) {
+      } catch {
         if (requestIdRef.current !== requestId) {
           return;
         }
         setLockedContractUtxos([]);
-        setLockedContractUtxosError(
-          error instanceof Error ? error.message : i18n("couldNotLoadThisWalletSFunds")
-        );
+        setLockedContractUtxosError(i18n("couldNotLoadThisWalletSFunds"));
       } finally {
         if (requestIdRef.current === requestId) {
           setLockedContractUtxosLoading(false);

@@ -16,7 +16,7 @@ export type SttChainClient = {
   fetchCollectionAssets: (
     policyId: string,
     cursor?: number | string
-  ) => Promise<{ assets: Asset[]; next?: string | number | null }>;
+  ) => Promise<{ assets: Asset[]; next?: number | null }>;
   fetchAddressUTxOs: (address: string, asset?: string) => Promise<UTxO[]>;
   fetchAddressTransactionsPage: (
     address: string,
@@ -101,7 +101,12 @@ export type SttSyncOperationResult = {
   processedTransactions: number;
   processedWallets: number;
   pagesScanned: number;
-  lastSyncedAt: string;
+  // ISO time the phase's cursor attests. Null when the phase was cut short
+  // before it ever reached the chain or finished a first full pass.
+  lastSyncedAt: string | null;
+  // True when the run stopped at its deadline before this phase finished. The
+  // phase left a resumable cursor, so the next run picks it up.
+  deadlineReached: boolean;
 };
 
 export type SttBackgroundSyncResponse = {

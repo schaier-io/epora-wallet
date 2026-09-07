@@ -1,98 +1,109 @@
-import { act, render } from "@testing-library/react";
+import type { PropsWithChildren } from "react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import { describe, expect, it } from "vitest";
-import type { BrowserWallet } from "@meshsdk/core";
+
 import { walletBalanceSummaryAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { useWalletBalance } from "@/components/user/workspace/use-wallet-balance";
+import type { BrowserWallet } from "@meshsdk/core";
 
-type PendingRead = { resolve: () => void };
+function lovelace(quantity: string) {
+  return [
+    {
+      output: { amount: [{ unit: "lovelace", quantity }] }
+    }
+  ];
+}
 
-/**
- * A wallet whose reads finish only when the test says so, in whatever order it
- * chooses. The post-submit poll calls refreshWalletBalance four times over ~75s
- * while the mount read may still be open, so overlapping reads are the normal
- * case here, not a corner one.
- */
-function controllableWallet(lovelaceByCall: string[]) {
-  const pending: PendingRead[] = [];
-  let call = 0;
-
+/** A wallet whose `getUtxos` only settles when the test says so. */
+function deferredWallet(quantity: string) {
+  let release: () => void = () => {};
+  const settled = new Promise<void>((resolve) => {
+    release = resolve;
+  });
   const wallet = {
-    getUtxos: () => {
-      const quantity = lovelaceByCall[call] ?? "0";
-      call += 1;
-      return new Promise((resolve) => {
-        pending.push({
-          resolve: () =>
-            resolve([
-              { output: { amount: [{ unit: "lovelace", quantity }] } }
-            ] as Awaited<ReturnType<BrowserWallet["getUtxos"]>>)
-        });
-      });
+    getUtxos: async () => {
+      await settled;
+      return lovelace(quantity);
     }
   } as unknown as BrowserWallet;
-
-  return { wallet, pending };
+  return { wallet, release: () => release() };
 }
 
-function renderBalance(wallet: BrowserWallet) {
-  const store = createStore();
-  const controller: { refresh: () => Promise<void> } = {
-    refresh: () => Promise.resolve()
-  };
+function immediateWallet(quantity: string) {
+  return { getUtxos: async () => lovelace(quantity) } as unknown as BrowserWallet;
+}
 
-  function Harness() {
-    controller.refresh = useWalletBalance(wallet, true).refreshWalletBalance;
-    return null;
+/**
+ * The auto-sync effect guarded its write with a `cancelled` flag. `refreshWalletBalance`
+ * guarded nothing, and neither could see the other. A refresh started before a wallet
+ * switch still wrote the old wallet's UTxOs when it landed, so the balance on screen
+ * belonged to a wallet that was no longer connected.
+ */
+describe("wallet balance reads", () => {
+  function renderWithWallet(wallet: BrowserWallet) {
+    const store = createStore();
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <Provider store={store}>{children}</Provider>
+    );
+    const view = renderHook(
+      ({ activeWallet }: { activeWallet: BrowserWallet }) =>
+        useWalletBalance(activeWallet, true),
+      { wrapper, initialProps: { activeWallet: wallet } }
+    );
+    return { store, ...view };
   }
 
-  render(
-    <Provider store={store}>
-      <Harness />
-    </Provider>
-  );
+  it("drops a refresh that lands after the wallet has changed", async () => {
+    const stale = deferredWallet("111");
+    const { store, result, rerender } = renderWithWallet(stale.wallet);
 
-  return {
-    store,
-    refresh: () => controller.refresh(),
-    quantity: () => store.get(walletBalanceSummaryAtom).assets[0]?.quantity
-  };
-}
-
-describe("useWalletBalance", () => {
-  it("ignores a read that answers after a newer one", async () => {
-    const { wallet, pending } = controllableWallet(["1000000", "9000000"]);
-    const balance = renderBalance(wallet);
-
-    // The mount read is still open when the post-submit refresh starts.
+    // A refresh against the first wallet. It cannot settle until the test releases it.
+    let refreshing!: Promise<void>;
     await act(async () => {
-      void balance.refresh();
-    });
-    expect(pending).toHaveLength(2);
-
-    // The newer read answers first, then the older one. Before the request token
-    // the older answer won and the balance went backwards to a figure the wallet
-    // had already moved past.
-    await act(async () => {
-      pending[1].resolve();
-      await Promise.resolve();
-      pending[0].resolve();
-      await Promise.resolve();
+      refreshing = result.current.refreshWalletBalance();
     });
 
-    expect(balance.quantity()).toBe("9000000");
+    rerender({ activeWallet: immediateWallet("222") });
+    await waitFor(() =>
+      expect(store.get(walletBalanceSummaryAtom).assets[0]?.quantity).toBe("222")
+    );
+
+    // The first wallet answers last. Its answer must not win.
+    await act(async () => {
+      stale.release();
+      await refreshing;
+    });
+
+    expect(store.get(walletBalanceSummaryAtom).assets[0]?.quantity).toBe("222");
   });
 
-  it("publishes a read that nothing supersedes", async () => {
-    const { wallet, pending } = controllableWallet(["4000000"]);
-    const balance = renderBalance(wallet);
-
+  it("drops a same-wallet read that answers after a newer read", async () => {
+    const reads: Array<(value: ReturnType<typeof lovelace>) => void> = [];
+    const wallet = {
+      getUtxos: () => new Promise<ReturnType<typeof lovelace>>((resolve) => reads.push(resolve))
+    } as unknown as BrowserWallet;
+    const { store, result } = renderWithWallet(wallet);
+    let refreshing!: Promise<void>;
     await act(async () => {
-      pending[0].resolve();
-      await Promise.resolve();
+      refreshing = result.current.refreshWalletBalance();
     });
+    expect(reads).toHaveLength(2);
+    await act(async () => {
+      reads[1](lovelace("222"));
+      await refreshing;
+    });
+    await act(async () => reads[0](lovelace("111")));
+    expect(store.get(walletBalanceSummaryAtom).assets[0]?.quantity).toBe("222");
+  });
 
-    expect(balance.quantity()).toBe("4000000");
-    expect(balance.store.get(walletBalanceSummaryAtom).loading).toBe(false);
+  it("still reports the balance of the wallet that is connected", async () => {
+    const { store } = renderWithWallet(immediateWallet("333"));
+
+    await waitFor(() =>
+      expect(store.get(walletBalanceSummaryAtom).assets[0]?.quantity).toBe("333")
+    );
+    expect(store.get(walletBalanceSummaryAtom).loading).toBe(false);
+    expect(store.get(walletBalanceSummaryAtom).error).toBeNull();
   });
 });

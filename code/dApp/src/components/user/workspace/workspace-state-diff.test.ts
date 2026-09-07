@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildStateChangeItems, diffStateForms } from "@/components/user/workspace/workspace-state-diff";
+import { defaultFormatter } from "@/i18n/default-translator";
 import {
   createDefaultStateForm,
   stateFormFromDatum,
@@ -51,12 +52,28 @@ test("a swapped owner key is reported even though the owner count is unchanged",
 test("a raised spending limit is reported even though the person count is unchanged", () => {
   const before = baseForm();
   const after = baseForm();
-  after.users[0]!.perDayAllowance = [{ policyId: "", assetName: "", amount: "10000000000" }];
+  // The form's ADA row carries the limit as ADA text, exactly as the editor's
+  // input holds it — not the lovelace the datum stores.
+  after.users[0]!.perDayAllowance = [{ policyId: "", assetName: "", amount: "10000" }];
 
   const items = diffStateForms(before, after);
   assert.equal(items.length, 1);
   assert.match(items[0]!.value, /no daily limit → /);
-  assert.match(items[0]!.value, /10,000 ₳/);
+  assert.match(items[0]!.value, /10000 ₳/);
+});
+
+test("a five-ADA daily limit is not divided by a million on the way to the review", () => {
+  // The receipt used to run the form's ADA text through `formatLovelaceAsAda`,
+  // which expects lovelace, so a person's 5 ₳ limit read "daily limit 0.000005 ₳"
+  // on the one screen meant to confirm what will be signed.
+  const before = baseForm();
+  const after = baseForm();
+  after.users[0]!.perDayAllowance = [{ policyId: "", assetName: "", amount: "5" }];
+
+  const items = diffStateForms(before, after);
+  assert.equal(items.length, 1);
+  assert.match(items[0]!.value, /daily limit 5 ₳/);
+  assert.doesNotMatch(items[0]!.value, /0\.00000/);
 });
 
 test("lowering the approval threshold is reported", () => {
@@ -83,17 +100,17 @@ test("clearing the proof of life is reported, and says what it costs", () => {
   assert.equal(items.length, 1);
   assert.equal(items[0]!.label, "Proof of life");
   assert.match(items[0]!.value, /→ off$/);
-  assert.match(items[0]!.detail!, /can never claim this wallet while the timer is off/);
+  assert.match(items[0]!.detail!, /can never claim this wallet while the proof of life is off/);
 });
 
 test("a repointed recovery contact is reported even though the contact count is unchanged", () => {
   const before = baseForm();
   before.beneficiaries = [
-    { id: "1", wallets: ["cc".repeat(28)], unlockAfterMode: "none", unlockAfter: "", weight: "1" }
+    { id: "1", wallets: ["cc".repeat(28)], unlockAfterMode: "none", unlockAfter: "", weight: "1", payoutAddress: "" }
   ];
   const after = baseForm();
   after.beneficiaries = [
-    { id: "1", wallets: ["dd".repeat(28)], unlockAfterMode: "none", unlockAfter: "", weight: "1" }
+    { id: "1", wallets: ["dd".repeat(28)], unlockAfterMode: "none", unlockAfter: "", weight: "1", payoutAddress: "" }
   ];
 
   const items = diffStateForms(before, after);
@@ -122,6 +139,72 @@ test("a repointed scheduled payment is reported even though the rule count is un
   assert.equal(items.length, 1);
   assert.match(items[0]!.label, /Scheduled payment changed/);
   assert.match(items[0]!.value, /addr_test_one .* → addr_test_two /);
+});
+
+test("a changed approval power is reported even though the person count is unchanged", () => {
+  // These fields change the datum but were missing from the person description, so the
+  // review said "Nothing to apply".
+  const before = baseForm();
+  const after = baseForm();
+  after.users[0]!.multiSigPowerMode = "some";
+  after.users[0]!.multiSigPower = "2";
+
+  const items = diffStateForms(before, after);
+  assert.equal(items.length, 1);
+  assert.match(items[0]!.label, /Person changed/);
+  assert.match(items[0]!.value, /approval power none .* → .*approval power 2 /);
+});
+
+test("a revoked timer-renewal right is reported", () => {
+  const before = baseForm();
+  const after = baseForm();
+  after.users[0]!.canRenewProofOfLife = false;
+
+  const items = diffStateForms(before, after);
+  assert.equal(items.length, 1);
+  assert.match(items[0]!.value, /can check in .* → .*cannot check in/);
+});
+
+test("a changed recovery-contact wait is reported", () => {
+  const before = baseForm();
+  before.beneficiaries = [
+    { id: "1", wallets: ["cc".repeat(28)], unlockAfterMode: "none", unlockAfter: "", weight: "1", payoutAddress: "" }
+  ];
+  const after = baseForm();
+  after.beneficiaries = [
+    { ...before.beneficiaries[0]!, unlockAfterMode: "some", unlockAfter: "1790955182000" }
+  ];
+
+  const items = diffStateForms(before, after);
+  assert.equal(items.length, 1);
+  assert.match(items[0]!.label, /Recovery contact changed/);
+  // `unlock_after` is a point in time, not a wait: the editor stores a timestamp.
+  assert.ok(
+    items[0]!.value.endsWith(`after ${defaultFormatter.dateTime(1790955182000, "short")}`),
+    items[0]!.value
+  );
+});
+
+test("a moved schedule end date is reported", () => {
+  const before = baseForm();
+  before.streamingPayments = [
+    {
+      id: "1",
+      payoutAddress: "addr_test_one",
+      paidOutAmount: "0",
+      policyId: "",
+      assetName: "",
+      amountPerDay: "5000000",
+      startDate: "1700000000000",
+      endDate: "1700086400000"
+    }
+  ];
+  const after = baseForm();
+  after.streamingPayments = [{ ...before.streamingPayments[0]!, endDate: "1700172800000" }];
+
+  const items = diffStateForms(before, after);
+  assert.equal(items.length, 1);
+  assert.match(items[0]!.label, /Scheduled payment changed/);
 });
 
 test("adding and removing a person are reported separately", () => {
@@ -191,4 +274,19 @@ test("an unreadable datum does not become an empty baseline", () => {
   const result = buildStateChangeItems(null, after, fallback);
   assert.equal(result.isDiff, false);
   assert.deepEqual(result.items, fallback);
+});
+
+
+test("a payout address edit is visible even when its shortened forms would match", () => {
+  const before = baseForm();
+  const first = "addr_test_123456_shared_prefix_A_shared_suffix_987654";
+  const second = "addr_test_123456_shared_prefix_B_shared_suffix_987654";
+  before.beneficiaries = [{
+    id: "1", wallets: [], unlockAfterMode: "none", unlockAfter: "", weight: "1", payoutAddress: first
+  }];
+  const after = { ...before, beneficiaries: [{ ...before.beneficiaries[0]!, payoutAddress: second }] };
+  const items = diffStateForms(before, after);
+  assert.equal(items.length, 1);
+  assert.ok(items[0]!.value.includes(first));
+  assert.ok(items[0]!.value.includes(second));
 });

@@ -8,6 +8,8 @@ import type {
   ProposalVerification
 } from "@/lib/proposals/types";
 
+type ProposalErrorMessage = (error: unknown, fallback: string) => string;
+
 const dependencies = vi.hoisted(() => {
   class RebuildUnsupportedError extends Error {}
 
@@ -34,15 +36,21 @@ vi.mock("@/lib/proposals/assemble", () => ({
   normalizeWitnessSetHex: dependencies.normalizeWitnessSetHex
 }));
 
-vi.mock("@/lib/proposals/client", () => ({
-  cancelProposal: dependencies.cancelProposal,
-  fetchProposal: dependencies.fetchProposal,
-  markProposalSubmitted: dependencies.markProposalSubmitted,
-  parseProposalBuildContext: dependencies.parseProposalBuildContext,
-  parseProposalSummary: dependencies.parseProposalSummary,
-  rebuildProposal: dependencies.rebuildProposal,
-  signProposal: dependencies.signProposal
-}));
+vi.mock("@/lib/proposals/client", async () => {
+  const actual = await vi.importActual<{ getProposalErrorMessage: ProposalErrorMessage }>(
+    "@/lib/proposals/client"
+  );
+  return {
+    cancelProposal: dependencies.cancelProposal,
+    fetchProposal: dependencies.fetchProposal,
+    getProposalErrorMessage: actual.getProposalErrorMessage,
+    markProposalSubmitted: dependencies.markProposalSubmitted,
+    parseProposalBuildContext: dependencies.parseProposalBuildContext,
+    parseProposalSummary: dependencies.parseProposalSummary,
+    rebuildProposal: dependencies.rebuildProposal,
+    signProposal: dependencies.signProposal
+  };
+});
 
 vi.mock("@/lib/proposals/rebuild", () => ({
   RebuildUnsupportedError: dependencies.RebuildUnsupportedError,
@@ -99,7 +107,8 @@ function verification(
     validity,
     reasons: [],
     bodyHashMatches: true,
-    effect: { inputs: [], outputs: [], feeLovelace: "200000" },
+    stateTransition: { txBodyHash: TX_BODY_HASH, outputIndex: 0, changes: [] },
+    effect: { inputs: [], outputs: [], feeLovelace: "200000", validUntilMs: null },
     signers: {
       authorityPath: "multisig",
       requiredSigners: [],
@@ -210,7 +219,9 @@ describe("proposal lifecycle Model", () => {
       second.reject(new Error("Proposal B failed"));
       await second.promise.catch(() => undefined);
     });
-    await waitFor(() => expect(result.current.loadError).toBe("Proposal B failed"));
+    await waitFor(() =>
+      expect(result.current.loadError).toBe("Could not load this approval request.")
+    );
 
     expect(result.current.detail).toBeNull();
     expect(result.current.loading).toBe(false);
@@ -247,7 +258,9 @@ describe("proposal lifecycle Model", () => {
       { initialProps: { proposalId: "proposal-1" } }
     );
 
-    await waitFor(() => expect(result.current.loadError).toBe("Proposal A failed"));
+    await waitFor(() =>
+      expect(result.current.loadError).toBe("Could not load this approval request.")
+    );
     rerender({ proposalId: "proposal-2" });
 
     const switchSnapshot = snapshots.find(
@@ -335,6 +348,23 @@ describe("proposal lifecycle Model", () => {
     expect(result.current.verifying).toBe(false);
   });
 
+  it.each([null, { txBodyHash: "ff".repeat(32), outputIndex: 0, changes: [] }])(
+    "blocks signing and submission when the State review is missing or belongs to another body",
+    async (stateTransition) => {
+      dependencies.verifyProposal.mockResolvedValue({ ...verification("valid", true), stateTransition });
+      const { result } = renderHook(() => useProposalOrchestration({
+        proposalId: "proposal-1", sessionKeyHash: SIGNER_KEY_HASH, onChanged: vi.fn()
+      }));
+      await waitFor(() => expect(result.current.verification?.validity).toBe("valid"));
+      expect(result.current.canSign).toBe(false);
+      expect(result.current.canSubmit).toBe(false);
+      await act(async () => result.current.handleSign());
+      await act(async () => result.current.handleSubmit());
+      expect(dependencies.wallet.signTx).not.toHaveBeenCalled();
+      expect(dependencies.markProposalSubmitted).not.toHaveBeenCalled();
+    }
+  );
+
   it("signs and submits through the current proposal command paths", async () => {
     dependencies.verifyProposal.mockResolvedValue(verification("valid", true));
     const initial = proposal("proposal-1");
@@ -382,6 +412,43 @@ describe("proposal lifecycle Model", () => {
     );
     expect(result.current.detail?.status).toBe("SUBMITTED");
     expect(onChanged).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not show a wallet provider's internal signing error", async () => {
+    dependencies.wallet.signTx.mockRejectedValue(
+      new Error("provider endpoint /api/v0/key failed")
+    );
+    const { result } = renderHook(() =>
+      useProposalOrchestration({
+        proposalId: "proposal-1",
+        sessionKeyHash: SIGNER_KEY_HASH,
+        onChanged: vi.fn()
+      })
+    );
+
+    await waitFor(() => expect(result.current.canSign).toBe(true));
+    await act(async () => result.current.handleSign());
+
+    expect(result.current.actionError).toBe("Signing failed.");
+  });
+
+  it("distinguishes a failed signature upload from failed wallet signing", async () => {
+    dependencies.signProposal.mockRejectedValue(new Error("Failed to fetch"));
+    const { result } = renderHook(() =>
+      useProposalOrchestration({
+        proposalId: "proposal-1",
+        sessionKeyHash: SIGNER_KEY_HASH,
+        onChanged: vi.fn()
+      })
+    );
+
+    await waitFor(() => expect(result.current.canSign).toBe(true));
+    await act(async () => result.current.handleSign());
+
+    expect(dependencies.wallet.signTx).toHaveBeenCalledTimes(1);
+    expect(result.current.actionError).toBe(
+      "Your wallet signed this request, but the app could not add the signature. Check your connection and try again."
+    );
   });
 
   it("rebuilds and withdraws through the current proposal command paths", async () => {
@@ -512,6 +579,34 @@ describe("proposal lifecycle Model", () => {
     expect(result.current.actionInfo).toBeNull();
     expect(result.current.busy).toBeNull();
     expect(onChanged).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers rebuild to the proposer only, and tells a co-signer who can", async () => {
+    dependencies.verifyProposal.mockResolvedValue(verification("invalid"));
+    const proposerKeyHash = "cc".repeat(28);
+    dependencies.fetchProposal.mockResolvedValue(
+      proposal("proposal-1", { createdByKeyHash: proposerKeyHash })
+    );
+    dependencies.parseProposalBuildContext.mockReturnValue({
+      builder: "stt-spend"
+    } as ProposalBuildContext);
+    dependencies.isAutoRebuildable.mockReturnValue(true);
+    const { result } = renderHook(() =>
+      useProposalOrchestration({
+        proposalId: "proposal-1",
+        sessionKeyHash: SIGNER_KEY_HASH,
+        onChanged: vi.fn()
+      })
+    );
+
+    await waitFor(() => expect(result.current.isInvalid).toBe(true));
+
+    expect(result.current.isCreator).toBe(false);
+    expect(result.current.canRebuild).toBe(false);
+    expect(result.current.rebuildNeedsProposer).toBe(true);
+
+    await act(async () => result.current.handleRebuild());
+    expect(dependencies.rebuildProposalTx).not.toHaveBeenCalled();
   });
 
   it("rejects submit, rebuild, and cancel commands outside their lifecycle gates", async () => {

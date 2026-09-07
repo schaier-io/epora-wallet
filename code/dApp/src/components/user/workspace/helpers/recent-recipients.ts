@@ -16,11 +16,9 @@ export function readRecentRecipientsFromStorage() {
   }
 }
 
-// This write runs from a jotai updater inside the submit try, after the hash is
-// already on chain (workspace-transaction-submit.ts). `setItem` throws when the
-// browser blocks site data or the quota is full, so an unguarded write turned a
-// successful send into a "submit failed" screen and skipped every post-submit
-// refresh. Losing the recent-recipient list is the right trade against that.
 export function writeRecentRecipientsToStorage(recipients: string[]) {
-  safeLocalStorageSet(RECENT_RECIPIENTS_STORAGE_KEY, JSON.stringify(recipients));
+  safeLocalStorageSet(
+    RECENT_RECIPIENTS_STORAGE_KEY,
+    JSON.stringify(recipients)
+  );
 }

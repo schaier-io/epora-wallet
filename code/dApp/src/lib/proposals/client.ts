@@ -13,6 +13,12 @@ import type {
 
 export type ProposalSessionInfo = { paymentKeyHash: string; address: string };
 
+export class ProposalRequestError extends Error {}
+
+export function getProposalErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof ProposalRequestError ? error.message : fallback;
+}
+
 async function readError(response: Response): Promise<string> {
   try {
     const data = (await response.json()) as { error?: unknown };
@@ -28,7 +34,7 @@ async function readError(response: Response): Promise<string> {
 async function getJson<T>(url: string): Promise<T> {
   const response = await fetch(url, { credentials: "same-origin" });
   if (!response.ok) {
-    throw new Error(await readError(response));
+    throw new ProposalRequestError(await readError(response));
   }
   return response.json() as Promise<T>;
 }
@@ -41,7 +47,7 @@ async function sendJson<T>(url: string, method: string, body: unknown): Promise<
     body: serializeJsonSafe(body)
   });
   if (!response.ok) {
-    throw new Error(await readError(response));
+    throw new ProposalRequestError(await readError(response));
   }
   return response.json() as Promise<T>;
 }
@@ -54,7 +60,7 @@ export async function fetchProposalSession(): Promise<ProposalSessionInfo | null
     return null;
   }
   if (!response.ok) {
-    throw new Error(await readError(response));
+    throw new ProposalRequestError(await readError(response));
   }
   return response.json() as Promise<ProposalSessionInfo>;
 }
@@ -76,18 +82,18 @@ export async function completeSignIn(payload: {
 }
 
 export async function signOutProposals(): Promise<void> {
-  await fetch("/api/proposals/auth", { method: "DELETE", credentials: "same-origin" });
+  const response = await fetch("/api/proposals/auth", {
+    method: "DELETE",
+    credentials: "same-origin"
+  });
+  if (!response.ok) {
+    throw new ProposalRequestError(await readError(response));
+  }
 }
 
 // ---- proposals -----------------------------------------------------------
 
-/**
- * A proposal id reaches this module from a shared link as often as from the API,
- * so it is untrusted text by the time it is put in a path. Interpolated raw, a
- * "/" or "?" in it changed the shape of the request: the route matched something
- * else or nothing, the answer was not a proposal, and the panel sat on its
- * spinner. Encoding keeps a bad id a bad id, which the API can report.
- */
+// Keep a proposal ID from a shared link within one URL path segment.
 function proposalPath(id: string, suffix = ""): string {
   return `/api/proposals/${encodeURIComponent(id)}${suffix}`;
 }
@@ -166,7 +172,7 @@ export async function cancelProposal(id: string): Promise<void> {
     credentials: "same-origin"
   });
   if (!response.ok) {
-    throw new Error(await readError(response));
+    throw new ProposalRequestError(await readError(response));
   }
 }
 

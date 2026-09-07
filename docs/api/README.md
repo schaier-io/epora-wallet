@@ -3,7 +3,7 @@
 HTTP access to the Epora permission wallet. Read a wallet's indexed on-chain
 state, and build transactions against its smart contracts.
 
-**The server never holds a key and never signs.** Every `/api/v1/tx/*` route
+**The server never holds a key and never signs.** Every active transaction build route
 takes an address, returns an unsigned transaction as CBOR hex, and leaves
 signing and submission to you. There is no account to create, no API key to
 obtain, and nothing to authenticate. Every route below is public.
@@ -341,16 +341,16 @@ yourself, from any chain provider, and send back a legal successor of it. The
 validators reject an illegal one, and the build fails with `400` before you ever
 sign.
 
-### The ten build routes
+### Transaction routes
 
-| Route | Builds |
+| Route | Behavior |
 |---|---|
 | `POST /api/v1/tx/mint` | Create a wallet by minting its state token. |
 | `POST /api/v1/tx/lock-funds` | Deposit funds into a wallet. |
 | `POST /api/v1/tx/stt-spend` | Nine state transitions, selected by `action`. |
-| `POST /api/v1/tx/wallet-spend` | Spend a wallet-script UTxO directly. |
+| `POST /api/v1/tx/wallet-spend` | Retired. Use `POST /api/v1/tx/stt-spend` with action `use`. |
 | `POST /api/v1/tx/wallet-withdraw` | Withdraw the wallet's staking rewards. |
-| `POST /api/v1/tx/consolidate` | Merge wallet UTxOs, and migrate them after a stake change. |
+| `POST /api/v1/tx/consolidate` | Merge or split wallet UTxOs without changing their aggregate Value, and migrate them after a stake change. |
 | `POST /api/v1/tx/set-stake-credential` | Set the wallet's intended stake credential. |
 | `POST /api/v1/tx/vote` | Cast a governance vote as the wallet. |
 | `POST /api/v1/tx/publish` | Publish a certificate as the wallet. |
@@ -432,7 +432,7 @@ One route, nine actions. `action` picks the transition:
 | `use` | Spend under an admin or multisig rule. | |
 | `renew-proof-of-life` | Reset the dead-man-switch timer. | |
 | `update-state` | Rewrite users, caps, beneficiaries, timings. | |
-| `manage-streaming-payments` | Create, change or remove streaming payments. | |
+| `manage-streaming-payments` | Create or change streaming payment schedules. Settlement removes completed schedules. | |
 | `use-allowance` | Draw on a user's daily allowance. | `allowanceSignerKeyHash` |
 | `use-beneficiary` | Claim a share after the recovery deadline. | `beneficiarySignerKeyHash` |
 | `payout-streaming-payment` | Pay out what a stream has accrued. | `crankSignerKeyHash` |
@@ -488,7 +488,7 @@ the wallet outputs that continue, and the transfers you are paying:
 validity window, in Unix milliseconds. It defaults to the server's clock. Set it
 to build against a specific point in time.
 
-#### Set the stake credential, then consolidate
+#### Set the stake credential, then repartition
 
 `set-stake-credential` records where the wallet's funds must rest. It moves no
 funds:
@@ -507,9 +507,10 @@ funds:
 `stakeCredential` is one of `{"kind":"none"}`, `{"kind":"key","hashHex":"..."}`
 or `{"kind":"script","hashHex":"..."}`.
 
-Existing UTxOs are migrated afterwards by `consolidate`, which merges
-wallet-script UTxOs and moves them to the wallet's current base address. It
-needs at least two inputs, unless one input is being migrated:
+Existing UTxOs can be migrated afterwards by `consolidate`. The route can merge
+or split wallet-script UTxOs without changing their aggregate Value. It moves
+every result to the wallet's current base address. At least one input is
+required. If `walletOutputs` is absent, the route creates one merged output:
 
 ```json
 {
@@ -524,6 +525,13 @@ needs at least two inputs, unless one input is being migrated:
   ]
 }
 ```
+
+For a dense custom repartition, set `config.walletSpendReference` to a UTxO
+that holds this wallet's applied spend validator. The builder then references
+that script instead of carrying it inside the transaction. If the field is
+absent, the builder uses the inline script and Cardano can reject a large
+transaction. The `deploy-reference` route deploys only the shared STT script;
+it does not deploy this per-wallet validator.
 
 #### Governance: publish and vote
 
@@ -579,24 +587,10 @@ no partial withdrawal.
 }
 ```
 
-#### Spend a wallet UTxO directly
+#### Retired direct wallet spend
 
-The low-level path, for a rule that permits a bare wallet spend. Most callers
-want `stt-spend` with `walletInputs` instead, because the wallet validator only
-fires co-spent with the state token.
-
-```json
-{
-  "address": "addr_test1qz7r704...",
-  "config": { "...": "..." },
-  "walletInputTxHash": "f8482092...",
-  "walletInputOutputIndex": 0,
-  "redeemer": { "alternative": 0, "fields": [] },
-  "outputs": [
-    { "address": "addr_test1qz7r704...", "amount": [{ "unit": "lovelace", "quantity": "8000000" }] }
-  ]
-}
-```
+`POST /api/v1/tx/wallet-spend` returns `410`. Use
+`POST /api/v1/tx/stt-spend` with action `use` and `walletInputs`.
 
 #### Deploy a reference script
 
@@ -632,6 +626,7 @@ carries the category, the message carries the specifics.
 |---|---|
 | `400` | Your request is invalid, or the wallet's on-chain state forbids the action. |
 | `404` | The thing you named does not exist. Pool lookups only. |
+| `410` | The wallet-spend route is retired. Use `POST /api/v1/tx/stt-spend` with action `use`. |
 | `413` | The body is over the limit: 32 KB for build routes, 4 KB for lookups. |
 | `429` | You are over the rate limit. |
 | `500` | Unexpected server error. |
@@ -657,7 +652,7 @@ A `400` from schema validation names the field:
 A `400` from the builder names the rule you broke:
 
 ```json
-{ "error": "Consolidation needs at least two inputs unless one input is being migrated to the wallet's intended stake address." }
+{ "error": "Consolidation requires at least one wallet script input." }
 ```
 
 `400` also covers a transaction the validators reject. That is the point of
@@ -681,11 +676,11 @@ Per client address, in a rolling window:
 
 | Routes | Limit |
 |---|---|
-| `/api/v1/tx/*` | 5 requests per 60 seconds, across all ten routes together |
-| `/api/v1/stt/lookup` | 60 requests per 60 seconds |
-| `/api/v1/pools` | 30 requests per 60 seconds |
+| Active `/api/v1/tx/*` build routes | 5 requests per 60 seconds, across all nine routes together |
+| `/api/v1/stt/lookup` | 600 requests per 60 seconds |
+| `/api/v1/pools` | 300 requests per 60 seconds |
 
-The ten build routes share **one** bucket. Three mints and two deposits in the
+The nine active build routes share **one** bucket. Three mints and two deposits in the
 same minute use the whole allowance.
 
 Builds also share a deployment-wide cap of 25 per 60 seconds, summed over every
@@ -763,7 +758,7 @@ them.
   own quota.
 - **`POST /api/stt/sync`** drives the indexer. It is gated by a shared secret
   and exists for scheduled jobs, not for callers.
-- **`GET /api/koios/credential-utxos`** exists only because Koios sends no
+- **`POST /api/koios/credential-utxos`** exists only because Koios sends no
   `access-control-allow-origin` header, so the browser cannot read it directly.
   Call Koios yourself from a server, where CORS does not apply.
 - **`/api/proposals/*`** coordinates multi-signature proposals inside the app.
@@ -798,7 +793,7 @@ shown: health, the spec, pool lookup, wallet lookup (both pages), mint,
 lock-funds, stt-spend, set-stake-credential, publish and deploy-reference.
 
 Three build routes are shown as request shapes only, because the demonstration
-wallet lacks the chain state they need: `consolidate` needs a second wallet
+wallet lacks the chain state they need: `consolidate` needs a spendable wallet
 UTxO, `wallet-withdraw` needs a registered stake credential with rewards, and
 `vote` needs the wallet to be a registered voter. Their shapes come from the
 same schemas that generate the spec, so they are accurate; they were not

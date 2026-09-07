@@ -19,6 +19,19 @@ vi.mock("recharts", async () => {
   };
 });
 
+vi.mock("motion/react", () => ({
+  motion: {
+    span: ({
+      layoutId,
+      transition: _transition,
+      ...props
+    }: React.HTMLAttributes<HTMLSpanElement> & {
+      layoutId?: string;
+      transition?: unknown;
+    }) => <span data-layout-id={layoutId} {...props} />
+  }
+}));
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 const formatValue = (value: number) => value.toFixed(2);
 
@@ -34,6 +47,21 @@ describe("wealth chart", () => {
     { timestamp: now - 180 * DAY_MS, value: 10 },
     { timestamp: now - 1 * DAY_MS, value: 40 }
   ];
+
+  it("gives each chart its own range indicator layout id", () => {
+    const { container } = render(
+      <>
+        <WealthChart series={sixMonthsApart} unitLabel="ADA" formatValue={formatValue} />
+        <WealthChart series={sixMonthsApart} unitLabel="ADA" formatValue={formatValue} />
+      </>
+    );
+
+    const ids = [...container.querySelectorAll("[data-layout-id]")].map((node) =>
+      node.getAttribute("data-layout-id")
+    );
+    expect(ids).toHaveLength(2);
+    expect(new Set(ids).size).toBe(2);
+  });
 
   it("does not name a range it is not showing", () => {
     render(
@@ -114,6 +142,29 @@ describe("wealth chart", () => {
     // The library is doing the drawing: its own surface, its own area layer, and
     // a path whose geometry it computed from the two points.
     expect(container.querySelector(".recharts-surface")).toBeTruthy();
+    const area = container.querySelector(".recharts-area-area");
+    expect(area).toBeTruthy();
+    expect(area?.getAttribute("d")).toMatch(/^M/);
+  });
+
+  it("draws a multi-asset series whose data key differs from the legacy value key", () => {
+    const { container } = render(
+      <WealthChart
+        seriesList={[
+          {
+            id: "lovelace",
+            label: "ADA",
+            color: "#14b8a6",
+            series: sixMonthsApart
+          }
+        ]}
+        unitLabel="ADA"
+        formatValue={formatValue}
+        defaultRange="all"
+        title="Wallet"
+      />
+    );
+
     const area = container.querySelector(".recharts-area-area");
     expect(area).toBeTruthy();
     expect(area?.getAttribute("d")).toMatch(/^M/);

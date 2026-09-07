@@ -36,10 +36,7 @@ async function rpc<T>(method: ChainMethod, args: unknown[]): Promise<T> {
     body: JSON.stringify(payload)
   });
 
-  // A gateway, the framework's own error page, or a dropped connection answers
-  // with something that is not JSON. Parsing that threw a SyntaxError about a
-  // stray "<", and the status code, the one thing that said what went wrong,
-  // never reached the caller.
+  // Preserve the HTTP status when a gateway returns a non-JSON error page.
   const raw: unknown = await response.json().catch(() => undefined);
 
   if (!isRpcEnvelope(raw)) {

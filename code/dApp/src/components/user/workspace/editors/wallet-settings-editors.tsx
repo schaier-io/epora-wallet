@@ -8,6 +8,7 @@ import { useAtomValue } from "jotai";
 import { walletBalanceSummaryAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { buildKnownAddresses, StateAssetAmountListEditor, WalletHashesEditor } from "./asset-editors";
 import { GuidedDateTimeField } from "./guided-fields";
+import { BeneficiaryPayoutAddressEditor } from "./people-editors";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { InfoHint } from "@/components/ui/info-hint";
@@ -15,50 +16,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LONG_DESCRIPTION_LIMIT } from "@/components/user/workspace/constants";
 import { defaultSafetyUnlockTimestamp, formatCountLabel } from "@/components/user/workspace/helpers";
+import { PersonHeading } from "@/components/user/workspace/editors/person-heading";
 import { personLabel } from "@/lib/contracts/person-label";
 import { type BeneficiaryFormState, type UserFormState } from "@/lib/contracts/state-form";
 import { DEFAULT_WALLET_NAME, MAX_WALLET_NAME_BYTES, clampWalletNameInput, normalizeWalletName, walletNameByteLength } from "@/lib/contracts/state-wallet-name";
 import { cn } from "@/lib/utils/cn";
 import { type LucideIcon } from "lucide-react";
 import { type ReactNode, useId } from "react";
-
-export function WalletRuleSummaryTile({
-  icon: Icon,
-  label,
-  value,
-  description,
-  tone = "default"
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: string;
-  description: string;
-  tone?: "default" | "good" | "warn";
-}) {
-  return (
-    <div
-      className={cn(
-        "rounded-xl border p-3 sm:p-4",
-        tone === "good"
-          ? "border-emerald-500/30 bg-emerald-500/10"
-          : tone === "warn"
-            ? "border-amber-500/35 bg-amber-500/10"
-            : "border-border/60 bg-muted/20"
-      )}
-    >
-      <div className="flex items-start gap-3">
-        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-background/70 text-primary">
-          <Icon className="h-4.5 w-4.5" />
-        </span>
-        <div className="min-w-0">
-          <p className="eyebrow text-muted-foreground">{label}</p>
-          <p className="mt-1 text-base font-semibold text-foreground">{value}</p>
-          <p className="mt-1 text-xs leading-snug text-muted-foreground">{description}</p>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export function WalletRuleSection({
   icon: Icon,
@@ -162,12 +126,14 @@ export function OwnerAccessEditor({
   user,
   connectedPaymentKeyHash,
   connectedAddress,
+  canAddWallet,
   onChange,
   onRemove
 }: {
   user: UserFormState;
   connectedPaymentKeyHash?: string | null;
   connectedAddress?: string | null;
+  canAddWallet: boolean;
   onChange: (value: UserFormState) => void;
   onRemove: () => void;
 }) {
@@ -181,10 +147,10 @@ export function OwnerAccessEditor({
     <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
-          <p className="font-medium text-foreground">{personLabel(i18n("owner"), user)}</p>
+          <PersonHeading person={user}>{personLabel(i18n("owner"), user)}</PersonHeading>
           <div className="flex flex-wrap gap-2">
             <Badge variant="secondary">{i18n("canManageWallet")}</Badge>
-            <Badge variant="outline">{formatCountLabel(user.wallets.length, "wallet ID")}</Badge>
+            <Badge variant="outline">{formatCountLabel(user.wallets.length, "walletId")}</Badge>
           </div>
         </div>
         <Button type="button" variant="ghost" onClick={onRemove}>
@@ -198,17 +164,21 @@ export function OwnerAccessEditor({
         onChange={(wallets) => onChange({ ...user, wallets })}
         addLabel={i18n("addOwnerWallet")}
         knownAddresses={knownAddresses}
+        canAdd={canAddWallet}
       />
       {normalizedConnectedHash && !connectedWalletAdded ? (
         <Button
           type="button"
           variant="outline"
-          onClick={() =>
-            onChange({
-              ...user,
-              wallets: [...user.wallets, normalizedConnectedHash]
-            })
-          }
+          disabled={!canAddWallet}
+          onClick={() => {
+            if (canAddWallet) {
+              onChange({
+                ...user,
+                wallets: [...user.wallets, normalizedConnectedHash]
+              });
+            }
+          }}
         >
           {i18n("useConnectedWalletHere")}
         </Button>
@@ -222,13 +192,17 @@ export function SpendingAccessEditor({
   connectedPaymentKeyHash,
   connectedAddress,
   onChange,
-  onRemove
+  onRemove,
+  canAddAllowanceEntry,
+  canAddWallet
 }: {
   user: UserFormState;
   connectedPaymentKeyHash?: string | null;
   connectedAddress?: string | null;
   onChange: (value: UserFormState) => void;
   onRemove: () => void;
+  canAddAllowanceEntry: boolean;
+  canAddWallet: boolean;
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsWalletSettingsEditors");
   const walletBalance = useAtomValue(walletBalanceSummaryAtom);
@@ -240,9 +214,9 @@ export function SpendingAccessEditor({
     <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
-          <p className="font-medium text-foreground">{personLabel(i18n("spender"), user)}</p>
+          <PersonHeading person={user}>{personLabel(i18n("spender"), user)}</PersonHeading>
           <div className="flex flex-wrap gap-2">
-            <Badge variant="outline">{formatCountLabel(user.wallets.length, "wallet ID")}</Badge>
+            <Badge variant="outline">{formatCountLabel(user.wallets.length, "walletId")}</Badge>
             <Badge variant="outline">{formatCountLabel(user.perDayAllowance.length, "limit")}</Badge>
           </div>
         </div>
@@ -256,6 +230,7 @@ export function SpendingAccessEditor({
         onChange={(wallets) => onChange({ ...user, wallets })}
         addLabel={i18n("addWalletId")}
         knownAddresses={knownAddresses}
+        canAdd={canAddWallet}
       />
       <StateAssetAmountListEditor
         label={i18n("dailySpendingLimit")}
@@ -263,6 +238,7 @@ export function SpendingAccessEditor({
         value={user.perDayAllowance}
         onChange={(perDayAllowance) => onChange({ ...user, perDayAllowance })}
         addLabel={i18n("addDailyLimit")}
+        canAdd={canAddAllowanceEntry}
         availableAssets={walletBalance.assets}
       />
     </div>
@@ -275,6 +251,7 @@ export function RecoveryAccessEditor({
   totalWeight,
   connectedPaymentKeyHash,
   connectedAddress,
+  canAddWallet,
   onChange,
   onRemove
 }: {
@@ -283,6 +260,7 @@ export function RecoveryAccessEditor({
   totalWeight: number;
   connectedPaymentKeyHash?: string | null;
   connectedAddress?: string | null;
+  canAddWallet: boolean;
   onChange: (value: BeneficiaryFormState) => void;
   onRemove: () => void;
 }) {
@@ -303,8 +281,8 @@ export function RecoveryAccessEditor({
     <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
-          <p className="font-medium text-foreground">{personLabel(i18n("recoveryContact"), beneficiary)}</p>
-          <Badge variant="outline">{formatCountLabel(beneficiary.wallets.length, "wallet ID")}</Badge>
+          <PersonHeading person={beneficiary}>{personLabel(i18n("recoveryContact"), beneficiary)}</PersonHeading>
+          <Badge variant="outline">{formatCountLabel(beneficiary.wallets.length, "walletId")}</Badge>
         </div>
         <Button type="button" variant="ghost" onClick={onRemove}>
           {i18n("removeRecoveryContact")}
@@ -317,6 +295,11 @@ export function RecoveryAccessEditor({
         onChange={(wallets) => onChange({ ...beneficiary, wallets })}
         addLabel={i18n("addRecoveryWallet")}
         knownAddresses={knownAddresses}
+        canAdd={canAddWallet}
+      />
+      <BeneficiaryPayoutAddressEditor
+        value={beneficiary.payoutAddress}
+        onChange={(payoutAddress) => onChange({ ...beneficiary, payoutAddress })}
       />
       <WalletRuleTogglePanel
         title={i18n("useAPersonalWaitDate")}
@@ -421,20 +404,20 @@ export function WalletNameEditor({
           atLimit ? (
             // The box stops accepting keystrokes here. Saying so beats leaving the reader
             // to work out why their typing stopped.
-            "That is as long as a wallet name can be. Emoji and accented letters take up more room than plain letters."
+            i18n("walletNameAtLimit")
           ) : displayName ? (
-            <>
-              {i18n("thisWalletWillShowAs")}{" "}
-              <span className="font-medium text-foreground">{displayName}</span>.
-            </>
+            i18n.rich("walletNamePreview", {
+              name: displayName,
+              strong: (children) => <span className="font-medium text-foreground">{children}</span>
+            })
           ) : (
-            "Add a short name so this wallet is easy to recognize later."
+            i18n("addShortWalletName")
           )
         ) : (
           // A real contract rule, not a screen preference: `eval_update_state`
           // (`smart-contract/lib/stt/operator_handlers.ak:125-131`) requires the wallet
           // name to be unchanged unless the operator path is Admin.
-          "Only an owner signing alone can rename this wallet. Choose to sign as a single owner, and this becomes editable."
+          i18n("ownerOnlyRename")
         )}
       </p>
     </div>

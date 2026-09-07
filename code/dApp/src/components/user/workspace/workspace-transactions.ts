@@ -3,39 +3,46 @@ import { type SttSpendActionMode } from "@/components/user/workspace/types";
 import { type SetStateAction } from "react";
 // Only the atoms WRITTEN here remain imported; the ~40 atoms the builders READ
 // are gathered by resolveWorkspaceTransactionInputs (see below).
-import { selectedSttActionAtom, sttStateFormAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import { selectedSttActionAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { buildDiagnosticIdAtom
 } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { resolveWorkspaceTransactionInputs } from "@/components/user/workspace/workspace-transaction-inputs";
 import { createWorkspaceTransactionSubmit } from "@/components/user/workspace/workspace-transaction-submit";
+import { createProposalCaptureWriter } from "@/components/user/workspace/workspace-proposal-capture";
+import { createWorkspaceSttBuilder } from "./workspace-stt-builder";
 
-import { applyProofOfLifeOverrideToStateForm, countAdminUsersInStateForm, stateFormToDatum, type StateFormState } from "@/lib/contracts/state-form";
+import { countAdminUsersInStateForm, stateFormToDatum, type StateFormState } from "@/lib/contracts/state-form";
 import {
   resolveWalletSpendScriptHash,
   resolveWalletStakeScriptCredentialData
 } from "@/lib/contracts/blueprint";
 
 import {
+  buildBeneficiaryPreparationTx,
   buildConsolidateUtxosTx,
   buildLockFundsTx,
   buildMintStateTokenTx,
   buildSetIntendedStakeCredentialTx,
   buildWalletVoteTx,
   buildWalletPublishTx,
-  buildSttSpendTx,
-  getValidityWindow,
-  buildWalletSpendTx,
   buildWalletWithdrawTx
 } from "@/lib/mesh/transactions";
 
 import {
+  type AuthorityPath,
+  type ConsolidateAuthorityPath,
   type ConsolidateUtxosFormInput,
   type ConstrData,
-  type SttSpendFormInput } from "@/lib/types/contracts";
-import { ALLOWANCE_WITHDRAWAL_ACTION, BENEFICIARY_WITHDRAWAL_ACTION, MINT_PERFORMED_ACTION, RENEW_PROOF_OF_LIFE_ACTION, STREAMING_PAYMENT_PAYOUT_ACTION } from "@/components/user/workspace/constants";
-import { cloneAssets, cloneStateForm, hasFieldErrors, isSttFlowAction, resolveConsolidateActionAlternative, resolveManageStreamingPaymentsActionAlternative, resolveOperatorActionAlternative, resolveUpdateStateActionAlternative, resolveUseActionAlternative, resolveProofOfLifeOverrideTimestamp, resolveWalletWrapperSttInputRef, serializeRequiredConstrPreset, serializeTransfers, serializeWalletOutputs } from "@/components/user/workspace/helpers";
+  type OperatorAuthorityPath,
+  type SetIntendedStakeCredentialFormInput,
+  type WalletPublishFormInput,
+  type WalletVoteFormInput,
+  type WalletWithdrawFormInput } from "@/lib/types/contracts";
+import { MINT_PERFORMED_ACTION } from "@/components/user/workspace/constants";
+import { cloneAssets, cloneStateForm, hasFieldErrors, isSttFlowAction, resolveConsolidateActionAlternative, resolveOperatorActionAlternative, resolveWalletWrapperSttInputRef, safeStringify, serializeWalletOutputs } from "@/components/user/workspace/helpers";
 
 import type { WorkspaceTransactionsCtx } from "@/components/user/workspace/workspace-transactions-types";
+import { multisigDraftSignerKeyHashes } from "@/components/user/workspace/helpers/multisig-draft-signers";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceWorkspaceTransactions.json";
 
@@ -73,7 +80,6 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     setMintConfirmation,
     setMintedWalletName,
     setSubmitHash,
-    streamingPaymentPayout,
     submitHash,
     submitInFlightRef,
     watchMintCreationConfirmation,
@@ -88,6 +94,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     consolidateSttInputHash,
     consolidateSttInputIndex,
     consolidateWalletInputs,
+    beneficiaryPreparationActive, beneficiaryPreparationPoolAssets,
     consolidateWalletOutputs,
     lockFundsAssets,
     mintReference,
@@ -103,21 +110,8 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     publishSttInputHash,
     publishSttInputIndex,
     publishSttStateForm,
-    sttAuthorityPath,
     sttExtraTransfers,
-    sttInputOutputIndex,
-    sttInputTxHash,
-    sttOutputAssets,
-    sttProofOfLifeOverrideMode,
-    sttProofOfLifeSpecificDateTime,
-    sttStateForm,
-    sttWalletInputs,
-    sttWalletOutputs,
     walletOperatorPath,
-    walletSpendInputHash,
-    walletSpendInputIndex,
-    walletSpendOutputs,
-    walletSpendRedeemerPreset,
     withdrawAmount,
     withdrawRewardAddress,
     withdrawSttAssets,
@@ -126,7 +120,18 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     withdrawSttStateForm
   } = resolveWorkspaceTransactionInputs(jotaiStore);
   const setSelectedSttAction = (update: SetStateAction<SttSpendActionMode>) => jotaiStore.set(selectedSttActionAtom, update);
-  const setSttStateForm = (update: SetStateAction<StateFormState>) => jotaiStore.set(sttStateFormAtom, update);
+
+  const captureProposal = createProposalCaptureWriter({
+    activePaymentKeyHash,
+    proposalCaptureRef,
+    stateForm: activeInferredSttStateForm,
+    walletAssetNameHex: effectiveWalletAssetNameHex,
+    walletPolicyId: config.walletPolicyId
+  });
+  const requiredSignerKeyHashesFor = (authorityPath: AuthorityPath) =>
+    authorityPath === "multisig"
+      ? multisigDraftSignerKeyHashes(activeInferredSttStateForm, activePaymentKeyHash)
+      : undefined;
 
   // The sign-and-send path lives in its own module (workspace-transaction-submit.ts,
   // split by concern under the repo's file cap); this file owns the build half.
@@ -181,6 +186,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
         })();
 
         return buildMintStateTokenTx(activeWallet!, {
+          sttSpendReference: config.sttSpendReference,
           starterAssets: cloneAssets(mintStarterAssets),
           stateDatum,
           selectedReferenceUtxo: selectedReference
@@ -196,140 +202,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     );
   }
 
-  async function buildSttTx(
-    mode:
-      | "use"
-      | "renew-proof-of-life"
-      | "update-state"
-      | "manage-streaming-payments"
-      | "use-allowance"
-      | "use-beneficiary"
-      | "payout-streaming-payment"
-  ) {
-    return withBuildGuard(
-      mode,
-      async () => {
-        // Build against a fresh validity window. The displayed payout quote was
-        // computed from an earlier LOWER bound, so it is conservative as time
-        // advances; the pure builder re-check below is the final exact cap.
-        const validityWindowReferenceTimeMs = Date.now();
-        let effectiveForm =
-          mode === "update-state" || mode === "manage-streaming-payments"
-            ? cloneStateForm(sttStateForm)
-            : cloneStateForm(activeInferredSttStateForm);
-
-        if (mode === "use" || mode === "renew-proof-of-life") {
-          const specificTimestamp = resolveProofOfLifeOverrideTimestamp(
-            sttProofOfLifeOverrideMode,
-            sttProofOfLifeSpecificDateTime,
-            "Choose a proof of life date before you continue."
-          );
-
-          effectiveForm = applyProofOfLifeOverrideToStateForm(
-            effectiveForm,
-            sttProofOfLifeOverrideMode,
-            specificTimestamp,
-            getValidityWindow(validityWindowReferenceTimeMs)
-          );
-          setSttStateForm(cloneStateForm(effectiveForm));
-        }
-
-        const walletWitness =
-          mode === "use"
-            ? resolveUseActionAlternative(sttAuthorityPath)
-            : mode === "renew-proof-of-life"
-              ? RENEW_PROOF_OF_LIFE_ACTION
-            : mode === "update-state"
-              ? resolveUpdateStateActionAlternative(sttAuthorityPath)
-              : mode === "manage-streaming-payments"
-                ? resolveManageStreamingPaymentsActionAlternative(sttAuthorityPath)
-                : mode === "use-beneficiary"
-                  ? BENEFICIARY_WITHDRAWAL_ACTION
-                  : mode === "payout-streaming-payment"
-                      ? STREAMING_PAYMENT_PAYOUT_ACTION
-                      : ALLOWANCE_WITHDRAWAL_ACTION;
-
-        const effectiveOutputAssets =
-          mode === "update-state" || mode === "manage-streaming-payments"
-            ? cloneAssets(sttOutputAssets)
-            : [];
-        const effectiveWalletOutputs =
-          mode === "update-state" || mode === "manage-streaming-payments"
-            ? serializeWalletOutputs(sttWalletOutputs)
-            : [];
-        const effectiveExtraTransfers =
-          mode === "payout-streaming-payment"
-            ? streamingPaymentPayout.extraTransfers
-            : serializeTransfers(sttExtraTransfers);
-
-        const payload: SttSpendFormInput = {
-          sttInputTxHash,
-          sttInputOutputIndex: sttInputOutputIndex ? Number(sttInputOutputIndex) : undefined,
-          outputDatum: stateFormToDatum(effectiveForm, walletWitness),
-          outputAssets: effectiveOutputAssets,
-          authorityPath: sttAuthorityPath,
-          validityWindowReferenceTimeMs,
-          allowanceSignerKeyHash:
-            mode === "use-allowance" ? activePaymentKeyHash ?? undefined : undefined,
-          beneficiarySignerKeyHash:
-            mode === "use-beneficiary" ? activePaymentKeyHash ?? undefined : undefined,
-          // The crank's sole required signer is the connected wallet; pass its key
-          // hash so the builder can preserve the cooldown stamp when the signer is
-          // an ADMIN (the only cadence-exempt cranker; whitepaper:
-          // Settlement-cadence theorem).
-          crankSignerKeyHash:
-            mode === "payout-streaming-payment"
-              ? activePaymentKeyHash ?? undefined
-              : undefined,
-          walletInputs: sttWalletInputs.map((entry) => ({ ...entry })),
-          walletOutputs: effectiveWalletOutputs,
-          extraTransfers: effectiveExtraTransfers
-        };
-
-        // Capture for "Save as approval request": only the operator paths
-        // (admin / multisig) are proposable, and only when the wallet identity
-        // is known. Single-signer paths (user/beneficiary/rule-driven) don't
-        // need a proposal.
-        if (
-          (sttAuthorityPath === "admin" || sttAuthorityPath === "multisig") &&
-          config.walletPolicyId &&
-          config.walletAssetNameHex
-        ) {
-          proposalCaptureRef.current = {
-            actionKind: mode,
-            authorityPath: sttAuthorityPath,
-            builder: "stt-spend",
-            buildContext: { builder: "stt-spend", mode, config: { ...config }, input: payload },
-            walletUnit: `${config.walletPolicyId}${config.walletAssetNameHex}`,
-            walletPolicyId: config.walletPolicyId
-          };
-        }
-
-        return buildSttSpendTx(activeWallet!, config, mode, payload);
-      },
-      {
-        sttInputTxHash,
-        sttInputOutputIndex,
-        walletInputRefs: sttWalletInputs.map((entry) => ({ ...entry })),
-        lockedWalletInputCount: sttWalletInputs.length,
-        lockedWalletOutputCount:
-          mode === "update-state" || mode === "manage-streaming-payments" ? sttWalletOutputs.length : 0,
-        extraTransferCount:
-          mode === "payout-streaming-payment"
-            ? streamingPaymentPayout.extraTransfers.length
-            : sttExtraTransfers.length,
-        proofOfLifeOverrideMode:
-          mode === "use" || mode === "renew-proof-of-life"
-            ? sttProofOfLifeOverrideMode
-            : "ignored",
-        proofOfLifeSpecificDateTime:
-          (mode === "use" || mode === "renew-proof-of-life") &&
-          sttProofOfLifeOverrideMode === "specific"
-            ? sttProofOfLifeSpecificDateTime
-            : undefined
-      }
-    );
-  }
+  const { buildSttTx } = createWorkspaceSttBuilder(ctx, captureProposal, requiredSignerKeyHashesFor);
 
   async function buildLockFunds() {
     return withBuildGuard(
@@ -352,30 +225,8 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     );
   }
 
-  async function buildWalletSpend() {
-    return withBuildGuard(
-      "wallet-spend",
-      async () =>
-        buildWalletSpendTx(activeWallet!, config, {
-          walletInputTxHash: walletSpendInputHash,
-          walletInputOutputIndex: walletSpendInputIndex
-            ? Number(walletSpendInputIndex)
-            : undefined,
-          redeemer: serializeRequiredConstrPreset(
-            walletSpendRedeemerPreset,
-            "Wallet spend redeemer"
-          ),
-          outputs: serializeTransfers(walletSpendOutputs)
-        }),
-      {
-        walletInputTxHash: walletSpendInputHash,
-        walletInputOutputIndex: walletSpendInputIndex,
-        outputCount: walletSpendOutputs.length
-      }
-    );
-  }
-
-  async function buildWalletWithdraw() {
+  async function buildWalletWithdraw(authorityPathOverride?: OperatorAuthorityPath) {
+    const effectiveAuthorityPath = authorityPathOverride ?? walletOperatorPath;
     const withdrawSttRef = resolveWalletWrapperSttInputRef(
       selectedDetectedToken,
       withdrawSttInputHash,
@@ -383,21 +234,29 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     );
     const withdrawSttOutIdx =
       withdrawSttRef.indexStr.trim() === "" ? undefined : Number(withdrawSttRef.indexStr);
+    const input: WalletWithdrawFormInput = {
+      rewardAddress: withdrawRewardAddress,
+      amountLovelace: withdrawAmount,
+      sttInputTxHash: withdrawSttRef.txHash,
+      sttInputOutputIndex: withdrawSttOutIdx,
+      sttOutputDatum: stateFormToDatum(
+        cloneStateForm(withdrawSttStateForm),
+        resolveOperatorActionAlternative(effectiveAuthorityPath)
+      ),
+      sttOutputAssets: cloneAssets(withdrawSttAssets),
+      authorityPath: effectiveAuthorityPath,
+      requiredSignerKeyHashes: requiredSignerKeyHashesFor(effectiveAuthorityPath)
+    };
     return withBuildGuard(
       "wallet-withdraw",
-      async () =>
-        buildWalletWithdrawTx(activeWallet!, config, {
-          rewardAddress: withdrawRewardAddress,
-          amountLovelace: withdrawAmount,
-          sttInputTxHash: withdrawSttRef.txHash,
-          sttInputOutputIndex: withdrawSttOutIdx,
-          sttOutputDatum: stateFormToDatum(
-            cloneStateForm(withdrawSttStateForm),
-            resolveOperatorActionAlternative(walletOperatorPath)
-          ),
-          sttOutputAssets: cloneAssets(withdrawSttAssets),
-          authorityPath: walletOperatorPath
-        }),
+      async () => {
+        captureProposal("wallet-withdraw", effectiveAuthorityPath, {
+          builder: "wallet-withdraw",
+          config: { ...config },
+          input
+        });
+        return buildWalletWithdrawTx(activeWallet!, config, input);
+      },
       {
         rewardAddress: withdrawRewardAddress,
         amountLovelace: withdrawAmount,
@@ -407,7 +266,8 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     );
   }
 
-  async function buildWalletPublish() {
+  async function buildWalletPublish(authorityPathOverride?: OperatorAuthorityPath) {
+    const effectiveAuthorityPath = authorityPathOverride ?? walletOperatorPath;
     const publishSttRef = resolveWalletWrapperSttInputRef(
       selectedDetectedToken,
       publishSttInputHash,
@@ -418,20 +278,28 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     const publishGovernanceStateForm = selectedDetectedTokenStateForm
       ? cloneStateForm(selectedDetectedTokenStateForm)
       : cloneStateForm(publishSttStateForm);
+    const input: WalletPublishFormInput = {
+      certificate: JSON.parse(publishCertificateJson),
+      sttInputTxHash: publishSttRef.txHash,
+      sttInputOutputIndex: publishSttOutIdx,
+      sttOutputDatum: stateFormToDatum(
+        cloneStateForm(publishGovernanceStateForm),
+        resolveOperatorActionAlternative(effectiveAuthorityPath)
+      ),
+      sttOutputAssets: cloneAssets(publishSttAssets),
+      authorityPath: effectiveAuthorityPath,
+      requiredSignerKeyHashes: requiredSignerKeyHashesFor(effectiveAuthorityPath)
+    };
     return withBuildGuard(
       "wallet-publish",
-      async () =>
-        buildWalletPublishTx(activeWallet!, config, {
-          certificate: JSON.parse(publishCertificateJson),
-          sttInputTxHash: publishSttRef.txHash,
-          sttInputOutputIndex: publishSttOutIdx,
-          sttOutputDatum: stateFormToDatum(
-            cloneStateForm(publishGovernanceStateForm),
-            resolveOperatorActionAlternative(walletOperatorPath)
-          ),
-          sttOutputAssets: cloneAssets(publishSttAssets),
-          authorityPath: walletOperatorPath
-        }),
+      async () => {
+        captureProposal("wallet-publish", effectiveAuthorityPath, {
+          builder: "wallet-publish",
+          config: { ...config },
+          input
+        });
+        return buildWalletPublishTx(activeWallet!, config, input);
+      },
       {
         sttInputTxHash: publishSttRef.txHash,
         sttInputOutputIndex: publishSttRef.indexStr
@@ -439,7 +307,10 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     );
   }
 
-  async function buildSetIntendedStakeCredential() {
+  async function buildSetIntendedStakeCredential(
+    authorityPathOverride?: OperatorAuthorityPath
+  ) {
+    const effectiveAuthorityPath = authorityPathOverride ?? walletOperatorPath;
     const setCredSttRef = resolveWalletWrapperSttInputRef(
       selectedDetectedToken,
       "",
@@ -466,20 +337,28 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
       ...baseStateForm,
       intendedStakeCredential: stakeCredentialData
     };
+    const input: SetIntendedStakeCredentialFormInput = {
+      sttInputTxHash: setCredSttRef.txHash,
+      sttInputOutputIndex: setCredSttOutIdx,
+      sttOutputDatum: stateFormToDatum(
+        nextStateForm,
+        resolveOperatorActionAlternative(effectiveAuthorityPath)
+      ),
+      sttOutputAssets: cloneAssets(selectedDetectedTokenAssets),
+      authorityPath: effectiveAuthorityPath,
+      stakeCredential: { kind: "script", hashHex: walletScriptHash },
+      requiredSignerKeyHashes: requiredSignerKeyHashesFor(effectiveAuthorityPath)
+    };
     return withBuildGuard(
       "set-intended-stake-credential",
-      async () =>
-        buildSetIntendedStakeCredentialTx(activeWallet!, config, {
-          sttInputTxHash: setCredSttRef.txHash,
-          sttInputOutputIndex: setCredSttOutIdx,
-          sttOutputDatum: stateFormToDatum(
-            nextStateForm,
-            resolveOperatorActionAlternative(walletOperatorPath)
-          ),
-          sttOutputAssets: cloneAssets(selectedDetectedTokenAssets),
-          authorityPath: walletOperatorPath,
-          stakeCredential: { kind: "script", hashHex: walletScriptHash }
-        }),
+      async () => {
+        captureProposal("set-intended-stake-credential", effectiveAuthorityPath, {
+          builder: "set-intended-stake-credential",
+          config: { ...config },
+          input
+        });
+        return buildSetIntendedStakeCredentialTx(activeWallet!, config, input);
+      },
       {
         sttInputTxHash: setCredSttRef.txHash,
         sttInputOutputIndex: setCredSttRef.indexStr,
@@ -488,7 +367,8 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     );
   }
 
-  async function buildWalletVote() {
+  async function buildWalletVote(authorityPathOverride?: OperatorAuthorityPath) {
+    const effectiveAuthorityPath = authorityPathOverride ?? walletOperatorPath;
     const voteSttRef = resolveWalletWrapperSttInputRef(
       selectedDetectedToken,
       voteSttInputHash,
@@ -499,20 +379,28 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     const voteGovernanceStateForm = selectedDetectedTokenStateForm
       ? cloneStateForm(selectedDetectedTokenStateForm)
       : cloneStateForm(voteSttStateForm);
+    const input: WalletVoteFormInput = {
+      vote: JSON.parse(voteJson),
+      sttInputTxHash: voteSttRef.txHash,
+      sttInputOutputIndex: voteSttOutIdx,
+      sttOutputDatum: stateFormToDatum(
+        cloneStateForm(voteGovernanceStateForm),
+        resolveOperatorActionAlternative(effectiveAuthorityPath)
+      ),
+      sttOutputAssets: cloneAssets(voteSttAssets),
+      authorityPath: effectiveAuthorityPath,
+      requiredSignerKeyHashes: requiredSignerKeyHashesFor(effectiveAuthorityPath)
+    };
     return withBuildGuard(
       "wallet-vote",
-      async () =>
-        buildWalletVoteTx(activeWallet!, config, {
-          vote: JSON.parse(voteJson),
-          sttInputTxHash: voteSttRef.txHash,
-          sttInputOutputIndex: voteSttOutIdx,
-          sttOutputDatum: stateFormToDatum(
-            cloneStateForm(voteGovernanceStateForm),
-            resolveOperatorActionAlternative(walletOperatorPath)
-          ),
-          sttOutputAssets: cloneAssets(voteSttAssets),
-          authorityPath: walletOperatorPath
-        }),
+      async () => {
+        captureProposal("wallet-vote", effectiveAuthorityPath, {
+          builder: "wallet-vote",
+          config: { ...config },
+          input
+        });
+        return buildWalletVoteTx(activeWallet!, config, input);
+      },
       {
         sttInputTxHash: voteSttRef.txHash,
         sttInputOutputIndex: voteSttRef.indexStr
@@ -520,7 +408,26 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     );
   }
 
-  async function buildConsolidateUtxos() {
+  async function buildConsolidateUtxos(authorityPathOverride?: ConsolidateAuthorityPath) {
+    if (beneficiaryPreparationActive) {
+      proposalCaptureRef.current = null;
+      return withBuildGuard("consolidate-utxo", () => {
+        const expectedStateDatum = selectedDetectedToken?.datum;
+        if (!expectedStateDatum) {
+          throw new Error(i18n("theTransactionDetailsAreStaleContinueAgainTo_34b074"));
+        }
+        // Form conversion normalizes valid State fields, so freshness needs the raw datum.
+        return buildBeneficiaryPreparationTx(activeWallet!, config, {
+          sttInputTxHash: consolidateSttInputHash,
+          sttInputOutputIndex: consolidateSttInputIndex ? Number(consolidateSttInputIndex) : undefined,
+          walletInputs: consolidateWalletInputs.map(ref => ({ ...ref })),
+          beneficiarySignerKeyHash: activePaymentKeyHash ?? "",
+          poolAssets: cloneAssets(beneficiaryPreparationPoolAssets),
+          expectedStateDatum
+        });
+      });
+    }
+    const effectiveAuthorityPath = authorityPathOverride ?? consolidateAuthorityPath;
     return withBuildGuard(
       "consolidate-utxo",
       async () => {
@@ -532,14 +439,22 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
             : undefined,
           outputDatum: stateFormToDatum(
             effectiveForm,
-            resolveConsolidateActionAlternative(consolidateAuthorityPath)
+            resolveConsolidateActionAlternative(effectiveAuthorityPath)
           ),
           outputAssets: cloneAssets(consolidateSttAssets),
-          authorityPath: consolidateAuthorityPath,
+          authorityPath: effectiveAuthorityPath,
+          requiredSignerKeyHashes: requiredSignerKeyHashesFor(effectiveAuthorityPath),
           walletInputs: consolidateWalletInputs.map((entry) => ({ ...entry })),
           walletOutputs: serializeWalletOutputs(consolidateWalletOutputs)
         };
 
+        if (effectiveAuthorityPath === "admin" || effectiveAuthorityPath === "multisig") {
+          captureProposal("consolidate-utxo", effectiveAuthorityPath, {
+            builder: "consolidate-utxo",
+            config: { ...config },
+            input: payload
+          });
+        }
         return buildConsolidateUtxosTx(activeWallet!, config, payload);
       },
       {
@@ -552,15 +467,20 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     );
   }
 
-  async function buildSelectedSttActionTx() {
+  async function buildSelectedSttActionTx(authorityPathOverride?: AuthorityPath) {
     if (effectiveSttAction === "consolidate-utxo") {
-      return buildConsolidateUtxos();
+      return buildConsolidateUtxos(
+        authorityPathOverride as ConsolidateAuthorityPath | undefined
+      );
     }
 
-    return buildSttTx(effectiveSttAction);
+    return buildSttTx(
+      effectiveSttAction,
+      authorityPathOverride as OperatorAuthorityPath | undefined
+    );
   }
 
-  async function buildSelectedActionTx() {
+  async function buildSelectedActionTx(authorityPathOverride?: AuthorityPath) {
     // Both guarded exits below show a fresh expected error; the diagnostic id of
     // an earlier unexpected failure must not survive next to it.
     jotaiStore.set(buildDiagnosticIdAtom, null);
@@ -584,24 +504,22 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
       return buildLockFunds();
     }
 
-    if (selectedAction === "wallet-spend") {
-      return buildWalletSpend();
-    }
-
     if (selectedAction === "wallet-withdraw") {
-      return buildWalletWithdraw();
+      return buildWalletWithdraw(authorityPathOverride as OperatorAuthorityPath | undefined);
     }
 
     if (selectedAction === "wallet-publish") {
-      return buildWalletPublish();
+      return buildWalletPublish(authorityPathOverride as OperatorAuthorityPath | undefined);
     }
 
     if (selectedAction === "set-intended-stake-credential") {
-      return buildSetIntendedStakeCredential();
+      return buildSetIntendedStakeCredential(
+        authorityPathOverride as OperatorAuthorityPath | undefined
+      );
     }
 
     if (selectedAction === "wallet-vote") {
-      return buildWalletVote();
+      return buildWalletVote(authorityPathOverride as OperatorAuthorityPath | undefined);
     }
 
     if (!isSttFlowAction(selectedAction)) {
@@ -611,19 +529,32 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     }
 
     setSelectedSttAction(selectedAction);
-    return buildSelectedSttActionTx();
+    return buildSelectedSttActionTx(authorityPathOverride);
   }
 
-  async function buildAndSubmitSelectedActionTx() {
+  async function buildAndSubmitSelectedActionTx(authorityPathOverride?: AuthorityPath) {
     if (activeBuild === selectedAction || activeSubmit) {
       return;
     }
 
-    const nextPreview = await buildSelectedActionTx();
+    // The build runs several network round trips and no editor is locked meanwhile.
+    // Read the draft straight from the store on both sides so an edit made during the
+    // build is refused instead of being signed under the old preview.
+    const draftBeforeBuild = safeStringify(resolveWorkspaceTransactionInputs(jotaiStore));
+    const nextPreview = await buildSelectedActionTx(authorityPathOverride);
 
     if (!nextPreview?.txHex) {
       return;
     }
+
+    if (safeStringify(resolveWorkspaceTransactionInputs(jotaiStore)) !== draftBeforeBuild) {
+      setBuildError(i18n("theTransactionDetailsAreStaleContinueAgainTo_34b074"));
+      setBuildErrorExpected(true);
+      return;
+    }
+
+    // A permanent exit needs a separate click after its built warnings are visible.
+    if ((selectedAction === "consolidate-utxo" && beneficiaryPreparationActive) || selectedAction === "exit-beneficiary" || selectedAction === "stop-beneficiary-stream" || selectedAction === "distribute-beneficiaries") return;
 
     await submitTransactionPreview(nextPreview, {
       allowExistingSubmitHash: true,
@@ -635,7 +566,6 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     buildMintTx,
     buildSttTx,
     buildLockFunds,
-    buildWalletSpend,
     buildWalletWithdraw,
     buildWalletPublish,
     buildSetIntendedStakeCredential,

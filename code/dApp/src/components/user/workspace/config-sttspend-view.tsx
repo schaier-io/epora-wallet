@@ -1,9 +1,10 @@
 "use client";
+import { beneficiaryPreparationActiveAtom } from "./atoms/forms/consolidate-form.atoms";
+import { BeneficiaryPreparationView } from "./beneficiary-preparation-view";
 import { useTranslations } from "next-intl";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 
@@ -11,22 +12,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 import { formatLovelaceAsAda } from "@/lib/user-flow/guided-helpers";
-import {
-  type AuthorityPath,
-  type ConsolidateAuthorityPath } from "@/lib/types/contracts";
 import { PreprodFaucetHint } from "@/components/user/preprod-faucet-hint";
+import { AddressCopyButton } from "@/components/ui/address-copy-button";
 import { FocusedPeopleEditor, FocusedStreamingPaymentRulesEditor, FocusedWalletSettingsEditor, InlineFieldError, SearchableAssetUnitDropdown, StateFormEditor } from "@/components/user/workspace/editors";
 import { formatAmountSummary, formatTimestampLabel, getFirstFieldError, shortenAddress } from "@/components/user/workspace/helpers";
 
 import { lockedContractUtxosErrorAtom, lockedContractUtxosLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
+import { suggestedSttAuthorityPathAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
 import { lockingContractAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import { useAtomValue } from "jotai";
 import { SttSpendEditorsView } from "@/components/user/workspace/config-sttspend-editors-view";
+import { BeneficiaryDistributionView } from "./beneficiary-distribution-view";
+import { BeneficiaryStreamStopView } from "./beneficiary-stream-stop-view";
 import { SttSpendPayoutView } from "@/components/user/workspace/config-sttspend-payout-view";
 import { useConfigSttSpendState } from "@/components/user/workspace/use-config-sttspend-state";
 import { type PayoutRejection } from "@/components/user/workspace/workspace-stt-editors";
 
 export function SttSpendConfigView() {
+  const preparationActive = useAtomValue(beneficiaryPreparationActiveAtom);
   const i18n = useTranslations("ComponentsUserWorkspaceConfigSttspendView");
   // Staging rejections belong to the control that caused them, not to the review rail.
   const [payoutRejection, setPayoutRejection] = useState<PayoutRejection | null>(null);
@@ -37,6 +40,7 @@ export function SttSpendConfigView() {
     payoutRejection?.field === "recipient" ? payoutRejection.message : null;
   const amountRejection = payoutRejection?.field === "amount" ? payoutRejection.message : null;
   const assetRejection = payoutRejection?.field === "asset" ? payoutRejection.message : null;
+  const suggestedAuthorityPath = useAtomValue(suggestedSttAuthorityPathAtom);
   const {
     availableLockedTransferAssets,
     availableLockedTransferAssetOptions,
@@ -49,7 +53,6 @@ export function SttSpendConfigView() {
     effectiveWalletAssetNameHex,
     resolvedSelectedTask,
     selectedAction,
-    selectedDetectedToken,
     selectedDetectedTokenStateForm,
     selectedIntent,
     useAllowancePreview,
@@ -58,8 +61,6 @@ export function SttSpendConfigView() {
     addSimpleTransferRecipient,
     flowAvailability,
     handleFocusedTaskSelect,
-    consolidateAuthorityPath,
-    setConsolidateAuthorityPath,
     setSttAuthorityPath,
     setSttExtraTransfers,
     setSttStateForm,
@@ -77,11 +78,32 @@ export function SttSpendConfigView() {
     transferRecipientMode,
     transferSelectedUnit
   } = useConfigSttSpendState();
+  // One rejection, two controls, and only one error node in the document at a time. Once the
+  // custom address field exists the message renders under it, so the dropdown pointed
+  // `aria-describedby` at an id that was not there. A dangling reference is dropped in
+  // silence, which left the dropdown announced as invalid with no reason given, while the
+  // reason sat on the field below. In custom mode the rejection is about the address typed
+  // there, not about the choice made here.
+  const recipientSelectRejection =
+    transferRecipientMode === "custom" ? null : recipientRejection;
+
+  // Keep validation and field access on the same path that the review action uses.
+  // The review rail now owns the choice, so there is no manual path override here.
+  useEffect(() => {
+    if (!activeSttAuthorityOptions.some((option) => option.value === suggestedAuthorityPath)) {
+      return;
+    }
+    setSttAuthorityPath(suggestedAuthorityPath);
+  }, [
+    activeSttAuthorityOptions,
+    setSttAuthorityPath,
+    suggestedAuthorityPath
+  ]);
 
       const isRecipientFirstGuidedAction =
         selectedAction === "use" ||
         selectedAction === "use-allowance" ||
-        selectedAction === "use-beneficiary";
+        (selectedAction === "use-beneficiary" || selectedAction === "exit-beneficiary");
       const isGuidedStreamingPaymentAction = selectedAction === "payout-streaming-payment";
       const usesFocusedPeopleEditor =
         selectedAction === "update-state" && selectedIntent === "manage-people";
@@ -91,55 +113,9 @@ export function SttSpendConfigView() {
 
       return (
         <div className="space-y-4">
-          <div className="rounded-lg border border-border/60 bg-background/40 p-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="secondary">{activeSttActionTab.label}</Badge>
-              {/* Only the warning state is news. "This wallet" was a badge whose whole value
-                  was a demonstrative pronoun, next to a header that already names the wallet. */}
-              {selectedDetectedToken ? null : (
-                <Badge variant="warning">{i18n("selectASmartWalletFirst")}</Badge>
-              )}
-              {activeSttAuthorityOptions.length > 1 ? (
-                <>
-                  <Label htmlFor="sttAuthorityPath" className="sr-only">
-                    {i18n("authorizationPath")}
-                  </Label>
-                  <Select
-                    id="sttAuthorityPath"
-                    // Kept at h-8: this sits in a row of Badges (py-0.5 text-xs, ~22px),
-                    // not among 40px controls. The primitive supplies the focus ring it
-                    // was missing.
-                    className="h-8 w-auto min-w-[10rem] px-2 text-xs"
-                    value={
-                      selectedAction === "consolidate-utxo"
-                        ? consolidateAuthorityPath
-                        : sttAuthorityPath
-                    }
-                    onChange={(event) => {
-                      const nextValue = event.target.value as AuthorityPath;
-                      if (selectedAction === "consolidate-utxo") {
-                        setConsolidateAuthorityPath(nextValue as ConsolidateAuthorityPath);
-                        return;
-                      }
-
-                      setSttAuthorityPath(nextValue);
-                    }}
-                  >
-                    {activeSttAuthorityOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </Select>
-                </>
-              ) : activeSttAuthorityOptions[0] ? (
-                <Badge variant="outline" className="font-normal">
-                  {activeSttAuthorityOptions[0].label}
-                </Badge>
-              ) : null}
-            </div>
-          </div>
-
+          {selectedAction === "consolidate-utxo" && preparationActive ? <BeneficiaryPreparationView /> : null}
+          {selectedAction === "distribute-beneficiaries" ? <BeneficiaryDistributionView /> : null}
+          {(selectedAction === "use-beneficiary" || selectedAction === "exit-beneficiary" || selectedAction === "stop-beneficiary-stream") ? <BeneficiaryStreamStopView /> : null}
           {activeSttActionTab.allowsStateEditing ? (
             <>
               {usesFocusedPeopleEditor ? (
@@ -149,8 +125,6 @@ export function SttSpendConfigView() {
                     setSttStateForm(nextState);
                     setSttZeroAdminConfirmed(false);
                   }}
-                  selectedTask={resolvedSelectedTask}
-                  onSelectTask={handleFocusedTaskSelect}
                   fieldErrors={activeFieldErrors}
                   zeroAdminConfirmed={sttZeroAdminConfirmed}
                   onZeroAdminConfirmedChange={setSttZeroAdminConfirmed}
@@ -241,7 +215,7 @@ export function SttSpendConfigView() {
                       "Not derived yet" said the app had not computed, rather than what to do. */}
                   <div className="grid gap-3 md:grid-cols-2">
                     <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                      {i18n("matchedAsSpender")}{useAllowancePreview.target.matchedUserId}
+                      {i18n("matchedAsSpender")}{useAllowancePreview.target.matchedUserId.toString()}
                     </div>
                     <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
                       {i18n("limitResets")}{" "}
@@ -252,19 +226,19 @@ export function SttSpendConfigView() {
                     </div>
                   </div>
                   <div className="grid gap-3 md:grid-cols-3">
-                    <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                    <div className="min-w-0 wrap-anywhere rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
                       {i18n("youCanSpendNow")}{" "}
                       {formatAmountSummary(
                         useAllowancePreview.target.effectiveRemainingAllowance
                       )}
                     </div>
-                    <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                    <div className="min-w-0 wrap-anywhere rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
                       {i18n("thisSendUses")}{" "}
                       {useAllowancePreview.computation
                         ? formatAmountSummary(useAllowancePreview.computation.spentAllowance)
                         : i18n("enterAnAmountFirst")}
                     </div>
-                    <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                    <div className="min-w-0 wrap-anywhere rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
                       {i18n("leftAfterThisSend")}{" "}
                       {useAllowancePreview.computation
                         ? formatAmountSummary(
@@ -299,8 +273,10 @@ export function SttSpendConfigView() {
                     setPayoutRejection(null);
                     setTransferRecipientMode(event.target.value);
                   }}
-                  aria-invalid={recipientRejection ? true : undefined}
-                  aria-describedby={recipientRejection ? "walletRecipientSelect-error" : undefined}
+                  aria-invalid={recipientSelectRejection ? true : undefined}
+                  aria-describedby={
+                    recipientSelectRejection ? "walletRecipientSelect-error" : undefined
+                  }
                 >
                   <option value="">{i18n("chooseARecipient")}</option>
                   {activeAddress ? <option value="my-address">{i18n("myAddress")}</option> : null}
@@ -311,12 +287,10 @@ export function SttSpendConfigView() {
                   ))}
                   <option value="custom">{i18n("customAddress")}</option>
                 </Select>
-                {transferRecipientMode !== "custom" ? (
-                  <InlineFieldError
-                    id="walletRecipientSelect-error"
-                    message={recipientRejection}
-                  />
-                ) : null}
+                <InlineFieldError
+                  id="walletRecipientSelect-error"
+                  message={recipientSelectRejection}
+                />
               </div>
               {transferRecipientMode === "custom" ? (
                 <div className="space-y-1">
@@ -340,7 +314,7 @@ export function SttSpendConfigView() {
                   />
                 </div>
               ) : transferRecipientMode ? (
-                <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-x-1.5 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
                   {/* "Will send to", not "Sending to". This box renders from the recipient
                       dropdown alone and never consults `sttExtraTransfers`, so it was
                       stating a send was under way while the review rail beside it read
@@ -352,6 +326,13 @@ export function SttSpendConfigView() {
                       ? shortenAddress(activeAddress)
                       : shortenAddress(transferRecipientMode.slice("recent:".length))}
                   </span>
+                  <AddressCopyButton
+                    value={
+                      transferRecipientMode === "my-address"
+                        ? activeAddress
+                        : transferRecipientMode.slice("recent:".length)
+                    }
+                  />
                 </div>
               ) : null}
               {availableLockedTransferAssets.length > 0 ? (
@@ -478,10 +459,13 @@ export function SttSpendConfigView() {
                       className="flex w-full flex-wrap items-start gap-x-3 gap-y-2 rounded-lg border border-border/60 bg-muted/20 p-3"
                     >
                       <div className="min-w-0 flex-1 space-y-1">
-                        <p className="text-sm font-medium text-foreground">
-                          {shortenAddress(transfer.address)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-sm font-medium text-foreground">
+                            {shortenAddress(transfer.address)}
+                          </p>
+                          <AddressCopyButton value={transfer.address} />
+                        </div>
+                        <p className="wrap-anywhere text-xs text-muted-foreground">
                           {formatAmountSummary(transfer.amount)}
                         </p>
                       </div>

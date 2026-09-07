@@ -101,7 +101,7 @@ export function GuidedAdminSectionView() {
                           <Badge
                             className="max-w-full truncate"
                             variant={
-                              guidedAdminGroupStatusText[group.id] === "Ready"
+                              guidedAdminGroupStatusText[group.id] === "Configured"
                                 ? "secondary"
                                 : guidedAdminGroupStatusText[group.id] === "Draft"
                                   ? "warning"

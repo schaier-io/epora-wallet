@@ -3,7 +3,7 @@
   "info": {
     "title": "Epora permission wallet API",
     "version": "1.0.0",
-    "description": "HTTP access to the Epora permission wallet: read its indexed on-chain state, and\nbuild transactions against its smart contracts.\n\n**The server never holds a key and never signs.** Every `/api/v1/tx/*` route takes an\naddress, returns an unsigned transaction as CBOR hex, and leaves signing and submission\nto the caller.\n\n**Network.** Preprod only. Addresses must be `addr_test1...`.\n\n**Versioning.** `v1` describes the current shape of the API. The compatibility promise\nstarts at the mainnet beta: until then a `v1` route may change without a version bump,\nand this document is the record of what it does today. After the beta, breaking changes\nget a new version prefix.\n\n**Errors.** Every failure returns the same body, `{ \"error\": \"...\" }`. A `400` carries a\nmessage naming what to fix. A `502` means the chain data provider is unreachable, and\nnever carries the provider's own text.\n\n**Rate limits.** Per client address: 5 requests per\n60s across all transaction builds together,\n600 per 60s for wallet lookups,\n300 per 60s for pool lookups. Builds also\nshare a deployment-wide cap of 25 per\n60s, because one build costs the chain provider tens of\nrequests. Every `429` carries `Retry-After`. Deployments may set their own caps.\n\nSee [the developer guide](https://github.com/schaier-io/epora-wallet/blob/main/docs/api/README.md).",
+    "description": "HTTP access to the Epora permission wallet: read its indexed on-chain state, and\nbuild transactions against its smart contracts.\n\n**The server never holds a key and never signs.** Every active transaction build route takes an\naddress, returns an unsigned transaction as CBOR hex, and leaves signing and submission\nto the caller.\n\n**Network.** Preprod only. Addresses must be `addr_test1...`.\n\n**Versioning.** `v1` describes the current shape of the API. The compatibility promise\nstarts at the mainnet beta: until then a `v1` route may change without a version bump,\nand this document is the record of what it does today. After the beta, breaking changes\nget a new version prefix.\n\n**Errors.** Every failure returns the same body, `{ \"error\": \"...\" }`. A `400` carries a\nmessage naming what to fix. A `502` means the chain data provider is unreachable, and\nnever carries the provider's own text.\n\n**Rate limits.** Per client address: 5 requests per\n60s across all transaction builds together,\n600 per 60s for wallet lookups,\n300 per 60s for pool lookups. Builds also\nshare a deployment-wide cap of 25 per\n60s, because one build costs the chain provider tens of\nrequests. Each declared wallet input also consumes one weighted unit. The default client bucket\nholds 40 units per 60s,\nand the deployment bucket holds 120 units per\n60s. Every `429` carries `Retry-After`.\nDeployments may set their own caps.\n\nSee [the developer guide](https://github.com/schaier-io/epora-wallet/blob/main/docs/api/README.md).",
     "license": {
       "name": "Apache-2.0",
       "identifier": "Apache-2.0"
@@ -236,6 +236,29 @@
         }
       }
     },
+    "/api/v1/tx/wallet-spend": {
+      "post": {
+        "operationId": "buildWalletSpendTx",
+        "summary": "Retired wallet spend route",
+        "description": "This route is retired because a valid wallet spend must also forward the State Thread Token. Use `/api/v1/tx/stt-spend` with action `use`.",
+        "deprecated": true,
+        "tags": [
+          "Transactions"
+        ],
+        "responses": {
+          "410": {
+            "description": "This endpoint is retired. Use `/api/v1/tx/stt-spend` with action `use`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/tx/mint": {
       "post": {
         "operationId": "buildMintTx",
@@ -285,7 +308,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. The default limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment, so read these two numbers as defaults and treat `Retry-After` as the authority.",
+            "description": "Rate limit exceeded. The default limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of 25 builds per 60 seconds also applies, and answers with a different message. Wallet inputs use weighted budgets: one unit per declared wallet input. The default client budget is 40 units per 60 seconds; one request may exceed it and exhaust that window. The deployment-wide default is 120 units per 60 seconds and rejects one request above that capacity. All four caps are configurable per deployment, so read these numbers as defaults and treat `Retry-After` as the authority.",
             "headers": {
               "Retry-After": {
                 "required": true,
@@ -377,7 +400,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. The default limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment, so read these two numbers as defaults and treat `Retry-After` as the authority.",
+            "description": "Rate limit exceeded. The default limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of 25 builds per 60 seconds also applies, and answers with a different message. Wallet inputs use weighted budgets: one unit per declared wallet input. The default client budget is 40 units per 60 seconds; one request may exceed it and exhaust that window. The deployment-wide default is 120 units per 60 seconds and rejects one request above that capacity. All four caps are configurable per deployment, so read these numbers as defaults and treat `Retry-After` as the authority.",
             "headers": {
               "Retry-After": {
                 "required": true,
@@ -424,7 +447,7 @@
       "post": {
         "operationId": "buildSttSpendTx",
         "summary": "Spend the state token",
-        "description": "Run one of the nine State transitions: `use`, `renew-proof-of-life`, `update-state`, `manage-streaming-payments`, `use-allowance`, `use-beneficiary`, `payout-streaming-payment`, `cancel-streaming-payment` and `remove-access-index`. `action` selects which.",
+        "description": "Run one of the twelve State transitions: `use`, `renew-proof-of-life`, `update-state`, `manage-streaming-payments`, `use-allowance`, `use-beneficiary`, `exit-beneficiary`, `stop-beneficiary-stream`, `distribute-beneficiaries`, `payout-streaming-payment`, `cancel-streaming-payment` and `remove-access-index`. `action` selects which.",
         "tags": [
           "Transactions"
         ],
@@ -469,99 +492,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. The default limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment, so read these two numbers as defaults and treat `Retry-After` as the authority.",
-            "headers": {
-              "Retry-After": {
-                "required": true,
-                "description": "Seconds to wait before retrying.",
-                "schema": {
-                  "type": "string",
-                  "description": "Seconds to wait before retrying.",
-                  "example": "42"
-                }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Unexpected server error.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "502": {
-            "description": "The chain data provider is unavailable.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/tx/wallet-spend": {
-      "post": {
-        "operationId": "buildWalletSpendTx",
-        "summary": "Spend from the wallet script",
-        "description": "Spend wallet funds directly, under a rule that permits it.",
-        "tags": [
-          "Transactions"
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/WalletSpendTxRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "An unsigned transaction, ready for the caller to sign and submit.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BuildResult"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "The request is invalid, or the action is not allowed by the wallet's current on-chain state. The message names what to fix.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "The request body is larger than 32 KB.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limit exceeded. The default limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment, so read these two numbers as defaults and treat `Retry-After` as the authority.",
+            "description": "Rate limit exceeded. The default limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of 25 builds per 60 seconds also applies, and answers with a different message. Wallet inputs use weighted budgets: one unit per declared wallet input. The default client budget is 40 units per 60 seconds; one request may exceed it and exhaust that window. The deployment-wide default is 120 units per 60 seconds and rejects one request above that capacity. All four caps are configurable per deployment, so read these numbers as defaults and treat `Retry-After` as the authority.",
             "headers": {
               "Retry-After": {
                 "required": true,
@@ -653,7 +584,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. The default limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment, so read these two numbers as defaults and treat `Retry-After` as the authority.",
+            "description": "Rate limit exceeded. The default limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of 25 builds per 60 seconds also applies, and answers with a different message. Wallet inputs use weighted budgets: one unit per declared wallet input. The default client budget is 40 units per 60 seconds; one request may exceed it and exhaust that window. The deployment-wide default is 120 units per 60 seconds and rejects one request above that capacity. All four caps are configurable per deployment, so read these numbers as defaults and treat `Retry-After` as the authority.",
             "headers": {
               "Retry-After": {
                 "required": true,
@@ -699,8 +630,8 @@
     "/api/v1/tx/consolidate": {
       "post": {
         "operationId": "buildConsolidateTx",
-        "summary": "Consolidate wallet UTxOs",
-        "description": "Merge wallet-script UTxOs, and migrate them to the wallet's current base address after a stake-credential change.",
+        "summary": "Repartition wallet UTxOs",
+        "description": "Merge or split wallet-script UTxOs without changing their aggregate Value. Set beneficiaryPreparation to derive a divisible pool and remainder from fresh inputs under the existing beneficiary Consolidate permission. Minimum ADA comes from the selected wallet value; fees use external funds.",
         "tags": [
           "Transactions"
         ],
@@ -745,7 +676,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. The default limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment, so read these two numbers as defaults and treat `Retry-After` as the authority.",
+            "description": "Rate limit exceeded. The default limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of 25 builds per 60 seconds also applies, and answers with a different message. Wallet inputs use weighted budgets: one unit per declared wallet input. The default client budget is 40 units per 60 seconds; one request may exceed it and exhaust that window. The deployment-wide default is 120 units per 60 seconds and rejects one request above that capacity. All four caps are configurable per deployment, so read these numbers as defaults and treat `Retry-After` as the authority.",
             "headers": {
               "Retry-After": {
                 "required": true,
@@ -837,7 +768,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. The default limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment, so read these two numbers as defaults and treat `Retry-After` as the authority.",
+            "description": "Rate limit exceeded. The default limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of 25 builds per 60 seconds also applies, and answers with a different message. Wallet inputs use weighted budgets: one unit per declared wallet input. The default client budget is 40 units per 60 seconds; one request may exceed it and exhaust that window. The deployment-wide default is 120 units per 60 seconds and rejects one request above that capacity. All four caps are configurable per deployment, so read these numbers as defaults and treat `Retry-After` as the authority.",
             "headers": {
               "Retry-After": {
                 "required": true,
@@ -929,7 +860,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. The default limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment, so read these two numbers as defaults and treat `Retry-After` as the authority.",
+            "description": "Rate limit exceeded. The default limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of 25 builds per 60 seconds also applies, and answers with a different message. Wallet inputs use weighted budgets: one unit per declared wallet input. The default client budget is 40 units per 60 seconds; one request may exceed it and exhaust that window. The deployment-wide default is 120 units per 60 seconds and rejects one request above that capacity. All four caps are configurable per deployment, so read these numbers as defaults and treat `Retry-After` as the authority.",
             "headers": {
               "Retry-After": {
                 "required": true,
@@ -1021,7 +952,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. The default limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment, so read these two numbers as defaults and treat `Retry-After` as the authority.",
+            "description": "Rate limit exceeded. The default limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of 25 builds per 60 seconds also applies, and answers with a different message. Wallet inputs use weighted budgets: one unit per declared wallet input. The default client budget is 40 units per 60 seconds; one request may exceed it and exhaust that window. The deployment-wide default is 120 units per 60 seconds and rejects one request above that capacity. All four caps are configurable per deployment, so read these numbers as defaults and treat `Retry-After` as the authority.",
             "headers": {
               "Retry-After": {
                 "required": true,
@@ -1113,7 +1044,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. The default limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of 25 builds per 60 seconds also applies, and answers with a different message. Both caps are configurable per deployment, so read these two numbers as defaults and treat `Retry-After` as the authority.",
+            "description": "Rate limit exceeded. The default limit is 5 requests per 60 seconds, per client address. The whole tier shares one bucket, so builds on different routes count together. A second, deployment-wide default cap of 25 builds per 60 seconds also applies, and answers with a different message. Wallet inputs use weighted budgets: one unit per declared wallet input. The default client budget is 40 units per 60 seconds; one request may exceed it and exhaust that window. The deployment-wide default is 120 units per 60 seconds and rejects one request above that capacity. All four caps are configurable per deployment, so read these numbers as defaults and treat `Retry-After` as the authority.",
             "headers": {
               "Retry-After": {
                 "required": true,
@@ -1194,15 +1125,19 @@
           "address": {
             "$ref": "#/components/schemas/CardanoAddress"
           },
+          "sttSpendReference": {
+            "description": "Minting requires a deployed shared STT script reference as txHash#index. API callers must supply it. Browser builds may use a saved reference. Use /api/v1/tx/deploy-reference to create one. No address discovery is performed.",
+            "type": "string"
+          },
           "stateDatum": {
-            "description": "The initial STT State datum. It must grant at least one admin access path, or the build is rejected.",
+            "description": "The initial STT State datum. It must satisfy the current mint configuration rules. Beneficiary records contain [id, beneficiary_wallets, unlock_after, weight, payout_address]. The payout address is a required structured Cardano Address. Four-field beneficiary records are unsupported.",
             "$ref": "#/components/schemas/ConstrData"
           },
           "mintLovelace": {
             "description": "Lovelace to lock with the new state token. Defaults to 5000000.",
             "example": "5000000",
             "type": "string",
-            "pattern": "^\\d+$"
+            "pattern": "^(?:[0-9]{1,19}|0[0-9]{19}|1[0-7][0-9]{18}|18[0-3][0-9]{17}|184[0-3][0-9]{16}|1844[0-5][0-9]{15}|18446[0-6][0-9]{14}|184467[0-3][0-9]{13}|1844674[0-3][0-9]{12}|184467440[0-6][0-9]{10}|1844674407[0-2][0-9]{9}|18446744073[0-6][0-9]{8}|1844674407370[0-8][0-9]{6}|18446744073709[0-4][0-9]{5}|184467440737095[0-4][0-9]{4}|18446744073709550[0-9]{3}|18446744073709551[0-5][0-9]{2}|1844674407370955160[0-9]{1}|1844674407370955161[0-4]|18446744073709551615)$"
           },
           "starterAssets": {
             "description": "Assets to lock alongside the state token. Overrides `mintLovelace` when it names lovelace.",
@@ -1266,22 +1201,29 @@
           "alternative",
           "fields"
         ],
-        "description": "A Plutus constructor value: an alternative index and its fields. Byte strings are hex, integers are JSON numbers, and nested constructors use this same shape.",
+        "description": "A Plutus constructor value. Byte strings are hex. Integers use exact wrappers, or safe JSON numbers for compatibility.",
         "example": {
           "alternative": 0,
           "fields": []
         }
       },
       "PlutusData": {
-        "description": "One Plutus data value: a hex byte string, an integer, a list, or a constructor.",
+        "description": "One Plutus data value: a hex byte string, an exact integer, a list, or a constructor.",
         "anyOf": [
           {
             "type": "string"
           },
           {
-            "type": "integer",
-            "minimum": -9007199254740991,
-            "maximum": 9007199254740991
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "$ref": "#/components/schemas/PlutusInteger"
+              }
+            ]
           },
           {
             "type": "array",
@@ -1294,6 +1236,23 @@
           }
         ]
       },
+      "PlutusInteger": {
+        "description": "An exact signed Plutus integer with uint64-bounded magnitude. Use this wrapper when the value exceeds JSON's exact integer range.",
+        "example": {
+          "int": "18446744073709551615"
+        },
+        "type": "object",
+        "properties": {
+          "int": {
+            "type": "string",
+            "pattern": "^-?(?:[0-9]{1,19}|0[0-9]{19}|1[0-7][0-9]{18}|18[0-3][0-9]{17}|184[0-3][0-9]{16}|1844[0-5][0-9]{15}|18446[0-6][0-9]{14}|184467[0-3][0-9]{13}|1844674[0-3][0-9]{12}|184467440[0-6][0-9]{10}|1844674407[0-2][0-9]{9}|18446744073[0-6][0-9]{8}|1844674407370[0-8][0-9]{6}|18446744073709[0-4][0-9]{5}|184467440737095[0-4][0-9]{4}|18446744073709550[0-9]{3}|18446744073709551[0-5][0-9]{2}|1844674407370955160[0-9]{1}|1844674407370955161[0-4]|18446744073709551615)$"
+          }
+        },
+        "required": [
+          "int"
+        ],
+        "additionalProperties": false
+      },
       "Asset": {
         "type": "object",
         "properties": {
@@ -1305,7 +1264,7 @@
           },
           "quantity": {
             "type": "string",
-            "pattern": "^\\d+$",
+            "pattern": "^(?:[0-9]{1,19}|0[0-9]{19}|1[0-7][0-9]{18}|18[0-3][0-9]{17}|184[0-3][0-9]{16}|1844[0-5][0-9]{15}|18446[0-6][0-9]{14}|184467[0-3][0-9]{13}|1844674[0-3][0-9]{12}|184467440[0-6][0-9]{10}|1844674407[0-2][0-9]{9}|18446744073[0-6][0-9]{8}|1844674407370[0-8][0-9]{6}|18446744073709[0-4][0-9]{5}|184467440737095[0-4][0-9]{4}|18446744073709550[0-9]{3}|18446744073709551[0-5][0-9]{2}|1844674407370955160[0-9]{1}|1844674407370955161[0-4]|18446744073709551615)$",
             "description": "An amount as a decimal string. Strings are used because Cardano quantities exceed the range JSON numbers represent exactly.",
             "example": "5000000"
           }
@@ -1374,6 +1333,7 @@
             "type": "string"
           },
           "walletSpendReference": {
+            "description": "Optional txHash#index UTxO holding this wallet's applied spend validator. Consolidation uses it instead of an inline wallet script.",
             "type": "string"
           },
           "walletWithdrawReference": {
@@ -1435,6 +1395,13 @@
                   "beneficiary",
                   "rule-driven"
                 ]
+              },
+              "requiredSignerKeyHashes": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CredentialHash"
+                },
+                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet. The ledger transaction-size limit decides how many fit."
               },
               "validityWindowReferenceTimeMs": {
                 "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
@@ -1522,6 +1489,13 @@
                   "rule-driven"
                 ]
               },
+              "requiredSignerKeyHashes": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CredentialHash"
+                },
+                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet. The ledger transaction-size limit decides how many fit."
+              },
               "validityWindowReferenceTimeMs": {
                 "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
                 "example": 1756641600000,
@@ -1608,6 +1582,13 @@
                   "rule-driven"
                 ]
               },
+              "requiredSignerKeyHashes": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CredentialHash"
+                },
+                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet. The ledger transaction-size limit decides how many fit."
+              },
               "validityWindowReferenceTimeMs": {
                 "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
                 "example": 1756641600000,
@@ -1649,7 +1630,7 @@
               "outputAssets",
               "action"
             ],
-            "description": "Rewrite the wallet's State: users, caps, beneficiaries, timings."
+            "description": "Rewrite the wallet's State: users, caps, beneficiaries, timings. Each beneficiary must include a fifth payout_address field containing a structured Cardano Address with a key or script payment credential. Four-field beneficiary records are unsupported."
           },
           {
             "type": "object",
@@ -1694,6 +1675,13 @@
                   "rule-driven"
                 ]
               },
+              "requiredSignerKeyHashes": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CredentialHash"
+                },
+                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet. The ledger transaction-size limit decides how many fit."
+              },
               "validityWindowReferenceTimeMs": {
                 "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
                 "example": 1756641600000,
@@ -1735,7 +1723,7 @@
               "outputAssets",
               "action"
             ],
-            "description": "Create, change or remove streaming payments."
+            "description": "Create or change streaming payment schedules. Settlement removes matured or fully settled schedules."
           },
           {
             "type": "object",
@@ -1779,6 +1767,13 @@
                   "beneficiary",
                   "rule-driven"
                 ]
+              },
+              "requiredSignerKeyHashes": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CredentialHash"
+                },
+                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet. The ledger transaction-size limit decides how many fit."
               },
               "validityWindowReferenceTimeMs": {
                 "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
@@ -1847,15 +1842,15 @@
                 "example": 0
               },
               "outputDatum": {
-                "description": "The State datum to forward. Some actions derive it from the consumed State instead and ignore this.",
+                "description": "Ignored for this action: the forwarded State is derived from the consumed one.",
                 "$ref": "#/components/schemas/ConstrData"
               },
               "outputAssets": {
+                "description": "Ignored for this action: the State's value is preserved as it stands.",
                 "type": "array",
                 "items": {
                   "$ref": "#/components/schemas/Asset"
-                },
-                "description": "Value to forward with the State, alongside the state token itself."
+                }
               },
               "authorityPath": {
                 "description": "Which access path authorises the action. Defaults to `admin`.",
@@ -1868,6 +1863,13 @@
                   "beneficiary",
                   "rule-driven"
                 ]
+              },
+              "requiredSignerKeyHashes": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CredentialHash"
+                },
+                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet. The ledger transaction-size limit decides how many fit."
               },
               "validityWindowReferenceTimeMs": {
                 "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
@@ -1910,12 +1912,300 @@
               "address",
               "config",
               "sttInputTxHash",
-              "outputDatum",
-              "outputAssets",
               "action",
               "beneficiarySignerKeyHash"
             ],
-            "description": "Claim a beneficiary share after the recovery deadline has passed."
+            "description": "Claim a beneficiary share after the recovery deadline has passed. The forwarded State is derived from the consumed one."
+          },
+          {
+            "type": "object",
+            "properties": {
+              "address": {
+                "$ref": "#/components/schemas/CardanoAddress"
+              },
+              "config": {
+                "$ref": "#/components/schemas/ContractConfig"
+              },
+              "sttInputTxHash": {
+                "description": "Transaction that produced the STT State UTxO to consume.",
+                "$ref": "#/components/schemas/TxHash"
+              },
+              "sttInputOutputIndex": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Index of an output within its transaction.",
+                "example": 0
+              },
+              "outputDatum": {
+                "description": "Ignored for this action: the forwarded State is derived from the consumed one.",
+                "$ref": "#/components/schemas/ConstrData"
+              },
+              "outputAssets": {
+                "description": "Ignored for this action: the State's value is preserved as it stands.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Asset"
+                }
+              },
+              "authorityPath": {
+                "description": "Which access path authorises the action. Defaults to `admin`.",
+                "example": "admin",
+                "type": "string",
+                "enum": [
+                  "admin",
+                  "multisig",
+                  "user",
+                  "beneficiary",
+                  "rule-driven"
+                ]
+              },
+              "requiredSignerKeyHashes": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CredentialHash"
+                },
+                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet. The ledger transaction-size limit decides how many fit."
+              },
+              "validityWindowReferenceTimeMs": {
+                "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
+                "example": 1756641600000,
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "walletInputs": {
+                "description": "Wallet-script UTxOs to spend alongside the State.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/WalletInputRef"
+                }
+              },
+              "walletOutputs": {
+                "description": "Continuing wallet outputs to produce.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/WalletScriptOutput"
+                }
+              },
+              "extraTransfers": {
+                "description": "Additional recipients paid by this transaction.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PayoutTransfer"
+                }
+              },
+              "action": {
+                "type": "string",
+                "const": "exit-beneficiary"
+              },
+              "beneficiarySignerKeyHash": {
+                "description": "Payment key hash of the beneficiary claiming their share. They must sign the result.",
+                "$ref": "#/components/schemas/CredentialHash"
+              }
+            },
+            "required": [
+              "address",
+              "config",
+              "sttInputTxHash",
+              "action",
+              "beneficiarySignerKeyHash"
+            ],
+            "description": "Permanently claim and give up beneficiary rights, including the final beneficiary. The final exit requires an empty stream list and the non-admin recovery cooldown. Omitted funds and later deposits are excluded from this claim."
+          },
+          {
+            "type": "object",
+            "properties": {
+              "address": {
+                "$ref": "#/components/schemas/CardanoAddress"
+              },
+              "config": {
+                "$ref": "#/components/schemas/ContractConfig"
+              },
+              "sttInputTxHash": {
+                "description": "Transaction that produced the STT State UTxO to consume.",
+                "$ref": "#/components/schemas/TxHash"
+              },
+              "sttInputOutputIndex": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Index of an output within its transaction.",
+                "example": 0
+              },
+              "outputDatum": {
+                "description": "Ignored for this action: the forwarded State is derived from the consumed one.",
+                "$ref": "#/components/schemas/ConstrData"
+              },
+              "outputAssets": {
+                "description": "Ignored for this action: the State's value is preserved as it stands.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Asset"
+                }
+              },
+              "authorityPath": {
+                "description": "Which access path authorises the action. Defaults to `admin`.",
+                "example": "admin",
+                "type": "string",
+                "enum": [
+                  "admin",
+                  "multisig",
+                  "user",
+                  "beneficiary",
+                  "rule-driven"
+                ]
+              },
+              "requiredSignerKeyHashes": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CredentialHash"
+                },
+                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet. The ledger transaction-size limit decides how many fit."
+              },
+              "validityWindowReferenceTimeMs": {
+                "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
+                "example": 1756641600000,
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "walletInputs": {
+                "maxItems": 0,
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/WalletInputRef"
+                }
+              },
+              "walletOutputs": {
+                "maxItems": 0,
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/WalletScriptOutput"
+                }
+              },
+              "extraTransfers": {
+                "maxItems": 0,
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PayoutTransfer"
+                }
+              },
+              "action": {
+                "type": "string",
+                "const": "stop-beneficiary-stream"
+              },
+              "beneficiarySignerKeyHash": {
+                "description": "Connected beneficiary payment key hash. It must match the building wallet and be unlocked at the transaction lower bound.",
+                "$ref": "#/components/schemas/CredentialHash"
+              },
+              "beneficiaryStreamStopId": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "$ref": "#/components/schemas/OnChainUint64"
+                  }
+                ],
+                "description": "Id of the streaming payment to shorten."
+              }
+            },
+            "required": [
+              "address",
+              "config",
+              "sttInputTxHash",
+              "action",
+              "beneficiarySignerKeyHash",
+              "beneficiaryStreamStopId"
+            ],
+            "description": "Stop one stream as an unlocked beneficiary. The end becomes max(start, transaction upper bound), strictly before its old end. Preserves paid amounts and retained debt. No wallet inputs, wallet outputs or transfers are allowed. Shares the 30-minute non-admin cadence with no owner bypass."
+          },
+          {
+            "type": "object",
+            "properties": {
+              "address": {
+                "$ref": "#/components/schemas/CardanoAddress"
+              },
+              "config": {
+                "$ref": "#/components/schemas/ContractConfig"
+              },
+              "sttInputTxHash": {
+                "description": "Transaction that produced the STT State UTxO to consume.",
+                "$ref": "#/components/schemas/TxHash"
+              },
+              "sttInputOutputIndex": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Index of an output within its transaction.",
+                "example": 0
+              },
+              "outputDatum": {
+                "not": {}
+              },
+              "outputAssets": {
+                "not": {}
+              },
+              "authorityPath": {
+                "not": {}
+              },
+              "requiredSignerKeyHashes": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CredentialHash"
+                },
+                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet. The ledger transaction-size limit decides how many fit."
+              },
+              "validityWindowReferenceTimeMs": {
+                "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
+                "example": 1756641600000,
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "walletInputs": {
+                "minItems": 1,
+                "maxItems": 1,
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/WalletInputRef"
+                }
+              },
+              "walletOutputs": {
+                "maxItems": 0,
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/WalletScriptOutput"
+                }
+              },
+              "extraTransfers": {
+                "maxItems": 0,
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PayoutTransfer"
+                }
+              },
+              "action": {
+                "type": "string",
+                "const": "distribute-beneficiaries"
+              },
+              "beneficiarySignerKeyHash": {
+                "description": "Connected initiating beneficiary payment key hash. Every beneficiary must be unlocked.",
+                "$ref": "#/components/schemas/CredentialHash"
+              }
+            },
+            "required": [
+              "address",
+              "config",
+              "sttInputTxHash",
+              "walletInputs",
+              "action",
+              "beneficiarySignerKeyHash"
+            ],
+            "description": "Distribute one wallet input exactly to every configured beneficiary address, with an OutputId bound to the consumed State. Every asset including ADA must divide without rounding. Native shares are exact; minimum-ADA topups and fees use the connected wallet. Streams must be empty. Beneficiary rights remain registered. Sole-beneficiary distribution obeys the shared cadence; multiple beneficiaries preserve State unchanged."
           },
           {
             "type": "object",
@@ -1960,6 +2250,13 @@
                   "rule-driven"
                 ]
               },
+              "requiredSignerKeyHashes": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CredentialHash"
+                },
+                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet. The ledger transaction-size limit decides how many fit."
+              },
               "validityWindowReferenceTimeMs": {
                 "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
                 "example": 1756641600000,
@@ -1993,7 +2290,7 @@
                 "const": "payout-streaming-payment"
               },
               "crankSignerKeyHash": {
-                "description": "Payment key hash of whoever turns the crank, and the transaction's sole required signer. The crank is not permissionless, so this is required: it decides whether the signer clears the authority gate, and whether an admin must preserve the non-admin payout stamp rather than set it.",
+                "description": "Payment key hash of the connected wallet that starts the crank. This primary signer is required. Additional required signer hashes may complete a multisig quorum. The full signer set decides whether authority passes and whether an admin preserves the non-admin payout stamp rather than sets it.",
                 "$ref": "#/components/schemas/CredentialHash"
               }
             },
@@ -2051,6 +2348,13 @@
                   "rule-driven"
                 ]
               },
+              "requiredSignerKeyHashes": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CredentialHash"
+                },
+                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet. The ledger transaction-size limit decides how many fit."
+              },
               "validityWindowReferenceTimeMs": {
                 "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
                 "example": 1756641600000,
@@ -2084,9 +2388,16 @@
                 "const": "cancel-streaming-payment"
               },
               "streamingPaymentCancelId": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 9007199254740991,
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "$ref": "#/components/schemas/OnChainUint64"
+                  }
+                ],
                 "description": "Id of the streaming payment the payee is stopping.",
                 "example": 0
               }
@@ -2098,7 +2409,7 @@
               "action",
               "streamingPaymentCancelId"
             ],
-            "description": "Stop a streaming payment as its payee. The forwarded State is derived from the consumed one, so `outputDatum` is ignored."
+            "description": "Stop a streaming payment as its payee. After final recovery opens, the new end must equal the transaction's upper validity bound. The forwarded State is derived from the consumed one, so `outputDatum` is ignored."
           },
           {
             "type": "object",
@@ -2142,6 +2453,13 @@
                   "beneficiary",
                   "rule-driven"
                 ]
+              },
+              "requiredSignerKeyHashes": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CredentialHash"
+                },
+                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet. The ledger transaction-size limit decides how many fit."
               },
               "validityWindowReferenceTimeMs": {
                 "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
@@ -2189,8 +2507,14 @@
             "description": "Remove one user or beneficiary. The entry is spliced out and value is preserved, so `outputDatum` and `outputAssets` are ignored."
           }
         ],
-        "description": "Spend the wallet's state-thread token, forwarding its State. `action` selects which of the nine transitions to build.",
+        "description": "Spend the wallet's state-thread token, forwarding its State. `action` selects which of the twelve transitions to build.",
         "type": "object"
+      },
+      "CredentialHash": {
+        "type": "string",
+        "pattern": "^[0-9a-fA-F]{56}$",
+        "description": "A blake2b-224 credential hash: 28 bytes as hex.",
+        "example": "abababababababababababababababababababababababababababab"
       },
       "WalletInputRef": {
         "type": "object",
@@ -2257,11 +2581,22 @@
         ],
         "description": "One recipient and the value they receive."
       },
-      "CredentialHash": {
-        "type": "string",
-        "pattern": "^[0-9a-fA-F]{56}$",
-        "description": "A blake2b-224 credential hash: 28 bytes as hex.",
-        "example": "abababababababababababababababababababababababababababab"
+      "OnChainUint64": {
+        "description": "An exact non-negative uint64. Use this wrapper when the value exceeds JSON's exact integer range.",
+        "example": {
+          "int": "18446744073709551615"
+        },
+        "type": "object",
+        "properties": {
+          "int": {
+            "type": "string",
+            "pattern": "^(?:[0-9]{1,19}|0[0-9]{19}|1[0-7][0-9]{18}|18[0-3][0-9]{17}|184[0-3][0-9]{16}|1844[0-5][0-9]{15}|18446[0-6][0-9]{14}|184467[0-3][0-9]{13}|1844674[0-3][0-9]{12}|184467440[0-6][0-9]{10}|1844674407[0-2][0-9]{9}|18446744073[0-6][0-9]{8}|1844674407370[0-8][0-9]{6}|18446744073709[0-4][0-9]{5}|184467440737095[0-4][0-9]{4}|18446744073709550[0-9]{3}|18446744073709551[0-5][0-9]{2}|1844674407370955160[0-9]{1}|1844674407370955161[0-4]|18446744073709551615)$"
+          }
+        },
+        "required": [
+          "int"
+        ],
+        "additionalProperties": false
       },
       "RemoveAccessTarget": {
         "type": "object",
@@ -2287,47 +2622,6 @@
         ],
         "description": "The access entry to remove."
       },
-      "WalletSpendTxRequest": {
-        "type": "object",
-        "properties": {
-          "address": {
-            "$ref": "#/components/schemas/CardanoAddress"
-          },
-          "config": {
-            "$ref": "#/components/schemas/ContractConfig"
-          },
-          "walletInputTxHash": {
-            "description": "Transaction that produced the wallet-script UTxO to spend.",
-            "$ref": "#/components/schemas/TxHash"
-          },
-          "walletInputOutputIndex": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 9007199254740991,
-            "description": "Index of an output within its transaction.",
-            "example": 0
-          },
-          "redeemer": {
-            "description": "The wallet-spend redeemer authorising this spend.",
-            "$ref": "#/components/schemas/ConstrData"
-          },
-          "outputs": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PayoutTransfer"
-            },
-            "description": "Who receives what."
-          }
-        },
-        "required": [
-          "address",
-          "config",
-          "walletInputTxHash",
-          "redeemer",
-          "outputs"
-        ],
-        "description": "Spend from the wallet script directly, under a rule that permits it."
-      },
       "WalletWithdrawTxRequest": {
         "type": "object",
         "properties": {
@@ -2345,7 +2639,7 @@
           },
           "amountLovelace": {
             "type": "string",
-            "pattern": "^\\d+$",
+            "pattern": "^(?:[0-9]{1,19}|0[0-9]{19}|1[0-7][0-9]{18}|18[0-3][0-9]{17}|184[0-3][0-9]{16}|1844[0-5][0-9]{15}|18446[0-6][0-9]{14}|184467[0-3][0-9]{13}|1844674[0-3][0-9]{12}|184467440[0-6][0-9]{10}|1844674407[0-2][0-9]{9}|18446744073[0-6][0-9]{8}|1844674407370[0-8][0-9]{6}|18446744073709[0-4][0-9]{5}|184467440737095[0-4][0-9]{4}|18446744073709550[0-9]{3}|18446744073709551[0-5][0-9]{2}|1844674407370955160[0-9]{1}|1844674407370955161[0-4]|18446744073709551615)$",
             "description": "Rewards to withdraw, in lovelace. Must equal the full available balance.",
             "example": "5000000"
           },
@@ -2371,6 +2665,13 @@
             },
             "description": "Value to forward with the State, alongside the state token itself."
           },
+          "requiredSignerKeyHashes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CredentialHash"
+            },
+            "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet. The ledger transaction-size limit decides how many fit."
+          },
           "authorityPath": {
             "description": "Which operator path authorises the action. Defaults to `admin`.",
             "example": "admin",
@@ -2393,69 +2694,162 @@
         "description": "Withdraw the wallet's staking rewards."
       },
       "ConsolidateTxRequest": {
-        "type": "object",
-        "properties": {
-          "address": {
-            "$ref": "#/components/schemas/CardanoAddress"
-          },
-          "config": {
-            "$ref": "#/components/schemas/ContractConfig"
-          },
-          "sttInputTxHash": {
-            "$ref": "#/components/schemas/TxHash"
-          },
-          "sttInputOutputIndex": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 9007199254740991,
-            "description": "Index of an output within its transaction.",
-            "example": 0
-          },
-          "outputDatum": {
-            "description": "The State datum to forward.",
-            "$ref": "#/components/schemas/ConstrData"
-          },
-          "outputAssets": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Asset"
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "address": {
+                "$ref": "#/components/schemas/CardanoAddress"
+              },
+              "config": {
+                "$ref": "#/components/schemas/ContractConfig"
+              },
+              "beneficiaryPreparation": {
+                "type": "boolean",
+                "const": true
+              },
+              "sttInputTxHash": {
+                "$ref": "#/components/schemas/TxHash"
+              },
+              "sttInputOutputIndex": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Index of an output within its transaction.",
+                "example": 0
+              },
+              "walletInputs": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/WalletInputRef"
+                }
+              },
+              "beneficiarySignerKeyHash": {
+                "$ref": "#/components/schemas/CredentialHash"
+              },
+              "poolAssets": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Asset"
+                },
+                "description": "Requested clean pool quantities. Every quantity, including lovelace, must be a multiple of total beneficiary weight divided by their greatest common divisor. An empty list only merges the selected inputs. The builder derives the immutable remainder and funds all wallet output minimum ADA from the selected inputs. Fees use external funds."
+              },
+              "expectedStateDatum": {
+                "description": "Optional reviewed State. A different actual consumed State rejects this preparation.",
+                "$ref": "#/components/schemas/ConstrData"
+              },
+              "requiredSignerKeyHashes": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CredentialHash"
+                },
+                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet. The ledger transaction-size limit decides how many fit."
+              },
+              "outputDatum": {
+                "not": {}
+              },
+              "outputAssets": {
+                "not": {}
+              },
+              "walletOutputs": {
+                "not": {}
+              },
+              "extraTransfers": {
+                "not": {}
+              },
+              "authorityPath": {
+                "not": {}
+              }
             },
-            "description": "Value to forward with the State."
+            "required": [
+              "address",
+              "config",
+              "beneficiaryPreparation",
+              "sttInputTxHash",
+              "walletInputs",
+              "beneficiarySignerKeyHash",
+              "poolAssets"
+            ],
+            "additionalProperties": false
           },
-          "authorityPath": {
-            "description": "Which path authorises the consolidation. Defaults to `admin`.",
-            "type": "string",
-            "enum": [
-              "admin",
-              "multisig",
-              "beneficiary"
+          {
+            "type": "object",
+            "properties": {
+              "address": {
+                "$ref": "#/components/schemas/CardanoAddress"
+              },
+              "config": {
+                "$ref": "#/components/schemas/ContractConfig"
+              },
+              "beneficiaryPreparation": {
+                "not": {}
+              },
+              "sttInputTxHash": {
+                "$ref": "#/components/schemas/TxHash"
+              },
+              "sttInputOutputIndex": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Index of an output within its transaction.",
+                "example": 0
+              },
+              "outputDatum": {
+                "description": "The State datum to forward.",
+                "$ref": "#/components/schemas/ConstrData"
+              },
+              "outputAssets": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Asset"
+                },
+                "description": "Value to forward with the State."
+              },
+              "authorityPath": {
+                "description": "Which path authorises the consolidation. Defaults to `admin`.",
+                "type": "string",
+                "enum": [
+                  "admin",
+                  "multisig",
+                  "beneficiary"
+                ]
+              },
+              "requiredSignerKeyHashes": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CredentialHash"
+                },
+                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet. The ledger transaction-size limit decides how many fit."
+              },
+              "walletInputs": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/WalletInputRef"
+                },
+                "description": "The wallet-script UTxOs to repartition or migrate. At least one is required."
+              },
+              "walletOutputs": {
+                "description": "The continuing wallet outputs to produce. Their aggregate Value must equal the selected wallet inputs. Defaults to one merged output.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/WalletScriptOutput"
+                }
+              }
+            },
+            "required": [
+              "address",
+              "config",
+              "sttInputTxHash",
+              "outputDatum",
+              "outputAssets",
+              "walletInputs"
             ]
-          },
-          "walletInputs": {
-            "minItems": 1,
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/WalletInputRef"
-            },
-            "description": "The wallet-script UTxOs to merge. At least one is required."
-          },
-          "walletOutputs": {
-            "description": "The continuing wallet outputs to produce. Defaults to a single merged output.",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/WalletScriptOutput"
-            }
           }
-        },
-        "required": [
-          "address",
-          "config",
-          "sttInputTxHash",
-          "outputDatum",
-          "outputAssets",
-          "walletInputs"
         ],
-        "description": "Merge wallet-script UTxOs, and migrate them to the wallet's current base address after a stake-credential change."
+        "description": "Repartition wallet UTxOs without changing their aggregate Value. The beneficiaryPreparation variant derives a clean pool and remainder from current State, selected inputs and live minimum-ADA parameters under the existing beneficiary Consolidate permission.",
+        "type": "object"
       },
       "SetStakeCredentialTxRequest": {
         "type": "object",
@@ -2487,6 +2881,13 @@
               "$ref": "#/components/schemas/Asset"
             },
             "description": "Value to forward with the State, alongside the state token itself."
+          },
+          "requiredSignerKeyHashes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CredentialHash"
+            },
+            "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet. The ledger transaction-size limit decides how many fit."
           },
           "authorityPath": {
             "description": "Which operator path authorises the action. Defaults to `admin`.",
@@ -2616,6 +3017,13 @@
             },
             "description": "Value to forward with the State, alongside the state token itself."
           },
+          "requiredSignerKeyHashes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CredentialHash"
+            },
+            "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet. The ledger transaction-size limit decides how many fit."
+          },
           "authorityPath": {
             "description": "Which operator path authorises the action. Defaults to `admin`.",
             "example": "admin",
@@ -2680,6 +3088,13 @@
             },
             "description": "Value to forward with the State, alongside the state token itself."
           },
+          "requiredSignerKeyHashes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CredentialHash"
+            },
+            "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet. The ledger transaction-size limit decides how many fit."
+          },
           "authorityPath": {
             "description": "Which operator path authorises the action. Defaults to `admin`.",
             "example": "admin",
@@ -2706,10 +3121,14 @@
           "address": {
             "$ref": "#/components/schemas/CardanoAddress"
           },
+          "sttSpendReference": {
+            "description": "Known deployed reference to check for a duplicate. Omit when no reference is known.",
+            "type": "string"
+          },
           "lockedLovelace": {
             "description": "Lovelace to lock with the reference script. Defaults to 5000000.",
             "type": "string",
-            "pattern": "^\\d+$",
+            "pattern": "^(?:[0-9]{1,19}|0[0-9]{19}|1[0-7][0-9]{18}|18[0-3][0-9]{17}|184[0-3][0-9]{16}|1844[0-5][0-9]{15}|18446[0-6][0-9]{14}|184467[0-3][0-9]{13}|1844674[0-3][0-9]{12}|184467440[0-6][0-9]{10}|1844674407[0-2][0-9]{9}|18446744073[0-6][0-9]{8}|1844674407370[0-8][0-9]{6}|18446744073709[0-4][0-9]{5}|184467440737095[0-4][0-9]{4}|18446744073709550[0-9]{3}|18446744073709551[0-5][0-9]{2}|1844674407370955160[0-9]{1}|1844674407370955161[0-4]|18446744073709551615)$",
             "example": "5000000"
           },
           "useExactLovelace": {
@@ -2757,7 +3176,7 @@
           "ts": {
             "type": "string",
             "format": "date-time",
-            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
             "description": "ISO-8601 timestamp of the probe.",
             "example": "2026-08-31T09:15:00.000Z"
           }
@@ -2780,114 +3199,70 @@
                 "type": "string"
               },
               "ticker": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
+                "type": [
+                  "string",
+                  "null"
                 ]
               },
               "name": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
+                "type": [
+                  "string",
+                  "null"
                 ]
               },
               "homepage": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
+                "type": [
+                  "string",
+                  "null"
                 ]
               },
               "description": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
+                "type": [
+                  "string",
+                  "null"
                 ]
               },
               "saturation": {
-                "anyOf": [
-                  {
-                    "type": "number"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "description": "Live saturation as a fraction, where 1 is 100 percent."
+                "description": "Live saturation as a fraction, where 1 is 100 percent.",
+                "type": [
+                  "number",
+                  "null"
+                ]
               },
               "liveStakeLovelace": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
+                "type": [
+                  "string",
+                  "null"
                 ]
               },
               "activeStakeLovelace": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
+                "type": [
+                  "string",
+                  "null"
                 ]
               },
               "declaredPledgeLovelace": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
+                "type": [
+                  "string",
+                  "null"
                 ]
               },
               "livePledgeLovelace": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
+                "type": [
+                  "string",
+                  "null"
                 ]
               },
               "marginPct": {
-                "anyOf": [
-                  {
-                    "type": "number"
-                  },
-                  {
-                    "type": "null"
-                  }
+                "type": [
+                  "number",
+                  "null"
                 ]
               },
               "fixedCostLovelace": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
+                "type": [
+                  "string",
+                  "null"
                 ]
               },
               "blocksMinted": {
@@ -2950,35 +3325,23 @@
         "type": "object",
         "properties": {
           "normalizedPaymentKeyHash": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
+            "type": [
+              "string",
+              "null"
             ]
           },
           "sourceAddress": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
+            "type": [
+              "string",
+              "null"
             ]
           },
           "nextCursor": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Pass back as `cursor` for the next page. `null` on the last page."
+            "description": "Pass back as `cursor` for the next page. `null` on the last page.",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "wallets": {
             "type": "array",
@@ -2996,33 +3359,21 @@
                 "type": "boolean"
               },
               "recentHeadLastSyncedAt": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
+                "type": [
+                  "string",
+                  "null"
                 ]
               },
               "walletReconcileLastSyncedAt": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
+                "type": [
+                  "string",
+                  "null"
                 ]
               },
               "historyBackfillCursor": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
+                "type": [
+                  "string",
+                  "null"
                 ]
               }
             },
@@ -3079,13 +3430,9 @@
             ]
           },
           "currentTxHash": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
+            "type": [
+              "string",
+              "null"
             ]
           },
           "currentOutputIndex": {

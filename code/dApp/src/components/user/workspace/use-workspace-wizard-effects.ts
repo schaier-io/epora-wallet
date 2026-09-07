@@ -103,11 +103,6 @@ export function useWorkspaceWizardEffects(ctx: WorkspaceWizardEffectsCtx): void 
       wizardSelectedAction &&
       !selectableWizardActionKinds.has(wizardSelectedAction)
     ) {
-      // `clear-selected-action` already lands `flowStep: "overview"`, which is
-      // what `setWizardStep("action")` mapped to. Both dispatches reduce from the
-      // same captured routeState, so the second one rebuilt the state around the
-      // action the first had just removed and wrote it back into the URL. The
-      // clamp then needed a second render pass to stick.
       setWizardSelectedAction(null);
       clearPreviewResult();
       clearBuildMessages();

@@ -6,13 +6,16 @@ import {
   SHORTCUTS
 } from "@/components/layout/shortcuts-catalog";
 import { parseWorkspaceRouteState } from "@/components/user/workspace-controller";
-import { GUIDED_ADMIN_GROUPS } from "@/components/user/workspace/guided-admin-catalog";
+import { GUIDED_ADMIN_GROUPS, GUIDED_ADMIN_TASK_MAP } from "@/components/user/workspace/guided-admin-catalog";
 import { USER_ACTION_DEFINITION_MAP } from "@/lib/user-flow/action-definitions";
 import {
   isImplicitLockedInputSurfaceLabel,
   type UserWorkspaceIntent
 } from "@/components/user/flow-types";
 import { type GuidedAdminGroupId } from "@/components/user/workspace/types";
+import messages from "@/i18n/messages/en";
+
+const shortcutLabels = messages.ComponentsLayoutShortcutsHelp;
 
 /**
  * The shortcuts sheet is a map of the app. A map that renames the places it points at is
@@ -34,7 +37,7 @@ import { type GuidedAdminGroupId } from "@/components/user/workspace/types";
 // The intent ids and the admin group ids agree on two of three names. `streamingPayments`
 // is the odd one out, so the link is spelled rather than inferred from string equality.
 const INTENT_GROUP: Partial<Record<UserWorkspaceIntent, GuidedAdminGroupId>> = {
-  "manage-people": "manage-people",
+  "manage-people": "wallet-settings",
   "wallet-settings": "wallet-settings",
   "manage-streaming-payments": "streamingPayments"
 };
@@ -58,6 +61,13 @@ function namesFor(target: string): string[] {
   if (groupId) {
     const group = GUIDED_ADMIN_GROUPS.find((candidate) => candidate.id === groupId);
     if (group) names.push(group.label);
+  }
+
+  // A task lands on a named tab of its surface; the tab's own label is a name the
+  // destination carries ("People" inside Wallet settings).
+  if (state.selectedTask) {
+    const task = GUIDED_ADMIN_TASK_MAP[state.selectedTask];
+    if (task) names.push(task.label, task.shortLabel);
   }
 
   return names;
@@ -84,14 +94,14 @@ for (const shortcut of NAV_SHORTCUTS) {
       const state = parseWorkspaceRouteState(new URLSearchParams(target));
       assert.equal(state.selectedAction, null);
       assert.equal(state.flowStep, "overview");
-      assert.equal(shortcut.label, "Wallet home");
+      assert.equal(shortcutLabels[shortcut.labelKey], "Wallet home");
       return;
     }
 
     const names = namesFor(target);
     assert.ok(
-      names.includes(shortcut.label),
-      `"${shortcut.label}" is a name nothing at ${target} uses. It answers to: ${names.join(", ")}`
+      names.includes(shortcutLabels[shortcut.labelKey]),
+      `"${shortcutLabels[shortcut.labelKey]}" is a name nothing at ${target} uses. It answers to: ${names.join(", ")}`
     );
   });
 }

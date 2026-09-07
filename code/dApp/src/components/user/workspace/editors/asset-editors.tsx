@@ -2,16 +2,16 @@
 import { useTranslations } from "next-intl";
 
 
-import { useMemo } from "react";
-import { atom, useAtom } from "jotai";
+import { useId, useMemo } from "react";
+import { useAtom, useAtomValue } from "jotai";
 
 import { deserializeAddress } from "@meshsdk/core";
 
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AdaAmountInput } from "./ada-amount-input";
 import { SearchableAssetUnitDropdown } from "./asset-unit-dropdown";
 import { buildAssetSelectionOptions, createDefaultWalletInputRef } from "@/components/user/workspace/helpers";
 import { type AssetSelectionOption } from "@/components/user/workspace/types";
@@ -21,8 +21,11 @@ import {
   looksLikeCardanoAddress
 } from "@/lib/contracts/payout-address";
 import { type StateAssetAmountForm, createDefaultStateAssetAmountForm } from "@/lib/contracts/state-form";
+import { MAX_ALLOWANCE_ENTRIES } from "@/lib/contracts/state-validation";
 import { type Asset, type WalletInputRef } from "@/lib/types/contracts";
 import { POLICY_ID_LENGTH } from "@/lib/cardano-assets";
+import { resolvedWalletAddressesAtom } from "@/providers/wallet-address-book";
+import { activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
 
 /**
  * The wallet ids this app can name with an address on its own: the connected wallet's.
@@ -39,11 +42,6 @@ export function buildKnownAddresses(
     : undefined;
 }
 
-/** Resolved id→address pairs, module-global so they outlive the editor instance: a
- * reopened step or accordion must still show the address a user pasted, not the hash
- * it became. */
-const resolvedWalletAddressesAtom = atom<Record<string, string>>({});
-
 const LOVELACE_UNIT = "lovelace";
 // Pseudo-unit marking "type the policy id and asset name yourself". Never valid
 // hex, so it can only ever be selected from the dropdown, not read from a form.
@@ -55,6 +53,7 @@ export function StateAssetAmountListEditor({
   value,
   onChange,
   addLabel,
+  canAdd = true,
   availableAssets = []
 }: {
   label: string;
@@ -62,10 +61,22 @@ export function StateAssetAmountListEditor({
   value: StateAssetAmountForm[];
   onChange: (value: StateAssetAmountForm[]) => void;
   addLabel?: string;
+  canAdd?: boolean;
   /** Assets the wallet actually holds; when present, rows pick from a searchable list instead of typing hex. */
   availableAssets?: Asset[];
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsAssetEditors");
+  // Every spender's editor renders "Daily limit" and "Left to spend", so ids
+  // keyed on the label collided across spenders and labels pointed at the
+  // first spender's boxes.
+  const uid = useId();
+  const addDisabled = !canAdd || value.length >= MAX_ALLOWANCE_ENTRIES;
+  function addItem() {
+    if (!addDisabled) {
+      onChange([...value, createDefaultStateAssetAmountForm()]);
+    }
+  }
+
   function updateItem(index: number, patch: Partial<StateAssetAmountForm>) {
     onChange(
       value.map((item, itemIndex) =>
@@ -127,7 +138,8 @@ export function StateAssetAmountListEditor({
         <Button
           type="button"
           variant="secondary"
-          onClick={() => onChange([...value, createDefaultStateAssetAmountForm()])}
+          onClick={addItem}
+          disabled={addDisabled}
         >
           {addLabel ?? i18n("addAToken")}
         </Button>
@@ -151,22 +163,22 @@ export function StateAssetAmountListEditor({
             );
             return (
               <div
-                key={`${label}-${index}`}
+                key={`${uid}-${index}`}
                 className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3"
               >
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="space-y-1">
-                    <Label htmlFor={`${label}-unit-${index}`}>{i18n("asset")}</Label>
+                    <Label htmlFor={`${uid}-unit-${index}`}>{i18n("asset")}</Label>
                     {hasWalletOptions ? (
                       <SearchableAssetUnitDropdown
-                        id={`${label}-unit-${index}`}
+                        id={`${uid}-unit-${index}`}
                         value={isKnownUnit ? unit : CUSTOM_ASSET_UNIT}
                         options={[...rowOptions, customOption]}
                         onChange={(nextUnit) => handleUnitChange(index, asset, nextUnit)}
                       />
                     ) : (
                       <Input
-                        id={`${label}-unit-${index}`}
+                        id={`${uid}-unit-${index}`}
                         value={unit === LOVELACE_UNIT ? "ADA" : unit}
                         onChange={(event) => {
                           const next = event.target.value;
@@ -180,18 +192,15 @@ export function StateAssetAmountListEditor({
                     )}
                   </div>
                   <div className="space-y-1">
-                    {/* The box took raw lovelace while the picker beside it read
-                        "10 ADA available" and the review rail rendered the same field
-                        in ADA, so "10" meant a limit of 0.00001 ADA. It is an ADA box
-                        now, named as one. */}
-                    <Label htmlFor={`${label}-amount-${index}`}>
+                    <Label htmlFor={`${uid}-amount-${index}`}>
                       {unit === LOVELACE_UNIT ? i18n("amountAda") : i18n("amount")}
                     </Label>
-                    <AdaAmountInput
-                      id={`${label}-amount-${index}`}
-                      ada={unit === LOVELACE_UNIT}
+                    <Input
+                      id={`${uid}-amount-${index}`}
                       value={asset.amount}
-                      onChange={(amount) => updateItem(index, { amount })}
+                      onChange={(event) =>
+                        updateItem(index, { amount: event.target.value })
+                      }
                       placeholder="0"
                     />
                   </div>
@@ -200,9 +209,9 @@ export function StateAssetAmountListEditor({
                   <div className="space-y-3">
                     <div className="grid gap-3 md:grid-cols-2">
                       <div className="space-y-1">
-                        <Label htmlFor={`${label}-policy-${index}`}>{i18n("tokenPolicyId")}</Label>
+                        <Label htmlFor={`${uid}-policy-${index}`}>{i18n("tokenPolicyId")}</Label>
                         <Input
-                          id={`${label}-policy-${index}`}
+                          id={`${uid}-policy-${index}`}
                           value={asset.policyId}
                           onChange={(event) =>
                             updateItem(index, { policyId: event.target.value })
@@ -211,9 +220,9 @@ export function StateAssetAmountListEditor({
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label htmlFor={`${label}-asset-${index}`}>{i18n("tokenNameHex")}</Label>
+                        <Label htmlFor={`${uid}-asset-${index}`}>{i18n("tokenNameHex")}</Label>
                         <Input
-                          id={`${label}-asset-${index}`}
+                          id={`${uid}-asset-${index}`}
                           value={asset.assetName}
                           onChange={(event) =>
                             updateItem(index, { assetName: event.target.value })
@@ -251,7 +260,8 @@ export function WalletHashesEditor({
   addLabel,
   emptyLabel,
   placeholder,
-  knownAddresses
+  knownAddresses,
+  canAdd = true
 }: {
   label: string;
   helper?: string;
@@ -262,8 +272,11 @@ export function WalletHashesEditor({
   placeholder?: string;
   /** Wallet id → address pairs the UI can name, e.g. the connected wallet's own id. */
   knownAddresses?: Record<string, string>;
+  canAdd?: boolean;
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsAssetEditors");
+  const uid = useId();
+  const connectedHash = useAtomValue(activePaymentKeyHashAtom)?.trim().toLowerCase();
   // A pasted Cardano address is stored as the wallet id (payment key hash) the contract
   // actually compares against; remembering the pairs lets the field keep showing the
   // address the user recognises while the hash stays the stored value.
@@ -280,7 +293,13 @@ export function WalletHashesEditor({
         const deserialized = deserializeAddress(trimmed);
         const hash = deserialized.pubKeyHash || deserialized.scriptHash;
         if (hash) {
-          setResolvedAddresses((current) => ({ ...current, [hash.toLowerCase()]: trimmed }));
+          // First sighting wins, the same rule `rememberWalletAddressAtom` follows.
+          // The book is app-wide and persisted, so rewriting a known hash changes
+          // the address every wallet field shows for that person.
+          setResolvedAddresses((current) => {
+            const key = hash.toLowerCase();
+            return key in current ? current : { ...current, [key]: trimmed };
+          });
           onChange(value.map((entry, entryIndex) => (entryIndex === index ? hash : entry)));
           return;
         }
@@ -302,7 +321,12 @@ export function WalletHashesEditor({
         <Button
           type="button"
           variant="secondary"
-          onClick={() => onChange([...value, ""])}
+          disabled={!canAdd}
+          onClick={() => {
+            if (canAdd) {
+              onChange([...value, ""]);
+            }
+          }}
         >
           {addLabel ?? i18n("addAWallet")}
         </Button>
@@ -319,6 +343,8 @@ export function WalletHashesEditor({
             // a negated call narrows it to `never`. Take the length first.
             const typedLength = trimmed.length;
             const storedHash = isCredentialHash(trimmed) ? trimmed : null;
+            const isConnectedWallet = storedHash !== null && storedHash.toLowerCase() === connectedHash;
+            const connectedWalletId = `${uid}-connected-wallet-${index}`;
             const knownAddress = storedHash ? known[storedHash.toLowerCase()] : undefined;
             const malformed = typedLength > 0 && storedHash === null;
             // A mainnet or broken address deserves its own reason (the lib's messages cover
@@ -344,11 +370,17 @@ export function WalletHashesEditor({
                         value2: index + 1
                       })}
                       aria-invalid={malformed ? true : undefined}
+                      aria-describedby={isConnectedWallet ? connectedWalletId : undefined}
                       value={knownAddress ?? wallet}
                       onChange={(event) => handleChange(index, event.target.value)}
                       placeholder={placeholder ?? i18n("walletIdOrAddress")}
                       className={knownAddress ? "font-mono text-xs" : undefined}
                     />
+                    {isConnectedWallet ? (
+                      <Badge id={connectedWalletId} variant="info" className="w-fit">
+                        {i18n("connectedWallet")}
+                      </Badge>
+                    ) : null}
                     {storedHash && knownAddress ? (
                       <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                         <span className="shrink-0">{i18n("walletId")}</span>
@@ -454,21 +486,14 @@ export function WalletInputRefsEditor({
                 <Label htmlFor={`${label}-index-${index}`}>{i18n("outputIndex_7d014b")}</Label>
                 <Input
                   id={`${label}-index-${index}`}
-                  inputMode="numeric"
                   value={String(entry.outputIndex)}
                   onChange={(event) => {
-                    // `Number("1x")` is NaN, and `String(NaN)` put the literal text
-                    // "NaN" in the box, which every further keystroke then appended
-                    // to. Ignore anything that is not a whole number instead.
-                    const next = event.target.value.trim();
-                    if (next === "") {
-                      updateRef(index, { outputIndex: 0 });
-                      return;
+                    // Number("1e") is NaN, and the box then showed "NaN"; keep the
+                    // last good index instead of storing what cannot be one.
+                    const parsed = Number(event.target.value || 0);
+                    if (Number.isSafeInteger(parsed) && parsed >= 0) {
+                      updateRef(index, { outputIndex: parsed });
                     }
-                    if (!/^\d+$/.test(next)) {
-                      return;
-                    }
-                    updateRef(index, { outputIndex: Number(next) });
                   }}
                   placeholder="0"
                 />
@@ -490,4 +515,3 @@ export function WalletInputRefsEditor({
     </details>
   );
 }
-

@@ -1,6 +1,7 @@
 import { atom } from "jotai";
 
 import {
+  beneficiaryPreparationActiveAtom, beneficiaryPreparationPoolAssetsAtom,
   consolidateStateFormAtom,
   consolidateSttAssetsAtom,
   consolidateSttInputHashAtom,
@@ -16,7 +17,7 @@ import {
   publishZeroAdminConfirmedAtom
 } from "@/components/user/workspace/atoms/forms/publish-form.atoms";
 import {
-  streamingPaymentPayoutAmountsAtom,
+  beneficiaryStreamStopIdAtom, streamingPaymentPayoutAmountsAtom,
   sttExtraTransfersAtom,
   sttInputOutputIndexAtom,
   sttInputTxHashAtom,
@@ -83,6 +84,7 @@ export const seedWorkspaceWalletAtom = atom(
     set(sttTransferAddressAtom, "");
     set(sttTransferAmountsAtom, {});
     set(streamingPaymentPayoutAmountsAtom, {});
+    set(beneficiaryStreamStopIdAtom, "");
 
     set(transferRecipientModeAtom, "");
     set(transferCustomAddressAtom, "");
@@ -113,5 +115,7 @@ export const seedWorkspaceWalletAtom = atom(
     set(consolidateSttAssetsAtom, []);
     set(consolidateWalletInputsAtom, []);
     set(consolidateWalletOutputsAtom, []);
+    set(beneficiaryPreparationActiveAtom, false);
+    set(beneficiaryPreparationPoolAssetsAtom, []);
   }
 );

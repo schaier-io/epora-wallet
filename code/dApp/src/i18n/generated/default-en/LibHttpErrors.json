@@ -1,4 +1,4 @@
 {
-  "internalServerError": "Internal server error.",
-  "unknownError": "Unknown error"
+  "internalServerError": "Something went wrong on our side. Try again.",
+  "unknownError": "Something went wrong."
 }

@@ -1,10 +1,14 @@
 import { parseJsonSafe, serializeJsonSafe } from "@/lib/proposals/serialization";
+import type { StateFormState } from "@/lib/contracts/state-form";
 import type {
   ProposalAuthorityPath,
   ProposalBuildContext,
   ProposalBuilderKind,
   ProposalSummary
 } from "@/lib/proposals/types";
+import { fitProposalSummaryForStorage } from "@/lib/proposals/summary";
+
+export { fitProposalSummaryForStorage } from "@/lib/proposals/summary";
 
 // Hand-off channel between the build flow (workspace "Save as approval
 // request") and the proposals route's create panel. The draft is stashed in
@@ -13,12 +17,6 @@ import type {
 // because the build context carries Plutus datum values.
 
 const STASH_KEY = "pw:proposal-draft";
-
-// Bump when the draft shape below changes. sessionStorage outlives a deploy
-// inside the same tab, so a draft written by an older build is read back by a
-// newer one. The read used to cast whatever it found, which handed the create
-// panel an object missing fields it depends on, and the panel failed on a value
-// it could not have produced. An unrecognised draft is dropped instead.
 const STASH_VERSION = 1;
 
 export type StashedProposalDraft = {
@@ -31,6 +29,11 @@ export type StashedProposalDraft = {
   unsignedTxHex: string;
   summary?: ProposalSummary;
   suggestedTitle?: string;
+  // The builder's payment key hash and the wallet state the transaction consumes,
+  // so the create form can offer the other signers and check the chosen set
+  // against the wallet's rule before the transaction is rebuilt with them listed.
+  proposerKeyHash?: string;
+  stateForm?: StateFormState;
 };
 
 function isStashedProposalDraft(value: unknown): value is StashedProposalDraft {
@@ -57,7 +60,13 @@ export function writeProposalDraft(draft: StashedProposalDraft): void {
   try {
     window.sessionStorage.setItem(
       STASH_KEY,
-      serializeJsonSafe({ version: STASH_VERSION, draft })
+      serializeJsonSafe({
+        version: STASH_VERSION,
+        draft: {
+          ...draft,
+          summary: draft.summary ? fitProposalSummaryForStorage(draft.summary) : undefined
+        }
+      })
     );
   } catch {
     // sessionStorage may be unavailable (private mode); the create flow simply
@@ -71,14 +80,11 @@ export function readProposalDraft(): StashedProposalDraft | null {
   }
   try {
     const raw = window.sessionStorage.getItem(STASH_KEY);
-    if (!raw) {
-      return null;
-    }
+    if (!raw) return null;
     const stored = parseJsonSafe<{ version?: unknown; draft?: unknown }>(raw);
-    if (!stored || stored.version !== STASH_VERSION || !isStashedProposalDraft(stored.draft)) {
-      return null;
-    }
-    return stored.draft;
+    return stored?.version === STASH_VERSION && isStashedProposalDraft(stored.draft)
+      ? stored.draft
+      : null;
   } catch {
     return null;
   }
@@ -106,6 +112,8 @@ export type ProposalCapture = {
   walletUnit: string;
   walletPolicyId: string;
   summary?: ProposalSummary;
+  proposerKeyHash?: string;
+  stateForm?: StateFormState;
 };
 
 export function stashCaptureForBuild(capture: ProposalCapture, unsignedTxHex: string): void {
@@ -117,6 +125,8 @@ export function stashCaptureForBuild(capture: ProposalCapture, unsignedTxHex: st
     builder: capture.builder,
     buildContext: capture.buildContext,
     unsignedTxHex,
-    summary: capture.summary
+    summary: capture.summary,
+    proposerKeyHash: capture.proposerKeyHash,
+    stateForm: capture.stateForm
   });
 }

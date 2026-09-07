@@ -1,47 +1,30 @@
 "use client";
 import { useTranslations } from "next-intl";
 
-import { walletOperatorOptionsAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
-import { useAtomValue } from "jotai";
-
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-import { ConfigSection, InlineFieldError, OperatorPathSelector } from "@/components/user/workspace/editors";
+import { InlineFieldError } from "@/components/user/workspace/editors";
 import { getFirstFieldError } from "@/components/user/workspace/helpers";
 
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 import { useVoteForm } from "@/components/user/workspace/forms/use-vote-form";
-import { useSttSpendForm } from "@/components/user/workspace/forms/use-stt-spend-form";
 
 export function WalletVoteConfigView() {
   const i18n = useTranslations("ComponentsUserWorkspaceConfigWalletvoteView");
   const state = useWorkspaceActions();
-  const walletOperatorOptions = useAtomValue(walletOperatorOptionsAtom);
   const {
     activeFieldErrors,
   } = state;
   const { voteJson, setVoteJson } = useVoteForm();
-  const { setWalletOperatorPath, walletOperatorPath } = useSttSpendForm();
+  // Named once, so the attribute that says the box is invalid and the message that says why
+  // cannot disagree about whether there is anything wrong.
+  const voteJsonError =
+    getFirstFieldError(activeFieldErrors, "Vote JSON") ??
+    getFirstFieldError(activeFieldErrors, "Vote");
 
       return (
         <div className="space-y-4">
-          {/* This panel and its authority picker used to be hand-rolled here, class for
-              class, alongside the shared `ConfigSection` and `OperatorPathSelector` that
-              render exactly the same markup. The copies had drifted: this one told the
-              reader to "use the direct Admin or Multisig operator path", naming the two
-              enum values, where the shared one names what the reader is choosing between.
-              The title matches the one the rewards and publish screens use, so the same
-              control is called the same thing on all three. */}
-          <ConfigSection title={i18n("whoApprovesThisVote")}>
-            <OperatorPathSelector
-              id="walletVoteOperatorPath"
-              options={walletOperatorOptions}
-              value={walletOperatorPath}
-              onChange={setWalletOperatorPath}
-              helper={i18n("signAsASingleOwnerOrCollectThe")}
-            />
-          </ConfigSection>
           <div className="space-y-1">
             <Label htmlFor="userVoteJson">{i18n("voteJson")}</Label>
             {/* The old text described the box as Mesh's "`voter` + `govActionId` +
@@ -54,19 +37,20 @@ export function WalletVoteConfigView() {
             <p className="text-xs text-muted-foreground">
               {i18n("aVoteSaysThreeThingsWhoIsVoting")}
             </p>
+            {/* The message was rendered beside the box and attached to nothing. Nothing
+                marked the box invalid either, so `Textarea`'s own
+                `aria-[invalid=true]:border-rose-500/60` never fired: the field a reader was
+                sent back to looked and sounded exactly like a field that had passed. */}
             <Textarea
               id="userVoteJson"
               value={voteJson}
               onChange={(event) => setVoteJson(event.target.value)}
               rows={10}
               className="font-mono text-xs"
+              aria-invalid={voteJsonError ? true : undefined}
+              aria-describedby={voteJsonError ? "userVoteJson-error" : undefined}
             />
-            <InlineFieldError
-              message={
-                getFirstFieldError(activeFieldErrors, "Vote JSON") ??
-                getFirstFieldError(activeFieldErrors, "Vote")
-              }
-            />
+            <InlineFieldError id="userVoteJson-error" message={voteJsonError} />
           </div>
         </div>
       );

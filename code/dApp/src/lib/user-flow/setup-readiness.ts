@@ -110,9 +110,7 @@ export function buildSetupReadinessIssues(setupState: SetupState): ReadinessIssu
           id: "stt-reference",
           key: "stt-reference",
           label: i18n("setupHelper"),
-          description:
-            setupState.sharedSttReferenceError ??
-            i18n("createTheSharedSetupHelperBeforeContinuing"),
+          description: i18n("createTheSharedSetupHelperBeforeContinuing"),
           recovery: i18n("recoveryRunSetupHelper"),
           status: "warning",
           blocking: true
@@ -154,7 +152,7 @@ export function buildSetupReadinessIssues(setupState: SetupState): ReadinessIssu
           id: "locked-utxos",
           key: "locked-utxos",
           label: i18n("walletFunds"),
-          description: i18n("value1FundPoolValue2Found", { value1: setupState.lockedUtxoCount, value2: setupState.lockedUtxoCount === 1 ? "" : "s" }),
+          description: i18n("fundPoolCountFound", { count: setupState.lockedUtxoCount }),
           status: "ready",
           blocking: false
         }

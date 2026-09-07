@@ -13,6 +13,10 @@ import {
   decodeWalletNameFromDatum,
   normalizeWalletName
 } from "@/lib/contracts/state-wallet-name";
+import {
+  isOnChainInteger,
+  type OnChainInteger
+} from "@/lib/contracts/on-chain-integer";
 
 // StreamingPayment constructor field layout (on-chain record order: id,
 // payout_address, paid_out_amount, policy_id, asset_name, amount_per_day,
@@ -29,13 +33,13 @@ function isCredentialHash(value: unknown): value is string {
 }
 
 export type PayeeStreamingPayment = {
-  streamingPaymentId: number;
+  streamingPaymentId: OnChainInteger;
   policyId: string;
   assetName: string;
-  amountPerDay: number;
-  startDate: number;
-  endDate: number;
-  paidOutAmount: number;
+  amountPerDay: OnChainInteger;
+  startDate: OnChainInteger;
+  endDate: OnChainInteger;
+  paidOutAmount: OnChainInteger;
   // Who is paying. Read from the containing State and previously discarded, which left the
   // payee with an invoice they could not attribute to anyone.
   payerWalletName: string;
@@ -44,7 +48,7 @@ export type PayeeStreamingPayment = {
   // key can appear under several addresses.
   payoutAddress: string;
   // Shared receiver/crank cadence clock from the containing State.
-  lastNonAdminPayoutAt: number | null;
+  lastNonAdminPayoutAt: OnChainInteger | null;
   // The STT UTxO this payment lives in. The tx builder spends it to cancel.
   sttInputTxHash: string;
   sttInputOutputIndex: number;
@@ -98,8 +102,8 @@ function readVerificationKeyHash(payoutAddress: unknown): string | null {
   return isCredentialHash(hash) ? hash : null;
 }
 
-function readInt(value: unknown): number | null {
-  return typeof value === "number" && Number.isSafeInteger(value) ? value : null;
+function readInt(value: unknown): OnChainInteger | null {
+  return isOnChainInteger(value) ? value : null;
 }
 
 function readBytes(value: unknown): string | null {
@@ -131,7 +135,7 @@ export function collectPayeeStreamingPayments(
     }
 
     let streamingPayments;
-    let lastNonAdminPayoutAt: number | null;
+    let lastNonAdminPayoutAt: OnChainInteger | null;
     let payerWalletName: string;
     try {
       const sections = readStateSections(token.datum);
@@ -175,10 +179,16 @@ export function collectPayeeStreamingPayments(
         return;
       }
 
+      const payoutAddress = decodePayoutAddressFromData(entry.fields[1]);
+      if (!payoutAddress) {
+        entriesSkipped += 1;
+        return;
+      }
+
       collected.push({
         streamingPaymentId,
         payerWalletName,
-        payoutAddress: decodePayoutAddressFromData(entry.fields[1]),
+        payoutAddress,
         policyId,
         assetName,
         amountPerDay,

@@ -1,7 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
 
-import { walletOperatorOptionsAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
 import {
   isWalletStakingEnabledAtom,
   walletRewardAddressAtom
@@ -9,18 +8,11 @@ import {
 import { useAtomValue } from "jotai";
 
 import { Button } from "@/components/ui/button";
-import {
-  ConfigSection,
-  LabeledField,
-  LabeledInputField,
-  OperatorPathSelector
-} from "@/components/user/workspace/editors";
-import { AdaAmountInput } from "@/components/user/workspace/editors/ada-amount-input";
-import { getFirstFieldError } from "@/components/user/workspace/helpers";
 
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
-import { useSttSpendForm } from "@/components/user/workspace/forms/use-stt-spend-form";
 import { useWithdrawForm } from "@/components/user/workspace/forms/use-withdraw-form";
+import { useStakingRewards } from "@/components/user/workspace/use-staking-rewards";
+import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 
 /**
  * Configuration for `wallet-withdraw` (claim staking rewards).
@@ -29,24 +21,25 @@ import { useWithdrawForm } from "@/components/user/workspace/forms/use-withdraw-
  * at all while its own validation demanded a staking address and an amount. The result was a
  * build button that could never be enabled, on a card the sidebar still offered.
  *
- * The reward address is derived from the wallet's own staking script rather than typed: it is
- * not something a user can look up. The field stays editable for the rare case where the
- * rewards sit at a different stake address.
+ * The reward address comes from the wallet's staking script. The claim amount comes from the
+ * chain because Cardano withdrawals must use the full available reward balance.
  */
 export function WalletWithdrawConfigView() {
   const i18n = useTranslations("ComponentsUserWorkspaceConfigWalletwithdrawView");
   const state = useWorkspaceActions();
-  const walletOperatorOptions = useAtomValue(walletOperatorOptionsAtom);
   const walletRewardAddress = useAtomValue(walletRewardAddressAtom);
   const isWalletStakingEnabled = useAtomValue(isWalletStakingEnabledAtom);
-  const { activeFieldErrors, openWorkspaceIntent } = state;
-  const { setWalletOperatorPath, walletOperatorPath } = useSttSpendForm();
-  const {
+  const { openWorkspaceIntent } = state;
+  const { withdrawAmount, setWithdrawAmount, setWithdrawRewardAddress } = useWithdrawForm();
+  const rewards = useStakingRewards(
+    walletRewardAddress,
+    isWalletStakingEnabled,
     withdrawAmount,
     setWithdrawAmount,
-    withdrawRewardAddress,
     setWithdrawRewardAddress
-  } = useWithdrawForm();
+  );
+  const hasRewards = /^\d+$/.test(rewards.rewardsLovelace)
+    && BigInt(rewards.rewardsLovelace) > 0n;
 
   return (
     <div className="space-y-4">
@@ -71,49 +64,65 @@ export function WalletWithdrawConfigView() {
         </div>
       ) : null}
 
-      {/* Not "Claim staking rewards": the card above this view is titled "Claim staking
-          rewards details" and describes the action three more times (routeExplanation,
-          outcome, and the "What this does" panel). This names what the section holds, and
-          says in plain words what its "Authorization Path" label means. */}
-      <ConfigSection title={i18n("whoApprovesThisClaim")}>
-        <OperatorPathSelector
-          id="walletWithdrawOperatorPath"
-          options={walletOperatorOptions}
-          value={walletOperatorPath}
-          onChange={setWalletOperatorPath}
-        />
-      </ConfigSection>
+      {isWalletStakingEnabled ? (
+        <div className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
+          {rewards.loading ? (
+            <p className="text-sm text-muted-foreground">
+              {i18n("checkingAvailableStakingRewards")}
+            </p>
+          ) : !walletRewardAddress ? (
+            <p className="text-sm text-amber-100">
+              {i18n("couldNotDeriveThisWalletSRewardAddress")}
+            </p>
+          ) : rewards.error ? (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-amber-100">{i18n("couldNotLoadStakingRewards")}</p>
+              <Button type="button" size="sm" variant="outline" onClick={rewards.refresh}>
+                {i18n("checkAgain")}
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div>
+                <p className="eyebrow text-muted-foreground">{i18n("availableToClaim")}</p>
+                {hasRewards ? (
+                  <>
+                    <p className="mt-1 text-2xl font-semibold text-foreground">
+                      {i18n("value1AdaAvailableToClaim", {
+                        value1: formatLovelaceAsAda(rewards.rewardsLovelace)
+                      })}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {i18n("theClaimWillCollectTheFullAvailableReward")}
+                    </p>
+                  </>
+                ) : (
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {i18n("noStakingRewardsAreAvailableToClaim")}
+                  </p>
+                )}
+              </div>
 
-      <LabeledInputField
-        id="userWithdrawRewardAddress"
-        label={i18n("rewardsComeFrom")}
-        value={withdrawRewardAddress || walletRewardAddress || ""}
-        onChange={setWithdrawRewardAddress}
-        placeholder={i18n("stakeTest")}
-        error={getFirstFieldError(activeFieldErrors, "Staking address")}
-        helper={
-          walletRewardAddress && !withdrawRewardAddress
-            ? i18n("thisWalletSOwnRewardAddressWorkedOut")
-            : i18n("theStakeAddressTheRewardsAreHeldAt")
-        }
-      />
-
-      {/* The builder and the validator both work in lovelace; the person does not.
-          `AdaAmountInput` keeps what was typed, so a decimal point survives the
-          keystroke after it, and only a complete amount reaches the draft. */}
-      <LabeledField
-        htmlFor="userWithdrawAmount"
-        label={i18n("amountToClaimAda")}
-        error={getFirstFieldError(activeFieldErrors, "Withdrawal amount")}
-        helper={i18n("howMuchOfTheEarnedRewardsToMove")}
-      >
-        <AdaAmountInput
-          id="userWithdrawAmount"
-          value={withdrawAmount}
-          onChange={setWithdrawAmount}
-          placeholder="1"
-        />
-      </LabeledField>
+              <dl className="grid gap-3 text-xs sm:grid-cols-2">
+                <div>
+                  <dt className="eyebrow text-muted-foreground">{i18n("rewardAddress")}</dt>
+                  <dd className="mt-1 break-all font-mono text-foreground">
+                    {walletRewardAddress}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="eyebrow text-muted-foreground">{i18n("stakePool")}</dt>
+                  <dd className="mt-1 break-all font-mono text-foreground">
+                    {rewards.active && rewards.poolId
+                      ? rewards.poolId
+                      : i18n("thisWalletIsNotDelegatedToAStake")}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }

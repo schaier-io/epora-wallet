@@ -52,8 +52,13 @@ pub fn finite_upper(validity_range: ValidityRange) -> Option<POSIXTime> {
 pub fn finite_range(
   validity_range: ValidityRange,
 ) -> Option<(POSIXTime, POSIXTime)> {
-  when (finite_lower(validity_range), finite_upper(validity_range)) is {
-    (Some(tx_earliest_time), Some(tx_latest_time)) ->
+  when
+    (
+      validity_range.lower_bound.bound_type,
+      validity_range.upper_bound.bound_type,
+    )
+  is {
+    (Finite(tx_earliest_time), Finite(tx_latest_time)) ->
       Some((tx_earliest_time, tx_latest_time))
     _ -> None
   }

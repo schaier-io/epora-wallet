@@ -9,7 +9,9 @@
 
 use aiken/collection/list
 use assets/identity as asset_identity
+use cardano/address.{Credential}
 use constants
+use numeric_bounds
 use state/credentials as credential_shape
 use streaming_payments/funding
 use streaming_payments/types.{StreamingPayment} as streaming_payment_type
@@ -17,34 +19,41 @@ use streaming_payments/types.{StreamingPayment} as streaming_payment_type
 /// Validate the static shape of a streaming_payment list before it is accepted on-chain.
 pub fn is_valid(streaming_payments: List<StreamingPayment>) -> Bool {
   and {
-    // Cap the record count so a spend that scans every payment (payout, reserve)
-    // stays within the per-tx execution budget. This runs at mint and on every
-    // add via `ManageStreamingPayments`, so the cap bounds the set however it grew.
+    // Cap the record count to bound every payout and reserve scan. The repository
+    // budget gate measures named capped-list fixtures. This check runs at mint
+    // and on every add, so the cap bounds the set however it grew.
     (list.length(streaming_payments) <= constants.max_streaming_payments)?,
     streaming_payment_type.ids_are_unique(streaming_payments)?,
     list.all(
       streaming_payments,
       fn(streaming_payment) {
-        // Cannot be born over-paid: paid_out never exceeds the lifetime total.
-        // Non-strict, so a fully-accrued reschedule (end_date -> tx_latest)
-        // still passes; only an entry born genuinely over-paid (at mint — a
-        // manage-add is pinned to paid_out == 0 by the forwarding rule) is
-        // rejected. Keeps the removal-branch payout delta non-negative.
-        let not_overpaid_at_mint = streaming_payment.paid_out_amount <= funding.lifetime_total(
-          streaming_payment,
-        )
-        and {
-          (streaming_payment.start_date >= 0)?,
-          (streaming_payment.end_date >= 0)?,
-          (streaming_payment.amount_per_day >= 0)?,
-          (streaming_payment.paid_out_amount >= 0)?,
-          (streaming_payment.start_date <= streaming_payment.end_date)?,
-          asset_identity.is_valid(
-            streaming_payment.policy_id,
-            streaming_payment.asset_name,
+        let scalars_are_bounded = and {
+          numeric_bounds.is_non_negative_bounded(streaming_payment.id)?,
+          numeric_bounds.is_non_negative_bounded(streaming_payment.start_date)?,
+          numeric_bounds.is_non_negative_bounded(streaming_payment.end_date)?,
+          numeric_bounds.is_non_negative_bounded(
+            streaming_payment.amount_per_day,
           )?,
-          credential_shape.address_is_valid(streaming_payment.payout_address)?,
-          not_overpaid_at_mint?,
+          numeric_bounds.is_non_negative_bounded(
+            streaming_payment.paid_out_amount,
+          )?,
+          (streaming_payment.start_date <= streaming_payment.end_date)?,
+        }
+        if scalars_are_bounded {
+          // A schedule must fit the scalar cap for its full lifetime. Otherwise
+          // `paid_out_amount` could never reach the amount needed for removal.
+          let lifetime_total = funding.lifetime_total(streaming_payment)
+          and {
+            (lifetime_total <= constants.max_state_integer)?,
+            (streaming_payment.paid_out_amount <= lifetime_total)?,
+            asset_identity.is_valid(
+              streaming_payment.policy_id,
+              streaming_payment.asset_name,
+            )?,
+            credential_shape.address_is_valid(streaming_payment.payout_address)?,
+          }
+        } else {
+          False
         }
       },
     )?,
@@ -55,14 +64,28 @@ pub fn is_valid(streaming_payments: List<StreamingPayment>) -> Bool {
 /// positive duration. The general shape deliberately allows `start_date ==
 /// end_date`: receiver cancellation can safely create that zero-duration form, and
 /// later forwarding/configuration must not brick the State that contains it.
-pub fn fresh_are_valid(streaming_payments: List<StreamingPayment>) -> Bool {
+pub fn fresh_are_valid(
+  streaming_payments: List<StreamingPayment>,
+  forbidden_payment_credential: Credential,
+) -> Bool {
   list.all(
     streaming_payments,
     fn(streaming_payment) {
-      and {
-        (streaming_payment.paid_out_amount == 0)?,
-        (streaming_payment.start_date < streaming_payment.end_date)?,
-      }
+      fresh_is_valid(streaming_payment, forbidden_payment_credential)
     },
   )
+}
+
+/// A newly configured schedule starts unsettled, has positive duration, and
+/// cannot pay to the STT script. The credential comparison also rejects stake
+/// variants of the STT address.
+pub fn fresh_is_valid(
+  streaming_payment: StreamingPayment,
+  forbidden_payment_credential: Credential,
+) -> Bool {
+  and {
+    (streaming_payment.paid_out_amount == 0)?,
+    (streaming_payment.start_date < streaming_payment.end_date)?,
+    (streaming_payment.payout_address.payment_credential != forbidden_payment_credential)?,
+  }
 }

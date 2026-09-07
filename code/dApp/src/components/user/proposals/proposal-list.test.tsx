@@ -64,6 +64,14 @@ function renderList(
 }
 
 describe("the approval queue row", () => {
+  it("marks a request that is on its way to the chain", () => {
+    // The row stays SUBMITTING when the chain accepted the tx but the record did
+    // not finish; "Open" would invite the proposer to make a new version.
+    renderList(undefined, { proposals: [listItem({ status: "SUBMITTING" })] });
+    expect(screen.getByText("Sending")).toBeTruthy();
+    expect(screen.queryByText("Open")).toBeNull();
+  });
+
   it("says how much approval power is in and how much is needed", () => {
     renderList({ validity: "valid", signers: SIGNERS });
     expect(screen.getByText("2 of 3 approval power")).toBeTruthy();
@@ -144,28 +152,5 @@ describe("the approval queue column", () => {
   it("says where an approval request comes from", () => {
     renderList(undefined, { proposals: [] });
     expect(screen.getByText(/Build a transaction on the wallet page/)).toBeTruthy();
-  });
-});
-
-describe("a request claimed for submission", () => {
-  // SUBMITTING is a persisted status: somebody has claimed the row and is
-  // sending it. It used to fall through to "Open", so the queue showed a request
-  // that looked like it was waiting for a signature while every action on it was
-  // switched off.
-  it("does not read as a request that is waiting for signatures", () => {
-    renderList(undefined, { proposals: [listItem({ status: "SUBMITTING" })] });
-
-    expect(screen.queryByText("Open")).not.toBeInTheDocument();
-    expect(screen.getByText("Sending")).toBeInTheDocument();
-  });
-
-  it("still shows the verification verdict for a request nobody has claimed", () => {
-    // An OPEN row carries the validity badge instead of a status badge, which is
-    // why a claimed row falling through to "Open" was the only way that word
-    // could appear at all.
-    renderList({ validity: "valid", signers: SIGNERS });
-
-    expect(screen.getByText("Valid")).toBeInTheDocument();
-    expect(screen.queryByText("Sending")).not.toBeInTheDocument();
   });
 });

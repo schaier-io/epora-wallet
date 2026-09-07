@@ -34,3 +34,27 @@ describe("wallet membership card", () => {
     });
   });
 });
+
+describe("wallet membership card asset name", () => {
+  const policyId = "a".repeat(56);
+
+  it("shows a printable asset name without the old STT prefix", () => {
+    render(<WalletMembershipCard walletName="W" policyId={policyId} sttUnit={`${policyId}5553444d`} />);
+
+    expect(screen.getByText("USDM")).toBeTruthy();
+    expect(screen.queryByText(/STT ·/)).toBeNull();
+  });
+
+  it.each(["01", "ff", "abc", "zz"])("uses the wallet label for unreadable asset name %s", (assetName) => {
+    render(<WalletMembershipCard walletName="W" policyId={policyId} sttUnit={`${policyId}${assetName}`} />);
+
+    expect(screen.getByText("Smart wallet")).toBeTruthy();
+    expect(screen.queryByText(assetName)).toBeNull();
+  });
+
+  it("keeps the wallet label for an empty asset name", () => {
+    render(<WalletMembershipCard walletName="W" policyId={policyId} sttUnit={policyId} />);
+
+    expect(screen.getByText("Smart wallet")).toBeTruthy();
+  });
+});

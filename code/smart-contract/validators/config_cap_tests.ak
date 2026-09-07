@@ -9,6 +9,7 @@ use aiken/interval
 use aiken/primitive/bytearray.{from_int_big_endian}
 use assets/entries as asset_entries
 use cardano/assets
+use constants
 use state/configuration as state_configuration
 use state/types as state_types
 use streaming_payments/shape as streaming_payment_shape
@@ -22,7 +23,7 @@ use test_support/stt_test_helpers.{mint_transaction}
 // `count` SIGNABLE admin users with unique ids and empty allowances. Each
 // carries a wallet key so the recovery-reachability check is trivially
 // satisfied (a wallet-less admin is not a reachable path), isolating the count
-// cap. Wallets may overlap across users, so one shared key is fine.
+// cap. These admin records have no multisig power, so they may share one key.
 fn make_users(count: Int) -> List<state_types.User> {
   make_users_from(1, count)
 }
@@ -70,8 +71,7 @@ fn make_beneficiaries_from(
 
 fn max_beneficiary_state() -> state_types.State {
   states.base_state()
-    |> states.with_users([states.admin_user("admin")])
-    |> states.with_beneficiaries(make_beneficiaries(25))
+    |> states.with_beneficiaries(make_beneficiaries(15))
     |> states.with_proof_of_life(100, 50)
 }
 
@@ -94,11 +94,15 @@ fn make_streaming_from(next_id: Int, remaining: Int) -> List<StreamingPayment> {
 
 // --- accepts exactly at the cap -------------------------------------------
 
+test beneficiary_cap_matches_aggregate_access_cap() {
+  constants.max_beneficiaries == constants.max_access_records
+}
+
 test config_accepts_max_users() {
   expect
     state_configuration.expect_valid_state_configuration(
       states.base_state()
-        |> states.with_users(make_users(15)),
+        |> states.with_users(make_users(10)),
     )
 }
 
@@ -154,7 +158,17 @@ test stt_update_accepts_max_beneficiary_configuration_under_ledger_budget() {
 }
 
 test config_accepts_max_streaming_payments() {
-  expect streaming_payment_shape.is_valid(make_streaming(25))
+  expect streaming_payment_shape.is_valid(make_streaming(15))
+}
+
+test config_accepts_max_total_access_records() {
+  expect
+    state_configuration.expect_valid_state_configuration(
+      states.base_state()
+        |> states.with_users(make_users(10))
+        |> states.with_beneficiaries(make_beneficiaries(5))
+        |> states.with_proof_of_life(100, 50),
+    )
 }
 
 // --- rejects one over the cap ---------------------------------------------
@@ -163,7 +177,7 @@ test config_rejects_too_many_users() fail {
   expect
     state_configuration.expect_valid_state_configuration(
       states.base_state()
-        |> states.with_users(make_users(16)),
+        |> states.with_users(make_users(11)),
     )
 }
 
@@ -171,14 +185,23 @@ test config_rejects_too_many_beneficiaries() fail {
   expect
     state_configuration.expect_valid_state_configuration(
       states.base_state()
-        |> states.with_users([states.admin_user("admin")])
-        |> states.with_beneficiaries(make_beneficiaries(26))
+        |> states.with_beneficiaries(make_beneficiaries(16))
         |> states.with_proof_of_life(100, 50),
     )
 }
 
 test config_rejects_too_many_streaming_payments() fail {
-  expect streaming_payment_shape.is_valid(make_streaming(26))
+  expect streaming_payment_shape.is_valid(make_streaming(16))
+}
+
+test config_rejects_too_many_total_access_records() fail {
+  expect
+    state_configuration.expect_valid_state_configuration(
+      states.base_state()
+        |> states.with_users(make_users(10))
+        |> states.with_beneficiaries(make_beneficiaries(6))
+        |> states.with_proof_of_life(100, 50),
+    )
 }
 
 // --- inner-collection caps (audit A1) -------------------------------------
@@ -187,7 +210,7 @@ test config_rejects_too_many_streaming_payments() fail {
 // collections those records carry (per-user wallets/allowance, per-beneficiary
 // wallets, wallet_name) so a privileged `UpdateState`/mint cannot commit a
 // datum that later transitions can no longer afford to decode. Caps:
-// max_wallets_per_user=10, max_allowance_entries=10, max_beneficiary_wallets=10,
+// max_wallets_per_user=10, max_allowance_entries=5, max_beneficiary_wallets=10,
 // max_wallet_name_bytes=32.
 
 // `count` distinct payment-key hashes.
@@ -235,8 +258,18 @@ fn admin_user_with(
   per_day: state_types.AssetEntries,
   remaining: state_types.AssetEntries,
 ) -> state_types.User {
+  admin_user_with_id(0, wallets, per_day, remaining)
+}
+
+fn admin_user_with_id(
+  id: Int,
+  wallets: List<ByteArray>,
+  per_day: state_types.AssetEntries,
+  remaining: state_types.AssetEntries,
+) -> state_types.User {
   state_types.User {
     ..states.base_user(),
+    id,
     user_wallets: wallets,
     per_day_allowance: per_day,
     remaining_allowance: remaining,
@@ -244,9 +277,99 @@ fn admin_user_with(
   }
 }
 
+fn two_admin_wallet_state(second_user_wallet_count: Int) -> state_types.State {
+  states.base_state()
+    |> states.with_users(
+        [
+          admin_user_with_id(1, make_wallets_from(1, 10), [], []),
+          admin_user_with_id(
+            2,
+            make_wallets_from(11, second_user_wallet_count),
+            [],
+            [],
+          ),
+        ],
+      )
+}
+
+// Two valid per-record bundles whose last list controls reserved footprint + 1.
+fn allowance_total_state(last_remaining_count: Int) -> state_types.State {
+  states.base_state()
+    |> states.with_users(
+        [
+          admin_user_with_id(
+            1,
+            make_wallets_from(1, 1),
+            make_allowance_entries_from(1, 5),
+            make_allowance_entries_from(6, 5),
+          ),
+          admin_user_with_id(
+            2,
+            make_wallets_from(2, 1),
+            make_allowance_entries_from(11, 2),
+            make_allowance_entries_from(13, 3 + last_remaining_count),
+          ),
+        ],
+      )
+}
+
+// The stored lists contain 15 entries, but each empty remaining list can grow
+// to five entries after reset. The reserved footprint is therefore 30.
+fn allowance_reset_growth_state() -> state_types.State {
+  states.base_state()
+    |> states.with_users(
+        [
+          admin_user_with_id(
+            1,
+            make_wallets_from(1, 1),
+            make_allowance_entries_from(1, 5),
+            [],
+          ),
+          admin_user_with_id(
+            2,
+            make_wallets_from(2, 1),
+            make_allowance_entries_from(6, 5),
+            [],
+          ),
+          admin_user_with_id(
+            3,
+            make_wallets_from(3, 1),
+            make_allowance_entries_from(11, 5),
+            [],
+          ),
+        ],
+      )
+}
+
 fn admin_state_with_user(user: state_types.User) -> state_types.State {
   states.base_state()
     |> states.with_users([user])
+}
+
+// Two beneficiaries whose wallet lists stay within the per-record cap while
+// their combined wallet count is controlled by `last_wallet_count`.
+fn beneficiary_state_with_total_wallets(
+  last_wallet_count: Int,
+) -> state_types.State {
+  states.base_state()
+    |> states.with_users([states.admin_user("admin")])
+    |> states.with_beneficiaries(
+        [
+          state_types.Beneficiary {
+            ..states.base_beneficiary(),
+            id: 1,
+            beneficiary_wallets: make_wallets_from(1, 10),
+            unlock_after: Some(100),
+          },
+          state_types.Beneficiary {
+            ..states.base_beneficiary(),
+            id: 2,
+            beneficiary_wallets: make_wallets_from(11, last_wallet_count),
+            unlock_after: Some(100),
+          },
+        ],
+      )
+    |> states.with_proof_of_life(100, 50)
 }
 
 // user_wallets
@@ -265,6 +388,20 @@ test config_rejects_too_many_wallets_per_user() fail {
     )
 }
 
+test config_accepts_total_user_wallet_cap() {
+  expect
+    state_configuration.expect_valid_state_configuration(
+      two_admin_wallet_state(5),
+    )
+}
+
+test config_rejects_total_user_wallet_cap_plus_one() fail {
+  expect
+    state_configuration.expect_valid_state_configuration(
+      two_admin_wallet_state(6),
+    )
+}
+
 // allowance entries (per_day_allowance and remaining_allowance both capped)
 
 test config_accepts_max_allowance_entries() {
@@ -273,8 +410,8 @@ test config_accepts_max_allowance_entries() {
       admin_state_with_user(
         admin_user_with(
           [fixtures.key_hash("w")],
-          make_allowance_entries(10),
-          make_allowance_entries(10),
+          make_allowance_entries(5),
+          make_allowance_entries(5),
         ),
       ),
     )
@@ -284,11 +421,7 @@ test config_rejects_too_many_per_day_allowance_entries() fail {
   expect
     state_configuration.expect_valid_state_configuration(
       admin_state_with_user(
-        admin_user_with(
-          [fixtures.key_hash("w")],
-          make_allowance_entries(11),
-          [],
-        ),
+        admin_user_with([fixtures.key_hash("w")], make_allowance_entries(6), []),
       ),
     )
 }
@@ -297,12 +430,29 @@ test config_rejects_too_many_remaining_allowance_entries() fail {
   expect
     state_configuration.expect_valid_state_configuration(
       admin_state_with_user(
-        admin_user_with(
-          [fixtures.key_hash("w")],
-          [],
-          make_allowance_entries(11),
-        ),
+        admin_user_with([fixtures.key_hash("w")], [], make_allowance_entries(6)),
       ),
+    )
+}
+
+test config_accepts_reserved_allowance_entry_cap() {
+  expect
+    state_configuration.expect_valid_state_configuration(
+      allowance_total_state(0),
+    )
+}
+
+test config_rejects_reserved_allowance_entry_cap_plus_one() fail {
+  expect
+    state_configuration.expect_valid_state_configuration(
+      allowance_total_state(1),
+    )
+}
+
+test config_rejects_allowance_reset_growth_past_aggregate_cap() fail {
+  expect
+    state_configuration.expect_valid_state_configuration(
+      allowance_reset_growth_state(),
     )
 }
 
@@ -343,6 +493,22 @@ test config_rejects_too_many_beneficiary_wallets() fail {
             ],
           )
         |> states.with_proof_of_life(100, 50),
+    )
+}
+
+// The aggregate cap is independent of both existing beneficiary caps: every
+// record stays at or below 10 wallets and the outer list contains only 2 records.
+test config_accepts_total_beneficiary_wallet_cap() {
+  expect
+    state_configuration.expect_valid_state_configuration(
+      beneficiary_state_with_total_wallets(5),
+    )
+}
+
+test config_rejects_total_beneficiary_wallet_cap_plus_one() fail {
+  expect
+    state_configuration.expect_valid_state_configuration(
+      beneficiary_state_with_total_wallets(6),
     )
 }
 

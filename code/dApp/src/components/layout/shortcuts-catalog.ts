@@ -7,29 +7,36 @@
  * had drifted into names used nowhere else -- `Send money` (the screen says "Send funds"),
  * `Receive money` (it says "Add funds") and `Create a new wallet` (it says "Create wallet").
  *
- * Pure data, no React, no JSX. Same reason `guided-admin-catalog.ts` is separate. The
- * labels come from the message catalog through the default translator, the same way the
- * other non-React modules read their copy.
+ * Pure data, no React, no JSX. Same reason `guided-admin-catalog.ts` is separate.
  */
-import { createDefaultTranslator } from "@/i18n/default-translator";
-import defaultMessages from "@/i18n/generated/default-en/ComponentsLayoutShortcutsCatalog.json";
 
-const i18n = createDefaultTranslator("ComponentsLayoutShortcutsCatalog", defaultMessages);
+export type ShortcutLabelKey =
+  | "showTheseShortcuts"
+  | "closeOpenedDialog"
+  | "nextField"
+  | "previousField"
+  | "walletHome"
+  | "sendFunds"
+  | "addFunds"
+  | "people"
+  | "walletSettings"
+  | "scheduledPayments"
+  | "createWallet";
 
-export type Shortcut = { keys: string[]; label: string; sequence?: boolean };
+export type Shortcut = { keys: string[]; labelKey: ShortcutLabelKey; sequence?: boolean };
 
 export const SHORTCUTS: Shortcut[] = [
-  { keys: ["?"], label: i18n("showTheseShortcuts") },
-  { keys: ["Esc"], label: i18n("closeADialogYouOpened") },
-  { keys: ["Tab"], label: i18n("nextField") },
-  { keys: ["Shift", "Tab"], label: i18n("previousField") },
-  { keys: ["g", "h"], label: i18n("walletHome"), sequence: true },
-  { keys: ["g", "s"], label: i18n("sendFunds"), sequence: true },
-  { keys: ["g", "r"], label: i18n("addFunds"), sequence: true },
-  { keys: ["g", "p"], label: i18n("people"), sequence: true },
-  { keys: ["g", "w"], label: i18n("walletSettings"), sequence: true },
-  { keys: ["g", "u"], label: i18n("scheduledPayments"), sequence: true },
-  { keys: ["g", "c"], label: i18n("createWallet"), sequence: true }
+  { keys: ["?"], labelKey: "showTheseShortcuts" },
+  { keys: ["Esc"], labelKey: "closeOpenedDialog" },
+  { keys: ["Tab"], labelKey: "nextField" },
+  { keys: ["Shift", "Tab"], labelKey: "previousField" },
+  { keys: ["g", "h"], labelKey: "walletHome", sequence: true },
+  { keys: ["g", "s"], labelKey: "sendFunds", sequence: true },
+  { keys: ["g", "r"], labelKey: "addFunds", sequence: true },
+  { keys: ["g", "p"], labelKey: "people", sequence: true },
+  { keys: ["g", "w"], labelKey: "walletSettings", sequence: true },
+  { keys: ["g", "u"], labelKey: "scheduledPayments", sequence: true },
+  { keys: ["g", "c"], labelKey: "createWallet", sequence: true }
 ];
 
 /**
@@ -40,7 +47,9 @@ export const NAV_TARGETS: Record<string, string> = {
   h: "?step=overview",
   s: "?action=send&step=configure",
   r: "?action=add-funds&step=configure",
-  p: "?action=manage-people&step=configure",
+  // People merged into Wallet settings; `g p` still means People, so it opens the
+  // merged surface directly on that tab.
+  p: "?action=wallet-settings&task=settings-people&step=configure",
   w: "?action=wallet-settings&step=configure",
   u: "?action=manage-streaming-payments&step=configure"
 };

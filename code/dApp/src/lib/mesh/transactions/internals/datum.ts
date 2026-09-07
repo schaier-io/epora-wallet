@@ -1,13 +1,24 @@
-import { assertStateDatumShape, isConstrData } from "./guards";
+import { assertNonAdminStreamingActionWindow } from "@/lib/contracts/crank-cooldown";
+import { isConstrData } from "./guards";
 import { readStateSections } from "@/lib/contracts/state-layout";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
+import { readInteger } from "@/lib/contracts/plutus-primitives";
+import {
+  assertNonNegativeUint64,
+  type OnChainInteger,
+  toOnChainBigInt
+} from "@/lib/contracts/on-chain-integer";
 import { type ConstrData } from "@/lib/types/contracts";
 import { type UTxO, deserializeDatum } from "@meshsdk/core";
 
+function normalizeInteger(value: bigint): number | bigint {
+  const asNumber = Number(value);
+  return Number.isSafeInteger(asNumber) ? asNumber : value;
+}
+
 function normalizeDatumValue(value: unknown): unknown {
   if (typeof value === "bigint") {
-    const asNumber = Number(value);
-    return Number.isSafeInteger(asNumber) ? asNumber : value.toString();
+    return normalizeInteger(value);
   }
 
   if (Array.isArray(value)) {
@@ -28,8 +39,7 @@ function normalizeDatumValue(value: unknown): unknown {
 
   if ("int" in value) {
     const entry = value as { int: bigint };
-    const asNumber = Number(entry.int);
-    return Number.isSafeInteger(asNumber) ? asNumber : entry.int.toString();
+    return normalizeInteger(entry.int);
   }
 
   if ("bytes" in value) {
@@ -70,12 +80,13 @@ export function decodeConstrDatumFromUtxo(utxo: UTxO): ConstrData | null {
   try {
     normalized = normalizeDatumValue(deserializeDatum(datumCbor));
   } catch (error) {
-    // Present but undecodable: distinct from "absent". Don't swallow it
-    // silently: a corrupt/unexpected on-chain datum is exactly the diagnostic
-    // a failed fund-moving tx needs. Surface it, then fall back to null so
-    // callers still report their domain-specific "missing datum" error.
-    const ref = `${utxo.input.txHash}#${utxo.input.outputIndex}`;
-    console.warn(`[datum] failed to decode inline datum on ${ref}:`, error);
+    // Present but undecodable: distinct from "absent". A corrupt on-chain datum
+    // is the diagnostic a failed fund-moving tx needs, so log it in development,
+    // then fall back to null so callers still report their own "missing datum" error.
+    if (process.env.NODE_ENV !== "production") {
+      const ref = `${utxo.input.txHash}#${utxo.input.outputIndex}`;
+      console.warn(`[datum] failed to decode inline datum on ${ref}:`, error);
+    }
     return null;
   }
 
@@ -90,70 +101,32 @@ export function decodeConstrDatumFromUtxo(utxo: UTxO): ConstrData | null {
 
 
 
-function readIntData(value: unknown, label: string) {
-  if (typeof value !== "number" || !Number.isSafeInteger(value)) {
-    throw new Error(`${label} must be a safe integer.`);
-  }
-
-  return value;
-}
-
-
-
-export function deriveBeneficiaryWithdrawalId(stateDatum: ConstrData, signerKeyHash: string) {
-  assertStateDatumShape(stateDatum, "Beneficiary Withdrawal state datum");
-
-  const unwrappedStateDatum = unwrapStateDatum(stateDatum, "Beneficiary Withdrawal state datum");
-  const { beneficiaries } = readStateSections(
-    unwrappedStateDatum,
-    "Beneficiary Withdrawal state datum"
-  );
-
-  const matches = beneficiaries.flatMap((beneficiary, index) => {
-    if (!isConstrData(beneficiary) || beneficiary.alternative !== 0 || beneficiary.fields.length !== 4) {
-      throw new Error(
-        `Beneficiary Withdrawal beneficiaries[${index}] must be a Beneficiary constructor.`
-      );
-    }
-
-    const beneficiaryId = readIntData(
-      beneficiary.fields[0],
-      `Beneficiary Withdrawal beneficiaries[${index}].id`
-    );
-    const beneficiaryWallets = beneficiary.fields[1];
-    if (!Array.isArray(beneficiaryWallets)) {
-      throw new Error(
-        `Beneficiary Withdrawal beneficiaries[${index}].beneficiary_wallets must be a list.`
-      );
-    }
-
-    return beneficiaryWallets.includes(signerKeyHash) ? [beneficiaryId] : [];
-  });
-
-  if (matches.length !== 1) {
-    throw new Error(
-      "Beneficiary Withdrawal requires exactly one beneficiary matching the connected payment key hash."
-    );
-  }
-
-  return matches[0]!;
-}
+export { deriveBeneficiaryWithdrawalId } from "@/lib/contracts/beneficiary-identity";
 
 // `deriveStreamingPaymentPayoutStateDatum` now lives in the pure, unit-tested
 // `@/lib/contracts/streaming-payout` module (imported above), so the forwarded
-// state datum can be verified to preserve all four `State` fields without
+// state datum can be verified to preserve the other `State` fields without
 // pulling in this file's Mesh/browser dependencies.
 
-// A beneficiary withdrawal is one-shot: the acting beneficiary is removed from
-// the forwarded state and nothing else changes. The on-chain STT validator
-// requires output == input with exactly this beneficiary removed, so the
-// forwarded datum must be rebuilt here rather than reusing the input state.
-
-
+// Earlier beneficiaries are removed after one withdrawal. The final
+// beneficiary stays in State so it can recover separate fund pools in separate
+// transactions, and its withdrawal advances the shared non-admin cadence stamp.
+// An earlier-beneficiary withdrawal preserves every other State field.
 export function deriveBeneficiaryWithdrawalStateDatum(
   stateDatum: ConstrData,
-  beneficiaryId: number
+  beneficiaryId: OnChainInteger,
+  txLatestTimeMs: OnChainInteger
 ): ConstrData {
+  const targetId = toOnChainBigInt(beneficiaryId, "Beneficiary withdrawal id");
+  assertNonNegativeUint64(targetId, "Beneficiary withdrawal id");
+  const latestTime = toOnChainBigInt(
+    txLatestTimeMs,
+    "Beneficiary withdrawal transaction upper bound"
+  );
+  assertNonNegativeUint64(
+    latestTime,
+    "Beneficiary withdrawal transaction upper bound"
+  );
   const unwrappedStateDatum = unwrapStateDatum(
     stateDatum,
     "Beneficiary withdrawal state datum"
@@ -163,29 +136,45 @@ export function deriveBeneficiaryWithdrawalStateDatum(
     "Beneficiary withdrawal state datum"
   );
 
-  const nextBeneficiaries = sections.beneficiaries.filter((beneficiary, index) => {
+  const beneficiaryIds = sections.beneficiaries.map((beneficiary, index) => {
     if (
       !isConstrData(beneficiary) ||
       beneficiary.alternative !== 0 ||
-      beneficiary.fields.length !== 4
+      beneficiary.fields.length !== 5
     ) {
       throw new Error(
         `Beneficiary withdrawal beneficiaries[${index}] must be a Beneficiary constructor.`
       );
     }
-    return (
-      readIntData(
+    return BigInt(
+      readInteger(
         beneficiary.fields[0],
         `Beneficiary withdrawal beneficiaries[${index}].id`
-      ) !== beneficiaryId
+      )
     );
   });
 
-  if (nextBeneficiaries.length !== sections.beneficiaries.length - 1) {
+  if (beneficiaryIds.filter((id) => id === targetId).length !== 1) {
     throw new Error(
-      `Beneficiary withdrawal expects exactly one beneficiary with id ${beneficiaryId} to remove.`
+      `Beneficiary withdrawal expects exactly one beneficiary with id ${beneficiaryId}.`
     );
   }
+
+  if (sections.beneficiaries.length === 1) {
+    const nextFields = [...unwrappedStateDatum.fields];
+    nextFields[5] = {
+      alternative: 0,
+      fields: [txLatestTimeMs]
+    };
+    return {
+      ...unwrappedStateDatum,
+      fields: nextFields
+    };
+  }
+
+  const nextBeneficiaries = sections.beneficiaries.filter(
+    (_, index) => beneficiaryIds[index] !== targetId
+  );
 
   const access = sections.access;
   // readStateSections guarantees access is an AccessControl constructor with
@@ -207,4 +196,31 @@ export function deriveBeneficiaryWithdrawalStateDatum(
   };
 }
 
-
+/** Permanent exit shares withdrawal accounting, but also removes the final beneficiary. */
+export function deriveBeneficiaryExitStateDatum(
+  stateDatum: ConstrData,
+  beneficiaryId: OnChainInteger,
+  txEarliestTimeMs: number,
+  txLatestTimeMs: number
+): ConstrData {
+  const sections = readStateSections(stateDatum, "Beneficiary exit state datum");
+  const isFinal = sections.beneficiaries.length === 1;
+  if (isFinal) {
+    if (sections.streamingPayments.length > 0) {
+      throw new Error("Final beneficiary exit requires all streaming payments to be settled and removed first.");
+    }
+    assertNonAdminStreamingActionWindow(
+      stateDatum, txEarliestTimeMs, txLatestTimeMs, "Final beneficiary exit"
+    );
+  }
+  const output = deriveBeneficiaryWithdrawalStateDatum(stateDatum, beneficiaryId, txLatestTimeMs);
+  if (!isFinal) return output;
+  const access = readStateSections(output, "Beneficiary exit output datum").access;
+  return {
+    ...output,
+    fields: [
+      { ...access, fields: [access.fields[0]!, access.fields[1]!, []] },
+      ...output.fields.slice(1)
+    ]
+  };
+}

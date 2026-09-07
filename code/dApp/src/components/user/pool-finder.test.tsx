@@ -126,14 +126,19 @@ describe("lookup", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("does not repeat the helper text inside the box", () => {
+  it("links to pool explorers without repeating the helper text inside the box", () => {
     render(<PoolFinder selectedPool={null} onSelect={vi.fn()} />);
 
     const input = screen.getByLabelText("Find your pool");
     expect(input).toHaveAttribute("placeholder", "pool1…");
-    expect(
-      screen.getByText(/Browse pools on pool.pm or cexplorer.io and paste the pool id/)
-    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "pool.pm" })).toHaveAttribute(
+      "href",
+      "https://pool.pm/"
+    );
+    expect(screen.getByRole("link", { name: "cexplorer.io" })).toHaveAttribute(
+      "href",
+      "https://cexplorer.io/pool"
+    );
   });
 });
 
@@ -148,39 +153,17 @@ describe("depth", () => {
   });
 });
 
-describe("two lookups at once", () => {
-  /**
-   * Enter in the field starts a lookup and, unlike the Look up button, is not
-   * disabled while one runs. The reader corrected the pool id and pressed Enter
-   * again; the first answer arrived last and the card showed the wrong pool.
-   */
-  it("shows the pool the reader asked for last", async () => {
-    const answers: ((pool: StakePool) => void)[] = [];
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(
-        () =>
-          new Promise((resolve) => {
-            answers.push((pool: StakePool) =>
-              resolve({ ok: true, json: async () => ({ pool }) })
-            );
-          })
-      )
-    );
-
+describe("a lookup already running", () => {
+  it("ignores a second Enter until the first lookup answers", async () => {
+    // The button was disabled while loading, but Enter in the box called lookup anyway.
+    const fetchMock = vi.fn(() => new Promise(() => {}));
+    vi.stubGlobal("fetch", fetchMock);
     render(<PoolFinder selectedPool={null} onSelect={vi.fn()} />);
     const input = screen.getByLabelText("Find your pool");
-
-    fireEvent.change(input, { target: { value: "pool1first" } });
+    fireEvent.change(input, { target: { value: BASE_POOL.poolId } });
     fireEvent.keyDown(input, { key: "Enter" });
-    fireEvent.change(input, { target: { value: "pool1second" } });
     fireEvent.keyDown(input, { key: "Enter" });
-    await waitFor(() => expect(answers).toHaveLength(2));
 
-    answers[1]!({ ...BASE_POOL, ticker: "SECOND", name: "Second pool" });
-    answers[0]!({ ...BASE_POOL, ticker: "FIRST", name: "First pool" });
-
-    await waitFor(() => expect(screen.getByText(/SECOND/)).toBeInTheDocument());
-    expect(screen.queryByText(/FIRST/)).toBeNull();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
   });
 });

@@ -46,6 +46,22 @@ function transfer(address: string, lovelace: string) {
   };
 }
 
+test("permanent exit review states the loss of recovery rights", () => {
+  const ctx = { ...sendCtx([transfer(ADDRESS_ONE, "5000000")]), selectedAction: "exit-beneficiary" as const };
+  const receipt = computeReviewReceipt(ctx);
+  assert.equal(receipt.title, "Permanent withdrawal");
+  const access = receipt.items.find((item) => item.label === "Recovery access");
+  assert.equal(access?.tone, "warning");
+  assert.equal(access?.value, "Permanently removed");
+  assert.match(access?.detail ?? "", /unused share.*future deposits/);
+});
+
+test("legacy beneficiary review is not labeled as an unconditional permanent exit", () => {
+  const ctx = { ...sendCtx([transfer(ADDRESS_ONE, "5000000")]), selectedAction: "use-beneficiary" as const };
+  const receipt = computeReviewReceipt(ctx);
+  assert.equal(receipt.items.some((item) => item.label === "Recovery access"), false);
+});
+
 /**
  * The send receipt used to say `1 recipient`, a count the user could not check. The
  * destination is the one field on this screen that address-swapping malware targets, so the
@@ -53,21 +69,23 @@ function transfer(address: string, lovelace: string) {
  * verification.
  */
 
-test("a single recipient is named in the row and in the summary, not counted", () => {
+test("a single recipient is named once in its row, not repeated in the summary", () => {
   const receipt = computeReviewReceipt(sendCtx([transfer(ADDRESS_ONE, "5000000")]));
 
   const recipient = receipt.items.find((item) => item.label === "Recipient");
   assert.ok(recipient, "expected a Recipient row");
   assert.ok(recipient.value.includes(shortenAddress(ADDRESS_ONE)));
   assert.doesNotMatch(recipient.value, /1 recipient/);
-  assert.ok(receipt.summary.includes(shortenAddress(ADDRESS_ONE)));
+  assert.equal(receipt.summary.includes(shortenAddress(ADDRESS_ONE)), false);
 });
 
-test("the full address is carried on the detail line so it can be verified", () => {
+test("the full address is carried by the copy action, not printed as a second line", () => {
   const receipt = computeReviewReceipt(sendCtx([transfer(ADDRESS_ONE, "5000000")]));
 
   const recipient = receipt.items.find((item) => item.label === "Recipient");
-  assert.equal(recipient?.detail, ADDRESS_ONE);
+  assert.equal(recipient?.detail, undefined);
+  assert.equal(recipient?.copyValue, ADDRESS_ONE);
+  assert.equal(recipient?.copyLabel, "Copy recipient address");
 });
 
 test("each of several recipients gets its own numbered row plus a total", () => {
@@ -185,4 +203,9 @@ test("the claim receipt says there is nothing to claim when staking is off", () 
     receipt.items.find((item) => item.label === "Rewards come from")?.tone,
     "warning"
   );
+});
+
+test("mint receipt does not expose shared helper infrastructure", () => {
+  const receipt = computeReviewReceipt({ ...sendCtx([]), selectedAction: "mint", showSharedReferenceSetup: true });
+  assert.equal(receipt.items.some((item) => /helper/i.test(item.label)), false);
 });

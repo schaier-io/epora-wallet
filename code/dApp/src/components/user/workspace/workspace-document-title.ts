@@ -2,6 +2,10 @@ import type { UserWorkspaceRouteState } from "@/components/user/flow-types";
 import { COPY } from "@/lib/copy";
 import { GUIDED_ADMIN_TASK_MAP } from "@/components/user/workspace/guided-admin-catalog";
 import { USER_ACTION_DEFINITION_MAP } from "@/lib/user-flow/action-definitions";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceWorkspaceDocumentTitle.json";
+
+const i18n = createDefaultTranslator("ComponentsUserWorkspaceWorkspaceDocumentTitle", defaultMessages);
 
 /**
  * The part of the document title that says where in the workspace you are, or `null` when
@@ -23,7 +27,7 @@ import { USER_ACTION_DEFINITION_MAP } from "@/lib/user-flow/action-definitions";
  */
 export function workspaceTitleFragment(route: UserWorkspaceRouteState): string | null {
   if (route.workspaceMode === "new-wallet") {
-    return "Create wallet";
+    return i18n("createWallet");
   }
 
   const base = route.selectedTask
@@ -32,15 +36,15 @@ export function workspaceTitleFragment(route: UserWorkspaceRouteState): string |
       ? (USER_ACTION_DEFINITION_MAP[route.selectedAction]?.label ?? null)
       : route.selectedWalletUnit
         ? route.overviewSection === "transactions"
-          ? "Activity"
-          : "Wallet home"
+          ? i18n("activity")
+          : i18n("walletHome")
         : null;
 
   if (!base) {
     return null;
   }
   // The name leads and the step trails, because a history menu truncates from the right.
-  return route.flowStep === "review" ? `${base} (review)` : base;
+  return route.flowStep === "review" ? i18n("valueReview", { value: base }) : base;
 }
 
 /**

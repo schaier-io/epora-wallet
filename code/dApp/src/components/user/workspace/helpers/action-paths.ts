@@ -2,15 +2,11 @@ import { USER_ACTION_DEFINITIONS } from "@/lib/user-flow/action-definitions";
 import { type UserActionKind, type UserWorkspaceTask } from "@/components/user/flow-types";
 import { type SttSpendActionMode } from "@/components/user/workspace/types";
 import { buildStateActionData, resolveStructuredOnChainAction } from "@/lib/contracts/action-data";
-import { type AuthorityPath, type ConsolidateAuthorityPath, type OperatorAuthorityPath } from "@/lib/types/contracts";
+import { type AuthorityPath, type ConsolidateAuthorityPath, type OperatorAuthorityPath, type WalletInputRef } from "@/lib/types/contracts";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceHelpersActionPaths.json";
 
 const i18n = createDefaultTranslator("ComponentsUserWorkspaceHelpersActionPaths", defaultMessages);
-
-export function isPeopleTask(task: UserWorkspaceTask | null) {
-  return Boolean(task?.startsWith("people-"));
-}
 
 export function isWalletSettingsTask(task: UserWorkspaceTask | null) {
   return Boolean(task?.startsWith("settings-"));
@@ -53,10 +49,29 @@ export function isSttFlowAction(value: UserActionKind): value is SttSpendActionM
     value === "update-state" ||
     value === "manage-streaming-payments" ||
     value === "use-allowance" ||
-    value === "use-beneficiary" ||
+    (value === "use-beneficiary" || value === "exit-beneficiary") ||
     value === "payout-streaming-payment" ||
+    value === "stop-beneficiary-stream" ||
+    value === "distribute-beneficiaries" ||
     value === "consolidate-utxo"
   );
+}
+
+/** Administrative actions do not select or consume existing wallet fund pools. */
+export function supportsSttFundPoolInputs(action: SttSpendActionMode): boolean {
+  return (
+    action !== "stop-beneficiary-stream" &&
+    action !== "renew-proof-of-life" &&
+    action !== "update-state" &&
+    action !== "manage-streaming-payments"
+  );
+}
+
+export function resolveSttFundPoolInputs(
+  action: SttSpendActionMode,
+  inputs: WalletInputRef[]
+): WalletInputRef[] {
+  return supportsSttFundPoolInputs(action) ? inputs : [];
 }
 
 export function isUserActionKind(value: string): value is UserActionKind {
@@ -85,7 +100,7 @@ export function getSttAuthorityOptions(
     ];
   }
 
-  if (action === "use-beneficiary") {
+  if (action === "use-beneficiary" || action === "exit-beneficiary" || action === "stop-beneficiary-stream" || action === "distribute-beneficiaries") {
     return [{ value: "beneficiary", label: i18n("recoveryContact") }];
   }
 

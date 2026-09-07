@@ -2,13 +2,17 @@
  * Caps for the `/api/v1/tx/*` build routes, read from the environment so a
  * quota problem is a configuration change and not a deploy.
  *
- * Two limiters, because one cannot do both jobs:
+ * The build count uses two limiters, because one cannot do both jobs:
  *
  * - The **per-client** cap bounds one caller.
  * - The **deployment-wide** cap bounds every caller together. Blockfrost rate
  *   limits by source IP, and the whole deployment is one IP to it, so a flood
  *   spread across many callers would otherwise sail past the per-client cap
  *   and spend the shared quota.
+ *
+ * Exact wallet inputs use a second pair of weighted buckets. A build with six
+ * wallet inputs still counts as one build, but it consumes six input-work
+ * units. This preserves valid multi-input shapes while bounding provider work.
  *
  * ## Where the defaults come from
  *
@@ -50,13 +54,24 @@ export type TxRateLimits = {
   perClientWindowMs: number;
   globalRequests: number;
   globalWindowMs: number;
+  perClientWalletInputs: number;
+  globalWalletInputs: number;
 };
 
 export const TX_RATE_LIMIT_DEFAULTS: TxRateLimits = {
   perClientRequests: 5,
   perClientWindowMs: 60_000,
   globalRequests: 25,
-  globalWindowMs: 60_000
+  globalWindowMs: 60_000,
+  // Each exact wallet input costs two Blockfrost reads per prepare pass, and a
+  // script build prepares twice. Keep this work in a separate bucket so a valid
+  // transaction with more than five inputs is not rejected by the five-build
+  // caller cap. The default global window budgets 120 refs, or about 480 such
+  // reads. One transaction may exceed the per-client budget and exhaust that
+  // caller's window. The deployment budget still rejects work above 120 refs.
+  // This protects the provider without an on-chain input cap.
+  perClientWalletInputs: 40,
+  globalWalletInputs: 120
 };
 
 /** The key every caller shares, so the deployment-wide bucket is one bucket. */
@@ -112,6 +127,16 @@ export function readTxRateLimits(
       env.TX_RATE_LIMIT_GLOBAL_WINDOW_MS,
       TX_RATE_LIMIT_DEFAULTS.globalWindowMs,
       MAX_WINDOW_MS
+    ),
+    perClientWalletInputs: readPositiveIntEnv(
+      env.TX_RATE_LIMIT_WALLET_INPUTS,
+      TX_RATE_LIMIT_DEFAULTS.perClientWalletInputs,
+      MAX_REQUESTS
+    ),
+    globalWalletInputs: readPositiveIntEnv(
+      env.TX_RATE_LIMIT_GLOBAL_WALLET_INPUTS,
+      TX_RATE_LIMIT_DEFAULTS.globalWalletInputs,
+      MAX_REQUESTS
     )
   };
 }

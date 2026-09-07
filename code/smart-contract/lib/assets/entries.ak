@@ -6,6 +6,7 @@ use aiken/collection/list
 use assets/identity as asset_identity
 use cardano/assets
 use collections
+use constants
 use state/types.{AssetEntry}
 
 /// A flat asset-entries bundle (allowance, payout delta, …) is well-formed when
@@ -22,10 +23,14 @@ pub fn entries_are_valid(entries: List<AssetEntry>) -> Bool {
     fn(entry) { (entry.policy_id, entry.asset_name) },
   )
   and {
-    list.all(entries, fn(entry) { entry.quantity >= 0 })?,
     list.all(
       entries,
-      fn(entry) { asset_identity.is_valid(entry.policy_id, entry.asset_name) },
+      fn(entry) {
+        entry.quantity >= 0 && entry.quantity <= constants.max_state_integer && asset_identity.is_valid(
+          entry.policy_id,
+          entry.asset_name,
+        )
+      },
     )?,
     collections.all_unique(keys)?,
   }
@@ -37,10 +42,7 @@ pub fn value_from_asset_entries(entries: List<AssetEntry>) -> assets.Value {
     entries,
     assets.zero,
     fn(entry, acc) {
-      assets.merge(
-        acc,
-        assets.from_asset(entry.policy_id, entry.asset_name, entry.quantity),
-      )
+      assets.add(acc, entry.policy_id, entry.asset_name, entry.quantity)
     },
   )
 }
@@ -55,15 +57,14 @@ pub fn asset_entry(
   AssetEntry { policy_id, asset_name, quantity }
 }
 
-/// Bridge stdlib `assets.flatten(value)` (which yields tuples) into `AssetEntry`
-/// records, so a computed `Value` can be compared against an `AssetEntries`-typed
-/// datum/redeemer field (e.g. `spent_allowance`, `payout_delta`).
+/// Build `AssetEntry` records directly in the Value's policy and asset order.
+/// The result can be compared with `spent_allowance` or `payout_delta`.
 pub fn flatten_to_entries(value: assets.Value) -> List<AssetEntry> {
-  list.map(
-    assets.flatten(value),
-    fn(entry) {
-      let (policy_id, asset_name, quantity) = entry
-      AssetEntry { policy_id, asset_name, quantity }
+  assets.reduce(
+    value,
+    [],
+    fn(policy_id, asset_name, quantity, acc) {
+      [AssetEntry { policy_id, asset_name, quantity }, ..acc]
     },
   )
 }

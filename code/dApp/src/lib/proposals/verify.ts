@@ -1,13 +1,22 @@
-import { stateFormFromDatum, type StateFormState } from "@/lib/contracts/state-form";
+import { stateFormFromDatum, type StateFormState, type UserFormState } from "@/lib/contracts/state-form";
 import { validateStateDatum } from "@/lib/contracts/state-validation";
+import {
+  isNonNegativeUint64Decimal,
+  type OnChainInteger
+} from "@/lib/contracts/on-chain-integer";
+import { SLOT_CONFIG_NETWORK, slotToBeginUnixTime } from "@meshsdk/core";
 import { decodeConstrDatumFromUtxo } from "@/lib/mesh/transactions/internals";
+import { NETWORK } from "@/lib/mesh/transactions/internals/constants";
 import { ServerFetcher } from "@/lib/mesh/server-fetcher";
-import { deserializeTx, type CstTransactionInput, type CstTransactionOutput } from "@/lib/mesh/cst";
+import { deserializeTx, type CstKeyHash, type CstTransactionInput, type CstTransactionOutput } from "@/lib/mesh/cst";
 import { parseProposalBuildContext } from "./client";
 import { resolveProposalBodyHash } from "./serialization";
-import { assertProposalWalletBinding } from "./validation";
+import { assertProposalWalletBinding, proposalActionKind } from "./validation";
+import { assertProposalTransactionBinding } from "./transaction-binding";
+import { reviewStateTransition, type ProposalStateTransition } from "./state-transition";
 import { validateVKeyWitnessSet } from "./witness-validation";
 import { proposalCopy } from "./copy";
+import { MAX_UNSIGNED_TX_BYTES } from "./limits";
 import type {
   ProposalAuthorityPath,
   ProposalBuildContext,
@@ -25,7 +34,17 @@ import type {
 // unspent → read the consumed wallet state to learn the required signers →
 // compute whether the collected witnesses satisfy the rule.
 
-const MAX_INPUTS_CHECKED = 16;
+const MAX_CONCURRENT_INPUT_LOOKUPS = 8;
+export const MAX_BACKGROUND_PROPOSAL_INPUT_LOOKUPS = 8;
+
+type VerifyProposalOptions = {
+  /**
+   * Background list checks must not let one stored transaction consume an
+   * unbounded number of provider requests. Omit this for the selected detail,
+   * which performs the complete verification before signing.
+   */
+  maxInputLookups?: number;
+};
 
 export type ProposalVerificationChecks = {
   bodyHashMatches: boolean;
@@ -34,17 +53,45 @@ export type ProposalVerificationChecks = {
   allInputsLive: boolean;
   stateInputBound: boolean;
   signerStateResolved: boolean;
+  stateTransitionReviewed: boolean;
   signaturesValid: boolean;
+  notExpired: boolean;
+  // The keys the body lists as required signers can satisfy the wallet's rule
+  // once they all sign. A body that lists too little power can never pass the
+  // validator, however many people add a signature.
+  listedSignersCanPass: boolean;
 };
 
 export function determineProposalValidity(
   checks: ProposalVerificationChecks
 ): "valid" | "invalid" {
-  return Object.values(checks).every(Boolean) ? "valid" : "invalid";
+  return checks.stateTransitionReviewed === true && Object.values(checks).every(Boolean) ? "valid" : "invalid";
+}
+
+// The ledger accepts a transaction only while the current slot is below its
+// `invalid_hereafter`, so the body is dead from the START of that slot. Every
+// builder sets a short window (see `VALIDITY_WINDOW_FUTURE_MS`), and a proposal
+// exists precisely to wait for other people, so this is the usual way one dies.
+export function isProposalExpired(validUntilMs: number | null, nowMs: number): boolean {
+  return validUntilMs !== null && nowMs >= validUntilMs;
 }
 
 function lower(value: string): string {
   return value.trim().toLowerCase();
+}
+
+function readFormUint64(value: string): bigint | null {
+  const normalized = value.trim();
+  if (!/^\d+$/.test(normalized)) {
+    return null;
+  }
+  const canonical = normalized.replace(/^0+(?=\d)/, "");
+  return isNonNegativeUint64Decimal(canonical) ? BigInt(canonical) : null;
+}
+
+function toOnChainInteger(value: bigint): OnChainInteger {
+  const asNumber = Number(value);
+  return Number.isSafeInteger(asNumber) ? asNumber : value;
 }
 
 function refKey(txHash: string, index: number): string {
@@ -74,7 +121,16 @@ function extractSttInputRef(
   return null;
 }
 
-function decodeEffect(txHex: string): ProposalEffect {
+export function decodeEffect(txHex: string): ProposalEffect {
+  if (txHex.length > MAX_UNSIGNED_TX_BYTES * 2) {
+    return {
+      inputs: [],
+      outputs: [],
+      feeLovelace: null,
+      validUntilMs: null,
+      decodeError: proposalCopy.transactionTooLarge(MAX_UNSIGNED_TX_BYTES)
+    };
+  }
   try {
     const body = deserializeTx(txHex).body();
     const inputs: ProposalInputRef[] = toArray<CstTransactionInput>(body.inputs()).map((input) => ({
@@ -101,12 +157,19 @@ function decodeEffect(txHex: string): ProposalEffect {
       };
     });
 
-    return { inputs, outputs, feeLovelace: body.fee().toString() };
+    const ttl = body.ttl();
+    const validUntilMs =
+      ttl === undefined || ttl === null
+        ? null
+        : slotToBeginUnixTime(Number(ttl), SLOT_CONFIG_NETWORK[NETWORK]);
+
+    return { inputs, outputs, feeLovelace: body.fee().toString(), validUntilMs };
   } catch {
     return {
       inputs: [],
       outputs: [],
       feeLovelace: null,
+      validUntilMs: null,
       decodeError: proposalCopy.couldNotDecodeTransaction()
     };
   }
@@ -115,63 +178,93 @@ function decodeEffect(txHex: string): ProposalEffect {
 // Resolves each input's address, then checks it against that address's current
 // UTxO set. An input missing from its address's live set has been spent, which is the
 // classic reason a saved proposal becomes invalid.
-async function checkInputLiveness(
-  fetcher: ServerFetcher,
+// The body's `required_signers`, lower-cased. This is what the validator sees as
+// `extra_signatories`: a signature from a key that is not in this list adds no
+// power on-chain, and the ledger refuses the transaction until every listed key
+// has signed.
+export function decodeRequiredSigners(txHex: string): string[] {
+  try {
+    // The entries are cardano-sdk `Hash` wrappers with no `toString`; `value()`
+    // holds the hex.
+    return toArray<CstKeyHash>(deserializeTx(txHex).body().requiredSigners() ?? []).map(
+      (keyHash) => lower(keyHash.value())
+    );
+  } catch {
+    return [];
+  }
+}
+
+export async function checkInputLiveness(
+  fetcher: Pick<ServerFetcher, "get">,
   inputs: ProposalInputRef[]
 ): Promise<{ reasons: string[]; complete: boolean }> {
   const reasons: string[] = [];
-  const checked = inputs.slice(0, MAX_INPUTS_CHECKED);
-  let complete = inputs.length > 0 && inputs.length <= MAX_INPUTS_CHECKED;
-  if (inputs.length > checked.length) {
-    reasons.push(proposalCopy.checkedInputLimit(MAX_INPUTS_CHECKED, inputs.length));
-  }
+  let complete = inputs.length > 0;
 
-  // Resolve ref → address.
-  const addressByRef = new Map<string, string | null>();
-  await Promise.all(
-    checked.map(async (input) => {
-      const key = refKey(input.txHash, input.outputIndex);
-      try {
-        const utxos = await fetcher.fetchUTxOs(input.txHash, input.outputIndex);
-        addressByRef.set(key, utxos[0]?.output.address ?? null);
-      } catch {
-        addressByRef.set(key, null);
-      }
-    })
-  );
-
-  // Build a live ref-set per unique address.
-  const uniqueAddresses = Array.from(new Set([...addressByRef.values()].filter(Boolean))) as string[];
-  const liveByAddress = new Map<string, Set<string>>();
-  await Promise.all(
-    uniqueAddresses.map(async (address) => {
-      try {
-        const utxos = await fetcher.fetchAddressUTxOs(address);
-        liveByAddress.set(
-          address,
-          new Set(utxos.map((utxo) => refKey(utxo.input.txHash, utxo.input.outputIndex)))
-        );
-      } catch {
-        // Leave unset → treated as "unknown" below.
-      }
-    })
-  );
-
-  for (const input of checked) {
-    const key = refKey(input.txHash, input.outputIndex);
-    const address = addressByRef.get(key) ?? null;
-    if (!address) {
-      input.live = null;
-      complete = false;
-      reasons.push(proposalCopy.couldNotConfirmInput(`${key.slice(0, 16)}…`));
-      continue;
+  const checkInBatches = async <T>(
+    values: T[],
+    check: (value: T) => Promise<void>
+  ) => {
+    for (let start = 0; start < values.length; start += MAX_CONCURRENT_INPUT_LOOKUPS) {
+      await Promise.all(
+        values.slice(start, start + MAX_CONCURRENT_INPUT_LOOKUPS).map(check)
+      );
     }
-    const liveSet = liveByAddress.get(address);
-    if (!liveSet) {
+  };
+
+  // Blockfrost's transaction-output record reports whether each exact output
+  // was consumed. Query once per transaction hash. An address UTxO scan can
+  // paginate without a hard bound when an input belongs to a busy address.
+  const statusByTransaction = new Map<string, Map<number, boolean> | null>();
+  const transactionHashes = Array.from(new Set(inputs.map((input) => lower(input.txHash))));
+  await checkInBatches(
+    transactionHashes,
+    async (txHash) => {
+      try {
+        const response = await fetcher.get(`txs/${txHash}/utxos`);
+        const outputs =
+          typeof response === "object" && response !== null &&
+          Array.isArray((response as { outputs?: unknown }).outputs)
+            ? (response as { outputs: unknown[] }).outputs
+            : null;
+        if (!outputs) {
+          statusByTransaction.set(txHash, null);
+          return;
+        }
+        const statuses = new Map<number, boolean>();
+        for (const output of outputs) {
+          if (typeof output !== "object" || output === null) continue;
+          const { output_index: outputIndex, consumed_by_tx: consumedByTx, collateral } = output as {
+            output_index?: unknown;
+            consumed_by_tx?: unknown;
+            collateral?: unknown;
+          };
+          if (!Number.isSafeInteger(outputIndex) || Number(outputIndex) < 0) continue;
+          // Blockfrost always leaves consumption null for collateral outputs.
+          if (collateral === true) continue;
+          if (consumedByTx === null) {
+            statuses.set(Number(outputIndex), true);
+          } else if (typeof consumedByTx === "string" && consumedByTx.length > 0) {
+            statuses.set(Number(outputIndex), false);
+          }
+        }
+        statusByTransaction.set(txHash, statuses);
+      } catch {
+        statusByTransaction.set(txHash, null);
+      }
+    }
+  );
+
+  for (const input of inputs) {
+    const key = refKey(input.txHash, input.outputIndex);
+    const status = statusByTransaction
+      .get(lower(input.txHash))
+      ?.get(input.outputIndex);
+    if (status === undefined) {
       input.live = null;
       complete = false;
       reasons.push(proposalCopy.couldNotConfirmInput(`${key.slice(0, 16)}…`));
-    } else if (!liveSet.has(key)) {
+    } else if (!status) {
       input.live = false;
       reasons.push(proposalCopy.inputSpent(`${key.slice(0, 12)}…`));
     } else {
@@ -186,19 +279,52 @@ async function checkInputLiveness(
 // decides whether the collected witnesses satisfy the wallet's admin/multisig
 // authority. `verifyProposal` reaches it only after network resolution, so the
 // rule itself is tested in isolation.
+//
+// `listedKeyHashes` is the body's `required_signers`. When it is given, only
+// those keys count towards the rule (the chain sees nothing else), the returned
+// `requiredSigners` are exactly those keys, and the request is satisfied only
+// once every one of them has signed. Without it the rule is evaluated over the
+// whole access list, which the create form uses to offer the candidate set.
 export function computeSignerSatisfaction(
   stateForm: StateFormState,
   authorityPath: ProposalAuthorityPath,
-  signedKeyHashes: string[]
+  signedKeyHashes: string[],
+  listedKeyHashes: string[] = []
 ): SignerSatisfaction {
-  const signed = new Set(signedKeyHashes.map(lower));
+  const listed = listedKeyHashes.map(lower);
+  const listedSet = new Set(listed);
+  const counts = (keyHash: string) => listed.length === 0 || listedSet.has(keyHash);
+  const signed = new Set(signedKeyHashes.map(lower).filter(counts));
   const userSigned = (wallets: string[]) => wallets.some((wallet) => signed.has(lower(wallet)));
+  const everyListedSigned = listed.every((keyHash) => signed.has(keyHash));
+
+  const eligible = (users: UserFormState[], power: (user: UserFormState) => bigint) => {
+    const byWallet = new Map<string, { power: bigint; isAdmin: boolean }>();
+    for (const user of users) {
+      for (const wallet of user.wallets) {
+        byWallet.set(lower(wallet), { power: power(user), isAdmin: user.isAdmin });
+      }
+    }
+    if (listed.length === 0) {
+      return Array.from(byWallet, ([keyHash, entry]) => ({
+        keyHash,
+        power: toOnChainInteger(entry.power),
+        isAdmin: entry.isAdmin
+      }));
+    }
+    return listed.map((keyHash) => {
+      const entry = byWallet.get(keyHash) ?? { power: 0n, isAdmin: false };
+      return {
+        keyHash,
+        power: toOnChainInteger(entry.power),
+        isAdmin: entry.isAdmin
+      };
+    });
+  };
 
   if (authorityPath === "admin") {
     const admins = stateForm.users.filter((user) => user.isAdmin);
-    const requiredSigners = admins.flatMap((user) =>
-      user.wallets.map((wallet) => ({ keyHash: lower(wallet), power: 1, isAdmin: true }))
-    );
+    const requiredSigners = eligible(admins, () => 1n);
     const satisfied = admins.some((user) => userSigned(user.wallets));
     return {
       authorityPath,
@@ -206,36 +332,38 @@ export function computeSignerSatisfaction(
       signedKeyHashes: signedKeyHashes.map(lower),
       satisfiedPower: satisfied ? 1 : 0,
       threshold: null,
-      satisfied
+      satisfied: satisfied && everyListedSigned
     };
   }
 
-  const powerUsers = stateForm.users.filter(
-    (user) => user.multiSigPowerMode === "some" && Number(user.multiSigPower) > 0
+  const powerUsers = stateForm.users.filter((user) => {
+    const power = user.multiSigPowerMode === "some"
+      ? readFormUint64(user.multiSigPower)
+      : null;
+    return power !== null && power > 0n;
+  });
+  const requiredSigners = eligible(
+    powerUsers,
+    (user) => readFormUint64(user.multiSigPower) ?? 0n
   );
-  const requiredSigners = powerUsers.flatMap((user) =>
-    user.wallets.map((wallet) => ({
-      keyHash: lower(wallet),
-      power: Number(user.multiSigPower),
-      isAdmin: user.isAdmin
-    }))
-  );
-  const threshold =
-    stateForm.multiSigThresholdMode === "some" ? Number(stateForm.multiSigThreshold) : null;
+  const threshold = stateForm.multiSigThresholdMode === "some"
+    ? readFormUint64(stateForm.multiSigThreshold)
+    : null;
   // Power is per user record (deduped), not per signed wallet.
-  let satisfiedPower = 0;
+  let satisfiedPower = 0n;
   for (const user of powerUsers) {
     if (userSigned(user.wallets)) {
-      satisfiedPower += Number(user.multiSigPower);
+      satisfiedPower += readFormUint64(user.multiSigPower) ?? 0n;
     }
   }
   return {
     authorityPath,
     requiredSigners,
     signedKeyHashes: signedKeyHashes.map(lower),
-    satisfiedPower,
-    threshold,
-    satisfied: threshold != null && satisfiedPower >= threshold
+    satisfiedPower: toOnChainInteger(satisfiedPower),
+    threshold: threshold === null ? null : toOnChainInteger(threshold),
+    // `Some(0)` is a legal datum but an inert rule: the validator wants power > 0.
+    satisfied: threshold !== null && threshold > 0n && satisfiedPower >= threshold && everyListedSigned
   };
 }
 
@@ -243,40 +371,70 @@ async function deriveSigners(
   fetcher: ServerFetcher,
   proposal: ProposalDetailDto,
   buildContext: ProposalBuildContext | null,
-  signedKeyHashes: string[]
-): Promise<{ signers: SignerSatisfaction | null; walletAssetBound: boolean }> {
+  signedKeyHashes: string[],
+  listedKeyHashes: string[]
+): Promise<{ signers: SignerSatisfaction | null; walletAssetBound: boolean; reachable: boolean; stateTransition: ProposalStateTransition | null }> {
   const sttRef = extractSttInputRef(buildContext);
   if (!sttRef) {
-    return { signers: null, walletAssetBound: false };
+    return { signers: null, walletAssetBound: false, reachable: false, stateTransition: null };
   }
   try {
     const utxos = await fetcher.fetchUTxOs(sttRef.txHash, sttRef.index);
-    const utxo = utxos[0];
+    const utxo = utxos.find((candidate) =>
+      lower(candidate.input.txHash) === lower(sttRef.txHash) && candidate.input.outputIndex === sttRef.index
+    );
     if (!utxo) {
-      return { signers: null, walletAssetBound: false };
+      return { signers: null, walletAssetBound: false, reachable: false, stateTransition: null };
     }
     const walletAssetBound = utxo.output.amount.some(
       (asset) =>
         lower(asset.unit) === lower(proposal.walletUnit) && BigInt(asset.quantity) === 1n
     );
     if (!walletAssetBound) {
-      return { signers: null, walletAssetBound: false };
+      return { signers: null, walletAssetBound: false, reachable: false, stateTransition: null };
     }
     const datum = decodeConstrDatumFromUtxo(utxo);
     if (!datum || validateStateDatum(datum).length > 0) {
-      return { signers: null, walletAssetBound: true };
+      return { signers: null, walletAssetBound: true, reachable: false, stateTransition: null };
     }
     const stateForm = stateFormFromDatum(datum);
+    let stateTransition: ProposalStateTransition | null = null;
+    try {
+      stateTransition = reviewStateTransition({
+        unsignedTxHex: proposal.unsignedTxHex,
+        walletUnit: proposal.walletUnit,
+        stateInput: utxo
+      });
+    } catch {
+      // Signer resolution alone cannot authorize a transaction whose effects
+      // the signer cannot inspect. The validity gate below fails closed.
+    }
     return {
-      signers: computeSignerSatisfaction(stateForm, proposal.authorityPath, signedKeyHashes),
-      walletAssetBound: true
+      stateTransition,
+      signers: computeSignerSatisfaction(
+        stateForm,
+        proposal.authorityPath,
+        signedKeyHashes,
+        listedKeyHashes
+      ),
+      walletAssetBound: true,
+      // Would the listed keys pass once all of them have signed?
+      reachable: computeSignerSatisfaction(
+        stateForm,
+        proposal.authorityPath,
+        listedKeyHashes,
+        listedKeyHashes
+      ).satisfied
     };
   } catch {
-    return { signers: null, walletAssetBound: false };
+    return { signers: null, walletAssetBound: false, reachable: false, stateTransition: null };
   }
 }
 
-export async function verifyProposal(proposal: ProposalDetailDto): Promise<ProposalVerification> {
+export async function verifyProposal(
+  proposal: ProposalDetailDto,
+  options: VerifyProposalOptions = {}
+): Promise<ProposalVerification> {
   const fetcher = new ServerFetcher();
   const buildContext = parseProposalBuildContext(proposal);
   const effect = decodeEffect(proposal.unsignedTxHex);
@@ -296,6 +454,11 @@ export async function verifyProposal(proposal: ProposalDetailDto): Promise<Propo
 
   if (effect.decodeError) {
     reasons.push(effect.decodeError);
+  }
+
+  const expired = isProposalExpired(effect.validUntilMs, Date.now());
+  if (expired) {
+    reasons.push(proposalCopy.transactionExpired());
   }
 
   // Mark the STT state input so the UI can highlight the moving part.
@@ -321,12 +484,35 @@ export async function verifyProposal(proposal: ProposalDetailDto): Promise<Propo
     assertProposalWalletBinding({
       walletUnit: proposal.walletUnit,
       walletPolicyId: proposal.walletPolicyId,
+      authorityPath: proposal.authorityPath,
       builder: buildContext.builder,
+      buildContext
+    });
+    if (proposal.actionKind !== proposalActionKind(buildContext)) {
+      throw new Error("action mismatch");
+    }
+    assertProposalTransactionBinding({
+      unsignedTxHex: proposal.unsignedTxHex,
       buildContext
     });
   } catch {
     stateInputBound = false;
     reasons.push(proposalCopy.walletIdentityMismatch());
+  }
+
+  if (
+    options.maxInputLookups !== undefined &&
+    effect.inputs.length > options.maxInputLookups
+  ) {
+    return {
+      validity: "unknown",
+      reasons,
+      effect,
+      signers: null,
+      bodyHashMatches,
+      stateTransition: null,
+      expired
+    };
   }
 
   let inputsFullyChecked = false;
@@ -355,14 +541,25 @@ export async function verifyProposal(proposal: ProposalDetailDto): Promise<Propo
     }
   }
   const signerResolution = stateInputBound
-    ? await deriveSigners(fetcher, proposal, buildContext, signedKeyHashes)
-    : { signers: null, walletAssetBound: false };
+    ? await deriveSigners(
+        fetcher,
+        proposal,
+        buildContext,
+        signedKeyHashes,
+        decodeRequiredSigners(proposal.unsignedTxHex)
+      )
+    : { signers: null, walletAssetBound: false, reachable: false, stateTransition: null };
   if (!signerResolution.walletAssetBound) {
     stateInputBound = false;
     reasons.push(proposalCopy.stateTokenMissing());
   }
   if (!signerResolution.signers) {
     reasons.push(proposalCopy.signersUnresolved());
+  } else if (!signerResolution.reachable) {
+    reasons.push(proposalCopy.listedSignersCannotPass());
+  }
+  if (!signerResolution.stateTransition) {
+    reasons.push(proposalCopy.stateTransitionUnresolved());
   }
 
   const validity = determineProposalValidity({
@@ -372,8 +569,19 @@ export async function verifyProposal(proposal: ProposalDetailDto): Promise<Propo
     allInputsLive: effect.inputs.length > 0 && effect.inputs.every((input) => input.live === true),
     stateInputBound,
     signerStateResolved: signerResolution.signers !== null,
-    signaturesValid
+    stateTransitionReviewed: signerResolution.stateTransition !== null,
+    signaturesValid,
+    notExpired: !expired,
+    listedSignersCanPass: signerResolution.reachable
   });
 
-  return { validity, reasons, effect, signers: signerResolution.signers, bodyHashMatches };
+  return {
+    validity,
+    reasons,
+    effect,
+    signers: signerResolution.signers,
+    bodyHashMatches,
+    stateTransition: signerResolution.stateTransition,
+    expired
+  };
 }

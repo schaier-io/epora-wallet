@@ -1,14 +1,10 @@
 "use client";
-import { useTranslations } from "next-intl";
-
-
-import { type ReactNode } from "react";
+import { type ComponentProps, type ReactNode, useState } from "react";
 
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils/cn";
-import { type OperatorAuthorityPath } from "@/lib/types/contracts";
+import { formatLovelaceAsAda, parseAdaToLovelace } from "@/lib/units/lovelace";
 
 import { InlineFieldError } from "./primitives";
 
@@ -17,7 +13,7 @@ import { InlineFieldError } from "./primitives";
 // card chrome / field wiring lives in exactly one place.
 
 // The bordered card that heads a config section: a title, an optional
-// description, and arbitrary content below (e.g. an OperatorPathSelector).
+// description, and arbitrary content below.
 export function ConfigSection({
   title,
   description,
@@ -118,54 +114,56 @@ export function LabeledInputField({
   );
 }
 
-// The operator-authority chooser shown at the top of the wrapper-flow config
-// views. With more than one option it renders a select; with exactly one it
-// renders a read-only badge; with none it renders nothing.
-export function OperatorPathSelector({
-  id,
-  options,
+// An ADA amount box that keeps what the person types. Rendering the stored
+// lovelace back through formatLovelaceAsAda on every keystroke erased a trailing
+// "." (so 1.5 could only be pasted) and turned a decimal comma into a tenfold
+// amount. The stored value drives the box only while nobody is editing it.
+export function AdaAmountInput({
   value,
   onChange,
-  helper
-}: {
-  id: string;
-  options: Array<{ value: OperatorAuthorityPath; label: string }>;
-  value: OperatorAuthorityPath;
-  onChange: (path: OperatorAuthorityPath) => void;
-  helper?: string;
+  onFocus,
+  onBlur,
+  ...inputProps
+}: Omit<ComponentProps<typeof Input>, "value" | "onChange" | "inputMode"> & {
+  /** Stored lovelace, or "" when nothing is entered. */
+  value: string;
+  /** Receives the raw text; the caller parses it with parseAdaToLovelace. */
+  onChange: (text: string) => void;
 }) {
-  const i18n = useTranslations("ComponentsUserWorkspaceEditorsConfigFormPrimitives");
-  if (options.length > 1) {
-    return (
-      <div className="mt-4 max-w-xs space-y-1">
-        <Label htmlFor={id}>{i18n("signAs")}</Label>
-        <Select
-          id={id}
-          value={value}
-          onChange={(event) => onChange(event.target.value as OperatorAuthorityPath)}
-        >
-          {options.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </Select>
-        {helper ? (
-          <p className="text-xs text-muted-foreground">{helper}</p>
-        ) : null}
-      </div>
-    );
-  }
-
-  const single = options[0];
-  if (!single) {
-    return null;
+  const [draft, setDraft] = useState<string | null>(null);
+  const [focused, setFocused] = useState(false);
+  const stored = value.trim() ? formatLovelaceAsAda(value) : "";
+  // Text that does not parse stays visible and flagged after blur; swapping it
+  // for the (empty) stored value would hide the mistake.
+  const invalid = draft !== null && draft.trim() !== "" && parseAdaToLovelace(draft) === null;
+  // A stored value that moved while the box is not being edited (a Max button, a
+  // "pay now" tick, a form reset) replaces whatever text was left behind.
+  const [syncedValue, setSyncedValue] = useState(value);
+  if (value !== syncedValue) {
+    setSyncedValue(value);
+    if (!focused) setDraft(null);
   }
 
   return (
-    <div className="mt-4 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-      {i18n("signingAs")}{" "}
-      <span className="font-medium text-foreground">{single.label}</span>
-    </div>
+    <Input
+      {...inputProps}
+      inputMode="decimal"
+      aria-invalid={invalid || undefined}
+      value={draft ?? stored}
+      onFocus={(event) => {
+        setFocused(true);
+        setDraft(draft ?? stored);
+        onFocus?.(event);
+      }}
+      onBlur={(event) => {
+        setFocused(false);
+        if (!invalid) setDraft(null);
+        onBlur?.(event);
+      }}
+      onChange={(event) => {
+        setDraft(event.target.value);
+        onChange(event.target.value);
+      }}
+    />
   );
 }

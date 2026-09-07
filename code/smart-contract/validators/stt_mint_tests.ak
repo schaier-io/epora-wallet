@@ -263,6 +263,33 @@ test stt_mint_rejects_multiple_asset_names_in_stt_output() fail {
   expect run_stt_mint(transaction)
 }
 
+test stt_mint_rejects_unrelated_asset_in_stt_output() fail {
+  let input_ref = fixtures.stt_input_ref()
+  let asset_name = io.output_reference_to_asset_name(input_ref)
+  let state = states.admin_state()
+  let transaction = mint_transaction(
+    assets.from_asset(fixtures.default_policy_id(), asset_name, 1),
+    [
+      fixtures.stt_output(
+        fixtures.default_policy_id(),
+        state,
+        assets.merge(
+          fixtures.stt_value(
+            fixtures.default_policy_id(),
+            asset_name,
+            2_000_000,
+          ),
+          assets.from_asset(#"cc", #"01", 1),
+        ),
+      ),
+    ],
+    input_ref,
+    fixtures.tx_id(#"6341"),
+  )
+
+  expect run_stt_mint(transaction)
+}
+
 test stt_mint_rejects_invalid_initial_state_configuration() fail {
   let input_ref = fixtures.stt_input_ref()
   let asset_name = io.output_reference_to_asset_name(input_ref)
@@ -287,6 +314,45 @@ test stt_mint_rejects_invalid_initial_state_configuration() fail {
     ],
     input_ref,
     fixtures.tx_id(#"6430"),
+  )
+
+  expect run_stt_mint(transaction)
+}
+
+// Wallet setup must reject two positive-power records that share a credential.
+test stt_mint_rejects_shared_multisig_credential() fail {
+  let input_ref = fixtures.stt_input_ref()
+  let asset_name = io.output_reference_to_asset_name(input_ref)
+  let shared_wallet = fixtures.key_hash("shared")
+  let state = states.base_state()
+    |> states.with_users(
+        [
+          state_types.User {
+            ..states.base_user(),
+            id: 1,
+            user_wallets: [shared_wallet],
+            multi_sig_power: Some(1),
+          },
+          state_types.User {
+            ..states.base_user(),
+            id: 2,
+            user_wallets: [shared_wallet],
+            multi_sig_power: Some(1),
+          },
+        ],
+      )
+    |> states.with_multisig_threshold(2)
+  let transaction = mint_transaction(
+    assets.from_asset(fixtures.default_policy_id(), asset_name, 1),
+    [
+      fixtures.stt_output(
+        fixtures.default_policy_id(),
+        state,
+        fixtures.stt_value(fixtures.default_policy_id(), asset_name, 2_000_000),
+      ),
+    ],
+    input_ref,
+    fixtures.tx_id(#"6431"),
   )
 
   expect run_stt_mint(transaction)
@@ -352,6 +418,131 @@ test stt_mint_rejects_malformed_streaming_payment_payout_credential() fail {
   )
 
   expect run_stt_mint(transaction)
+}
+
+// Mint knows its own policy id at runtime. A payout address may not reuse that
+// payment credential, even when it carries a different stake credential.
+test stt_mint_rejects_stream_to_stt_payment_credential_stake_variant() fail {
+  let policy_id = fixtures.policy_id("stt")
+  let input_ref = fixtures.stt_input_ref()
+  let asset_name = io.output_reference_to_asset_name(input_ref)
+  let payout_address = Address {
+    payment_credential: Script(policy_id),
+    stake_credential: Some(
+      Inline(VerificationKey(fixtures.key_hash("payout-stake"))),
+    ),
+  }
+  let state = states.admin_state()
+    |> states.with_streaming_payments(
+        [states.streaming_payment_to(1, payout_address, 0)],
+      )
+  let transaction = mint_transaction(
+    assets.from_asset(policy_id, asset_name, 1),
+    [
+      fixtures.stt_output(
+        policy_id,
+        state,
+        fixtures.stt_value(policy_id, asset_name, 2_000_000),
+      ),
+    ],
+    input_ref,
+    fixtures.tx_id(#"6433"),
+  )
+
+  expect stt.eval_mint(0, policy_id, transaction)
+}
+
+// The guard forbids only the STT payment credential. Another valid script
+// credential remains a supported payout target.
+test stt_mint_accepts_stream_to_unrelated_script_credential() {
+  let policy_id = fixtures.policy_id("stt")
+  let input_ref = fixtures.stt_input_ref()
+  let asset_name = io.output_reference_to_asset_name(input_ref)
+  let payout_address = fixtures.script_address(fixtures.policy_id("payout"))
+  let state = states.admin_state()
+    |> states.with_streaming_payments(
+        [states.streaming_payment_to(1, payout_address, 0)],
+      )
+  let transaction = mint_transaction(
+    assets.from_asset(policy_id, asset_name, 1),
+    [
+      fixtures.stt_output(
+        policy_id,
+        state,
+        fixtures.stt_value(policy_id, asset_name, 2_000_000),
+      ),
+    ],
+    input_ref,
+    fixtures.tx_id(#"6434"),
+  )
+
+  expect stt.eval_mint(0, policy_id, transaction)
+}
+
+// The payment asset policy is separate from the payout payment credential.
+// On-chain ingress intentionally accepts the current STT policy as an asset;
+// maintained builders reject this fresh configuration before construction.
+test stt_mint_accepts_stream_asset_under_stt_policy() {
+  let policy_id = fixtures.policy_id("stt")
+  let input_ref = fixtures.stt_input_ref()
+  let asset_name = io.output_reference_to_asset_name(input_ref)
+  let streaming_payment = StreamingPayment {
+    ..states.streaming_payment_to(
+      1,
+      fixtures.address_from_key("beneficiary1"),
+      0,
+    ),
+    policy_id,
+    asset_name,
+  }
+  let state = states.admin_state()
+    |> states.with_streaming_payments([streaming_payment])
+  let transaction = mint_transaction(
+    assets.from_asset(policy_id, asset_name, 1),
+    [
+      fixtures.stt_output(
+        policy_id,
+        state,
+        fixtures.stt_value(policy_id, asset_name, 2_000_000),
+      ),
+    ],
+    input_ref,
+    fixtures.tx_id(#"6435"),
+  )
+
+  expect stt.eval_mint(0, policy_id, transaction)
+}
+
+// A wallet payment credential is distinct from the STT payment credential.
+// Mint therefore accepts the wallet's own full address as a payout target.
+test stt_mint_accepts_stream_to_wallet_address() {
+  let policy_id = fixtures.policy_id("stt")
+  let input_ref = fixtures.stt_input_ref()
+  let asset_name = io.output_reference_to_asset_name(input_ref)
+  let state = states.admin_state()
+    |> states.with_streaming_payments(
+        [
+          states.streaming_payment_to(
+            1,
+            fixtures.script_address(fixtures.policy_id("wallet")),
+            0,
+          ),
+        ],
+      )
+  let transaction = mint_transaction(
+    assets.from_asset(policy_id, asset_name, 1),
+    [
+      fixtures.stt_output(
+        policy_id,
+        state,
+        fixtures.stt_value(policy_id, asset_name, 2_000_000),
+      ),
+    ],
+    input_ref,
+    fixtures.tx_id(#"6435"),
+  )
+
+  expect stt.eval_mint(0, policy_id, transaction)
 }
 
 test stt_mint_rejects_duplicate_streaming_payment_ids() fail {

@@ -42,15 +42,22 @@ pub type AssetEntries =
 /// `weight` defines a *proportional* share of the distributable wallet pool,
 /// not an independent percentage. On withdrawal the beneficiary may take up to
 /// `weight / (sum of weights of all beneficiaries still present) ×
-/// (wallet value − streaming-payment reserve)` per asset, and is then REMOVED
-/// from the state (one-shot). Because the weight is retired on use, the shares
-/// of any subset always sum to the whole pool regardless of withdrawal order,
-/// and a removed beneficiary can never withdraw again. `weight` must be `>= 1`.
+/// (wallet value − streaming-payment reserve)` per asset. An earlier
+/// beneficiary is then removed from State and cannot withdraw again. The final
+/// beneficiary remains in State. Its weight is 100% of the remaining total, so
+/// it can recover one or more wallet UTxOs and retry for any remainder.
+/// `weight` must be `>= 1`.
 pub type Beneficiary {
   id: Int,
   beneficiary_wallets: List<VerificationKeyHash>,
   unlock_after: Option<POSIXTime>,
   weight: Int,
+  /// Encoded full Address, validated at mint and UpdateState. Keeping this
+  /// field opaque avoids repeated nested decoding on preservation-only paths.
+  /// Those paths preserve its Data exactly. Exact distribution must
+  /// cast it to Address when routing. UseBeneficiary and ExitBeneficiary do
+  /// not route payouts to this field. Its wire value is the Address itself.
+  payout_address: Data,
 }
 
 /// Two authority-path enums, intentionally NOT unified into one. `OperatorPath`
@@ -87,7 +94,7 @@ pub type User {
 }
 
 /// The allowance view that applies at the current transaction time, after an
-/// (possible) expiry reset — computed by `state/allowance.expect_allowance_updates`.
+/// (possible) expiry reset — computed by `state/allowance.expect_single_allowance_update`.
 pub type EffectiveAllowance {
   remaining_allowance: AssetEntries,
   next_allowance_reset_after_use: POSIXTime,
@@ -134,21 +141,19 @@ pub type State {
   /// UTxOs at other stake credentials can be swept back in. Changeable ONLY via
   /// the admin/multisig `SetIntendedStakeCredential` operator action.
   intended_stake_credential: Option<Credential>,
-  /// Upper-bound timestamp of the most recent cadence-limited streaming action:
-  /// either a NON-ADMIN `PayStreamingPayment` crank or any receiver
-  /// `CancelStreamingPayment` (the tx `invalid_hereafter`), or `None` if none
-  /// has happened. The next cadence-limited action's lower bound must be at least
-  /// `constants.non_admin_payout_cooldown_ms` past this stamp. An ADMIN-signed
-  /// payout crank bypasses that limit and does NOT advance this field; receiver
-  /// cancellation never bypasses it, even if an admin also signs. The field
-  /// tracks exactly the throttled population, so an admin crank never delays a
-  /// later non-admin one. A multisig quorum, a listed user, a stream
-  /// payee and an unlocked beneficiary are all authorized to crank (see
-  /// `state/authorization`) but are all rate-limited and all stamp.
-  /// A non-admin crank and every receiver cancel advance it; every other
-  /// transition and every admin crank preserves it — preservation is enforced centrally in
-  /// `eval_spend` (like `intended_stake_credential`), the admin-crank
-  /// preservation in `eval_pay_streaming_payment`. Initialised to `None` at mint.
+  /// Upper-bound timestamp of the most recent cadence-limited action: a
+  /// NON-ADMIN `PayStreamingPayment` crank, receiver
+  /// `CancelStreamingPayment`, `StopBeneficiaryStream`, or final-beneficiary
+  /// recovery or exit.
+  /// It is `None` before any such action. The next cadence-limited action's lower
+  /// bound must be at least `constants.non_admin_payout_cooldown_ms` past this
+  /// stamp. An ADMIN-signed payout bypasses that limit and does NOT advance this
+  /// field. Receiver cancellation and final-beneficiary recovery never bypass
+  /// it, even if an admin also signs. The field tracks exactly the throttled
+  /// population, so an admin crank never delays a later non-admin action.
+  /// Earlier-beneficiary removal preserves it. Every other transition and every
+  /// admin crank also preserves it. `eval_spend` enforces that central rule, and
+  /// each stamping handler pins the new value. Initialised to `None` at mint.
   /// See the whitepaper's Settlement-cadence theorem.
   last_non_admin_payout_at: Option<POSIXTime>,
 }
@@ -174,17 +179,15 @@ pub type OperatorActionKind {
   /// Cheap, operator-authorized removal of ONE access entry (a user or a
   /// beneficiary) by list index. Unlike `UpdateState` it does not re-run the
   /// (super-linear) full configuration validation, only the recovery-reachability
-  /// shape check, so it stays affordable even if execution-budget parameters
-  /// tighten, and is exempt from the access-list size caps so an over-cap wallet
-  /// can always shrink back one entry at a time. No wallet spend.
+  /// shape check. It is exempt from the access-list size caps. A decodable
+  /// over-cap list can shrink while each removal fits the current execution
+  /// limits. This action does not spend wallet value.
   ///
   /// There is deliberately NO cheap "add" counterpart: growth must go through
   /// the full-validation `UpdateState`, which is the most expensive transition
-  /// (it re-runs the O(n²) configuration validation). So an add that would push
-  /// a wallet toward the execution-budget ceiling fails BEFORE any cheaper
-  /// remove or normal spend would — you can never grow into a state you can no
-  /// longer operate or recover from. See the whitepaper Security Analysis
-  /// ("Bounded execution cost").
+  /// (it re-runs the O(n²) configuration validation). An addition above a State
+  /// cap fails before the output State becomes reachable. See the whitepaper
+  /// Security Analysis ("Bounded execution cost").
   RemoveAccessIndex(AccessIndexTarget)
   /// Admin/multisig-admin-only: set the wallet's `intended_stake_credential`
   /// (see `State`). Carries the new value (`None` = enterprise / no delegation).
@@ -220,7 +223,8 @@ pub type SttAction {
   UseAllowance(AssetEntries)
   /// A beneficiary unlocks the wallet for its weighted share. The payload is
   /// the beneficiary's `id` (matches `Beneficiary.id` in the state). The acting
-  /// beneficiary is removed from the state in the same transition (one-shot).
+  /// beneficiary is removed from State unless it is the final beneficiary.
+  /// The final beneficiary remains available for repeatable recovery.
   UseBeneficiary(Int)
   /// A streaming-payment payout settles. The payload is the `payout_delta` the
   /// wallet must move into tagged streaming-payment outputs.
@@ -233,12 +237,22 @@ pub type SttAction {
   /// `payout_address` payment key — NOT an operator), it moves that one payment's
   /// `end_date` down, but never below either the tx upper bound ("now") or
   /// `start_date`, and changes nothing else in the payment or other payments.
-  /// The shared non-admin streaming cooldown limits repeat cancellation; a later
-  /// cancellation after the cooldown is intentionally valid. A script-credential payee
-  /// cannot sign, so it has no self-cancel path (operators stop such a stream via
-  /// `ManageStreamingPayments`). Declared LAST so the existing constructor indices
-  /// (0..5) are unchanged. No wallet spend.
+  /// Once final recovery opens, the new end must equal the exact safe cutoff.
+  /// Without an intervening operator reschedule, this permits one terminal
+  /// cancellation per payment. The shared non-admin streaming cooldown limits
+  /// repeat cancellation before final recovery. A script-credential payee cannot
+  /// sign, so it has no self-cancel path (operators stop such a stream via
+  /// `ManageStreamingPayments`). Constructor index 6. No wallet spend.
   CancelStreamingPayment(Int)
+  /// Permanent beneficiary withdrawal. Removes the actor even when final.
+  /// Final exit requires no streaming payments and obeys the recovery cadence.
+  /// Appended at index 7. Existing constructor indices 0..6 remain unchanged.
+  ExitBeneficiary(Int)
+  /// An unlocked beneficiary stops one stream at its exact safe cutoff.
+  /// Appended at index 8. Existing constructor indices 0..7 remain unchanged.
+  StopBeneficiaryStream(Int, Int)
+  /// Constructor 9. Pay every beneficiary exactly while retaining their rights.
+  DistributeBeneficiaries(Int)
 }
 
 /// True iff `action` is the dedicated `SetIntendedStakeCredential` operator
@@ -259,7 +273,7 @@ pub fn is_set_intended_stake_credential_action(action: SttAction) -> Bool {
 
 /// True iff `action` is a value-moving `PayStreamingPayment` crank. Wallet-side
 /// reserve logic uses this narrower classification; cadence-clock mutation uses
-/// `is_streaming_cadence_action` below.
+/// `is_non_admin_cadence_action` below.
 pub fn is_pay_streaming_payment_action(action: SttAction) -> Bool {
   when action is {
     PayStreamingPayment(_) -> True
@@ -267,14 +281,18 @@ pub fn is_pay_streaming_payment_action(action: SttAction) -> Bool {
   }
 }
 
-/// True for the two actions permitted to advance the global non-admin
-/// streaming cadence clock. Wallet reserve logic must continue using
-/// `is_pay_streaming_payment_action`, because receiver cancellation moves no
-/// wallet value.
-pub fn is_streaming_cadence_action(action: SttAction) -> Bool {
+/// True for actions permitted to advance the global non-admin cadence clock.
+/// Wallet reserve logic must continue using `is_pay_streaming_payment_action`,
+/// because cancellation moves no wallet value and beneficiary recovery has its
+/// own reserve rule.
+pub fn is_non_admin_cadence_action(action: SttAction) -> Bool {
   when action is {
     PayStreamingPayment(_) -> True
     CancelStreamingPayment(_) -> True
+    UseBeneficiary(_) -> True
+    ExitBeneficiary(_) -> True
+    StopBeneficiaryStream(_, _) -> True
+    DistributeBeneficiaries(_) -> True
     _ -> False
   }
 }

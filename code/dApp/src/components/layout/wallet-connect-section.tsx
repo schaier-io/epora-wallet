@@ -17,19 +17,10 @@ type MobileWalletSectionProps = {
   variant?: "primary" | "secondary";
 };
 
-/**
- * The paired wallet's own metadata, so `url` is whatever that wallet chose to
- * send. `new URL` on a value it cannot parse throws, and this runs during render,
- * so one wallet reporting a relative or malformed url took the whole panel down
- * the moment a pairing succeeded. Show the host when there is one, nothing when
- * there is not.
- */
-function peerHostname(url: string | undefined): string | null {
-  if (!url) {
-    return null;
-  }
+// Peer metadata comes from the phone's wallet app and is not always a valid URL.
+function hostnameOf(url: string) {
   try {
-    return new URL(url).hostname || null;
+    return new URL(url).hostname;
   } catch {
     return null;
   }
@@ -39,14 +30,15 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
   const i18n = useTranslations("ComponentsLayoutWalletConnectSection");
   const wc = useWalletConnect();
   const isPrimary = variant === "primary";
-  const peerHost = peerHostname(wc.session?.peer?.metadata?.url);
 
   const headingLabel = isPrimary
     ? i18n("pairACardanoMobileWallet")
     : i18n("orPairAMobileWallet");
   const headingSub = isPrimary
-    ? i18n("noBrowserExtensionScanAQrWith")
-    : i18n("useEternlLaceVesprTokeoBeginOr");
+    ? i18n("noBrowserExtensionScanAQrWithEternl")
+    : i18n("useEternlLaceVesprTokeoBeginOrAny");
+  const peerUrl = wc.session?.peer?.metadata?.url;
+  const peerHostname = peerUrl ? hostnameOf(peerUrl) : null;
 
   const heading = (
     <div className="flex items-start gap-3">
@@ -84,25 +76,7 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
       <section className="space-y-3 border-t border-border/60 pt-6">
         {heading}
         <div className="rounded-2xl border border-dashed border-border/70 bg-background/40 p-3 sm:p-4 text-sm text-muted-foreground">
-          {i18n("mobileWalletSupportIsStagedButNotConfigured")}{" "}
-          {/*
-            Bare `rounded` (4px) on purpose, below the 8px radius floor. The floor governs
-            controls and panels; this is an inline code chip about 19px tall, and 8px corners
-            would read as a pill instead of a highlight. Same call as the footer's `?` key cap.
-          */}
-          <code className="rounded bg-muted/40 px-1 py-0.5 font-mono text-[11px]">
-            {i18n("nextPublicWalletconnectProjectId")}
-          </code>{" "}
-          {i18n("in")} <code className="font-mono text-[11px]">{i18n("envLocal")}</code> {i18n("toEnableItProjectIdsAreFreeAt")}{" "}
-          <a
-            href="https://cloud.reown.com"
-            target="_blank"
-            rel="noreferrer"
-            className="text-foreground underline-offset-4 hover:underline"
-          >
-            cloud.reown.com
-          </a>
-          .
+          {i18n("mobileWalletsAreNotSupportedYetUseA")}
         </div>
       </section>
     );
@@ -148,7 +122,7 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {wc.session?.peer?.metadata?.name ?? i18n("mobileWallet")}
-                  {peerHost ? i18n("value1", { value1: peerHost }) : ""}
+                  {peerHostname ? i18n("value1", { value1: peerHostname }) : ""}
                 </p>
               </div>
               <Button
@@ -294,7 +268,10 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
           )}
         </AnimatePresence>
         {wc.error ? (
-          <div className="mt-3 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-100">
+          <div
+            role="alert"
+            className="mt-3 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-100"
+          >
             <div className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
               <AlertCircle className="h-4 w-4" aria-hidden="true" />
               {i18n("walletconnectError")}

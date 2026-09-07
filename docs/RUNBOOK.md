@@ -15,7 +15,7 @@ point that ties them together.
 
 | Piece | Where | Notes |
 | --- | --- | --- |
-| dApp | Vercel (Next.js) | Deployed from `main` via Vercel's Git integration |
+| dApp | Vercel (Next.js) | Production auto-deploys from `main`; PR previews on `/deploy` comment |
 | Database | Postgres (Prisma 7, `@prisma/adapter-pg`) | Schema in `code/dApp/prisma/schema.prisma` |
 | Chain access | Blockfrost (preprod) + Koios proxy | Server-side only; no key reaches the browser |
 | STT reference script | On-chain reference UTxO | Redeployed when validators change (§6) |
@@ -25,9 +25,22 @@ point that ties them together.
 
 ## 2. Deploy (dApp)
 
-Deployment is **git-driven through Vercel** — there is no deploy script in this
-repo. A push to `main` triggers a production build; pull requests get preview
-deployments.
+**Production** auto-deploys: a push or merge to `main` builds and deploys
+through Vercel's Git integration. Every other branch has automatic deployments
+disabled in [`code/dApp/vercel.json`](../code/dApp/vercel.json)
+(`git.deploymentEnabled`: `"**": false` with `"main": true`), so branch pushes
+and pull requests create no deployments on their own.
+
+**Previews** run on request: comment `/deploy` on an open pull request that
+targets `dev` or `main`. The
+[`dapp-preview-deploy` workflow](../.github/workflows/dapp-preview-deploy.yml)
+deploys the PR head with the Vercel CLI and posts the preview URL as a comment.
+It only runs for repository collaborators (OWNER, MEMBER, COLLABORATOR) and
+needs three repo secrets: `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and
+`VERCEL_PROJECT_ID`. Create the token on the Vercel account tokens page; copy
+the two IDs from `code/dApp/.vercel/project.json` after `vercel link`. To
+redeploy the same commit as production without a push, use the dashboard:
+Deployments → Redeploy.
 
 Pre-deploy gates run in CI ([`.github/workflows/dapp-ci.yml`](../.github/workflows/dapp-ci.yml)):
 `typecheck` → `lint` (zero warnings) → `test` (with a throwaway Postgres) →

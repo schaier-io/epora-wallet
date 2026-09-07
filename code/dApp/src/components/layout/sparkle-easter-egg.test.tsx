@@ -1,46 +1,29 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { NextIntlClientProvider } from "next-intl";
-import { describe, expect, it } from "vitest";
-import { SparkleEasterEgg } from "@/components/layout/sparkle-easter-egg";
+import { afterEach, expect, it, vi } from "vitest";
 
-function renderTerminal() {
-  const page = document.createElement("main");
-  page.dataset.testPage = "";
-  page.innerHTML = '<button type="button">Behind the dialog</button>';
-  document.body.appendChild(page);
+import { SparkleEasterEgg } from "./sparkle-easter-egg";
 
-  render(
-    <NextIntlClientProvider locale="en" messages={{}}>
-      <SparkleEasterEgg open onOpenChange={() => {}} />
-    </NextIntlClientProvider>
-  );
+const listeners: Array<(event: KeyboardEvent) => void> = [];
 
-  return { cleanup: () => page.remove() };
-}
+afterEach(() => {
+  for (const listener of listeners.splice(0)) window.removeEventListener("keydown", listener);
+});
 
-describe("sparkle terminal", () => {
-  it("lets Tab reach the dialog's focus trap, and still swallows typing", () => {
-    // The prompt stops propagation so typing does not trip global shortcuts.
-    // React stops the native event too, and the dialog's focus trap listens on
-    // window, so swallowing Tab here let it walk out of the dialog into the page
-    // behind the overlay. This watches the same window boundary the trap uses.
-    const { cleanup } = renderTerminal();
-    const reachedWindow: string[] = [];
-    const watch = (event: KeyboardEvent) => reachedWindow.push(event.key);
-    window.addEventListener("keydown", watch);
+it("lets Tab reach the dialog's focus trap while other keys stay local", () => {
+  // The prompt stopped every key but Escape, so Tab never reached the window listener
+  // that keeps focus inside the dialog, and focus walked out to the page behind.
+  const seen = vi.fn();
+  const listener = (event: KeyboardEvent) => {
+    seen(event.key);
+  };
+  listeners.push(listener);
+  window.addEventListener("keydown", listener);
+  render(<SparkleEasterEgg open onOpenChange={() => {}} />);
+  const input = screen.getByRole("textbox");
 
-    try {
-      const prompt = screen.getByRole("textbox");
-      prompt.focus();
+  fireEvent.keyDown(input, { key: "a" });
+  expect(seen).not.toHaveBeenCalled();
 
-      fireEvent.keyDown(prompt, { key: "Tab" });
-      fireEvent.keyDown(prompt, { key: "k" });
-
-      expect(reachedWindow).toContain("Tab");
-      expect(reachedWindow).not.toContain("k");
-    } finally {
-      window.removeEventListener("keydown", watch);
-      cleanup();
-    }
-  });
+  fireEvent.keyDown(input, { key: "Tab" });
+  expect(seen).toHaveBeenCalledWith("Tab");
 });

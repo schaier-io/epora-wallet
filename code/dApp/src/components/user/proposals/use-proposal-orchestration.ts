@@ -10,6 +10,7 @@ import {
 import {
   cancelProposal,
   fetchProposal,
+  getProposalErrorMessage,
   markProposalSubmitted,
   parseProposalBuildContext,
   parseProposalSummary,
@@ -45,6 +46,8 @@ export type ProposalOrchestration = {
   canSign: boolean;
   canSubmit: boolean;
   canRebuild: boolean;
+  // Rebuildable, but the session is a co-signer: the server accepts only the proposer.
+  rebuildNeedsProposer: boolean;
   handleSign: () => Promise<void>;
   handleSubmit: () => Promise<void>;
   handleRebuild: () => Promise<void>;
@@ -85,6 +88,13 @@ export function useProposalOrchestration({
   const runVerify = useCallback(async (record: ProposalDetailDto) => {
     const token = (verifyTokenRef.current += 1);
     setVerification(null);
+    // Only still-open requests get checked. A sent request's inputs were consumed
+    // by its own success, so the liveness pass would flag them "already spent" —
+    // noise on the exact screen that says the request went through.
+    if (record.status !== "OPEN") {
+      setVerifying(false);
+      return;
+    }
     setVerifying(true);
     try {
       const result = await verifyProposal(record);
@@ -127,11 +137,7 @@ export function useProposalOrchestration({
       })
       .catch((caught) => {
         if (!cancelled && isCurrentLifecycle(proposalId, lifecycleToken)) {
-          setLoadError(
-            caught instanceof Error
-              ? caught.message
-              : i18n("couldNotLoadThisApprovalRequest")
-          );
+          setLoadError(getProposalErrorMessage(caught, i18n("couldNotLoadThisApprovalRequest")));
         }
       })
       .finally(() => {
@@ -176,7 +182,8 @@ export function useProposalOrchestration({
   const isOpen = currentDetail?.status === "OPEN";
   const isInvalid = currentVerification?.validity === "invalid";
   const isVerifiedValid = Boolean(
-    currentVerification?.validity === "valid" && currentVerification.signers
+    currentVerification?.validity === "valid" && currentVerification.signers &&
+    currentVerification.stateTransition?.txBodyHash === currentDetail?.txBodyHash
   );
   const canSign = Boolean(isOpen && isVerifiedValid && !alreadySigned);
   const canSubmit = Boolean(
@@ -185,13 +192,18 @@ export function useProposalOrchestration({
   const buildContext = currentDetail
     ? parseProposalBuildContext(currentDetail)
     : null;
-  const canRebuild = Boolean(
+  const isRebuildable = Boolean(
     currentDetail &&
       buildContext &&
       isAutoRebuildable(buildContext.builder) &&
       isOpen &&
       isInvalid
   );
+  // The server only lets the proposer rebuild (`evaluateProposalRebuildGuard`), so a
+  // co-signer must not be offered a button that drives their wallet through a full
+  // rebuild and then answers 403.
+  const canRebuild = isRebuildable && isCreator;
+  const rebuildNeedsProposer = isRebuildable && !isCreator;
 
   const guardWallet = (): boolean => {
     if (!activeWallet || isDemoWallet) {
@@ -217,9 +229,11 @@ export function useProposalOrchestration({
     setBusy("sign");
     setActionError(null);
     setActionInfo(null);
+    let phase: "wallet" | "upload" = "wallet";
     try {
       const signed = await activeWallet.signTx(detail.unsignedTxHex, true);
       const witnessSetHex = normalizeWitnessSetHex(signed);
+      phase = "upload";
       const updated = await signProposal(actionProposalId, {
         witnessSetHex,
         txBodyHash: detail.txBodyHash
@@ -229,7 +243,12 @@ export function useProposalOrchestration({
       }
     } catch (caught) {
       if (isCurrentLifecycle(actionProposalId, lifecycleToken)) {
-        setActionError(caught instanceof Error ? caught.message : i18n("signingFailed"));
+        setActionError(
+          getProposalErrorMessage(
+            caught,
+            phase === "wallet" ? i18n("signingFailed") : i18n("couldNotAddSignature")
+          )
+        );
       }
     } finally {
       if (isCurrentLifecycle(actionProposalId, lifecycleToken)) {
@@ -258,7 +277,7 @@ export function useProposalOrchestration({
       }
     } catch (caught) {
       if (isCurrentLifecycle(actionProposalId, lifecycleToken)) {
-        setActionError(caught instanceof Error ? caught.message : i18n("submissionFailed"));
+        setActionError(getProposalErrorMessage(caught, i18n("submissionFailed")));
       }
     } finally {
       if (isCurrentLifecycle(actionProposalId, lifecycleToken)) {
@@ -299,9 +318,7 @@ export function useProposalOrchestration({
         setActionError(
           caught instanceof RebuildUnsupportedError
             ? caught.message
-            : caught instanceof Error
-              ? caught.message
-              : i18n("rebuildFailed")
+            : getProposalErrorMessage(caught, i18n("rebuildFailed"))
         );
       }
     } finally {
@@ -325,7 +342,7 @@ export function useProposalOrchestration({
       apply(cancelled, actionProposalId, lifecycleToken);
     } catch (caught) {
       if (isCurrentLifecycle(actionProposalId, lifecycleToken)) {
-        setActionError(caught instanceof Error ? caught.message : i18n("couldNotCancel"));
+        setActionError(getProposalErrorMessage(caught, i18n("couldNotCancel")));
       }
     } finally {
       if (isCurrentLifecycle(actionProposalId, lifecycleToken)) {
@@ -351,6 +368,7 @@ export function useProposalOrchestration({
     canSign,
     canSubmit,
     canRebuild,
+    rebuildNeedsProposer,
     handleSign,
     handleSubmit,
     handleRebuild,

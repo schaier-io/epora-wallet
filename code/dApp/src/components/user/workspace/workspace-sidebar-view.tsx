@@ -3,6 +3,7 @@ import { useTranslations } from "next-intl";
 
 import { recentWalletActivityEventsAtom, walletTransactionsAtom } from "@/components/user/workspace/atoms/workspace-activity.atoms";
 import { orphanDiscoveryAssetNameHexAtom, orphanDiscoveryPolicyIdAtom, orphanDiscoveryWalletAddressAtom, selectedDetectedTokenAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
+import { detectedSttTokensErrorAtom, detectedSttTokensLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { networkIdAtom } from "@/providers/wallet.atoms";
 import { useAtomValue } from "jotai";
 
@@ -24,6 +25,7 @@ import {
   Card,
   CardContent
 } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 
 import { cn } from "@/lib/utils/cn";
 import { SidebarActiveGlow } from "@/components/user/workspace/editors";
@@ -54,9 +56,16 @@ export function WorkspaceSidebarView() {
   const orphanDiscoveryPolicyId = useAtomValue(orphanDiscoveryPolicyIdAtom);
   const orphanDiscoveryWalletAddress = useAtomValue(orphanDiscoveryWalletAddressAtom);
   const selectedDetectedToken = useAtomValue(selectedDetectedTokenAtom);
+  const detectedSttTokensError = useAtomValue(detectedSttTokensErrorAtom);
+  const detectedSttTokensLoading = useAtomValue(detectedSttTokensLoadingAtom);
+  const walletIsResolving =
+    !selectedDetectedToken && detectedSttTokensLoading && !detectedSttTokensError;
+  const walletLookupFailed = !selectedDetectedToken && Boolean(detectedSttTokensError);
   const {
     dispatchWorkspaceAction,
     handleConsolidateOrphans,
+    handleRecoverOrphans,
+    canRecoverOrphansDirectly,
     guidedEverydayActions,
     guidedAdminGroups,
     guidedToolActions,
@@ -65,6 +74,14 @@ export function WorkspaceSidebarView() {
     isGuidedTransactionsSelected,
     openGuidedOverview
   } = state;
+  // Staking and rewards are ordinary tasks, so they sit with Send and Pay. `Advanced` keeps
+  // the maintenance and governance tools (Tidy funds, Refresh timer, certificates, votes).
+  const isEverydayTool = (intent: string) => intent === "enable-staking" || intent === "rewards";
+  const everydayActions = [
+    ...guidedEverydayActions,
+    ...guidedToolActions.filter((entry) => isEverydayTool(entry.intent))
+  ];
+  const advancedActions = guidedToolActions.filter((entry) => !isEverydayTool(entry.intent));
 
   // Padding stays on the content here, not on the Card. The inner scroller below is
   // deliberately near-full-bleed so its scrollbar hugs the card edge; Card padding sits
@@ -74,11 +91,24 @@ export function WorkspaceSidebarView() {
   return (
             <Card className="user-surface order-2 flex min-h-0 flex-col p-0 sm:p-0 lg:sticky lg:top-4 lg:order-1 lg:max-h-[calc(100dvh-1.5rem)] lg:self-start">
               <CardContent className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4">
-                {!selectedDetectedToken ? (
-                  <div className="rounded-lg border border-border/60 bg-background/40 p-3 text-sm text-muted-foreground">
+                {walletIsResolving ? (
+                  <div role="status" aria-label={i18n("loadingYourWallet")} className="space-y-3">
+                    <span className="sr-only">{i18n("loadingYourWallet")}</span>
+                    <Skeleton className="h-4 w-24" aria-hidden="true" />
+                    <Skeleton className="h-16 w-full rounded-lg" aria-hidden="true" />
+                    <Skeleton className="h-16 w-full rounded-lg" aria-hidden="true" />
+                    <Skeleton className="h-9 w-full rounded-md" aria-hidden="true" />
+                  </div>
+                ) : walletLookupFailed ? (
+                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm">
+                    <p className="font-medium text-foreground">{i18n("walletCouldNotLoad")}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{detectedSttTokensError}</p>
+                  </div>
+                ) : !selectedDetectedToken ? (
+                  <div className="rounded-lg border border-border/60 bg-background/40 p-4 text-sm text-muted-foreground">
                     <p className="font-medium text-foreground">{i18n("noWalletOpen")}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {i18n("theWalletInThisLinkIsNotOne")}
+                      {detectedSttTokensError ? i18n("couldNotLoadThisWalletReloadThePage") : i18n("theWalletInThisLinkIsNotOne")}
                     </p>
                   </div>
                 ) : null}
@@ -207,8 +237,8 @@ export function WorkspaceSidebarView() {
 
                         </AnimatedList>
                       </div>
-                      {guidedEverydayActions.length > 0 ? (
-                        <GuidedActionSectionView title={i18n("commonActions")} actions={guidedEverydayActions} />
+                      {everydayActions.length > 0 ? (
+                        <GuidedActionSectionView title={i18n("commonActions")} actions={everydayActions} />
                       ) : (
                         <div className="rounded-lg border border-border/60 bg-background/30 p-3">
                           <p className="text-sm font-medium text-foreground">
@@ -231,13 +261,13 @@ export function WorkspaceSidebarView() {
                           </p>
                         </div>
                       )}
-                      {guidedToolActions.length > 0 ? (
+                      {advancedActions.length > 0 ? (
                         <details className="rounded-lg border border-border/40 bg-background/20 p-3">
                           <summary className="cursor-pointer eyebrow font-semibold text-muted-foreground">
                             {i18n("advanced")}
                           </summary>
                           <div className="mt-3">
-                            {<GuidedActionSectionView title={null} actions={guidedToolActions} />}
+                            <GuidedActionSectionView title={null} actions={advancedActions} />
                           </div>
                         </details>
                       ) : null}
@@ -247,12 +277,17 @@ export function WorkspaceSidebarView() {
                         walletScriptAddress={orphanDiscoveryWalletAddress}
                         enabled={networkId === 0}
                         onConsolidate={handleConsolidateOrphans}
+                        onRecover={
+                          canRecoverOrphansDirectly
+                            ? handleRecoverOrphans
+                            : undefined
+                        }
                       />
                     </div>
                   </div>
                 ) : null}
 
-                {!selectedDetectedToken ? (
+                {!selectedDetectedToken && !walletIsResolving ? (
                   <Button
                     type="button"
                     size="sm"

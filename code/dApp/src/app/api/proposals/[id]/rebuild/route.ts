@@ -16,8 +16,10 @@ import type { ProposalBuildContext } from "@/lib/proposals/types";
 import { InvalidProposalTransactionError } from "@/lib/proposals/serialization";
 import {
   assertProposalWalletBinding,
-  InvalidProposalBuildContextError
+  InvalidProposalBuildContextError,
+  proposalActionKind
 } from "@/lib/proposals/validation";
+import { assertProposalTransactionBinding } from "@/lib/proposals/transaction-binding";
 import { getTranslations } from "next-intl/server";
 
 const getI18n = () => getTranslations("AppApiProposals[id]RebuildRoute");
@@ -36,8 +38,8 @@ const RebuildSchema = z.object({
 });
 
 // PATCH /api/proposals/:id/rebuild: replace an invalid proposal's transaction
-// with a rebuilt one and drop all now-stale signatures. Any signed-in
-// participant may rebuild a broken proposal so signing can restart cleanly.
+// with a rebuilt one and drop all now-stale signatures. Only the proposer may
+// rebuild (`evaluateProposalRebuildGuard`); co-signers see a note instead.
 export async function PATCH(request: Request, context: RouteContext) {
   const i18n = await getI18n();
   const auth = await requireSession();
@@ -67,10 +69,21 @@ export async function PATCH(request: Request, context: RouteContext) {
   try {
     const body = RebuildSchema.parse(await readBoundedJson(request, 768 * 1024));
     const buildContext = body.buildContext as ProposalBuildContext;
+    if (
+      buildContext.builder !== access.access.builder ||
+      proposalActionKind(buildContext) !== access.access.actionKind
+    ) {
+      throw new InvalidProposalBuildContextError(i18n("invalidRebuildPayload"));
+    }
     assertProposalWalletBinding({
       walletUnit: access.access.walletUnit,
       walletPolicyId: access.access.walletPolicyId,
+      authorityPath: access.access.authorityPath,
       builder: buildContext.builder,
+      buildContext
+    });
+    assertProposalTransactionBinding({
+      unsignedTxHex: body.unsignedTxHex,
       buildContext
     });
     const result = await replaceProposalBuild({

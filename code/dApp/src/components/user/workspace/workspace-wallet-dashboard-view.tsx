@@ -47,7 +47,7 @@ import {
 import { cn } from "@/lib/utils/cn";
 import { describeProofOfLife } from "@/lib/user-flow/proof-of-life";
 import { DisclosureSection } from "@/components/user/workspace/editors";
-import { buildCardanoscanAddressUrl, buildCardanoscanTransactionUrl, approximateBlockTimeMsFromSlot, formatWalletTransactionRelative, formatWalletTransactionTime, getAssetQuantityByUnit, normalizeBlockTimeMs } from "@/components/user/workspace/helpers";
+import { buildCardanoscanTransactionUrl, approximateBlockTimeMsFromSlot, formatWalletTransactionRelative, formatWalletTransactionTime, getAssetQuantityByUnit, normalizeBlockTimeMs } from "@/components/user/workspace/helpers";
 
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 import { useAtomValue } from "jotai";
@@ -188,11 +188,9 @@ export function WorkspaceWalletDashboardView() {
                     </CardHeader>
                     <CardContent className="relative z-10 space-y-4">
                       <WalletHeroCard
-                        walletName={
-                          selectedDetectedToken
-                            ? normalizeWalletName(activeInferredSttStateForm.walletName) || "Smart wallet"
-                            : "Smart wallet"
-                        }
+                        walletName={normalizeWalletName(
+                          activeInferredSttStateForm.walletName
+                        )}
                         identitySeed={
                           selectedDetectedToken?.utxo.input.txHash
                             ? `${selectedDetectedToken.utxo.input.txHash}#${selectedDetectedToken.utxo.input.outputIndex}`
@@ -273,7 +271,7 @@ export function WorkspaceWalletDashboardView() {
                             emptyLabel: i18n("owners"),
                             cta: i18n("manageOwners"),
                             onClick: () =>
-                              openWorkspaceIntent("manage-people", "update-state", "people-admins-signers")
+                              openWorkspaceIntent("wallet-settings", "update-state", "settings-people")
                           },
                           {
                             id: "backups",
@@ -284,7 +282,7 @@ export function WorkspaceWalletDashboardView() {
                             emptyLabel: i18n("recoveryContacts"),
                             cta: backupCount === 0 ? i18n("addRecoveryContact") : i18n("manageRecoveryContacts"),
                             onClick: () =>
-                              openWorkspaceIntent("wallet-settings", "update-state", "settings-beneficiaries")
+                              openWorkspaceIntent("wallet-settings", "update-state", "settings-proof-of-life")
                           },
                           {
                             id: "schedules",
@@ -312,7 +310,7 @@ export function WorkspaceWalletDashboardView() {
                             icon: AlarmClock,
                             value: timer.value,
                             label: timer.label,
-                            emptyValue: "Off",
+                            emptyValue: i18n("off"),
                             emptyLabel: timer.emptyLabel,
                             cta: timer.cta,
                             urgent: timer.urgent,
@@ -475,20 +473,6 @@ export function WorkspaceWalletDashboardView() {
                         description={i18n("technicalIdsAndAddressesOnlyNeededForSupport")}
                       >
                         <div className="grid min-w-0 gap-3 md:grid-cols-2">
-                          <TechnicalDetail
-                            className="md:col-span-2"
-                            title={i18n("walletAddress")}
-                            hint={i18n("shareThisAddressToReceiveFundsSentAda")}
-                            value={lockingContract.address}
-                            href={
-                              lockingContract.address
-                                ? buildCardanoscanAddressUrl(lockingContract.address)
-                                : null
-                            }
-                            copyLabel={i18n("walletAddressCopied")}
-                            copyFeedback={copyFeedback}
-                            onCopy={copyTextToClipboard}
-                          />
                           <TechnicalDetail
                             title={i18n("walletId")}
                             hint={i18n("namesThisWalletOnTheChainItIs")}

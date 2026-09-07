@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from "react";
-import { useSetAtom } from "jotai";
+import { useStore } from "jotai";
 import { rememberRecentRecipient } from "@/lib/user-flow/guided-helpers";
 import {
   readRecentRecipientsFromStorage,
@@ -21,26 +21,24 @@ export type RecentRecipientsController = {
  * from storage on mount and exposes the record actions.
  */
 export function useRecentRecipients(): RecentRecipientsController {
-  const setRecentRecipients = useSetAtom(recentRecipientsAtom);
+  const store = useStore();
 
   useEffect(() => {
     // Post-hydration localStorage read (kept in an effect to avoid an SSR
     // hydration mismatch from touching storage during render).
-    setRecentRecipients(readRecentRecipientsFromStorage());
-  }, [setRecentRecipients]);
+    store.set(recentRecipientsAtom, readRecentRecipientsFromStorage());
+  }, [store]);
 
   const rememberRecipients = useCallback(
     (addresses: string[]) => {
-      setRecentRecipients((current) => {
-        const next = addresses.reduce(
-          (accumulator, address) => rememberRecentRecipient(accumulator, address),
-          current
-        );
-        writeRecentRecipientsToStorage(next);
-        return next;
-      });
+      const next = addresses.reduce(
+        (accumulator, address) => rememberRecentRecipient(accumulator, address),
+        store.get(recentRecipientsAtom)
+      );
+      store.set(recentRecipientsAtom, next);
+      writeRecentRecipientsToStorage(next);
     },
-    [setRecentRecipients]
+    [store]
   );
 
   const rememberRecipient = useCallback(

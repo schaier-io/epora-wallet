@@ -17,10 +17,6 @@ const MALLORY = "cc".repeat(28); // participant of nothing
 const UNIT_A = "aaaaaaaa0001";
 const UNIT_B = "bbbbbbbb0002";
 
-// Needs a real Postgres, the same as the other suites that reach the database
-// (`stt-cache/integration.test.ts` carries the same guard). Without it the whole
-// file failed instead of skipping, which is why one `src/**/*.test.ts` glob could
-// not serve both `pnpm test` and `pnpm test:unit`.
 const DB_SKIP = process.env.DATABASE_URL
   ? false
   : "DATABASE_URL not set; run via `pnpm test`";
@@ -103,5 +99,27 @@ describe("proposal wallet membership", { skip: DB_SKIP }, () => {
     const UNIT_UNSEEN = "eeeeeeee0009";
     assert.equal(await walletIsIndexed(db, UNIT_UNSEEN), false);
     assert.equal(await walletParticipantExists(db, UNIT_UNSEEN, ALICE), false);
+  });
+
+  /**
+   * Reconciling a unit whose mint is not confirmed writes a CLOSED row. Counting rows
+   * made that row read as "indexed", so `POST /api/proposals` skipped the reconcile on
+   * every attempt after the first and answered 403 instead of the 409 that says retry.
+   */
+  test("walletIsIndexed does not count a closed wallet as indexed", async () => {
+    const UNIT_CLOSED = "ffffffff0010";
+    await db.sttWallet.create({
+      data: {
+        network: STT_CACHE_NETWORK,
+        policyId: UNIT_CLOSED.slice(0, 8),
+        assetNameHex: UNIT_CLOSED.slice(8),
+        unit: UNIT_CLOSED,
+        sttScriptAddress: `stt_${UNIT_CLOSED}`,
+        walletScriptAddress: `wallet_${UNIT_CLOSED}`,
+        status: "CLOSED"
+      }
+    });
+
+    assert.equal(await walletIsIndexed(db, UNIT_CLOSED), false);
   });
 });

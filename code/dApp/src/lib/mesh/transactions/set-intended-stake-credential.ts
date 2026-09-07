@@ -1,4 +1,4 @@
-import { assertValidAssetList, assertValidConstrData, buildTransactionWithReestimatedLimits, createStateForwarding, createTxPreview, mergeRestrictedSttAssets, runStateForwarding, setupTransaction, validateForwardedStateDatum } from "./internals";
+import { addExtraRequiredSigners, assertValidAssetList, assertValidConstrData, buildTransactionWithReestimatedLimits, createStateForwarding, createTxPreview, mergeRestrictedSttAssets, runStateForwarding, setupTransaction, validateForwardedStateDatum } from "./internals";
 import { formatStakeCredentialPreview } from "./preview-copy";
 import { type OnChainStructuredAction, buildSttSpendRedeemerData } from "@/lib/contracts/action-data";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
@@ -30,7 +30,7 @@ export async function buildSetIntendedStakeCredentialTx(
 
   const stateForwarding = createStateForwarding(config);
   const forwardedDatum = unwrapStateDatum(input.sttOutputDatum, "STT state datum");
-  validateForwardedStateDatum(
+  const forwardedStateWarnings = validateForwardedStateDatum(
     forwardedDatum,
     onChainAction,
     `${stage}:validateStateDatum`,
@@ -41,7 +41,8 @@ export async function buildSetIntendedStakeCredentialTx(
     `${stage}:tx.draft-build`,
     `${stage}:tx.build`,
     async (overrides) => {
-      const { tx, fetcher, setupDiagnostics } = await setupTransaction(wallet, undefined, txFetcher);
+      const { tx, fetcher, changeAddress, setupDiagnostics } = await setupTransaction(wallet, undefined, txFetcher);
+      addExtraRequiredSigners(tx, changeAddress, input.requiredSignerKeyHashes);
       const spendValidatorsByRef = new Map<string, string>();
       const forwarding = await runStateForwarding({
         definition: stateForwarding,
@@ -91,6 +92,7 @@ export async function buildSetIntendedStakeCredentialTx(
           spendValidatorsByRef
         },
         context: {
+          warnings: forwardedStateWarnings,
           referenceScriptUsage: forwarding.referenceScriptUsage
         }
       };
@@ -112,6 +114,9 @@ export async function buildSetIntendedStakeCredentialTx(
     ),
     estimatedFeeLovelace: prepared.estimatedFeeLovelace,
     signerAddress: prepared.signerAddress,
-    executionUnits: prepared.executionUnits
+    executionUnits: prepared.executionUnits,
+    warnings: Array.isArray(prepared.context?.warnings)
+      ? (prepared.context.warnings as string[])
+      : undefined
   };
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { useTranslations } from "next-intl";
 import { AlertOctagon, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -11,14 +12,48 @@ type ErrorBoundaryProps = {
 
 type ErrorBoundaryState = {
   hasError: boolean;
-  error: Error | null;
 };
 
-export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  state: ErrorBoundaryState = { hasError: false, error: null };
+// The raw `Error.message` is a developer string: it says things like "Cannot read
+// properties of undefined (reading 'datum')" or names an SDK internal. It is not shown;
+// the reader gets a written sentence and two ways out.
+function ErrorFallback({ onReset, onReload }: { onReset: () => void; onReload: () => void }) {
+  const i18n = useTranslations("ComponentsErrorBoundary");
 
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return { hasError: true, error };
+  return (
+    // The fallback replaces `#main`, whose ancestors carry no horizontal padding,
+    // so it has to bring the shell's gutter with it rather than relying on one.
+    <div className="container py-10">
+      <div
+        role="alert"
+        className="mx-auto flex max-w-2xl flex-col items-start gap-4 rounded-xl border border-rose-500/30 bg-rose-500/5 p-4 text-foreground shadow-panel backdrop-blur sm:p-6"
+      >
+        <div className="inline-flex items-center gap-2 text-rose-200">
+          <AlertOctagon className="h-5 w-5" aria-hidden="true" />
+          <p className="eyebrow font-semibold">{i18n("somethingWentWrong")}</p>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          {i18n("thisPartOfThePageStoppedWorking")}
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" size="sm" onClick={onReset}>
+            <RefreshCw className="h-3.5 w-3.5" />
+            {i18n("tryAgain")}
+          </Button>
+          <Button type="button" size="sm" variant="outline" onClick={onReload}>
+            {i18n("reloadPage")}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  state: ErrorBoundaryState = { hasError: false };
+
+  static getDerivedStateFromError(): ErrorBoundaryState {
+    return { hasError: true };
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
@@ -30,7 +65,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   reset = () => {
-    this.setState({ hasError: false, error: null });
+    this.setState({ hasError: false });
   };
 
   reload = () => {
@@ -48,51 +83,6 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       return this.props.fallback;
     }
 
-    // The raw `Error.message` is a developer string: it says things like "Cannot read
-    // properties of undefined (reading 'datum')" or names an SDK internal. It used to be
-    // the only sentence on the screen, so a reader whose wallet page had just broken was
-    // handed a stack fragment and no idea what it meant or what to do. It is still here,
-    // because it is what a bug report needs, but it sits behind a summary instead of
-    // standing in for an explanation.
-    const technicalMessage = this.state.error?.message ?? null;
-
-    return (
-      // The fallback replaces `#main`, whose ancestors carry no horizontal padding,
-      // so it has to bring the shell's gutter with it rather than relying on one.
-      <div className="container py-10">
-        <div
-          role="alert"
-          className="mx-auto flex max-w-2xl flex-col items-start gap-4 rounded-xl border border-rose-500/30 bg-rose-500/5 p-4 text-foreground shadow-panel backdrop-blur sm:p-6"
-        >
-          <div className="inline-flex items-center gap-2 text-rose-200">
-            <AlertOctagon className="h-5 w-5" aria-hidden="true" />
-            <p className="eyebrow font-semibold">Something went wrong</p>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            This part of the page stopped working. Reloading usually fixes it. If it keeps
-            happening, the details below say what failed.
-          </p>
-          {technicalMessage ? (
-            <details className="w-full rounded-md border border-border/60 bg-muted/20 p-3">
-              <summary className="cursor-pointer text-sm font-medium text-foreground">
-                Technical details
-              </summary>
-              <p className="mt-3 break-words font-mono text-xs text-muted-foreground">
-                {technicalMessage}
-              </p>
-            </details>
-          ) : null}
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" size="sm" onClick={this.reset}>
-              <RefreshCw className="h-3.5 w-3.5" />
-              Try again
-            </Button>
-            <Button type="button" size="sm" variant="outline" onClick={this.reload}>
-              Reload page
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
+    return <ErrorFallback onReset={this.reset} onReload={this.reload} />;
   }
 }

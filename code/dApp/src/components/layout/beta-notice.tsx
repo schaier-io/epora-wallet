@@ -26,11 +26,7 @@ export function BetaNotice() {
     >
       <div className="container flex items-center gap-3 py-2 text-xs sm:text-sm">
         <FlaskConical className="h-4 w-4 shrink-0 text-amber-400" aria-hidden="true" />
-        <p className="min-w-0 flex-1">
-          <span className="font-semibold text-amber-50">{i18n("betaUnderActiveDevelopment")}</span>{" "}
-          {i18n("thisSoftwareIsUnauditedAndMayChangeOr")}{" "}
-          <span className="font-semibold text-amber-50">{i18n("doNotUseWithRealFunds")}</span>
-        </p>
+        <p className="min-w-0 flex-1">{i18n("betaOnThePreprodTestNetworkDoNot")}</p>
         <button
           type="button"
           onClick={() => setDismissed(true)}

@@ -10,6 +10,8 @@ import {
 import { getSttPolicyId, getSttScriptAddress } from "@/lib/stt-cache/domain";
 import type { AddressTransactionPageEntry, SttChainClient } from "@/lib/stt-cache/types";
 
+const BENEFICIARY_PAYOUT_ADDRESS = "addr_test1vqg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygxrcya6";
+
 export const TEST_CONNECTED_ADDRESS =
   "addr_test1qra89xrexu3vq28g5glatk44s96mysv345rvxsve4x5uh9vvmn2lu5e2ma4eavm9sx3jk5unu0n8vl93k0h3lcqkauwqpcpttu";
 export const TEST_CONNECTED_PAYMENT_KEY_HASH =
@@ -49,6 +51,7 @@ function buildState(): StateFormState {
     multiSigThreshold: "",
     beneficiaries: [
       {
+        payoutAddress: BENEFICIARY_PAYOUT_ADDRESS,
         id: "7",
         wallets: [TEST_CONNECTED_PAYMENT_KEY_HASH],
         unlockAfterMode: "none",

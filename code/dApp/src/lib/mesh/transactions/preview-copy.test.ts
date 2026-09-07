@@ -10,9 +10,6 @@ import {
   formatWalletSpendPreview
 } from "@/lib/mesh/transactions/preview-copy";
 
-// Every preview builds this fragment and hands it to its own sentence. None of
-// the sentences declared the placeholder, so the reader was never told that the
-// transaction spends reference scripts.
 test("a preview says how many reference scripts the transaction uses", () => {
   const usage = formatReferenceScriptUsage(2);
 
@@ -38,6 +35,6 @@ test("a transaction with no reference script reads as a plain sentence", () => {
   assert.equal(formatReferenceScriptUsage(0), "");
   assert.equal(
     formatWalletSpendPreview(formatReferenceScriptUsage(0)),
-    "Spend one selected smart-wallet fund pool."
+    "Spend funds from the selected smart-wallet fund pools."
   );
 });

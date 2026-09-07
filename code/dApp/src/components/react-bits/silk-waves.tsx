@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { usePrefersReducedMotion } from "@/lib/hooks/use-prefers-reduced-motion";
 import { cn } from "@/lib/utils/cn";
@@ -187,6 +187,48 @@ const fragmentShader = `
   }
 `;
 
+type SilkVisualProps = Required<
+  Pick<
+    SilkWavesProps,
+    | "speed"
+    | "scale"
+    | "distortion"
+    | "curve"
+    | "contrast"
+    | "rotation"
+    | "offsetX"
+    | "offsetY"
+    | "brightness"
+    | "opacity"
+    | "complexity"
+    | "frequency"
+    | "colors"
+  >
+>;
+
+function applySilkProps(uniforms: SilkUniforms, props: SilkVisualProps) {
+  uniforms.uSpeed.value = props.speed;
+  uniforms.uScale.value = props.scale;
+  uniforms.uDistortion.value = props.distortion;
+  uniforms.uCurve.value = props.curve;
+  uniforms.uContrast.value = props.contrast;
+  uniforms.uRotation.value = (props.rotation * Math.PI) / 180;
+  uniforms.uOffsetX.value = props.offsetX;
+  uniforms.uOffsetY.value = props.offsetY;
+  uniforms.uBrightness.value = props.brightness;
+  uniforms.uOpacity.value = props.opacity;
+  uniforms.uComplexity.value = props.complexity;
+  uniforms.uFrequency.value = props.frequency;
+  uniforms.uC1.value.set(props.colors[0]!);
+  uniforms.uC2.value.set(props.colors[1]!);
+  uniforms.uC3.value.set(props.colors[2]!);
+  uniforms.uC4.value.set(props.colors[3]!);
+  uniforms.uC5.value.set(props.colors[4]!);
+  uniforms.uC6.value.set(props.colors[5]!);
+  uniforms.uC7.value.set(props.colors[6]!);
+  uniforms.uC8.value.set(props.colors[7]!);
+}
+
 const SilkWaves: React.FC<SilkWavesProps> = ({
   speed = 1,
   scale = 2,
@@ -213,12 +255,23 @@ const SilkWaves: React.FC<SilkWavesProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const materialRef = useRef<THREE.ShaderMaterial | null>(null);
-  // Counts material rebuilds. The setup effect below builds its uniforms from
-  // shader defaults, and the prop-sync effect at the bottom only re-runs when a
-  // prop changes. `prefersReducedMotion` flips from false to true on the first
-  // commit for anyone with the OS setting on, so the rebuild it triggers landed
-  // with every colour, speed and scale back at its default and stayed there.
-  const [materialGeneration, setMaterialGeneration] = useState(0);
+  // The renderer effect rebuilds the material (e.g. when reduced motion flips) and
+  // must start it from the current props, not the shader defaults.
+  const visualPropsRef = useRef<SilkVisualProps>({
+    speed,
+    scale,
+    distortion,
+    curve,
+    contrast,
+    rotation,
+    offsetX,
+    offsetY,
+    brightness,
+    opacity,
+    complexity,
+    frequency,
+    colors,
+  });
   const animationFrameRef = useRef<number | null>(null);
   const renderFrameRef = useRef<(() => void) | null>(null);
 
@@ -285,7 +338,7 @@ const SilkWaves: React.FC<SilkWavesProps> = ({
       transparent: true,
     });
     materialRef.current = material;
-    setMaterialGeneration((current) => current + 1);
+    applySilkProps(uniforms, visualPropsRef.current);
 
     const geometry = new THREE.PlaneGeometry(2, 2);
     const mesh = new THREE.Mesh(geometry, material);
@@ -408,31 +461,25 @@ const SilkWaves: React.FC<SilkWavesProps> = ({
   }, [maxPixelRatio, pauseWhenOffscreen, prefersReducedMotion, targetFps]);
 
   useEffect(() => {
+    const visual: SilkVisualProps = {
+      speed,
+      scale,
+      distortion,
+      curve,
+      contrast,
+      rotation,
+      offsetX,
+      offsetY,
+      brightness,
+      opacity,
+      complexity,
+      frequency,
+      colors,
+    };
+    visualPropsRef.current = visual;
     const uniforms = materialRef.current?.uniforms as SilkUniforms | undefined;
     if (!uniforms) return;
-
-    /* eslint-disable react-hooks/immutability -- Three.js shader uniforms are mutable external state. */
-    uniforms.uSpeed.value = speed;
-    uniforms.uScale.value = scale;
-    uniforms.uDistortion.value = distortion;
-    uniforms.uCurve.value = curve;
-    uniforms.uContrast.value = contrast;
-    uniforms.uRotation.value = (rotation * Math.PI) / 180;
-    uniforms.uOffsetX.value = offsetX;
-    uniforms.uOffsetY.value = offsetY;
-    uniforms.uBrightness.value = brightness;
-    uniforms.uOpacity.value = opacity;
-    uniforms.uComplexity.value = complexity;
-    uniforms.uFrequency.value = frequency;
-    uniforms.uC1.value.set(colors[0]!);
-    uniforms.uC2.value.set(colors[1]!);
-    uniforms.uC3.value.set(colors[2]!);
-    uniforms.uC4.value.set(colors[3]!);
-    uniforms.uC5.value.set(colors[4]!);
-    uniforms.uC6.value.set(colors[5]!);
-    uniforms.uC7.value.set(colors[6]!);
-    uniforms.uC8.value.set(colors[7]!);
-    /* eslint-enable react-hooks/immutability */
+    applySilkProps(uniforms, visual);
     renderFrameRef.current?.();
   }, [
     speed,
@@ -448,7 +495,6 @@ const SilkWaves: React.FC<SilkWavesProps> = ({
     complexity,
     frequency,
     colors,
-    materialGeneration,
   ]);
 
   return (

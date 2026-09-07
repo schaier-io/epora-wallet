@@ -26,9 +26,10 @@ import {
 
 import { resolveAssetIdentity } from "@/lib/cardano-assets";
 import { DisclosureSection, GuidedDateTimeField, GuidedLockedUtxoSelector, InlineFieldError, WalletInputRefsEditor } from "@/components/user/workspace/editors";
-import { formatAmountSummary, formatDurationMillisLabel, formatTimestampLabel, formatTransferControlId, getFirstFieldError } from "@/components/user/workspace/helpers";
+import { formatAmountSummary, formatDurationMillisLabel, formatTimestampLabel, formatTransferControlId, getFirstFieldError, supportsSttFundPoolInputs } from "@/components/user/workspace/helpers";
 
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
+import { beneficiaryPreparationActiveAtom } from "./atoms/forms/consolidate-form.atoms";
 import { useConsolidateForm } from "@/components/user/workspace/forms/use-consolidate-form";
 import { useSttSpendForm } from "@/components/user/workspace/forms/use-stt-spend-form";
 
@@ -52,24 +53,31 @@ export function SttSpendEditorsView() {
     refreshLockedContractUtxos,
     updateSttTransferAmount
   } = state;
+  const preparationActive = useAtomValue(beneficiaryPreparationActiveAtom);
   const { consolidateWalletInputs, setConsolidateWalletInputs } = useConsolidateForm();
   const { setSttProofOfLifeOverrideMode, setSttProofOfLifeSpecificDateTime, setSttTransferAddress, setSttWalletInputs, sttProofOfLifeOverrideMode, sttProofOfLifeSpecificDateTime, sttTransferAddress, sttTransferAmounts, sttWalletInputs } = useSttSpendForm();
   const isRecipientFirstGuidedAction =
     selectedAction === "use" ||
     selectedAction === "use-allowance" ||
-    selectedAction === "use-beneficiary";
+    (selectedAction === "use-beneficiary" || selectedAction === "exit-beneficiary");
   const isGuidedStreamingPaymentAction = selectedAction === "payout-streaming-payment";
   const usesGuidedLockedInputSelector =
     isRecipientFirstGuidedAction || isGuidedStreamingPaymentAction;
   const currentWalletInputs =
     selectedAction === "consolidate-utxo" ? consolidateWalletInputs : sttWalletInputs;
+  const supportsFundPoolInputs = supportsSttFundPoolInputs(activeSttActionTab.value);
+
+  // Exact distribution owns its single selector and immutable payout review.
+  if (selectedAction === "distribute-beneficiaries" || selectedAction === "consolidate-utxo" && preparationActive) return null;
 
   return (
     <>
           {/* Guided actions edit `sttWalletInputs` through the selector inside the Advanced
               settings section above, so the pool browser must stay gated off for them or the
               same input would render twice per tab. */}
-          {!usesGuidedLockedInputSelector && activeSttActionTab.showLockedContractUtxoBrowser ? (
+          {!usesGuidedLockedInputSelector &&
+          supportsFundPoolInputs &&
+          activeSttActionTab.showLockedContractUtxoBrowser ? (
             <div className="space-y-3 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="space-y-1">
@@ -122,7 +130,7 @@ export function SttSpendEditorsView() {
                           <p className="break-all font-mono text-xs">
                             {utxo.input.txHash}#{utxo.input.outputIndex}
                           </p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="wrap-anywhere text-xs text-muted-foreground">
                             {formatAmountSummary(utxo.output.amount)}
                           </p>
                         </div>
@@ -131,6 +139,11 @@ export function SttSpendEditorsView() {
                             type="button"
                             variant="secondary"
                             onClick={() => addLockedContractInputRef(utxo)}
+                            disabled={currentWalletInputs.some(
+                              (ref) =>
+                                ref.txHash === utxo.input.txHash &&
+                                ref.outputIndex === utxo.input.outputIndex
+                            )}
                           >
                             {/* Not "Add fund pool": that is the label on the manual editor's
                                 button lower down (`editors/asset-editors.tsx:321`), which adds
@@ -153,7 +166,7 @@ export function SttSpendEditorsView() {
             </div>
           ) : null}
 
-          {!usesGuidedLockedInputSelector ? (
+          {!usesGuidedLockedInputSelector && supportsFundPoolInputs ? (
             <WalletInputRefsEditor
               label={activeSttActionTab.lockedInputsEditorLabel}
               helper={activeSttActionTab.lockedInputsEditorHelper}
@@ -167,7 +180,9 @@ export function SttSpendEditorsView() {
           ) : null}
           {/* One error node, not one per branch: both arms of the old ternary rendered the
               same element with the same props. */}
-          <InlineFieldError message={getFirstFieldError(activeFieldErrors, "Fund pools")} />
+          {supportsFundPoolInputs ? (
+            <InlineFieldError message={getFirstFieldError(activeFieldErrors, "Fund pools")} />
+          ) : null}
 
           {activeSttActionTab.showTransfers &&
           activeSttActionTab.showQuickTransferBuilder &&
@@ -216,7 +231,7 @@ export function SttSpendEditorsView() {
                       >
                         <div className="space-y-1">
                           <div className="flex items-center justify-between gap-2">
-                            <Label htmlFor={`userSttTransferAmountRange-${controlId}`}>
+                            <Label className="min-w-0 wrap-anywhere" htmlFor={`userSttTransferAmountRange-${controlId}`}>
                               {i18n("sendAmount")}{resolveAssetIdentity(asset.unit).symbol})
                             </Label>
                             <span className="text-xs text-muted-foreground">
@@ -235,7 +250,7 @@ export function SttSpendEditorsView() {
                             }
                             className="h-10 w-full cursor-pointer accent-primary"
                           />
-                          <p className="text-xs text-muted-foreground">
+                          <p className="wrap-anywhere text-xs text-muted-foreground">
                             {i18n("availableFromChosenFundPools")} {asset.quantity}{" "}
                             {resolveAssetIdentity(asset.unit).symbol}
                           </p>
@@ -297,36 +312,8 @@ export function SttSpendEditorsView() {
                       ? i18n("autoSuitsMostCheckInsOpenThisOnly")
                       : i18n("autoSuitsMostSendsOpenThisOnlyTo")
               }
-              defaultOpen={sttWalletInputs.length > 0}
+              defaultOpen={supportsFundPoolInputs && sttWalletInputs.length > 0}
             >
-              {usesGuidedLockedInputSelector ? (
-                <section className="space-y-3">
-                  <GuidedLockedUtxoSelector
-                    utxos={lockedContractUtxos}
-                    selectedRefs={sttWalletInputs}
-                    onChange={setSttWalletInputs}
-                    onSuggest={applySuggestedLockedInputs}
-                    /* The pool browser above is gated off here, so its error and
-                       "Refresh funds" pair are unreachable for guided tabs — the
-                       selector carries the equivalent pair instead. */
-                    error={lockedContractUtxosError}
-                    onRefresh={
-                      lockingContract.address
-                        ? () => void refreshLockedContractUtxos(lockingContract.address)
-                        : undefined
-                    }
-                    /* The panel helper is read with the section open, the description with it
-                       closed, and the two keep stating different facts: closed you learn where
-                       the payment can come from, open you learn what picking pools means and
-                       that empty is a valid choice. */
-                    helper={
-                      isGuidedStreamingPaymentAction
-                        ? i18n("optionalLeaveItEmptyAndThePaymentComes")
-                        : i18n("selectedForYouOnceYouAddAPayout")
-                    }
-                  />
-                </section>
-              ) : null}
               {activeSttActionTab.showProofOfLifeOverride ? (
                 <section className="space-y-3">
                   {/* No border, background, or padding of its own: the disclosure is already
@@ -340,11 +327,13 @@ export function SttSpendEditorsView() {
                        the tab is "Refresh proof of life") and offered a choice that does not
                        exist ("keep the proof of life unchanged"; the three options are Auto,
                        clear, and an exact date). Both now describe the options actually below. */}
-                    <p className="text-xs text-muted-foreground">
-                      {selectedAction === "renew-proof-of-life"
-                        ? i18n("autoSuitsMostCheckInsOpenThisOnly")
-                        : i18n("autoSuitsMostSendsOpenThisOnlyTo")}
-                    </p>
+                    {/* Only while the section's own description is about the funds: for the
+                        timer-only tabs the description above already says this sentence. */}
+                    {usesGuidedLockedInputSelector ? (
+                      <p className="text-xs text-muted-foreground">
+                        {i18n("autoSuitsMostSendsOpenThisOnlyTo")}
+                      </p>
+                    ) : null}
                   </div>
                   <div className="space-y-1">
                     {/* Not "Proof of life Update": the group heading directly above already
@@ -401,6 +390,29 @@ export function SttSpendEditorsView() {
                           // 30-day timer read as "extends the proof of life by 2592000000".
                           i18n("eachCheckInExtendsItByValue1Auto", { value1: formatDurationMillisLabel(sttProofOfLifeIncrement) })}
                   </p>
+                </section>
+              ) : null}
+              {usesGuidedLockedInputSelector ? (
+                <section
+                  className={activeSttActionTab.showProofOfLifeOverride ? "border-t border-border/50 pt-4" : undefined}
+                >
+                  <GuidedLockedUtxoSelector
+                    utxos={lockedContractUtxos}
+                    selectedRefs={sttWalletInputs}
+                    onChange={setSttWalletInputs}
+                    onSuggest={applySuggestedLockedInputs}
+                    error={lockedContractUtxosError}
+                    onRefresh={
+                      lockingContract.address
+                        ? () => void refreshLockedContractUtxos(lockingContract.address)
+                        : undefined
+                    }
+                    helper={
+                      isGuidedStreamingPaymentAction
+                        ? i18n("optionalLeaveItEmptyAndThePaymentComes")
+                        : i18n("selectedForYouOnceYouAddAPayout")
+                    }
+                  />
                 </section>
               ) : null}
             </DisclosureSection>

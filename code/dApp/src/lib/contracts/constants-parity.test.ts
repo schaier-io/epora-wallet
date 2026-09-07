@@ -5,21 +5,33 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
+  MAX_ACCESS_RECORDS,
   MAX_ALLOWANCE_ENTRIES,
   MAX_ASSET_NAME_BYTES,
   MAX_BENEFICIARIES,
   MAX_BENEFICIARY_WALLETS,
+  MAX_ON_CHAIN_STATE_INTEGER,
+  MAX_TOTAL_BENEFICIARY_WALLETS,
   MAX_STREAMING_PAYMENTS,
+  MAX_TOTAL_ALLOWANCE_ENTRIES,
   MAX_USERS,
+  MAX_TOTAL_USER_WALLETS,
   MAX_WALLETS_PER_USER
 } from "@/lib/contracts/state-validation-records";
 import { MAX_WALLET_NAME_BYTES } from "@/lib/contracts/state-wallet-name";
+import {
+  MAX_NON_ADMIN_STREAMING_ACTION_VALIDITY_WINDOW_MS,
+  NON_ADMIN_STREAMING_ACTION_COOLDOWN_MS
+} from "@/lib/contracts/crank-cooldown";
+import {
+  MAX_GOVERNANCE_TRANSACTION_REDEEMERS
+} from "@/lib/contracts/transaction-limits";
 
 // The contract (`lib/constants.ak`) is the single source of truth for the
-// execution-budget caps. The frontend re-states them for advisory pre-flight
-// validation, so a drift means the UI would accept a state the wallet rejects
-// (or warn on one it accepts). This test parses constants.ak and fails if any
-// mirrored cap disagrees, and if a NEW `max_*` cap is added on-chain without a
+// state and transaction rules. The frontend re-states them for advisory
+// pre-flight validation, so drift can make the UI accept a transaction the
+// wallet rejects. This test parses constants.ak and fails if a mirrored
+// constant disagrees, and if a NEW `max_*` cap is added on-chain without a
 // mirror here. It replaces the hand-maintained "keep in sync" comments with an
 // enforced check. (`milliseconds_per_day` is intentionally not covered: it is a
 // fixed physical constant mirrored as the private `ALLOWANCE_DAY_MS` in
@@ -30,36 +42,46 @@ const CONSTANTS_AK = path.resolve(
   "../../../../smart-contract/lib/constants.ak"
 );
 
-function parseAikenIntConsts(): Map<string, number> {
+function parseAikenIntConsts(): Map<string, bigint> {
   const text = readFileSync(CONSTANTS_AK, "utf8");
   const pattern = /pub\s+const\s+([a-z0-9_]+)\s*:\s*Int\s*=\s*([0-9_]+)/g;
-  const consts = new Map<string, number>();
+  const consts = new Map<string, bigint>();
   for (const match of text.matchAll(pattern)) {
-    consts.set(match[1]!, Number(match[2]!.replace(/_/g, "")));
+    consts.set(match[1]!, BigInt(match[2]!.replace(/_/g, "")));
   }
   return consts;
 }
 
 // Aiken const name -> the frontend constant that must equal it.
-const MIRRORED_CAPS: Record<string, number> = {
-  max_users: MAX_USERS,
-  max_beneficiaries: MAX_BENEFICIARIES,
-  max_streaming_payments: MAX_STREAMING_PAYMENTS,
-  max_wallets_per_user: MAX_WALLETS_PER_USER,
-  max_allowance_entries: MAX_ALLOWANCE_ENTRIES,
-  max_asset_name_bytes: MAX_ASSET_NAME_BYTES,
-  max_beneficiary_wallets: MAX_BENEFICIARY_WALLETS,
-  max_wallet_name_bytes: MAX_WALLET_NAME_BYTES
+const exact = (value: number) => BigInt(value);
+
+const MIRRORED_CONSTANTS: Record<string, bigint> = {
+  max_users: exact(MAX_USERS),
+  max_beneficiaries: exact(MAX_BENEFICIARIES),
+  max_access_records: exact(MAX_ACCESS_RECORDS),
+  max_streaming_payments: exact(MAX_STREAMING_PAYMENTS),
+  max_wallets_per_user: exact(MAX_WALLETS_PER_USER),
+  max_allowance_entries: exact(MAX_ALLOWANCE_ENTRIES),
+  max_asset_name_bytes: exact(MAX_ASSET_NAME_BYTES),
+  max_beneficiary_wallets: exact(MAX_BENEFICIARY_WALLETS),
+  max_total_beneficiary_wallets: exact(MAX_TOTAL_BENEFICIARY_WALLETS),
+  max_total_user_wallets: exact(MAX_TOTAL_USER_WALLETS),
+  max_total_allowance_entries: exact(MAX_TOTAL_ALLOWANCE_ENTRIES),
+  max_state_integer: MAX_ON_CHAIN_STATE_INTEGER,
+  max_governance_transaction_redeemers: exact(MAX_GOVERNANCE_TRANSACTION_REDEEMERS),
+  max_wallet_name_bytes: exact(MAX_WALLET_NAME_BYTES),
+  max_payout_validity_window_ms: exact(MAX_NON_ADMIN_STREAMING_ACTION_VALIDITY_WINDOW_MS),
+  non_admin_payout_cooldown_ms: exact(NON_ADMIN_STREAMING_ACTION_COOLDOWN_MS)
 };
 
-test("frontend caps mirror lib/constants.ak exactly", () => {
+test("frontend constants mirror lib/constants.ak exactly", () => {
   const onChain = parseAikenIntConsts();
   assert.ok(
     onChain.size > 0,
     `parsed no \`pub const … : Int\` from ${CONSTANTS_AK}`
   );
 
-  for (const [aikenName, frontendValue] of Object.entries(MIRRORED_CAPS)) {
+  for (const [aikenName, frontendValue] of Object.entries(MIRRORED_CONSTANTS)) {
     assert.ok(
       onChain.has(aikenName),
       `lib/constants.ak no longer defines \`${aikenName}\`; update the parity map`
@@ -69,29 +91,18 @@ test("frontend caps mirror lib/constants.ak exactly", () => {
       onChain.get(aikenName),
       `frontend mirror of \`${aikenName}\` is ${frontendValue} but the contract says ${onChain.get(
         aikenName
-      )}; reconcile state-validation-records.ts / state-wallet-name.ts`
+      )}; reconcile the frontend enforcement constant`
     );
   }
 });
 
-// `max_*` constants that are NOT state-CONFIGURATION caps (so they have no mirror
-// in state-validation-records.ts) and are deliberately excluded from the mirror
-// requirement below. Each must document why it is not validated state-side.
-const NON_STATE_CONFIG_MAX_CONSTS = new Set<string>([
-  // A tx-VALIDITY-window bound for the PayStreamingPayment crank (whitepaper:
-  // Settlement-cadence theorem),
-  // enforced at transaction-build time by `getValidityWindow` (~6 min window,
-  // well under the 1h cap), not by State datum validation.
-  "max_payout_validity_window_ms"
-]);
-
 test("every on-chain max_* cap has a frontend mirror", () => {
   const onChain = parseAikenIntConsts();
   for (const aikenName of onChain.keys()) {
-    if (aikenName.startsWith("max_") && !NON_STATE_CONFIG_MAX_CONSTS.has(aikenName)) {
+    if (aikenName.startsWith("max_")) {
       assert.ok(
-        aikenName in MIRRORED_CAPS,
-        `lib/constants.ak adds \`${aikenName}\` with no frontend mirror; add it to state-validation-records.ts and this test (or to NON_STATE_CONFIG_MAX_CONSTS if it is not a state-config cap)`
+        aikenName in MIRRORED_CONSTANTS,
+        `lib/constants.ak adds \`${aikenName}\` with no frontend mirror; add it to the module that enforces the cap and this test`
       );
     }
   }

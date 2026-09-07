@@ -4,17 +4,25 @@ import type { UTxO } from "@meshsdk/core";
 import type { StreamingPaymentFormState } from "@/lib/contracts/state-form";
 import type { Asset } from "@/lib/types/contracts";
 import {
+  resolveAutomaticSendPath,
   computeStreamingPaymentDueAmount,
   computeStreamingPaymentLifetimeAmount,
   computeStreamingPaymentRemainingObligation,
+  computeStreamingReserveAssets,
+  maximumAdaSpendWithChange,
   parseAdaToLovelace,
   streamingPaymentNeedsZeroDeltaCleanup,
   streamingPaymentUnit,
   suggestLockedInputsForSpend,
   suggestWalletInputsForRequestedAssets
 } from "@/lib/user-flow/guided-helpers";
+import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
 
 const DAY_MS = 86_400_000;
+const WALLET_ADDRESS = "addr_test1vqg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygxrcya6";
+const NATIVE_UNIT = `${"ab".repeat(28)}01`;
+const STAKED_WALLET_ADDRESS =
+  "addr_test1qz7r704wjqh275anmzsln4ad9e4nwrutnmyvnd32jpzy2kal8d9m8yxj9gwg0ddh4nhj6zqwad8px7u45ljczt4ajfps72xr59";
 
 function streamingPayment(over: Partial<StreamingPaymentFormState>): StreamingPaymentFormState {
   return {
@@ -33,7 +41,7 @@ function streamingPayment(over: Partial<StreamingPaymentFormState>): StreamingPa
 function utxo(txHash: string, amount: Asset[]): UTxO {
   return {
     input: { txHash, outputIndex: 0 },
-    output: { address: "addr_test1wallet", amount }
+    output: { address: WALLET_ADDRESS, amount }
   };
 }
 
@@ -49,7 +57,7 @@ test("parseAdaToLovelace rejects junk and over-precise input", () => {
   assert.equal(parseAdaToLovelace("1.1234567"), null); // > 6 decimals
   assert.equal(parseAdaToLovelace("abc"), null);
   assert.equal(parseAdaToLovelace(""), null);
-  assert.equal(parseAdaToLovelace(".5"), null);
+  assert.equal(parseAdaToLovelace(".5"), "500000"); // a leading dot is a decimal, not junk
 });
 
 test("computeStreamingPaymentDueAmount accrues linearly and caps at the end date", () => {
@@ -88,6 +96,34 @@ test("computeStreamingPaymentRemainingObligation encumbers the whole stream, the
   // counts the not-yet-accrued remainder as encumbered at that point even when the
   // stream has since been settled.
   assert.equal(computeStreamingPaymentRemainingObligation(settled, 5 * DAY_MS), "5000000");
+});
+
+test("computeStreamingReserveAssets mirrors the per-asset accrued reserve", () => {
+  const tokenPolicy = "aa".repeat(28);
+  const reserves = computeStreamingReserveAssets(
+    [
+      streamingPayment({ amountPerDay: "1000000", endDate: String(3 * DAY_MS) }),
+      streamingPayment({
+        id: "2",
+        amountPerDay: "500000",
+        paidOutAmount: "100000",
+        endDate: String(3 * DAY_MS)
+      }),
+      streamingPayment({
+        id: "3",
+        policyId: tokenPolicy,
+        assetName: "beef",
+        amountPerDay: "7",
+        endDate: String(3 * DAY_MS)
+      })
+    ],
+    DAY_MS
+  );
+
+  assert.deepEqual(reserves, [
+    { unit: "lovelace", quantity: "1400002" },
+    { unit: `${tokenPolicy}beef`, quantity: "8" }
+  ]);
 });
 
 test("streamingPaymentUnit maps an empty policy id to lovelace and otherwise concatenates", () => {
@@ -167,31 +203,226 @@ test("suggestWalletInputsForRequestedAssets covers lovelace and a native asset t
 
 test("suggestLockedInputsForSpend returns nothing when no assets are requested", () => {
   const utxos = [utxo("aa", [{ unit: "lovelace", quantity: "5000000" }])];
-  assert.deepEqual(suggestLockedInputsForSpend(utxos, [], true), []);
-  assert.deepEqual(suggestLockedInputsForSpend(utxos, [], false), []);
+  assert.deepEqual(
+    suggestLockedInputsForSpend(
+      utxos,
+      [],
+      [{ unit: "lovelace", quantity: "1000000" }]
+    ),
+    []
+  );
+  assert.deepEqual(suggestLockedInputsForSpend(utxos, [], []), []);
 });
 
-// Regression: a streaming-enabled wallet's spend must leave the per-asset streaming
-// reserve in the change (wallet validator `expect_remain_funded`). The smallest-pool
-// greedy could pick a pool too small to keep the reserve, and the spend then fails
-// with a generic on-chain eval error. With streaming payments we select EVERY pool
-// so the change is maximal and any affordable spend clears the reserve.
-test("suggestLockedInputsForSpend selects ALL pools when streaming payments exist", () => {
+test("suggestLockedInputsForSpend selects one covering pool", () => {
   const utxos = [
     utxo("aa", [{ unit: "lovelace", quantity: "5000000" }]),
     utxo("bb", [{ unit: "lovelace", quantity: "25000000" }])
   ];
-  assert.deepEqual(suggestLockedInputsForSpend(utxos, [{ unit: "lovelace", quantity: "3000000" }], true), [
-    { txHash: "aa", outputIndex: 0 },
-    { txHash: "bb", outputIndex: 0 }
+  assert.deepEqual(
+    suggestLockedInputsForSpend(
+      utxos,
+      [{ unit: "lovelace", quantity: "3000000" }],
+      [{ unit: "lovelace", quantity: "10000000" }]
+    ),
+    [{ txHash: "bb", outputIndex: 0 }]
+  );
+});
+
+test("suggestLockedInputsForSpend uses each asset's exact reserve", () => {
+  const utxos = [
+    utxo("aa", [
+      { unit: "lovelace", quantity: "10000000" },
+      { unit: NATIVE_UNIT, quantity: "6000000" }
+    ]),
+    utxo("bb", [
+      { unit: "lovelace", quantity: "8000000" },
+      { unit: NATIVE_UNIT, quantity: "9000000" }
+    ])
+  ];
+
+  assert.deepEqual(
+    suggestLockedInputsForSpend(
+      utxos,
+      [
+        { unit: "lovelace", quantity: "2000000" },
+        { unit: NATIVE_UNIT, quantity: "2000000" }
+      ],
+      [
+        { unit: "lovelace", quantity: "5000000" },
+        { unit: NATIVE_UNIT, quantity: "5000000" }
+      ]
+    ),
+    [{ txHash: "bb", outputIndex: 0 }]
+  );
+});
+
+test("suggestLockedInputsForSpend combines pools that cover the request", () => {
+  const utxos = [
+    utxo("aa", [{ unit: "lovelace", quantity: "5000000" }]),
+    utxo("bb", [{ unit: "lovelace", quantity: "5000000" }])
+  ];
+  assert.deepEqual(
+    suggestLockedInputsForSpend(
+      utxos,
+      [{ unit: "lovelace", quantity: "8000000" }],
+      []
+    ),
+    [
+      { txHash: "aa", outputIndex: 0 },
+      { txHash: "bb", outputIndex: 0 }
+    ]
+  );
+});
+
+test("suggestLockedInputsForSpend keeps minimum ADA with native-token change", () => {
+  const tokenPool = utxo("aa", [
+    { unit: "lovelace", quantity: "5000000" },
+    { unit: NATIVE_UNIT, quantity: "1" }
   ]);
+  tokenPool.output.address = WALLET_ADDRESS;
+  const extraPool = utxo("bb", [{ unit: "lovelace", quantity: "2000000" }]);
+  const largerPool = utxo("cc", [{ unit: "lovelace", quantity: "3000000" }]);
+  const smallerTokenPool = utxo("dd", [
+    { unit: "lovelace", quantity: "1500000" },
+    { unit: `${"cd".repeat(28)}01`, quantity: "1" }
+  ]);
+
+  assert.deepEqual(
+    suggestLockedInputsForSpend(
+      [tokenPool, smallerTokenPool, largerPool, extraPool],
+      [{ unit: "lovelace", quantity: "5000000" }]
+    ),
+    [tokenPool.input, extraPool.input]
+  );
+  assert.deepEqual(
+    suggestLockedInputsForSpend(
+      [tokenPool],
+      [{ unit: "lovelace", quantity: "5000000" }]
+    ),
+    []
+  );
 });
 
-test("suggestLockedInputsForSpend uses the smaller covering set without streaming payments", () => {
+test("suggestLockedInputsForSpend funds positive ADA-only change above its minimum", () => {
+  const mainPool = utxo("aa", [{ unit: "lovelace", quantity: "5000000" }]);
+  const extraPool = utxo("bb", [{ unit: "lovelace", quantity: "2000000" }]);
+  const spend = [{ unit: "lovelace", quantity: "4500000" }];
+  assert.deepEqual(
+    suggestLockedInputsForSpend([mainPool, extraPool], spend),
+    [mainPool.input, extraPool.input]
+  );
+  assert.deepEqual(suggestLockedInputsForSpend([mainPool], spend), []);
+});
+
+test("suggestLockedInputsForSpend sizes change at the canonical continuing address", () => {
+  const mainPool = utxo("aa", [
+    { unit: "lovelace", quantity: "5000000" },
+    { unit: NATIVE_UNIT, quantity: "1" }
+  ]);
+  const extraPool = utxo("bb", [{ unit: "lovelace", quantity: "2000000" }]);
+  const spend = [{ unit: "lovelace", quantity: "3900000" }];
+  assert.deepEqual(
+    suggestLockedInputsForSpend([mainPool, extraPool], spend),
+    [mainPool.input]
+  );
+  assert.deepEqual(
+    suggestLockedInputsForSpend([mainPool, extraPool], spend, [], STAKED_WALLET_ADDRESS),
+    [mainPool.input, extraPool.input]
+  );
+});
+
+test("maximumAdaSpendWithChange retains its exact minimum above Number.MAX_SAFE_INTEGER", () => {
+  const pool = utxo("aa", [
+    { unit: "lovelace", quantity: MAX_ON_CHAIN_STATE_INTEGER.toString() },
+    { unit: NATIVE_UNIT, quantity: "1" }
+  ]);
+  assert.equal(
+    maximumAdaSpendWithChange([pool], MAX_ON_CHAIN_STATE_INTEGER),
+    MAX_ON_CHAIN_STATE_INTEGER - 1_008_540n
+  );
+  assert.equal(
+    maximumAdaSpendWithChange([pool], MAX_ON_CHAIN_STATE_INTEGER, STAKED_WALLET_ADDRESS),
+    MAX_ON_CHAIN_STATE_INTEGER - 1_129_220n
+  );
+});
+
+test("suggestLockedInputsForSpend uses one pool when it covers the aggregate requirement", () => {
   const utxos = [
     utxo("aa", [{ unit: "lovelace", quantity: "5000000" }]),
     utxo("bb", [{ unit: "lovelace", quantity: "25000000" }])
   ];
-  const result = suggestLockedInputsForSpend(utxos, [{ unit: "lovelace", quantity: "3000000" }], false);
+  const result = suggestLockedInputsForSpend(
+    utxos,
+    [{ unit: "lovelace", quantity: "3000000" }],
+    []
+  );
   assert.equal(result.length, 1); // one pool already covers a 3 ADA payout
+});
+
+test("suggestLockedInputsForSpend combines pools and preserves the aggregate reserve", () => {
+  const utxos = [
+    utxo("aa", [{ unit: "lovelace", quantity: "5000000" }]),
+    utxo("bb", [{ unit: "lovelace", quantity: "5000000" }])
+  ];
+
+  assert.deepEqual(
+    suggestLockedInputsForSpend(
+      utxos,
+      [{ unit: "lovelace", quantity: "4000000" }],
+      [{ unit: "lovelace", quantity: "6000000" }]
+    ),
+    [
+      { txHash: "aa", outputIndex: 0 },
+      { txHash: "bb", outputIndex: 0 }
+    ]
+  );
+});
+
+test("suggestLockedInputsForSpend rejects an aggregate reserve shortfall", () => {
+  const utxos = [
+    utxo("aa", [{ unit: "lovelace", quantity: "5000000" }]),
+    utxo("bb", [{ unit: "lovelace", quantity: "4999999" }])
+  ];
+
+  assert.deepEqual(
+    suggestLockedInputsForSpend(
+      utxos,
+      [{ unit: "lovelace", quantity: "4000000" }],
+      [{ unit: "lovelace", quantity: "6000000" }]
+    ),
+    []
+  );
+});
+
+test("suggestLockedInputsForSpend keeps valid aggregate requirements above uint64", () => {
+  const utxos = [
+    utxo("aa", [
+      { unit: "lovelace", quantity: MAX_ON_CHAIN_STATE_INTEGER.toString() }
+    ]),
+    utxo("bb", [{ unit: "lovelace", quantity: "2000000" }])
+  ];
+
+  assert.deepEqual(
+    suggestLockedInputsForSpend(
+      utxos,
+      [{ unit: "lovelace", quantity: MAX_ON_CHAIN_STATE_INTEGER.toString() }],
+      [{ unit: "lovelace", quantity: "1" }]
+    ),
+    [
+      { txHash: "aa", outputIndex: 0 },
+      { txHash: "bb", outputIndex: 0 }
+    ]
+  );
+});
+
+
+test("guided beneficiary sending defaults to permanent exit", () => {
+  assert.equal(resolveAutomaticSendPath({
+    hasAdminPath: false, hasDirectAdminSigner: false, hasMultisigPath: false,
+    hasDirectUserMatch: false, hasDirectProofOfLifeRenewalMatch: false,
+    hasBeneficiaryMatch: true, hasStreamingPayments: false,
+    hasLockedUtxos: true, lockedUtxosLoading: false,
+    availableOperatorPaths: [], availableConsolidatePaths: ["beneficiary"]
+  }), "exit-beneficiary");
 });

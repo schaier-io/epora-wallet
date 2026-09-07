@@ -1,8 +1,16 @@
-import { buildDiagnosticIdAtom, mintConfirmationRunAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
+import { beneficiaryPreparationActiveAtom, consolidateWalletInputsAtom } from "./atoms/forms/consolidate-form.atoms";
+import { recoveryCapacityFailureAtom, recoveryCapacitySignatureAtom } from "./atoms/recovery-capacity.atoms";
+import { recordRecoveryCapacityFailure } from "./recovery-capacity-model";
+import { buildDiagnosticIdAtom, mintConfirmationRunAtom, submitConfirmedAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { resetLockFundsFormAtom } from "@/components/user/workspace/atoms/forms/lock-funds-form.atoms";
-import { sttExtraTransfersAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
-import { MINT_CONFIRMATION_MAX_ATTEMPTS } from "@/components/user/workspace/constants";
-import { formatBuildError } from "@/components/user/workspace/helpers";
+import { sttExtraTransfersAtom, sttWalletInputsAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import {
+  MINT_CONFIRMATION_MAX_ATTEMPTS,
+  SUBMIT_CONFIRMATION_INITIAL_DELAY_MS,
+  SUBMIT_CONFIRMATION_MAX_ATTEMPTS,
+  SUBMIT_CONFIRMATION_POLL_MS
+} from "@/components/user/workspace/constants";
+import { fetchTransactionsByHash, formatBuildError, waitFor } from "@/components/user/workspace/helpers";
 import type { resolveWorkspaceTransactionInputs } from "@/components/user/workspace/workspace-transaction-inputs";
 import { schedulePostSubmitRefresh } from "@/components/user/workspace/workspace-transaction-refresh";
 import type { WorkspaceTransactionsCtx } from "@/components/user/workspace/workspace-transactions-types";
@@ -13,6 +21,16 @@ import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceWorkspaceTransactions.json";
 
 const i18n = createDefaultTranslator("ComponentsUserWorkspaceWorkspaceTransactions", defaultMessages);
+
+function runPostSubmitTask(label: string, task: () => unknown) {
+  try {
+    void Promise.resolve(task()).catch((error) => {
+      console.error(`[post-submit:${label}]`, error);
+    });
+  } catch (error) {
+    console.error(`[post-submit:${label}]`, error);
+  }
+}
 
 // The wallet, lifecycle, and refresh surface the sign-and-send path closes over,
 // plus the two form snapshots `resolveWorkspaceTransactionInputs` gathered for
@@ -90,6 +108,8 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
     options: { allowExistingSubmitHash?: boolean; requireCurrentPreview?: boolean } = {}
   ) {
     const { allowExistingSubmitHash = false, requireCurrentPreview = true } = options;
+    jotaiStore.set(recoveryCapacityFailureAtom, null);
+    const recoverySignature = jotaiStore.get(recoveryCapacitySignatureAtom);
 
     // Synchronous re-entry guard: blocks the second handler call when the
     // user double-clicks before React re-renders the button as disabled.
@@ -136,6 +156,17 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
       return;
     }
 
+    if (
+      transactionPreview.warnings?.length &&
+      !window.confirm(
+        i18n("reviewTheseWarningsBeforeYouSignContinue", {
+          warnings: transactionPreview.warnings.join("\n\n")
+        })
+      )
+    ) {
+      return;
+    }
+
     submitInFlightRef.current = true;
     setActiveSubmit(true);
     setBuildError(null);
@@ -147,7 +178,7 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
       setMintedWalletName(normalizeWalletName(mintStateForm.walletName));
       jotaiStore.set(mintConfirmationRunAtom, jotaiStore.get(mintConfirmationRunAtom) + 1);
       setMintConfirmation({
-        txHash: "",
+        txHash: null,
         phase: "submitting",
         attempts: 0,
         maxAttempts: MINT_CONFIRMATION_MAX_ATTEMPTS,
@@ -155,37 +186,9 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
       });
     }
 
+    let txHash: string;
     try {
-      const txHash = await signAndSubmitTx(activeWallet, transactionPreview.txHex);
-      setSubmitHash(txHash);
-      void addSubmittedTransactionToActivity(txHash);
-      if (
-        selectedAction === "use" ||
-        selectedAction === "use-allowance" ||
-        selectedAction === "use-beneficiary"
-      ) {
-        rememberRecipients(sttExtraTransfers.map((transfer) => transfer.address));
-        // Clear the payouts this transaction just sent. Leaving them staged made the
-        // review rail keep describing the send in the future tense -- "You are sending
-        // 5 ₳ to ..." -- over money that had already left the wallet, with Next step
-        // still saying "Review the receipt and continue".
-        jotaiStore.set(sttExtraTransfersAtom, []);
-      }
-      if (selectedAction === "lock-funds") {
-        // Same reason: the receipt read "You are adding 10 ₳ to the selected wallet."
-        // after the 10 ₳ had already been locked.
-        jotaiStore.set(resetLockFundsFormAtom);
-      }
-      void refreshWalletBalance();
-      void refreshLockedContractUtxos(lockingContract.address);
-      if (selectedAction === "mint") {
-        void watchMintCreationConfirmation(txHash);
-      } else {
-        void refreshPermissionWalletSummaries();
-        // The immediate refresh above runs before the tx confirms; re-poll over
-        // the next ~75s so the wallet updates itself once the tx lands.
-        schedulePostSubmitRefresh(deps);
-      }
+      txHash = await signAndSubmitTx(activeWallet, transactionPreview.txHex);
     } catch (error) {
       const parsed = formatBuildError(error, {
         action: "submit",
@@ -199,6 +202,7 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
       setBuildError(parsed.message, parsed.staleInputs);
       setBuildErrorExpected(parsed.expected);
       jotaiStore.set(buildDiagnosticIdAtom, parsed.diagnosticId);
+      recordRecoveryCapacityFailure(jotaiStore, selectedAction, error, recoverySignature);
       if (selectedAction === "mint") {
         jotaiStore.set(mintConfirmationRunAtom, jotaiStore.get(mintConfirmationRunAtom) + 1);
         setMintConfirmation(null);
@@ -208,9 +212,80 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
       if (!parsed.expected) {
         console.error("[submit]", parsed.diagnosticId, parsed.details);
       }
+      return;
     } finally {
       setActiveSubmit(false);
       submitInFlightRef.current = false;
+    }
+
+    setSubmitHash(txHash);
+    jotaiStore.set(submitConfirmedAtom, false);
+    runPostSubmitTask("confirmation", () => watchTransactionConfirmation(txHash));
+    runPostSubmitTask("activity", () => addSubmittedTransactionToActivity(txHash));
+    if (
+      selectedAction === "use" ||
+      selectedAction === "use-allowance" ||
+      (selectedAction === "use-beneficiary" || selectedAction === "exit-beneficiary")
+    ) {
+      runPostSubmitTask("recent-recipients", () =>
+        rememberRecipients(sttExtraTransfers.map((transfer) => transfer.address))
+      );
+      // Clear the payouts this transaction just sent. Leaving them staged made the
+      // review rail keep describing the send in the future tense -- "You are sending
+      // 5 ₳ to ..." -- over money that had already left the wallet, with Next step
+      // still saying "Review the receipt and continue".
+      runPostSubmitTask("clear-payouts", () => jotaiStore.set(sttExtraTransfersAtom, []));
+    }
+    if (selectedAction === "consolidate-utxo" && jotaiStore.get(beneficiaryPreparationActiveAtom)) {
+      runPostSubmitTask("clear-prepared-inputs", () => jotaiStore.set(consolidateWalletInputsAtom, []));
+    }
+    if (selectedAction === "distribute-beneficiaries") {
+      runPostSubmitTask("clear-distributed-input", () => jotaiStore.set(sttWalletInputsAtom, []));
+    }
+    if (selectedAction === "lock-funds") {
+      // Same reason: the receipt read "You are adding 10 ₳ to the selected wallet."
+      // after the 10 ₳ had already been locked.
+      runPostSubmitTask("clear-lock-funds", () => jotaiStore.set(resetLockFundsFormAtom));
+    }
+    runPostSubmitTask("wallet-balance", refreshWalletBalance);
+    runPostSubmitTask("locked-utxos", () => refreshLockedContractUtxos(lockingContract.address));
+    if (selectedAction === "mint") {
+      runPostSubmitTask("mint-confirmation", () => watchMintCreationConfirmation(txHash));
+    } else {
+      runPostSubmitTask("wallet-summaries", refreshPermissionWalletSummaries);
+      // The immediate refresh above runs before the tx confirms; re-poll over
+      // the next ~75s so the wallet updates itself once the tx lands.
+      runPostSubmitTask("refresh-poll", () => schedulePostSubmitRefresh(deps));
+    }
+  }
+
+  /**
+   * The review rail's submitted banner promises "your balance updates after the
+   * next block", but nothing ever told it when the block arrived, so the spinner
+   * span forever. Poll a bounded number of times until an indexer sees the hash,
+   * then flip the banner to confirmed and pull the balance once more.
+   */
+  async function watchTransactionConfirmation(txHash: string) {
+    for (let attempt = 1; attempt <= SUBMIT_CONFIRMATION_MAX_ATTEMPTS; attempt += 1) {
+      await waitFor(
+        attempt === 1 ? SUBMIT_CONFIRMATION_INITIAL_DELAY_MS : SUBMIT_CONFIRMATION_POLL_MS
+      );
+
+      // A newer build/submit (or a flow reset) replaced the hash: this run is stale.
+      if (jotaiStore.get(submitHashAtom) !== txHash) {
+        return;
+      }
+
+      const [confirmed] = await fetchTransactionsByHash([txHash]);
+      if (!confirmed) {
+        continue;
+      }
+
+      if (jotaiStore.get(submitHashAtom) === txHash) {
+        jotaiStore.set(submitConfirmedAtom, true);
+        void refreshWalletBalance();
+      }
+      return;
     }
   }
 

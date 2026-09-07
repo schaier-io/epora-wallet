@@ -66,12 +66,6 @@ function AccordionContent({
       className="overflow-hidden text-sm data-open:animate-accordion-down data-closed:animate-accordion-up"
       {...props}
     >
-      {/* No fixed height here. `--radix-accordion-content-height` is measured once,
-          when the panel opens, and the wrapper above clips to it, so anything that
-          grew afterwards (an image finishing, a list arriving, a line re-wrapping
-          on resize) was cut off with no way to scroll to it. The open/close
-          animation reads that variable in its own keyframes on the wrapper, so
-          the panel still animates without pinning the content. */}
       <div
         className={cn(
           "pt-0 pb-3 [&_a]:underline [&_a]:underline-offset-3 [&_a]:hover:text-foreground [&_p:not(:last-child)]:mb-4",

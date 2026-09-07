@@ -3,5 +3,7 @@
   "fundPoolMissinginputrefHasAlreadyBeenSpentReload": "Fund pool {missingInputRef} has already been spent. Reload the fund pools, remove that one, then try again.",
   "fundPoolMissinginputrefHasAlreadyBeenSpentReload_aff0e8": "Fund pool {missingInputRef} has already been spent. Reload the fund pools, then try again.",
   "someOfTheMoneyThisTransactionSpendsMissinginputref": "Some of the money this transaction spends ({missingInputRef}) is no longer there. It was most likely already spent. Reload the wallet, then try again.",
-  "thisWalletHasMovedOnSinceYouOpened": "This wallet has moved on since you opened this screen, so the version this transaction was built against is gone. Someone else may have used it. Reload the wallet and set this up again."
+  "somethingWentWrongWhilePreparingThisTransaction": "Something went wrong while preparing this transaction. Try again. If it keeps failing, contact support.",
+  "thisWalletHasMovedOnSinceYouOpened": "This wallet has moved on since you opened this screen, so the version this transaction was built against is gone. Someone else may have used it. Reload the wallet and set this up again.",
+  "youDeclinedToSignInYourWallet": "You declined to sign in your wallet, so nothing was sent and nothing changed. The transaction stays ready here whenever you want to try again."
 }

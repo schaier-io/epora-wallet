@@ -184,4 +184,3 @@ export function appendValidationErrors(errors: FieldErrors, key: string, validat
 export function countFieldErrorMessages(fieldErrors: FieldErrors) {
   return Object.values(fieldErrors).reduce((total, messages) => total + messages.length, 0);
 }
-

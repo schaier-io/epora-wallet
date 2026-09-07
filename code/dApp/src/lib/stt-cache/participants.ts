@@ -3,6 +3,8 @@ import { stateFormFromDatum } from "@/lib/contracts/state-form";
 import type { ConstrData } from "@/lib/types/contracts";
 import type { ProjectedParticipant } from "@/lib/stt-cache/types";
 
+const MAX_POSTGRES_INTEGER = 2_147_483_647;
+
 function normalizeOptionalString(value: string | null | undefined) {
   const normalized = value?.trim() ?? "";
   return normalized.length > 0 ? normalized : null;
@@ -16,17 +18,17 @@ function normalizeHash(value: string | null | undefined) {
 function parseOnChainId(value: string) {
   const normalized = value.trim();
 
-  if (!/^-?\d+$/.test(normalized)) {
+  if (!/^\d+$/.test(normalized)) {
     return null;
   }
 
   const parsed = Number(normalized);
-  return Number.isSafeInteger(parsed) ? parsed : null;
+  return Number.isInteger(parsed) && parsed <= MAX_POSTGRES_INTEGER ? parsed : null;
 }
 
 function buildParticipantKey(
   role: ProjectedParticipant["role"],
-  onChainId: number | null,
+  onChainId: string,
   paymentKeyHash: string | null,
   sourceAddress: string | null,
   stakeKeyHash: string | null,
@@ -119,7 +121,7 @@ export function projectParticipantsFromDatum(datum: ConstrData | null | undefine
         scriptHash: null,
         participantKey: buildParticipantKey(
           role,
-          onChainId,
+          user.id,
           paymentKeyHash,
           null,
           null,
@@ -144,7 +146,7 @@ export function projectParticipantsFromDatum(datum: ConstrData | null | undefine
         scriptHash: null,
         participantKey: buildParticipantKey(
           "BENEFICIARY",
-          onChainId,
+          beneficiary.id,
           paymentKeyHash,
           null,
           null,
@@ -167,7 +169,7 @@ export function projectParticipantsFromDatum(datum: ConstrData | null | undefine
       scriptHash: addressFields.scriptHash,
       participantKey: buildParticipantKey(
         "STREAMING_PAYMENT_RECIPIENT",
-        onChainId,
+        streamingPayment.id,
         addressFields.paymentKeyHash,
         addressFields.sourceAddress,
         addressFields.stakeKeyHash,

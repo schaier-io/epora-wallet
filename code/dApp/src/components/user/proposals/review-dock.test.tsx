@@ -40,4 +40,26 @@ describe("the save-as-request dock", () => {
       "Choose who to pay first. Then this can be saved for the other signers."
     );
   });
+
+  /**
+   * On the multisig path a request is the whole point: the direct submit cannot carry
+   * the approvals it needs. There the save is the review's primary action and names
+   * the arithmetic it files for.
+   */
+  it("promotes itself and names the rule's arithmetic on the multisig path", () => {
+    renderDock({ emphasized: true, approvalNeeded: 2, approvalHeld: 3 });
+
+    const button = screen.getByRole("button", { name: "Save as approval request" });
+    expect(button).toHaveAccessibleDescription(
+      "This rule needs 2 approval power between the signers, and the co-signers hold 3. You sign here; the co-signers sign on the saved request."
+    );
+  });
+
+  it("keeps the default wording when emphasized without a rule to name", () => {
+    renderDock({ emphasized: true });
+
+    expect(screen.getByRole("button", { name: "Save as approval request" })).toHaveAccessibleDescription(
+      "Prepares the transaction and saves it for the other signers. Nothing is signed and nothing is sent."
+    );
+  });
 });

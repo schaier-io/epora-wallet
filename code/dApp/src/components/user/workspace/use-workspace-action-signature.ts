@@ -1,4 +1,5 @@
 "use client";
+import { lockedContractUtxosAtom } from "./atoms/workspace-data.atoms";
 import { useAtomValue } from "jotai";
 import type { UserActionKind } from "@/components/user/flow-types";
 import { computeActionSignature } from "@/components/user/workspace/workspace-action-signature";
@@ -13,7 +14,6 @@ import { usePublishForm } from "@/components/user/workspace/forms/use-publish-fo
 import { useVoteForm } from "@/components/user/workspace/forms/use-vote-form";
 import { useConsolidateForm } from "@/components/user/workspace/forms/use-consolidate-form";
 import { useLockFundsForm } from "@/components/user/workspace/forms/use-lock-funds-form";
-import { useWalletSpendForm } from "@/components/user/workspace/forms/use-wallet-spend-form";
 import { useTransferForm } from "@/components/user/workspace/forms/use-transfer-form";
 import type { PreparedStreamingPaymentPayout } from "@/components/user/workspace/workspace-payout-preparation";
 
@@ -38,9 +38,8 @@ export function useWorkspaceActionSignature(ctx: WorkspaceActionSignatureCtx) {
     streamingPaymentPayout
   } = ctx;
   const config = useAtomValue(configAtom);
-  // Enable staking reads the inferred state when the selected token carries
-  // none, so its signature needs the same fallback the build uses.
   const activeInferredSttStateForm = useAtomValue(activeInferredSttStateFormAtom);
+  const lockedContractUtxos = useAtomValue(lockedContractUtxosAtom);
   const mintForm = useMintForm();
   const sttForm = useSttSpendForm();
   const withdrawForm = useWithdrawForm();
@@ -48,7 +47,6 @@ export function useWorkspaceActionSignature(ctx: WorkspaceActionSignatureCtx) {
   const voteForm = useVoteForm();
   const consolidateForm = useConsolidateForm();
   const lockFundsForm = useLockFundsForm();
-  const walletSpendForm = useWalletSpendForm();
   const transferForm = useTransferForm();
 
   return function buildActionSignature(action: UserActionKind) {
@@ -60,14 +58,14 @@ export function useWorkspaceActionSignature(ctx: WorkspaceActionSignatureCtx) {
       ...voteForm,
       ...consolidateForm,
       ...lockFundsForm,
-      ...walletSpendForm,
       ...transferForm,
       activeInferredSttStateForm,
       activePaymentKeyHash,
       config,
       selectedDetectedToken,
       selectedDetectedTokenStateForm,
-      streamingPaymentPayout
+      streamingPaymentPayout,
+      lockedContractUtxos
     });
   };
 }

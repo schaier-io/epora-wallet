@@ -1,4 +1,4 @@
-import { type RuntimeTxBuilder, WALLET_WITHDRAW_VALIDATOR, applyWithdrawalWitness, buildTransactionWithReestimatedLimits, createStateForwarding, createTxPreview, fetchChangeAddressReferenceUtxos, mergeAssetsByUnit, resolveReferenceScript, runStateForwarding, setupTransaction, validateForwardedStateDatum } from "./internals";
+import { type RuntimeTxBuilder, WALLET_WITHDRAW_VALIDATOR, addExtraRequiredSigners, applyWithdrawalWitness, buildTransactionWithReestimatedLimits, createStateForwarding, createTxPreview, fetchChangeAddressReferenceUtxos, mergeAssetsByUnit, resolveReferenceScript, runStateForwarding, setupTransaction, validateForwardedStateDatum } from "./internals";
 import { formatRewardWithdrawalPreview } from "./preview-copy";
 import { buildOperatorPathData, buildSttSpendRedeemerData, resolveOperatorOnChainAction } from "@/lib/contracts/action-data";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
@@ -16,7 +16,7 @@ export async function buildWalletWithdrawTx(
   const stateForwarding = createStateForwarding(config);
   const sttParams = stateForwarding.params;
   const forwardedDatum = unwrapStateDatum(input.sttOutputDatum, "STT state datum");
-  validateForwardedStateDatum(
+  const forwardedStateWarnings = validateForwardedStateDatum(
     forwardedDatum,
     onChainAction,
     "wallet-withdraw:validateStateDatum",
@@ -33,6 +33,7 @@ export async function buildWalletWithdrawTx(
     async (overrides) => {
       const { tx, fetcher, changeAddress, setupDiagnostics, walletUtxos } =
         await setupTransaction(wallet, undefined, txFetcher);
+      addExtraRequiredSigners(tx, changeAddress, input.requiredSignerKeyHashes);
       const spendValidatorsByRef = new Map<string, string>();
       const changeAddressUtxos = await fetchChangeAddressReferenceUtxos(
         fetcher,
@@ -87,9 +88,10 @@ export async function buildWalletWithdrawTx(
               }
             ],
             afterOutput: () => {
-              tx.withdrawRewards(input.rewardAddress, input.amountLovelace);
               applyWithdrawalWitness(
                 tx.txBuilder as RuntimeTxBuilder,
+                input.rewardAddress,
+                input.amountLovelace,
                 walletWithdrawScript,
                 walletWithdrawReference,
                 buildOperatorPathData(input.authorityPath),
@@ -114,6 +116,7 @@ export async function buildWalletWithdrawTx(
           spendValidatorsByRef
         },
         context: {
+          warnings: forwardedStateWarnings,
           referenceScriptUsage: forwarding.referenceScriptUsage
         }
       };
@@ -134,6 +137,9 @@ export async function buildWalletWithdrawTx(
     ),
     estimatedFeeLovelace: prepared.estimatedFeeLovelace,
     signerAddress: prepared.signerAddress,
-    executionUnits: prepared.executionUnits
+    executionUnits: prepared.executionUnits,
+    warnings: Array.isArray(prepared.context?.warnings)
+      ? (prepared.context.warnings as string[])
+      : undefined
   };
 }

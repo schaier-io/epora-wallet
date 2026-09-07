@@ -82,33 +82,33 @@ describe("useWorkspacePostSubmitEffects", () => {
     vi.useRealTimers();
   });
 
-  it("polls the wallet the transaction was submitted from", () => {
+  it("polls the wallet the transaction was submitted from", async () => {
     const spies = createRefreshSpies();
     render(<Harness lockingContractAddress={WALLET_A} spies={spies} />);
 
-    vi.advanceTimersByTime(80_000);
+    await vi.advanceTimersByTimeAsync(80_000);
 
     expect(spies.refreshLockedContractUtxos).toHaveBeenCalledWith(WALLET_A);
   });
 
-  it("drops the pending poll when the workspace opens another wallet", () => {
+  it("drops the pending poll when the workspace opens another wallet", async () => {
     const spies = createRefreshSpies();
     const { rerender } = render(<Harness lockingContractAddress={WALLET_A} spies={spies} />);
 
     // Opening another wallet goes through history.pushState, so the workspace
     // re-renders with a new address and nothing unmounts.
     rerender(<Harness lockingContractAddress={WALLET_B} spies={spies} />);
-    vi.advanceTimersByTime(80_000);
+    await vi.advanceTimersByTimeAsync(80_000);
 
     expect(spies.refreshLockedContractUtxos).not.toHaveBeenCalledWith(WALLET_A);
   });
 
-  it("clears the pending poll on unmount", () => {
+  it("clears the pending poll on unmount", async () => {
     const spies = createRefreshSpies();
     const { unmount } = render(<Harness lockingContractAddress={WALLET_A} spies={spies} />);
 
     unmount();
-    vi.advanceTimersByTime(80_000);
+    await vi.advanceTimersByTimeAsync(80_000);
 
     expect(spies.refreshLockedContractUtxos).not.toHaveBeenCalled();
   });

@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import * as crypto from "@harmoniclabs/crypto";
-import { createVKeyWitnessSetHex } from "@/lib/mesh/cst";
+import {
+  createVKeyWitnessSetHex,
+  deserializeVKeyWitnessSet
+} from "@/lib/mesh/cst";
 import {
   InvalidProposalWitnessError,
   validateVKeyWitnessSet
@@ -80,4 +83,25 @@ test("rejects a set containing any invalid extra witness", () => {
       }),
     InvalidProposalWitnessError
   );
+});
+
+// Some wallets (eternl) return the transaction's whole witness set from
+// signTx, including the plutus data its script inputs carry, instead of only
+// the witnesses they added. The extra entries must not bounce the signature.
+test("accepts a wallet payload that carries script artifacts and returns a vkey-only set", () => {
+  const signed = sign(BODY_HASH, 7);
+  const bare = witnessSetHex([signed.witness]);
+  // Widen the CBOR map by one entry and append key 4 (plutus_data) with an
+  // array payload the CST parser accepts, mimicking the wallet echo.
+  const withDatum = `a2${bare.slice(2)}04820102`;
+  const result = validateVKeyWitnessSet({
+    witnessSetHex: withDatum,
+    txBodyHash: BODY_HASH,
+    signerKeyHash: signed.keyHash
+  });
+
+  assert.deepEqual(result.keyHashes, [signed.keyHash]);
+  const reparsed = deserializeVKeyWitnessSet(result.witnessSetHex);
+  assert.equal(reparsed.plutusData(), undefined);
+  assert.equal(reparsed.vkeys()?.values().length ?? 0, 1);
 });

@@ -1,9 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ServerFetcher } from "@/lib/mesh/server-fetcher";
 
-// A .tsx file with no JSX in it: the two runners are split by extension, and
-// src/lib/mesh is not in the node:test globs (see package.json).
-
 const fetchMock = vi.fn();
 
 beforeEach(() => {

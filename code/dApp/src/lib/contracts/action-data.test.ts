@@ -10,6 +10,7 @@ import {
   resolveOperatorOnChainAction,
   resolveStructuredOnChainAction
 } from "@/lib/contracts/action-data";
+import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
 
 // These on-chain `alternative` numbers ARE the contract interface: the STT
 // validator decodes the redeemer by constructor index, so an off-by-one here
@@ -84,22 +85,32 @@ test("UseAllowance (alt 2) carries the spent-allowance asset entries", () => {
     }),
     { alternative: 2, fields: [[{ alternative: 0, fields: ["", "", 5] }]] }
   );
-  // Missing payload encodes an empty entry list (the builder fills it in later).
-  assert.deepEqual(buildSttSpendRedeemerData({ kind: "allowance-withdrawal" }), {
-    alternative: 2,
-    fields: [[]]
-  });
+  assert.throws(
+    () => buildSttSpendRedeemerData({ kind: "allowance-withdrawal" }),
+    /requires spent allowance/
+  );
 });
 
-test("UseBeneficiary (alt 3) carries the beneficiary id, defaulting to 0", () => {
+test("UseBeneficiary (alt 3) requires and carries the beneficiary id", () => {
   assert.deepEqual(buildSttSpendRedeemerData({ kind: "beneficiary-withdrawal", beneficiaryId: 7 }), {
     alternative: 3,
     fields: [7]
   });
-  assert.deepEqual(buildSttSpendRedeemerData({ kind: "beneficiary-withdrawal" }), {
-    alternative: 3,
-    fields: [0]
-  });
+  assert.throws(
+    () => buildSttSpendRedeemerData({ kind: "beneficiary-withdrawal" }),
+    /requires a beneficiary id/
+  );
+  assert.throws(
+    () => buildSttSpendRedeemerData({ kind: "beneficiary-withdrawal", beneficiaryId: -1 }),
+    /between 0 and/
+  );
+  assert.deepEqual(
+    buildSttSpendRedeemerData({
+      kind: "beneficiary-withdrawal",
+      beneficiaryId: MAX_ON_CHAIN_STATE_INTEGER
+    }),
+    { alternative: 3, fields: [MAX_ON_CHAIN_STATE_INTEGER] }
+  );
 });
 
 test("PayStreamingPayment (alt 4) carries the payout-delta entries", () => {
@@ -110,6 +121,47 @@ test("PayStreamingPayment (alt 4) carries the payout-delta entries", () => {
       payoutDelta: [{ unit, quantity: "3" }]
     }),
     { alternative: 4, fields: [[{ alternative: 0, fields: ["aa".repeat(28), "cafe", 3] }]] }
+  );
+  assert.throws(
+    () => buildSttSpendRedeemerData({ kind: "streaming-payment-payout" }),
+    /requires a payout delta/
+  );
+});
+
+test("CancelStreamingPayment (alt 6) requires and carries the payment id", () => {
+  assert.deepEqual(
+    buildSttSpendRedeemerData({
+      kind: "streaming-payment-cancellation",
+      streamingPaymentId: 9
+    }),
+    { alternative: 6, fields: [9] }
+  );
+  assert.throws(
+    () => buildSttSpendRedeemerData({ kind: "streaming-payment-cancellation" }),
+    /requires a streaming payment id/
+  );
+  assert.throws(
+    () =>
+      buildSttSpendRedeemerData({
+        kind: "streaming-payment-cancellation",
+        streamingPaymentId: Number.MAX_SAFE_INTEGER + 1
+      }),
+    /must be an integer/
+  );
+  assert.throws(
+    () =>
+      buildSttSpendRedeemerData({
+        kind: "streaming-payment-cancellation",
+        streamingPaymentId: MAX_ON_CHAIN_STATE_INTEGER + 1n
+      }),
+    /between 0 and/
+  );
+  assert.deepEqual(
+    buildSttSpendRedeemerData({
+      kind: "streaming-payment-cancellation",
+      streamingPaymentId: MAX_ON_CHAIN_STATE_INTEGER
+    }),
+    { alternative: 6, fields: [MAX_ON_CHAIN_STATE_INTEGER] }
   );
 });
 
@@ -158,6 +210,34 @@ test("RemoveAccessIndex wraps a user/beneficiary index target (op-kind alt 3)", 
   assert.deepEqual(
     (beneficiaryRemoval.fields[0] as { fields: unknown[] }).fields[1],
     { alternative: 3, fields: [{ alternative: 1, fields: [4] }] }
+  );
+  assert.deepEqual(
+    buildSttSpendRedeemerData({
+      kind: "remove-access-index",
+      operatorPath: "admin",
+      target: { list: "user", index: 15 }
+    }),
+    {
+      alternative: 0,
+      fields: [
+        {
+          alternative: 0,
+          fields: [
+            { alternative: 0, fields: [] },
+            { alternative: 3, fields: [{ alternative: 0, fields: [15] }] }
+          ]
+        }
+      ]
+    }
+  );
+  assert.throws(
+    () =>
+      buildSttSpendRedeemerData({
+        kind: "remove-access-index",
+        operatorPath: "admin",
+        target: { list: "user", index: -1 }
+      }),
+    /must be a non-negative safe integer/
   );
 });
 
@@ -265,4 +345,16 @@ test("resolveOperatorOnChainAction defaults to admin/use and honours multisig", 
     operatorPath: "multisig",
     operatorIntent: "use"
   });
+});
+
+
+test("ExitBeneficiary uses index 7 and validates its id", () => {
+  assert.deepEqual(resolveStructuredOnChainAction("exit-beneficiary"), { kind: "beneficiary-exit" });
+  assert.deepEqual(buildSttSpendRedeemerData({ kind: "beneficiary-exit", beneficiaryId: MAX_ON_CHAIN_STATE_INTEGER }), {
+    alternative: 7, fields: [MAX_ON_CHAIN_STATE_INTEGER]
+  });
+  assert.deepEqual(buildSttSpendRedeemerData({ kind: "beneficiary-withdrawal", beneficiaryId: 1 }), { alternative: 3, fields: [1] });
+  assert.throws(() => buildSttSpendRedeemerData({ kind: "beneficiary-exit" }), /requires a beneficiary id/);
+  assert.throws(() => buildSttSpendRedeemerData({ kind: "beneficiary-exit", beneficiaryId: -1 }), /between 0 and/);
+  assert.throws(() => buildSttSpendRedeemerData({ kind: "beneficiary-exit", beneficiaryId: MAX_ON_CHAIN_STATE_INTEGER + 1n }), /between 0 and/);
 });

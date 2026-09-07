@@ -7,6 +7,7 @@ import {
   type PoolsResponseDto
 } from "@/lib/api";
 import { clientKey, rateLimit } from "@/lib/http/rate-limit";
+import { meshHttpStatus } from "@/lib/mesh/http-error";
 import { logger, serializeError } from "@/lib/observability/logger";
 
 export const runtime = "nodejs";
@@ -39,6 +40,12 @@ type RawPoolMetadata = {
   description?: string | null;
 };
 
+// Only "no such pool" is a 404; a 429 or 5xx must not read as "not found".
+function nullIfNotFound(error: unknown): null {
+  if (meshHttpStatus(error) === 404) return null;
+  throw error;
+}
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
 }
@@ -66,8 +73,8 @@ export async function GET(request: Request) {
   try {
     const provider = getBlockfrostProvider();
     const results = (await Promise.all([
-      provider.get(`/pools/${id}`).catch(() => null),
-      provider.get(`/pools/${id}/metadata`).catch(() => null)
+      provider.get(`/pools/${id}`).catch(nullIfNotFound),
+      provider.get(`/pools/${id}/metadata`).catch(nullIfNotFound)
     ])) as [unknown, unknown];
     const infoRaw = results[0];
     const metadataRaw = results[1];

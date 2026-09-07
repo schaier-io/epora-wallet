@@ -1,13 +1,13 @@
-//// Shared, pure-data builders for the wallet test suites. Everything here
-//// either constructs `Transaction`/`State`/`Input`/`Output`/`Beneficiary`
-//// values or drives the `wallet/rules` library — none of it touches the
-//// `wallet` validator (lib modules must not import a validator).
+//// Shared wallet test builders and adapters for the spend and movement rules.
+//// These helpers call library code directly; they do not import a validator.
 
 use aiken/collection/list
 use aiken/interval
 use assets/entries as asset_entries
 use cardano/assets
-use cardano/transaction.{Input, Output, Transaction, ValidityRange}
+use cardano/transaction.{
+  Input, Output, OutputReference, Transaction, ValidityRange,
+}
 use state/types as state_types
 use streaming_payments/types.{StreamingPayment}
 use test_support/security_fixtures as fixtures
@@ -15,6 +15,25 @@ use test_support/state_builders as states
 use wallet/io.{WalletValueSnapshot}
 use wallet/payout_routing.{OutputContext}
 use wallet/rules as wallet_rules
+use wallet/spend
+use wallet/terminal_recovery
+
+/// Run the spend implementation with the default wallet input and STT identity.
+pub fn run_wallet_spend(tx: Transaction) -> Bool {
+  run_wallet_spend_at(fixtures.wallet_input_ref(), tx)
+}
+
+/// Select another wallet input to test leader and follower behavior.
+pub fn run_wallet_spend_at(own_ref: OutputReference, tx: Transaction) -> Bool {
+  spend.eval_spend(
+    fixtures.default_policy_id(),
+    fixtures.default_asset_name(),
+    None,
+    0,
+    own_ref,
+    tx,
+  )
+}
 
 // Rule-level adapter: drives `stt_action_allows_spend` with the given state,
 // an empty streaming reserve, and the default fixture addresses/reference —
@@ -30,11 +49,20 @@ pub fn allows_spend(
   wallet_values: WalletValueSnapshot,
   outputs: List<Output>,
 ) -> Bool {
+  let repeatable_beneficiary_recovery = when action is {
+    state_types.UseBeneficiary(_) ->
+      terminal_recovery.is_repeatable_beneficiary_recovery(state)
+    _ -> False
+  }
   wallet_rules.stt_action_allows_spend(
     action,
     state,
+    repeatable_beneficiary_recovery,
     wallet_values,
-    assets.zero,
+    [],
+    assets.difference(wallet_values.input_value, wallet_values.output_value)
+      |> asset_entries.flatten_to_entries
+      |> list.filter(fn(asset) { asset.quantity > 0 }),
     OutputContext {
       wallet_address: fixtures.wallet_script_address(),
       stt_input_reference: fixtures.stt_input_ref(),
@@ -50,12 +78,11 @@ pub fn allows_spend(
 pub fn snapshot(
   input_value: assets.Value,
   output_value: assets.Value,
-  paid_out_value: assets.Value,
+  _paid_out_value: assets.Value,
 ) -> WalletValueSnapshot {
   WalletValueSnapshot {
     input_value,
     output_value,
-    paid_out_value,
     input_count: 1,
     output_count: 1,
   }
@@ -63,6 +90,7 @@ pub fn snapshot(
 
 pub fn mk_beneficiary(id: Int, weight: Int) -> state_types.Beneficiary {
   state_types.Beneficiary {
+    ..states.base_beneficiary(),
     id,
     beneficiary_wallets: ["beneficiary1"],
     unlock_after: Some(100),
@@ -251,7 +279,7 @@ pub fn two_streaming_payment_payout_tx(
 /// bounds with nothing paid, but the wallet holds only `wallet_input_lovelace`
 /// (< the accrued amount), so the reserve exceeds the balance. Settling whatever
 /// the wallet DOES hold is the case the old reserve gate deadlocked — see
-/// `wallet_spend_tests.streaming_payment_payout_accepts_settlement_from_under_funded_wallet`.
+/// `wallet/reserve_tests.streaming_payment_payout_accepts_settlement_from_under_funded_wallet`.
 /// Separate from `streaming_payment_payout_tx` only because that one pins the
 /// wallet input at 2_000_000, which is always above the reserve.
 pub fn under_funded_streaming_payment_payout_tx(

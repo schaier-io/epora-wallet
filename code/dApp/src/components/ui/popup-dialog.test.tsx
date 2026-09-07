@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { PopupDialog } from "@/components/ui/popup-dialog";
+import { InfoHint } from "@/components/ui/info-hint";
 
 /**
  * The trap matched only its two boundaries. Clicking any non-focusable area inside the
@@ -68,43 +69,135 @@ describe("popup dialog focus trap", () => {
 
     expect(document.activeElement).not.toBe(behind);
   });
+
+  it("traps Tab before a child can stop the bubbling event", () => {
+    render(
+      <PopupDialog open onOpenChange={() => {}} title="Keyboard shortcuts">
+        <button type="button">Inside first</button>
+        <button type="button" onKeyDown={(event) => event.stopPropagation()}>
+          Inside last
+        </button>
+      </PopupDialog>
+    );
+    const last = screen.getByRole("button", { name: "Inside last" });
+    last.focus();
+    fireEvent.keyDown(last, { key: "Tab" });
+
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Close dialog" }));
+  });
+
+  it("makes the page behind the dialog inert", () => {
+    const behind = mountPageBehind().parentElement!;
+    renderDialog();
+
+    expect(behind).toHaveAttribute("inert");
+  });
+});
+
+describe("popup dialog nested Escape handling", () => {
+  it("leaves Escape on a native select for the select to handle", () => {
+    const onOpenChange = vi.fn();
+    render(
+      <PopupDialog open onOpenChange={onOpenChange} title="Settings">
+        <select aria-label="Role" defaultValue="owner">
+          <option value="owner">Owner</option>
+        </select>
+      </PopupDialog>
+    );
+
+    fireEvent.keyDown(screen.getByRole("combobox", { name: "Role" }), { key: "Escape" });
+
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
+  it("closes a nested popover before it closes the dialog", () => {
+    const onOpenChange = vi.fn();
+    render(
+      <PopupDialog open onOpenChange={onOpenChange} title="Settings">
+        <InfoHint>More context</InfoHint>
+      </PopupDialog>
+    );
+    fireEvent.click(screen.getByRole("button", { name: "More details" }));
+    const popover = screen.getByText("More context");
+
+    fireEvent.keyDown(popover, { key: "Escape" });
+
+    expect(onOpenChange).not.toHaveBeenCalled();
+    expect(screen.queryByText("More context")).not.toBeInTheDocument();
+  });
 });
 
 /**
- * Callers pass an inline `onOpenChange` (wallet-panel.tsx), so its identity
- * changes on every parent render. While the trap effect depended on it, an
- * unrelated parent update re-ran the whole effect: the initial-focus timer was
- * re-scheduled, and the element the user had tabbed to lost focus to the first
- * control again.
+ * The backdrop closed the dialog whenever a click landed on it, even when the press had
+ * started inside: selecting text and releasing over the backdrop dismissed the dialog.
+ * The inner "pressed inside" flag was reset by the outer handler on the same bubble.
  */
-describe("popup dialog focus across parent re-renders", () => {
-  function DialogWithRerenderableParent({ tick }: { tick: number }) {
+describe("popup dialog backdrop", () => {
+  function renderWithBackdrop() {
+    const onOpenChange = vi.fn();
+    render(
+      <PopupDialog open onOpenChange={onOpenChange} title="Connect">
+        <p>Prose to select</p>
+      </PopupDialog>
+    );
+    return { onOpenChange, backdrop: screen.getByRole("dialog").parentElement! };
+  }
+
+  it("stays open when a press that started inside is released on the backdrop", () => {
+    const { onOpenChange, backdrop } = renderWithBackdrop();
+    fireEvent.pointerDown(screen.getByText("Prose to select"));
+    fireEvent.click(backdrop);
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
+  it("closes on a click that starts and ends on the backdrop", () => {
+    const { onOpenChange, backdrop } = renderWithBackdrop();
+    fireEvent.pointerDown(backdrop);
+    fireEvent.click(backdrop);
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+});
+
+/**
+ * `onOpenChange` is an inline arrow at every real call site, so it is a new function on each
+ * parent render. It reached the focus effect's dependency list through `handleClose`, so the
+ * effect tore down and re-ran whenever the parent rendered, and its cleanup returns focus to
+ * the element that opened the dialog. `WalletConnectionDialog` re-renders several times right
+ * after it opens (it refreshes the wallet list, then reports each connect state), so the
+ * caret was pulled back to the trigger while someone was still using the dialog.
+ */
+describe("popup dialog focus across parent renders", () => {
+  function DialogWithChangingCallback({ label }: { label: string }) {
     return (
-      <PopupDialog open onOpenChange={() => tick} title="Keyboard shortcuts">
-        <button type="button">Inside first</button>
-        <button type="button">Inside last</button>
+      <PopupDialog open onOpenChange={() => {}} title="Connect">
+        <input aria-label="Wallet address" />
+        <p>{label}</p>
       </PopupDialog>
     );
   }
 
-  it("leaves focus where the user tabbed to when the parent re-renders", () => {
+  it("leaves focus where the user put it when the parent re-renders", () => {
     vi.useFakeTimers();
     try {
-      const { rerender } = render(<DialogWithRerenderableParent tick={0} />);
+      // The dialog restores focus to whatever was focused when it opened, so the bug only
+      // shows with a real trigger behind it.
+      const trigger = mountPageBehind();
+      trigger.focus();
+
+      const { rerender } = render(<DialogWithChangingCallback label="Scanning" />);
+      // Initial focus is deferred to a zero-delay timer so the content mounts first.
       act(() => {
-        vi.runAllTimers();
+        vi.runOnlyPendingTimers();
       });
 
-      const last = screen.getByRole("button", { name: "Inside last" });
-      last.focus();
-      expect(document.activeElement).toBe(last);
+      const field = screen.getByLabelText("Wallet address");
+      field.focus();
+      expect(document.activeElement).toBe(field);
 
-      rerender(<DialogWithRerenderableParent tick={1} />);
-      act(() => {
-        vi.runAllTimers();
-      });
+      rerender(<DialogWithChangingCallback label="Found 2 wallets" />);
 
-      expect(document.activeElement).toBe(last);
+      expect(document.activeElement).toBe(field);
+      expect(document.activeElement).not.toBe(trigger);
     } finally {
       vi.useRealTimers();
     }

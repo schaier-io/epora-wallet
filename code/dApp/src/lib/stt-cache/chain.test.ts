@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { normalizeTransactionInfoUtxos } from "./chain";
+import { createSttChainClient, normalizeTransactionInfoUtxos } from "./chain";
 import { extractTouchedWalletUnits } from "./domain";
 import type { TransactionInfo } from "@meshsdk/common";
 
@@ -130,4 +130,106 @@ test("rejects an entry that is neither shape rather than silently dropping it", 
       outputs: []
     } as unknown as TransactionInfo)
   );
+});
+
+// --- createSttChainClient ----------------------------------------------------
+//
+// Mesh's own fetchAddressUTxOs and fetchCollectionAssets swallow every failure
+// into an empty list, and the indexer reads an empty list as "wallet closed".
+// The client reads Blockfrost directly so a 429 or 5xx reaches the caller.
+
+function meshHttpError(status: number) {
+  return JSON.stringify({ data: { status_code: status }, headers: {}, status });
+}
+
+function flatUtxo(index: number) {
+  return {
+    address: SCRIPT_ADDRESS,
+    amount: [{ unit: UNIT, quantity: "1" }],
+    tx_hash: TX_HASH,
+    output_index: index,
+    inline_datum: "d87980"
+  };
+}
+
+function clientWith(get: (url: string) => Promise<unknown>) {
+  return createSttChainClient({
+    get,
+    fetchTxInfo: async () => {
+      throw new Error("not used");
+    }
+  });
+}
+
+test("fetchAddressUTxOs surfaces an upstream failure instead of answering with no UTxOs", async () => {
+  const client = clientWith(async () => {
+    throw meshHttpError(429);
+  });
+  await assert.rejects(client.fetchAddressUTxOs(SCRIPT_ADDRESS, UNIT), /"status":429/);
+});
+
+test("fetchAddressUTxOs treats a 404 as an address Blockfrost has never seen", async () => {
+  const client = clientWith(async () => {
+    throw meshHttpError(404);
+  });
+  assert.deepEqual(await client.fetchAddressUTxOs(SCRIPT_ADDRESS, UNIT), []);
+});
+
+test("rejects a 200 whose body is not a list instead of reading it as nothing", async () => {
+  // A proxy answering an error object with 200 must not close the wallet.
+  const client = clientWith(async () => ({ error: "Bad Gateway", status_code: 502 }));
+  await assert.rejects(client.fetchAddressUTxOs(SCRIPT_ADDRESS, UNIT));
+  await assert.rejects(client.fetchCollectionAssets(POLICY));
+});
+
+test("fetchAddressUTxOs walks every full page and maps the flat wire shape", async () => {
+  const urls: string[] = [];
+  const client = clientWith(async (url) => {
+    urls.push(url);
+    return url.endsWith("page=1")
+      ? Array.from({ length: 100 }, (_, index) => flatUtxo(index))
+      : [flatUtxo(100)];
+  });
+  const utxos = await client.fetchAddressUTxOs(SCRIPT_ADDRESS, UNIT);
+  assert.equal(utxos.length, 101);
+  assert.deepEqual(urls, [
+    `/addresses/${SCRIPT_ADDRESS}/utxos/${UNIT}?page=1`,
+    `/addresses/${SCRIPT_ADDRESS}/utxos/${UNIT}?page=2`
+  ]);
+  assert.deepEqual(utxos[100], {
+    input: { txHash: TX_HASH, outputIndex: 100 },
+    output: {
+      address: SCRIPT_ADDRESS,
+      amount: [{ unit: UNIT, quantity: "1" }],
+      plutusData: "d87980"
+    }
+  });
+});
+
+test("fetchAddressUTxOs rejects a page whose entry carries no tx_hash", async () => {
+  // The indexer persists input.txHash as the wallet's currentTxHash, so an entry
+  // without one must fail the page outright instead of converting into an
+  // empty-hash UTxO through toMeshUtxo's fallback.
+  const client = clientWith(async () => [
+    { address: SCRIPT_ADDRESS, amount: [{ unit: UNIT, quantity: "1" }], output_index: 0 }
+  ]);
+  await assert.rejects(client.fetchAddressUTxOs(SCRIPT_ADDRESS, UNIT));
+});
+
+test("fetchCollectionAssets surfaces an upstream failure and pages by 100", async () => {
+  const failing = clientWith(async () => {
+    throw meshHttpError(500);
+  });
+  await assert.rejects(failing.fetchCollectionAssets(POLICY), /"status":500/);
+
+  const client = clientWith(async (url) =>
+    url.endsWith("page=1")
+      ? Array.from({ length: 100 }, (_, index) => ({ asset: `${POLICY}${index}`, quantity: "1" }))
+      : [{ asset: UNIT, quantity: "1" }]
+  );
+  const first = await client.fetchCollectionAssets(POLICY);
+  assert.equal(first.assets.length, 100);
+  assert.equal(first.next, 2);
+  const second = await client.fetchCollectionAssets(POLICY, first.next ?? undefined);
+  assert.deepEqual(second, { assets: [{ unit: UNIT, quantity: "1" }], next: null });
 });

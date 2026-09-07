@@ -2,7 +2,13 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { FocusedWalletSettingsEditor } from "./focused-wallet-settings-editor";
-import { type StateFormState, createDefaultStateForm } from "@/lib/contracts/state-form";
+import {
+  type StateFormState,
+  createDefaultBeneficiaryFormState,
+  createDefaultStateForm,
+  createDefaultUserFormState
+} from "@/lib/contracts/state-form";
+import { MAX_ACCESS_RECORDS } from "@/lib/contracts/state-validation";
 
 function timerForm(enabled: boolean): StateFormState {
   const value = createDefaultStateForm();
@@ -29,38 +35,96 @@ function renderTimer(value: StateFormState = timerForm(true)) {
   };
 }
 
-function renderRecovery(value: StateFormState = createDefaultStateForm()) {
-  const onChange = vi.fn();
-  return {
-    onChange,
-    ...render(
-      <FocusedWalletSettingsEditor
-        value={value}
-        onChange={onChange}
-        selectedTask="settings-beneficiaries"
-        onSelectTask={vi.fn()}
-        fieldErrors={{}}
-      />
-    )
-  };
-}
-
 describe("adding a recovery contact", () => {
   it("also adds the required proof-of-life settings", () => {
-    for (const buttonIndex of [0, 1]) {
-      const view = renderRecovery();
-      fireEvent.click(
-        screen.getAllByRole("button", { name: "Add recovery contact" })[buttonIndex]!
-      );
+    const view = renderTimer(timerForm(false));
+    fireEvent.click(screen.getByRole("button", { name: "Add recovery contact" }));
 
-      const next = view.onChange.mock.calls[0]![0] as StateFormState;
-      expect(next.beneficiaries).toHaveLength(1);
-      expect(next.proofOfLifeUnlockTimeMode).toBe("some");
-      expect(next.proofOfLifeIncrementMode).toBe("some");
-      expect(next.proofOfLifeUnlockTime).not.toBe("");
-      expect(next.proofOfLifeIncrement).not.toBe("");
-      view.unmount();
-    }
+    const next = view.onChange.mock.calls[0]![0] as StateFormState;
+    expect(next.beneficiaries).toHaveLength(1);
+    expect(next.proofOfLifeUnlockTimeMode).toBe("some");
+    expect(next.proofOfLifeIncrementMode).toBe("some");
+    expect(next.proofOfLifeUnlockTime).not.toBe("");
+    expect(next.proofOfLifeIncrement).not.toBe("");
+  });
+
+  it("stops at the combined users and recovery-contacts cap", () => {
+    const value = timerForm(true);
+    value.users = [createDefaultUserFormState("0")];
+    value.beneficiaries = Array.from(
+      { length: MAX_ACCESS_RECORDS - 1 },
+      (_, index) => createDefaultBeneficiaryFormState(String(index))
+    );
+    const { onChange } = renderTimer(value);
+
+    const add = screen.getByRole("button", { name: "Add recovery contact" });
+    expect(add).toBeDisabled();
+    fireEvent.click(add);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+});
+
+describe("the combined recovery tab", () => {
+  /**
+   * The timer names recovery contacts in every helper, but the tab showed neither
+   * them nor a way to add one — the reader had to know to visit another tab for the
+   * people the timer hands the wallet to.
+   */
+  it("lists the contacts and offers the add beneath the deadline", () => {
+    const value = timerForm(true);
+    value.beneficiaries = [
+      {
+        id: "1",
+        wallets: ["ab".repeat(28)],
+        unlockAfterMode: "none",
+        unlockAfter: "",
+        weight: "1",
+      payoutAddress: ""
+      }
+    ];
+    renderTimer(value);
+
+    expect(screen.getByText(/Recovery contact · /)).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Add recovery contact" })).toHaveLength(1);
+    expect(screen.queryByText("Nobody can recover this wallet")).not.toBeInTheDocument();
+  });
+
+  it("offers one right-aligned add while nobody can recover", () => {
+    renderTimer();
+
+    expect(screen.getByText("Nobody can recover this wallet")).toBeInTheDocument();
+    const add = screen.getByRole("button", { name: "Add recovery contact" });
+    expect(add).toHaveClass("ml-auto");
+    expect(screen.getAllByRole("button", { name: "Add recovery contact" })).toHaveLength(1);
+  });
+
+  it("adds a contact from the timer tab into the same form", () => {
+    const { onChange } = renderTimer();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Add recovery contact" })[0]!);
+
+    const next = onChange.mock.calls[0]![0] as StateFormState;
+    expect(next.beneficiaries).toHaveLength(1);
+    expect(next.proofOfLifeUnlockTimeMode).toBe("some");
+  });
+
+  it("shows the contact count and proof-of-life state on one tab", () => {
+    renderTimer();
+
+    expect(
+      screen.getByRole("button", { name: "Recovery. 0 recovery contacts · Configured" })
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Recovery contacts/ })).not.toBeInTheDocument();
+  });
+
+  it("does not mark a half-configured proof of life as configured", () => {
+    const value = timerForm(false);
+    value.proofOfLifeUnlockTimeMode = "some";
+    renderTimer(value);
+
+    expect(
+      screen.getByRole("button", { name: "Recovery. 0 recovery contacts · Unset" })
+    ).toBeInTheDocument();
   });
 });
 
@@ -116,6 +180,45 @@ describe("one control for a paired setting", () => {
         "Turn this on so your recovery contacts can claim this wallet if you stop checking in. Without it, they can never act."
       )
     ).toBeInTheDocument();
+  });
+});
+
+describe("the People tab inside Wallet settings", () => {
+  /**
+   * The People page merged into Wallet settings: one update-state form was reachable
+   * through two sidebar entries, and "who can act" belongs on the same surface as the
+   * rules it feeds. The roster renders as the first tab of the merged surface.
+   */
+  function renderPeopleTab() {
+    const onChange = vi.fn();
+    return {
+      onChange,
+      ...render(
+        <FocusedWalletSettingsEditor
+          value={createDefaultStateForm()}
+          onChange={onChange}
+          selectedTask="settings-people"
+          onSelectTask={vi.fn()}
+          fieldErrors={{}}
+        />
+      )
+    };
+  }
+
+  it("renders the roster for the merged tab", () => {
+    renderPeopleTab();
+
+    expect(screen.getByText("Nobody is in this wallet yet")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /add person/i })).toBeInTheDocument();
+  });
+
+  it("adds a person through the same form", () => {
+    const { onChange } = renderPeopleTab();
+
+    fireEvent.click(screen.getByRole("button", { name: /add person/i }));
+
+    const next = onChange.mock.calls[0]![0] as StateFormState;
+    expect(next.users).toHaveLength(1);
   });
 });
 

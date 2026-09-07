@@ -42,14 +42,11 @@ function StatusBadge({ status }: { status: ProposalListItemDto["status"] }) {
   if (status === "SUBMITTED") {
     return <Badge variant="info">{i18n("submitted")}</Badge>;
   }
-  if (status === "CANCELLED") {
-    return <Badge variant="secondary">{i18n("cancelled")}</Badge>;
-  }
-  // SUBMITTING is a claimed row: somebody is sending it right now, and every
-  // action on it is switched off until that resolves. It used to fall through to
-  // "Open", which read as a request waiting for a signature.
   if (status === "SUBMITTING") {
     return <Badge variant="info">{i18n("sending")}</Badge>;
+  }
+  if (status === "CANCELLED") {
+    return <Badge variant="secondary">{i18n("cancelled")}</Badge>;
   }
   return <Badge variant="outline">{i18n("open")}</Badge>;
 }
@@ -163,7 +160,7 @@ export function ProposalList({
                 )}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <span className="font-medium leading-tight">{proposal.title}</span>
+                  <span className="min-w-0 wrap-anywhere font-medium leading-tight">{proposal.title}</span>
                   {proposal.status === "OPEN" ? (
                     <ValidityBadge validity={report?.validity} />
                   ) : (

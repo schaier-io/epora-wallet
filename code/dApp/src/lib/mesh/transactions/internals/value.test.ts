@@ -160,14 +160,14 @@ test("normalizeMintStarterAssets rejects malformed amounts", () => {
   );
 });
 
-test("summarizeAmountForTxPreview describes lovelace and native asset counts", () => {
-  assert.equal(summarizeAmountForTxPreview([{ unit: "lovelace", quantity: "5" }]), "5 lovelace");
+test("summarizeAmountForTxPreview describes ADA and other token counts", () => {
+  assert.equal(summarizeAmountForTxPreview([{ unit: "lovelace", quantity: "5" }]), "0.000005 ADA");
   assert.equal(
     summarizeAmountForTxPreview([
       { unit: "lovelace", quantity: "5" },
       { unit: NATIVE, quantity: "1" }
     ]),
-    "5 lovelace and 1 native asset"
+    "0.000005 ADA and 1 other token"
   );
   assert.equal(
     summarizeAmountForTxPreview([
@@ -175,7 +175,7 @@ test("summarizeAmountForTxPreview describes lovelace and native asset counts", (
       { unit: NATIVE, quantity: "1" },
       { unit: NATIVE_B, quantity: "2" }
     ]),
-    "5 lovelace and 2 native assets"
+    "0.000005 ADA and 2 other tokens"
   );
 });
 
@@ -187,7 +187,7 @@ test("deriveAssetName is deterministic, 32 bytes, and sensitive to the output in
 });
 
 // mergeRestrictedSttAssets enforces the on-chain STT-forwarding invariant: a
-// non-admin action may only ADD lovelace to the forwarded STT output and must
+// non-operator-Use action may only ADD lovelace to the forwarded STT output and must
 // leave every native asset exactly as it was on the consumed STT input. A bug
 // here would let value silently leave the locked UTxO, so the boundary is pinned.
 

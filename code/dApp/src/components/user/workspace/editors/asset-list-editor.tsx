@@ -2,16 +2,17 @@
 import { useTranslations } from "next-intl";
 
 
-import { AdaAmountInput } from "./ada-amount-input";
 import { SearchableAssetUnitDropdown } from "./asset-unit-dropdown";
+import { AdaAmountInput } from "./config-form-primitives";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { buildAssetSelectionOptions } from "@/components/user/workspace/helpers";
 import { resolveAssetIdentity } from "@/lib/cardano-assets";
 import { type Asset } from "@/lib/types/contracts";
+import { parseAdaToLovelace } from "@/lib/user-flow/guided-helpers";
 import { Plus } from "lucide-react";
-import { useMemo } from "react";
+import { useId, useMemo } from "react";
 
 export function AssetListEditor({
   label,
@@ -29,6 +30,8 @@ export function AssetListEditor({
   availableAssets?: Asset[];
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsAssetListEditor");
+  // Two lists with the same label on one page must not share control ids.
+  const uid = useId();
   const availableOptions = useMemo(
     () => buildAssetSelectionOptions(availableAssets),
     [availableAssets]
@@ -61,7 +64,7 @@ export function AssetListEditor({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="@container space-y-3">
       <div className="flex w-full min-w-0 flex-wrap items-center gap-3 rounded-lg border border-border/60 bg-muted/15 p-3">
         <div className="min-w-0 flex-1 space-y-1">
           <Label>{label}</Label>
@@ -114,22 +117,36 @@ export function AssetListEditor({
 
             return (
               <div
-                key={`${label}-${index}`}
-                className="grid grid-cols-1 items-end gap-3 rounded-md border border-border/60 bg-muted/20 p-3 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)_auto]"
+                key={`${uid}-${index}`}
+                className="grid grid-cols-1 items-end gap-3 rounded-md border border-border/60 bg-muted/20 p-3 @sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)_auto]"
               >
                 <div className="space-y-1">
-                  <Label htmlFor={`${label}-quantity-${index}`}>
+                  <Label htmlFor={`${uid}-quantity-${index}`}>
                     {isAdaRow ? i18n("howMuchAda") : i18n("howMuch")}
                   </Label>
                   <div className="relative">
-                    <AdaAmountInput
-                      id={`${label}-quantity-${index}`}
-                      ada={isAdaRow}
-                      value={asset.quantity}
-                      onChange={(quantity) => updateAsset(index, { quantity })}
-                      placeholder={isAdaRow ? "5" : "0"}
-                      className="pr-14"
-                    />
+                    {isAdaRow ? (
+                      <AdaAmountInput
+                        id={`${uid}-quantity-${index}`}
+                        value={asset.quantity}
+                        onChange={(text) =>
+                          updateAsset(index, {
+                            quantity: text.trim() ? parseAdaToLovelace(text) ?? "" : ""
+                          })
+                        }
+                        placeholder="5"
+                        className="pr-14"
+                      />
+                    ) : (
+                      <Input
+                        id={`${uid}-quantity-${index}`}
+                        value={asset.quantity}
+                        onChange={(event) => updateAsset(index, { quantity: event.target.value })}
+                        placeholder="0"
+                        inputMode="numeric"
+                        className="pr-14"
+                      />
+                    )}
                     {selectedOption ? (
                       <Button
                         type="button"
@@ -151,10 +168,10 @@ export function AssetListEditor({
                 </div>
 
                 <div className="space-y-1">
-                  <Label htmlFor={`${label}-unit-${index}`}>{i18n("asset")}</Label>
+                  <Label htmlFor={`${uid}-unit-${index}`}>{i18n("asset")}</Label>
                   {hasAvailableOptions ? (
                     <SearchableAssetUnitDropdown
-                      id={`${label}-unit-${index}`}
+                      id={`${uid}-unit-${index}`}
                       value={asset.unit}
                       options={rowOptions}
                       onChange={(nextUnit) => {
@@ -185,7 +202,7 @@ export function AssetListEditor({
                     />
                   ) : (
                     <Input
-                      id={`${label}-unit-${index}`}
+                      id={`${uid}-unit-${index}`}
                       value={asset.unit === "lovelace" ? "ADA" : asset.unit}
                       onChange={(event) => {
                         const next = event.target.value;

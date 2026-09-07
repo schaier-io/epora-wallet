@@ -1,13 +1,13 @@
-import { WalletSpendTxRequestSchema } from "@/lib/api";
-import { createTxRoute } from "@/lib/http/tx-route";
-import { buildWalletSpendTx } from "@/lib/mesh/transactions/wallet-spend";
-import type { WalletSpendFormInput } from "@/lib/types/contracts";
+import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-export const POST = createTxRoute({
-  name: "wallet-spend",
-  schema: WalletSpendTxRequestSchema,
-  build: async ({ address: _address, config, ...input }, wallet, fetcher) =>
-    buildWalletSpendTx(wallet, config, input as WalletSpendFormInput, fetcher)
-});
+export async function POST() {
+  return NextResponse.json(
+    {
+      error:
+        "This endpoint is retired. Use /api/v1/tx/stt-spend with action `use` so the State Thread Token is forwarded."
+    },
+    { status: 410 }
+  );
+}

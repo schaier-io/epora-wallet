@@ -1,52 +1,48 @@
 import { render, screen } from "@testing-library/react";
-import { NextIntlClientProvider } from "next-intl";
-import { describe, expect, it, vi } from "vitest";
-import type { SessionTypes } from "@walletconnect/types";
+import { beforeEach, expect, it, vi } from "vitest";
 
-const walletConnect = vi.hoisted(() => ({
-  state: {} as Record<string, unknown>
-}));
+const mocks = vi.hoisted(() => ({ error: null as string | null, session: null as unknown }));
 
 vi.mock("@/providers/walletconnect-provider", () => ({
-  useWalletConnect: () => walletConnect.state
-}));
-
-const { MobileWalletSection } = await import("@/components/layout/wallet-connect-section");
-
-function renderPaired(peerUrl: string) {
-  walletConnect.state = {
+  useWalletConnect: () => ({
     status: "connected",
     uri: null,
-    error: null,
+    session: mocks.session,
+    error: mocks.error,
     network: "preprod",
     available: true,
-    session: {
-      topic: "paired",
-      peer: { metadata: { name: "Some Wallet", url: peerUrl } }
-    } as unknown as SessionTypes.Struct,
-    connect: () => Promise.resolve(),
-    disconnect: () => Promise.resolve(),
-    setNetwork: () => {}
+    connect: vi.fn(),
+    disconnect: vi.fn(),
+    setNetwork: vi.fn()
+  })
+}));
+
+import { MobileWalletSection } from "./wallet-connect-section";
+
+beforeEach(() => {
+  mocks.error = null;
+  mocks.session = null;
+});
+
+it("renders a connected peer whose metadata URL is not a URL", () => {
+  // Peer metadata is whatever the phone's wallet app sends; `new URL` on it threw in render.
+  mocks.session = { topic: "t", peer: { metadata: { name: "Phone Wallet", url: "not a url" } } };
+  render(<MobileWalletSection />);
+  expect(screen.getByText("Phone Wallet")).toBeInTheDocument();
+});
+
+it("shows the peer's hostname when the URL is valid", () => {
+  mocks.session = {
+    topic: "t",
+    peer: { metadata: { name: "Phone Wallet", url: "https://wallet.example/app" } }
   };
+  render(<MobileWalletSection />);
+  expect(screen.getByText(/wallet\.example/)).toBeInTheDocument();
+});
 
-  render(
-    <NextIntlClientProvider locale="en" messages={{}}>
-      <MobileWalletSection />
-    </NextIntlClientProvider>
-  );
-}
+it("announces a WalletConnect error", () => {
+  mocks.error = "Could not disconnect the mobile wallet. Try again.";
+  render(<MobileWalletSection />);
 
-describe("paired wallet metadata", () => {
-  it("shows the host of a real url", () => {
-    renderPaired("https://wallet.example.com/app");
-
-    expect(screen.getByText(/wallet\.example\.com/)).toBeInTheDocument();
-  });
-
-  it("survives a url the peer sent that cannot be parsed", () => {
-    // The value comes from the paired wallet, and this runs during render, so an
-    // unparsable url took the whole panel down the moment a pairing succeeded.
-    expect(() => renderPaired("not a url")).not.toThrow();
-    expect(screen.getByText("Some Wallet")).toBeInTheDocument();
-  });
+  expect(screen.getByRole("alert")).toHaveTextContent(mocks.error);
 });

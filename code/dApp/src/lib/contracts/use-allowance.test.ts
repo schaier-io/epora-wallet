@@ -1,11 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { deriveAllowanceWithdrawalStateDatum } from "@/lib/contracts/use-allowance";
 import {
-  createDefaultStateForm,
-  stateFormFromDatum,
-  stateFormToDatum
-} from "@/lib/contracts/state-form";
+  deriveAllowanceWithdrawalStateDatum,
+  nextProofOfLifeUnlockTimeForUser
+} from "@/lib/contracts/use-allowance";
+import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
 import type { ConstrData, PayoutTransfer } from "@/lib/types/contracts";
 
 // These cover the input-validation guards on the allowance-withdrawal path,
@@ -68,84 +67,65 @@ test("requires a connected payment key hash", () => {
   );
 });
 
-// The renewal bound, pinned against the validator.
-//
-// `lib/state/proof_of_life.ak :: expect_valid_renewal_window` accepts a moved
-// `unlock_time` only inside `[tx_latest, tx_earliest + increment]`. Anchoring
-// the renewed stamp to the tx's LATEST time overshoots the upper bound by the
-// validity window's own width, so every renewing allowance spend was rejected
-// on-chain with an empty script trace.
+// The validator (proof_of_life.ak expect_valid_renewal_window) accepts a renewal
+// only inside [tx_latest_time, tx_earliest_time + increment].
+const RENEWING_USER = { canRenewProofOfLife: true, isAdmin: false };
 
-const TX_EARLIEST_MS = 1_750_000_000_000;
-const TX_LATEST_MS = TX_EARLIEST_MS + 360_000;
-const POL_INCREMENT_MS = 30 * 86_400_000;
-
-function allowanceStateDatum(options: {
-  unlockTime: number;
-  increment: number;
-}): ConstrData {
-  const form = createDefaultStateForm();
-  form.users = [
-    {
-      id: "1",
-      wallets: [SIGNER],
-      perDayAllowance: [{ policyId: "", assetName: "", amount: "5000000" }],
-      remainingAllowance: [{ policyId: "", assetName: "", amount: "5000000" }],
-      nextAllowanceReset: `${TX_LATEST_MS + 86_400_000}`,
-      canRenewProofOfLife: true,
-      multiSigPowerMode: "none",
-      multiSigPower: "",
-      isAdmin: false,
-      preset: "limited-withdrawal"
-    }
-  ];
-  form.proofOfLifeUnlockTimeMode = "some";
-  form.proofOfLifeUnlockTime = `${options.unlockTime}`;
-  form.proofOfLifeIncrementMode = "some";
-  form.proofOfLifeIncrement = `${options.increment}`;
-  return stateFormToDatum(form);
-}
-
-function renewedUnlockTime(datum: ConstrData) {
-  const { outputDatum } = deriveAllowanceWithdrawalStateDatum({
-    allowanceSignerKeyHash: SIGNER,
-    extraTransfers: [transfer("1000000")],
-    stateDatum: datum,
-    txEarliestTimeMs: TX_EARLIEST_MS,
-    txLatestTimeMs: TX_LATEST_MS,
-    walletInputAmounts: [[{ unit: "lovelace", quantity: "1000000" }]],
-    walletOutputs: []
-  });
-  return stateFormFromDatum(outputDatum).proofOfLifeUnlockTime;
-}
-
-test("renewal stamps the tx EARLIEST time plus the increment, the largest stamp the validator accepts", () => {
-  const stamp = renewedUnlockTime(
-    allowanceStateDatum({ unlockTime: TX_EARLIEST_MS, increment: POL_INCREMENT_MS })
+test("proof-of-life renewal is anchored on the earliest tx time, not the latest", () => {
+  const next = nextProofOfLifeUnlockTimeForUser(
+    { proofOfLifeUnlockTime: 500_000, proofOfLifeIncrement: 3_600_000 },
+    RENEWING_USER,
+    1_000_000,
+    1_360_000
   );
-
-  assert.equal(stamp, `${TX_EARLIEST_MS + POL_INCREMENT_MS}`);
-  // The bound the validator checks: `updated <= tx_earliest + increment`.
-  assert.ok(Number(stamp) <= TX_EARLIEST_MS + POL_INCREMENT_MS);
-  // ...and the lower bound: `updated >= tx_latest`.
-  assert.ok(Number(stamp) >= TX_LATEST_MS);
+  assert.equal(next, 4_600_000);
 });
 
-test("renewal leaves the stamp untouched when the increment is shorter than the validity window", () => {
-  // No value exists inside [tx_latest, tx_earliest + increment], so renewing is
-  // impossible; an unchanged unlock_time passes the check trivially.
-  const stamp = renewedUnlockTime(
-    allowanceStateDatum({ unlockTime: TX_EARLIEST_MS, increment: 1_000 })
+test("proof-of-life renewal is skipped when the increment cannot reach the latest tx time", () => {
+  // earliest + increment = 1_100_000 < latest, so no legal stamp exists for this tx.
+  const next = nextProofOfLifeUnlockTimeForUser(
+    { proofOfLifeUnlockTime: 500_000, proofOfLifeIncrement: 100_000 },
+    RENEWING_USER,
+    1_000_000,
+    1_360_000
   );
-
-  assert.equal(stamp, `${TX_EARLIEST_MS}`);
+  assert.equal(next, 500_000);
 });
 
-test("renewal never decreases an unlock time that is already further out", () => {
-  const farFuture = TX_EARLIEST_MS + POL_INCREMENT_MS * 2;
-  const stamp = renewedUnlockTime(
-    allowanceStateDatum({ unlockTime: farFuture, increment: POL_INCREMENT_MS })
+test("proof-of-life renewal never lowers a later existing unlock time", () => {
+  const next = nextProofOfLifeUnlockTimeForUser(
+    { proofOfLifeUnlockTime: 9_000_000, proofOfLifeIncrement: 3_600_000 },
+    RENEWING_USER,
+    1_000_000,
+    1_360_000
   );
+  assert.equal(next, 9_000_000);
+});
 
-  assert.equal(stamp, `${farFuture}`);
+test("proof-of-life renewal rejects a derived integer above uint64", () => {
+  assert.throws(
+    () =>
+      nextProofOfLifeUnlockTimeForUser(
+        {
+          proofOfLifeUnlockTime: null,
+          proofOfLifeIncrement: MAX_ON_CHAIN_STATE_INTEGER
+        },
+        RENEWING_USER,
+        1,
+        1
+      ),
+    /Derived state integer must be between 0 and 18446744073709551615/
+  );
+});
+
+test("admins and users without the renew right leave the unlock time alone", () => {
+  const state = { proofOfLifeUnlockTime: 500_000, proofOfLifeIncrement: 3_600_000 };
+  assert.equal(
+    nextProofOfLifeUnlockTimeForUser(state, { canRenewProofOfLife: true, isAdmin: true }, 0, 1),
+    500_000
+  );
+  assert.equal(
+    nextProofOfLifeUnlockTimeForUser(state, { canRenewProofOfLife: false, isAdmin: false }, 0, 1),
+    500_000
+  );
 });

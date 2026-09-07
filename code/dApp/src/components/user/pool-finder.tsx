@@ -3,7 +3,7 @@ import { useTranslations } from "next-intl";
 
 
 import { CheckCircle2, ExternalLink, Loader2, Search } from "lucide-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,9 +27,6 @@ export type StakePool = {
   retiring: boolean;
 };
 
-// A blank cell used to be an em dash, which reads as a value rather than a gap. The pool
-// lookup returns null when the chain data does not carry the figure, and that is what the
-// cell should say. The caller passes the wording so it comes from the catalog.
 function pct(value: number | null, notReported: string): string {
   return value == null ? notReported : `${(value * 100).toFixed(1)}%`;
 }
@@ -64,41 +61,34 @@ export function PoolFinder({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Enter in the field starts a lookup and, unlike the button, is not disabled
-  // while one runs. Two lookups therefore overlap, and the earlier answer could
-  // land last and show a pool the reader is no longer asking about.
-  const newestLookupRef = useRef(0);
+  // Enter and the button both call this; a ref blocks the second call before
+  // React has re-rendered the button as disabled.
+  const inFlightRef = useRef(false);
 
   const lookup = useCallback(async () => {
+    if (inFlightRef.current) return;
     const id = query.trim();
     if (!id) {
       setError(i18n("pasteAPoolIdPool1ToLookIt"));
       return;
     }
-    const token = ++newestLookupRef.current;
+    inFlightRef.current = true;
     setLoading(true);
     setError(null);
     setResult(null);
     try {
       const response = await fetch(`/api/v1/pools?id=${encodeURIComponent(id)}`);
       const data = (await response.json()) as { pool?: StakePool; error?: string };
-      if (token !== newestLookupRef.current) {
-        return;
-      }
       if (!response.ok || !data.pool) {
         setError(data.error ?? i18n("poolLookupFailed"));
         return;
       }
       setResult(data.pool);
     } catch {
-      if (token !== newestLookupRef.current) {
-        return;
-      }
       setError(i18n("couldnTReachThePoolLookupTryAgain_fb9241"));
     } finally {
-      if (token === newestLookupRef.current) {
-        setLoading(false);
-      }
+      inFlightRef.current = false;
+      setLoading(false);
     }
   }, [query, i18n]);
 
@@ -129,7 +119,28 @@ export function PoolFinder({
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">
-          {i18n("donTHaveOneBrowsePoolsOnPool_b446d3")}
+          {i18n.rich("donTHaveOneBrowsePoolsOnPool_b446d3", {
+            poolPm: (chunks) => (
+              <a
+                href="https://pool.pm/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-2 hover:text-foreground"
+              >
+                {chunks}
+              </a>
+            ),
+            cexplorer: (chunks) => (
+              <a
+                href="https://cexplorer.io/pool"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-2 hover:text-foreground"
+              >
+                {chunks}
+              </a>
+            )
+          })}
         </p>
       </div>
 
@@ -174,7 +185,7 @@ export function PoolFinder({
             ) : null}
           </div>
 
-          <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-4">
+          <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-4 [&>div]:min-w-0 [&>div]:[overflow-wrap:anywhere]">
             <div>
               <dt className="eyebrow text-muted-foreground">{i18n("saturation")}</dt>
               <dd

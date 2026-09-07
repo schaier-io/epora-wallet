@@ -50,50 +50,6 @@ export function LockFundsConfigView() {
                   {i18n("shareThisAddressWhenSomeoneNeedsToSend")}
                 </p>
               </div>
-              {lockingContract.address ? (
-                <div className="ml-auto flex shrink-0 items-center gap-2">
-                  <a
-                    href={buildCardanoscanAddressUrl(walletReceiveAddress ?? lockingContract.address)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-background/50 text-muted-foreground transition-colors hover:text-foreground"
-                    title={i18n("openAddressOnCardanoscan")}
-                    aria-label={i18n("openAddressOnCardanoscan")}
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                  </a>
-                  <button
-                    type="button"
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-background/50 text-muted-foreground transition-colors hover:text-foreground"
-                    onClick={() => {
-                      if (!lockingContract.address) {
-                        return;
-                      }
-
-                      void copyTextToClipboard(
-                        walletReceiveAddress ?? lockingContract.address,
-                        i18n("walletAddressCopied")
-                      );
-                    }}
-                    title={
-                      copyFeedback === "Wallet address copied"
-                        ? i18n("addressCopied")
-                        : i18n("copyAddress")
-                    }
-                    aria-label={
-                      copyFeedback === "Wallet address copied"
-                        ? i18n("addressCopied")
-                        : i18n("copyAddress")
-                    }
-                  >
-                    {copyFeedback === "Wallet address copied" ? (
-                      <CheckCircle2 className="h-4 w-4" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                  </button>
-                </div>
-              ) : null}
             </div>
             <div className="mt-4 grid gap-4 md:grid-cols-[168px_minmax(0,1fr)]">
               <div className="flex items-center justify-center rounded-md border border-border/60 bg-background/40 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
@@ -107,13 +63,13 @@ export function LockFundsConfigView() {
                 )}
               </div>
               <div>
-                <div className="rounded-md border border-border/60 bg-background/50 p-3">
+                <div className="flex min-w-0 items-center gap-2 rounded-md border border-border/60 bg-background/50 p-3">
                   {lockingContract.address ? (
                     <a
                       href={buildCardanoscanAddressUrl(walletReceiveAddress ?? lockingContract.address)}
                       target="_blank"
                       rel="noreferrer"
-                      className="block break-all select-all font-mono text-xs leading-relaxed tracking-tight text-foreground underline-offset-4 hover:underline"
+                      className="min-w-0 flex-1 break-all select-all font-mono text-xs leading-relaxed tracking-tight text-foreground underline-offset-4 hover:underline"
                       title={i18n("clickToViewOnCardanoscanTripleClickTo")}
                     >
                       {walletReceiveAddress ?? lockingContract.address}
@@ -121,6 +77,46 @@ export function LockFundsConfigView() {
                   ) : (
                     <p className="text-xs text-muted-foreground">{lockingContract.error}</p>
                   )}
+                  {lockingContract.address ? (
+                    <>
+                      <a
+                        href={buildCardanoscanAddressUrl(walletReceiveAddress ?? lockingContract.address)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border/60 bg-background/50 text-muted-foreground transition-colors hover:text-foreground"
+                        title={i18n("openAddressOnCardanoscan")}
+                        aria-label={i18n("openAddressOnCardanoscan")}
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                      <button
+                        type="button"
+                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border/60 bg-background/50 text-muted-foreground transition-colors hover:text-foreground"
+                        onClick={() =>
+                          void copyTextToClipboard(
+                            walletReceiveAddress ?? lockingContract.address,
+                            i18n("walletAddressCopied")
+                          )
+                        }
+                        title={
+                          copyFeedback === "Wallet address copied"
+                            ? i18n("addressCopied")
+                            : i18n("copyAddress")
+                        }
+                        aria-label={
+                          copyFeedback === "Wallet address copied"
+                            ? i18n("addressCopied")
+                            : i18n("copyAddress")
+                        }
+                      >
+                        {copyFeedback === "Wallet address copied" ? (
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                        ) : (
+                          <Copy className="h-3.5 w-3.5" />
+                        )}
+                      </button>
+                    </>
+                  ) : null}
                 </div>
                 {/* The two boxes that used to sit here restated the panel heading above them
                     ("Share this address when someone needs to send funds into this wallet")

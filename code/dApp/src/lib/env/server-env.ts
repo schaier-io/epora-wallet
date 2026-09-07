@@ -13,6 +13,7 @@ import { z } from "zod";
 
 const serverEnvSchema = z.object({
   BLOCKFROST_PREPROD_PROJECT_ID: z.string().optional(),
+  SHARED_STT_REFERENCE: z.string().regex(/^[0-9a-fA-F]{64}#(?:0|[1-9][0-9]*)$/).optional(),
   DATABASE_URL: z.string().optional(),
   STT_SYNC_SECRET: z.string().optional(),
   PROPOSAL_AUTH_SECRET: z.string().optional(),

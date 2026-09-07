@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { FocusedStreamingPaymentRulesEditor } from "./streaming-editors";
 import { type UserWorkspaceTask } from "@/components/user/flow-types";
 import { type StateFormState, createDefaultStateForm } from "@/lib/contracts/state-form";
+import { MAX_STREAMING_PAYMENTS } from "@/lib/contracts/state-validation";
 
 const ADDRESS = "addr_test1qqexample";
 
@@ -124,6 +125,16 @@ describe("a payment being added", () => {
     });
   });
 
+  it("stops at the on-chain schedule cap", () => {
+    const ids = Array.from({ length: MAX_STREAMING_PAYMENTS }, (_, index) => String(index));
+    const { onChange } = renderSurface({ value: formWithPayments(ids), existingIds: ids });
+
+    const add = screen.getByRole("button", { name: "Add a payment" });
+    expect(add).toBeDisabled();
+    fireEvent.click(add);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it("stores a weekly ADA rate as the equivalent daily lovelace", () => {
     const { onChange } = renderSurface({ value: formWithPayments(["7"]), existingIds: [] });
 
@@ -169,6 +180,27 @@ describe("a payment being added", () => {
 });
 
 describe("a payment already running", () => {
+  it("stacks every control in one column", () => {
+    const { container } = renderSurface({
+      value: formWithPayments(["7"]),
+      task: "streaming-payments-edit-renew",
+      existingIds: ["7"]
+    });
+
+    const editor = screen.getByText("Scheduled payment 1").closest("fieldset");
+    expect(editor).not.toBeNull();
+    expect(editor!.querySelectorAll(".md\\:grid-cols-2")).toHaveLength(0);
+    expect(screen.getByLabelText("Rate period").parentElement).toHaveClass("grid");
+    expect(
+      container.querySelector("#streaming-payment-0-start-date-label")?.parentElement
+    ).toHaveClass("grid");
+    expect(
+      container.querySelector("#streaming-payment-0-end-date-label")?.parentElement
+    ).toHaveClass("grid");
+    expect(container.querySelectorAll('input[type="date"]')).toHaveLength(2);
+    expect(container.querySelectorAll('input[type="time"]')).toHaveLength(2);
+  });
+
   it("reports what has been paid instead of offering to change it", () => {
     renderSurface({
       value: formWithPayments(["7"]),

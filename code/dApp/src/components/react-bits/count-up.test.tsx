@@ -46,9 +46,6 @@ describe("CountUp", () => {
   });
 
   it("holds its start value until the element is in view", () => {
-    // The effect runs on mount too, before the observer has reported anything.
-    // That run used to set the number to its final value and record it as the
-    // next animation's start, so the reveal had nothing left to count.
     const value = renderCountUp();
 
     act(() => {

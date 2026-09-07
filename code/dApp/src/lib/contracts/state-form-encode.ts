@@ -1,6 +1,11 @@
 import type { ConstrData } from "@/lib/types/contracts";
 import { assertValidAssetIdParts, serializeValueEntries } from "@/lib/contracts/value-data";
-import { encodePayoutAddressToData } from "@/lib/contracts/payout-address";
+import { decodePayoutAddressFromData, describeAddressProblem, encodePayoutAddressToData } from "@/lib/contracts/payout-address";
+import { parseAdaToLovelace } from "@/lib/units/lovelace";
+import {
+  isNonNegativeUint64Decimal,
+  MAX_ON_CHAIN_STATE_INTEGER
+} from "@/lib/contracts/on-chain-integer";
 import type {
   BeneficiaryFormState,
   StateAssetAmountForm,
@@ -19,33 +24,41 @@ const FALSE_CONSTR: ConstrData = { alternative: 0, fields: [] };
 const TRUE_CONSTR: ConstrData = { alternative: 1, fields: [] };
 const NONE_CONSTR: ConstrData = { alternative: 1, fields: [] };
 
-export function parseIntegerString(value: string, label: string): number {
+function toDataInteger(value: bigint): number | bigint {
+  const asNumber = Number(value);
+  return Number.isSafeInteger(asNumber) ? asNumber : value;
+}
+
+export function parseIntegerString(value: string, label: string): bigint {
   const normalized = value.trim();
 
   if (!/^-?\d+$/.test(normalized)) {
-    throw new Error(`${label} must be an integer.`);
+    throw new Error(`${label} needs a whole number, like 1 or 2.`);
   }
 
-  const parsed = Number(normalized);
-  if (!Number.isSafeInteger(parsed)) {
-    throw new Error(`${label} is outside the supported integer range.`);
+  const magnitude = normalized.startsWith("-") ? normalized.slice(1) : normalized;
+  const canonicalMagnitude = magnitude.replace(/^0+(?=\d)/, "");
+  if (!isNonNegativeUint64Decimal(canonicalMagnitude)) {
+    throw new Error(
+      `${label} must fit within ${MAX_ON_CHAIN_STATE_INTEGER.toString()} in magnitude.`
+    );
   }
 
-  return parsed;
+  return BigInt(normalized);
 }
 
-export function parseNonNegativeIntegerString(value: string, label: string): number {
+export function parseNonNegativeIntegerString(value: string, label: string): bigint {
   const parsed = parseIntegerString(value, label);
-  if (parsed < 0) {
+  if (parsed < 0n) {
     throw new Error(`${label} must be zero or greater.`);
   }
 
   return parsed;
 }
 
-function parsePositiveIntegerString(value: string, label: string): number {
+function parsePositiveIntegerString(value: string, label: string): bigint {
   const parsed = parseIntegerString(value, label);
-  if (parsed < 1) {
+  if (parsed < 1n) {
     throw new Error(`${label} must be at least 1.`);
   }
 
@@ -63,8 +76,42 @@ export function serializeOptionInteger(mode: OptionMode, value: string, label: s
 
   return {
     alternative: 0,
-    fields: [parseIntegerString(value, label)]
+    fields: [toDataInteger(parseNonNegativeIntegerString(value, label))]
   };
+}
+
+export function serializeOptionPositiveInteger(
+  mode: OptionMode,
+  value: string,
+  label: string
+): ConstrData {
+  if (mode === "none") {
+    return NONE_CONSTR;
+  }
+
+  return {
+    alternative: 0,
+    fields: [toDataInteger(parsePositiveIntegerString(value, label))]
+  };
+}
+
+// An ADA row (empty policy + asset name) is entered in ADA — the editor's unit
+// picker labels it "ADA" and a daily limit reads as e.g. "3 ₯" — so the form
+// carries ADA text and this is the only place it becomes on-chain lovelace.
+// Token rows stay in the asset's smallest unit, typed raw.
+function isLovelaceRow(form: StateAssetAmountForm) {
+  return form.policyId.trim() === "" && form.assetName.trim() === "";
+}
+
+function requireAdaLovelace(value: string, label: string): string {
+  const lovelace = parseAdaToLovelace(value);
+  if (lovelace === null) {
+    throw new Error(
+      `${label} must be zero or greater, as an ADA amount like "3" or "2.75".`
+    );
+  }
+
+  return lovelace;
 }
 
 function serializeStateAssetAmountList(
@@ -72,11 +119,18 @@ function serializeStateAssetAmountList(
   label: string
 ) {
   return serializeValueEntries(
-    forms.map((form, index) => ({
-      policyId: form.policyId.trim(),
-      assetName: form.assetName.trim(),
-      amount: BigInt(parseNonNegativeIntegerString(form.amount, `${label} entry ${index} amount`))
-    })),
+    forms.map((form, index) => {
+      const entryLabel = `${label} entry ${index} amount`;
+      return {
+        policyId: form.policyId.trim(),
+        assetName: form.assetName.trim(),
+        amount: BigInt(
+          isLovelaceRow(form)
+            ? requireAdaLovelace(form.amount, entryLabel)
+            : parseNonNegativeIntegerString(form.amount, entryLabel)
+        )
+      };
+    }),
     label
   );
 }
@@ -87,7 +141,7 @@ export function serializeUser(form: UserFormState, index: number): ConstrData {
   return {
     alternative: 0,
     fields: [
-      parseNonNegativeIntegerString(form.id, `User ${index + 1} id`),
+      toDataInteger(parseNonNegativeIntegerString(form.id, `User ${index + 1} id`)),
       form.wallets
         .map((wallet) => wallet.trim())
         .filter((wallet) => wallet.length > 0),
@@ -99,9 +153,11 @@ export function serializeUser(form: UserFormState, index: number): ConstrData {
         form.remainingAllowance,
         `User ${index + 1} remaining allowance`
       ),
-      parseNonNegativeIntegerString(
-        form.nextAllowanceReset,
-        `User ${index + 1} next allowance reset`
+      toDataInteger(
+        parseNonNegativeIntegerString(
+          form.nextAllowanceReset,
+          `User ${index + 1} next allowance reset`
+        )
       ),
       serializeBoolean(effectiveCanRenewProofOfLife),
       serializeOptionInteger(
@@ -115,17 +171,27 @@ export function serializeUser(form: UserFormState, index: number): ConstrData {
 }
 
 export function serializeBeneficiary(form: BeneficiaryFormState, index: number): ConstrData {
+  if (typeof form.payoutAddress !== "string" || !form.payoutAddress.trim()) {
+    throw new Error(`Beneficiary ${index + 1} requires a payout address.`);
+  }
+  const addressProblem = describeAddressProblem(form.payoutAddress);
+  if (addressProblem) throw new Error(`Beneficiary ${index + 1} payout address: ${addressProblem}`);
+  const payoutAddress = encodePayoutAddressToData(form.payoutAddress, `Beneficiary ${index + 1} payout address`);
+  if (decodePayoutAddressFromData(payoutAddress).toLowerCase() !== form.payoutAddress.trim().toLowerCase()) {
+    throw new Error(`Beneficiary ${index + 1} payout address encoding cannot preserve the full address.`);
+  }
   return {
     alternative: 0,
     fields: [
-      parseNonNegativeIntegerString(form.id, `Beneficiary ${index + 1} id`),
+      toDataInteger(parseNonNegativeIntegerString(form.id, `Beneficiary ${index + 1} id`)),
       form.wallets.map((wallet) => wallet.trim()).filter((wallet) => wallet.length > 0),
       serializeOptionInteger(
         form.unlockAfterMode,
         form.unlockAfter,
         `Beneficiary ${index + 1} unlock after`
       ),
-      parsePositiveIntegerString(form.weight, `Beneficiary ${index + 1} weight`)
+      toDataInteger(parsePositiveIntegerString(form.weight, `Beneficiary ${index + 1} weight`)),
+      payoutAddress
     ]
   };
 }
@@ -133,32 +199,49 @@ export function serializeBeneficiary(form: BeneficiaryFormState, index: number):
 export function serializeStreamingPayment(form: StreamingPaymentFormState, index: number): ConstrData {
   const policyId = form.policyId.trim();
   const assetName = form.assetName.trim();
+  const label = `Streaming payment ${index + 1} payout address`;
 
   assertValidAssetIdParts(policyId, assetName, `Streaming payment ${index + 1}`);
+  const addressProblem = describeAddressProblem(form.payoutAddress);
+  if (addressProblem) {
+    throw new Error(`${label}: ${addressProblem}`);
+  }
+  const payoutAddress = encodePayoutAddressToData(form.payoutAddress, label);
+  if (
+    decodePayoutAddressFromData(payoutAddress).toLowerCase() !==
+    form.payoutAddress.trim().toLowerCase()
+  ) {
+    throw new Error(`${label} encoding cannot preserve the full address.`);
+  }
 
   return {
     alternative: 0,
     fields: [
-      parseNonNegativeIntegerString(form.id, `Streaming payment ${index + 1} id`),
-      encodePayoutAddressToData(
-        form.payoutAddress,
-        `Streaming payment ${index + 1} payout address`
-      ),
-      parseNonNegativeIntegerString(
-        form.paidOutAmount,
-        `Streaming payment ${index + 1} paid out amount`
+      toDataInteger(parseNonNegativeIntegerString(form.id, `Streaming payment ${index + 1} id`)),
+      payoutAddress,
+      toDataInteger(
+        parseNonNegativeIntegerString(
+          form.paidOutAmount,
+          `Streaming payment ${index + 1} paid out amount`
+        )
       ),
       policyId,
       assetName,
-      parseNonNegativeIntegerString(
-        form.amountPerDay,
-        `Streaming payment ${index + 1} amount per day`
+      toDataInteger(
+        parseNonNegativeIntegerString(
+          form.amountPerDay,
+          `Streaming payment ${index + 1} amount per day`
+        )
       ),
-      parseNonNegativeIntegerString(
-        form.startDate,
-        `Streaming payment ${index + 1} start date`
+      toDataInteger(
+        parseNonNegativeIntegerString(
+          form.startDate,
+          `Streaming payment ${index + 1} start date`
+        )
       ),
-      parseNonNegativeIntegerString(form.endDate, `Streaming payment ${index + 1} end date`)
+      toDataInteger(
+        parseNonNegativeIntegerString(form.endDate, `Streaming payment ${index + 1} end date`)
+      )
     ]
   };
 }

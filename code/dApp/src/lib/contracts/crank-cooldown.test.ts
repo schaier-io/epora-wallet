@@ -1,3 +1,4 @@
+import { encodePayoutAddressToData } from "@/lib/contracts/payout-address";
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -6,6 +7,9 @@ import {
   assertNonAdminStreamingActionWindow,
   crankSignerBypassesCooldown,
   crankSignerIsAuthorized,
+  crankSignersAreAuthorized,
+  crankSignersBypassCooldown,
+  finalBeneficiaryRecoveryIsActive,
   nonAdminStreamingActionCooldownRemainingMs
 } from "@/lib/contracts/crank-cooldown";
 import { deriveStreamingPaymentPayoutStateDatum } from "@/lib/contracts/streaming-payout";
@@ -56,7 +60,8 @@ function beneficiary(opts: {
       opts.id,
       opts.wallets,
       opts.unlockAfter === undefined ? NONE : some(opts.unlockAfter),
-      opts.weight ?? 1
+      opts.weight ?? 1,
+      encodePayoutAddressToData("addr_test1vqg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygxrcya6")
     ]
   };
 }
@@ -186,6 +191,45 @@ test("a beneficiary with no global unlock_time is never authorized", () => {
   assert.equal(crankSignerIsAuthorized(datum, SIGNER, 1_000_000), false);
 });
 
+test("sole beneficiary takes control of non-admin cadence at the unlock boundary", () => {
+  const datum = state({
+    users: [user({ id: 1, wallets: [OTHER] })],
+    beneficiaries: [beneficiary({ id: 7, wallets: [SIGNER], unlockAfter: 100 })],
+    unlockTime: 100
+  });
+
+  assert.equal(crankSignerIsAuthorized(datum, OTHER, 99), true);
+  assert.equal(finalBeneficiaryRecoveryIsActive(datum, 99), false);
+  assert.equal(crankSignerIsAuthorized(datum, OTHER, 100), false);
+  assert.equal(finalBeneficiaryRecoveryIsActive(datum, 100), true);
+  assert.equal(crankSignerIsAuthorized(datum, SIGNER, 100), true);
+});
+
+test("admin remains authorized after final beneficiary recovery opens", () => {
+  const datum = state({
+    users: [user({ id: 1, wallets: [OTHER], isAdmin: true })],
+    beneficiaries: [beneficiary({ id: 7, wallets: [SIGNER], unlockAfter: 100 })],
+    unlockTime: 100
+  });
+
+  assert.equal(crankSignerIsAuthorized(datum, OTHER, 100), true);
+  assert.equal(crankSignerBypassesCooldown(datum, OTHER, 100), true);
+});
+
+test("multiple beneficiaries do not activate final recovery priority", () => {
+  const datum = state({
+    users: [user({ id: 1, wallets: [OTHER] })],
+    beneficiaries: [
+      beneficiary({ id: 7, wallets: [SIGNER], unlockAfter: 100 }),
+      beneficiary({ id: 8, wallets: ["ef".repeat(28)], unlockAfter: 100 })
+    ],
+    unlockTime: 100
+  });
+
+  assert.equal(crankSignerIsAuthorized(datum, OTHER, 100), true);
+  assert.equal(finalBeneficiaryRecoveryIsActive(datum, 100), false);
+});
+
 // ---------------------------------------------------------------------------
 // deriver preserve-vs-stamp: an authorized crank preserves the field, a
 // non-admin crank stamps Some(tx_latest).
@@ -275,4 +319,25 @@ test("non-admin crank stamps last_non_admin_payout_at = Some(tx_latest)", () => 
   );
 
   assert.deepEqual(outputDatum.fields[5], { alternative: 0, fields: [txLatestTimeMs] });
+});
+
+// A crank saved as an approval request lists co-signers in the body; the
+// validator judges `extra_signatories` as a whole.
+test("a listed admin co-signer puts the crank on the admin branch, so the stamp is preserved", () => {
+  const datum = state({
+    users: [
+      user({ id: 1, wallets: [SIGNER], multiSigPower: 2 }),
+      user({ id: 2, wallets: [OTHER], multiSigPower: 2, isAdmin: true })
+    ],
+    multiSigThreshold: 3
+  });
+  assert.equal(crankSignersBypassCooldown(datum, [SIGNER], 0), false);
+  assert.equal(crankSignersBypassCooldown(datum, [SIGNER, OTHER], 0), true);
+});
+
+test("listed signers clear the crank authority gate together", () => {
+  const stranger = "ef".repeat(28);
+  const datum = state({ users: [user({ id: 1, wallets: [OTHER], multiSigPower: 1 })] });
+  assert.equal(crankSignersAreAuthorized(datum, [stranger], 0), false);
+  assert.equal(crankSignersAreAuthorized(datum, [stranger, OTHER], 0), true);
 });

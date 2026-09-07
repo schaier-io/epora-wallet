@@ -3,6 +3,7 @@ import { deserializeAddress } from "@meshsdk/core";
 import { getPrisma } from "@/lib/prisma";
 import { stateFormFromDatum } from "@/lib/contracts/state-form";
 import { normalizeWalletName } from "@/lib/contracts/state-wallet-name";
+import { parseJsonSafe } from "@/lib/proposals/serialization";
 import type { ConstrData } from "@/lib/types/contracts";
 import {
   STT_LOOKUP_DEFAULT_TX_LIMIT,
@@ -41,7 +42,7 @@ function parseStoredDatum(value: string | null | undefined) {
   }
 
   try {
-    const parsed: unknown = JSON.parse(value);
+    const parsed: unknown = parseJsonSafe(value);
     if (
       typeof parsed === "object" &&
       parsed !== null &&

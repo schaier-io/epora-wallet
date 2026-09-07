@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   buildWorkspaceSearchParams,
@@ -34,6 +34,12 @@ export function useWorkspaceRouteState({ syncUrl = true }: { syncUrl?: boolean }
     () => buildWorkspaceSearchParams(routeState).toString(),
     [routeState]
   );
+  const routeStateRef = useRef(routeState);
+  const canonicalSearchRef = useRef(currentCanonicalSearch);
+  useEffect(() => {
+    routeStateRef.current = routeState;
+    canonicalSearchRef.current = currentCanonicalSearch;
+  }, [currentCanonicalSearch, routeState]);
 
   const commitRouteState = useCallback(
     (
@@ -44,16 +50,18 @@ export function useWorkspaceRouteState({ syncUrl = true }: { syncUrl?: boolean }
       // blocking risk gate.
       { history = "replace" }: { history?: "push" | "replace" } = {}
     ) => {
-      if (!syncUrl) {
-        return nextState;
-      }
-
+      routeStateRef.current = nextState;
       const nextSearchParams = buildWorkspaceSearchParams(nextState);
       const nextSearch = nextSearchParams.toString();
-
-      if (nextSearch === currentCanonicalSearch) {
+      if (!syncUrl) {
+        canonicalSearchRef.current = nextSearch;
         return nextState;
       }
+
+      if (nextSearch === canonicalSearchRef.current) {
+        return nextState;
+      }
+      canonicalSearchRef.current = nextSearch;
 
       const nextUrl = nextSearch ? `${pathname}?${nextSearch}` : pathname;
 
@@ -77,7 +85,7 @@ export function useWorkspaceRouteState({ syncUrl = true }: { syncUrl?: boolean }
 
       return nextState;
     },
-    [currentCanonicalSearch, pathname, syncUrl]
+    [pathname, syncUrl]
   );
 
   const dispatch = useCallback(
@@ -89,10 +97,10 @@ export function useWorkspaceRouteState({ syncUrl = true }: { syncUrl?: boolean }
       // press, and one gesture that trips two corrections must not cost two.
       { history = "push" }: { history?: "push" | "replace" } = {}
     ) => {
-      const nextState = reduceWorkspaceRouteState(routeState, action);
+      const nextState = reduceWorkspaceRouteState(routeStateRef.current, action);
       return commitRouteState(nextState, { history });
     },
-    [commitRouteState, routeState]
+    [commitRouteState]
   );
 
   return { routeState, dispatch, commitRouteState };

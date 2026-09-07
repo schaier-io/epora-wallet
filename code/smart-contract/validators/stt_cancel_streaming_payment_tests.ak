@@ -399,6 +399,171 @@ test cancel_streaming_payment_accepts_repeat_after_cooldown() {
   expect run_cancel(1, transaction)
 }
 
+fn state_with_payment_and_final_beneficiary(end_date: Int) -> state_types.State {
+  states.base_state()
+    |> states.with_users([states.admin_user("admin")])
+    |> states.with_beneficiaries(
+        [states.default_beneficiary(7, "recovery1", Some(100))],
+      )
+    |> states.with_proof_of_life(100, 50)
+    |> states.with_streaming_payments(
+        [states.ada_streaming_payment_ending(1, payee_key, 0, end_date)],
+      )
+}
+
+// Final-recovery authority uses the validity LOWER bound. A transaction whose
+// lower bound is one millisecond before unlock is still pre-terminal, even when
+// its capped upper bound and cadence stamp cross the boundary. This is the one
+// extra interval in the conservative 24-hour recovery-delay bound.
+test cancel_streaming_payment_before_unlock_can_stamp_past_boundary() {
+  let tx_earliest = 99
+  let tx_latest = tx_earliest + constants.max_payout_validity_window_ms
+  let input_state = state_with_payment_and_final_beneficiary(10_000_000)
+  let output_state = shortened_state(input_state, 5_000_000, Some(tx_latest))
+  let transaction = cancel_tx(
+    input_state,
+    output_state,
+    interval.between(tx_earliest, tx_latest),
+    [payee_key],
+    fixtures.tx_id(#"1a48"),
+  )
+
+  expect run_cancel(1, transaction)
+}
+
+// After terminal recovery starts, the payee may still cancel without collecting
+// another key. The exact upper-bound cutoff makes this a one-time action.
+test cancel_streaming_payment_accepts_payee_alone_after_final_beneficiary_unlock() {
+  let input_state = state_with_payment_and_final_beneficiary(200_000)
+  let output_state = shortened_state(input_state, 150_000, Some(150_000))
+  let transaction = cancel_tx(
+    input_state,
+    output_state,
+    interval.between(100_000, 150_000),
+    [payee_key],
+    fixtures.tx_id(#"1a43"),
+  )
+
+  expect run_cancel(1, transaction)
+}
+
+test cancel_streaming_payment_rejects_later_terminal_cutoff() fail {
+  let input_state = state_with_payment_and_final_beneficiary(200_000)
+  let output_state = shortened_state(input_state, 150_001, Some(150_000))
+  let transaction = cancel_tx(
+    input_state,
+    output_state,
+    interval.between(100_000, 150_000),
+    [payee_key],
+    fixtures.tx_id(#"1a44"),
+  )
+
+  expect run_cancel(1, transaction)
+}
+
+test cancel_streaming_payment_rejects_earlier_terminal_cutoff() fail {
+  let input_state = state_with_payment_and_final_beneficiary(200_000)
+  let output_state = shortened_state(input_state, 149_999, Some(150_000))
+  let transaction = cancel_tx(
+    input_state,
+    output_state,
+    interval.between(100_000, 150_000),
+    [payee_key],
+    fixtures.tx_id(#"1a45"),
+  )
+
+  expect run_cancel(1, transaction)
+}
+
+// A later cadence-valid interval begins after the exact terminal cutoff. No end
+// date can then be both lower than the current end and equal to the new cutoff.
+test cancel_streaming_payment_rejects_terminal_replay_after_cooldown() fail {
+  let input_state = state_types.State {
+    ..state_with_payment_and_final_beneficiary(150_000),
+    last_non_admin_payout_at: Some(150_000),
+  }
+  let tx_earliest = 150_000 + constants.non_admin_payout_cooldown_ms
+  let tx_latest = tx_earliest + 100_000
+  let output_state = shortened_state(input_state, 149_999, Some(tx_latest))
+  let transaction = cancel_tx(
+    input_state,
+    output_state,
+    interval.between(tx_earliest, tx_latest),
+    [payee_key],
+    fixtures.tx_id(#"1a46"),
+  )
+
+  expect run_cancel(1, transaction)
+}
+
+// Different payees may each take one terminal cancellation slot. After final
+// recovery is active, the 15-entry State cap bounds this part to 15 intervals.
+test cancel_streaming_payment_accepts_bounded_terminal_succession() {
+  let input_state = state_with_payment_and_final_beneficiary(10_000_000)
+    |> states.with_streaming_payments(
+        [
+          states.ada_streaming_payment_ending(1, payee_key, 0, 10_000_000),
+          states.ada_streaming_payment_ending(2, "payee2", 0, 10_000_000),
+        ],
+      )
+  let after_first = state_types.State {
+    ..input_state,
+    streaming_payments: [
+      states.ada_streaming_payment_ending(1, payee_key, 0, 150_000),
+      states.ada_streaming_payment_ending(2, "payee2", 0, 10_000_000),
+    ],
+    last_non_admin_payout_at: Some(150_000),
+  }
+  let first_transaction = cancel_tx(
+    input_state,
+    after_first,
+    interval.between(100_000, 150_000),
+    [payee_key],
+    fixtures.tx_id(#"1a47"),
+  )
+  expect run_cancel(1, first_transaction)
+
+  let second_earliest = 150_000 + constants.non_admin_payout_cooldown_ms
+  let second_latest = second_earliest + 100_000
+  let after_second = state_types.State {
+    ..after_first,
+    streaming_payments: [
+      states.ada_streaming_payment_ending(1, payee_key, 0, 150_000),
+      states.ada_streaming_payment_ending(2, "payee2", 0, second_latest),
+    ],
+    last_non_admin_payout_at: Some(second_latest),
+  }
+  let second_transaction = cancel_tx(
+    after_first,
+    after_second,
+    interval.between(second_earliest, second_latest),
+    ["payee2"],
+    fixtures.tx_id(#"1a48"),
+  )
+
+  expect run_cancel(2, second_transaction)
+}
+
+test cancel_streaming_payment_keeps_payee_authority_with_multiple_beneficiaries() {
+  let input_state = state_with_payment_and_final_beneficiary(200_000)
+    |> states.with_beneficiaries(
+        [
+          states.default_beneficiary(7, "recovery1", Some(100)),
+          states.default_beneficiary(8, "recovery2", Some(100)),
+        ],
+      )
+  let output_state = shortened_state(input_state, 150_000, Some(150_000))
+  let transaction = cancel_tx(
+    input_state,
+    output_state,
+    interval.between(100_000, 150_000),
+    [payee_key],
+    fixtures.tx_id(#"a331"),
+  )
+
+  expect run_cancel(1, transaction)
+}
+
 // A bounded but over-wide interval could stamp far into the future. The shared
 // cadence caps it at max_payout_validity_window_ms.
 test cancel_streaming_payment_rejects_overwide_validity_window() fail {

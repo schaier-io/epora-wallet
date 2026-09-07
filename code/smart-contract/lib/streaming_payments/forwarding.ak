@@ -9,6 +9,8 @@
 
 use aiken/collection/list
 use aiken/math
+use cardano/address.{Credential}
+use streaming_payments/shape as streaming_payment_shape
 use streaming_payments/types.{StreamingPayment} as streaming_payment_type
 
 /// `ManageStreamingPayments` rewrite rule. Every EXISTING streaming payment must
@@ -21,7 +23,7 @@ use streaming_payments/types.{StreamingPayment} as streaming_payment_type
 /// In ADDITION, an operator (admin or multisig — the authority is enforced by the
 /// caller, `eval_manage_streaming_payments`) may ADD brand-new streaming payments:
 /// any output entry whose `id` is not in the input must be born unsettled
-/// (`paid_out_amount == 0`). The whole output set's shape — the `<= 25` count cap,
+/// (`paid_out_amount == 0`). The whole output set's shape includes the `<= 15` count cap,
 /// id-uniqueness, and per-entry validity (dates, amount, no over-pay) — is
 /// enforced by `shape.is_valid` at the call site, so adds stay bounded and
 /// the per-asset streaming reserve (recomputed from the live State on every
@@ -51,6 +53,7 @@ pub fn are_forwarded_rescheduled_or_added(
   input_streaming_payments: List<StreamingPayment>,
   output_streaming_payments: List<StreamingPayment>,
   tx_latest_time: Option<Int>,
+  forbidden_payment_credential: Credential,
 ) -> Bool {
   and {
     // Existing payees: forwarded / rescheduled only — never dropped, never
@@ -76,10 +79,10 @@ pub fn are_forwarded_rescheduled_or_added(
       fn(output) {
         or {
           streaming_payment_type.find_by_id(input_streaming_payments, output.id) != None,
-          and {
-            (output.paid_out_amount == 0)?,
-            (output.start_date < output.end_date)?,
-          },
+          streaming_payment_shape.fresh_is_valid(
+            output,
+            forbidden_payment_credential,
+          ),
         }
       },
     )?,
@@ -127,7 +130,9 @@ fn end_date_floor(input: StreamingPayment, tx_latest_time: Option<Int>) -> Int {
 /// why this takes an `Int`, not the `Option<Int>` the operator rule above accepts.
 /// Repeat calls are controlled by the State-level non-admin streaming cooldown,
 /// not by a per-payment marker; another strict shortening after the cooldown is
-/// intentionally valid.
+/// intentionally valid. The STT settlement handler narrows this rule after final
+/// recovery opens. It requires the exact safe cutoff, which blocks another
+/// cancellation unless an operator later reschedules the payment.
 pub fn is_payee_cancelled(
   input_streaming_payments: List<StreamingPayment>,
   output_streaming_payments: List<StreamingPayment>,
@@ -200,10 +205,10 @@ fn forwards_existing(
   output_streaming_payments: List<StreamingPayment>,
   path_fields_are_valid: fn(StreamingPayment, StreamingPayment) -> Bool,
 ) -> Bool {
-  list.find(
+  list.any(
     output_streaming_payments,
     fn(output) {
-      // Partial §9 exemption: no `?` on the id, because `find` legitimately
+      // Partial §9 exemption: no `?` on the id, because `any` legitimately
       // scans past non-matching ids. The remaining conjuncts only run on the
       // id-matched candidate, so a False there IS the violation and is traced.
       and {
@@ -213,5 +218,5 @@ fn forwards_existing(
         path_fields_are_valid(input, output)?,
       }
     },
-  ) != None
+  )
 }

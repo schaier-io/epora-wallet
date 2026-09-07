@@ -10,10 +10,13 @@ import {
 } from "@/lib/contracts/state-form";
 import {
   approvalPowerForUser,
+  approvalThresholdCeiling,
+  personApprovalPowerCeiling,
   reachableApprovalPower,
   scheduledPaymentRateForPeriod,
   withApprovalPowerEnabled,
-  withMultiApprovalEnabled,
+  withCoSignerAdded,
+  withMultisigDerivedFromCoSigners,
   withProofOfLifeIncrement,
   withProofOfLifeUnlockTime,
   withRecoveryContactAdded,
@@ -160,24 +163,74 @@ test("approval power distinguishes configured power from reachable power", () =>
   );
 });
 
-test("withMultiApprovalEnabled supplies one usable default and keeps typed input", () => {
+test("withMultisigDerivedFromCoSigners turns the rule on with the first chip, off with the last", () => {
   const form = createDefaultStateForm();
-  const enabled = withMultiApprovalEnabled(form, true);
+  // No chips, rule already off: derivation changes nothing.
+  assert.equal(withMultisigDerivedFromCoSigners(form), form);
+
+  // First chip: the rule comes on with the threshold set to the power the named
+  // co-signers hold between them ("all of them together"), never to zero.
+  const withChip = {
+    ...form,
+    users: [
+      { ...createDefaultUserFormState("0"), multiSigPowerMode: "some" as const, multiSigPower: "2" }
+    ]
+  };
+  const enabled = withMultisigDerivedFromCoSigners(withChip);
   assert.equal(enabled.multiSigThresholdMode, "some");
   assert.equal(enabled.multiSigThreshold, "2");
 
-  enabled.multiSigThreshold = "5";
-  const disabled = withMultiApprovalEnabled(enabled, false);
-  assert.equal(disabled.multiSigThresholdMode, "none");
-  assert.equal(disabled.multiSigThreshold, "5");
+  // Once on, further chip grants do not rewrite the threshold — the slider owns it.
+  const secondChip = {
+    ...enabled,
+    users: [
+      ...enabled.users,
+      { ...createDefaultUserFormState("1"), multiSigPowerMode: "some" as const, multiSigPower: "1" }
+    ]
+  };
+  const kept = withMultisigDerivedFromCoSigners(secondChip);
+  assert.equal(kept.multiSigThresholdMode, "some");
+  assert.equal(kept.multiSigThreshold, "2");
+
+  // Revoking the last chip switches the rule back off, owners-only again.
+  const revoked = {
+    ...secondChip,
+    users: secondChip.users.map((user) => ({ ...user, multiSigPowerMode: "none" as const }))
+  };
+  const off = withMultisigDerivedFromCoSigners(revoked);
+  assert.equal(off.multiSigThresholdMode, "none");
 });
 
-// The helper now takes an integer in the payment's own denomination (lovelace
-// for ADA). Parsing the typed ADA text moved to `editors/ada-amount-input.tsx`,
-// which holds the text so a decimal point survives the next keystroke.
+test("co-signer threshold derivation stays within exact uint64", () => {
+  const form = createDefaultStateForm();
+  form.users = ["0", "1"].map((id) => ({
+    ...createDefaultUserFormState(id),
+    multiSigPowerMode: "some" as const,
+    multiSigPower: "18446744073709551615"
+  }));
+
+  const enabled = withMultisigDerivedFromCoSigners(form);
+  assert.equal(enabled.multiSigThreshold, "18446744073709551615");
+});
+
+test("adding a co-signer computes exact power above the safe number range", () => {
+  const form = createDefaultStateForm();
+  form.multiSigThresholdMode = "some";
+  form.multiSigThreshold = "18446744073709551615";
+  form.users = [{
+    ...createDefaultUserFormState("0"),
+    wallets: ["abcd"],
+    multiSigPowerMode: "some",
+    multiSigPower: "1"
+  }];
+
+  const next = withCoSignerAdded(form);
+  assert.equal(next.users.at(-1)?.multiSigPower, "18446744073709551614");
+});
+
 test("scheduled-payment rates convert ADA and native-asset periods without fractions", () => {
   const ada = createDefaultStreamingPaymentFormState("1");
-  const adaPerDay = withScheduledPaymentRate(ada, "7000000", 7);
+  const adaPerDay = withScheduledPaymentRate(ada, "7", 7);
   assert.equal(adaPerDay.amountPerDay, "1000000");
   assert.equal(scheduledPaymentRateForPeriod(adaPerDay, 7), "7000000");
 
@@ -186,8 +239,62 @@ test("scheduled-payment rates convert ADA and native-asset periods without fract
     policyId: "aa",
     assetName: "bb"
   };
-  const nativePerDay = withScheduledPaymentRate(nativeAsset, "7", 7);
+  const nativePerDay = withScheduledPaymentRate(nativeAsset, "10", 7);
   assert.equal(nativePerDay.amountPerDay, "1");
   assert.equal(scheduledPaymentRateForPeriod(nativePerDay, 7), "7");
   assert.equal(withScheduledPaymentRate(nativeAsset, "draft", 30).amountPerDay, "draft");
+
+  const monthlyAda = withScheduledPaymentRate(ada, "1", 30);
+  assert.equal(monthlyAda.amountPerDay, "33333");
+  assert.equal(scheduledPaymentRateForPeriod(monthlyAda, 30), "999990");
+});
+
+const WALLET = "ab".repeat(28);
+
+function formWithSigners(
+  threshold: string,
+  signers: Array<{ power: string; wallets: string[] }>
+) {
+  const form = createDefaultStateForm();
+  form.multiSigThresholdMode = "some";
+  form.multiSigThreshold = threshold;
+  form.users = signers.map((signer, index) => ({
+    ...createDefaultUserFormState(String(index)),
+    multiSigPowerMode: "some" as const,
+    multiSigPower: signer.power,
+    wallets: signer.wallets
+  }));
+  return form;
+}
+
+test("approvalThresholdCeiling stops at the power the wallet can reach", () => {
+  const form = formWithSigners("2", [
+    { power: "2", wallets: [WALLET] },
+    { power: "1", wallets: [WALLET] }
+  ]);
+
+  assert.equal(approvalThresholdCeiling(form), 3);
+});
+
+test("approvalThresholdCeiling ignores the threshold it bounds", () => {
+  const form = formWithSigners("9", [{ power: "2", wallets: [WALLET] }]);
+
+  // A ceiling that counted the number the slider writes would shrink under the
+  // pointer mid-drag. Covering a stored number above it is the slider's job.
+  assert.equal(approvalThresholdCeiling(form), 2);
+});
+
+test("approvalThresholdCeiling leaves room to move before anybody holds power", () => {
+  assert.equal(approvalThresholdCeiling(createDefaultStateForm()), 2);
+});
+
+test("personApprovalPowerCeiling stops at the threshold, whatever anybody holds", () => {
+  assert.equal(personApprovalPowerCeiling(formWithSigners("8", [{ power: "2", wallets: [] }])), 8);
+  // Power past the threshold is never counted, and the power already held must
+  // not move the ceiling: that is the number the slider writes.
+  assert.equal(personApprovalPowerCeiling(formWithSigners("3", [{ power: "12", wallets: [] }])), 3);
+});
+
+test("personApprovalPowerCeiling keeps a usable range on an empty form", () => {
+  assert.equal(personApprovalPowerCeiling(createDefaultStateForm()), 2);
 });

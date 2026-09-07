@@ -7,9 +7,6 @@ import {
   PlugZap
 } from "lucide-react";
 
-import {
-  AnimatedContent
-} from "@/components/react-bits/primitives";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -24,7 +21,19 @@ export function WorkspaceOnboardingView() {
 
   return (
           <div className="flex min-h-0 flex-1 items-start justify-center pt-2 md:pt-6">
-            <AnimatedContent className="w-full max-w-3xl" distance={24}>
+            {/*
+              A CSS entrance, not the JS one. `AnimatedContent` starts at `opacity: 0` as an
+              inline style and only reaches 1 after hydration plus an IntersectionObserver
+              callback, because `usePrefersReducedMotion` reads `matchMedia` in an effect and
+              so returns false on the server and on the first client render. This card is the
+              first screen of the product (`/` redirects to `/user`), and hydration here
+              waits on the whole Cardano stack, so the server sent the copy and then hid it:
+              HTML complete at 57ms, card visible at 540ms on localhost with a warm cache.
+              `.section-transition` animates from the stylesheet, so the card is painted as
+              soon as the CSS lands and the fade is the browser's, not React's. It carries its
+              own `prefers-reduced-motion` guard.
+            */}
+            <div className="section-transition w-full max-w-3xl">
               <Card className="user-surface w-full">
                 <CardContent className="space-y-6">
                   <ol className="divide-y divide-border/40">
@@ -101,7 +110,7 @@ export function WorkspaceOnboardingView() {
                         {i18n("connectCardanoWallet")}
                       </Button>
                       <p className="text-sm text-muted-foreground">
-                        {i18n("worksWithLaceEternlNamiVesprAndOther")}
+                        {i18n("worksWithLaceEternlVesprAndOtherWallets")}
                       </p>
                     </div>
                     {/* What connecting actually grants. The dialogs disclosed one sentence
@@ -124,7 +133,7 @@ export function WorkspaceOnboardingView() {
                   </div>
                 </CardContent>
               </Card>
-            </AnimatedContent>
+            </div>
           </div>
   );
 }

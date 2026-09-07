@@ -31,6 +31,7 @@ fn mk_user(id: Int, is_admin: Bool, can_renew_proof_of_life: Bool) -> User {
 // keeps the config otherwise reachable, isolating the weight check.
 test valid_state_configuration_rejects_zero_weight_beneficiary() fail {
   let zero_weight_beneficiary = Beneficiary {
+    ..states.base_beneficiary(),
     id: 1,
     beneficiary_wallets: [fixtures.key_hash("beneficiary")],
     unlock_after: Some(100),
@@ -69,6 +70,7 @@ test valid_state_configuration_accepts_zero_admin_state_with_reachable_beneficia
 // signable wallet — no path can ever act.
 test valid_state_configuration_rejects_zero_admin_without_signable_path() fail {
   let no_wallet_beneficiary = Beneficiary {
+    ..states.base_beneficiary(),
     id: 0,
     beneficiary_wallets: [],
     unlock_after: Some(100),
@@ -87,6 +89,7 @@ test valid_state_configuration_rejects_zero_admin_without_signable_path() fail {
 // layer warns about it; the contract does not reject it).
 test valid_state_configuration_accepts_distant_beneficiary_unlock_after() {
   let distant_beneficiary = Beneficiary {
+    ..states.base_beneficiary(),
     id: 0,
     beneficiary_wallets: [fixtures.key_hash("user")],
     unlock_after: Some(9_999_999_999_999),
@@ -108,12 +111,14 @@ test valid_state_configuration_accepts_distant_beneficiary_unlock_after() {
 // "weighted-share recovery can lock funds despite passing reachability" gap).
 test valid_state_configuration_rejects_beneficiary_without_wallet() fail {
   let wallet_less_beneficiary = Beneficiary {
+    ..states.base_beneficiary(),
     id: 1,
     beneficiary_wallets: [],
     unlock_after: Some(100),
     weight: 99,
   }
   let signable_beneficiary = Beneficiary {
+    ..states.base_beneficiary(),
     id: 2,
     beneficiary_wallets: [fixtures.key_hash("beneficiary")],
     unlock_after: Some(100),
@@ -141,6 +146,7 @@ test valid_state_configuration_allows_beneficiary_user_wallet_overlap() {
     is_admin: False,
   }
   let overlapping_beneficiary = Beneficiary {
+    ..states.base_beneficiary(),
     id: 0,
     beneficiary_wallets: [fixtures.key_hash("shared")],
     unlock_after: Some(100),
@@ -152,6 +158,75 @@ test valid_state_configuration_allows_beneficiary_user_wallet_overlap() {
       |> states.with_users([overlapping_user])
       |> states.with_beneficiaries([overlapping_beneficiary])
       |> states.with_proof_of_life(100, 50),
+  )
+}
+
+// A credential can activate at most one positive-power user record. Otherwise
+// one signature would contribute each matching record's weight.
+test valid_state_configuration_rejects_wallet_shared_by_powered_users() fail {
+  let shared_wallet = fixtures.key_hash("shared")
+  let first = state_types.User {
+    ..states.base_user(),
+    id: 1,
+    user_wallets: [shared_wallet],
+    multi_sig_power: Some(1),
+  }
+  let second = state_types.User {
+    ..states.base_user(),
+    id: 2,
+    user_wallets: [shared_wallet],
+    multi_sig_power: Some(2),
+  }
+
+  state_configuration.expect_valid_state_configuration(
+    states.base_state()
+      |> states.with_users([first, second])
+      |> states.with_multisig_threshold(3),
+  )
+}
+
+test valid_state_configuration_allows_repeated_wallet_in_one_powered_user() {
+  let shared_wallet = fixtures.key_hash("shared")
+  let powered = state_types.User {
+    ..states.base_user(),
+    id: 1,
+    user_wallets: [shared_wallet, shared_wallet],
+    multi_sig_power: Some(1),
+  }
+
+  state_configuration.expect_valid_state_configuration(
+    states.base_state()
+      |> states.with_users([powered])
+      |> states.with_multisig_threshold(1),
+  )
+}
+
+// Credential overlap remains valid when no second record contributes power.
+test valid_state_configuration_allows_wallet_shared_with_unpowered_users() {
+  let shared_wallet = fixtures.key_hash("shared")
+  let powered = state_types.User {
+    ..states.base_user(),
+    id: 1,
+    user_wallets: [shared_wallet],
+    multi_sig_power: Some(1),
+  }
+  let no_power = state_types.User {
+    ..states.base_user(),
+    id: 2,
+    user_wallets: [shared_wallet],
+    multi_sig_power: None,
+  }
+  let zero_power = state_types.User {
+    ..states.base_user(),
+    id: 3,
+    user_wallets: [shared_wallet],
+    multi_sig_power: Some(0),
+  }
+
+  state_configuration.expect_valid_state_configuration(
+    states.base_state()
+      |> states.with_users([powered, no_power, zero_power])
+      |> states.with_multisig_threshold(1),
   )
 }
 
@@ -322,7 +397,7 @@ test prop_unlock_never_reached_without_unlock_time(earliest via fuzz.int()) {
 // unchanged unlock time is trivially accepted (no renewal happened).
 test prop_renewal_window_matches_bounds(
   args via fuzz.both(
-    fuzz.both(fuzz.int(), fuzz.int()),
+    fuzz.both(fuzz.int_at_least(0), fuzz.int_at_least(0)),
     fuzz.both(
       fuzz.int_at_least(1),
       fuzz.both(fuzz.int_at_least(0), fuzz.int_at_least(0)),
@@ -354,7 +429,7 @@ test prop_renewal_window_matches_bounds(
 // window. (latest is pinned to earliest so only the ceiling rule can fail.)
 test prop_renewal_beyond_one_increment_rejected(
   args via fuzz.both(
-    fuzz.both(fuzz.int(), fuzz.int_at_least(1)),
+    fuzz.both(fuzz.int_at_least(0), fuzz.int_at_least(1)),
     fuzz.both(fuzz.int_at_least(0), fuzz.int_at_least(1)),
   ),
 ) {

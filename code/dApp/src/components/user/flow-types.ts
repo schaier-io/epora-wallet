@@ -5,20 +5,16 @@ import type {
   OperatorAuthorityPath
 } from "@/lib/types/contracts";
 
-export type UserActionKind = ActionKind;
+export type UserActionKind = Exclude<ActionKind, "wallet-spend">;
 export type UserFlowBranch = "new-wallet" | "existing-token";
 export type UserWizardStep = "connect" | "source" | "action" | "configure" | "review";
-type UserFlowAudience = "everyday" | "admin" | "expert";
 export type UserWorkspaceMode = "landing" | "new-wallet" | "existing-wallet";
 export type UserFlowStep = "overview" | "configure" | "review";
 export type UserOverviewSection = "home" | "transactions";
 export type SetupCheckpoint = "wallet" | "network" | "shared-reference" | "funding" | "ready";
 export type UserWorkspaceTask =
-  | "people-admins-signers"
-  | "people-spending-users"
-  | "people-wallet-assignments"
+  | "settings-people"
   | "settings-wallet-name"
-  | "settings-beneficiaries"
   | "settings-proof-of-life"
   | "settings-multisig-threshold"
   | "streaming-payments-add"
@@ -56,16 +52,7 @@ export type UserWorkspaceRouteState = {
   assetDetailUnit: string | null;
 };
 
-type TaskLane = "recommended" | "advanced";
 type TaskRisk = "low" | "medium" | "high";
-type TaskGroup =
-  | "setup-funding"
-  | "everyday-spending"
-  | "wallet-operations"
-  | "state-management"
-  | "special-access"
-  | "governance"
-  | "manual";
 
 export type ReadinessKey =
   | "wallet"
@@ -119,13 +106,9 @@ export type TaskDefinition = {
   pathLabels: string[];
   surfaceLabel: string;
   startingPoint: string;
-  buildLabel: string;
   icon: LucideIcon;
   prerequisites: ReadinessKey[];
-  lane: TaskLane;
-  group: TaskGroup;
   risk: TaskRisk;
-  audience?: UserFlowAudience;
   /**
    * First line of the review receipt for actions with no receipt branch of their own.
    * Without it the receipt lower-cased the label and dropped the article, producing
@@ -133,7 +116,6 @@ export type TaskDefinition = {
    * the action does to the wallet.
    */
   receiptSummary?: string;
-  availabilityReason?: string;
   setupCTA?: string;
   routeExplanation?: string;
 };

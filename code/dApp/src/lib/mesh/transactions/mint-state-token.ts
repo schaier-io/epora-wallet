@@ -1,12 +1,14 @@
 import { type RuntimeTxBuilder, STT_MINT_VALIDATOR, addWalletInput, applyMintWitness, buildReferenceScriptDiagnostics, buildTransactionWithReestimatedLimits, createStageError, createTxPreview, deriveAssetName, describeReferenceScriptUsage, getLovelaceQuantity, hasReferenceScript, inspectSharedSttReferenceStore, normalizeMintStarterAssets, resolveMintReferenceInput, sendAssetsWithOptionalInlineDatumAndReferenceScript, setupTransaction, summarizeAmountForTxPreview, withStage } from "./internals";
-import { getSttMintScript, resolveScriptAddress, resolveWalletSpendAddress } from "@/lib/contracts/blueprint";
+import { getSttMintScript, resolveScriptAddress, resolveWalletSpendAddress, resolveWalletSpendScriptHash } from "@/lib/contracts/blueprint";
 import { readStateSections } from "@/lib/contracts/state-layout";
-import { collectStateDatumWarnings, validateMintStateDatum } from "@/lib/contracts/state-validation";
+import { collectStateDatumWarnings } from "@/lib/contracts/state-validation";
+import { validateMintStateDatum } from "@/lib/contracts/state-validation-streaming";
 import { decodeWalletNameFromDatum, normalizeWalletName } from "@/lib/contracts/state-wallet-name";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import { type BuildResult, type MintFormInput } from "@/lib/types/contracts";
 import { resolveScriptHash } from "@meshsdk/core";
 import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
+import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/LibMeshTransactionsMintStateToken.json";
 
@@ -23,7 +25,13 @@ export async function buildMintStateTokenTx(
   );
   const requestedStarterLovelace = getLovelaceQuantity(requestedStarterAssets).toString();
   const normalizedStateDatum = unwrapStateDatum(input.stateDatum, "Mint state datum");
-  const stateValidationErrors = validateMintStateDatum(normalizedStateDatum);
+  const sttScript = getSttMintScript();
+  const policyId = resolveScriptHash(sttScript.code, sttScript.version);
+  const stateValidationErrors = validateMintStateDatum(
+    normalizedStateDatum,
+    undefined,
+    policyId
+  );
   if (stateValidationErrors.length > 0) {
     throw createStageError(
       "mint:validateStateDatum",
@@ -35,19 +43,14 @@ export async function buildMintStateTokenTx(
     );
   }
   // Non-blocking advisories (e.g. a lapsed proof of life, or a beneficiary-only
-  // recovery time-locked far out). Accepted on-chain; logged here and returned
-  // in the BuildResult so the wallet creator sees them in the review panel.
+  // recovery time-locked far out). Accepted on-chain; returned in the
+  // BuildResult so the wallet creator sees them in the review panel.
   const mintStateWarnings = collectStateDatumWarnings(normalizedStateDatum);
-  for (const warning of mintStateWarnings) {
-    console.warn(`[mint:validateStateDatum] ${warning}`);
-  }
   const walletName = normalizeWalletName(
     decodeWalletNameFromDatum(readStateSections(normalizedStateDatum).walletName)
   );
   const mintedDatum = unwrapStateDatum(normalizedStateDatum, "STT state datum");
 
-  const sttScript = getSttMintScript();
-  const policyId = resolveScriptHash(sttScript.code, sttScript.version);
   const prepared = await buildTransactionWithReestimatedLimits(
     "mint:tx.draft-build",
     "mint:tx.build",
@@ -85,7 +88,31 @@ export async function buildMintStateTokenTx(
         sttPolicyId: policyId,
         sttAssetNameHex: assetName
       });
+      const walletPaymentScriptHash = resolveWalletSpendScriptHash({
+        sttPolicyId: policyId,
+        sttAssetNameHex: assetName
+      });
+      const walletDestinationErrors = validateMintStateDatum(
+        normalizedStateDatum,
+        walletPaymentScriptHash,
+        policyId
+      );
+      if (walletDestinationErrors.length > 0) {
+        throw createStageError(
+          "mint:validateStreamingPaymentDestinations",
+          new Error(
+            walletDestinationErrors[0] ??
+              "Mint state datum has an invalid streaming payment destination."
+          ),
+          {
+            validationErrors: walletDestinationErrors,
+            stateDatum: normalizedStateDatum,
+            walletPaymentScriptHash
+          }
+        );
+      }
       const sharedReferenceInspection = await inspectSharedSttReferenceStore(fetcher, {
+        configuredReference: input.sttSpendReference,
         script: sttScript,
         stage: "mint:inspectSharedSttReferenceStore",
         details: {
@@ -97,6 +124,13 @@ export async function buildMintStateTokenTx(
       });
       const sttReferenceScript =
         sharedReferenceInspection.matchingReferences[0] ?? null;
+      if (!sttReferenceScript) {
+        throw createStageError(
+          "mint:referenceScript",
+          new Error("Wallet service is temporarily unavailable. Try again later."),
+          { policyId, requiredField: "sttSpendReference", setupRoute: "/api/v1/tx/deploy-reference" }
+        );
+      }
       const scriptWitnessDiagnostics = buildReferenceScriptDiagnostics([
         {
           label: "STT mint",
@@ -167,7 +201,7 @@ export async function buildMintStateTokenTx(
             sharedReferenceInspection.matchingReferences.length > 0,
           sharedSttReferenceMatchCount:
             sharedReferenceInspection.matchingReferences.length,
-          sharedSttReferenceStaleCount: sharedReferenceInspection.staleReferenceCount,
+          sharedSttCheckedReferenceCount: sharedReferenceInspection.checkedReferenceCount,
           sharedSttReferenceUsed: sttReferenceScript?.reference ?? null
         },
         executionLabels: {
@@ -189,10 +223,6 @@ export async function buildMintStateTokenTx(
     },
     txFetcher
   );
-  const walletAddress =
-    typeof prepared.context?.walletAddress === "string"
-      ? prepared.context.walletAddress
-      : null;
   const appliedStarterLovelace =
     typeof prepared.context?.appliedStarterLovelace === "string"
       ? prepared.context.appliedStarterLovelace
@@ -200,13 +230,13 @@ export async function buildMintStateTokenTx(
   const appliedStarterSummary =
     typeof prepared.context?.appliedStarterSummary === "string"
       ? prepared.context.appliedStarterSummary
-      : `${appliedStarterLovelace} lovelace`;
+      : `${formatLovelaceAsAda(appliedStarterLovelace)} ADA`;
 
   return {
     txHex: prepared.txHex,
     preview: createTxPreview(
       "mint",
-      i18n("createWalletnameWith1SttUnderPolicyPolicyid", { walletName: walletName, policyId: policyId, value3: walletAddress ?? "the new wallet address", appliedStarterSummary: appliedStarterSummary, value5: typeof prepared.context?.referenceScriptUsage === "string" ? prepared.context.referenceScriptUsage : "" }),
+      i18n("createWalletnameWith1SttUnderPolicyPolicyid", { walletName, appliedStarterSummary, value5: typeof prepared.context?.referenceScriptUsage === "string" ? prepared.context.referenceScriptUsage : "" }),
       prepared.txHex
     ),
     estimatedFeeLovelace: prepared.estimatedFeeLovelace,
@@ -215,4 +245,3 @@ export async function buildMintStateTokenTx(
     warnings: mintStateWarnings.length > 0 ? mintStateWarnings : undefined
   };
 }
-

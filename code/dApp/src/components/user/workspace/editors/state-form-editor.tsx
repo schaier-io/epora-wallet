@@ -4,24 +4,26 @@ import { useTranslations } from "next-intl";
 
 import { useId } from "react";
 
+import { ApprovalPowerSlider } from "./approval-power-slider";
 import { GuidedDateTimeField, GuidedDurationField } from "./guided-fields";
 import { DisclosureSection } from "./primitives";
 import { ScheduledPaymentEditor } from "./streaming-editors";
 import { TaskEmptyState } from "./task-surface";
-import { OwnerAccessEditor, RecoveryAccessEditor, SpendingAccessEditor, WalletNameEditor, WalletRuleSection, WalletRuleSummaryTile, WalletRuleTogglePanel } from "./wallet-settings-editors";
+import { OwnerAccessEditor, RecoveryAccessEditor, SpendingAccessEditor, WalletNameEditor, WalletRuleSection, WalletRuleTogglePanel } from "./wallet-settings-editors";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { InfoHint } from "@/components/ui/info-hint";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LONG_DESCRIPTION_LIMIT } from "@/components/user/workspace/constants";
 import {
+  approvalThresholdCeiling,
   formatCompactHash,
-  formatCountLabel,
+  reachableApprovalPower,
   removeAt,
   replaceAt,
   safetyTimerIsReady,
-  withMultiApprovalEnabled,
+  withCoSignerAdded,
+  withMultisigDerivedFromCoSigners,
   withProofOfLifeIncrement,
   withProofOfLifeUnlockTime,
   withRecoveryContactAdded,
@@ -32,9 +34,21 @@ import {
 import {
   type StateFormState,
   type UserFormState,
+  canAddAllowanceEntryInStateForm,
   countAdminUsersInStateForm
 } from "@/lib/contracts/state-form";
-import { MAX_BENEFICIARIES, MAX_STREAMING_PAYMENTS, MAX_USERS } from "@/lib/contracts/state-validation";
+import {
+  MAX_ACCESS_RECORDS,
+  MAX_BENEFICIARIES,
+  MAX_BENEFICIARY_WALLETS,
+  MAX_STREAMING_PAYMENTS,
+  MAX_TOTAL_ALLOWANCE_ENTRIES,
+  MAX_TOTAL_BENEFICIARY_WALLETS,
+  MAX_TOTAL_USER_WALLETS,
+  MAX_WALLETS_PER_USER,
+  MAX_USERS
+} from "@/lib/contracts/state-validation";
+import { countWalletEntries } from "@/lib/contracts/wallet-capacity";
 import { Clock3, HandHeart, Repeat, ShieldUser, UsersRound } from "lucide-react";
 
 export function StateFormEditor({
@@ -48,6 +62,7 @@ export function StateFormEditor({
   showWalletNameEditor = true,
   existingStreamingPaymentIds = new Set<string>(),
   allowNewStreamingPayments = true,
+  moreSettingsCollapsed = false,
   zeroAdminConfirmed,
   onZeroAdminConfirmedChange
 }: {
@@ -64,6 +79,8 @@ export function StateFormEditor({
   showWalletNameEditor?: boolean;
   existingStreamingPaymentIds?: ReadonlySet<string>;
   allowNewStreamingPayments?: boolean;
+  /** Create flow: everything past the owners sits behind one "More settings" disclosure. */
+  moreSettingsCollapsed?: boolean;
   zeroAdminConfirmed?: boolean;
   onZeroAdminConfirmedChange?: (value: boolean) => void;
 }) {
@@ -85,7 +102,32 @@ export function StateFormEditor({
     value.proofOfLifeIncrementMode === "some";
   const safetyReady = safetyTimerIsReady(value);
   const recoveryNeedsTimer = value.beneficiaries.length > 0 && !safetyReady;
-  const multiApprovalEnabled = value.multiSigThresholdMode === "some";
+  // The approval rule is whoever holds a Co-signer chip — there is no separate
+  // on/off any more, so the section opens only when the chips already say "on".
+  const hasCoSigners = value.users.some((user) => user.multiSigPowerMode === "some");
+  const multiSigThresholdNeeded = Number.parseInt(value.multiSigThreshold, 10);
+  const reachablePower = reachableApprovalPower(value.users);
+  const multiSigThresholdIsWorkable =
+    Number.isFinite(multiSigThresholdNeeded) &&
+    multiSigThresholdNeeded > 0 &&
+    multiSigThresholdNeeded <= reachablePower;
+  // Owners and spenders share one cap (`smart-contract/lib/state/configuration.ak:100`).
+  const accessRecordsAtCap =
+    value.users.length + value.beneficiaries.length >= MAX_ACCESS_RECORDS;
+  const peopleAtCap = value.users.length >= MAX_USERS || accessRecordsAtCap;
+  const recoveryAtCap =
+    value.beneficiaries.length >= MAX_BENEFICIARIES || accessRecordsAtCap;
+  const scheduledAtCap = value.streamingPayments.length >= MAX_STREAMING_PAYMENTS;
+  const canAddUserWalletEntry =
+    countWalletEntries(value.users) < MAX_TOTAL_USER_WALLETS;
+  const canAddBeneficiaryWalletEntry =
+    countWalletEntries(value.beneficiaries) < MAX_TOTAL_BENEFICIARY_WALLETS;
+  const hasMoreSettings =
+    spendingUsers.length > 0 ||
+    value.beneficiaries.length > 0 ||
+    value.streamingPayments.length > 0 ||
+    safetyEnabled ||
+    hasCoSigners;
   const helperIsLong = Boolean(helper && helper.length > LONG_DESCRIPTION_LIMIT);
 
   function updateUser(index: number, nextUser: UserFormState) {
@@ -97,7 +139,9 @@ export function StateFormEditor({
   }
 
   function addOwner(walletId?: string) {
-    onChange(withUserAdded(value, "admin", walletId));
+    if (!peopleAtCap) {
+      onChange(withUserAdded(value, "admin", walletId));
+    }
   }
 
   function useConnectedWalletAsOwner() {
@@ -107,7 +151,16 @@ export function StateFormEditor({
 
     const firstOwner = ownerUsers[0];
     if (!firstOwner) {
-      addOwner(normalizedConnectedHash);
+      if (!peopleAtCap && canAddUserWalletEntry) {
+        addOwner(normalizedConnectedHash);
+      }
+      return;
+    }
+
+    if (
+      !canAddUserWalletEntry ||
+      firstOwner.user.wallets.length >= MAX_WALLETS_PER_USER
+    ) {
       return;
     }
 
@@ -118,24 +171,277 @@ export function StateFormEditor({
   }
 
   function addSpendingPerson() {
-    onChange(withUserAdded(value, "limited-withdrawal"));
+    if (!peopleAtCap) {
+      onChange(withUserAdded(value, "limited-withdrawal"));
+    }
   }
 
   function addRecoveryPerson() {
-    onChange(withRecoveryContactAdded(value, Date.now()));
+    if (!recoveryAtCap) {
+      onChange(withRecoveryContactAdded(value, Date.now()));
+    }
   }
 
   function addScheduledPayment() {
-    onChange(withScheduledPaymentAdded(value));
+    if (!scheduledAtCap) {
+      onChange(withScheduledPaymentAdded(value));
+    }
   }
 
   function setSafetyEnabled(checked: boolean) {
     onChange(withSafetyTimerEnabled(value, checked, Date.now()));
   }
 
-  function setMultiApprovalEnabled(checked: boolean) {
-    onChange(withMultiApprovalEnabled(value, checked));
-  }
+  const moreSettings = (
+    <>
+      <WalletRuleSection
+        icon={UsersRound}
+        title={i18n("spenders")}
+        description={i18n("aSpenderCanSendFundsUpToA")}
+        action={
+          <Button type="button" variant="outline" onClick={addSpendingPerson} disabled={peopleAtCap}>
+            {i18n("addSpender")}
+          </Button>
+        }
+      >
+        {spendingUsers.length === 0 ? (
+          <TaskEmptyState
+            icon={UsersRound}
+            title={i18n("noSpendersYet")}
+            description={i18n("wantSomeoneElseToSpendUpToA")}
+          />
+        ) : (
+          <div className="space-y-4">
+            {spendingUsers.map(({ user, index }) => (
+              <SpendingAccessEditor
+                key={`spending-${index}-${user.id}`}
+                user={user}
+                connectedPaymentKeyHash={normalizedConnectedHash}
+                connectedAddress={connectedAddress}
+                onChange={(nextUser) => updateUser(index, nextUser)}
+                onRemove={() => removeUser(index)}
+                canAddAllowanceEntry={canAddAllowanceEntryInStateForm(
+                  value,
+                  index,
+                  "perDayAllowance",
+                  MAX_TOTAL_ALLOWANCE_ENTRIES
+                )}
+                canAddWallet={
+                  canAddUserWalletEntry &&
+                  user.wallets.length < MAX_WALLETS_PER_USER
+                }
+              />
+            ))}
+          </div>
+        )}
+        {peopleAtCap ? (
+          <p className="text-xs text-muted-foreground">
+            {accessRecordsAtCap && value.users.length < MAX_USERS
+              ? i18n("thisWalletAlreadyHoldsMaxAccessRecords", { max: MAX_ACCESS_RECORDS })
+              : i18n("thisWalletAlreadyHoldsMaxPeople", { max: MAX_USERS })}
+          </p>
+        ) : null}
+      </WalletRuleSection>
+
+      <WalletRuleSection
+        icon={Clock3}
+        title={i18n("proofOfLife")}
+        description={i18n("howLongYouHaveBetweenCheckInsBefore")}
+      >
+        <WalletRuleTogglePanel
+          title={i18n("requireProofOfLife")}
+          description={i18n("turnThisOnSoRecoveryContactsCanAct")}
+          checked={safetyEnabled}
+          onCheckedChange={setSafetyEnabled}
+          enabledLabel={i18n("timerOn")}
+          disabledLabel={i18n("timerOff")}
+        >
+          <div className="grid gap-3 md:grid-cols-2">
+            <GuidedDateTimeField
+              idPrefix={`${label.replace(/\s+/g, "-").toLowerCase()}-proof-of-life-unlock`}
+              label={i18n("recoveryContactsCanClaimAfter")}
+              value={value.proofOfLifeUnlockTime}
+              onChange={(proofOfLifeUnlockTime) =>
+                onChange(withProofOfLifeUnlockTime(value, proofOfLifeUnlockTime, Date.now()))
+              }
+              helper={i18n("untilThisTimeOnlyTheOwnersCanUse")}
+            />
+            <GuidedDurationField
+              idPrefix={`${label.replace(/\s+/g, "-").toLowerCase()}-proof-of-life-extension`}
+              label={i18n("timeEachCheckInBuys")}
+              value={value.proofOfLifeIncrement}
+              onChange={(proofOfLifeIncrement) =>
+                onChange(withProofOfLifeIncrement(value, proofOfLifeIncrement, Date.now()))
+              }
+              helper={i18n("checkingInMovesTheDateBesideThisTo")}
+            />
+          </div>
+        </WalletRuleTogglePanel>
+      </WalletRuleSection>
+
+      <WalletRuleSection
+        icon={HandHeart}
+        title={i18n("recoveryContacts")}
+        description={i18n("addingOneTurnsOnProofOfLifeSo")}
+        action={
+          <Button type="button" variant="outline" onClick={addRecoveryPerson} disabled={recoveryAtCap}>
+            {i18n("addRecoveryContact")}
+          </Button>
+        }
+      >
+        {value.beneficiaries.length === 0 ? (
+          <TaskEmptyState
+            icon={HandHeart}
+            title={i18n("noRecoveryContactsYet")}
+            description={i18n("ifYouEverLoseYourKeysRecoveryContacts")}
+          />
+        ) : (
+          <div className="space-y-4">
+            {value.beneficiaries.map((beneficiary, index) => (
+              <RecoveryAccessEditor
+                key={`recovery-${index}-${beneficiary.id}`}
+                beneficiary={beneficiary}
+                displayIndex={index + 1}
+                totalWeight={value.beneficiaries.reduce(
+                  (sum, entry) => sum + (Number.parseInt(entry.weight, 10) || 0),
+                  0
+                )}
+                connectedPaymentKeyHash={normalizedConnectedHash}
+                connectedAddress={connectedAddress}
+                canAddWallet={
+                  canAddBeneficiaryWalletEntry &&
+                  beneficiary.wallets.length < MAX_BENEFICIARY_WALLETS
+                }
+                onChange={(nextBeneficiary) =>
+                  onChange({
+                    ...value,
+                    beneficiaries: replaceAt(value.beneficiaries, index, nextBeneficiary)
+                  })
+                }
+                onRemove={() =>
+                  onChange({
+                    ...value,
+                    beneficiaries: removeAt(value.beneficiaries, index)
+                  })
+                }
+              />
+            ))}
+          </div>
+        )}
+        {recoveryAtCap ? (
+          <p className="text-xs text-muted-foreground">
+            {accessRecordsAtCap && value.beneficiaries.length < MAX_BENEFICIARIES
+              ? i18n("thisWalletAlreadyHoldsMaxAccessRecords", { max: MAX_ACCESS_RECORDS })
+              : i18n("thisWalletAlreadyHoldsMaxRecoveryContacts", {
+                  max: MAX_BENEFICIARIES
+                })}
+          </p>
+        ) : null}
+      </WalletRuleSection>
+
+      <WalletRuleSection
+        icon={Repeat}
+        title={i18n("scheduledPayments")}
+        description={i18n("useThisForRecurringPayoutsToAFixed")}
+        action={allowNewStreamingPayments ? (
+          <Button type="button" variant="outline" onClick={addScheduledPayment} disabled={scheduledAtCap}>
+            {i18n("addScheduledPayment")}
+          </Button>
+        ) : undefined}
+      >
+        {value.streamingPayments.length === 0 ? (
+          <TaskEmptyState
+            icon={Repeat}
+            title={i18n("noScheduledPaymentsYet")}
+            description={
+              allowNewStreamingPayments
+                ? i18n("youCanAlwaysSendManuallySchedulesJustSave")
+                : i18n("existingSchedulesMustBeForwardedUnchangedInThis")
+            }
+          />
+        ) : (
+          <div className="space-y-4">
+            {value.streamingPayments.map((streamingPayment, index) => (
+              <ScheduledPaymentEditor
+                key={`scheduled-payment-${index}-${streamingPayment.id}`}
+                streamingPayment={streamingPayment}
+                displayIndex={index + 1}
+                readOnly={existingStreamingPaymentIds.has(streamingPayment.id)}
+                onChange={(nextStreamingPayment) =>
+                  onChange({
+                    ...value,
+                    streamingPayments: replaceAt(value.streamingPayments, index, nextStreamingPayment)
+                  })
+                }
+                onRemove={() =>
+                  onChange({
+                    ...value,
+                    streamingPayments: removeAt(value.streamingPayments, index)
+                  })
+                }
+              />
+            ))}
+          </div>
+        )}
+        {scheduledAtCap && allowNewStreamingPayments ? (
+          <p className="text-xs text-muted-foreground">
+            {i18n("thisWalletAlreadyHoldsMaxScheduledPayments", { max: MAX_STREAMING_PAYMENTS })}
+          </p>
+        ) : null}
+      </WalletRuleSection>
+
+      {/* Create flow: nothing there sets per-person approval power, so a threshold could
+          exceed the wallet's total power and lock it. The threshold is set after minting. */}
+      {moreSettingsCollapsed ? null : (
+      <DisclosureSection
+        title={i18n("coSignerThreshold")}
+        description={i18n("theWalletActsOnceApprovingPeopleHoldEnough")}
+        defaultOpen={hasCoSigners}
+      >
+        {/*
+         * The old panel led with a Yes/No that could disagree with the Co-signer
+         * chips it summarised. The chips are the rule now: this section only reads
+         * the derived threshold, and "Add a co-signer" is the way to turn it on from
+         * here (the People page chips are the other way).
+        */}
+        {hasCoSigners ? (
+          <div className="space-y-1">
+            <Label id={`${uid}-approvals-needed-label`}>{i18n("approvalPowerNeeded")}</Label>
+            <ApprovalPowerSlider
+              id={`${uid}-approvals-needed`}
+              labelledBy={`${uid}-approvals-needed-label`}
+              value={value.multiSigThreshold}
+              onChange={(multiSigThreshold) => onChange({ ...value, multiSigThreshold })}
+              min={1}
+              max={approvalThresholdCeiling(value)}
+              fullAt={reachablePower}
+              fullAtHint={i18n("everyCosignerHasToApprove")}
+              invalid={!multiSigThresholdIsWorkable}
+            />
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">
+              {i18n("nobodyHoldsACosignerChipYetSo")}
+            </p>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                if (!peopleAtCap) {
+                  onChange(withMultisigDerivedFromCoSigners(withCoSignerAdded(value)));
+                }
+              }}
+              disabled={peopleAtCap}
+            >
+              {i18n("addACosigner")}
+            </Button>
+          </div>
+        )}
+      </DisclosureSection>
+      )}
+    </>
+  );
 
   return (
     <div className="space-y-4 rounded-xl border border-border/70 bg-background/40 p-3 sm:p-4">
@@ -185,51 +491,6 @@ export function StateFormEditor({
         />
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <WalletRuleSummaryTile
-          icon={ShieldUser}
-          label={i18n("owners")}
-          value={formatCountLabel(ownerUsers.length, "owner")}
-          description={
-            ownerUsers.length > 0
-              ? i18n("canManagePeopleFundsAndWalletRules")
-              : i18n("addAnOwnerOrAClearRecoveryPath")
-          }
-          tone={ownerUsers.length > 0 ? "good" : "warn"}
-        />
-        <WalletRuleSummaryTile
-          icon={UsersRound}
-          label={i18n("spenders")}
-          value={formatCountLabel(spendingUsers.length, "person", "people")}
-          description={i18n("optionalPeopleWithDailySpendingLimits")}
-        />
-        <WalletRuleSummaryTile
-          icon={HandHeart}
-          label={i18n("recovery")}
-          value={formatCountLabel(value.beneficiaries.length, "person", "people")}
-          description={
-            recoveryNeedsTimer
-              ? i18n("turnOnProofOfLifeBeforeRecoveryCan")
-              : i18n("optionalRecoveryAccessForLater")
-          }
-          tone={recoveryNeedsTimer ? "warn" : value.beneficiaries.length > 0 ? "good" : "default"}
-        />
-        <WalletRuleSummaryTile
-          icon={Repeat}
-          label={i18n("scheduledPayments")}
-          value={formatCountLabel(value.streamingPayments.length, "payment")}
-          description={i18n("optionalRecurringPayoutsFromThisWallet")}
-        />
-      </div>
-
-      <div className="space-y-1 rounded-lg border border-border/60 bg-muted/20 p-3">
-        <p className="text-sm font-medium text-foreground">{i18n("keptWithinSafeLimits")}</p>
-        <p className="text-xs text-muted-foreground">
-          {i18n("aWalletCanHoldUpTo")} {MAX_USERS} {i18n("peopleInTotalOwnersAndSpendersTogetherPlus")} {MAX_BENEFICIARIES} {i18n("recoveryContactsAnd")}{" "}
-          {MAX_STREAMING_PAYMENTS} {i18n("scheduledPaymentsTheseLimitsKeepEveryWalletAction")}
-        </p>
-      </div>
-
       {adminCount === 0 && onZeroAdminConfirmedChange ? (
         <div className="space-y-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3">
           <p className="text-sm font-medium text-foreground">{i18n("noDirectOwnerYet")}</p>
@@ -254,11 +515,21 @@ export function StateFormEditor({
         action={
           <>
             {normalizedConnectedHash && !connectedWalletIsOwner ? (
-              <Button type="button" variant="secondary" onClick={useConnectedWalletAsOwner}>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={useConnectedWalletAsOwner}
+                disabled={
+                  !canAddUserWalletEntry ||
+                  (ownerUsers.length === 0
+                    ? peopleAtCap
+                    : ownerUsers[0].user.wallets.length >= MAX_WALLETS_PER_USER)
+                }
+              >
                 {i18n("useConnectedWallet")}
               </Button>
             ) : null}
-            <Button type="button" variant="outline" onClick={() => addOwner()}>
+            <Button type="button" variant="outline" onClick={() => addOwner()} disabled={peopleAtCap}>
               {i18n("addOwner")}
             </Button>
           </>
@@ -278,201 +549,36 @@ export function StateFormEditor({
                 user={user}
                 connectedPaymentKeyHash={normalizedConnectedHash}
                 connectedAddress={connectedAddress}
+                canAddWallet={
+                  canAddUserWalletEntry &&
+                  user.wallets.length < MAX_WALLETS_PER_USER
+                }
                 onChange={(nextUser) => updateUser(index, nextUser)}
                 onRemove={() => removeUser(index)}
               />
             ))}
           </div>
         )}
+        {peopleAtCap ? (
+          <p className="text-xs text-muted-foreground">
+            {accessRecordsAtCap && value.users.length < MAX_USERS
+              ? i18n("thisWalletAlreadyHoldsMaxAccessRecords", { max: MAX_ACCESS_RECORDS })
+              : i18n("thisWalletAlreadyHoldsMaxPeople", { max: MAX_USERS })}
+          </p>
+        ) : null}
       </WalletRuleSection>
 
-      <WalletRuleSection
-        icon={UsersRound}
-        title={i18n("spenders")}
-        description={i18n("aSpenderCanSendFundsUpToA")}
-        action={
-          <Button type="button" variant="outline" onClick={addSpendingPerson}>
-            {i18n("addSpender")}
-          </Button>
-        }
-      >
-        {spendingUsers.length === 0 ? (
-          <TaskEmptyState
-            icon={UsersRound}
-            title={i18n("noSpendersYet")}
-            description={i18n("wantSomeoneElseToSpendUpToA")}
-          />
-        ) : (
-          <div className="space-y-4">
-            {spendingUsers.map(({ user, index }) => (
-              <SpendingAccessEditor
-                key={`spending-${index}-${user.id}`}
-                user={user}
-                connectedPaymentKeyHash={normalizedConnectedHash}
-                connectedAddress={connectedAddress}
-                onChange={(nextUser) => updateUser(index, nextUser)}
-                onRemove={() => removeUser(index)}
-              />
-            ))}
-          </div>
-        )}
-      </WalletRuleSection>
-
-      <WalletRuleSection
-        icon={Clock3}
-        title={i18n("proofOfLife")}
-        description={i18n("howLongYouHaveBetweenCheckInsBefore")}
-      >
-        <WalletRuleTogglePanel
-          title={i18n("requireProofOfLife")}
-          description={i18n("turnThisOnSoRecoveryContactsCanAct")}
-          checked={safetyEnabled}
-          onCheckedChange={setSafetyEnabled}
-          enabledLabel={i18n("timerOn")}
-          disabledLabel={i18n("timerOff")}
+      {moreSettingsCollapsed ? (
+        <DisclosureSection
+          title={i18n("moreSettings")}
+          description={i18n("spendersProofOfLifeRecoveryContactsScheduled")}
+          defaultOpen={hasMoreSettings}
         >
-          <div className="grid gap-3 md:grid-cols-2">
-            <GuidedDateTimeField
-              idPrefix={`${label.replace(/\s+/g, "-").toLowerCase()}-proof-of-life-unlock`}
-              label={i18n("recoveryContactsCanClaimAfter")}
-              value={value.proofOfLifeUnlockTime}
-              onChange={(proofOfLifeUnlockTime) =>
-                onChange(withProofOfLifeUnlockTime(value, proofOfLifeUnlockTime, Date.now()))
-              }
-              helper={i18n("untilThisTimeOnlyTheOwnersCanUse")}
-            />
-            <GuidedDurationField
-              idPrefix={`${label.replace(/\s+/g, "-").toLowerCase()}-proof-of-life-extension`}
-              label={i18n("timeEachCheckInBuys")}
-              value={value.proofOfLifeIncrement}
-              onChange={(proofOfLifeIncrement) =>
-                onChange(withProofOfLifeIncrement(value, proofOfLifeIncrement, Date.now()))
-              }
-              helper={i18n("checkingInMovesTheDateBesideThisTo")}
-            />
-          </div>
-        </WalletRuleTogglePanel>
-      </WalletRuleSection>
-
-      <WalletRuleSection
-        icon={HandHeart}
-        title={i18n("recoveryContacts")}
-        description={i18n("addingOneTurnsOnProofOfLifeSo")}
-        action={
-          <Button type="button" variant="outline" onClick={addRecoveryPerson}>
-            {i18n("addRecoveryContact")}
-          </Button>
-        }
-      >
-        {value.beneficiaries.length === 0 ? (
-          <TaskEmptyState
-            icon={HandHeart}
-            title={i18n("noRecoveryContactsYet")}
-            description={i18n("ifYouEverLoseYourKeysRecoveryContacts")}
-          />
-        ) : (
-          <div className="space-y-4">
-            {value.beneficiaries.map((beneficiary, index) => (
-              <RecoveryAccessEditor
-                key={`recovery-${index}-${beneficiary.id}`}
-                beneficiary={beneficiary}
-                displayIndex={index + 1}
-                totalWeight={value.beneficiaries.reduce(
-                  (sum, entry) => sum + (Number.parseInt(entry.weight, 10) || 0),
-                  0
-                )}
-                connectedPaymentKeyHash={normalizedConnectedHash}
-                connectedAddress={connectedAddress}
-                onChange={(nextBeneficiary) =>
-                  onChange({
-                    ...value,
-                    beneficiaries: replaceAt(value.beneficiaries, index, nextBeneficiary)
-                  })
-                }
-                onRemove={() =>
-                  onChange({
-                    ...value,
-                    beneficiaries: removeAt(value.beneficiaries, index)
-                  })
-                }
-              />
-            ))}
-          </div>
-        )}
-      </WalletRuleSection>
-
-      <WalletRuleSection
-        icon={Repeat}
-        title={i18n("scheduledPayments")}
-        description={i18n("useThisForRecurringPayoutsToAFixed")}
-        action={allowNewStreamingPayments ? (
-          <Button type="button" variant="outline" onClick={addScheduledPayment}>
-            {i18n("addScheduledPayment")}
-          </Button>
-        ) : undefined}
-      >
-        {value.streamingPayments.length === 0 ? (
-          <TaskEmptyState
-            icon={Repeat}
-            title={i18n("noScheduledPaymentsYet")}
-            description={
-              allowNewStreamingPayments
-                ? i18n("youCanAlwaysSendManuallySchedulesJustSave")
-                : i18n("existingSchedulesMustBeForwardedUnchangedInThis")
-            }
-          />
-        ) : (
-          <div className="space-y-4">
-            {value.streamingPayments.map((streamingPayment, index) => (
-              <ScheduledPaymentEditor
-                key={`scheduled-payment-${index}-${streamingPayment.id}`}
-                streamingPayment={streamingPayment}
-                displayIndex={index + 1}
-                readOnly={existingStreamingPaymentIds.has(streamingPayment.id)}
-                onChange={(nextStreamingPayment) =>
-                  onChange({
-                    ...value,
-                    streamingPayments: replaceAt(value.streamingPayments, index, nextStreamingPayment)
-                  })
-                }
-                onRemove={() =>
-                  onChange({
-                    ...value,
-                    streamingPayments: removeAt(value.streamingPayments, index)
-                  })
-                }
-              />
-            ))}
-          </div>
-        )}
-      </WalletRuleSection>
-
-      <DisclosureSection
-        title={i18n("coSignerThreshold")}
-        description={i18n("turnThisOnSoAGroupHoldingEnough")}
-        defaultOpen={multiApprovalEnabled}
-      >
-        <WalletRuleTogglePanel
-          title={i18n("letSeveralPeopleActTogether")}
-          description={i18n("theWalletActsOnceApprovingPeopleHoldEnough")}
-          checked={multiApprovalEnabled}
-          onCheckedChange={setMultiApprovalEnabled}
-          enabledLabel={i18n("on")}
-          disabledLabel={i18n("off")}
-        >
-          <div className="space-y-1">
-            <Label htmlFor={`${uid}-approvals-needed`}>{i18n("approvalPowerNeeded")}</Label>
-            <Input
-              id={`${uid}-approvals-needed`}
-              value={value.multiSigThreshold}
-              onChange={(event) =>
-                onChange({ ...value, multiSigThreshold: event.target.value })
-              }
-              placeholder="2"
-            />
-          </div>
-        </WalletRuleTogglePanel>
-      </DisclosureSection>
+          {moreSettings}
+        </DisclosureSection>
+      ) : (
+        moreSettings
+      )}
     </div>
   );
 }

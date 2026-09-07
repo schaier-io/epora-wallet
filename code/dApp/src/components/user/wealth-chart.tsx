@@ -1,5 +1,5 @@
 "use client";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 
 import { type ReactNode, useId, useMemo, useState } from "react";
 import { motion } from "motion/react";
@@ -44,6 +44,8 @@ const RANGE_PILLS: Array<{ id: WealthChartRange; label: string; days: number | n
 ];
 
 const CHART_HEIGHT_CLASS = "h-[180px]";
+const CHART_MARGIN = { top: 8, right: 8, bottom: 0, left: 8 };
+const Y_AXIS_WIDTH = 44;
 
 type WealthChartProps = {
   series?: WealthSeriesPoint[];
@@ -89,20 +91,6 @@ function filterByRange<T extends { timestamp: number }>(rows: T[], range: Wealth
   };
 }
 
-function formatTimestampShort(ms: number) {
-  const date = new Date(ms);
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
-function formatTimestampLong(ms: number) {
-  return new Date(ms).toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit"
-  });
-}
-
 export function WealthChart({
   series,
   seriesList,
@@ -115,6 +103,7 @@ export function WealthChart({
   footer
 }: WealthChartProps) {
   const i18n = useTranslations("ComponentsUserWealthChart");
+  const format = useFormatter();
   const [range, setRange] = useState<WealthChartRange>(defaultRange);
   // Each series is range-filtered on its own before the merge. Filtering the merged
   // rows instead let a recent ADA line satisfy the range while an older token's
@@ -158,20 +147,21 @@ export function WealthChart({
   // The single-series branch works on the points as they came in; multi rows are
   // keyed by series id instead.
   const visiblePoints = visibleRows as WealthSeriesPoint[];
-  const empty = visible.length === 0;
-  const latestValue = visiblePoints[visiblePoints.length - 1]?.value ?? 0;
-  const firstValue = visiblePoints[0]?.value ?? 0;
-  const delta = latestValue - firstValue;
-  const deltaPct = firstValue !== 0 ? (delta / firstValue) * 100 : 0;
+  const latestValue = multi ? 0 : (visiblePoints[visiblePoints.length - 1]?.value ?? 0);
+  const firstValue = multi ? 0 : (visiblePoints[0]?.value ?? 0);
+  const delta = multi ? 0 : latestValue - firstValue;
+  const deltaPct = !multi && firstValue !== 0 ? (delta / firstValue) * 100 : 0;
   const deltaLabel =
     multi || visible.length < 2
       ? null
       : i18n("value1Value2Value3", { value1: delta >= 0 ? "+" : "−", value2: formatValue(Math.abs(delta)), value3: firstValue !== 0 ? ` (${delta >= 0 ? "+" : "−"}${Math.abs(deltaPct).toFixed(1)}%)` : "" });
+  const empty = visible.length === 0;
   // One id per instance: two charts on the same screen would otherwise share a
   // gradient, and the second `defs` would win for both. `useId` rather than a
   // random value, because a random one is impure during render and would differ
   // between the server and the client pass.
-  const gradientId = `wealth-chart-fill-${useId().replace(/:/g, "")}`;
+  const chartId = useId().replace(/:/g, "");
+  const gradientId = `wealth-chart-fill-${chartId}`;
   // A funded-and-untouched wallet is a flat line, and a flat series has no range
   // of its own: `dataMin`/`dataMax` collapse to a zero-height band and the area
   // fill disappears. The hand-rolled chart guarded this with
@@ -236,7 +226,7 @@ export function WealthChart({
   return (
     <div className={cn("wealth-chart rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4", className)}>
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="min-w-0">
+        <div className="min-w-0 wrap-anywhere">
           {title ? (
             <p className="eyebrow text-muted-foreground">
               {title}
@@ -283,7 +273,7 @@ export function WealthChart({
               >
                 {active ? (
                   <motion.span
-                    layoutId="wealth-chart-range-indicator"
+                    layoutId={`wealth-chart-range-indicator-${chartId}`}
                     aria-hidden="true"
                     className="absolute inset-0 -z-10 rounded-full bg-primary/15"
                     transition={{ type: "spring", stiffness: 380, damping: 32, mass: 0.6 }}
@@ -312,7 +302,7 @@ export function WealthChart({
           <div role="img" aria-label={chartLabel} className={cn("w-full", CHART_HEIGHT_CLASS)}>
             <div aria-hidden="true" className="h-full w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={visible} margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>
+                <AreaChart data={visible} margin={CHART_MARGIN}>
                   <defs>
                     {multi ? (
                       multi.entries.map((entry, index) => (
@@ -341,16 +331,17 @@ export function WealthChart({
                     type="number"
                     scale="time"
                     domain={xDomain}
-                    tickFormatter={formatTimestampShort}
+                    tickFormatter={(value) =>
+                      format.dateTime(Number(value), { month: "short", day: "numeric" })
+                    }
                     tickLine={false}
                     axisLine={false}
                     minTickGap={32}
                     tick={{ fontSize: 10 }}
                   />
                   <YAxis
-                    dataKey="value"
                     domain={yDomain}
-                    width={44}
+                    width={Y_AXIS_WIDTH}
                     tickCount={3}
                     tickFormatter={multi ? (multi.entries[0]?.formatValue ?? formatValue) : formatValue}
                     tickLine={false}
@@ -359,8 +350,16 @@ export function WealthChart({
                   />
                   <Tooltip
                     isAnimationActive={false}
+                    wrapperStyle={{ maxWidth: `calc(100% - ${Y_AXIS_WIDTH + CHART_MARGIN.left + CHART_MARGIN.right}px)` }}
                     cursor={{ strokeDasharray: "3 3" }}
-                    labelFormatter={(value) => formatTimestampLong(Number(value))}
+                    labelFormatter={(value) =>
+                      format.dateTime(Number(value), {
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit"
+                      })
+                    }
                     separator=""
                     formatter={(value, name) => {
                       if (multi) {
@@ -374,7 +373,9 @@ export function WealthChart({
                       background: "var(--popover)",
                       border: "1px solid var(--border)",
                       borderRadius: 8,
-                      fontSize: 12
+                      fontSize: 12,
+                      whiteSpace: "normal",
+                      overflowWrap: "anywhere"
                     }}
                     labelStyle={{ color: "var(--muted-foreground)" }}
                     itemStyle={{ color: "var(--foreground)" }}
@@ -396,6 +397,12 @@ export function WealthChart({
                           type="monotone"
                           dataKey={entry.id}
                           connectNulls
+                          // Recharts animates a series in on mount, and a container
+                          // resize or data refresh mid-animation can leave the line
+                          // unpainted (legend and ticks present, no stroke) until
+                          // something else redraws. The chart is small and refreshes
+                          // often; skip the animation entirely.
+                          isAnimationActive={false}
                           stroke={entry.color}
                           strokeWidth={1.75}
                           fill={`url(#${gradientId}-${index})`}
@@ -408,6 +415,9 @@ export function WealthChart({
                     <Area
                       type="monotone"
                       dataKey="value"
+                      // See the multi-series Area above: no mount animation, so the
+                      // line is painted on the first commit.
+                      isAnimationActive={false}
                       stroke="hsl(var(--brand-teal))"
                       strokeWidth={1.75}
                       fill={`url(#${gradientId})`}
@@ -433,7 +443,7 @@ export function WealthChart({
                 style={{ background: entry.color }}
               />
               <span className="min-w-0 truncate font-medium text-foreground">{entry.label}</span>
-              <span className="ml-auto shrink-0 tabular-nums text-muted-foreground">{text}</span>
+              <span className="ml-auto min-w-0 wrap-anywhere text-right tabular-nums text-muted-foreground">{text}</span>
             </div>
           ))}
         </div>

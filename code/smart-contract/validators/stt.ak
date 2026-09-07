@@ -7,14 +7,15 @@
 //// checklist: INTERACTIONS.md.
 
 use aiken/collection/list
+use cardano/address.{Script}
 use cardano/assets.{PolicyId}
 use cardano/transaction.{OutputReference, Transaction}
 use state/configuration as state_configuration
 use state/types as state_types
 use streaming_payments/shape as streaming_payment_shape
 use stt/io.{
-  TransitionContext, expect_minted_stt_state_and_asset_name,
-  expect_sole_stt_token, expect_transition_context, is_admin_operator_action,
+  expect_minted_stt_state_and_asset_name, expect_sole_stt_token,
+  expect_transition_context, is_admin_operator_action,
   output_reference_to_asset_name,
 }
 use stt/operator_handlers.{
@@ -25,7 +26,8 @@ use stt/settlement_handlers.{
   eval_cancel_streaming_payment, eval_consolidate, eval_pay_streaming_payment,
 }
 use stt/user_handlers.{
-  eval_renew_proof_of_life, eval_use_allowance, eval_use_beneficiary,
+  eval_distribute_beneficiaries, eval_exit_beneficiary, eval_renew_proof_of_life,
+  eval_stop_beneficiary_stream, eval_use_allowance, eval_use_beneficiary,
 }
 
 validator stt {
@@ -61,7 +63,6 @@ pub fn eval_mint(
   self: Transaction,
 ) -> Bool {
   let Transaction { inputs, outputs, mint, .. } = self
-
   // Decode the freshly minted STT output and validate its state payload.
   let Pair(state, asset_name) = expect_minted_stt_state_and_asset_name(
     outputs,
@@ -82,7 +83,11 @@ pub fn eval_mint(
   // duration. The reusable shape check allows zero-duration entries because a
   // receiver may later shorten an existing schedule exactly to its start, and
   // subsequent UpdateState/Manage forwarding must remain possible.
-  expect streaming_payment_shape.fresh_are_valid(state.streaming_payments)
+  expect
+    streaming_payment_shape.fresh_are_valid(
+      state.streaming_payments,
+      Script(policy_id),
+    )
   // A freshly minted wallet has no crank history, so the cooldown clock starts
   // empty. Pinning `None` here (not in `expect_valid_state_configuration`, which
   // also runs on `UpdateState` where the field must be PRESERVED) stops a creator
@@ -106,13 +111,23 @@ pub fn eval_spend(
   self: Transaction,
 ) -> Bool {
   // Build a shared view over the consumed and forwarded STT outputs.
-  let context = expect_transition_context(own_ref, self)
+  let  
+      transaction,
+      validity_range,
+      input_reference,
+      stt_payment_credential,
+      input_stt_value,
+      output_stt_value,
+      input_state,
+      output_state,
+      output_reference_script
+    <- expect_transition_context(own_ref, self)
 
   // Reference scripts on the forwarded STT output are forbidden except when
   // an admin operator action explicitly carries one (see
   // `is_admin_operator_action` for the rationale).
   let admin_carve_out = is_admin_operator_action(redeemer)
-  let no_reference_script_attached = context.output_reference_script == None
+  let no_reference_script_attached = output_reference_script == None
   expect or {
       admin_carve_out,
       no_reference_script_attached,
@@ -130,19 +145,19 @@ pub fn eval_spend(
   // only the admin/multisig set action below may change it.
   expect or {
       state_types.is_set_intended_stake_credential_action(redeemer),
-      context.input_state.intended_stake_credential == context.output_state.intended_stake_credential,
+      input_state.intended_stake_credential == output_state.intended_stake_credential,
     }
 
-  // Every action except the two cadence-limited streaming actions must preserve
-  // `last_non_admin_payout_at`. A non-admin payout crank and every receiver
-  // cancel advance it to the tx upper bound; an admin payout crank leaves it
-  // unchanged. Enforcing
+  // Every action except a cadence-limited payout, receiver cancellation, or
+  // beneficiary recovery must preserve `last_non_admin_payout_at`. Final
+  // beneficiary recovery advances it to the tx upper bound. Earlier
+  // beneficiary removal preserves it. Enforcing
   // preservation once here means no other transition — not even `UpdateState` —
   // can reset or advance the cooldown clock to weaken the next non-admin
   // crank's gate.
   expect or {
-      state_types.is_streaming_cadence_action(redeemer),
-      context.input_state.last_non_admin_payout_at == context.output_state.last_non_admin_payout_at,
+      state_types.is_non_admin_cadence_action(redeemer),
+      input_state.last_non_admin_payout_at == output_state.last_non_admin_payout_at,
     }
 
   // Dispatch per action variant. The per-action `eval_*` helpers (in
@@ -162,26 +177,148 @@ pub fn eval_spend(
   when redeemer is {
     state_types.RunOperator(operator_action) ->
       when operator_action.kind is {
-        state_types.Use -> eval_operator_use(operator_action, context)
+        state_types.Use ->
+          eval_operator_use(
+            operator_action,
+            transaction: transaction,
+            validity_range: validity_range,
+            input_state: input_state,
+            output_state: output_state,
+          )
         state_types.UpdateState ->
-          eval_operator_state_update(operator_action, context)
+          eval_operator_state_update(
+            operator_action,
+            transaction: transaction,
+            input_stt_value: input_stt_value,
+            output_stt_value: output_stt_value,
+            input_state: input_state,
+            output_state: output_state,
+          )
         state_types.ManageStreamingPayments ->
-          eval_manage_streaming_payments(operator_action, context)
+          eval_manage_streaming_payments(
+            operator_action,
+            transaction: transaction,
+            validity_range: validity_range,
+            stt_payment_credential: stt_payment_credential,
+            input_stt_value: input_stt_value,
+            output_stt_value: output_stt_value,
+            input_state: input_state,
+            output_state: output_state,
+          )
         state_types.RemoveAccessIndex(target) ->
-          eval_remove_access_index(target, operator_action, context)
+          eval_remove_access_index(
+            target,
+            operator_action,
+            transaction: transaction,
+            input_stt_value: input_stt_value,
+            output_stt_value: output_stt_value,
+            input_state: input_state,
+            output_state: output_state,
+          )
         state_types.SetIntendedStakeCredential(target) ->
-          eval_set_intended_stake_credential(target, operator_action, context)
+          eval_set_intended_stake_credential(
+            target,
+            operator_action,
+            transaction: transaction,
+            input_stt_value: input_stt_value,
+            output_stt_value: output_stt_value,
+            input_state: input_state,
+            output_state: output_state,
+          )
       }
-    state_types.RenewProofOfLife -> eval_renew_proof_of_life(context)
+    state_types.RenewProofOfLife ->
+      eval_renew_proof_of_life(
+        transaction: transaction,
+        validity_range: validity_range,
+        input_stt_value: input_stt_value,
+        output_stt_value: output_stt_value,
+        input_state: input_state,
+        output_state: output_state,
+      )
     state_types.UseAllowance(declared_spent_allowance) ->
-      eval_use_allowance(declared_spent_allowance, context)
+      eval_use_allowance(
+        declared_spent_allowance,
+        transaction: transaction,
+        validity_range: validity_range,
+        input_stt_value: input_stt_value,
+        output_stt_value: output_stt_value,
+        input_state: input_state,
+        output_state: output_state,
+      )
     state_types.UseBeneficiary(declared_beneficiary_id) ->
-      eval_use_beneficiary(declared_beneficiary_id, context)
+      eval_use_beneficiary(
+        declared_beneficiary_id,
+        transaction: transaction,
+        validity_range: validity_range,
+        input_stt_value: input_stt_value,
+        output_stt_value: output_stt_value,
+        input_state: input_state,
+        output_state: output_state,
+      )
+    state_types.DistributeBeneficiaries(declared_beneficiary_id) ->
+      eval_distribute_beneficiaries(
+        declared_beneficiary_id,
+        transaction: transaction,
+        validity_range: validity_range,
+        input_stt_value: input_stt_value,
+        output_stt_value: output_stt_value,
+        input_state: input_state,
+        output_state: output_state,
+      )
+    state_types.ExitBeneficiary(declared_beneficiary_id) ->
+      eval_exit_beneficiary(
+        declared_beneficiary_id,
+        transaction: transaction,
+        validity_range: validity_range,
+        input_stt_value: input_stt_value,
+        output_stt_value: output_stt_value,
+        input_state: input_state,
+        output_state: output_state,
+      )
+    state_types.StopBeneficiaryStream(
+      declared_beneficiary_id,
+      declared_streaming_payment_id,
+    ) ->
+      eval_stop_beneficiary_stream(
+        declared_beneficiary_id,
+        declared_streaming_payment_id,
+        transaction: transaction,
+        validity_range: validity_range,
+        input_stt_value: input_stt_value,
+        output_stt_value: output_stt_value,
+        input_state: input_state,
+        output_state: output_state,
+      )
     state_types.PayStreamingPayment(declared_payout_delta) ->
-      eval_pay_streaming_payment(declared_payout_delta, context)
+      eval_pay_streaming_payment(
+        declared_payout_delta,
+        transaction: transaction,
+        validity_range: validity_range,
+        input_reference: input_reference,
+        input_stt_value: input_stt_value,
+        output_stt_value: output_stt_value,
+        input_state: input_state,
+        output_state: output_state,
+      )
     state_types.Consolidate(consolidate_path) ->
-      eval_consolidate(consolidate_path, context)
+      eval_consolidate(
+        consolidate_path,
+        transaction: transaction,
+        validity_range: validity_range,
+        input_stt_value: input_stt_value,
+        output_stt_value: output_stt_value,
+        input_state: input_state,
+        output_state: output_state,
+      )
     state_types.CancelStreamingPayment(declared_streaming_payment_id) ->
-      eval_cancel_streaming_payment(declared_streaming_payment_id, context)
+      eval_cancel_streaming_payment(
+        declared_streaming_payment_id,
+        transaction: transaction,
+        validity_range: validity_range,
+        input_stt_value: input_stt_value,
+        output_stt_value: output_stt_value,
+        input_state: input_state,
+        output_state: output_state,
+      )
   }
 }

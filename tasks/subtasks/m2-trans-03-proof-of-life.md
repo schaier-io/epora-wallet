@@ -5,7 +5,7 @@ Contract dev task (done) · [Milestone 2](../milestone-2-smart-contract.md) · W
 ## What landed
 
 - [x] Renewal window ([lib/state/proof_of_life.ak](../../code/smart-contract/lib/state/proof_of_life.ak) `has_valid_renewal_window`): new deadline ≥ tx latest bound, ≤ one increment past the earliest bound.
-- [x] Signer must hold `can_renew_proof_of_life` ([lib/stt/action_checks.ak](../../code/smart-contract/lib/stt/action_checks.ak) `proof_of_life_user_signature_matches`).
+- [x] Signer must hold `can_renew_proof_of_life` ([lib/stt/user_handlers.ak](../../code/smart-contract/lib/stt/user_handlers.ak) `proof_of_life_user_signature_matches`).
 - [x] No wallet movement; diff pinned to the unlock time (`state_unchanged_except_pol_unlock_time`).
 - [x] Beneficiary-side consumers (`calculate_beneficiary_unlock_time`, `is_unlock_time_reached`) in the same module — one timing model.
 

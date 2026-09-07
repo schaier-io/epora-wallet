@@ -106,6 +106,15 @@ describe("the wallet address", () => {
     expect(screen.queryByText("Wallet address")).not.toBeInTheDocument();
   });
 
+  it("keeps copy and explorer controls beside the receive address", () => {
+    renderView({ address: "addr_test1locking", receiveAddress: "addr_test1receive" });
+
+    const address = screen.getByText("addr_test1receive");
+    const row = address.closest("div");
+    expect(row).toContainElement(screen.getByRole("button", { name: "Copy address" }));
+    expect(row).toContainElement(screen.getByRole("link", { name: "Open address on Cardanoscan" }));
+  });
+
   it("stops repeating the address error down the page", () => {
     renderView();
 

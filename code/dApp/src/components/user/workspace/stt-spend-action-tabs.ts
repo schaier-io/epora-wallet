@@ -7,6 +7,39 @@ import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspace
 
 const i18n = createDefaultTranslator("ComponentsUserWorkspaceSttSpendActionTabs", defaultMessages);
 
+const beneficiaryWithdrawalTab = {
+    value: "use-beneficiary" as const,
+    label: i18n("spendAsRecoveryContact"),
+    tabHint: i18n("useBeneficiaryTabHint"),
+    description:
+      i18n("spendAsARecoveryContactOnceTheWallet"),
+    stateHelper:
+      i18n("useBeneficiaryStateHelper"),
+    outputStateLabel: i18n("outputStateUpdated"),
+    outputAssetsHelper:
+      i18n("outputAssetsOnlyAdaLeaves"),
+    showOutputAssets: true,
+    lockedInputsHelper:
+      i18n("useBeneficiaryLockedInputsHelper"),
+    lockedInputsLabel: i18n("lockedInputsFundPools"),
+    lockedInputsEditorLabel: i18n("lockedInputsEditorFundPools"),
+    lockedInputsEditorHelper:
+      i18n("lockedInputsEditorAddOrPick"),
+    lockedOutputsHelper:
+      i18n("lockedOutputsLeftover"),
+    lockedOutputsLabel: i18n("lockedOutputsStaysInWallet"),
+    showTransfers: true,
+    transfersHelper:
+      i18n("useBeneficiaryTransfersHelper"),
+    transferSelectorHelper:
+      i18n("selectorPickFundPools"),
+    showProofOfLifeOverride: false,
+    allowsStateEditing: false,
+    showLockedContractUtxoBrowser: true,
+    showQuickTransferBuilder: true,
+    buildLabel: i18n("buildPreviewRecoveryPayment")
+  };
+
 export const STT_SPEND_ACTION_TABS: Array<{
   value: SttSpendActionMode;
   label: string;
@@ -43,7 +76,7 @@ export const STT_SPEND_ACTION_TABS: Array<{
       i18n("sendStateHelper"),
     outputStateLabel: i18n("outputStateUpdated"),
     outputAssetsHelper:
-      i18n("outputAssetsKeepAll"),
+      i18n("outputAssetsOperatorUse"),
     showOutputAssets: true,
     lockedInputsHelper:
       i18n("sendLockedInputsHelper"),
@@ -194,36 +227,45 @@ export const STT_SPEND_ACTION_TABS: Array<{
     buildLabel: i18n("buildPreviewAllowanceSend")
   },
   {
-    value: "use-beneficiary",
-    label: i18n("spendAsRecoveryContact"),
-    tabHint: i18n("useBeneficiaryTabHint"),
-    description:
-      i18n("spendAsARecoveryContactOnceTheWallet"),
-    stateHelper:
-      i18n("useBeneficiaryStateHelper"),
-    outputStateLabel: i18n("outputStateUpdated"),
-    outputAssetsHelper:
-      i18n("outputAssetsOnlyAdaLeaves"),
-    showOutputAssets: true,
-    lockedInputsHelper:
-      i18n("useBeneficiaryLockedInputsHelper"),
-    lockedInputsLabel: i18n("lockedInputsFundPools"),
-    lockedInputsEditorLabel: i18n("lockedInputsEditorFundPools"),
-    lockedInputsEditorHelper:
-      i18n("lockedInputsEditorAddOrPick"),
-    lockedOutputsHelper:
-      i18n("lockedOutputsLeftover"),
-    lockedOutputsLabel: i18n("lockedOutputsStaysInWallet"),
-    showTransfers: true,
-    transfersHelper:
-      i18n("useBeneficiaryTransfersHelper"),
-    transferSelectorHelper:
-      i18n("selectorPickFundPools"),
+    ...beneficiaryWithdrawalTab,
+    value: "stop-beneficiary-stream",
+    label: i18n("stopStreamLabel"),
+    tabHint: i18n("stopStreamHint"),
+    description: i18n("stopStreamDescription"),
+    stateHelper: i18n("stopStreamDescription"),
+    showOutputAssets: false,
+    showTransfers: false,
     showProofOfLifeOverride: false,
     allowsStateEditing: false,
-    showLockedContractUtxoBrowser: true,
-    showQuickTransferBuilder: true,
-    buildLabel: i18n("buildPreviewRecoveryPayment")
+    showLockedContractUtxoBrowser: false,
+    showQuickTransferBuilder: false,
+    buildLabel: i18n("stopStreamBuild")
+  },
+  {
+    ...beneficiaryWithdrawalTab,
+    value: "distribute-beneficiaries",
+    label: i18n("distributionLabel"),
+    tabHint: i18n("distributionHint"),
+    description: i18n("distributionDescription"),
+    stateHelper: i18n("distributionDescription"),
+    showOutputAssets: false,
+    showTransfers: false,
+    showProofOfLifeOverride: false,
+    allowsStateEditing: false,
+    showLockedContractUtxoBrowser: false,
+    showQuickTransferBuilder: false,
+    buildLabel: i18n("distributionBuild")
+  },
+  beneficiaryWithdrawalTab,
+  {
+    ...beneficiaryWithdrawalTab,
+    value: "exit-beneficiary",
+    label: i18n("permanentExitLabel"),
+    tabHint: i18n("permanentExitHint"),
+    description: i18n("permanentExitDescription"),
+    stateHelper: i18n("permanentExitStateHelper"),
+    outputAssetsHelper: i18n("permanentExitOutputAssetsHelper"),
+    buildLabel: i18n("permanentExitBuild")
   },
   {
     value: "payout-streaming-payment",
@@ -269,11 +311,10 @@ export const STT_SPEND_ACTION_TABS: Array<{
     outputAssetsHelper:
       i18n("outputAssetsFewerPools"),
     showOutputAssets: false,
-    // "at least two" was wrong in both places. `action-validation.ts:238-243` validates this
-    // list with a minimum of 1, and `lib/mesh/transactions/consolidate-utxos.ts:19` rejects
-    // only `length < 1`, because a single pool is the orphan-sweep case, which is what the
-    // wallet-home "Move it back" button runs. The form said two while the validator under it
-    // said one.
+    // One input is valid. It can move an old stake-address variant back to the
+    // wallet's current address. API callers can also provide exact custom outputs
+    // to merge or split the selected value. This browser form defaults to one
+    // merged output because it does not expose a custom-output editor.
     lockedInputsHelper:
       i18n("tidyFundsLockedInputsHelper"),
     lockedInputsLabel: i18n("lockedInputsChooseFundPools"),

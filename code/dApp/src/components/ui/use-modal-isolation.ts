@@ -43,6 +43,11 @@ export function useModalIsolation({
       const parent = current.parentElement;
       for (const sibling of Array.from(parent.children)) {
         if (sibling === current || !(sibling instanceof HTMLElement)) continue;
+        // A modal isolates what sits behind it, and must not isolate what is meant to sit
+        // above it. The toast host is a sibling of the app root, so inerting it leaves a
+        // toast raised from inside the modal painted on screen but unannounced, unfocusable
+        // and impossible to dismiss.
+        if (sibling.hasAttribute("data-modal-passthrough")) continue;
         inerted.push({ element: sibling, wasInert: sibling.hasAttribute("inert") });
         sibling.setAttribute("inert", "");
       }
@@ -57,13 +62,14 @@ export function useModalIsolation({
       (initialFocusRef?.current ?? first ?? container)?.focus();
     }, 0);
 
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && onEscapeRef.current) {
-        event.preventDefault();
-        onEscapeRef.current();
+    const handleTab = (event: KeyboardEvent) => {
+      if (event.key !== "Tab") return;
+      if (
+        event.target instanceof HTMLElement &&
+        event.target.closest("[data-modal-passthrough]")
+      ) {
         return;
       }
-      if (event.key !== "Tab") return;
 
       const focusables = Array.from(
         containerRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR) ?? []
@@ -76,19 +82,49 @@ export function useModalIsolation({
 
       const first = focusables[0]!;
       const last = focusables[focusables.length - 1]!;
-      if (event.shiftKey && document.activeElement === first) {
+      const container = containerRef.current;
+      const active = document.activeElement as HTMLElement | null;
+
+      // Focus can sit on the container itself, which is where this hook puts it when a
+      // modal names its own container as the initial focus, and where a click on any
+      // non-focusable part of the modal leaves it. The container is not one of its own
+      // descendants, so it matches neither boundary below, and a backward Tab from there
+      // walks out of the modal to whatever precedes it in the document. `inert` on the
+      // background hides that from the mouse and the screen reader, not from the keyboard
+      // in every engine, so the boundary is enforced here too.
+      if (!active || active === container || !container?.contains(active)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+        return;
+      }
+      if (event.shiftKey && active === first) {
         event.preventDefault();
         last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
+      } else if (!event.shiftKey && active === last) {
         event.preventDefault();
         first.focus();
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown);
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented || !onEscapeRef.current) return;
+      if (event.target instanceof HTMLSelectElement) return;
+      if (
+        event.target instanceof HTMLElement &&
+        event.target.closest("[data-modal-passthrough]")
+      ) {
+        return;
+      }
+      event.preventDefault();
+      onEscapeRef.current();
+    };
+
+    window.addEventListener("keydown", handleTab, true);
+    window.addEventListener("keydown", handleEscape);
     return () => {
       window.clearTimeout(focusTimer);
-      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keydown", handleTab, true);
+      window.removeEventListener("keydown", handleEscape);
       document.body.style.overflow = previousOverflow;
       for (const { element, wasInert } of inerted) {
         if (!wasInert) element.removeAttribute("inert");

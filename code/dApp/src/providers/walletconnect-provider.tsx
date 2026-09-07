@@ -59,10 +59,8 @@ export function WalletConnectProvider({ children }: PropsWithChildren) {
     ...DEFAULT_STATE,
     available: isWalletConnectConfigured()
   }));
-  const initRef = useRef(false);
-  // Bumped on every pairing attempt and on cancel, so an attempt whose approval
-  // is still open on the phone can tell that it was superseded or cancelled.
-  const pairAttemptRef = useRef(0);
+  // Cancel or a newer connect bumps this; an older attempt then drops its result.
+  const attemptRef = useRef(0);
 
   const patch = useCallback((next: Partial<WalletConnectState>) => {
     setState((prev) => ({ ...prev, ...next }));
@@ -70,35 +68,50 @@ export function WalletConnectProvider({ children }: PropsWithChildren) {
 
   // Restore any existing session on mount.
   useEffect(() => {
-    if (initRef.current) return;
-    initRef.current = true;
     if (!isWalletConnectConfigured()) return;
+
+    let active = true;
+    let eventClient: {
+      off: (event: string, listener: (payload: { topic: string }) => void) => void;
+    } | null = null;
+    let sessionEventListener: ((payload: { topic: string }) => void) | null = null;
+
+    const handleSessionDelete = ({ topic }: { topic: string }) => {
+      setState((prev) =>
+        prev.session?.topic === topic
+          ? { ...prev, session: null, status: "idle", uri: null, error: null }
+          : prev
+      );
+    };
 
     void (async () => {
       try {
         const client = await getSignClient();
+        if (!active) return;
         const sessions = client.session.getAll();
-        const active = sessions[sessions.length - 1];
-        if (active) {
-          patch({ session: active, status: "connected" });
+        const restored = sessions[sessions.length - 1];
+        if (restored) {
+          patch({ session: restored, status: "connected" });
         }
 
-        const events = (client as unknown as {
+        const events = client as unknown as {
           on: (event: string, listener: (payload: { topic: string }) => void) => void;
-        }).on.bind(client);
-        events("session_delete", ({ topic }) => {
-          setState((prev) =>
-            prev.session?.topic === topic
-              ? { ...prev, session: null, status: "idle", uri: null }
-              : prev
-          );
-        });
-        events("session_event", () => {
-          const next = client.session.getAll();
-          const latest = next[next.length - 1] ?? null;
-          patch({ session: latest });
-        });
+          off: (event: string, listener: (payload: { topic: string }) => void) => void;
+        };
+        const handleSessionEvent = ({ topic }: { topic: string }) => {
+          setState((prev) => {
+            if (prev.session?.topic !== topic) return prev;
+            const updated = client.session.getAll().find((session) => session.topic === topic);
+            return updated ? { ...prev, session: updated } : prev;
+          });
+        };
+        eventClient = events;
+        sessionEventListener = handleSessionEvent;
+        events.on("session_delete", handleSessionDelete);
+        events.on("session_event", handleSessionEvent);
+        events.on("session_update", handleSessionEvent);
       } catch (err) {
+        if (!active) return;
         patch({
           status: "error",
           error: getUserFacingErrorMessage(
@@ -108,6 +121,15 @@ export function WalletConnectProvider({ children }: PropsWithChildren) {
         });
       }
     })();
+
+    return () => {
+      active = false;
+      eventClient?.off("session_delete", handleSessionDelete);
+      if (sessionEventListener) {
+        eventClient?.off("session_event", sessionEventListener);
+        eventClient?.off("session_update", sessionEventListener);
+      }
+    };
   }, [i18n, patch]);
 
   const connect = useCallback(async () => {
@@ -118,38 +140,43 @@ export function WalletConnectProvider({ children }: PropsWithChildren) {
       });
       return;
     }
-    const attemptId = (pairAttemptRef.current += 1);
-    const stillActive = () => pairAttemptRef.current === attemptId;
-
+    const attempt = (attemptRef.current += 1);
+    const stillActive = () => attemptRef.current === attempt;
     patch({ status: "connecting", error: null, uri: null });
     try {
       const client = await getSignClient();
+      // Client setup is async: the attempt may have been cancelled while it ran,
+      // and opening a pairing for a dead attempt would leak a live URI nothing reaps.
+      if (!stillActive()) return;
       const { uri, approval } = await client.connect({
         requiredNamespaces: buildRequiredNamespaces(state.network)
       });
-      if (!stillActive()) return;
+      if (!stillActive()) {
+        // Cancelled while the pairing was being opened: the phone may still approve,
+        // so reap the session when it appears instead of leaking it.
+        void approval()
+          .then((session) =>
+            client.disconnect({
+              topic: session.topic,
+              reason: { code: 6000, message: i18n("userDisconnected") }
+            })
+          )
+          .catch(() => undefined);
+        return;
+      }
       if (uri) {
         patch({ uri, status: "awaiting-approval" });
       }
       const session = await approval();
       if (!stillActive()) {
-        // Cancel happened here, while the phone was still deciding. `approval()`
-        // keeps running, so without this the panel jumped to "connected" some
-        // time after the user cancelled. Close the session the phone approved
-        // rather than holding one this app will not use.
+        // The phone approved after the user cancelled here: end that session.
         void client
-          .disconnect({
-            topic: session.topic,
-            reason: { code: 6000, message: i18n("userDisconnected") }
-          })
-          .catch(() => {
-            // Best effort: the pairing expires on its own.
-          });
+          .disconnect({ topic: session.topic, reason: { code: 6000, message: i18n("userDisconnected") } })
+          .catch(() => undefined);
         return;
       }
       patch({ session, status: "connected", uri: null });
     } catch (err) {
-      // A cancelled attempt must not report its own failure over the idle panel.
       if (!stillActive()) return;
       patch({
         status: "error",
@@ -163,8 +190,7 @@ export function WalletConnectProvider({ children }: PropsWithChildren) {
   }, [i18n, patch, state.network]);
 
   const disconnect = useCallback(async () => {
-    // This is also the Cancel control while a pairing is awaiting approval.
-    pairAttemptRef.current += 1;
+    attemptRef.current += 1;
     const current = state.session;
     if (!current) {
       patch({ status: "idle", uri: null, error: null });
@@ -176,10 +202,23 @@ export function WalletConnectProvider({ children }: PropsWithChildren) {
         topic: current.topic,
         reason: { code: 6000, message: i18n("userDisconnected") }
       });
-    } catch {
-      // Treat best-effort disconnect failures as success locally.
+    } catch (err) {
+      const error = getUserFacingErrorMessage(
+        err,
+        i18n("couldNotDisconnectMobileWalletTryAgain")
+      );
+      setState((prev) =>
+        prev.session?.topic === current.topic
+          ? { ...prev, status: "connected", uri: null, error }
+          : prev
+      );
+      return;
     }
-    patch({ status: "idle", session: null, uri: null, error: null });
+    setState((prev) =>
+      prev.session?.topic === current.topic
+        ? { ...prev, status: "idle", session: null, uri: null, error: null }
+        : prev
+    );
   }, [i18n, patch, state.session]);
 
   const setNetwork = useCallback(

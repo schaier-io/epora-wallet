@@ -29,9 +29,19 @@ const CardHeader = React.forwardRef<
 ));
 CardHeader.displayName = "CardHeader";
 
-const CardTitle = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTMLHeadingElement>>(
-  ({ className, ...props }, ref) => (
-    <h3
+const CardTitle = React.forwardRef<
+  HTMLHeadingElement,
+  React.HTMLAttributes<HTMLHeadingElement> & {
+    /**
+     * The heading level this title sits at. The default suits a card inside a page that
+     * already has its own heading. A card that IS the page's subject takes `h1`, so the
+     * page does not need a second, hidden copy of the same words.
+     */
+    as?: "h1" | "h2" | "h3";
+  }
+>(
+  ({ className, as: Heading = "h3", ...props }, ref) => (
+    <Heading
       ref={ref}
       className={cn(
         // Display font + tighter tracking gives every card a confident editorial header
