@@ -5,6 +5,7 @@ import { atom } from "jotai";
 
 import type { BuildResult } from "@/lib/types/contracts";
 import type { MintConfirmationState } from "@/components/user/workspace/types";
+import { retireWalletStateUpdateAtom } from "./wallet-state-update.atoms";
 
 /**
  * Atomic model of the transaction **build/submit lifecycle**, the slice that was
@@ -212,6 +213,7 @@ export const resetAllFlowAtom = atom(null, (get, set) => {
   set(mintConfirmationAtom, null);
   set(mintCelebrationAtom, null);
   set(dismissedSubmitHashAtom, null);
+  set(retireWalletStateUpdateAtom);
 });
 
 /**

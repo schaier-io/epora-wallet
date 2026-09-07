@@ -7,6 +7,7 @@ import {
   detectedSttTokensAtom,
   permissionWalletSummariesAtom
 } from "@/components/user/workspace/atoms/workspace-data.atoms";
+import { beginWalletStateUpdateAtom } from "./atoms/wallet-state-update.atoms";
 import type * as WorkspaceHelpers from "@/components/user/workspace/helpers";
 import type { DetectedSttToken } from "@/lib/mesh/detection";
 
@@ -117,6 +118,41 @@ it("ignores an older token scan that finishes after a newer scan", async () => {
 
   expect(store.get(detectedSttTokensAtom)).toEqual([newerToken]);
   expect(invalidatedResult).toBeNull();
+});
+
+it("does not publish a generic scan after an exact State refresh starts", async () => {
+  const genericToken = { unit: "policyold", policyId: "policy", assetNameHex: "old" } as DetectedSttToken;
+  const replacementToken = { unit: token.unit, policyId: "policy", assetNameHex: "aa" } as DetectedSttToken;
+  let resolveGeneric!: (result: { policyId: string; tokens: DetectedSttToken[] }) => void;
+  mocks.detectSttInfo
+    .mockReturnValueOnce(new Promise((resolve) => (resolveGeneric = resolve)))
+    .mockResolvedValueOnce({ policyId: "policy", tokens: [replacementToken] });
+  const { store, hook } = setup(token.unit);
+  let generic!: ReturnType<typeof hook.result.current.refreshDetectedTokens>;
+
+  act(() => {
+    generic = hook.result.current.refreshDetectedTokens();
+  });
+  act(() => {
+    store.set(beginWalletStateUpdateAtom, {
+      walletUnit: token.unit,
+      submittedTxHash: "ab".repeat(32),
+      spentRef: { txHash: "cd".repeat(32), outputIndex: 0 }
+    });
+  });
+  await act(async () => {
+    await hook.result.current.refreshDetectedTokens({
+      exactStateRefresh: true,
+      keepSelection: true,
+      knownUnit: token.unit
+    });
+  });
+  await act(async () => {
+    resolveGeneric({ policyId: "policy", tokens: [genericToken] });
+    expect(await generic).toBeNull();
+  });
+
+  expect(store.get(detectedSttTokensAtom)).toEqual([replacementToken]);
 });
 
 it("keeps a manual scan result when the mount scan finishes later", async () => {

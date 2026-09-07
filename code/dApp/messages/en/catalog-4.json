@@ -186,7 +186,8 @@
   "ComponentsUserWorkspaceWorkspaceFlowHandlers": {
     "connectABrowserWalletBeforeContinuing": "Connect a browser wallet before continuing.",
     "connectedWalletIsNotOnPreprodSwitchNetworks": "Connected wallet is not on Preprod. Switch networks and try again.",
-    "demoWalletIsReadOnlyConnectABrowser": "Demo wallet is read-only. Connect a browser wallet before continuing."
+    "demoWalletIsReadOnlyConnectABrowser": "Demo wallet is read-only. Connect a browser wallet before continuing.",
+    "updatingWalletState": "Updating wallet state…"
   },
   "ComponentsUserWorkspaceWorkspaceGuidedAdminSectionView": {
     "manage": "Manage",
@@ -268,6 +269,7 @@
   },
   "ComponentsUserWorkspaceWorkspaceReviewRailView": {
     "approvalRequestsCannotRenameThisWallet": "Approval requests cannot rename this wallet. Restore the current name first.",
+    "updatingWalletState": "Updating wallet state…",
     "approvalRuleNeedsPower": "This rule needs {approvalThreshold} approval power between the co-signers.",
     "fixHighlightedFieldsBeforeSaving": "Fix the highlighted fields first. Then this can be saved for the other signers.",
     "proposalBlocked": "{description} Then this can be saved for the other signers.",

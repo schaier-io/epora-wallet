@@ -1,4 +1,4 @@
-import { resetAllFlowAtom } from "./atoms/transaction-flow.atoms";
+import { resetAllFlowAtom, resetFlowAtom } from "./atoms/transaction-flow.atoms";
 import { schedulePostSubmitRefresh } from "./workspace-transaction-refresh";
 import { parseWorkspaceRouteState } from "@/components/user/workspace-controller";
 import { routeStateAtom } from "./atoms/workspace-route.atoms";
@@ -6,12 +6,21 @@ import { currentRecoveryCapacityFailureAtom } from "./atoms/recovery-capacity.at
 import { beneficiaryPreparationActiveAtom, consolidateWalletInputsAtom } from "./atoms/forms/consolidate-form.atoms";
 import { createStore } from "jotai";
 import { beforeEach, expect, it, vi } from "vitest";
-import { sttWalletInputsAtom } from "./atoms/forms/stt-spend-form.atoms";
+import {
+  sttInputOutputIndexAtom,
+  sttInputTxHashAtom,
+  sttWalletInputsAtom
+} from "./atoms/forms/stt-spend-form.atoms";
+import { pendingWalletStateUpdateAtom } from "./atoms/wallet-state-update.atoms";
 import type { BuildResult } from "@/lib/types/contracts";
 
-const mocks = vi.hoisted(() => ({ signAndSubmitTx: vi.fn() }));
+const mocks = vi.hoisted(() => ({ signAndSubmitTx: vi.fn(), fetchTransactionsByHash: vi.fn() }));
 
 vi.mock("@/lib/mesh/transactions", () => ({ signAndSubmitTx: mocks.signAndSubmitTx }));
+vi.mock("@/components/user/workspace/helpers", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  fetchTransactionsByHash: mocks.fetchTransactionsByHash
+}));
 vi.mock("@/components/user/workspace/workspace-transaction-refresh", () => ({
   schedulePostSubmitRefresh: vi.fn()
 }));
@@ -61,6 +70,45 @@ function makeDeps(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   mocks.signAndSubmitTx.mockReset().mockResolvedValue(TX_HASH);
+  mocks.fetchTransactionsByHash.mockReset().mockResolvedValue([]);
+});
+
+it("keeps confirmation alive across action navigation and swaps the spent State ref", async () => {
+  vi.useFakeTimers();
+  const spent = { txHash: "cd".repeat(32), outputIndex: 1 };
+  const replacement = { txHash: "ef".repeat(32), outputIndex: 2 };
+  const walletUnit = `${"12".repeat(28)}01`;
+  const token = (input: typeof spent) => ({
+    unit: walletUnit,
+    utxo: { input, output: { address: "addr_test1state", amount: [] } }
+  });
+  const refreshDetectedTokens = vi.fn()
+    .mockResolvedValueOnce({ tokens: [token(spent)] })
+    .mockResolvedValueOnce({ tokens: [token(replacement)] });
+  const deps = makeDeps({ selectedDetectedToken: token(spent), refreshDetectedTokens });
+  deps.jotaiStore.set(sttInputTxHashAtom, spent.txHash);
+  deps.jotaiStore.set(sttInputOutputIndexAtom, String(spent.outputIndex));
+  mocks.fetchTransactionsByHash.mockResolvedValue([{}]);
+
+  try {
+    await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
+    deps.jotaiStore.set(resetFlowAtom);
+    expect(deps.jotaiStore.get(pendingWalletStateUpdateAtom)?.spentRef).toEqual(spent);
+
+    await vi.advanceTimersByTimeAsync(12_000);
+
+    expect(refreshDetectedTokens).toHaveBeenCalledTimes(2);
+    expect(refreshDetectedTokens).toHaveBeenLastCalledWith({
+      keepSelection: true,
+      knownUnit: walletUnit,
+      exactStateRefresh: true
+    });
+    expect(deps.jotaiStore.get(sttInputTxHashAtom)).toBe(replacement.txHash);
+    expect(deps.jotaiStore.get(sttInputOutputIndexAtom)).toBe("2");
+    expect(deps.jotaiStore.get(pendingWalletStateUpdateAtom)).toBeNull();
+  } finally {
+    vi.useRealTimers();
+  }
 });
 
 it("ignores unavailable local storage when saving recent recipients", () => {

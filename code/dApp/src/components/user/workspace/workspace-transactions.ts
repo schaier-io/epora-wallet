@@ -142,6 +142,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     networkId,
     jotaiStore,
     selectedAction,
+    selectedDetectedToken,
     preview,
     previewMatchesSelectedAction,
     submitHash,
