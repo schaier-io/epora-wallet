@@ -1,7 +1,17 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { Provider, createStore } from "jotai";
 import { describe, expect, it, vi } from "vitest";
 
-import { StateAssetAmountListEditor, WalletHashesEditor } from "./asset-editors";
+import { getDefaultStore } from "jotai";
+import { useState } from "react";
+import { resolvedWalletAddressesAtom } from "@/providers/wallet-address-book";
+import { MAX_ALLOWANCE_ENTRIES } from "@/lib/contracts/state-validation";
+import { createDefaultStateForm, createDefaultUserFormState, stateFormToDatum, type StateAssetAmountForm } from "@/lib/contracts/state-form";
+import { readStateSections } from "@/lib/contracts/state-layout";
+import { parseValueData } from "@/lib/contracts/value-data";
+import { StateAssetAmountListEditor, WalletHashesEditor, WalletInputRefsEditor } from "./asset-editors";
+import type { WalletInputRef } from "@/lib/types/contracts";
+import { activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
 
 // The SDK's bech32 machinery throws under jsdom ("radix2.encode input should be
 // Uint8Array"), so this file stands in a minimal BIP-173 codec for both building real
@@ -130,6 +140,63 @@ vi.mock("@meshsdk/core", () => ({
 const VALID_WALLET = "ab".repeat(28);
 
 describe("a list of token amounts", () => {
+  it("stops adding assets at the on-chain allowance-list cap", () => {
+    const onChange = vi.fn();
+    render(
+      <StateAssetAmountListEditor
+        label="Daily limit"
+        value={Array.from({ length: MAX_ALLOWANCE_ENTRIES }, () => ({
+          policyId: "",
+          assetName: "",
+          amount: "0"
+        }))}
+        onChange={onChange}
+      />
+    );
+
+    const add = screen.getByRole("button", { name: "Add a token" });
+    expect(add).toBeDisabled();
+    fireEvent.click(add);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("lets the parent stop adds at the total allowance cap", () => {
+    const onChange = vi.fn();
+    render(
+      <StateAssetAmountListEditor
+        label="Daily limit"
+        value={[]}
+        onChange={onChange}
+        canAdd={false}
+      />
+    );
+
+    const add = screen.getByRole("button", { name: "Add a token" });
+    expect(add).toBeDisabled();
+    fireEvent.click(add);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("gives two lists with the same label distinct control ids", () => {
+    // Every spender's editor renders "Daily limit"; the label used to be the id.
+    const row = [{ policyId: "", assetName: "", amount: "0" }];
+    const first = render(
+      <StateAssetAmountListEditor label="Daily limit" value={row} onChange={vi.fn()} />
+    ).container;
+    const second = render(
+      <StateAssetAmountListEditor label="Daily limit" value={row} onChange={vi.fn()} />
+    ).container;
+
+    const idOf = (root: HTMLElement) =>
+      root.querySelector<HTMLLabelElement>('label[for$="-amount-0"]')?.htmlFor;
+    const firstId = idOf(first);
+    const secondId = idOf(second);
+    expect(firstId).toBeTruthy();
+    expect(firstId).not.toBe(secondId);
+    expect(first.querySelector(`#${CSS.escape(firstId!)}`)).not.toBeNull();
+    expect(second.querySelector(`#${CSS.escape(secondId!)}`)).not.toBeNull();
+  });
+
   /**
    * The same component renders "Daily limit" and "Left to spend" in the spender editor
    * (E2), so a row is not always a limit. Both buttons said it was.
@@ -165,8 +232,61 @@ describe("a list of token amounts", () => {
       )
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Token policy id")).toBeInTheDocument();
-    expect(screen.getByLabelText("Token name (hex)")).toBeInTheDocument();
+    expect(screen.getByLabelText("Token name")).toBeInTheDocument();
     expect(screen.queryByLabelText("Policy ID")).not.toBeInTheDocument();
+  });
+
+  it("stores typed ADA text and converts it once when encoding the datum", () => {
+    const onChange = vi.fn<(rows: StateAssetAmountForm[]) => void>();
+    render(
+      <StateAssetAmountListEditor
+        label="Daily limit"
+        value={[{ policyId: "", assetName: "", amount: "" }]}
+        onChange={onChange}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText("Amount (ADA)"), { target: { value: "10" } });
+    const rows = onChange.mock.calls.at(-1)![0];
+    expect(rows).toEqual([{ policyId: "", assetName: "", amount: "10" }]);
+
+    const form = {
+      ...createDefaultStateForm(),
+      users: [{ ...createDefaultUserFormState("1"), perDayAllowance: rows }]
+    };
+    const user = readStateSections(stateFormToDatum(form)).users[0] as { fields: unknown[] };
+    const allowance = parseValueData(user.fields[2], "per_day");
+    expect(allowance[0].amount).toBe(10_000_000n);
+  });
+
+  it("displays the ADA text already stored in a row", () => {
+    render(
+      <StateAssetAmountListEditor
+        label="Daily limit"
+        value={[{ policyId: "", assetName: "", amount: "10" }]}
+        onChange={vi.fn()}
+      />
+    );
+
+    expect(screen.getByLabelText("Amount (ADA)")).toHaveValue("10");
+  });
+
+  it("keeps a token row in the token's own units", () => {
+    const onChange = vi.fn();
+    render(
+      <StateAssetAmountListEditor
+        label="Daily limit"
+        value={[{ policyId: "aa".repeat(28), assetName: "bb", amount: "" }]}
+        onChange={onChange}
+      />
+    );
+
+    const field = screen.getByLabelText("Amount") as HTMLInputElement;
+    fireEvent.change(field, { target: { value: "10" } });
+
+    expect(onChange).toHaveBeenLastCalledWith([
+      { policyId: "aa".repeat(28), assetName: "bb", amount: "10" }
+    ]);
   });
 
   it("keeps a caller's own add label", () => {
@@ -221,7 +341,7 @@ describe("a list of token amounts", () => {
 
     // The row does not match a held asset, so the manual fields stay editable.
     expect(screen.getByLabelText("Token policy id")).toHaveValue("cd".repeat(28));
-    expect(screen.getByLabelText("Token name (hex)")).toHaveValue("0bc");
+    expect(screen.getByLabelText("Token name")).toHaveValue("0bc");
     fireEvent.click(screen.getByRole("button", { name: "Asset" }));
     expect(screen.getByRole("option", { name: /^ADA/ })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: /Custom asset/ })).toBeInTheDocument();
@@ -343,6 +463,28 @@ describe("a list of wallet ids", () => {
   });
 
   /**
+   * The address book is app-wide and persisted, and one payment key hash wears several
+   * address encodings (with a stake part, without one). `rememberWalletAddressAtom` keeps
+   * the first sighting for that reason; this writer replaced it, so pasting a second
+   * encoding changed the address every wallet field in the app displays for that person.
+   */
+  it("keeps the address it already knows for a pasted id", () => {
+    const hash = "1a".repeat(28);
+    const seenEarlier = `${bech32.encode(hash)}stakepart`;
+    getDefaultStore().set(resolvedWalletAddressesAtom, { [hash]: seenEarlier });
+
+    const { onChange } = renderList([""]);
+    fireEvent.change(
+      screen.getByLabelText("Wallets this person signs with, wallet 1"),
+      { target: { value: bech32.encode(hash) } }
+    );
+
+    // The id the contract compares is still learned from the paste.
+    expect(onChange).toHaveBeenCalledWith([hash]);
+    expect(getDefaultStore().get(resolvedWalletAddressesAtom)[hash]).toBe(seenEarlier);
+  });
+
+  /**
    * The message names the wrong network, not the character count — a mainnet address is
    * well-formed, just not usable here. Not converting is the point: the hash of a mainnet
    * address is still the wrong network's credential.
@@ -385,5 +527,167 @@ describe("a list of wallet ids", () => {
     expect(screen.getByText("No wallet added yet.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add a wallet" })).toBeInTheDocument();
     expect(screen.queryByText("No wallet IDs added.")).not.toBeInTheDocument();
+  });
+
+  it("lets the parent stop adding wallet ids at an aggregate cap", () => {
+    const onChange = vi.fn();
+    render(
+      <WalletHashesEditor
+        label="Wallets this person signs with"
+        value={[]}
+        onChange={onChange}
+        canAdd={false}
+      />
+    );
+
+    const add = screen.getByRole("button", { name: "Add a wallet" });
+    expect(add).toBeDisabled();
+    fireEvent.click(add);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+});
+
+describe("connected wallet tags", () => {
+  const otherWallet = "12".repeat(28);
+
+  function renderConnectedList(wallets: string[], connectedHash: string | null) {
+    const store = createStore();
+    store.set(activePaymentKeyHashAtom, connectedHash);
+    const onChange = vi.fn();
+    function Harness() {
+      const [value, setValue] = useState(wallets);
+      return (
+        <WalletHashesEditor
+          label="Owner wallet IDs"
+          value={value}
+          onChange={(next) => { setValue(next); onChange(next); }}
+          knownAddresses={{ [VALID_WALLET]: bech32.encode(VALID_WALLET) }}
+        />
+      );
+    }
+    render(<Provider store={store}><Harness /></Provider>);
+    return { store, onChange };
+  }
+
+  it.each([VALID_WALLET, ` ${VALID_WALLET.toUpperCase()} `])(
+    "tags only the matching valid wallet ID: %s",
+    (wallet) => {
+      renderConnectedList([wallet, otherWallet, "", VALID_WALLET.slice(0, -1)], ` ${VALID_WALLET.toUpperCase()} `);
+
+      expect(screen.getAllByText("Connected wallet")).toHaveLength(1);
+      expect(screen.getByLabelText("Owner wallet IDs, wallet 1")).toHaveAccessibleDescription("Connected wallet");
+      expect(screen.getByLabelText("Owner wallet IDs, wallet 2")).not.toHaveAccessibleDescription("Connected wallet");
+    }
+  );
+
+  it("does not tag a remembered address when no wallet is connected", () => {
+    renderConnectedList([VALID_WALLET], null);
+
+    expect(screen.getByLabelText("Owner wallet IDs, wallet 1")).toHaveValue(bech32.encode(VALID_WALLET));
+    expect(screen.queryByText("Connected wallet")).not.toBeInTheDocument();
+  });
+
+  it("moves the tag on wallet switch and removes it on disconnect", () => {
+    const { store } = renderConnectedList([VALID_WALLET, otherWallet], VALID_WALLET);
+    expect(screen.getByLabelText("Owner wallet IDs, wallet 1")).toHaveAccessibleDescription("Connected wallet");
+
+    act(() => store.set(activePaymentKeyHashAtom, otherWallet));
+    expect(screen.getByLabelText("Owner wallet IDs, wallet 1")).not.toHaveAccessibleDescription("Connected wallet");
+    expect(screen.getByLabelText("Owner wallet IDs, wallet 2")).toHaveAccessibleDescription("Connected wallet");
+
+    act(() => store.set(activePaymentKeyHashAtom, null));
+    expect(screen.queryByText("Connected wallet")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Owner wallet IDs, wallet 2")).not.toHaveAttribute("aria-describedby");
+  });
+
+  it("tags a pasted connected address and clears the tag when the field changes", () => {
+    const { onChange } = renderConnectedList([""], VALID_WALLET);
+    const input = screen.getByLabelText("Owner wallet IDs, wallet 1");
+    fireEvent.change(input, { target: { value: bech32.encode(VALID_WALLET) } });
+
+    expect(onChange).toHaveBeenLastCalledWith([VALID_WALLET]);
+    expect(input).toHaveAccessibleDescription("Connected wallet");
+
+    fireEvent.change(input, { target: { value: otherWallet } });
+    expect(onChange).toHaveBeenLastCalledWith([otherWallet]);
+    expect(screen.queryByText("Connected wallet")).not.toBeInTheDocument();
+  });
+});
+
+describe("a list of fund references", () => {
+  function Harness() {
+    const [refs, setRefs] = useState<WalletInputRef[]>([{ txHash: "", outputIndex: 3 }]);
+    return (
+      <WalletInputRefsEditor
+        label="Inputs"
+        value={refs}
+        onChange={setRefs}
+      />
+    );
+  }
+
+  it("keeps the last good output index when a keystroke is not a number", () => {
+    // Number("1e") is NaN and the box used to show "NaN".
+    render(<Harness />);
+    const box = screen.getByLabelText("Output number") as HTMLInputElement;
+
+    fireEvent.change(box, { target: { value: "1e" } });
+    expect(box.value).toBe("3");
+
+    fireEvent.change(box, { target: { value: "7" } });
+    expect(box.value).toBe("7");
+  });
+
+  it("allows adding rows after multiple fund pools are selected", () => {
+    const onChange = vi.fn();
+    const refs = [
+      { txHash: "aa", outputIndex: 0 },
+      { txHash: "bb", outputIndex: 1 }
+    ];
+    render(
+      <WalletInputRefsEditor
+        label="Inputs"
+        value={refs}
+        onChange={onChange}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Add fund pool" }));
+
+    expect(onChange).toHaveBeenCalledWith([
+      ...refs,
+      { txHash: "", outputIndex: 0 }
+    ]);
+  });
+});
+
+describe("removal while adding is disabled", () => {
+  it("keeps focus in the capped allowance list", () => {
+    function Harness() {
+      const [value, setValue] = useState<StateAssetAmountForm[]>(
+        Array.from({ length: MAX_ALLOWANCE_ENTRIES }, () => ({ policyId: "", assetName: "", amount: "0" }))
+      );
+      return <StateAssetAmountListEditor label="Daily limit" value={value} onChange={setValue} />;
+    }
+    render(<Harness />);
+    expect(screen.getByRole("button", { name: "Add a token" })).toBeDisabled();
+    const remove = screen.getByRole("button", { name: "Remove token 1" });
+    remove.focus();
+    fireEvent.click(remove);
+    expect(document.activeElement).toBe(screen.getByRole("group", { name: "Daily limit" }));
+    expect(screen.getByRole("button", { name: "Add a token" })).not.toBeDisabled();
+  });
+
+  it("keeps focus in the wallet list when adding remains unavailable", () => {
+    function Harness() {
+      const [value, setValue] = useState(["aa".repeat(28)]);
+      return <WalletHashesEditor label="Wallets" value={value} onChange={setValue} canAdd={false} />;
+    }
+    render(<Harness />);
+    const remove = screen.getByRole("button", { name: "Remove wallet 1" });
+    remove.focus();
+    fireEvent.click(remove);
+    expect(document.activeElement).toBe(screen.getByRole("group", { name: "Wallets" }));
+    expect(screen.getByRole("button", { name: "Add a wallet" })).toBeDisabled();
   });
 });

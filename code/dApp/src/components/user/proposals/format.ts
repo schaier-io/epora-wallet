@@ -1,15 +1,19 @@
 // Small presentation helpers shared across the proposals UI.
 
 import type { UserActionKind } from "@/components/user/flow-types";
+import { createDefaultTranslator, defaultFormatter } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsUserProposalsFormat.json";
 import { USER_ACTION_DEFINITION_MAP } from "@/lib/user-flow/action-definitions";
 import { formatLovelaceAsAda } from "@/lib/units/lovelace";
+
+const i18n = createDefaultTranslator("ComponentsUserProposalsFormat", defaultMessages);
 
 export function lovelaceToAda(lovelace: string | null): string {
   // "Not known", not a dash. This renders as the fee on the one screen whose job is to let
   // somebody check a transaction before they sign it, and a dash there reads as "zero" at a
   // glance. The `₳` symbol is the app's own convention for an amount (`wallet-hero-card.tsx:180`,
   // `review-panel-sections.tsx:184`, `orphan-utxo-notice.tsx:52`).
-  return lovelace == null ? "Not known" : `${formatLovelaceAsAda(lovelace)} ₳`;
+  return lovelace == null ? i18n("notKnown") : `${formatLovelaceAsAda(lovelace)} ₳`;
 }
 
 export function truncateMiddle(value: string, head = 10, tail = 6): string {
@@ -21,7 +25,7 @@ export function truncateMiddle(value: string, head = 10, tail = 6): string {
 
 export function formatTimestamp(iso: string): string {
   const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? iso : date.toLocaleString();
+  return Number.isNaN(date.getTime()) ? iso : defaultFormatter.dateTime(date, "short");
 }
 
 // The user-facing name of an action, from the same catalog the workspace renders. Title

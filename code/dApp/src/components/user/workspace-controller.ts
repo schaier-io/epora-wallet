@@ -54,11 +54,8 @@ const WORKSPACE_INTENT_VALUES = new Set<UserWorkspaceIntent>([
   "manual-tools"
 ]);
 const WORKSPACE_TASK_VALUES = new Set<UserWorkspaceTask>([
-  "people-admins-signers",
-  "people-spending-users",
-  "people-wallet-assignments",
+  "settings-people",
   "settings-wallet-name",
-  "settings-beneficiaries",
   "settings-proof-of-life",
   "settings-multisig-threshold",
   "streaming-payments-add",
@@ -90,12 +87,9 @@ function isUserWorkspaceTask(value: string | null): value is UserWorkspaceTask {
 }
 
 function isUserActionKind(value: string | null): value is UserActionKind {
-  // Raw wallet-spend cannot satisfy the wallet validator without a co-spent
-  // STT. Keep the legacy type/builder readable for stored drafts, but never
-  // expose it as a routable action.
-  return Boolean(
-    value && value !== "wallet-spend" && value in USER_ACTION_DEFINITION_MAP
-  );
+  // `Object.hasOwn`, not `in`: `in` walks the prototype, so `?action=constructor`
+  // used to pass as an action.
+  return Boolean(value && Object.hasOwn(USER_ACTION_DEFINITION_MAP, value));
 }
 
 export function mapActionKindToIntent(action: UserActionKind): UserWorkspaceIntent {
@@ -105,11 +99,16 @@ export function mapActionKindToIntent(action: UserActionKind): UserWorkspaceInte
     case "use":
     case "use-allowance":
     case "use-beneficiary":
+    case "exit-beneficiary":
+    case "stop-beneficiary-stream":
+    case "distribute-beneficiaries":
       return "send";
     case "lock-funds":
       return "add-funds";
     case "update-state":
-      return "manage-people";
+      // "Who can act" and "how the wallet behaves" are one update-state surface:
+      // it opens on the People tab of Wallet settings.
+      return "wallet-settings";
     case "manage-streaming-payments":
       return "manage-streaming-payments";
     case "payout-streaming-payment":
@@ -124,7 +123,6 @@ export function mapActionKindToIntent(action: UserActionKind): UserWorkspaceInte
       return "governance-vote";
     case "consolidate-utxo":
       return "consolidate";
-    case "wallet-spend":
     case "renew-proof-of-life":
       return "manual-tools";
   }
@@ -163,9 +161,9 @@ function mapIntentToDefaultAction(intent: UserWorkspaceIntent): UserActionKind |
 function mapIntentToDefaultTask(intent: UserWorkspaceIntent): UserWorkspaceTask | null {
   switch (intent) {
     case "manage-people":
-      return "people-admins-signers";
+    // Legacy `manage-people` deep links resolve onto the merged People tab.
     case "wallet-settings":
-      return "settings-wallet-name";
+      return "settings-people";
     case "manage-streaming-payments":
       return "streaming-payments-edit-renew";
     case "pay-streaming-payments":
@@ -205,8 +203,11 @@ export function parseWorkspaceRouteState(searchParams: SearchParamReader) {
     : selectedIntent
       ? mapIntentToDefaultAction(selectedIntent)
       : null;
-  const selectedTask = isUserWorkspaceTask(searchParams.get("task"))
-    ? (searchParams.get("task") as UserWorkspaceTask)
+  const taskParam = searchParams.get("task");
+  const parsedTask = taskParam === "settings-beneficiaries"
+    ? "settings-proof-of-life"
+    : isUserWorkspaceTask(taskParam)
+      ? taskParam
     : selectedIntent
       ? mapIntentToDefaultTask(selectedIntent)
       : null;
@@ -214,9 +215,7 @@ export function parseWorkspaceRouteState(searchParams: SearchParamReader) {
     ? (searchParams.get("step") as UserFlowStep)
     : selectedIntent
       ? "configure"
-      : selectedWalletUnit
-        ? "overview"
-        : "overview";
+      : "overview";
 
   // The overview only exists behind a chosen wallet and only while no action is open, so
   // `view` and `asset` are ignored anywhere else rather than lingering as dead params.
@@ -230,7 +229,7 @@ export function parseWorkspaceRouteState(searchParams: SearchParamReader) {
     selectedWalletUnit,
     selectedAction,
     selectedIntent,
-    selectedTask,
+    selectedTask: parsedTask,
     flowStep,
     overviewSection,
     assetDetailUnit
@@ -244,10 +243,23 @@ export function buildWorkspaceSearchParams(state: UserWorkspaceRouteState) {
     params.set("wallet", state.selectedWalletUnit);
   }
 
-  if (state.selectedIntent) {
-    params.set("action", state.selectedIntent);
-  } else if (state.selectedAction) {
+  // One `action` param carries both shapes (an intent like "send" or an action
+  // kind like "use-allowance"). Prefer the selected ACTION kind: serializing the
+  // intent instead re-parsed through the intent's DEFAULT action (`send` →
+  // `use`), so a spender's `use-allowance` selection turned into an
+  // admin-only `use` on the very next render and the clamp guard cleared it —
+  // every "Send funds" click bounced straight back to Home (finding #9).
+  // Owners never noticed because their default action is `use`, which
+  // round-trips. Intent-only states still serialize the intent, as before.
+  if (state.selectedAction) {
+    // `update-state` now reparses through `mapActionKindToIntent` as
+    // `wallet-settings` (the People page merged into it), so the action kind
+    // round-trips without collapsing into a different surface. It used to parse
+    // as `manage-people` and needed a special wallet-settings serialization here;
+    // that collision no longer exists (finding #9).
     params.set("action", state.selectedAction);
+  } else if (state.selectedIntent) {
+    params.set("action", state.selectedIntent);
   }
 
   if (state.selectedTask) {
@@ -301,7 +313,7 @@ export function reduceWorkspaceRouteState(
         overviewSection: "home",
         assetDetailUnit: null
       };
-    case "select-workspace-action":
+    case "select-workspace-action": {
       const nextAction = action.action ?? mapIntentToDefaultAction(action.intent);
       return {
         workspaceMode: action.intent === "create-wallet" ? "new-wallet" : "existing-wallet",
@@ -316,6 +328,7 @@ export function reduceWorkspaceRouteState(
         overviewSection: "home",
         assetDetailUnit: null
       };
+    }
     case "set-step":
       return {
         ...state,
@@ -344,7 +357,7 @@ export function reduceWorkspaceRouteState(
         selectedAction: null,
         selectedIntent: null,
         selectedTask: null,
-        flowStep: state.selectedWalletUnit ? "overview" : "overview",
+        flowStep: "overview",
         workspaceMode: state.selectedWalletUnit ? "existing-wallet" : "landing",
         overviewSection: "home",
         assetDetailUnit: null

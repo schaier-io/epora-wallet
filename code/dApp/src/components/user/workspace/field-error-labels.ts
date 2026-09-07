@@ -65,7 +65,6 @@ const FIELD_ERROR_LABEL_KEYS: Record<string, FieldErrorLabelKey> = {
   [FIELD_ERROR_IDS.walletName]: "fieldWalletName",
   [FIELD_ERROR_IDS.walletRules]: "fieldWalletRules",
   [FIELD_ERROR_IDS.walletSettings]: "fieldWalletSettings",
-  [FIELD_ERROR_IDS.walletSpend]: "fieldDestinations",
   [FIELD_ERROR_IDS.withdrawalAmount]: "fieldWithdrawalAmount"
 };
 

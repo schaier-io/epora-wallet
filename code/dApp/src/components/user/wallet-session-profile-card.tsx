@@ -130,14 +130,18 @@ export function WalletSessionProfileCard({
     getAdvancedWalletCardEffectsServerSnapshot
   );
   const useSimpleEffects = forceSimple || !supportsAdvancedEffects || prefersReducedMotion;
-  const displayName = walletName?.trim() || wallet?.name || "Connect wallet";
+  const displayName = walletName?.trim() || wallet?.name || i18n("connectWallet");
   // Disconnected, the name line is a call to action rather than a name, and the caller passes
   // the same words as the action label. Prefixing one with the other read as
   // "Connect wallet: Connect wallet" to anything using the accessible name.
   const accessibleName =
     displayName === resolvedPrimaryActionLabel
-      ? `${resolvedPrimaryActionLabel}, ${resolvedTitle}`
-      : `${resolvedPrimaryActionLabel}: ${displayName}, ${resolvedTitle}`;
+      ? i18n("actionAndTitle", { action: resolvedPrimaryActionLabel, title: resolvedTitle })
+      : i18n("actionNameAndTitle", {
+          action: resolvedPrimaryActionLabel,
+          name: displayName,
+          title: resolvedTitle
+        });
 
   if (useSimpleEffects) {
     // Static twin of the animated ProfileCard: same teal/navy gradient, grain

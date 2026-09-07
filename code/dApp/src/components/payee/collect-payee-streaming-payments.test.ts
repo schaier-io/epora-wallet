@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { serializeData, type UTxO } from "@meshsdk/core";
 
 import { collectPayeeStreamingPayments } from "@/components/payee/collect-payee-streaming-payments";
+import { validateStateDatum } from "@/lib/contracts/state-validation";
+import {
+  MAX_ON_CHAIN_STATE_INTEGER,
+  type OnChainInteger
+} from "@/lib/contracts/on-chain-integer";
+import { decodeDatumFromUtxo } from "@/lib/mesh/datum";
 import type { DetectedSttToken } from "@/lib/mesh/detection";
 import type { ConstrData } from "@/lib/types/contracts";
 
@@ -24,9 +31,9 @@ function scriptAddress(hashHex: string): ConstrData {
 }
 
 function streamingPaymentDatum(opts: {
-  id: number;
+  id: OnChainInteger;
   payoutAddress: ConstrData;
-  endDate: number;
+  endDate: OnChainInteger;
 }): ConstrData {
   return {
     alternative: 0,
@@ -156,6 +163,57 @@ test("excludes a malformed payee credential hash", () => {
   assert.equal(collectPayeeStreamingPayments(tokens, "11".repeat(27)).payments.length, 0);
 });
 
+test("excludes a matching payment whose full payout address cannot be decoded", () => {
+  const payoutAddress = vkAddress(ME);
+  payoutAddress.fields[1] = { alternative: 0, fields: [] };
+  const result = collectPayeeStreamingPayments(
+    [
+      token(
+        stateDatum([
+          streamingPaymentDatum({ id: 1, payoutAddress, endDate: 200_000 })
+        ]),
+        "cf".repeat(32),
+        0
+      )
+    ],
+    ME
+  );
+
+  assert.equal(result.payments.length, 0);
+  assert.equal(result.entriesSkipped, 1);
+});
+
+test("keeps exact uint64 stream fields readable through chain discovery", () => {
+  const payment = streamingPaymentDatum({
+    id: MAX_ON_CHAIN_STATE_INTEGER,
+    payoutAddress: vkAddress(ME),
+    endDate: 200_000
+  });
+  payment.fields[5] = 9_007_199_254_740_993n;
+  const datum = stateDatum([payment]);
+  const plutusData = serializeData(datum, "Mesh");
+  const utxo = {
+    input: { txHash: "d0".repeat(32), outputIndex: 0 },
+    output: { address: "addr_test1stt", amount: [], plutusData }
+  } as unknown as UTxO;
+
+  assert.doesNotMatch(
+    validateStateDatum(datum).join(" "),
+    /scheduled payment 1's amount per day must be a whole number/i
+  );
+  const decoded = decodeDatumFromUtxo(utxo);
+  const result = collectPayeeStreamingPayments(
+    [token(decoded, "d0".repeat(32), 0)],
+    ME
+  );
+
+  assert.ok(decoded);
+  assert.equal(result.payments.length, 1);
+  assert.equal(result.payments[0]?.streamingPaymentId, MAX_ON_CHAIN_STATE_INTEGER);
+  assert.equal(result.payments[0]?.amountPerDay, 9_007_199_254_740_993n);
+  assert.equal(result.walletsUnreadable, 0);
+});
+
 test("returns nothing for an empty payment key hash", () => {
   const tokens = [
     token(
@@ -206,7 +264,7 @@ test("collects multiple matching streams across wallets", () => {
   ];
   const result = collectPayeeStreamingPayments(tokens, ME).payments;
   assert.deepEqual(
-    result.map((p) => p.streamingPaymentId).sort((a, b) => a - b),
+    result.map((p) => p.streamingPaymentId).sort((a, b) => Number(a) - Number(b)),
     [1, 5]
   );
 });

@@ -31,7 +31,7 @@ export type GuidedActionDraftContext = {
     detectedTokenActive: boolean;
   };
   useAllowance: {
-    matchedUserId: number | null;
+    matchedUserId: string | null;
   };
   consolidate: {
     inputHash: string;
@@ -42,10 +42,6 @@ export type GuidedActionDraftContext = {
   lockFunds: {
     assetCount: number;
     hasCustomInlineDatum: boolean;
-  };
-  walletSpend: {
-    inputHash: string;
-    outputCount: number;
   };
   walletWithdraw: {
     rewardAddress: string;
@@ -91,14 +87,14 @@ function getBlockingFormIssue(issues: ReadinessIssue[]) {
 
 function pathLabel(value: "admin" | "multisig" | "beneficiary") {
   if (value === "admin") {
-    return "Owner";
+    return i18n("owner_579233");
   }
 
   if (value === "multisig") {
-    return "Co-signers";
+    return i18n("coSigners");
   }
 
-  return "Recovery contact";
+  return i18n("recoveryContact");
 }
 
 export function buildGuidedActionDrafts(
@@ -124,13 +120,30 @@ export function buildGuidedActionDrafts(
     return [formHint, setupHint].filter(Boolean).join(" ");
   })();
 
+  const beneficiaryDraft = (action: "use-beneficiary" | "exit-beneficiary") => ({
+      dirty:
+        context.stt.inputHash.trim().length > 0 ||
+        context.stt.walletInputCount > 0 ||
+        context.stt.transferCount > 0,
+      ready: !context.actionReadinessMap[action].some((issue) => issue.blocking),
+      summary: i18n("value1Value2_4c86b7", { value1: formatCountLabel(context.stt.walletInputCount, "fundPool"), value2: formatCountLabel(context.stt.transferCount, "payout") }),
+      blockingHint: getBlockingHint(context.actionReadinessMap[action]),
+      // Payouts first, same reason as `use` above.
+      nextStep:
+        sttStartHint ??
+        (context.stt.transferCount === 0
+          ? i18n("addAPayoutPickARecipientAndAn_fc7f7e")
+          : context.stt.walletInputCount === 0
+            ? i18n("chooseTheFundPoolsTheRecoveryContactShould")
+            : i18n("reviewTheInferredRecoveryContactWithdrawalAndBuild"))
+    });
   return {
     mint: {
       dirty:
         context.mint.currentStateJson !== context.mint.defaultStateJson ||
         context.mint.starterFundsJson !== context.mint.defaultStarterFundsJson,
       ready: !context.actionReadinessMap.mint.some((issue) => issue.blocking),
-      summary: i18n("value1Value2_4c86b7", { value1: formatCountLabel(context.mint.adminUserCount, i18n("owner_579233")), value2: context.mint.starterFundsSummary }),
+      summary: i18n("value1Value2_4c86b7", { value1: formatCountLabel(context.mint.adminUserCount, "owner"), value2: context.mint.starterFundsSummary }),
       blockingHint: mintBlockingHint || null,
       nextStep:
         context.mint.adminUserCount === 0
@@ -144,7 +157,7 @@ export function buildGuidedActionDrafts(
         context.stt.transferCount > 0 ||
         context.stt.walletOutputCount > 0,
       ready: !context.actionReadinessMap.use.some((issue) => issue.blocking),
-      summary: i18n("value1PathValue2Value3", { value1: pathLabel(context.stt.authorityPath), value2: formatCountLabel(context.stt.walletInputCount, i18n("fundPool")), value3: formatCountLabel(context.stt.transferCount, i18n("payout")) }),
+      summary: i18n("value1PathValue2Value3", { value1: pathLabel(context.stt.authorityPath), value2: formatCountLabel(context.stt.walletInputCount, "fundPool"), value3: formatCountLabel(context.stt.transferCount, "payout") }),
       blockingHint: getBlockingHint(context.actionReadinessMap.use),
       // Payouts first. Fund pools are seeded automatically the moment a payout is staged,
       // so testing `walletInputCount` first named the one step the app does for you, and
@@ -173,7 +186,7 @@ export function buildGuidedActionDrafts(
         context.stt.transferCount > 0 ||
         context.stt.walletOutputCount > 0,
       ready: !context.actionReadinessMap["update-state"].some((issue) => issue.blocking),
-      summary: i18n("value1PathSettingsChangeValue2", { value1: pathLabel(context.stt.authorityPath), value2: formatCountLabel(context.stt.walletInputCount, i18n("fundPool")) }),
+      summary: i18n("value1PathSettingsChangeValue2", { value1: pathLabel(context.stt.authorityPath), value2: formatCountLabel(context.stt.walletInputCount, "fundPool") }),
       blockingHint: getBlockingHint(context.actionReadinessMap["update-state"]),
       nextStep:
         sttStartHint ??
@@ -186,7 +199,7 @@ export function buildGuidedActionDrafts(
         context.stt.transferCount > 0 ||
         context.stt.walletOutputCount > 0,
       ready: !context.actionReadinessMap["manage-streaming-payments"].some((issue) => issue.blocking),
-      summary: i18n("value1PathScheduleChangeValue2", { value1: pathLabel(context.stt.authorityPath), value2: formatCountLabel(context.stt.walletInputCount, i18n("fundPool")) }),
+      summary: i18n("value1PathScheduleChangeValue2", { value1: pathLabel(context.stt.authorityPath), value2: formatCountLabel(context.stt.walletInputCount, "fundPool") }),
       blockingHint: getBlockingHint(context.actionReadinessMap["manage-streaming-payments"]),
       nextStep:
         sttStartHint ??
@@ -201,8 +214,8 @@ export function buildGuidedActionDrafts(
       ready: !context.actionReadinessMap["use-allowance"].some((issue) => issue.blocking),
       summary:
         context.useAllowance.matchedUserId !== null
-          ? i18n("spenderValue1Value2_e66298", { value1: context.useAllowance.matchedUserId, value2: formatCountLabel(context.stt.transferCount, i18n("payout")) })
-          : i18n("value1Value2_4c86b7", { value1: formatCountLabel(context.stt.walletInputCount, i18n("fundPool")), value2: formatCountLabel(context.stt.transferCount, i18n("payout")) }),
+          ? i18n("spenderValue1Value2_e66298", { value1: context.useAllowance.matchedUserId, value2: formatCountLabel(context.stt.transferCount, "payout") })
+          : i18n("value1Value2_4c86b7", { value1: formatCountLabel(context.stt.walletInputCount, "fundPool"), value2: formatCountLabel(context.stt.transferCount, "payout") }),
       blockingHint: getBlockingHint(context.actionReadinessMap["use-allowance"]),
       // Payouts first, same reason as `use` above.
       nextStep:
@@ -215,22 +228,21 @@ export function buildGuidedActionDrafts(
               ? i18n("adjustTheSignerOrTransferAmountsUntilExactly")
               : i18n("reviewTheDerivedAllowanceStateAndBuildThe"))
     },
-    "use-beneficiary": {
-      dirty:
-        context.stt.inputHash.trim().length > 0 ||
-        context.stt.walletInputCount > 0 ||
-        context.stt.transferCount > 0,
-      ready: !context.actionReadinessMap["use-beneficiary"].some((issue) => issue.blocking),
-      summary: i18n("value1Value2_4c86b7", { value1: formatCountLabel(context.stt.walletInputCount, i18n("fundPool")), value2: formatCountLabel(context.stt.transferCount, i18n("payout")) }),
-      blockingHint: getBlockingHint(context.actionReadinessMap["use-beneficiary"]),
-      // Payouts first, same reason as `use` above.
-      nextStep:
-        sttStartHint ??
-        (context.stt.transferCount === 0
-          ? i18n("addAPayoutPickARecipientAndAn_fc7f7e")
-          : context.stt.walletInputCount === 0
-            ? i18n("chooseTheFundPoolsTheRecoveryContactShould")
-            : i18n("reviewTheInferredRecoveryContactWithdrawalAndBuild"))
+    "use-beneficiary": beneficiaryDraft("use-beneficiary"),
+    "exit-beneficiary": beneficiaryDraft("exit-beneficiary"),
+    "distribute-beneficiaries": {
+      dirty: context.stt.walletInputCount > 0,
+      ready: !context.actionReadinessMap["distribute-beneficiaries"].some((issue) => issue.blocking),
+      summary: i18n("distributionSummary"),
+      blockingHint: getBlockingHint(context.actionReadinessMap["distribute-beneficiaries"]),
+      nextStep: i18n("distributionNext")
+    },
+    "stop-beneficiary-stream": {
+      dirty: context.stt.inputHash.trim().length > 0,
+      ready: !context.actionReadinessMap["stop-beneficiary-stream"].some((issue) => issue.blocking),
+      summary: i18n("stopBeneficiaryStreamSummary"),
+      blockingHint: getBlockingHint(context.actionReadinessMap["stop-beneficiary-stream"]),
+      nextStep: i18n("stopBeneficiaryStreamNext")
     },
     "payout-streaming-payment": {
       dirty:
@@ -238,7 +250,7 @@ export function buildGuidedActionDrafts(
         context.stt.walletInputCount > 0 ||
         context.stt.streamingPaymentTransferCount > 0,
       ready: !context.actionReadinessMap["payout-streaming-payment"].some((issue) => issue.blocking),
-      summary: i18n("value1Value2_4c86b7", { value1: formatCountLabel(context.stt.walletInputCount, i18n("fundPool")), value2: formatCountLabel(context.stt.streamingPaymentTransferCount, i18n("payout")) }),
+      summary: i18n("value1Value2_4c86b7", { value1: formatCountLabel(context.stt.walletInputCount, "fundPool"), value2: formatCountLabel(context.stt.streamingPaymentTransferCount, "payout") }),
       blockingHint: getBlockingHint(context.actionReadinessMap["payout-streaming-payment"]),
       nextStep:
         sttStartHint ??
@@ -254,7 +266,7 @@ export function buildGuidedActionDrafts(
         context.consolidate.walletInputCount > 0 ||
         context.consolidate.walletOutputCount > 0,
       ready: !context.actionReadinessMap["consolidate-utxo"].some((issue) => issue.blocking),
-      summary: i18n("value1PathValue2InValue3Out", { value1: pathLabel(context.consolidate.authorityPath), value2: formatCountLabel(context.consolidate.walletInputCount, i18n("fundPool")), value3: formatCountLabel(context.consolidate.walletOutputCount, i18n("newFundPool")) }),
+      summary: i18n("value1PathValue2InValue3Out", { value1: pathLabel(context.consolidate.authorityPath), value2: formatCountLabel(context.consolidate.walletInputCount, "fundPool"), value3: formatCountLabel(context.consolidate.walletOutputCount, "newFundPool") }),
       blockingHint: getBlockingHint(context.actionReadinessMap["consolidate-utxo"]),
       nextStep:
         context.consolidate.inputHash.trim().length === 0
@@ -266,25 +278,12 @@ export function buildGuidedActionDrafts(
     "lock-funds": {
       dirty: context.lockFunds.assetCount > 0 || context.lockFunds.hasCustomInlineDatum,
       ready: !context.actionReadinessMap["lock-funds"].some((issue) => issue.blocking),
-      summary: i18n("value1ReadyToLock", { value1: formatCountLabel(context.lockFunds.assetCount, i18n("assetRow")) }),
+      summary: i18n("value1ReadyToLock", { value1: formatCountLabel(context.lockFunds.assetCount, "assetRow") }),
       blockingHint: getBlockingHint(context.actionReadinessMap["lock-funds"]),
       nextStep:
         context.lockFunds.assetCount === 0
           ? i18n("shareTheReceiveAddressOrAddTheAssets")
           : i18n("reviewTheDepositOutputAndBuildTheFunding")
-    },
-    "wallet-spend": {
-      dirty:
-        context.walletSpend.inputHash.trim().length > 0 || context.walletSpend.outputCount > 0,
-      ready: !context.actionReadinessMap["wallet-spend"].some((issue) => issue.blocking),
-      summary: i18n("value1Configured", { value1: formatCountLabel(context.walletSpend.outputCount, i18n("output")) }),
-      blockingHint: getBlockingHint(context.actionReadinessMap["wallet-spend"]),
-      nextStep:
-        context.walletSpend.inputHash.trim().length === 0
-          ? i18n("enterTheWalletScriptInputYouWantTo")
-          : context.walletSpend.outputCount === 0
-            ? i18n("addTheManualOutputsAndRedeemerDetailsBefore")
-            : i18n("reviewTheLowLevelSpendAndBuildThe")
     },
     "wallet-withdraw": {
       dirty:

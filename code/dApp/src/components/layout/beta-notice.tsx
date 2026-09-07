@@ -26,16 +26,7 @@ export function BetaNotice() {
     >
       <div className="container flex items-center gap-3 py-2 text-xs sm:text-sm">
         <FlaskConical className="h-4 w-4 shrink-0 text-amber-400" aria-hidden="true" />
-        <p className="min-w-0 flex-1">
-          <span className="font-semibold text-amber-50">{i18n("betaUnderActiveDevelopment")}</span>{" "}
-          {i18n("thisSoftwareIsUnauditedAndMayChangeOr")}{" "}
-          <span className="font-semibold text-amber-50">{i18n("doNotUseWithRealFunds")}</span>
-        </p>
-        {/*
-          No `aria-label`. It read "Dismiss beta notice" while the button shows "Got it",
-          so the accessible name did not contain the visible label (WCAG 2.5.3): a voice
-          user saying "click Got it" hit nothing. The visible text is the name now.
-        */}
+        <p className="min-w-0 flex-1">{i18n("betaOnThePreprodTestNetworkDoNot")}</p>
         <button
           type="button"
           onClick={() => setDismissed(true)}

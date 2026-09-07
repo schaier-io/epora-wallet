@@ -104,7 +104,6 @@ export function useWorkspaceWizardEffects(ctx: WorkspaceWizardEffectsCtx): void 
       !selectableWizardActionKinds.has(wizardSelectedAction)
     ) {
       setWizardSelectedAction(null);
-      setWizardStep("action");
       clearPreviewResult();
       clearBuildMessages();
     }
@@ -112,7 +111,6 @@ export function useWorkspaceWizardEffects(ctx: WorkspaceWizardEffectsCtx): void 
     selectedDetectedToken,
     selectableWizardActionKinds,
     setWizardSelectedAction,
-    setWizardStep,
     userFlowBranch,
     wizardSelectedAction,
       clearBuildMessages,

@@ -3,9 +3,15 @@
   "demoWalletCannotConfirmActionsConnectABrowser": "Demo wallet cannot confirm actions. Connect a browser wallet to continue.",
   "finishTheSetupChecklistBeforeContinuing": "Finish the setup checklist before continuing.",
   "fixTheHighlightedFieldsBeforeContinuing": "Fix the highlighted fields before continuing.",
+  "reviewTheseWarningsBeforeYouSignContinue": "Review these warnings before you sign:\n\n{warnings}\n\nContinue?",
   "theSelectedActionIsNotWiredToA_ee5fb7": "The selected action is not wired to a builder yet.",
   "theTransactionCouldNotBePreparedTryAgain": "The transaction could not be prepared. Try again.",
   "theTransactionDetailsAreStaleContinueAgainTo_34b074": "The transaction details are stale. Continue again to refresh them.",
   "thisActionWasAlreadyCompletedChangeSomethingBefore": "This action was already completed. Change something before trying again.",
-  "value1Value2": "{value1}{value2}"
+  "value1Value2": "{value1}{value2}",
+  "exitDiscoveryAddressRequired": "Load the wallet address before reviewing a permanent withdrawal.",
+  "exitRightsWarning": "This withdrawal permanently removes your recovery access. You give up rights to remaining funds and future deposits.",
+  "exitUnusedShareWarning": "Any part of your share that you leave unwithdrawn is forfeited when you exit.",
+  "exitOmittedFundsWarning": "This transaction omits {count} discovered wallet UTxOs. You cannot return through this recovery entry to claim them.",
+  "exitAllDiscoveredSelectedWarning": "All discovered UTxOs are selected. Discovery cannot prove that no other funds or future deposits exist."
 }

@@ -1,21 +1,12 @@
 //// State-side authorization checks: do the right keys sign for the requested
 //// `OperatorPath` / beneficiary unlock / consolidation path?
 ////
-//// SECURITY INVARIANTS (intentional design choices — see README §"Role Model
+//// SECURITY INVARIANTS (intentional design choices; see README §"Role Model
 //// & Trust Boundaries"):
-//// - A single payment-key-hash may appear in multiple `user_wallets`. Each
-////   record's multisig power is counted independently, so duplicates raise
-////   the effective signer weight. Covered by
-////   `security_intentional__multisig_shared_key_counts_each_role_*`.
-////   FOOTGUN (intended, but sharp): because power is summed PER RECORD and a
-////   key may appear in several records, ONE signature from a key placed in two
-////   multisig-powered user records contributes 2x its power toward the
-////   threshold. A `multi_sig_threshold` that looks like it needs several
-////   distinct signers can therefore be satisfiable by a single key. Config
-////   validation enforces unique user *ids*, NOT unique keys, so this is not
-////   rejected on-chain — the off-chain config UI is responsible for surfacing
-////   duplicate keys across multisig-powered records. Do not assume "threshold
-////   N" implies "N distinct humans".
+//// - Configuration validation requires disjoint credentials across separate
+////   positive-power user records. This arithmetic assumes that mint or
+////   UpdateState established that invariant. It counts each signed record's
+////   power once. Distinct credentials still do not prove distinct humans.
 //// - A beneficiary key may also be a user key. Recovery designs need this
 ////   overlap; configuration explicitly allows it.
 //// - Admins always satisfy `has_operator_authority(_, _, Admin)`; multisig
@@ -35,17 +26,14 @@ use state/types as state_types
 use state/types.{Beneficiary, ConsolidatePath, OperatorPath, State, User}
 use streaming_payments/types as streaming_payment_type
 
-/// True if the beneficiary's unlock window has elapsed AND the tx is signed
-/// by one of the beneficiary's wallets AND no other beneficiary shares a
-/// wallet with this one.
+/// True if the beneficiary's unlock window has elapsed and one of its wallets
+/// signed the transaction.
 ///
-/// INTENTIONAL: the distinctness conjunct returns False (this beneficiary is
-/// filtered out / loses authority) instead of aborting the transaction. The
-/// distinctness invariant itself is OWNED by the configuration path — mint and
-/// `UpdateState` run `expect_valid_state_configuration`, which hard-fails on
-/// any overlap, and every other transition preserves or only removes
-/// beneficiaries — so a State violating it is unwritable on-chain and this
-/// conjunct is pure defense-in-depth for crafted datums.
+/// Beneficiary-wallet uniqueness is not re-checked here. Mint and `UpdateState`
+/// establish it through `expect_valid_state_configuration`. Every other STT
+/// transition preserves the beneficiary list or removes a subset, while the
+/// continuing STT token pins that transition history. Repeating the pairwise
+/// check for every authority candidate made recovery cost grow quadratically.
 ///
 /// The "unlock window" is the LATER of:
 ///   - `beneficiary.unlock_after` (per-beneficiary delay; optional), and
@@ -59,18 +47,10 @@ fn has_beneficiary_unlock_authority(
   state: State,
   beneficiary: Beneficiary,
 ) -> Bool {
-  let unlock_time = proof_of_life.calculate_beneficiary_unlock_time(
-    beneficiary.unlock_after,
-    state,
-  )
-
-  let unlock_window_elapsed = proof_of_life.is_unlock_time_reached(
+  let unlock_window_elapsed = beneficiary_unlock_window_elapsed(
     validity_range,
-    unlock_time,
-  )
-  let beneficiary_wallets_distinct = configuration.beneficiary_wallets_are_distinct_from_others(
+    state,
     beneficiary,
-    state.access.beneficiaries,
   )
   let beneficiary_signed = any_wallet_signed(
     transaction.extra_signatories,
@@ -82,8 +62,34 @@ fn has_beneficiary_unlock_authority(
   // legitimate miss and drown the signal).
   and {
     unlock_window_elapsed,
-    beneficiary_wallets_distinct,
     beneficiary_signed,
+  }
+}
+
+fn beneficiary_unlock_window_elapsed(
+  validity_range: ValidityRange,
+  state: State,
+  beneficiary: Beneficiary,
+) -> Bool {
+  let unlock_time = proof_of_life.calculate_beneficiary_unlock_time(
+    beneficiary.unlock_after,
+    state,
+  )
+  proof_of_life.is_unlock_time_reached(validity_range, unlock_time)
+}
+
+/// True once the sole remaining beneficiary's recovery window has opened.
+/// This predicate deliberately ignores signatures. Cadence-controlled actions
+/// use it to stop other stakeholders from moving the recovery clock, then check
+/// the beneficiary signature separately.
+pub fn final_beneficiary_recovery_is_active(
+  validity_range: ValidityRange,
+  state: State,
+) -> Bool {
+  when state.access.beneficiaries is {
+    [beneficiary] ->
+      beneficiary_unlock_window_elapsed(validity_range, state, beneficiary)
+    _ -> False
   }
 }
 
@@ -137,11 +143,11 @@ pub fn has_operator_authority(
 /// Any beneficiary whose unlock window has elapsed and who signed the tx. The
 /// authority an unlocked beneficiary holds independently of the operator set:
 /// it gates BeneficiaryPath consolidation below and clears the AUTHORITY gate on
-/// a streaming-payment crank, so the recovery actor can settle every stream
-/// before the terminal sweep. It does NOT exempt that crank from the cadence
-/// limit — only an admin does (see the whitepaper's Settlement-cadence theorem).
-/// One crank settles the whole payment set at once, so recovery never needs a
-/// burst.
+/// a streaming-payment crank, so the recovery actor may settle before final
+/// removal. Available funds and cadence limits still apply.
+/// Only an admin bypasses the cadence limit (see the whitepaper's
+/// Settlement-cadence theorem).
+/// A payout may advance any schedules that fit the ledger transaction limits.
 pub fn has_unlocked_beneficiary_authority(
   transaction: Transaction,
   validity_range: ValidityRange,
@@ -196,11 +202,12 @@ pub fn has_any_user_authority(transaction: Transaction, state: State) -> Bool {
 
 /// True when the payee of ANY streaming payment in the set signed the tx — the
 /// "receiver" arm of the `PayStreamingPayment` cadence gate. A payee is an
-/// outsider to the wallet's access list, so this is what keeps settlement
-/// reachable when every wallet key is gone: the party actually owed the money
-/// can always pull it. Script-credential payees cannot sign (see
+/// outsider to the wallet's access list, so this keeps settlement reachable
+/// when every wallet key is gone before final recovery opens. Once the sole
+/// beneficiary unlocks, that beneficiary controls the non-admin crank path.
+/// Script-credential payees cannot sign (see
 /// `has_streaming_payment_payee_authority`), so a wallet whose streams all pay
-/// scripts relies on its users/operators instead.
+/// scripts relies on its users/operators before final recovery.
 pub fn has_any_streaming_payment_payee_authority(
   transaction: Transaction,
   streaming_payments: List<streaming_payment_type.StreamingPayment>,
@@ -243,7 +250,7 @@ pub fn has_streaming_payment_payee_authority(
 /// (weighted multisig power lives in `configuration.multisig_threshold_is_met`).
 /// THE single definition of the signature-membership fold (CLAUDE.md §3),
 /// shared by the authority checks here and the allowance/proof-of-life
-/// signature checks in `lib/stt/action_checks.ak`.
+/// signature checks in `lib/stt/user_handlers.ak`.
 pub fn any_wallet_signed(
   signatories: List<VerificationKeyHash>,
   wallets: List<VerificationKeyHash>,
@@ -257,6 +264,12 @@ test beneficiary_unlock_authority_accepts_signed_unlocked_beneficiary() {
     beneficiary_wallets: ["beneficiary1"],
     unlock_after: Some(100),
     weight: 1,
+    payout_address: Address {
+      payment_credential: VerificationKey(
+        #"00000000000000000000000000000000000000000000000000000000",
+      ),
+      stake_credential: None,
+    },
   }
   let state = State {
     access: state_types.AccessControl {

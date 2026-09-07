@@ -42,6 +42,9 @@ function StatusBadge({ status }: { status: ProposalListItemDto["status"] }) {
   if (status === "SUBMITTED") {
     return <Badge variant="info">{i18n("submitted")}</Badge>;
   }
+  if (status === "SUBMITTING") {
+    return <Badge variant="info">{i18n("sending")}</Badge>;
+  }
   if (status === "CANCELLED") {
     return <Badge variant="secondary">{i18n("cancelled")}</Badge>;
   }
@@ -157,7 +160,7 @@ export function ProposalList({
                 )}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <span className="font-medium leading-tight">{proposal.title}</span>
+                  <span className="min-w-0 wrap-anywhere font-medium leading-tight">{proposal.title}</span>
                   {proposal.status === "OPEN" ? (
                     <ValidityBadge validity={report?.validity} />
                   ) : (

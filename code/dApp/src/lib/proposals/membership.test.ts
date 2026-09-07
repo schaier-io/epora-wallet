@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { after, before, beforeEach, test } from "node:test";
+import { after, before, beforeEach, describe, test } from "node:test";
 import type { PrismaClient } from "@/generated/prisma";
 import {
   participantWalletUnits,
@@ -17,81 +17,109 @@ const MALLORY = "cc".repeat(28); // participant of nothing
 const UNIT_A = "aaaaaaaa0001";
 const UNIT_B = "bbbbbbbb0002";
 
-let db: PrismaClient;
+const DB_SKIP = process.env.DATABASE_URL
+  ? false
+  : "DATABASE_URL not set; run via `pnpm test`";
 
-async function seedWallet(unit: string, participantKeyHashes: string[]): Promise<void> {
-  const wallet = await db.sttWallet.create({
-    data: {
-      network: STT_CACHE_NETWORK,
-      policyId: unit.slice(0, 8),
-      assetNameHex: unit.slice(8),
-      unit,
-      sttScriptAddress: `stt_${unit}`,
-      walletScriptAddress: `wallet_${unit}`
-    }
-  });
-  await db.sttParticipant.createMany({
-    data: participantKeyHashes.map((paymentKeyHash, index) => ({
-      walletId: wallet.id,
-      role: "signer",
-      participantKey: `${unit}-${index}`,
-      paymentKeyHash
-    }))
-  });
-}
+describe("proposal wallet membership", { skip: DB_SKIP }, () => {
+  let db: PrismaClient;
 
-before(async () => {
-  db = await createTestDatabaseClient();
-});
+  async function seedWallet(unit: string, participantKeyHashes: string[]): Promise<void> {
+    const wallet = await db.sttWallet.create({
+      data: {
+        network: STT_CACHE_NETWORK,
+        policyId: unit.slice(0, 8),
+        assetNameHex: unit.slice(8),
+        unit,
+        sttScriptAddress: `stt_${unit}`,
+        walletScriptAddress: `wallet_${unit}`
+      }
+    });
+    await db.sttParticipant.createMany({
+      data: participantKeyHashes.map((paymentKeyHash, index) => ({
+        walletId: wallet.id,
+        role: "signer",
+        participantKey: `${unit}-${index}`,
+        paymentKeyHash
+      }))
+    });
+  }
 
-beforeEach(async () => {
-  await resetTestDatabase(db);
-  await seedWallet(UNIT_A, [ALICE]);
-  await seedWallet(UNIT_B, [BOB]);
-});
-
-after(async () => {
-  await db.$disconnect();
-});
-
-test("walletParticipantExists is true only for an indexed participant of that wallet", async () => {
-  assert.equal(await walletParticipantExists(db, UNIT_A, ALICE), true);
-  assert.equal(await walletParticipantExists(db, UNIT_A, BOB), false);
-  assert.equal(await walletParticipantExists(db, UNIT_A, MALLORY), false);
-  // A participant of one wallet is not thereby a participant of another.
-  assert.equal(await walletParticipantExists(db, UNIT_B, ALICE), false);
-});
-
-test("participantWalletUnits scopes to the caller's wallets, with no cross-wallet leak", async () => {
-  assert.deepEqual(await participantWalletUnits(db, ALICE), [UNIT_A]);
-  assert.deepEqual(await participantWalletUnits(db, BOB), [UNIT_B]);
-  // An outsider with no membership anywhere sees nothing.
-  assert.deepEqual(await participantWalletUnits(db, MALLORY), []);
-});
-
-test("a participant of multiple wallets sees all of them, de-duplicated", async () => {
-  const walletB = await db.sttWallet.findFirstOrThrow({ where: { unit: UNIT_B } });
-  await db.sttParticipant.create({
-    data: {
-      walletId: walletB.id,
-      role: "signer",
-      participantKey: `${UNIT_B}-alice`,
-      paymentKeyHash: ALICE
-    }
+  before(async () => {
+    db = await createTestDatabaseClient();
   });
 
-  const units = await participantWalletUnits(db, ALICE);
-  assert.deepEqual([...units].sort(), [UNIT_A, UNIT_B].sort());
-});
+  beforeEach(async () => {
+    await resetTestDatabase(db);
+    await seedWallet(UNIT_A, [ALICE]);
+    await seedWallet(UNIT_B, [BOB]);
+  });
 
-test("walletIsIndexed separates an unindexed wallet from a non-member", async () => {
-  // Seeded wallet, member and non-member alike: the wallet itself is indexed.
-  assert.equal(await walletIsIndexed(db, UNIT_A), true);
-  assert.equal(await walletParticipantExists(db, UNIT_A, MALLORY), false);
+  after(async () => {
+    await db.$disconnect();
+  });
 
-  // A wallet the indexer has never seen. Both queries answer false, but only this pair
-  // tells the caller which of the two reasons applies.
-  const UNIT_UNSEEN = "eeeeeeee0009";
-  assert.equal(await walletIsIndexed(db, UNIT_UNSEEN), false);
-  assert.equal(await walletParticipantExists(db, UNIT_UNSEEN, ALICE), false);
+  test("walletParticipantExists is true only for an indexed participant of that wallet", async () => {
+    assert.equal(await walletParticipantExists(db, UNIT_A, ALICE), true);
+    assert.equal(await walletParticipantExists(db, UNIT_A, BOB), false);
+    assert.equal(await walletParticipantExists(db, UNIT_A, MALLORY), false);
+    // A participant of one wallet is not thereby a participant of another.
+    assert.equal(await walletParticipantExists(db, UNIT_B, ALICE), false);
+  });
+
+  test("participantWalletUnits scopes to the caller's wallets, with no cross-wallet leak", async () => {
+    assert.deepEqual(await participantWalletUnits(db, ALICE), [UNIT_A]);
+    assert.deepEqual(await participantWalletUnits(db, BOB), [UNIT_B]);
+    // An outsider with no membership anywhere sees nothing.
+    assert.deepEqual(await participantWalletUnits(db, MALLORY), []);
+  });
+
+  test("a participant of multiple wallets sees all of them, de-duplicated", async () => {
+    const walletB = await db.sttWallet.findFirstOrThrow({ where: { unit: UNIT_B } });
+    await db.sttParticipant.create({
+      data: {
+        walletId: walletB.id,
+        role: "signer",
+        participantKey: `${UNIT_B}-alice`,
+        paymentKeyHash: ALICE
+      }
+    });
+
+    const units = await participantWalletUnits(db, ALICE);
+    assert.deepEqual([...units].sort(), [UNIT_A, UNIT_B].sort());
+  });
+
+  test("walletIsIndexed separates an unindexed wallet from a non-member", async () => {
+    // Seeded wallet, member and non-member alike: the wallet itself is indexed.
+    assert.equal(await walletIsIndexed(db, UNIT_A), true);
+    assert.equal(await walletParticipantExists(db, UNIT_A, MALLORY), false);
+
+    // A wallet the indexer has never seen. Both queries answer false, but only this pair
+    // tells the caller which of the two reasons applies.
+    const UNIT_UNSEEN = "eeeeeeee0009";
+    assert.equal(await walletIsIndexed(db, UNIT_UNSEEN), false);
+    assert.equal(await walletParticipantExists(db, UNIT_UNSEEN, ALICE), false);
+  });
+
+  /**
+   * Reconciling a unit whose mint is not confirmed writes a CLOSED row. Counting rows
+   * made that row read as "indexed", so `POST /api/proposals` skipped the reconcile on
+   * every attempt after the first and answered 403 instead of the 409 that says retry.
+   */
+  test("walletIsIndexed does not count a closed wallet as indexed", async () => {
+    const UNIT_CLOSED = "ffffffff0010";
+    await db.sttWallet.create({
+      data: {
+        network: STT_CACHE_NETWORK,
+        policyId: UNIT_CLOSED.slice(0, 8),
+        assetNameHex: UNIT_CLOSED.slice(8),
+        unit: UNIT_CLOSED,
+        sttScriptAddress: `stt_${UNIT_CLOSED}`,
+        walletScriptAddress: `wallet_${UNIT_CLOSED}`,
+        status: "CLOSED"
+      }
+    });
+
+    assert.equal(await walletIsIndexed(db, UNIT_CLOSED), false);
+  });
 });

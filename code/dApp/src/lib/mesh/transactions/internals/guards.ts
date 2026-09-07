@@ -1,13 +1,21 @@
+import { readStateSections } from "@/lib/contracts/state-layout";
 import { createStageError } from "./errors";
 import { type OnChainStructuredAction } from "@/lib/contracts/action-data";
-import { collectStateDatumWarnings, validateStateDatum } from "@/lib/contracts/state-validation";
-import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import {
-  isTerminalBeneficiaryOutputState,
-  TERMINAL_RECOVERY_REACHABILITY_ERROR
-} from "@/lib/contracts/terminal-recovery";
+  collectStateDatumWarnings,
+  validateCurrentStateDatum
+} from "@/lib/contracts/state-validation";
+import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import { type Asset, type ConstrData } from "@/lib/types/contracts";
 import { isConstrData, isRecord } from "@/lib/contracts/plutus-primitives";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/LibMeshTransactionsInternalsGuards.json";
+import {
+  isNonNegativeUint64Decimal,
+  MAX_ON_CHAIN_STATE_INTEGER
+} from "@/lib/contracts/on-chain-integer";
+
+const i18n = createDefaultTranslator("LibMeshTransactionsInternalsGuards", defaultMessages);
 
 // Canonical Plutus-Data guards live in @/lib/contracts/plutus-primitives;
 // re-exported so this module's existing importers (datum, errors, script-data)
@@ -86,8 +94,13 @@ export function assertValidAssetList(
       throw new Error(`${label} entry ${index} quantity must be an integer string.`);
     }
 
-    if (BigInt(asset.quantity) < 0n) {
+    if (asset.quantity.startsWith("-")) {
       throw new Error(`${label} entry ${index} quantity must be zero or greater.`);
+    }
+    if (!isNonNegativeUint64Decimal(asset.quantity)) {
+      throw new Error(
+        `${label} entry ${index} quantity must not exceed ${MAX_ON_CHAIN_STATE_INTEGER.toString()}.`
+      );
     }
   });
 }
@@ -96,10 +109,10 @@ export function assertValidAssetList(
 
 function describeInvalidAddress(value: string) {
   if (isTxHashLike(value)) {
-    return `Invalid address "${value}". It looks like a transaction hash, not a Cardano address.`;
+    return i18n("invalidAddressLooksLikeTransactionHash", { value });
   }
 
-  return `Invalid address "${value}". Expected a bech32 Cardano address.`;
+  return i18n("invalidAddressExpectedBech32", { value });
 }
 
 
@@ -112,7 +125,10 @@ function assertValidAddress(value: unknown, label: string) {
 
 
 
-export function assertValidWalletInputRefs(value: unknown, label: string) {
+export function assertValidWalletInputRefs(
+  value: unknown,
+  label: string
+) {
   if (!Array.isArray(value)) {
     throw new Error(`${label} must be an array of {"txHash","outputIndex"} objects.`);
   }
@@ -200,16 +216,11 @@ export function validateForwardedStateDatum(
   invalidMessage: string
 ): string[] {
   const unwrappedStateDatum = unwrapStateDatum(stateDatum, "Forwarded STT datum");
-  const permitsTerminalBeneficiaryState =
-    action.kind === "beneficiary-withdrawal" &&
-    isTerminalBeneficiaryOutputState(unwrappedStateDatum);
-  const stateValidationErrors = validateStateDatum(unwrappedStateDatum).filter(
-    (error) =>
-      !(
-        permitsTerminalBeneficiaryState &&
-        error === TERMINAL_RECOVERY_REACHABILITY_ERROR
-      )
-  );
+  const sections = readStateSections(unwrappedStateDatum, "Forwarded STT datum");
+  const stateValidationErrors = validateCurrentStateDatum(unwrappedStateDatum, {
+    allowNoReachableAccessPath: action.kind === "beneficiary-exit" &&
+      sections.beneficiaries.length === 0 && sections.streamingPayments.length === 0
+  });
   if (stateValidationErrors.length > 0) {
     throw createStageError(
       stage,
@@ -221,12 +232,7 @@ export function validateForwardedStateDatum(
     );
   }
   // Non-blocking advisories (e.g. a lapsed proof of life, or a beneficiary-only
-  // recovery time-locked far out). Accepted on-chain; logged here and returned
-  // so the caller can surface them in the review panel before signing.
-  const warnings = collectStateDatumWarnings(unwrappedStateDatum);
-  for (const warning of warnings) {
-    console.warn(`[${stage}] ${warning}`);
-  }
-  return warnings;
+  // recovery time-locked far out). Accepted on-chain; returned so the caller
+  // can surface them in the review panel before signing.
+  return collectStateDatumWarnings(unwrappedStateDatum);
 }
-

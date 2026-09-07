@@ -8,5 +8,9 @@ use aiken/collection/list
 /// keys) routes through here instead of re-spelling the
 /// `length(unique(xs)) == length(xs)` idiom at each site.
 pub fn all_unique(items: List<a>) -> Bool {
-  list.length(list.unique(items)) == list.length(items)
+  when items is {
+    [] -> True
+    [item, ..remaining_items] ->
+      !list.has(remaining_items, item) && all_unique(remaining_items)
+  }
 }

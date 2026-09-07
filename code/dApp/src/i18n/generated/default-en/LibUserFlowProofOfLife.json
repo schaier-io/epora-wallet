@@ -1,6 +1,11 @@
 {
   "checkInNow": "Check in now",
+  "dayCount": "{count, plural, one {# day} other {# days}}",
+  "hourCount": "{count, plural, one {# hour} other {# hours}}",
+  "lessThanOneHour": "< 1 hour",
   "manageProofOfLife": "Manage proof of life",
+  "proofOfLife": "proof of life",
+  "ranOut": "Ran out",
   "setUpProofOfLife": "Set up proof of life",
   "toCheckIn": "to check in"
 }

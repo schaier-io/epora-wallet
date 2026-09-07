@@ -1,44 +1,98 @@
 "use client";
 import { useTranslations } from "next-intl";
 
+import { detectedSttTokensErrorAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { selectedDetectedTokenAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { selectedActionAtom, userFlowBranchAtom, wizardSelectedActionAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
+import {
+  consolidateAuthorityPathAtom,
+  sttAuthorityPathAtom,
+  walletOperatorPathAtom
+} from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import { activeInferredSttStateFormAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import { useAtomValue } from "jotai";
 
 import { UserActionConfigurationCard } from "@/components/user/action-configuration-card";
-
-import {
-  AnimatedContent
-} from "@/components/react-bits/primitives";
-import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle
-} from "@/components/ui/card";
 
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 import { WorkspaceWalletDashboardView } from "@/components/user/workspace/workspace-wallet-dashboard-view";
 import { SetupCheckpointCardView } from "@/components/user/workspace/workspace-setup-checkpoint-view";
 import { WorkspaceActionConfigView } from "@/components/user/workspace/workspace-action-config-view";
+import { reachableApprovalPower } from "@/components/user/workspace/helpers";
+import type { UserActionKind } from "@/components/user/flow-types";
+import type {
+  AuthorityPath,
+  ConsolidateAuthorityPath,
+  OperatorAuthorityPath
+} from "@/lib/types/contracts";
+
+type ContextualApprovalPath = "admin" | "multisig" | "beneficiary" | null;
+
+export function resolveContextualApprovalPath(
+  action: UserActionKind,
+  sttPath: AuthorityPath,
+  consolidatePath: ConsolidateAuthorityPath,
+  walletPath: OperatorAuthorityPath
+): ContextualApprovalPath {
+  if (action === "consolidate-utxo") return consolidatePath;
+  if (
+    action === "wallet-withdraw" ||
+    action === "wallet-publish" ||
+    action === "wallet-vote" ||
+    action === "set-intended-stake-credential"
+  ) {
+    return walletPath;
+  }
+  if (action === "use" || action === "update-state" || action === "manage-streaming-payments") {
+    return sttPath === "multisig" ? "multisig" : "admin";
+  }
+  return null;
+}
 
 export function WorkspaceMainPanelView() {
   const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceMainPanelView");
   const state = useWorkspaceActions();
   const selectedAction = useAtomValue(selectedActionAtom);
   const selectedDetectedToken = useAtomValue(selectedDetectedTokenAtom);
+  const detectedSttTokensError = useAtomValue(detectedSttTokensErrorAtom);
   const userFlowBranch = useAtomValue(userFlowBranchAtom);
   const wizardSelectedAction = useAtomValue(wizardSelectedActionAtom);
+  const sttAuthorityPath = useAtomValue(sttAuthorityPathAtom);
+  const consolidateAuthorityPath = useAtomValue(consolidateAuthorityPathAtom);
+  const walletOperatorPath = useAtomValue(walletOperatorPathAtom);
+  const activeInferredSttStateForm = useAtomValue(activeInferredSttStateFormAtom);
   const {
     actionConfigurationRef,
     activeActionDefinition,
     clearActionDraft,
-    primaryActionIssue,
     resetActionDraft,
     selectedActionRouteExplanation,
     sendRouteExplanation,
     hasActiveComposer,
   } = state;
+  const contextualApprovalPath = resolveContextualApprovalPath(
+    selectedAction,
+    sttAuthorityPath,
+    consolidateAuthorityPath,
+    walletOperatorPath
+  );
+  const contextualApprovalLabel = hasActiveComposer && contextualApprovalPath
+    ? activeActionDefinition.pathLabels?.[
+        contextualApprovalPath === "admin" ? 0 : contextualApprovalPath === "multisig" ? 1 : 2
+      ]
+    : null;
+  const approvalThreshold = Number.parseInt(activeInferredSttStateForm.multiSigThreshold, 10);
+  const approvalLabels = contextualApprovalLabel
+    ? [
+        contextualApprovalPath === "multisig" && approvalThreshold > 0
+          ? i18n("coSignerPowerRatio", {
+              label: contextualApprovalLabel,
+              needed: approvalThreshold,
+              available: reachableApprovalPower(activeInferredSttStateForm.users)
+            })
+          : contextualApprovalLabel
+      ]
+    : undefined;
 
   return (
             // No padding between the scroller and its card. The three workspace columns each
@@ -68,6 +122,7 @@ export function WorkspaceMainPanelView() {
                     <UserActionConfigurationCard
                       compact
                       definition={activeActionDefinition}
+                      approvalLabels={approvalLabels}
                       title={
                         userFlowBranch === "new-wallet"
                           ? // The header above owns "Create wallet"; repeating it here (as
@@ -86,24 +141,23 @@ export function WorkspaceMainPanelView() {
                       }
                       selectedAction={selectedAction}
                       selectedDetectedToken={Boolean(selectedDetectedToken)}
-                      primaryIssue={primaryActionIssue}
                       onReset={() => resetActionDraft(selectedAction)}
                       onClear={() => clearActionDraft(selectedAction)}
                     >
                       <div ref={actionConfigurationRef}><WorkspaceActionConfigView /></div>
                     </UserActionConfigurationCard>
-                  ) : (
-                    <AnimatedContent distance={18}>
-                      <Card className="user-surface">
-                        <CardHeader>
-                          <CardTitle>{i18n("chooseAnAction")}</CardTitle>
-                          <CardDescription>
-                            {i18n("pickAWalletJobFromTheActionRail")}
-                          </CardDescription>
-                        </CardHeader>
-                      </Card>
-                    </AnimatedContent>
-                  )}
+                  ) : detectedSttTokensError ? (
+                    // The link names a wallet, but the wallet list never loaded, so nothing can
+                    // match it. Say that, rather than letting the sidebar's "not one of yours"
+                    // stand alone as if the wallet had been checked and rejected.
+                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 sm:p-4">
+                      <p className="text-sm font-medium text-foreground">{i18n("couldNotLoadThisWallet")}</p>
+                      <p className="mt-2 text-sm text-muted-foreground">{detectedSttTokensError}</p>
+                    </div>
+                  ) : // No wallet is open and no form is staged. The sidebar already explains how
+                    // to pick a wallet; a "Choose an action" card here pointed at an action rail
+                    // that is not on screen in this state.
+                    null}
                 </div>
               )}
             </div>

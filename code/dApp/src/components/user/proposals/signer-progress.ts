@@ -22,10 +22,10 @@ export type SignerProgress = {
 /** The two operator paths, in the words the rest of the app uses (audit-copy.md §3.2 B, E). */
 export function authorityPathLabel(path: ProposalAuthorityPath | string): string {
   if (path === "admin") {
-    return "Owner";
+    return i18n("owner");
   }
   if (path === "multisig") {
-    return "Co-signers";
+    return i18n("coSigners");
   }
   return path;
 }
@@ -47,7 +47,10 @@ export function describeSignerProgress(
   // short and still be satisfied, or hold three signatures and not be.
   if (signers.threshold != null) {
     return {
-      label: i18n("value1OfValue2ApprovalPower", { value1: signers.satisfiedPower, value2: signers.threshold }),
+      label: i18n("value1OfValue2ApprovalPower", {
+        value1: signers.satisfiedPower.toString(),
+        value2: signers.threshold.toString()
+      }),
       tone: signers.satisfied ? "ready" : "pending"
     };
   }

@@ -34,6 +34,12 @@ export const connectStepPinnedAtom = atom(false);
 export const guidedOverviewSectionAtom = atom((get) => get(routeStateAtom).overviewSection);
 /** Whether the wallet-connection dialog is open. */
 export const walletConnectionDialogOpenAtom = atom(false);
+/**
+ * Whether the workspace has its own `WalletConnectionDialog` mounted. The top nav mounts the
+ * plain one only while this is false, so each page holds one dialog and the connect button
+ * still works when the workspace has crashed into its error boundary.
+ */
+export const walletConnectionDialogMountedAtom = atom(false);
 /** Transient "copied to clipboard" feedback label (auto-cleared ~1.8s after a copy). */
 export const copyFeedbackAtom = atom<string | null>(null);
 /** Most-recent custom send recipients (localStorage-backed, re-read on mount), newest first. */

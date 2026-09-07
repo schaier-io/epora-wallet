@@ -2,11 +2,11 @@
 import { useTranslations } from "next-intl";
 
 
-import {
-  BrowserWallet,
-  resolvePaymentKeyHash,
-  type Wallet
-} from "@meshsdk/core";
+// Types only. `@meshsdk/core` bundles the whole Cardano serialisation stack: it built to a
+// single 6.4 MB client chunk. This provider mounts in the root layout, so a value import
+// here put that chunk on routes that never touch a wallet, the 404 shell included. The
+// three places that need the runtime import it on demand, below.
+import type { BrowserWallet, Wallet } from "@meshsdk/core";
 import {
   createContext,
   useCallback,
@@ -17,7 +17,7 @@ import {
   useState,
   type PropsWithChildren
 } from "react";
-import { useAtom, useAtomValue } from "jotai";
+import { useAtom, useAtomValue, useSetAtom } from "jotai";
 import {
   activeAddressAtom,
   activePaymentKeyHashAtom,
@@ -28,6 +28,8 @@ import {
   isDemoWalletAtom,
   networkIdAtom
 } from "@/providers/wallet.atoms";
+import { rememberWalletAddressAtom } from "@/providers/wallet-address-book";
+import { resolveWalletPaymentKeyHash } from "@/providers/wallet-payment-key-hash";
 import { getUserFacingErrorMessage } from "@/lib/utils/errors";
 import {
   DEMO_REWARD_ADDRESS,
@@ -41,12 +43,15 @@ import {
   persistLastConnectedWalletName,
   readLastConnectedWalletName
 } from "@/lib/wallet/storage";
-import { waitForCardanoInjection } from "@/lib/wallet/injection";
+import { readWalletAuthorityAddress } from "@/lib/wallet/authority-address";
+import { hasCardanoInjection, waitForCardanoInjection } from "@/lib/wallet/injection";
 
 export { DEMO_WALLET_ID } from "@/providers/wallet.atoms";
 
 type WalletContextType = {
   installedWallets: Wallet[];
+  /** True once the first extension scan has settled, found wallets or not. */
+  walletsLoaded: boolean;
   activeWallet: BrowserWallet | null;
   activeWalletName: string | null;
   isDemoWallet: boolean;
@@ -59,7 +64,13 @@ type WalletContextType = {
   connectError: string | null;
   clearConnectError: () => void;
   refreshWallets: () => Promise<void>;
-  connectWallet: (walletName: string) => Promise<void>;
+  /** Resolves false when the attempt was cancelled or superseded before it finished. */
+  connectWallet: (walletName: string) => Promise<boolean>;
+  /**
+   * The wallet the provider reconnected on its own after a reload, while it is the
+   * active one. Null once the person connects a wallet themselves.
+   */
+  restoredWalletName: string | null;
   cancelConnect: () => void;
   disconnectWallet: () => void;
 };
@@ -71,10 +82,30 @@ const WalletContext = createContext<WalletContextType | null>(null);
 // Cap the wait so the attempt fails cleanly and can be retried.
 const WALLET_ENABLE_TIMEOUT_MS = 90_000;
 
+// A message this file wrote for the user; it must not be re-mapped by the
+// generic error classifier, which reads "did not respond" as a network fault.
+class KnownConnectError extends Error {}
+
+function sameWalletList(current: Wallet[], next: Wallet[]) {
+  return (
+    current.length === next.length &&
+    current.every((wallet, index) => {
+      const candidate = next[index];
+      return (
+        candidate !== undefined &&
+        wallet.id === candidate.id &&
+        wallet.name === candidate.name &&
+        wallet.icon === candidate.icon &&
+        wallet.version === candidate.version
+      );
+    })
+  );
+}
+
 function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout>;
   const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error(message)), ms);
+    timer = setTimeout(() => reject(new KnownConnectError(message)), ms);
   });
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
@@ -82,20 +113,17 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
 /**
  * Who the extension is answering as RIGHT NOW. Read by both the connect path and the
  * focus refresh, so the two can never disagree about which address identifies the account.
- * A rejected address read is treated as "not this one" and falls through to the next
- * source; a rejected `getNetworkId` fails the whole read, leaving the caller to decide.
+ * Identity read failures propagate, so an account change cannot select another key.
  */
 async function readWalletIdentity(wallet: BrowserWallet) {
-  const [usedAddresses, fallbackAddresses, changeAddress, rewards, networkId] = await Promise.all([
-    wallet.getUsedAddresses().catch(() => []),
-    wallet.getUnusedAddresses().catch(() => []),
-    wallet.getChangeAddress().catch(() => null),
+  const [address, rewards, networkId] = await Promise.all([
+    readWalletAuthorityAddress(wallet),
     wallet.getRewardAddresses().catch(() => []),
     wallet.getNetworkId()
   ]);
 
   return {
-    address: usedAddresses[0] ?? fallbackAddresses[0] ?? changeAddress ?? null,
+    address,
     rewardAddress: rewards[0] ?? null,
     networkId
   };
@@ -121,6 +149,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
   // Bumped on every connect attempt and on cancel; lets an in-flight attempt
   // detect that it was superseded or cancelled and drop its result.
   const connectAttemptRef = useRef(0);
+  const walletScanGenerationRef = useRef(0);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -129,12 +158,24 @@ export function WalletProvider({ children }: PropsWithChildren) {
     };
   }, []);
 
+  // The address book maps a person's stored wallet id (payment key hash) back to the
+  // address the reader recognises. The provider sees every identity this app ever
+  // connects to — connect, account switch on focus, demo — so learn each pair here
+  // once, and every wallet field in the app can name it from then on.
+  const rememberWalletAddress = useSetAtom(rememberWalletAddressAtom);
+  useEffect(() => {
+    if (activeAddress) {
+      rememberWalletAddress(activeAddress);
+    }
+  }, [activeAddress, rememberWalletAddress]);
+
   const clearConnectError = useCallback(() => setConnectError(null), []);
 
   // Read through refs so the focus listener below can stay mounted once instead of
   // resubscribing on every identity change.
   const activeWalletRef = useRef<BrowserWallet | null>(null);
   const activeWalletNameRef = useRef<string | null>(null);
+  const accountSyncGenerationRef = useRef(0);
   useEffect(() => {
     activeWalletRef.current = activeWallet;
     activeWalletNameRef.current = activeWalletName;
@@ -152,18 +193,32 @@ export function WalletProvider({ children }: PropsWithChildren) {
     if (!wallet || activeWalletNameRef.current === DEMO_WALLET_ID) {
       return;
     }
+    const generation = (accountSyncGenerationRef.current += 1);
 
     try {
       const { address, rewardAddress, networkId: id } = await readWalletIdentity(wallet);
       // `activeWalletRef.current !== wallet`: a connect or disconnect landed while this read
       // was in flight, and that result is the newer one.
-      if (!isMountedRef.current || !address || activeWalletRef.current !== wallet) {
+      if (
+        !isMountedRef.current ||
+        !address ||
+        activeWalletRef.current !== wallet ||
+        accountSyncGenerationRef.current !== generation
+      ) {
         return;
       }
 
       // Before any setter, so a malformed address leaves the whole identity untouched
       // rather than half-updated.
-      const paymentKeyHash = resolvePaymentKeyHash(address);
+      const paymentKeyHash = await resolveWalletPaymentKeyHash(address);
+      if (
+        !isMountedRef.current ||
+        !address ||
+        activeWalletRef.current !== wallet ||
+        accountSyncGenerationRef.current !== generation
+      ) {
+        return;
+      }
       setActiveAddress(address);
       setActiveRewardAddress(rewardAddress);
       setActivePaymentKeyHash(paymentKeyHash);
@@ -174,29 +229,56 @@ export function WalletProvider({ children }: PropsWithChildren) {
   }, [setActiveAddress, setActivePaymentKeyHash, setActiveRewardAddress, setNetworkId]);
 
   const refreshWallets = useCallback(async () => {
+    const generation = (walletScanGenerationRef.current += 1);
+    const isLatest = () =>
+      isMountedRef.current && walletScanGenerationRef.current === generation;
+    const updateInstalledWallets = (next: Wallet[]) => {
+      setInstalledWallets((current) => (sameWalletList(current, next) ? current : next));
+    };
+
     try {
+      await waitForCardanoInjection();
+      // No `window.cardano` after the wait means no CIP-30 extension answered, so the list
+      // is empty and there is nothing for the SDK to enumerate. Returning here is what
+      // keeps the Cardano stack off a visit from a browser with no wallet installed, which
+      // is the whole point of the lazy import: the mount scan runs on every route.
+      if (!hasCardanoInjection()) {
+        if (!isLatest()) return;
+        updateInstalledWallets(withDemoWalletFallback([], true));
+        return;
+      }
+      const { BrowserWallet } = await import("@meshsdk/core");
       const wallets = await BrowserWallet.getAvailableWallets({
         injectFn: () => waitForCardanoInjection()
       });
-      if (!isMountedRef.current) return;
-      setInstalledWallets(
-        withDemoWalletFallback(wallets, wallets.length === 0 || activeWalletName === DEMO_WALLET_ID)
+      if (!isLatest()) return;
+      updateInstalledWallets(
+        withDemoWalletFallback(
+          wallets,
+          wallets.length === 0 || activeWalletNameRef.current === DEMO_WALLET_ID
+        )
       );
     } catch {
-      if (!isMountedRef.current) return;
-      setInstalledWallets([DEMO_WALLET_INFO]);
+      if (!isLatest()) return;
+      updateInstalledWallets([DEMO_WALLET_INFO]);
     } finally {
-      if (isMountedRef.current) {
+      if (isLatest()) {
         setWalletsLoaded(true);
       }
     }
-  }, [activeWalletName]);
+  }, []);
 
-  const connectWallet = useCallback(async (walletName: string) => {
+  const [restoredWalletName, setRestoredWalletName] = useState<string | null>(null);
+
+  // `restore` marks the silent reconnect after a reload. The flag rides with the
+  // attempt, so a click that supersedes the restore is announced as the person's own.
+  const connect = useCallback(async (walletName: string, restore: boolean): Promise<boolean> => {
     // Claim this attempt; if it gets cancelled (dialog closed) or superseded by
     // a newer attempt, `stillActive()` turns false and we drop the result.
     const attemptId = (connectAttemptRef.current += 1);
+    accountSyncGenerationRef.current += 1;
     const stillActive = () => isMountedRef.current && connectAttemptRef.current === attemptId;
+    const hadActiveWallet = activeWalletRef.current !== null;
 
     setIsConnecting(true);
     setConnectingWalletName(walletName);
@@ -204,24 +286,31 @@ export function WalletProvider({ children }: PropsWithChildren) {
 
     try {
       if (walletName === DEMO_WALLET_ID) {
-        if (!stillActive()) return;
-        setActiveWallet(createDemoWallet());
+        if (!stillActive()) return false;
+        const wallet = createDemoWallet();
+        accountSyncGenerationRef.current += 1;
+        activeWalletRef.current = wallet;
+        activeWalletNameRef.current = DEMO_WALLET_ID;
+        setActiveWallet(wallet);
         setActiveWalletName(DEMO_WALLET_ID);
         setActiveAddress(DEMO_WALLET_ADDRESS);
         setActiveRewardAddress(DEMO_REWARD_ADDRESS);
         setNetworkId(0);
         setActivePaymentKeyHash(null);
+        setRestoredWalletName(restore ? DEMO_WALLET_ID : null);
         persistLastConnectedWalletName(DEMO_WALLET_ID);
-        return;
+        return true;
       }
 
       if (typeof window !== "undefined" && !window.cardano?.[walletName]) {
         void refreshWallets();
-        throw new Error(
-          i18n("walletNotAvailable", { walletName })
-        );
+        throw new KnownConnectError(i18n("walletNotAvailable", { walletName }));
       }
 
+      // The check above has seen `window.cardano[walletName]`, so an extension is installed
+      // and the mount scan has normally imported this module already: on that path the
+      // await resolves from the module cache and adds no fetch ahead of the prompt.
+      const { BrowserWallet, resolvePaymentKeyHash } = await import("@meshsdk/core");
       // Keep the dapp approval prompt inside the original click gesture.
       const wallet = await withTimeout(
         BrowserWallet.enable(walletName),
@@ -230,32 +319,41 @@ export function WalletProvider({ children }: PropsWithChildren) {
       );
       const { address, rewardAddress, networkId: id } = await readWalletIdentity(wallet);
       if (!address) {
-        throw new Error(
-          i18n("walletReturnedNoAddress", { walletName })
-        );
+        throw new KnownConnectError(i18n("walletReturnedNoAddress", { walletName }));
       }
+      const paymentKeyHash = resolvePaymentKeyHash(address);
 
-      if (!stillActive()) return;
+      if (!stillActive()) return false;
+      accountSyncGenerationRef.current += 1;
+      activeWalletRef.current = wallet;
+      activeWalletNameRef.current = walletName;
       setActiveWallet(wallet);
       setActiveWalletName(walletName);
       setActiveAddress(address);
       setActiveRewardAddress(rewardAddress);
       setNetworkId(id);
-      setActivePaymentKeyHash(address ? resolvePaymentKeyHash(address) : null);
+      setActivePaymentKeyHash(paymentKeyHash);
+      setRestoredWalletName(restore ? walletName : null);
       persistLastConnectedWalletName(walletName);
+      return true;
     } catch (error) {
       // A cancelled/superseded attempt shouldn't surface an error toast.
-      if (!stillActive()) return;
-      setActiveWallet(null);
-      setActiveWalletName(null);
-      setActiveAddress(null);
-      setActiveRewardAddress(null);
-      setActivePaymentKeyHash(null);
-      setNetworkId(null);
-      const message = getUserFacingErrorMessage(
-        error,
-        i18n("couldNotConnectToWalletnameUnlockTheWallet", { walletName: walletName })
-      );
+      if (!stillActive()) return false;
+      if (restore || !hadActiveWallet) {
+        setActiveWallet(null);
+        setActiveWalletName(null);
+        setActiveAddress(null);
+        setActiveRewardAddress(null);
+        setActivePaymentKeyHash(null);
+        setNetworkId(null);
+      }
+      const message =
+        error instanceof KnownConnectError
+          ? error.message
+          : getUserFacingErrorMessage(
+              error,
+              i18n("couldNotConnectToWalletnameUnlockTheWallet", { walletName: walletName })
+            );
       setConnectError(message);
       throw error;
     } finally {
@@ -274,10 +372,16 @@ export function WalletProvider({ children }: PropsWithChildren) {
     setActivePaymentKeyHash,
     setNetworkId
   ]);
+  const connectWallet = useCallback((walletName: string) => connect(walletName, false), [connect]);
 
   const disconnectWallet = useCallback(() => {
+    connectAttemptRef.current += 1;
+    accountSyncGenerationRef.current += 1;
+    activeWalletRef.current = null;
+    activeWalletNameRef.current = null;
     setActiveWallet(null);
     setActiveWalletName(null);
+    setIsConnecting(false);
     setConnectingWalletName(null);
     setActiveAddress(null);
     setActiveRewardAddress(null);
@@ -304,9 +408,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
   }, []);
 
   useEffect(() => {
-    // Mount/identity-change loader for available wallets. refreshWallets awaits
-    // the wallet injection before any setState, so it doesn't cascade renders.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    // Load available wallets once on mount. Focus and injection events refresh the list below.
     void refreshWallets();
   }, [refreshWallets]);
 
@@ -379,7 +481,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
     if (lastConnectedWalletName === DEMO_WALLET_ID) {
       // Silent auto-reconnect side-effect for the demo wallet.
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      void connectWallet(lastConnectedWalletName).catch(() => undefined);
+      void connect(lastConnectedWalletName, true).catch(() => undefined);
       return;
     }
 
@@ -388,6 +490,10 @@ export function WalletProvider({ children }: PropsWithChildren) {
     // (no transient activation) and strand the UI in "connecting", the reported
     // "connection request not showing" hang. If it isn't authorized yet, wait
     // for the user's click, which carries the gesture the popup needs.
+    // A click that lands while `isEnabled()` is still pending outranks the restore:
+    // starting the restore afterwards would supersede the person's own attempt and
+    // hide the result behind the silent-restore mark.
+    const attemptBeforeCheck = connectAttemptRef.current;
     void (async () => {
       try {
         const injected = (
@@ -396,20 +502,21 @@ export function WalletProvider({ children }: PropsWithChildren) {
         const alreadyAuthorized = injected?.isEnabled
           ? await injected.isEnabled().catch(() => false)
           : false;
-        if (alreadyAuthorized) {
-          await connectWallet(lastConnectedWalletName);
+        if (alreadyAuthorized && connectAttemptRef.current === attemptBeforeCheck) {
+          await connect(lastConnectedWalletName, true);
         }
       } catch {
         // Stay disconnected; the user can reconnect with a click.
       }
     })();
-  }, [activeWallet, connectWallet, installedWallets, isConnecting, walletsLoaded]);
+  }, [activeWallet, connect, installedWallets, isConnecting, walletsLoaded]);
 
   const isDemoWallet = useAtomValue(isDemoWalletAtom);
 
   const value = useMemo<WalletContextType>(
     () => ({
       installedWallets,
+      walletsLoaded,
       activeWallet,
       activeWalletName,
       isDemoWallet,
@@ -423,11 +530,13 @@ export function WalletProvider({ children }: PropsWithChildren) {
       clearConnectError,
       refreshWallets,
       connectWallet,
+      restoredWalletName,
       cancelConnect,
       disconnectWallet
     }),
     [
       installedWallets,
+      walletsLoaded,
       activeWallet,
       activeWalletName,
       isDemoWallet,
@@ -441,6 +550,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
       clearConnectError,
       refreshWallets,
       connectWallet,
+      restoredWalletName,
       cancelConnect,
       disconnectWallet
     ]

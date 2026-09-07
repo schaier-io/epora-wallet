@@ -28,7 +28,7 @@ export function compareInputRefs(left: string, right: string) {
 
 
 export function createInputRefKey(txHash: string, outputIndex: number) {
-  return `${txHash}#${outputIndex}`;
+  return `${txHash.toLowerCase()}#${outputIndex}`;
 }
 
 
@@ -37,7 +37,10 @@ export function dedupeUtxos(utxos: UTxO[]): UTxO[] {
   const map = new Map<string, UTxO>();
 
   for (const utxo of utxos) {
-    const key = `${utxo.input.txHash}#${utxo.input.outputIndex}`;
+    const key = createInputRefKey(
+      utxo.input.txHash,
+      utxo.input.outputIndex
+    );
     if (!map.has(key)) {
       map.set(key, utxo);
     }
@@ -313,8 +316,9 @@ export function addWalletInput(txBuilder: RuntimeTxBuilder, utxo: UTxO) {
 
 
 export function findUtxo(utxos: UTxO[], txHash: string, outputIndex?: number) {
+  const normalizedTxHash = txHash.toLowerCase();
   const found = utxos.find((utxo) => {
-    if (utxo.input.txHash !== txHash) return false;
+    if (utxo.input.txHash.toLowerCase() !== normalizedTxHash) return false;
     if (typeof outputIndex === "number") {
       return utxo.input.outputIndex === outputIndex;
     }
@@ -335,62 +339,95 @@ export function findUtxo(utxos: UTxO[], txHash: string, outputIndex?: number) {
  * or otherwise non-canonical stake credential, so migration and terminal
  * recovery flows must fetch the references directly.
  */
+export const MAX_CONCURRENT_EXACT_INPUT_LOOKUPS = 8;
+
 export async function resolveExactWalletInputUtxos(
-  fetcher: Pick<TxFetcher, "fetchUTxOs">,
+  fetcher: Pick<TxFetcher, "fetchUTxOs" | "get">,
   refs: WalletInputRef[],
-  expectedPaymentScriptHash: string
+  expectedPaymentScriptHash: string,
+  requireUnspentStatus = false
 ): Promise<UTxO[]> {
-  return Promise.all(
-    refs.map(async (ref) => {
-      const candidates = await fetcher.fetchUTxOs(ref.txHash, ref.outputIndex);
-      const utxo = findUtxo(candidates, ref.txHash, ref.outputIndex);
+  const resolved: UTxO[] = [];
+  for (
+    let start = 0;
+    start < refs.length;
+    start += MAX_CONCURRENT_EXACT_INPUT_LOOKUPS
+  ) {
+    const batch = await Promise.all(
+      refs
+        .slice(start, start + MAX_CONCURRENT_EXACT_INPUT_LOOKUPS)
+        .map(async (ref) => {
+          const candidates = await fetcher.fetchUTxOs(
+            ref.txHash,
+            ref.outputIndex
+          );
+          const utxo = findUtxo(candidates, ref.txHash, ref.outputIndex);
+          await assertExactInputUnspent(fetcher, ref, "Wallet input", requireUnspentStatus);
 
-      let actualPaymentScriptHash: string;
-      try {
-        const address = deserializeAddress(utxo.output.address);
-        actualPaymentScriptHash = address.scriptHash;
-      } catch {
-        throw new Error(
-          `Wallet input ${createInputRefKey(ref.txHash, ref.outputIndex)} has an invalid Cardano address.`
-        );
-      }
+          let actualPaymentScriptHash: string;
+          try {
+            const address = deserializeAddress(utxo.output.address);
+            actualPaymentScriptHash = address.scriptHash;
+          } catch {
+            throw new Error(
+              `Wallet input ${createInputRefKey(ref.txHash, ref.outputIndex)} has an invalid Cardano address.`
+            );
+          }
 
-      if (
-        !actualPaymentScriptHash ||
-        actualPaymentScriptHash.toLowerCase() !== expectedPaymentScriptHash.toLowerCase()
-      ) {
-        throw new Error(
-          `Wallet input ${createInputRefKey(ref.txHash, ref.outputIndex)} does not use this wallet's payment credential.`
-        );
-      }
+          if (
+            !actualPaymentScriptHash ||
+            actualPaymentScriptHash.toLowerCase() !==
+              expectedPaymentScriptHash.toLowerCase()
+          ) {
+            throw new Error(
+              `Wallet input ${createInputRefKey(ref.txHash, ref.outputIndex)} does not use this wallet's payment credential.`
+            );
+          }
 
-      return utxo;
-    })
-  );
+          return utxo;
+        })
+    );
+    resolved.push(...batch);
+  }
+  return resolved;
+}
+
+type BlockfrostTxOutput = { output_index?: number; consumed_by_tx?: string | null };
+
+// Mesh's fetchUTxOs lists a transaction's outputs whether or not they were spent
+// since, so a spent reference only failed later, inside evaluation, with an
+// error that named no input. The provider's own output record carries the flag.
+export async function assertExactInputUnspent(
+  fetcher: Pick<TxFetcher, "get">,
+  ref: WalletInputRef,
+  label = "Wallet input",
+  requireStatus = false
+) {
+  const response = (await fetcher.get(`txs/${ref.txHash}/utxos`)) as {
+    outputs?: BlockfrostTxOutput[];
+  } | null;
+  const output = Array.isArray(response?.outputs)
+    ? response.outputs.find((entry) => entry?.output_index === ref.outputIndex)
+    : undefined;
+  if (requireStatus && output?.consumed_by_tx !== null && !output?.consumed_by_tx) {
+    throw new Error(`${label} ${createInputRefKey(ref.txHash, ref.outputIndex)} has no verified unspent status. Refresh the reference and retry.`);
+  }
+  if (output?.consumed_by_tx) {
+    throw new Error(
+      `${label} ${createInputRefKey(ref.txHash, ref.outputIndex)} was already spent by ${output.consumed_by_tx}.`
+    );
+  }
 }
 
 export function assertValidConsolidationLayout(
   walletInputs: UTxO[],
-  canonicalWalletAddress: string,
-  walletOutputCount: number
+  canonicalWalletAddress: string
 ) {
   const migratesAddress = walletInputs.some(
     (walletInput) => walletInput.output.address !== canonicalWalletAddress
   );
-  if (walletInputs.length < 2 && !migratesAddress) {
-    throw new Error(
-      "Consolidation needs at least two inputs unless one input is being migrated to the wallet's intended stake address."
-    );
-  }
-  if (
-    (!migratesAddress && walletOutputCount >= walletInputs.length) ||
-    (migratesAddress && walletOutputCount > walletInputs.length)
-  ) {
-    throw new Error(
-      migratesAddress
-        ? "Wallet-address migration cannot increase the number of wallet script outputs."
-        : "Consolidation must reduce the number of wallet script outputs."
-    );
+  if (walletInputs.length < 1) {
+    throw new Error("Consolidation requires at least one wallet script input.");
   }
   return { migratesAddress };
 }
@@ -417,11 +454,13 @@ export function resolveSttInputUtxo(
   outputIndex: number | undefined,
   sttUnit: string
 ): UTxO {
+  const normalizedTxHash = txHash.toLowerCase();
   const exactReference =
     typeof outputIndex === "number"
       ? utxos.find(
           (utxo) =>
-            utxo.input.txHash === txHash && utxo.input.outputIndex === outputIndex
+            utxo.input.txHash.toLowerCase() === normalizedTxHash &&
+            utxo.input.outputIndex === outputIndex
         )
       : undefined;
   if (exactReference) {
@@ -436,7 +475,8 @@ export function resolveSttInputUtxo(
   if (typeof outputIndex !== "number") {
     const sameTransactionHoldingStt = utxos.filter(
       (utxo) =>
-        utxo.input.txHash === txHash && sttQuantity(utxo, sttUnit) === 1n
+        utxo.input.txHash.toLowerCase() === normalizedTxHash &&
+        sttQuantity(utxo, sttUnit) === 1n
     );
     if (sameTransactionHoldingStt.length === 1) {
       return sameTransactionHoldingStt[0]!;
@@ -467,7 +507,7 @@ export function ensureUniqueWalletInputRefs(
   const seen = new Set<string>();
 
   for (const ref of refs) {
-    const key = `${ref.txHash}#${ref.outputIndex}`;
+    const key = createInputRefKey(ref.txHash, ref.outputIndex);
     if (seen.has(key)) {
       throw new Error(`Duplicate wallet input reference: ${key}`);
     }

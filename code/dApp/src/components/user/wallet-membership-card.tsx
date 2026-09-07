@@ -11,7 +11,6 @@ import { countSttTokens } from "@/lib/mesh/detection";
 import { useToast } from "@/providers/toast-provider";
 import { cn } from "@/lib/utils/cn";
 import { POLICY_ID_LENGTH, hexToAscii } from "@/lib/cardano-assets";
-import { shortenIdentifier } from "@/lib/utils/explorer";
 
 // Replicated from wallet-session-profile-card.tsx so the membership card shares
 // the exact sparkle surface (full-surface grain mask + empty avatar) without
@@ -60,7 +59,7 @@ export type WalletMembershipCardProps = {
   className?: string;
 };
 
-/** Best-effort hex → ascii for the STT asset name; falls back to shortened hex. */
+/** Decode printable asset names. An empty result selects the generic wallet label. */
 function decodeAssetName(unit: string, policyId: string | null) {
   const assetNameHex =
     policyId && unit.startsWith(policyId) ? unit.slice(POLICY_ID_LENGTH) : unit;
@@ -68,9 +67,8 @@ function decodeAssetName(unit: string, policyId: string | null) {
     return "";
   }
   const ascii = hexToAscii(assetNameHex);
-  // hexToAscii returns its input unchanged when it can't decode, and that's the
-  // fallback-to-shortened-hex case.
-  return ascii === assetNameHex ? shortenIdentifier(assetNameHex, 10, 8) : ascii;
+  // hexToAscii returns its input unchanged when it cannot decode.
+  return ascii === assetNameHex ? "" : ascii;
 }
 
 function escapeXml(value: string) {
@@ -319,8 +317,7 @@ export function WalletMembershipCard({
 
   const detailLabel = useMemo(() => {
     if (sttUnit) {
-      const assetName = decodeAssetName(sttUnit, policyId);
-      return assetName ? i18n("sttAssetname", { assetName: assetName }) : i18n("sttValue1", { value1: shortenIdentifier(sttUnit, 8, 6) });
+      return decodeAssetName(sttUnit, policyId) || i18n("smartWallet");
     }
     return i18n("permissionBasedSmartWallet");
   }, [policyId, sttUnit, i18n]);
@@ -372,10 +369,10 @@ export function WalletMembershipCard({
         title: i18n("cardSaved"),
         description: i18n("downloadedFileslugPng", { fileSlug: fileSlug })
       });
-    } catch (error) {
+    } catch {
       toast.error({
         title: i18n("couldnTSaveTheCard_4aa925"),
-        description: error instanceof Error ? error.message : i18n("pleaseTryAgain")
+        description: i18n("pleaseTryAgain")
       });
     } finally {
       setIsSaving(false);
@@ -438,10 +435,10 @@ export function WalletMembershipCard({
         title: i18n("sharingNotSupported"),
         description: i18n("useSaveToDownloadTheCardInstead")
       });
-    } catch (error) {
+    } catch {
       toast.error({
         title: i18n("couldnTShareTheCard_ffbc31"),
-        description: error instanceof Error ? error.message : i18n("pleaseTryAgain")
+        description: i18n("pleaseTryAgain")
       });
     } finally {
       setIsSharing(false);

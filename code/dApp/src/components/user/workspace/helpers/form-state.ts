@@ -15,7 +15,33 @@ import {
 } from "@/lib/contracts/state-form";
 import { type WalletInputRef } from "@/lib/types/contracts";
 import { parseAdaToLovelace } from "@/lib/units/lovelace";
+import {
+  isNonNegativeUint64Decimal,
+  MAX_ON_CHAIN_STATE_INTEGER
+} from "@/lib/contracts/on-chain-integer";
 import { OwnedMessageError } from "./build-errors";
+
+function readFormUint64(value: string): bigint | null {
+  const normalized = value.trim();
+  if (!/^\d+$/.test(normalized)) {
+    return null;
+  }
+  const canonical = normalized.replace(/^0+(?=\d)/, "");
+  return isNonNegativeUint64Decimal(canonical) ? BigInt(canonical) : null;
+}
+
+function configuredApprovalPower(users: readonly UserFormState[], requireWallet: boolean) {
+  return users.reduce((total, user) => {
+    if (
+      user.multiSigPowerMode !== "some" ||
+      (requireWallet && user.wallets.length === 0)
+    ) {
+      return total;
+    }
+    const power = readFormUint64(user.multiSigPower);
+    return power !== null && power > 0n ? total + power : total;
+  }, 0n);
+}
 
 // Parses the "specific" proof-of-life override timestamp from the form's string
 // datetime, identically for the validation and build paths, which previously
@@ -155,22 +181,35 @@ export function safetyTimerIsReady(form: StateFormState) {
 
 
 /**
- * Turn the approval rule on or off, filling a working number when it goes on.
+ * The approval rule is the co-signer list, not a switch on top of it. A "No" next to
+ * granted Co-signer chips could only mean the chips lie, and a "Yes" with no chips was a
+ * threshold nobody held power toward — the old Yes/No let the two controls disagree.
+ * The chips are the rule now: granting the first Co-signer chip turns the rule on,
+ * revoking the last one turns it off.
  *
  * The contract rejects a zero threshold as a vacuous pass (`required_power > 0`,
- * `smart-contract/lib/state/configuration.ak:292`), so "on" with an empty box is an
- * approval path that can never be met. Both surfaces that carry this setting share this
- * helper so they cannot drift apart.
+ * `smart-contract/lib/state/configuration.ak:292`), so the first grant defaults the
+ * threshold to exactly the power the named co-signers hold between them — "all of them
+ * together", dialable down from there on the slider. Matching
+ * `computeSignerSatisfaction`, power counts only where the chip is on and the power
+ * itself is above zero.
  */
-export function withMultiApprovalEnabled(
-  form: StateFormState,
-  enabled: boolean
-): StateFormState {
+export function withMultisigDerivedFromCoSigners(form: StateFormState): StateFormState {
+  const coSignerPower = configuredApprovalPower(form.users, false);
+  if (coSignerPower <= 0n) {
+    return form.multiSigThresholdMode === "none"
+      ? form
+      : { ...form, multiSigThresholdMode: "none" };
+  }
+  if (form.multiSigThresholdMode === "some") {
+    return form;
+  }
   return {
     ...form,
-    multiSigThresholdMode: enabled ? "some" : "none",
-    multiSigThreshold:
-      enabled && !form.multiSigThreshold.trim() ? "2" : form.multiSigThreshold
+    multiSigThresholdMode: "some",
+    multiSigThreshold: (coSignerPower > MAX_ON_CHAIN_STATE_INTEGER
+      ? MAX_ON_CHAIN_STATE_INTEGER
+      : coSignerPower).toString()
   };
 }
 
@@ -206,15 +245,20 @@ export function withUserAdded(
  * arithmetic warning then clears as soon as they have a wallet id to sign with.
  */
 export function withCoSignerAdded(form: StateFormState): StateFormState {
-  const needed = Number.parseInt(form.multiSigThreshold, 10);
-  const shortOf = Number.isFinite(needed)
-    ? needed - reachableApprovalPower(form.users)
-    : 1;
+  const needed = readFormUint64(form.multiSigThreshold);
+  const shortOf = needed === null
+    ? 1n
+    : needed - configuredApprovalPower(form.users, true);
+  const power = shortOf < 1n
+    ? 1n
+    : shortOf > MAX_ON_CHAIN_STATE_INTEGER
+      ? MAX_ON_CHAIN_STATE_INTEGER
+      : shortOf;
   const user = applyUserPreset(
     {
       ...createDefaultUserFormState(nextGeneratedId(form.users)),
       multiSigPowerMode: "some",
-      multiSigPower: String(Math.max(shortOf, 1))
+      multiSigPower: power.toString()
     },
     "custom"
   );
@@ -274,14 +318,57 @@ export function approvalPowerForUser(user: UserFormState): number {
     return 0;
   }
 
-  const parsed = Number.parseInt(user.multiSigPower, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+  const parsed = readFormUint64(user.multiSigPower);
+  if (parsed === null || parsed <= 0n) {
+    return 0;
+  }
+  return parsed > BigInt(Number.MAX_SAFE_INTEGER)
+    ? Number.MAX_SAFE_INTEGER
+    : Number(parsed);
 }
 
 export function reachableApprovalPower(users: readonly UserFormState[]): number {
-  return users.reduce(
-    (total, user) => total + (user.wallets.length > 0 ? approvalPowerForUser(user) : 0),
-    0
+  const total = configuredApprovalPower(users, true);
+  return total > BigInt(Number.MAX_SAFE_INTEGER)
+    ? Number.MAX_SAFE_INTEGER
+    : Number(total);
+}
+
+/**
+ * The top of an approval-power slider, for the wallet threshold.
+ *
+ * The threshold is only worth setting up to the power the wallet can actually
+ * reach (`reachableApprovalPower`), so that is the range. The floor of 2 keeps
+ * the slider usable before anyone holds power.
+ *
+ * Deliberately blind to `multiSigThreshold` itself. A ceiling derived from the
+ * number the slider writes would shrink under the pointer mid-drag, and each
+ * shrink would drag the value further down. A stored number above this ceiling
+ * is covered by the slider instead, which keeps its own range from the value it
+ * first saw.
+ */
+export function approvalThresholdCeiling(form: StateFormState): number {
+  return Math.max(2, reachableApprovalPower(form.users));
+}
+
+/**
+ * The top of an approval-power slider, for one person's own power.
+ *
+ * The threshold is the range: power past it buys nothing, because
+ * `multisig_threshold_is_met` only asks whether the sum reaches it. The floor
+ * of 2 keeps the control from collapsing to a single stop on a wallet with no
+ * threshold set yet.
+ *
+ * Blind to the powers people hold, for the reason above: a ceiling that counted
+ * the number under the pointer would shrink as that number was dragged down.
+ */
+export function personApprovalPowerCeiling(form: StateFormState): number {
+  const needed = readFormUint64(form.multiSigThreshold) ?? 0n;
+  return Math.max(
+    2,
+    needed > BigInt(Number.MAX_SAFE_INTEGER)
+      ? Number.MAX_SAFE_INTEGER
+      : Number(needed)
   );
 }
 

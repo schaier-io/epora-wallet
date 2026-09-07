@@ -1,9 +1,9 @@
 import { deserializeDatum, type UTxO } from "@meshsdk/core";
 import type { ConstrData } from "@/lib/types/contracts";
 
-function normalizeInteger(value: bigint) {
+function normalizeInteger(value: bigint): number | bigint {
   const asNumber = Number(value);
-  return Number.isSafeInteger(asNumber) ? asNumber : value.toString();
+  return Number.isSafeInteger(asNumber) ? asNumber : value;
 }
 
 function normalizeDatumValue(value: unknown): unknown {

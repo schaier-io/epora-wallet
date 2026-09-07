@@ -29,14 +29,18 @@ const CardHeader = React.forwardRef<
 ));
 CardHeader.displayName = "CardHeader";
 
-// `as` exists because the correct heading level depends on what wraps the card, and
-// only the call site knows. Cards inside a section that already has its own `<h2>`
-// (the workspace landing) keep the default `h3`; a card sitting directly under a
-// page's `<h1>` (the payee route) must be `h2` or the outline skips a level.
 const CardTitle = React.forwardRef<
   HTMLHeadingElement,
-  React.HTMLAttributes<HTMLHeadingElement> & { as?: "h2" | "h3" | "h4" }
->(({ className, as: Heading = "h3", ...props }, ref) => (
+  React.HTMLAttributes<HTMLHeadingElement> & {
+    /**
+     * The heading level this title sits at. The default suits a card inside a page that
+     * already has its own heading. A card that IS the page's subject takes `h1`, so the
+     * page does not need a second, hidden copy of the same words.
+     */
+    as?: "h1" | "h2" | "h3" | "h4";
+  }
+>(
+  ({ className, as: Heading = "h3", ...props }, ref) => (
     <Heading
       ref={ref}
       className={cn(

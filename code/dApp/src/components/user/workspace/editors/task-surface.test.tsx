@@ -115,3 +115,90 @@ describe("radius rungs", () => {
     expect(block.className).not.toContain("rounded-xl");
   });
 });
+
+/**
+ * Which chip was open was said in colour alone. Every chip names itself, so a screen reader
+ * did not hear identical buttons, but it heard none of them called the current one. On screen
+ * the open chip was a lighter border, a lighter fill and a lighter label: `--primary` is
+ * `oklch(0.922 0 0)` in the only theme this app ships, so there was no second cue underneath
+ * the lightness step for anyone who could not read it.
+ */
+describe("which task chip is open", () => {
+  it("says so to a screen reader", () => {
+    renderSurface();
+
+    expect(screen.getByRole("button", { name: /Add a scheduled payment/ })).toHaveAttribute(
+      "aria-current",
+      "true"
+    );
+  });
+
+  it("claims nothing about the chips that are not open", () => {
+    renderSurface();
+
+    expect(screen.getByRole("button", { name: /Pay due/ })).not.toHaveAttribute("aria-current");
+  });
+
+  /**
+   * A task can be the open one and unavailable at the same time: `resolvedSelectedTaskAtom`
+   * pins the pay-due task for the payout intent whatever the capability says, and
+   * `guidedStreamingPaymentsDisabledTasks` disables that same id while
+   * `canPayStreamingPayments` is false. The panel below still belongs to it, so it is still
+   * the current one; being unavailable is not what decides that, either way round.
+   */
+  it("still calls the open chip current while it is unavailable", () => {
+    renderSurface({
+      selectedTask: "streaming-payments-pay-due",
+      disabledTaskIds: ["streaming-payments-pay-due"]
+    });
+
+    const open = screen.getByRole("button", { name: /Pay due/ });
+    expect(open).toBeDisabled();
+    expect(open).toHaveAttribute("aria-current", "true");
+  });
+
+  it("does not call an unavailable chip current on its own account", () => {
+    renderSurface({ disabledTaskIds: ["streaming-payments-pay-due"] });
+
+    expect(screen.getByRole("button", { name: /Pay due/ })).not.toHaveAttribute("aria-current");
+  });
+
+  it("marks no chip while no task is open", () => {
+    renderSurface({ selectedTask: null });
+
+    for (const chip of screen.getAllByRole("button")) {
+      expect(chip).not.toHaveAttribute("aria-current");
+    }
+  });
+
+  /**
+   * Weight is the cue that is not a colour value. Every other difference between an open chip
+   * and a closed one is a step in lightness.
+   */
+  it("carries a difference that is not a colour", () => {
+    renderSurface();
+
+    const open = screen.getByText("Add");
+    const closed = screen.getByText("Pay");
+    expect(open.className).toContain("font-semibold");
+    expect(closed.className).toContain("font-medium");
+    expect(closed.className).not.toContain("font-semibold");
+  });
+
+  /**
+   * The halo is the other cue that is not a lightness step alone: a closed chip has none at
+   * all. The mix is what makes it visible, not the width, so both are pinned here. At the old
+   * 18% it was reported to measure 1.5:1 against the panel behind it, against the 3:1 WCAG
+   * 1.4.11 asks of a cue like this one.
+   */
+  it("keeps the open chip's halo strong enough to see", () => {
+    renderSurface();
+
+    const open = screen.getByRole("button", { name: /Add a scheduled payment/ });
+    const closed = screen.getByRole("button", { name: /Pay due/ });
+    expect(open.className).toContain(
+      "shadow-[0_0_0_2px_color-mix(in_oklch,var(--primary)_45%,transparent)]"
+    );
+    expect(closed.className).not.toContain("shadow-[");
+  });
+});

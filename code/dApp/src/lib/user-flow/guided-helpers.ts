@@ -2,6 +2,15 @@ import type { UTxO } from "@meshsdk/core";
 import type { StreamingPaymentFormState } from "@/lib/contracts/state-form";
 import type { TokenCapabilityMap } from "@/components/user/flow-types";
 import type { Asset, PayoutTransfer, WalletInputRef } from "@/lib/types/contracts";
+import {
+  calculateMinimumLovelaceForOutput,
+  getLovelaceQuantity
+} from "@/lib/mesh/transactions/internals/value";
+import {
+  assertNonNegativeUint64,
+  isNonNegativeUint64Decimal,
+  type OnChainInteger
+} from "@/lib/contracts/on-chain-integer";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/LibUserFlowGuidedHelpers.json";
 
@@ -23,6 +32,9 @@ const GUIDED_USER_ACTION_KINDS = [
   "manage-streaming-payments",
   "use-allowance",
   "use-beneficiary",
+  "exit-beneficiary",
+  "stop-beneficiary-stream",
+  "distribute-beneficiaries",
   "payout-streaming-payment"
 ] as const;
 
@@ -53,11 +65,17 @@ const DURATION_UNIT_MAP = Object.fromEntries(
 
 function readPositiveBigInt(value: string) {
   const normalized = value.trim();
-  if (!/^\d+$/.test(normalized)) {
+  if (!isNonNegativeUint64Decimal(normalized)) {
     return null;
   }
 
   return BigInt(normalized);
+}
+
+function toOnChainInteger(value: bigint, label: string): OnChainInteger {
+  assertNonNegativeUint64(value, label);
+  const asNumber = Number(value);
+  return Number.isSafeInteger(asNumber) ? asNumber : value;
 }
 
 function toAssetTotals(amounts: Asset[][]) {
@@ -88,6 +106,12 @@ function serializeAssetTotals(totals: Map<string, bigint>): Asset[] {
     .map(([unit, quantity]) => ({ unit, quantity: quantity.toString() }));
 }
 
+function nativeAssetCount(amount: Asset[]) {
+  return amount.filter((asset) =>
+    asset.unit !== "lovelace" && asset.unit !== "" && BigInt(asset.quantity) > 0n
+  ).length;
+}
+
 
 export function rememberRecentRecipient(
   recipients: string[],
@@ -112,20 +136,20 @@ export function derivePermissionWalletBadgeLabels(
   const badges: string[] = [];
 
   if (capabilityMap.hasDirectAdminSigner) {
-    badges.push("Owner");
+    badges.push(i18n("owner"));
   }
   if (capabilityMap.hasDirectUserMatch) {
-    badges.push("Allowance");
+    badges.push(i18n("allowance"));
   }
   if (capabilityMap.hasBeneficiaryMatch) {
-    badges.push("Recovery");
+    badges.push(i18n("recovery"));
   }
   if (capabilityMap.hasStreamingPayments) {
-    badges.push("Scheduled");
+    badges.push(i18n("scheduled"));
   }
 
   if (badges.length === 0) {
-    badges.push("Receive only");
+    badges.push(i18n("receiveOnly"));
   }
 
   return badges;
@@ -133,7 +157,7 @@ export function derivePermissionWalletBadgeLabels(
 
 export function resolveAutomaticSendPath(
   capabilityMap: TokenCapabilityMap | null
-): "use" | "use-allowance" | "use-beneficiary" {
+): "use" | "use-allowance" | "exit-beneficiary" {
   if (!capabilityMap) {
     return "use";
   }
@@ -150,7 +174,7 @@ export function resolveAutomaticSendPath(
   }
 
   if (capabilityMap.hasBeneficiaryMatch) {
-    return "use-beneficiary";
+    return "exit-beneficiary";
   }
 
   if (capabilityMap.availableOperatorPaths.length > 0) {
@@ -332,6 +356,41 @@ export function computeStreamingPaymentRemainingObligation(
   return (unpaid + lifetime - accruedBy).toString();
 }
 
+function computeStreamingPaymentReserveQuantity(
+  streamingPayment: StreamingPaymentFormState,
+  referenceTimeMs: number
+): bigint {
+  const paidOut = readPositiveBigInt(streamingPayment.paidOutAmount);
+  const amountPerDay = readPositiveBigInt(streamingPayment.amountPerDay);
+  const startDate = readPositiveBigInt(streamingPayment.startDate);
+  const endDate = readPositiveBigInt(streamingPayment.endDate);
+
+  if (
+    paidOut === null ||
+    amountPerDay === null ||
+    startDate === null ||
+    endDate === null ||
+    endDate < startDate
+  ) {
+    return 0n;
+  }
+
+  const lifetime = ((endDate - startDate) * amountPerDay) / DURATION_UNIT_MAP.days;
+  if (paidOut >= lifetime) {
+    return 0n;
+  }
+
+  const referenceTime = BigInt(referenceTimeMs);
+  if (referenceTime < startDate) {
+    return 0n;
+  }
+
+  const accrualEnd = referenceTime < endDate ? referenceTime : endDate;
+  const accrued = ((accrualEnd - startDate) * amountPerDay) / DURATION_UNIT_MAP.days;
+  const reserve = accrued + 1n - paidOut;
+  return reserve > 0n ? reserve : 0n;
+}
+
 export function computeStreamingPaymentLifetimeAmount(
   streamingPayment: StreamingPaymentFormState
 ): string | null {
@@ -376,6 +435,27 @@ export function streamingPaymentUnit(streamingPayment: StreamingPaymentFormState
     : "lovelace";
 }
 
+/** Exact per-asset reserve used by the wallet validator at the transaction upper bound. */
+export function computeStreamingReserveAssets(
+  streamingPayments: StreamingPaymentFormState[],
+  referenceTimeMs: number
+): Asset[] {
+  const totals = new Map<string, bigint>();
+
+  for (const streamingPayment of streamingPayments) {
+    const quantity = computeStreamingPaymentReserveQuantity(
+      streamingPayment,
+      referenceTimeMs
+    );
+    if (quantity > 0n) {
+      const unit = streamingPaymentUnit(streamingPayment);
+      totals.set(unit, (totals.get(unit) ?? 0n) + quantity);
+    }
+  }
+
+  return serializeAssetTotals(totals);
+}
+
 export function buildStreamingPaymentPayoutTransfer(
   streamingPayment: StreamingPaymentFormState,
   quantity: string,
@@ -383,6 +463,10 @@ export function buildStreamingPaymentPayoutTransfer(
   sttInputOutputIndex: number
 ): PayoutTransfer {
   const unit = streamingPaymentUnit(streamingPayment);
+  const streamingPaymentId = readPositiveBigInt(streamingPayment.id);
+  if (streamingPaymentId === null) {
+    throw new Error("Scheduled payment payout id must be a non-negative integer.");
+  }
 
   return {
     address: streamingPayment.payoutAddress.trim(),
@@ -390,7 +474,7 @@ export function buildStreamingPaymentPayoutTransfer(
     inlineDatum: {
       alternative: 0,
       fields: [
-        Number(streamingPayment.id.trim() || "0"),
+        toOnChainInteger(streamingPaymentId, "Scheduled payment payout id"),
         sttInputTxHash,
         sttInputOutputIndex
       ]
@@ -432,7 +516,17 @@ export function suggestWalletInputsForRequestedAssets(
   utxos: UTxO[],
   requestedAssets: Asset[]
 ): WalletInputRef[] {
-  const remaining = toAssetTotals([requestedAssets]);
+  return suggestWalletInputsForRequiredTotals(
+    utxos,
+    toAssetTotals([requestedAssets])
+  );
+}
+
+function suggestWalletInputsForRequiredTotals(
+  utxos: UTxO[],
+  requiredTotals: Map<string, bigint>
+): WalletInputRef[] {
+  const remaining = new Map(requiredTotals);
   const selections: WalletInputRef[] = [];
   const usedIndexes = new Set<number>();
 
@@ -498,34 +592,92 @@ export function suggestWalletInputsForRequestedAssets(
 /**
  * Input suggestion for a wallet spend.
  *
- * Without streaming payments: greedily cover the requested payout (the smallest
- * sufficient set of pools).
- *
- * WITH streaming payments: the wallet validator's `expect_remain_funded` requires
- * a spend to leave each asset's streaming-payment reserve in the forwarded wallet
- * output (`output >= min(input, reserve)`). The by-payout greedy can pick a pool
- * too small to leave that reserve, and the shortfall surfaces only as a generic
- * on-chain eval failure (no per-script detail). Selecting EVERY pool makes the
- * change maximal, so any spend the wallet can legally afford (payout ≤ total −
- * reserve) clears the reserve. Trade-off: it consolidates pools, which is acceptable for
- * the small pool counts these wallets hold; a reserve-minimal selection can
- * refine it later once the off-chain reserve math is ported.
+ * Select enough UTxOs to cover every requested asset and leave its exact
+ * per-asset streaming reserve and minimum ADA for the continuing output.
+ * Return no suggestion when the loaded inputs cannot fund that requirement.
  */
 export function suggestLockedInputsForSpend(
   utxos: UTxO[],
   requestedAssets: Asset[],
-  hasStreamingPayments: boolean
+  streamingReserve: Asset[] = [],
+  continuingOutputAddress?: string
 ): WalletInputRef[] {
-  if (requestedAssets.length === 0) {
+  const requestedTotals = toAssetTotals([requestedAssets]);
+  if (requestedTotals.size === 0) {
     return [];
   }
-  if (hasStreamingPayments) {
-    return utxos.map((utxo) => ({
-      txHash: utxo.input.txHash,
-      outputIndex: utxo.input.outputIndex
-    }));
+
+  const reserveTotals = toAssetTotals([streamingReserve]);
+  const requiredTotals = new Map(
+    [...requestedTotals].map(([unit, quantity]) => [
+      unit,
+      quantity + (reserveTotals.get(unit) ?? 0n)
+    ])
+  );
+
+  const selections = suggestWalletInputsForRequiredTotals(utxos, requiredTotals);
+  if (selections.length === 0) return [];
+
+  const selectedRefs = new Set(
+    selections.map((ref) => `${ref.txHash}#${ref.outputIndex}`)
+  );
+  const selectedUtxos = utxos.filter((utxo) =>
+    selectedRefs.has(`${utxo.input.txHash}#${utxo.input.outputIndex}`)
+  );
+  const extraUtxos = utxos.filter((utxo) =>
+    !selectedRefs.has(`${utxo.input.txHash}#${utxo.input.outputIndex}`) &&
+    getLovelaceQuantity(utxo.output.amount) > 0n
+  ).sort((left, right) => {
+    const nativeDifference = nativeAssetCount(left.output.amount) -
+      nativeAssetCount(right.output.amount);
+    if (nativeDifference !== 0) return nativeDifference;
+    const difference = getLovelaceQuantity(left.output.amount) -
+      getLovelaceQuantity(right.output.amount);
+    return difference < 0n ? -1 : difference > 0n ? 1 : 0;
+  });
+
+  for (;;) {
+    const remainder = toAssetTotals(selectedUtxos.map((utxo) => utxo.output.amount));
+    for (const [unit, quantity] of requestedTotals) {
+      remainder.set(unit, (remainder.get(unit) ?? 0n) - quantity);
+    }
+    const amount = serializeAssetTotals(remainder);
+    if (amount.length === 0) return selections;
+    const minimumLovelace = calculateMinimumLovelaceForOutput({
+      address: continuingOutputAddress ?? selectedUtxos[0]!.output.address,
+      amount
+    });
+    if (getLovelaceQuantity(amount) >= minimumLovelace) return selections;
+
+    // Keep change above its ledger minimum without a funding-wallet top-up:
+    // payout and allowance validators require the exact declared value delta.
+    const extra = extraUtxos.shift();
+    if (!extra) return [];
+    selectedUtxos.push(extra);
+    selections.push({ ...extra.input });
   }
-  return suggestWalletInputsForRequestedAssets(utxos, requestedAssets);
+}
+
+export function maximumAdaSpendWithChange(
+  utxos: UTxO[],
+  requestedQuantity: bigint,
+  continuingOutputAddress?: string
+): bigint {
+  const remainder = toAssetTotals(utxos.map((utxo) => utxo.output.amount));
+  const available = remainder.get("lovelace") ?? 0n;
+  const requested = requestedQuantity < available ? requestedQuantity : available;
+  if (requested <= 0n) return 0n;
+  remainder.set("lovelace", available - requested);
+  const amount = serializeAssetTotals(remainder);
+  if (amount.length === 0) return requested;
+
+  const minimumLovelace = calculateMinimumLovelaceForOutput({
+    address: continuingOutputAddress ?? utxos[0]!.output.address,
+    amount
+  });
+  const spendable = available - minimumLovelace;
+  if (spendable <= 0n) return 0n;
+  return spendable < requested ? spendable : requested;
 }
 
 export function requestedTransferAssets(transfers: PayoutTransfer[]): Asset[] {

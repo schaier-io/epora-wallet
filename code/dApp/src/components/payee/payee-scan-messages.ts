@@ -1,4 +1,8 @@
 import type { PayeeScanResult } from "@/components/payee/collect-payee-streaming-payments";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/ComponentsPayeePayeeScanMessages.json";
+
+const i18n = createDefaultTranslator("ComponentsPayeePayeeScanMessages", defaultMessages);
 
 /**
  * What the empty list actually means.
@@ -15,14 +19,12 @@ import type { PayeeScanResult } from "@/components/payee/collect-payee-streaming
  */
 export function describeEmptyScan(scan: PayeeScanResult): string {
   if (scan.walletsScanned > 0 && scan.walletsUnreadable === scan.walletsScanned) {
-    return "The chain data could not be read, so this is not an answer about your payments. Try Refresh; if it keeps failing, the chain data may be out of date.";
+    return i18n("chainDataCouldNotBeRead");
   }
 
-  const base = "No scheduled payments to this wallet yet. Anyone paying you sets the payout address, so a payment appears here once a sender schedules one to it.";
-
   return scan.walletsUnreadable > 0
-    ? `${base} Some chain data could not be read, so a payment could be hiding there.`
-    : base;
+    ? i18n("noPaymentsWithUnreadableData")
+    : i18n("noScheduledPayments");
 }
 
 /**
@@ -31,30 +33,14 @@ export function describeEmptyScan(scan: PayeeScanResult): string {
  * Returns `null` when the scan was clean.
  */
 export function describeIncompleteScan(scan: PayeeScanResult): string | null {
-  const parts: string[] = [];
-
+  if (scan.walletsUnreadable > 0 && scan.entriesSkipped > 0) {
+    return i18n("incompleteWithChainAndEntries", { count: scan.entriesSkipped });
+  }
   if (scan.walletsUnreadable > 0) {
-    // No wallet counts here either, for the same reason as the empty state: "how many Epora
-    // wallets exist" is not something this page has to publish. That a part of the read
-    // failed is what makes the list below possibly incomplete, and that is the whole caveat.
-    parts.push("some chain data could not be read");
+    return i18n("incompleteWithChainData");
   }
   if (scan.entriesSkipped > 0) {
-    // Not "your payments". `entriesSkipped` counts two different things: an entry whose shape
-    // would not parse at all, which cannot be attributed to anybody because the payee is read
-    // out of that same entry, and one of THIS payee's entries whose fields would not read.
-    // Calling the total "scheduled payments that did not match the expected format" claimed
-    // every one of them was theirs. "Could not be read" is true of both.
-    parts.push(
-      `${scan.entriesSkipped} scheduled payment ${
-        scan.entriesSkipped === 1 ? "entry" : "entries"
-      } could not be read`
-    );
+    return i18n("incompleteWithEntries", { count: scan.entriesSkipped });
   }
-
-  if (parts.length === 0) {
-    return null;
-  }
-
-  return `This list may be incomplete: ${parts.join(", and ")}.`;
+  return null;
 }

@@ -11,6 +11,7 @@ import {
   dedupeUtxos,
   ensureUniqueWalletInputRefs,
   findUtxo,
+  MAX_CONCURRENT_EXACT_INPUT_LOOKUPS,
   resolveManualCollateralCandidate,
   resolveExactWalletInputUtxos,
   resolveSttInputUtxo
@@ -57,6 +58,7 @@ const STT_UNIT = "ab".repeat(28) + "deadbeef";
 
 test("createInputRefKey joins txHash and outputIndex", () => {
   assert.equal(createInputRefKey(HASH_A, 3), `${HASH_A}#3`);
+  assert.equal(createInputRefKey(HASH_A.toUpperCase(), 3), `${HASH_A}#3`);
 });
 
 test("compareInputRefs is a case-insensitive lexical comparison", () => {
@@ -67,7 +69,7 @@ test("compareInputRefs is a case-insensitive lexical comparison", () => {
 
 test("dedupeUtxos keeps the first occurrence of each txHash#index", () => {
   const first = utxo(HASH_A, 0, "111");
-  const duplicate = utxo(HASH_A, 0, "999");
+  const duplicate = utxo(HASH_A.toUpperCase(), 0, "999");
   const distinctIndex = utxo(HASH_A, 1, "222");
   const distinctHash = utxo(HASH_B, 0, "333");
 
@@ -86,6 +88,7 @@ test("findUtxo locates by hash, by hash+index, and throws when absent", () => {
   const utxos = [utxo(HASH_A, 0), utxo(HASH_A, 1), utxo(HASH_B, 0)];
 
   assert.equal(findUtxo(utxos, HASH_A).input.outputIndex, 0);
+  assert.equal(findUtxo(utxos, HASH_A.toUpperCase()).input.outputIndex, 0);
   assert.equal(findUtxo(utxos, HASH_A, 1).input.outputIndex, 1);
   assert.throws(() => findUtxo(utxos, HASH_A, 9), /UTxO not found/);
   assert.throws(() => findUtxo(utxos, "cc".repeat(32)), /UTxO not found/);
@@ -170,11 +173,36 @@ test("resolveExactWalletInputUtxos accepts any stake variant with the expected p
   } as UTxO;
 
   const resolved = await resolveExactWalletInputUtxos(
-    { async fetchUTxOs() { return [exact]; } },
+    { async fetchUTxOs() { return [exact]; }, async get() { return { outputs: [] }; } },
     [{ txHash: HASH_A, outputIndex: 2 }],
     paymentScriptHash
   );
   assert.equal(resolved[0], exact);
+});
+
+test("resolveExactWalletInputUtxos rejects a reference the chain already consumed", async () => {
+  // Mesh's fetchUTxOs still lists a spent output, so the provider's own record decides.
+  const paymentScriptHash = "ab".repeat(28);
+  const address = composeWalletReceiveAddress(paymentScriptHash, { alternative: 1, fields: [] });
+  assert.ok(address);
+  const exact = {
+    ...utxo(HASH_A, 2),
+    output: { ...utxo(HASH_A, 2).output, address }
+  } as UTxO;
+
+  await assert.rejects(
+    resolveExactWalletInputUtxos(
+      {
+        async fetchUTxOs() { return [exact]; },
+        async get() {
+          return { outputs: [{ output_index: 2, consumed_by_tx: HASH_B }] };
+        }
+      },
+      [{ txHash: HASH_A, outputIndex: 2 }],
+      paymentScriptHash
+    ),
+    /was already spent by/
+  );
 });
 
 test("resolveExactWalletInputUtxos rejects a reference at another payment credential", async () => {
@@ -191,7 +219,7 @@ test("resolveExactWalletInputUtxos rejects a reference at another payment creden
 
   await assert.rejects(
     resolveExactWalletInputUtxos(
-      { async fetchUTxOs() { return [exact]; } },
+      { async fetchUTxOs() { return [exact]; }, async get() { return { outputs: [] }; } },
       [{ txHash: HASH_A, outputIndex: 2 }],
       expectedPaymentScriptHash
     ),
@@ -199,24 +227,77 @@ test("resolveExactWalletInputUtxos rejects a reference at another payment creden
   );
 });
 
-test("consolidation permits one input only for address migration", () => {
+test("resolveExactWalletInputUtxos bounds concurrent provider work", async () => {
+  const paymentScriptHash = "ab".repeat(28);
+  const address = composeWalletReceiveAddress(paymentScriptHash, {
+    alternative: 1,
+    fields: []
+  });
+  assert.ok(address);
+  const refs = Array.from(
+    { length: MAX_CONCURRENT_EXACT_INPUT_LOOKUPS + 3 },
+    (_, outputIndex) => ({
+      txHash: outputIndex.toString(16).padStart(64, "0"),
+      outputIndex
+    })
+  );
+  let active = 0;
+  let peak = 0;
+  let releaseFirstBatch!: () => void;
+  const firstBatch = new Promise<void>((resolve) => {
+    releaseFirstBatch = resolve;
+  });
+
+  const resolved = await resolveExactWalletInputUtxos(
+    {
+      async fetchUTxOs(txHash, outputIndex) {
+        active += 1;
+        peak = Math.max(peak, active);
+        if (peak === MAX_CONCURRENT_EXACT_INPUT_LOOKUPS) {
+          releaseFirstBatch();
+        }
+        await firstBatch;
+        active -= 1;
+        const exact = utxo(txHash, outputIndex ?? 0);
+        exact.output.address = address;
+        return [exact];
+      },
+      async get() {
+        return { outputs: [] };
+      }
+    },
+    refs,
+    paymentScriptHash
+  );
+
+  assert.equal(peak, MAX_CONCURRENT_EXACT_INPUT_LOOKUPS);
+  assert.deepEqual(resolved.map((entry) => entry.input), refs);
+});
+
+test("consolidation accepts any non-empty input layout and reports address migration", () => {
   const canonical = "addr_test1_canonical";
+  assert.throws(
+    () => assertValidConsolidationLayout([], canonical),
+    /requires at least one wallet script input/
+  );
   const sameAddress = utxo(HASH_A, 0);
   sameAddress.output.address = canonical;
-  assert.throws(
-    () => assertValidConsolidationLayout([sameAddress], canonical, 1),
-    /needs at least two inputs/
+  assert.deepEqual(
+    assertValidConsolidationLayout([sameAddress], canonical),
+    { migratesAddress: false }
   );
 
   const oldStakeVariant = utxo(HASH_B, 0);
   oldStakeVariant.output.address = "addr_test1_old_stake";
   assert.deepEqual(
-    assertValidConsolidationLayout([oldStakeVariant], canonical, 1),
+    assertValidConsolidationLayout([oldStakeVariant], canonical),
     { migratesAddress: true }
   );
-  assert.throws(
-    () => assertValidConsolidationLayout([oldStakeVariant], canonical, 2),
-    /cannot increase/
+  const secondCanonical = utxo(HASH_B, 1);
+  secondCanonical.output.address = canonical;
+  assert.deepEqual(
+    assertValidConsolidationLayout([sameAddress, secondCanonical], canonical),
+    { migratesAddress: false }
   );
 });
 
@@ -232,7 +313,7 @@ test("ensureUniqueWalletInputRefs passes distinct refs and rejects duplicates", 
     () =>
       ensureUniqueWalletInputRefs([
         { txHash: HASH_A, outputIndex: 0 },
-        { txHash: HASH_A, outputIndex: 0 }
+        { txHash: HASH_A.toUpperCase(), outputIndex: 0 }
       ]),
     /Duplicate wallet input reference/
   );

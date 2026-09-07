@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { deriveAllowanceWithdrawalStateDatum } from "@/lib/contracts/use-allowance";
+import {
+  deriveAllowanceWithdrawalStateDatum,
+  nextProofOfLifeUnlockTimeForUser
+} from "@/lib/contracts/use-allowance";
+import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
 import type { ConstrData, PayoutTransfer } from "@/lib/types/contracts";
 
 // These cover the input-validation guards on the allowance-withdrawal path,
@@ -60,5 +64,68 @@ test("requires a connected payment key hash", () => {
         walletOutputs: []
       }),
     /payment key hash is required/
+  );
+});
+
+// The validator (proof_of_life.ak expect_valid_renewal_window) accepts a renewal
+// only inside [tx_latest_time, tx_earliest_time + increment].
+const RENEWING_USER = { canRenewProofOfLife: true, isAdmin: false };
+
+test("proof-of-life renewal is anchored on the earliest tx time, not the latest", () => {
+  const next = nextProofOfLifeUnlockTimeForUser(
+    { proofOfLifeUnlockTime: 500_000, proofOfLifeIncrement: 3_600_000 },
+    RENEWING_USER,
+    1_000_000,
+    1_360_000
+  );
+  assert.equal(next, 4_600_000);
+});
+
+test("proof-of-life renewal is skipped when the increment cannot reach the latest tx time", () => {
+  // earliest + increment = 1_100_000 < latest, so no legal stamp exists for this tx.
+  const next = nextProofOfLifeUnlockTimeForUser(
+    { proofOfLifeUnlockTime: 500_000, proofOfLifeIncrement: 100_000 },
+    RENEWING_USER,
+    1_000_000,
+    1_360_000
+  );
+  assert.equal(next, 500_000);
+});
+
+test("proof-of-life renewal never lowers a later existing unlock time", () => {
+  const next = nextProofOfLifeUnlockTimeForUser(
+    { proofOfLifeUnlockTime: 9_000_000, proofOfLifeIncrement: 3_600_000 },
+    RENEWING_USER,
+    1_000_000,
+    1_360_000
+  );
+  assert.equal(next, 9_000_000);
+});
+
+test("proof-of-life renewal rejects a derived integer above uint64", () => {
+  assert.throws(
+    () =>
+      nextProofOfLifeUnlockTimeForUser(
+        {
+          proofOfLifeUnlockTime: null,
+          proofOfLifeIncrement: MAX_ON_CHAIN_STATE_INTEGER
+        },
+        RENEWING_USER,
+        1,
+        1
+      ),
+    /Derived state integer must be between 0 and 18446744073709551615/
+  );
+});
+
+test("admins and users without the renew right leave the unlock time alone", () => {
+  const state = { proofOfLifeUnlockTime: 500_000, proofOfLifeIncrement: 3_600_000 };
+  assert.equal(
+    nextProofOfLifeUnlockTimeForUser(state, { canRenewProofOfLife: true, isAdmin: true }, 0, 1),
+    500_000
+  );
+  assert.equal(
+    nextProofOfLifeUnlockTimeForUser(state, { canRenewProofOfLife: false, isAdmin: false }, 0, 1),
+    500_000
   );
 });

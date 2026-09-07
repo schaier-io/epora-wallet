@@ -20,7 +20,7 @@ import {
   activeBuildAtom, activeSubmitAtom, buildDiagnosticIdAtom, buildErrorAtom, buildErrorExpectedAtom,
   buildErrorWriteAtom, submitHashAtom,
   mintConfirmationAtom, mintCelebrationAtom, dismissedSubmitHashAtom, previewAtom,
-  previewSignatureAtom, lastActionLabelAtom, resetAllFlowAtom, mintConfirmationRunAtom,
+  previewSignatureAtom, lastActionLabelAtom, resetAllFlowAtom, invalidateBuildAtom, mintConfirmationRunAtom,
   mintedWalletNameAtom
 } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { resetWorkspaceUiAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
@@ -87,14 +87,8 @@ export function useWorkspaceFoundation() {
     setRenderNowMs(Date.now());
   }, [setRenderNowMs]);
   const setConnectStepPinned = useSetAtom(connectStepPinnedAtom);
-  // `refreshSharedSttReferenceStore` is deliberately not lifted out of the hook. The shared
-  // reference store is one deployment-wide record, read on mount and re-read by
-  // `createInlineSharedReference` after it deploys one; nothing else can change it, so no
-  // caller out here needs a hand-refresh.
-  const { createInlineSharedReference, resetSharedReferencePreview } = useSharedSttReference({
-    activeWallet,
-    enabled: chainReadsEnabled,
-    isDemoWallet
+  const { refreshSharedSttReferenceStore, resetSharedReferencePreview } = useSharedSttReference({
+    enabled: chainReadsEnabled
   });
   const sharedSttReferenceStore = useAtomValue(sharedSttReferenceStoreAtom);
   const sharedSttReferenceStoreLoading = useAtomValue(sharedSttReferenceStoreLoadingAtom);
@@ -192,10 +186,11 @@ export function useWorkspaceFoundation() {
   }, [jotaiStore, setBuildError, setBuildErrorExpected, setBuildDiagnosticId, setSubmitHash, setMintConfirmation]);
 
   const clearPreviewResult = useCallback(() => {
+    jotaiStore.set(invalidateBuildAtom);
     setPreview(null);
     setPreviewSignature(null);
     setLastActionLabel("");
-  }, [setPreview, setPreviewSignature, setLastActionLabel]);
+  }, [jotaiStore, setPreview, setPreviewSignature, setLastActionLabel]);
   const walletSessionKeyRef = useRef<string | null>(null);
   const actionConfigurationRef = useRef<HTMLDivElement | null>(null);
   const router = useRouter();
@@ -234,7 +229,7 @@ export function useWorkspaceFoundation() {
     return () => {
       jotaiStore.set(mintConfirmationRunAtom, jotaiStore.get(mintConfirmationRunAtom) + 1);
     };
-  }, [, jotaiStore]);
+  }, [jotaiStore]);
 
   // The document title. `generateMetadata` in app/user/page.tsx still names the entry load and
   // any shared link, but navigation inside the workspace is `history.pushState` now, which does
@@ -342,7 +337,7 @@ export function useWorkspaceFoundation() {
     isDemoWallet,
     networkId,
     setConnectStepPinned,
-    createInlineSharedReference,
+    refreshSharedSttReferenceStore,
     resetSharedReferencePreview,
     rememberRecipient,
     rememberRecipients,

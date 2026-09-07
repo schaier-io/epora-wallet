@@ -1,8 +1,10 @@
 "use client";
+import { lockedContractUtxosAtom } from "./atoms/workspace-data.atoms";
 import { useAtomValue } from "jotai";
 import type { UserActionKind } from "@/components/user/flow-types";
 import { computeActionSignature } from "@/components/user/workspace/workspace-action-signature";
 import { configAtom } from "@/components/user/workspace/atoms/workspace-config.atoms";
+import { activeInferredSttStateFormAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import { type useWalletContext } from "@/providers/wallet-provider";
 import { type useWorkspaceDetectedTokenDerivations } from "@/components/user/workspace/use-workspace-detected-token-derivations";
 import { useMintForm } from "@/components/user/workspace/forms/use-mint-form";
@@ -12,7 +14,6 @@ import { usePublishForm } from "@/components/user/workspace/forms/use-publish-fo
 import { useVoteForm } from "@/components/user/workspace/forms/use-vote-form";
 import { useConsolidateForm } from "@/components/user/workspace/forms/use-consolidate-form";
 import { useLockFundsForm } from "@/components/user/workspace/forms/use-lock-funds-form";
-import { useWalletSpendForm } from "@/components/user/workspace/forms/use-wallet-spend-form";
 import { useTransferForm } from "@/components/user/workspace/forms/use-transfer-form";
 import type { PreparedStreamingPaymentPayout } from "@/components/user/workspace/workspace-payout-preparation";
 
@@ -37,6 +38,8 @@ export function useWorkspaceActionSignature(ctx: WorkspaceActionSignatureCtx) {
     streamingPaymentPayout
   } = ctx;
   const config = useAtomValue(configAtom);
+  const activeInferredSttStateForm = useAtomValue(activeInferredSttStateFormAtom);
+  const lockedContractUtxos = useAtomValue(lockedContractUtxosAtom);
   const mintForm = useMintForm();
   const sttForm = useSttSpendForm();
   const withdrawForm = useWithdrawForm();
@@ -44,7 +47,6 @@ export function useWorkspaceActionSignature(ctx: WorkspaceActionSignatureCtx) {
   const voteForm = useVoteForm();
   const consolidateForm = useConsolidateForm();
   const lockFundsForm = useLockFundsForm();
-  const walletSpendForm = useWalletSpendForm();
   const transferForm = useTransferForm();
 
   return function buildActionSignature(action: UserActionKind) {
@@ -56,13 +58,14 @@ export function useWorkspaceActionSignature(ctx: WorkspaceActionSignatureCtx) {
       ...voteForm,
       ...consolidateForm,
       ...lockFundsForm,
-      ...walletSpendForm,
       ...transferForm,
+      activeInferredSttStateForm,
       activePaymentKeyHash,
       config,
       selectedDetectedToken,
       selectedDetectedTokenStateForm,
-      streamingPaymentPayout
+      streamingPaymentPayout,
+      lockedContractUtxos
     });
   };
 }

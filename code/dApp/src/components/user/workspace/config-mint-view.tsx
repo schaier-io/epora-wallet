@@ -1,47 +1,32 @@
 "use client";
 import { useTranslations } from "next-intl";
 
-import { sharedReferenceActionDisabledAtom, sharedReferenceActionLabelAtom } from "@/components/user/workspace/atoms/workspace-build-flags.atoms";
 import { effectiveWalletAssetNameHexAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { activeAddressAtom, activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
 
-import { Loader2 } from "lucide-react";
-
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 
 import { InfoHint } from "@/components/ui/info-hint";
 
 import { AssetListEditor, InlineFieldError, SetupProgressStepper, StateFormEditor, WalletNameEditor } from "@/components/user/workspace/editors";
-import { SETUP_HELPER_HINT } from "@/components/user/workspace/mental-model-copy";
 import { formatReceiptAmountSummary, getFirstFieldError } from "@/components/user/workspace/helpers";
 
 import { useAtomValue } from "jotai";
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
-import { sharedReferenceBuildErrorAtom, sharedReferenceBusyAtom, sharedReferencePreviewAtom, sharedReferenceSubmitHashAtom, sharedSttReferenceStoreLoadingAtom, walletBalanceSummaryAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
+import { walletBalanceSummaryAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { configAtom } from "@/components/user/workspace/atoms/workspace-config.atoms";
 import { useMintForm } from "@/components/user/workspace/forms/use-mint-form";
 
 export function MintConfigView() {
   const i18n = useTranslations("ComponentsUserWorkspaceConfigMintView");
   const state = useWorkspaceActions();
-  const sharedReferenceActionLabel = useAtomValue(sharedReferenceActionLabelAtom);
-  const sharedReferenceActionDisabled = useAtomValue(sharedReferenceActionDisabledAtom);
   const activePaymentKeyHash = useAtomValue(activePaymentKeyHashAtom);
   const activeAddress = useAtomValue(activeAddressAtom);
   const effectiveWalletAssetNameHex = useAtomValue(effectiveWalletAssetNameHexAtom);
-  const sharedSttReferenceStoreLoading = useAtomValue(sharedSttReferenceStoreLoadingAtom);
-  const sharedReferencePreview = useAtomValue(sharedReferencePreviewAtom);
-  const sharedReferenceBuildError = useAtomValue(sharedReferenceBuildErrorAtom);
-  const sharedReferenceSubmitHash = useAtomValue(sharedReferenceSubmitHashAtom);
-  const sharedReferenceBusy = useAtomValue(sharedReferenceBusyAtom);
   const config = useAtomValue(configAtom);
   const walletBalanceSummary = useAtomValue(walletBalanceSummaryAtom);
   const {
     activeFieldErrors,
-    createInlineSharedReference,
     mintSetupSteps,
-    showSharedReferenceSetup
   } = state;
   const { mintStarterAssets, mintStateForm, mintZeroAdminConfirmed, setMintStarterAssets, setMintStateForm, setMintZeroAdminConfirmed } = useMintForm();
 
@@ -52,89 +37,6 @@ export function MintConfigView() {
               same thing twice. What that pair knew and the card did not (this is one shared
               wallet, and it recovers keys) moved into the card's own description. */}
           <SetupProgressStepper steps={mintSetupSteps} />
-
-          {showSharedReferenceSetup ? (
-            <div
-              id="mint-section-helper"
-              className="scroll-mt-20 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-foreground">{i18n("oneTimeSetupHelper")}</p>
-                    <InfoHint label={i18n("moreAboutSetupHelper")} contentClassName="max-w-sm">
-                      {SETUP_HELPER_HINT}
-                    </InfoHint>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {i18n("createThisOnceEveryLaterActionIsThen")}
-                  </p>
-                </div>
-                <Badge variant={sharedSttReferenceStoreLoading ? "warning" : "outline"}>
-                  {sharedSttReferenceStoreLoading ? i18n("checking") : i18n("needed")}
-                </Badge>
-              </div>
-
-              {sharedSttReferenceStoreLoading ? (
-                <p className="mt-3 text-xs text-muted-foreground">
-                  {i18n("checkingWhetherThisHelperAlreadyExists")}
-                </p>
-              ) : (
-                <div className="mt-3 space-y-3">
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={() => {
-                        void createInlineSharedReference();
-                      }}
-                      disabled={sharedReferenceActionDisabled}
-                    >
-                      {sharedReferenceBusy ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : null}
-                      {sharedReferenceActionLabel}
-                    </Button>
-                  </div>
-                  {sharedReferencePreview ? (
-                    <div className="rounded-md border border-border/60 bg-muted/20 p-3">
-                      <p className="text-sm font-medium text-foreground">
-                        {sharedReferencePreview.preview.summary}
-                      </p>
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        {i18n("yourWalletWillOpenToApproveThisHelper")}
-                      </p>
-                    </div>
-                  ) : null}
-                  {sharedReferenceBuildError ? (
-                    /* `role="alert"`: this appears only in answer to the button above it,
-                       and the button keeps focus, so without a live region the failure was
-                       announced to nobody. */
-                    <div
-                      role="alert"
-                      className="rounded-md border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-100"
-                    >
-                      {sharedReferenceBuildError}
-                    </div>
-                  ) : null}
-                </div>
-              )}
-
-              {sharedReferenceSubmitHash ? (
-                /* Same reason as the failure above, politely: the confirmation replaces no
-                   focused control, so it needs a live region to reach a screen reader. */
-                <div
-                  role="status"
-                  className="mt-3 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3"
-                >
-                  <p className="text-sm font-medium text-foreground">{i18n("setupHelperCreated")}</p>
-                  <p className="mt-2 break-all font-mono text-xs text-foreground">
-                    {sharedReferenceSubmitHash}
-                  </p>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
 
           <div className="space-y-2">
             <WalletNameEditor
@@ -189,6 +91,7 @@ export function MintConfigView() {
               zeroAdminConfirmed={mintZeroAdminConfirmed}
               onZeroAdminConfirmedChange={setMintZeroAdminConfirmed}
               showWalletNameEditor={false}
+              moreSettingsCollapsed
             />
             <InlineFieldError message={getFirstFieldError(activeFieldErrors, "Wallet rules")} />
             <InlineFieldError

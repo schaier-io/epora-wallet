@@ -1,4 +1,4 @@
-export { getSttAuthorityOptions, isActionBlockedByCapabilities, isPeopleTask, isStreamingPaymentTask, isSttFlowAction, isUserActionKind, isWalletSettingsTask, resolveConsolidateActionAlternative, resolveManageStreamingPaymentsActionAlternative, resolveOperatorActionAlternative, resolveUpdateStateActionAlternative, resolveUseActionAlternative, resolveWalletWrapperSttInputRef } from "./action-paths";
+export { getSttAuthorityOptions, isActionBlockedByCapabilities, isStreamingPaymentTask, isSttFlowAction, isUserActionKind, isWalletSettingsTask, resolveConsolidateActionAlternative, resolveManageStreamingPaymentsActionAlternative, resolveOperatorActionAlternative, resolveSttFundPoolInputs, resolveUpdateStateActionAlternative, resolveUseActionAlternative, resolveWalletWrapperSttInputRef, supportsSttFundPoolInputs } from "./action-paths";
 export { buildWalletActivityEvents } from "./activity";
 export { patchAt, removeAt, replaceAt } from "./collections";
 export { cloneAssets, getAssetQuantityByUnit, mergeAmountLists, subtractAmountLists, utxoContainsAsset } from "./asset-amounts";
@@ -7,16 +7,19 @@ export { formatBuildError } from "./build-errors";
 export { getDetectedTokenWarningMessage, mapFlowStepToLegacyWizardStep, mapLegacyWizardStepToFlowStep, resolveIntentForAction } from "./flow-mapping";
 export {
   approvalPowerForUser,
+  approvalThresholdCeiling,
   cloneStateForm,
   createDefaultWalletInputRef,
   defaultSafetyUnlockTimestamp,
   isAdaScheduledPayment,
+  personApprovalPowerCeiling,
   reachableApprovalPower,
   resolveProofOfLifeOverrideTimestamp,
   safetyTimerIsReady,
   scheduledPaymentRateForPeriod,
   withApprovalPowerEnabled,
-  withMultiApprovalEnabled,
+  withCoSignerAdded,
+  withMultisigDerivedFromCoSigners,
   withProofOfLifeIncrement,
   withProofOfLifeUnlockTime,
   withRecoveryContactAdded,

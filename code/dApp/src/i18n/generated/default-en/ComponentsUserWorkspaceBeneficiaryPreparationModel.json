@@ -1,0 +1,9 @@
+{
+  "connect": "Connect a recovery contact wallet.",
+  "select": "Select at least one fund pool.",
+  "missing": "A selected fund pool is missing or duplicated. Refresh funds and select again.",
+  "loading": "Wait for current fund pools and transaction costs.",
+  "clock": "Check the current time before preparing funds.",
+  "unavailable": "The preparation cannot be calculated yet.",
+  "protocolError": "Current transaction costs could not be read. Refresh and try again."
+}

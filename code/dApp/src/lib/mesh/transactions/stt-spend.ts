@@ -1,13 +1,20 @@
-import { WALLET_SPEND_VALIDATOR, assertValidAssetList, assertValidConstrData, assertValidPayoutTransfers, assertValidWalletInputRefs, assertValidWalletOutputs, buildTransactionWithReestimatedLimits, createInputRefKey, createStateForwarding, createTxPreview, decodeConstrDatumFromUtxo, deriveBeneficiaryWithdrawalId, deriveBeneficiaryWithdrawalStateDatum, ensureUniqueWalletInputRefs, resolveExactWalletInputUtxos, runStateForwarding, getValidityWindow, mergeAssetLists, mergeAssetsByUnit, mergeRestrictedSttAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, setupTransaction, subtractSelectedInputRemainder, validateForwardedStateDatum, withStage } from "./internals";
+import { buildBeneficiaryDistributionTx } from "./beneficiary-distribution";
+import { readCallerForwardedState, validateSttSpendInput } from "./internals/stt-spend-preflight";
+import { deriveBeneficiaryStreamStopStateDatum } from "@/lib/contracts/beneficiary-stream-stop";
+import { formatBeneficiaryStopTimestamp } from "./internals/beneficiary-stream-stop-review";
+import { deserializeAddress } from "@meshsdk/core";
+import { beneficiaryExitFeeWarning, captureBeneficiaryExitFeeEvidence, type BeneficiaryExitFeeEvidence } from "./internals/beneficiary-exit-fees";
+import { WALLET_SPEND_VALIDATOR, addExtraRequiredSigners, buildTransactionWithReestimatedLimits, classifyStreamingPayoutBatch, createInputRefKey, createStateForwarding, createStreamingPayoutBuild, createTxPreview, decodeConstrDatumFromUtxo, deriveBeneficiaryExitStateDatum, deriveBeneficiaryWithdrawalId, deriveBeneficiaryWithdrawalStateDatum, ensureUniqueWalletInputRefs, resolveExactWalletInputUtxos, resolveStreamingAdaPayoutTopUps, runStateForwarding, getValidityWindow, mergeAssetLists, mergeAssetsByUnit, mergeRestrictedSttAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, setupTransaction, subtractSelectedInputRemainder, validateForwardedStateDatum, withStage } from "./internals";
 import { deriveAccessIndexRemovalStateDatum } from "@/lib/contracts/access-removal";
-import { validateManagedStreamingPayments } from "@/lib/contracts/streaming-manage";
+import { prepareManagedStreamingPayments } from "./internals/streaming-asset-proof";
+import { validateBeneficiaryDestinations } from "@/lib/contracts/state-validation-streaming";
 import { type OnChainStructuredAction, buildSttSpendRedeemerData, buildWalletSpendRedeemerData, resolveStructuredOnChainAction } from "@/lib/contracts/action-data";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import { getWalletSpendScript, resolveWalletContinuingOutputAddressFromState, resolveWalletSpendScriptHash } from "@/lib/contracts/blueprint";
 import {
   assertNonAdminStreamingActionWindow,
-  crankSignerBypassesCooldown,
-  crankSignerIsAuthorized
+  crankSignersAreAuthorized,
+  crankSignersBypassCooldown
 } from "@/lib/contracts/crank-cooldown";
 import { deriveStreamingPaymentCancellationStateDatum } from "@/lib/contracts/streaming-cancel";
 import {
@@ -16,14 +23,18 @@ import {
 } from "@/lib/contracts/streaming-payout";
 import { deriveAllowanceWithdrawalStateDatum } from "@/lib/contracts/use-allowance";
 import {
-  assertTerminalRecoveryIsComplete,
-  isTerminalBeneficiaryWithdrawal,
-  TERMINAL_RECOVERY_WARNING
+  isRepeatableBeneficiaryRecovery,
+  REPEATABLE_RECOVERY_NOTICE
 } from "@/lib/contracts/terminal-recovery";
-import { fetchCredentialUtxos } from "@/lib/discovery/koios-client";
+import { createDefaultTranslator } from "@/i18n/default-translator";
+import defaultMessages from "@/i18n/generated/default-en/LibMeshTransactionsSttSpend.json";
 import { type Asset, type BuildResult, type ConstrData, type ContractConfig, type PayoutTransfer, type SttSpendFormInput } from "@/lib/types/contracts";
-import { type UTxO } from "@meshsdk/core";
+import { isOnChainInteger } from "@/lib/contracts/on-chain-integer";
+import { formatLovelaceAsAda } from "@/lib/units/lovelace";
+import type { UTxO } from "@meshsdk/core";
 import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
+
+const i18n = createDefaultTranslator("LibMeshTransactionsSttSpend", defaultMessages);
 
 export function resolveStreamingPayoutFundingSource(
   walletInputCount: number
@@ -64,18 +75,6 @@ export function deriveValidatedStreamingPaymentPayoutStateDatum(
   );
 }
 
-/**
- * The caller-supplied forwarded State, validated. Only the six actions that
- * actually forward it call this; the other three derive theirs from the
- * consumed State and may omit both fields, which is what the request schema
- * now says.
- */
-function readCallerForwardedState(input: SttSpendFormInput) {
-  assertValidConstrData(input.outputDatum, "STT output datum");
-  assertValidAssetList(input.outputAssets, "STT output assets");
-  return { datum: input.outputDatum, assets: input.outputAssets };
-}
-
 export async function buildSttSpendTx(
   wallet: WalletSource,
   config: ContractConfig,
@@ -86,12 +85,18 @@ export async function buildSttSpendTx(
     | "manage-streaming-payments"
     | "use-allowance"
     | "use-beneficiary"
+    | "exit-beneficiary"
+    | "stop-beneficiary-stream"
+    | "distribute-beneficiaries"
     | "payout-streaming-payment"
     | "cancel-streaming-payment"
     | "remove-access-index",
   input: SttSpendFormInput,
   txFetcher?: TxFetcher
 ): Promise<BuildResult> {
+  if (action === "distribute-beneficiaries") {
+    return buildBeneficiaryDistributionTx(wallet, config, input, txFetcher);
+  }
   const walletInputs = input.walletInputs ?? [];
   const walletOutputs = input.walletOutputs ?? [];
   const extraTransfers = input.extraTransfers ?? [];
@@ -111,13 +116,16 @@ export async function buildSttSpendTx(
         }
       : resolveStructuredOnChainAction(action, input.authorityPath);
 
-  // These actions derive their forwarded datum from the consumed state (the STT
-  // value is preserved, not reshaped), so they carry no caller-supplied
+  // These actions derive their forwarded datum from the consumed state. This
+  // builder forwards their STT value unchanged, so they carry no caller-supplied
   // outputDatum. `null` here is the single source of that fact: every later use
   // reads it instead of re-testing the action, which is also what narrows the
   // two optional fields for the actions that do forward them.
   const derivesForwardedDatum =
     action === "use-allowance" ||
+    action === "use-beneficiary" ||
+    action === "exit-beneficiary" ||
+    action === "stop-beneficiary-stream" ||
     action === "remove-access-index" ||
     action === "cancel-streaming-payment";
 
@@ -125,29 +133,11 @@ export async function buildSttSpendTx(
     ? null
     : readCallerForwardedState(input);
 
-  if (action === "remove-access-index" && !input.removeAccessTarget) {
-    throw new Error("Removing an access entry requires a target (list and index).");
-  }
-
-  assertValidWalletInputRefs(walletInputs, "Locked contract inputs");
-  assertValidWalletOutputs(walletOutputs, "Locked contract outputs");
-  assertValidPayoutTransfers(extraTransfers, "Transfers / Forwarded Outputs");
-
-  if (action === "use-allowance") {
-    if (!input.allowanceSignerKeyHash?.trim()) {
-      throw new Error(
-        "Allowance Withdrawal requires the connected wallet payment key hash."
-      );
-    }
-
-    if (walletInputs.length === 0) {
-      throw new Error("Allowance Withdrawal requires at least one locked contract input.");
-    }
-
-    if (extraTransfers.length === 0) {
-      throw new Error("Allowance Withdrawal requires at least one forwarded transfer.");
-    }
-  }
+  validateSttSpendInput(action, input);
+  const streamingPayoutBatch =
+    action === "payout-streaming-payment"
+      ? classifyStreamingPayoutBatch(extraTransfers)
+      : null;
 
   const stateForwarding = createStateForwarding(config);
   const sttParams = stateForwarding.params;
@@ -168,27 +158,45 @@ export async function buildSttSpendTx(
     sttPolicyId: sttParams.sttPolicyId,
     sttAssetNameHex: sttParams.sttAssetNameHex
   });
+  // Resolved once so the tx validity range and the datum stamps derived from it
+  // describe the same window across the draft and final builds.
+  const validityWindowReferenceTimeMs = input.validityWindowReferenceTimeMs ?? Date.now();
   const prepared = await buildTransactionWithReestimatedLimits(
     "stt-spend:tx.draft-build",
     "stt-spend:tx.build",
     async (overrides) => {
-      const { tx, fetcher, setupDiagnostics } = await setupTransaction(
+      const payoutBuild = createStreamingPayoutBuild(
+        streamingPayoutBatch ?? "empty",
+        walletInputs.length > 0
+      );
+      const setup = await setupTransaction(
         wallet,
-        input.validityWindowReferenceTimeMs,
-        txFetcher
+        validityWindowReferenceTimeMs,
+        txFetcher,
+        payoutBuild.setupOptions
+      );
+      const { tx, fetcher, setupDiagnostics, signerAddress } = setup;
+      // Co-signers of an approval request: the validator reads `extra_signatories`,
+      // which holds only the body's required signers, so a co-signer has to be
+      // listed here for their signature to count. Every listed key must then sign.
+      const extraRequiredSignerKeyHashes = addExtraRequiredSigners(
+        tx,
+        signerAddress,
+        input.requiredSignerKeyHashes
       );
       const spendValidatorsByRef = new Map<string, string>();
       let walletOutputCount = 0;
       let autoReturnedWalletAssets: Asset[] = [];
       let walletAddress: string | undefined;
-      let allowanceTargetUserId: number | undefined;
-      let beneficiaryTargetId: number | undefined;
+      let allowanceTargetUserId: number | bigint | undefined;
+      let beneficiaryTargetId: number | bigint | undefined;
       let forwardedAssets: Asset[] = [];
       let effectiveForwardedDatum: ConstrData;
       let effectiveOnChainAction = onChainAction;
-      let beneficiaryInputStateDatum: ConstrData | null = null;
-      let terminalRecovery = false;
+      let repeatableBeneficiaryRecovery = false;
+      let exitSmartInputLovelace: bigint | undefined;
       let forwardedStateWarnings: string[] = [];
+      let beneficiaryStopWarning: string | undefined;
       const resolvedWalletInputs: UTxO[] = [];
       let effectiveExtraTransfers = extraTransfers;
       const forwarding = await runStateForwarding({
@@ -203,7 +211,10 @@ export async function buildSttSpendTx(
         },
         reference: {
           stage: "stt-spend:resolveSharedSttReferenceScript",
-          details: { ...setupDiagnostics, action }
+          details: { ...setupDiagnostics, action },
+          excludedRefs: (input.walletInputs ?? []).map((walletInput) =>
+            createInputRefKey(walletInput.txHash, walletInput.outputIndex)
+          )
         },
         spendValidatorsByRef,
         afterInput: ({ input: stateInput }) => {
@@ -215,10 +226,10 @@ export async function buildSttSpendTx(
               scriptInput.input.outputIndex
             );
           }
-          const validityWindow = getValidityWindow(input.validityWindowReferenceTimeMs);
+          const validityWindow = getValidityWindow(validityWindowReferenceTimeMs);
           const earliestTimeMs = validityWindow.earliestTimeMs;
           const latestTimeMs = validityWindow.latestTimeMs;
-          // mergeRestrictedSttAssets does not accept the three deriving actions, so
+          // mergeRestrictedSttAssets does not accept the deriving actions, so
           // resolve its argument off `derivesForwardedDatum`, which is what narrows
           // `action`. It is null in exactly the cases where the branch below that
           // reads it is unreachable.
@@ -231,7 +242,6 @@ export async function buildSttSpendTx(
             callerForwardedState === null || restrictedAction === null
               ? [...scriptInput.output.amount]
               : onChainAction.kind === "operator" &&
-                  onChainAction.operatorPath === "admin" &&
                   onChainAction.operatorIntent === "use"
                 ? mergeAssetsByUnit(callerForwardedState.assets, scriptInput.output.amount)
                 : mergeRestrictedSttAssets(
@@ -361,7 +371,10 @@ export async function buildSttSpendTx(
               "STT state datum"
             );
             allowanceTargetUserId = allowanceComputation.matchedUserId;
-          } else if (action === "use-beneficiary") {
+          } else if (action === "use-beneficiary" || action === "exit-beneficiary") {
+            if (action === "exit-beneficiary") {
+              exitSmartInputLovelace = [scriptInput, ...resolvedWalletInputs].reduce((sum, utxo) => sum + BigInt(utxo.output.amount.find((asset) => asset.unit === "lovelace")?.quantity ?? "0"), 0n);
+            }
             const sourceStateDatum = decodeConstrDatumFromUtxo(scriptInput);
             if (!sourceStateDatum) {
               throw new Error(
@@ -379,24 +392,35 @@ export async function buildSttSpendTx(
               sourceStateDatum,
               input.beneficiarySignerKeyHash
             );
-            // One-shot: forward the state with the acting beneficiary removed.
-            const beneficiaryOutputDatum = deriveBeneficiaryWithdrawalStateDatum(
-              sourceStateDatum,
-              beneficiaryTargetId
-            );
+            repeatableBeneficiaryRecovery =
+              action === "use-beneficiary" && isRepeatableBeneficiaryRecovery(sourceStateDatum);
+            if (repeatableBeneficiaryRecovery) {
+              assertNonAdminStreamingActionWindow(
+                sourceStateDatum,
+                earliestTimeMs,
+                latestTimeMs,
+                "Final beneficiary recovery"
+              );
+            }
+            const beneficiaryOutputDatum = action === "exit-beneficiary"
+              ? deriveBeneficiaryExitStateDatum(sourceStateDatum, beneficiaryTargetId, earliestTimeMs, latestTimeMs)
+              : deriveBeneficiaryWithdrawalStateDatum(sourceStateDatum, beneficiaryTargetId, latestTimeMs);
             effectiveOnChainAction = {
-              kind: "beneficiary-withdrawal",
+              kind: action === "exit-beneficiary" ? "beneficiary-exit" : "beneficiary-withdrawal",
               beneficiaryId: beneficiaryTargetId
             };
             effectiveForwardedDatum = unwrapStateDatum(
               beneficiaryOutputDatum,
               "STT state datum"
             );
-            beneficiaryInputStateDatum = sourceStateDatum;
-            terminalRecovery = isTerminalBeneficiaryWithdrawal(
-              sourceStateDatum,
-              effectiveForwardedDatum
-            );
+            if (
+              (repeatableBeneficiaryRecovery || (action === "exit-beneficiary" && isRepeatableBeneficiaryRecovery(sourceStateDatum))) &&
+              resolvedWalletInputs.length === 0
+            ) {
+              throw new Error(
+                "Final beneficiary recovery requires at least one selected fund pool."
+              );
+            }
           } else if (action === "payout-streaming-payment") {
             const sourceStateDatum = decodeConstrDatumFromUtxo(scriptInput);
             if (!sourceStateDatum) {
@@ -406,36 +430,38 @@ export async function buildSttSpendTx(
             }
 
             // AUTHORITY (security review 2026-07): the crank is no longer
-            // permissionless. It must be signed by an admin, a multisig quorum, any
-            // listed user, any stream payee, or an unlocked beneficiary. Fail fast
-            // here rather than submitting a transaction the validator will reject,
-            // and refuse outright when no signer is known, since an unsigned crank
-            // can no longer succeed.
+            // permissionless. Before final recovery it accepts an admin, a multisig
+            // quorum, any listed user, any stream payee, or an unlocked beneficiary.
+            // Once the sole beneficiary unlocks, only it or an admin may crank.
+            // Refuse a doomed or unsigned transaction before submission.
             if (!input.crankSignerKeyHash) {
               throw new Error(
-                "Settling a streaming payment requires a signer: the crank is not permissionless. Connect a wallet that is an owner, a listed user, the stream's payee, or an unlocked backup person."
+                "Settling a streaming payment requires an authorized signer. Connect an owner, listed user, payee, or unlocked backup person."
               );
             }
+            // The validator judges the whole `extra_signatories` set, so a crank
+            // saved for co-signers is judged by the listed keys together.
+            const crankSignerKeyHashes = [input.crankSignerKeyHash, ...extraRequiredSignerKeyHashes];
             if (
-              !crankSignerIsAuthorized(
+              !crankSignersAreAuthorized(
                 sourceStateDatum,
-                input.crankSignerKeyHash,
+                crankSignerKeyHashes,
                 earliestTimeMs
               )
             ) {
               throw new Error(
-                "This wallet is not allowed to settle a scheduled payment here. Only an owner, a listed user, the payment's own recipient, or an unlocked backup person may settle."
+                "This wallet cannot settle this scheduled payment. After final recovery opens, only an owner or the final backup person may settle."
               );
             }
 
             // Cadence clock: only an ADMIN bypasses the 30-minute limit, and an admin
             // crank must PRESERVE the stamp; every other authorized cranker STAMPS the
             // tx upper bound. Decide it the same way the validator would, from the
-            // connected signer key hash, because a disagreement makes the tx fail. The
+            // listed signer key hashes, because a disagreement makes the tx fail. The
             // default validity window (~6 min) is well under the on-chain 1h cap.
-            const preserveCooldownStamp = crankSignerBypassesCooldown(
+            const preserveCooldownStamp = crankSignersBypassCooldown(
               sourceStateDatum,
-              input.crankSignerKeyHash,
+              crankSignerKeyHashes,
               earliestTimeMs
             );
             const payoutComputation = deriveValidatedStreamingPaymentPayoutStateDatum(
@@ -453,6 +479,29 @@ export async function buildSttSpendTx(
               payoutComputation.outputDatum,
               "STT state datum"
             );
+          } else if (action === "stop-beneficiary-stream") {
+            const sourceStateDatum = decodeConstrDatumFromUtxo(scriptInput);
+            if (!sourceStateDatum) throw new Error("Stopping a beneficiary stream requires an inline STT state datum.");
+            const connectedSigner = deserializeAddress(signerAddress).pubKeyHash;
+            if (connectedSigner !== input.beneficiarySignerKeyHash?.trim().toLowerCase()) {
+              throw new Error("The beneficiary signer must match the connected wallet payment key hash.");
+            }
+            const stopped = deriveBeneficiaryStreamStopStateDatum({
+              stateDatum: sourceStateDatum,
+              beneficiarySignerKeyHash: connectedSigner,
+              additionalSignerKeyHashes: extraRequiredSignerKeyHashes,
+              streamingPaymentId: input.beneficiaryStreamStopId!,
+              txEarliestTimeMs: earliestTimeMs,
+              txLatestTimeMs: latestTimeMs
+            });
+            effectiveOnChainAction = { kind: "stop-beneficiary-stream", beneficiaryId: stopped.beneficiaryId, streamingPaymentId: stopped.streamingPaymentId };
+            effectiveForwardedDatum = stopped.outputDatum;
+            beneficiaryStopWarning = i18n("beneficiaryStreamStopDetails", {
+              id: String(stopped.streamingPaymentId), oldEnd: formatBeneficiaryStopTimestamp(stopped.oldEndDate), cutoff: formatBeneficiaryStopTimestamp(stopped.cutoff),
+              paid: stopped.unit === "lovelace" ? formatLovelaceAsAda(String(stopped.paidOutAmount)) : String(stopped.paidOutAmount),
+              debt: stopped.unit === "lovelace" ? formatLovelaceAsAda(String(stopped.retainedDebt)) : String(stopped.retainedDebt),
+              unit: stopped.unit === "lovelace" ? "ADA" : stopped.unit
+            });
           } else if (action === "cancel-streaming-payment") {
             const sourceStateDatum = decodeConstrDatumFromUtxo(scriptInput);
             if (!sourceStateDatum) {
@@ -462,8 +511,7 @@ export async function buildSttSpendTx(
             }
 
             if (
-              typeof input.streamingPaymentCancelId !== "number" ||
-              !Number.isSafeInteger(input.streamingPaymentCancelId)
+              !isOnChainInteger(input.streamingPaymentCancelId)
             ) {
               throw new Error(
                 "Cancelling a streaming payment requires the target streaming-payment id."
@@ -472,9 +520,9 @@ export async function buildSttSpendTx(
 
             // Shorten the target to the earliest shape-safe cutoff at/after the tx
             // upper bound and advance the shared non-admin streaming-action clock.
-            // The connected wallet is the required signer, so its payment-key hash
-            // is what the on-chain receiver-authority check matches. STT value stays
-            // preserved (derivesForwardedDatum branch above).
+            // The connected wallet remains the payee signer. The contract requires
+            // this exact cutoff after final recovery opens, so one payment can move
+            // the shared clock only once. This builder forwards STT value unchanged.
             const cancellation = deriveStreamingPaymentCancellationStateDatum(
               sourceStateDatum,
               input.streamingPaymentCancelId,
@@ -517,19 +565,24 @@ export async function buildSttSpendTx(
           }
 
           if (action === "manage-streaming-payments") {
-            const sourceStateDatum = decodeConstrDatumFromUtxo(scriptInput);
-            if (!sourceStateDatum) {
-              throw new Error(
-                "Managing streaming payments requires an inline STT state datum on the selected input."
-              );
-            }
-            const managePaymentErrors = validateManagedStreamingPayments(
-              sourceStateDatum,
+            await prepareManagedStreamingPayments(setup, {
+              scriptInput,
+              referenceUtxo: resolved.referenceScript.utxo,
+              outputStateDatum: effectiveForwardedDatum,
+              txLatestTimeMs: latestTimeMs,
+              walletPaymentScriptHash,
+              ...sttParams
+            });
+          }
+
+          if (action === "update-state") {
+            const beneficiaryDestinationErrors = validateBeneficiaryDestinations(
               effectiveForwardedDatum,
-              latestTimeMs
+              walletPaymentScriptHash,
+              sttParams.sttPolicyId
             );
-            if (managePaymentErrors.length > 0) {
-              throw new Error(managePaymentErrors[0]);
+            if (beneficiaryDestinationErrors.length > 0) {
+              throw new Error(beneficiaryDestinationErrors[0]);
             }
           }
 
@@ -539,26 +592,9 @@ export async function buildSttSpendTx(
             "stt-spend:validateStateDatum",
             "Forwarded STT output datum is invalid."
           );
-          if (terminalRecovery && beneficiaryInputStateDatum) {
-            const credentialWideWalletUtxos = await withStage(
-              "stt-spend:discoverTerminalWalletInputs",
-              // Re-query on every draft/final build pass. Reusing the first indexer
-              // snapshot would unnecessarily widen the race in which a newer UTxO
-              // could be omitted and stranded after the last recovery path is gone.
-              async () => fetchCredentialUtxos(walletPaymentScriptHash),
-              { ...setupDiagnostics, walletPaymentScriptHash }
-            );
-            assertTerminalRecoveryIsComplete({
-              inputStateDatum: beneficiaryInputStateDatum,
-              selectedWalletInputs: resolvedWalletInputs,
-              credentialWideWalletRefs: credentialWideWalletUtxos.map((utxo) => ({
-                txHash: utxo.txHash,
-                outputIndex: utxo.outputIndex
-              })),
-              walletOutputs,
-              transfers: effectiveExtraTransfers
-            });
-            forwardedStateWarnings.push(TERMINAL_RECOVERY_WARNING);
+          if (beneficiaryStopWarning) forwardedStateWarnings.push(beneficiaryStopWarning);
+          if (repeatableBeneficiaryRecovery) {
+            forwardedStateWarnings.push(REPEATABLE_RECOVERY_NOTICE);
           }
 
           return {
@@ -577,10 +613,18 @@ export async function buildSttSpendTx(
               : [],
             afterOutput: () => {
               for (const transfer of effectiveExtraTransfers) {
-                tx.sendAssets(
-                  recipientWithOptionalInlineDatum(transfer.address, transfer.inlineDatum),
-                  transfer.amount
-                );
+                if (action !== "payout-streaming-payment") {
+                  tx.sendAssets(
+                    recipientWithOptionalInlineDatum(
+                      transfer.address,
+                      transfer.inlineDatum
+                    ),
+                    transfer.amount
+                  );
+                  continue;
+                }
+
+                payoutBuild.sendTransfer(tx, transfer);
               }
             }
           };
@@ -589,6 +633,7 @@ export async function buildSttSpendTx(
 
       return {
         tx,
+        signerAddress,
         diagnostics: {
           ...setupDiagnostics,
           action,
@@ -618,8 +663,15 @@ export async function buildSttSpendTx(
           allowanceTargetUserId,
           beneficiaryTargetId,
           warnings: forwardedStateWarnings,
+          exitFeeEvidence: exitSmartInputLovelace === undefined ? undefined : captureBeneficiaryExitFeeEvidence(tx, exitSmartInputLovelace),
+          adaPayout: streamingPayoutBatch && streamingPayoutBatch !== "empty"
+            ? payoutBuild.adaPayout
+            : undefined,
           referenceScriptUsage: forwarding.referenceScriptUsage
-        }
+        },
+        resolveAdjustableLovelaceOutput: payoutBuild.absorbsFundingChange
+          ? () => payoutBuild.resolveAdjustableOutput(tx)
+          : undefined
       };
     },
     txFetcher
@@ -630,17 +682,39 @@ export async function buildSttSpendTx(
       ? prepared.context.walletOutputCount
       : 0;
   const allowanceTargetUserId =
-    typeof prepared.context?.allowanceTargetUserId === "number"
+    isOnChainInteger(prepared.context?.allowanceTargetUserId)
       ? prepared.context.allowanceTargetUserId
       : null;
   const beneficiaryTargetId =
-    typeof prepared.context?.beneficiaryTargetId === "number"
+    isOnChainInteger(prepared.context?.beneficiaryTargetId)
       ? prepared.context.beneficiaryTargetId
       : null;
   const referenceScriptUsage =
     typeof prepared.context?.referenceScriptUsage === "string"
       ? prepared.context.referenceScriptUsage
       : "";
+  const adaPayout = prepared.context?.adaPayout as
+    | ReturnType<typeof createStreamingPayoutBuild>["adaPayout"]
+    | undefined;
+  const payoutTopUps = adaPayout
+    ? resolveStreamingAdaPayoutTopUps(adaPayout)
+    : [];
+  const warnings = Array.isArray(prepared.context?.warnings)
+    ? [...(prepared.context.warnings as string[])]
+    : [];
+  if (action === "exit-beneficiary" && prepared.context?.exitFeeEvidence) {
+    warnings.push(beneficiaryExitFeeWarning(prepared.txHex, prepared.context.exitFeeEvidence as BeneficiaryExitFeeEvidence));
+  }
+  for (const payoutTopUp of payoutTopUps) {
+    warnings.push(
+      i18n("adaPayoutTopUp", {
+        payoutTopUpAda: formatLovelaceAsAda(payoutTopUp.topUpLovelace),
+        payoutAddress: payoutTopUp.address,
+        finalOutputAda: formatLovelaceAsAda(payoutTopUp.finalOutputLovelace),
+        settlementAda: formatLovelaceAsAda(payoutTopUp.settlementLovelace)
+      })
+    );
+  }
   const technicalSummary = [
     `action=${action}`,
     `funding=${walletInputs.length > 0 ? "smart-wallet" : payoutFundingSource}`,
@@ -663,8 +737,6 @@ export async function buildSttSpendTx(
     estimatedFeeLovelace: prepared.estimatedFeeLovelace,
     signerAddress: prepared.signerAddress,
     executionUnits: prepared.executionUnits,
-    warnings: Array.isArray(prepared.context?.warnings)
-      ? (prepared.context.warnings as string[])
-      : undefined
+    warnings: warnings.length > 0 ? warnings : undefined
   };
 }

@@ -14,15 +14,18 @@ export function transactionTouchesAddress(transaction: TransactionInfo, address:
 }
 
 /**
- * The provider's `fetchTxInfo` passes Blockfrost's tx-utxos entries through raw: an
- * entry carries `{ address, amount, output_index, transaction: { hash, index } }`, while
- * every counter, classifier, and view here expects the Mesh `UTxO` shape
+ * The provider's `fetchTxInfo` passes Blockfrost's tx-utxos entries through raw. Every
+ * counter, classifier, and view here expects the Mesh `UTxO` shape
  * (`{ input: { txHash, outputIndex }, output: { address, amount } }`). Untranslated, the
  * shape mismatch read as zero inputs and zero outputs everywhere — address filters
  * dropped the wallet's whole history (only txs anchored by a current UTxO survived) and
  * the event classifier fell through to its "referenced" guesses.
  */
-function normalizeTransactionUtxo(entry: unknown, fallbackTxHash: string): UTxO | null {
+function normalizeTransactionUtxo(
+  entry: unknown,
+  fallbackTxHash: string,
+  side: "input" | "output"
+): UTxO | null {
   if (!entry || typeof entry !== "object") {
     return null;
   }
@@ -32,6 +35,7 @@ function normalizeTransactionUtxo(entry: unknown, fallbackTxHash: string): UTxO 
     output?: { address?: string; amount?: Array<{ unit: string; quantity: string }> };
     address?: string;
     amount?: Array<{ unit: string; quantity: string }>;
+    tx_hash?: string;
     output_index?: number;
     transaction?: { hash?: string; index?: number };
   };
@@ -41,7 +45,15 @@ function normalizeTransactionUtxo(entry: unknown, fallbackTxHash: string): UTxO 
     return candidate as unknown as UTxO;
   }
 
-  const txHash = candidate.transaction?.hash ?? fallbackTxHash;
+  // An entry's source reference: Blockfrost's raw `tx_hash` (the pre-1.9 provider
+  // shape exposed it as `transaction.hash`). An input with no identifiable source is
+  // dropped rather than stamped with the containing transaction's own hash — a
+  // self-referential ref cannot exist on-chain, and once two distinct inputs share a
+  // ref, the feed's ref-dedupe collapses them, the wallet-side inputs vanish from the
+  // balance delta, and a net-zero manage transaction reads as a "+9 ₳" top-up (which
+  // then doubled the balance chart). Outputs legitimately belong to the transaction.
+  const txHash = candidate.tx_hash ?? candidate.transaction?.hash
+    ?? (side === "output" ? fallbackTxHash : null);
   const address = candidate.address;
   if (!txHash || !address) {
     return null;
@@ -64,10 +76,10 @@ export function normalizeTransactionIo(transaction: TransactionInfo): Transactio
   return {
     ...transaction,
     inputs: (transaction.inputs ?? [])
-      .map((entry) => normalizeTransactionUtxo(entry, txHash))
+      .map((entry) => normalizeTransactionUtxo(entry, txHash, "input"))
       .filter((entry): entry is UTxO => entry !== null),
     outputs: (transaction.outputs ?? [])
-      .map((entry) => normalizeTransactionUtxo(entry, txHash))
+      .map((entry) => normalizeTransactionUtxo(entry, txHash, "output"))
       .filter((entry): entry is UTxO => entry !== null)
   };
 }

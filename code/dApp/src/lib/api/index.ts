@@ -24,15 +24,20 @@ export {
   ConstrDataSchema,
   ContractConfigSchema,
   HashHexSchema,
+  OnChainUint64Schema,
   OutputIndexSchema,
   PayoutTransferSchema,
   PlutusDataSchema,
+  PlutusIntegerSchema,
   QuantitySchema,
+  stringifyTxRequestBody,
   TxHashSchema,
   TxRequestBaseSchema,
   WalletInputRefSchema,
   WalletScriptOutputSchema,
-  type PlutusDataJson
+  type ConstrDataJson,
+  type PlutusDataJson,
+  type PlutusIntegerJson
 } from "./tx-primitives";
 export { BuildResultSchema, type BuildResultDto } from "./tx-result";
 export {

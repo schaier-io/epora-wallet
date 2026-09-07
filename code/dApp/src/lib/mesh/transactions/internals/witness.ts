@@ -38,12 +38,17 @@ export function applyMintWitness(
 
 export function applyWithdrawalWitness(
   txBuilder: RuntimeTxBuilder,
+  rewardAddress: string,
+  amountLovelace: string,
   script: { code: string; version: LanguageVersion },
   referenceScript: ReferenceScriptResolution | null,
   redeemer: ConstrData,
   budget?: Budget
 ) {
-  txBuilder.withdrawalPlutusScriptV3();
+  // Mesh types the withdrawal by whatever precedes it: a withdrawal added before
+  // withdrawalPlutusScriptV3() is a pub-key withdrawal, and the script reference
+  // and redeemer below then throw. The script marker has to come first.
+  txBuilder.withdrawalPlutusScriptV3().withdrawal(rewardAddress, amountLovelace);
 
   if (referenceScript) {
     txBuilder.withdrawalTxInReference(
@@ -84,17 +89,19 @@ export function buildGovernanceScriptSource(
 
 
 
-export function createMeshRedeemer(data: ConstrData): { data: { type: "Mesh"; content: ConstrData }; exUnits: Budget } {
+export function createMeshRedeemer(
+  data: ConstrData,
+  budget: Budget = DEFAULT_REDEEMER_BUDGET
+): { data: { type: "Mesh"; content: ConstrData }; exUnits: Budget } {
   return {
     data: {
       type: "Mesh",
       content: data
     },
     exUnits: {
-      mem: DEFAULT_REDEEMER_BUDGET.mem,
-      steps: DEFAULT_REDEEMER_BUDGET.steps
+      mem: budget.mem,
+      steps: budget.steps
     }
   };
 }
-
 

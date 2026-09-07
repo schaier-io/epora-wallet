@@ -1,7 +1,7 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import { OrphanUtxoNotice } from "@/components/user/orphan-utxo-notice";
-import { MAX_ORPHAN_SWEEP_INPUTS } from "@/components/user/workspace/constants";
+import { mergeDiscoveredWalletUtxos } from "@/lib/discovery/orphan-utxos";
 import type { DiscoveredUtxo } from "@/lib/discovery/types";
 
 function orphans(count: number): DiscoveredUtxo[] {
@@ -32,15 +32,58 @@ describe("orphan utxo notice", () => {
     expect(screen.getByText(/12 ₳ is in the wrong spot/)).toBeTruthy();
   });
 
-  it("warns that a large sweep takes more than one signature", () => {
+  it("passes every discovered UTxO to consolidation", () => {
+    const discovered = orphans(3);
+    const onConsolidate = vi.fn();
     render(
       <OrphanUtxoNotice
-        orphans={orphans(MAX_ORPHAN_SWEEP_INPUTS + 1)}
+        orphans={discovered}
         orphanLovelace={12_000_000n}
-        onConsolidate={() => {}}
+        onConsolidate={onConsolidate}
       />
     );
 
-    expect(screen.getByText(/This takes 2 transactions/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Move it back" }));
+
+    expect(onConsolidate).toHaveBeenCalledWith(discovered);
+  });
+
+  it("offers a noncanonical six-native-asset UTxO to final-beneficiary recovery", () => {
+    const discovered: DiscoveredUtxo[] = [
+      {
+        txHash: "ab".repeat(32),
+        outputIndex: 2,
+        address: "addr_test1_noncanonical_stake_credential",
+        lovelace: "3000000",
+        assets: Array.from({ length: 6 }, (_, index) => ({
+          unit: `${"cd".repeat(28)}${index.toString(16).padStart(2, "0")}`,
+          quantity: String(index + 1)
+        }))
+      }
+    ];
+    const onConsolidate = vi.fn();
+    const onRecover = vi.fn();
+
+    const loaded = mergeDiscoveredWalletUtxos([], discovered);
+    expect(loaded[0]?.output.address).toBe(discovered[0]?.address);
+    expect(loaded[0]?.output.amount).toEqual([
+      { unit: "lovelace", quantity: "3000000" },
+      ...discovered[0]!.assets
+    ]);
+    expect(mergeDiscoveredWalletUtxos(loaded, discovered)).toHaveLength(1);
+
+    render(
+      <OrphanUtxoNotice
+        orphans={discovered}
+        orphanLovelace={3_000_000n}
+        onConsolidate={onConsolidate}
+        onRecover={onRecover}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Recover funds" }));
+
+    expect(onRecover).toHaveBeenCalledWith(discovered);
+    expect(onConsolidate).not.toHaveBeenCalled();
   });
 });

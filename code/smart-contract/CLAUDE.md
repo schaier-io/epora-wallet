@@ -21,7 +21,7 @@ The canonical contract vocabulary is inlined in §6 below.
 - A `validators/*.ak` file orchestrates: read inputs, dispatch on the `SttAction`,
   call into `lib/` for the actual checks. It does **not** hold the math/predicate
   bodies. (`stt.ak` went 1308 → ~160 lines by moving logic into
-  `lib/stt/{action_checks,io,preservation}.ak` plus the per-action `eval_*`
+  `lib/stt/{io,preservation}.ak` plus the per-action `eval_*`
   decision bodies, which live in the three per-authority-family handler modules
   `lib/stt/{operator,user,settlement}_handlers.ak` — the validator only
   dispatches; keep it that way.)
@@ -243,9 +243,11 @@ with and without them.
   evaluation. Read the deltas, and if they are intended re-record them with
   `pnpm budgets:update` **in the same commit**, saying why. Never re-record to
   make a gate go quiet.
-- Fixture/scaffolding refactors legitimately move the test numbers (the
-  scaffolding is evaluated too). Validator script sizes only move when validator
-  logic moves — watch those against the 16 KiB script limit.
+- Fixture/scaffolding refactors legitimately move the test numbers because the
+  scaffolding is evaluated too. Fixture-only changes do not change compiled
+  script size. Validator code, dependency, or compiler changes can. Track script
+  sizes as artifact metrics. The 16,384-byte protocol limit
+  applies to the full serialized transaction, not to one validator.
 
 ## 11. Off-chain plumbing is shared and tested
 

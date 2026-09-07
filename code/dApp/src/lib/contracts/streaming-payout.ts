@@ -5,41 +5,25 @@
 //// `State` exactly or the STT validator rejects the transaction.
 
 import { isConstrData, readStateSections } from "@/lib/contracts/state-layout";
+import {
+  readByteArray as readByteArrayData,
+  readInteger as readIntData
+} from "@/lib/contracts/plutus-primitives";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
+import { partsToUnit } from "@/lib/contracts/value-data";
+import { assertNonNegativeUint64 } from "@/lib/contracts/on-chain-integer";
 import type { Asset, ConstrData, PayoutTransfer } from "@/lib/types/contracts";
 
-function readIntData(value: unknown, label: string): number {
-  if (typeof value !== "number" || !Number.isSafeInteger(value)) {
-    throw new Error(`${label} must be a safe integer.`);
-  }
-  return value;
-}
-
-function readByteArrayData(value: unknown, label: string): string {
-  if (typeof value !== "string") {
-    throw new Error(`${label} must be a byte-array string.`);
-  }
-  return value;
-}
-
-function unitFromPolicyAsset(policyId: string, assetName: string): string {
-  return policyId.length === 0 && assetName.length === 0
-    ? "lovelace"
-    : `${policyId}${assetName}`;
-}
-
-function quantityToSafeInteger(quantity: bigint, label: string): number {
+function quantityToDataInteger(quantity: bigint, label: string): number | bigint {
+  assertNonNegativeUint64(quantity, label);
   const asNumber = Number(quantity);
-  if (!Number.isSafeInteger(asNumber)) {
-    throw new Error(`${label} is outside the supported integer range.`);
-  }
-  return asNumber;
+  return Number.isSafeInteger(asNumber) ? asNumber : quantity;
 }
 
 export type StreamingPaymentPayoutComputation = {
   payoutDelta: Asset[];
   outputDatum: ConstrData;
-  removedStreamingPaymentIds: number[];
+  removedStreamingPaymentIds: Array<number | bigint>;
 };
 
 /**
@@ -104,7 +88,8 @@ function payoutForElapsedTime(elapsedTimeMs: bigint, amountPerDay: bigint): bigi
  * streaming payment's `paid_out_amount`. The 6th `State` field,
  * `last_non_admin_payout_at`, depends on WHO cranks:
  *   - a NON-ADMIN crank (`preserveCooldownStamp = false`, the default: a
- *     multisig quorum, a listed user, a stream payee, or an unlocked beneficiary)
+ *     multisig quorum, a listed user, a stream payee, or an unlocked beneficiary
+ *     before final recovery opens; only the sole beneficiary after it opens)
  *     MUST stamp it with the tx upper bound (`txLatestTimeMs`, the
  *     `invalid_hereafter` POSIX time), because the on-chain cadence check requires
  *     `output.last_non_admin_payout_at == Some(tx_latest)`;
@@ -142,7 +127,6 @@ export function deriveStreamingPaymentPayoutStateDatum(
       "Streaming payment payout tx lower bound cannot be later than its upper bound."
     );
   }
-
   const unwrappedStateDatum = unwrapStateDatum(
     stateDatum,
     "Streaming payment payout state datum"
@@ -153,7 +137,7 @@ export function deriveStreamingPaymentPayoutStateDatum(
   );
   const streamingPayments = sections.streamingPayments;
 
-  const streamingPaymentById = new Map<number, StreamingPaymentPayoutRecord>();
+  const streamingPaymentById = new Map<bigint, StreamingPaymentPayoutRecord>();
 
   streamingPayments.forEach((streamingPayment, index) => {
     if (
@@ -162,37 +146,39 @@ export function deriveStreamingPaymentPayoutStateDatum(
       streamingPayment.fields.length !== 8
     ) {
       throw new Error(
-        `Streaming payment payout streamingPayments[${index}] must be a StreamingPayment constructor.`
+        `Scheduled payment ${index + 1} is not a valid scheduled payment record.`
       );
     }
 
-    const streamingPaymentId = readIntData(
-      streamingPayment.fields[0],
-      `Streaming payment payout streamingPayments[${index}].id`
+    const streamingPaymentId = BigInt(
+      readIntData(
+        streamingPayment.fields[0],
+        `Scheduled payment ${index + 1}'s id`
+      )
     );
     const policyId = readByteArrayData(
       streamingPayment.fields[3],
-      `Streaming payment payout streamingPayments[${index}].policy_id`
+      `Scheduled payment ${index + 1}'s policy id`
     );
     const assetName = readByteArrayData(
       streamingPayment.fields[4],
-      `Streaming payment payout streamingPayments[${index}].asset_name`
+      `Scheduled payment ${index + 1}'s asset name`
     );
     const paidOutAmount = readIntData(
       streamingPayment.fields[2],
-      `Streaming payment payout streamingPayments[${index}].paid_out_amount`
+      `Scheduled payment ${index + 1}'s paid-out amount`
     );
     const amountPerDay = readIntData(
       streamingPayment.fields[5],
-      `Streaming payment payout streamingPayments[${index}].amount_per_day`
+      `Scheduled payment ${index + 1}'s amount per day`
     );
     const startDate = readIntData(
       streamingPayment.fields[6],
-      `Streaming payment payout streamingPayments[${index}].start_date`
+      `Scheduled payment ${index + 1}'s start date`
     );
     const endDate = readIntData(
       streamingPayment.fields[7],
-      `Streaming payment payout streamingPayments[${index}].end_date`
+      `Scheduled payment ${index + 1}'s end date`
     );
 
     if (streamingPaymentById.has(streamingPaymentId)) {
@@ -215,11 +201,11 @@ export function deriveStreamingPaymentPayoutStateDatum(
       lifetimeTotal,
       paidOutAmount: BigInt(paidOutAmount),
       startDate: startDateBigInt,
-      unit: unitFromPolicyAsset(policyId, assetName)
+      unit: partsToUnit(policyId, assetName)
     });
   });
 
-  const deltaByStreamingPaymentId = new Map<number, bigint>();
+  const deltaByStreamingPaymentId = new Map<bigint, bigint>();
   const payoutDeltaByUnit = new Map<string, bigint>();
 
   transfers.forEach((transfer, index) => {
@@ -233,9 +219,11 @@ export function deriveStreamingPaymentPayoutStateDatum(
       );
     }
 
-    const streamingPaymentId = readIntData(
-      transfer.inlineDatum.fields[0],
-      `Streaming payment payout transfer ${index + 1}.inlineDatum.id`
+    const streamingPaymentId = BigInt(
+      readIntData(
+        transfer.inlineDatum.fields[0],
+        `Streaming payment payout transfer ${index + 1}.inlineDatum.id`
+      )
     );
     const streamingPayment = streamingPaymentById.get(streamingPaymentId);
     if (!streamingPayment) {
@@ -284,14 +272,15 @@ export function deriveStreamingPaymentPayoutStateDatum(
     );
   });
 
-  const removedStreamingPaymentIds: number[] = [];
+  const removedStreamingPaymentIds: Array<number | bigint> = [];
   const txEarliest = BigInt(txEarliestTimeMs);
   const nextStreamingPayments = streamingPayments.flatMap((streamingPayment) => {
     const streamingPaymentDatum = streamingPayment as ConstrData;
-    const streamingPaymentId = readIntData(
+    const rawStreamingPaymentId = readIntData(
       streamingPaymentDatum.fields[0],
       "Streaming payment payout streaming payment id"
     );
+    const streamingPaymentId = BigInt(rawStreamingPaymentId);
     const payment = streamingPaymentById.get(streamingPaymentId)!;
     const payoutDelta = deltaByStreamingPaymentId.get(streamingPaymentId) ?? 0n;
 
@@ -310,7 +299,7 @@ export function deriveStreamingPaymentPayoutStateDatum(
           `Streaming payment ${streamingPaymentId} is already fully settled and cannot receive another payout.`
         );
       }
-      removedStreamingPaymentIds.push(streamingPaymentId);
+      removedStreamingPaymentIds.push(rawStreamingPaymentId);
       return [];
     }
 
@@ -341,7 +330,7 @@ export function deriveStreamingPaymentPayoutStateDatum(
           `Streaming payment ${streamingPaymentId} cannot be fully settled before its end date.`
         );
       }
-      removedStreamingPaymentIds.push(streamingPaymentId);
+      removedStreamingPaymentIds.push(rawStreamingPaymentId);
       return [];
     }
 
@@ -350,7 +339,7 @@ export function deriveStreamingPaymentPayoutStateDatum(
     }
 
     const nextFields = [...streamingPaymentDatum.fields];
-    nextFields[2] = quantityToSafeInteger(
+    nextFields[2] = quantityToDataInteger(
       nextPaidOutAmount,
       `Streaming payment payout paid-out amount for streaming payment ${streamingPaymentId}`
     );

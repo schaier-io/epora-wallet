@@ -1,23 +1,19 @@
 "use client";
 import { useTranslations } from "next-intl";
 
-import { walletOperatorOptionsAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
 import { isWalletStakingEnabledAtom, walletStakingBaseAddressAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import { useAtomValue } from "jotai";
 
 import { PoolFinder } from "@/components/user/pool-finder";
 
-import { ConfigSection, OperatorPathSelector } from "@/components/user/workspace/editors";
+import { ConfigSection } from "@/components/user/workspace/editors";
 
-import { useSttSpendForm } from "@/components/user/workspace/forms/use-stt-spend-form";
 import { useWithdrawForm } from "@/components/user/workspace/forms/use-withdraw-form";
 
 export function SetIntendedStakeCredentialConfigView() {
   const i18n = useTranslations("ComponentsUserWorkspaceConfigSetintendedstakecredentialView");
   const isWalletStakingEnabled = useAtomValue(isWalletStakingEnabledAtom);
-  const walletOperatorOptions = useAtomValue(walletOperatorOptionsAtom);
   const walletStakingBaseAddress = useAtomValue(walletStakingBaseAddressAtom);
-  const { setWalletOperatorPath, walletOperatorPath } = useSttSpendForm();
   const { selectedStakePool, setSelectedStakePool } = useWithdrawForm();
 
       return (
@@ -55,12 +51,6 @@ export function SetIntendedStakeCredentialConfigView() {
             <div className="mt-3 rounded-lg border border-border/60 bg-muted/20 p-3 text-xs text-muted-foreground">
               {i18n("afterThisConfirmsTheWalletSExistingFunds")}
             </div>
-            <OperatorPathSelector
-              id="setStakeCredentialOperatorPath"
-              options={walletOperatorOptions}
-              value={walletOperatorPath}
-              onChange={setWalletOperatorPath}
-            />
           </ConfigSection>
           {/* rounded-lg, not rounded-xl: this panel sits inside the config <Card>, which is
               itself rounded-xl, so it read as a peer of the card rather than a child. */}

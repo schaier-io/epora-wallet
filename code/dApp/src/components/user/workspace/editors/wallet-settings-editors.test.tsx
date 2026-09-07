@@ -1,8 +1,9 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { WalletNameEditor } from "./wallet-settings-editors";
+import { OwnerAccessEditor, WalletNameEditor } from "./wallet-settings-editors";
 import { MAX_WALLET_NAME_BYTES, clampWalletNameInput } from "@/lib/contracts/state-wallet-name";
+import { createDefaultUserFormState } from "@/lib/contracts/state-form";
 
 // Four bytes each in UTF-8, so eight of them fill the 32-byte limit exactly.
 const EIGHT_EMOJI = "🙂".repeat(8);
@@ -102,5 +103,25 @@ describe("editing", () => {
       target: { value: `${EIGHT_EMOJI}🙂` }
     });
     expect(onChange).toHaveBeenCalledWith(EIGHT_EMOJI);
+  });
+});
+
+describe("owner wallet cap", () => {
+  it("does not append the connected wallet when the parent blocks adds", () => {
+    const onChange = vi.fn();
+    render(
+      <OwnerAccessEditor
+        user={createDefaultUserFormState("1")}
+        connectedPaymentKeyHash={"ab".repeat(28)}
+        canAddWallet={false}
+        onChange={onChange}
+        onRemove={vi.fn()}
+      />
+    );
+
+    const addConnected = screen.getByRole("button", { name: "Use connected wallet here" });
+    expect(addConnected).toBeDisabled();
+    fireEvent.click(addConnected);
+    expect(onChange).not.toHaveBeenCalled();
   });
 });

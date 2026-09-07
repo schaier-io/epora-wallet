@@ -12,13 +12,26 @@ const definition = USER_ACTION_DEFINITIONS.find((entry) => entry.kind === "conso
  * wrong number and two of them shared a label.
  */
 test("the tidy-funds helpers ask for the number the validator asks for", () => {
-  // `action-validation.ts:238-243` passes a minimum of 1 to `validateWalletInputRefs`, and
-  // `lib/mesh/transactions/consolidate-utxos.ts:19` rejects only `walletInputs.length < 1`,
-  // because one pool on its own is the orphan-sweep case. Both helpers said "at least two",
-  // three lines above an error reading "Select at least one fund pool."
+  // The builder accepts one or more inputs. API callers may repartition them in
+  // either direction. This browser form leaves outputs empty for one merged pool.
   for (const helper of [tab.lockedInputsHelper, tab.lockedInputsEditorHelper]) {
     assert.doesNotMatch(helper, /at least two/i);
     assert.doesNotMatch(helper, /\btwo\b/i);
+  }
+});
+
+test("the tidy-funds copy preserves value and describes the browser default", () => {
+  assert.match(tab.outputAssetsHelper, /browser form creates one resulting fund pool/i);
+  for (const line of [
+    tab.description,
+    tab.stateHelper,
+    tab.outputAssetsHelper,
+    definition.description,
+    definition.outcome,
+    definition.whatChanges
+  ]) {
+    assert.doesNotMatch(line, /top up/i);
+    assert.doesNotMatch(line, /end up in fewer/i);
   }
 });
 

@@ -74,11 +74,9 @@ function looksWrittenForAPerson(message: string): boolean {
   return !/[{}]/.test(message) && /[.!?]$/.test(message.trim());
 }
 
-const UNRECOGNISED_BUILD_ERROR =
-  "Something went wrong while preparing this transaction. Try again. If it keeps failing, contact support.";
+const UNRECOGNISED_BUILD_ERROR = i18n("somethingWentWrongWhilePreparingThisTransaction");
 
-const USER_DECLINED_TO_SIGN =
-  "You declined to sign in your wallet, so nothing was sent and nothing changed. The transaction stays ready here whenever you want to try again.";
+const USER_DECLINED_TO_SIGN = i18n("youDeclinedToSignInYourWallet");
 
 /**
  * Closing the wallet's signature prompt (or pressing its cancel) is the user's own
@@ -204,7 +202,7 @@ function resolveBuildErrorOutcome(
   }
 
   if (allMessages.some((message) => message.includes("Maximum Input Count Exceeded"))) {
-    return ["This transaction is bigger than Cardano allows. Choose fewer fund pools, or fewer payouts, and try again. If it still fails, run Tidy wallet funds first to merge the pools, then send.", true];
+    return ["This transaction has more inputs than the transaction builder or current Cardano limits allow. Choose fewer fund pools or payouts, then try again. Tidy funds has no fixed two-pool limit. If a Tidy transaction fails, select fewer pools and retry.", true];
   }
 
   if (
@@ -212,7 +210,7 @@ function resolveBuildErrorOutcome(
       message.includes("No shared STT reference script is deployed")
     )
   ) {
-    return ["This wallet still needs its one-time shared setup helper before it can do this. Go back to the wallet home, run the setup it offers, then try again.", true];
+    return ["Service temporarily unavailable. Please try again shortly.", true];
   }
 
   if (allMessages.some((message) => message.includes("PPViewHashesDontMatch"))) {

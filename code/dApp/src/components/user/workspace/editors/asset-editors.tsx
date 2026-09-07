@@ -3,11 +3,12 @@ import { useTranslations } from "next-intl";
 
 
 import { useId, useMemo, useRef } from "react";
-import { atom, useAtom } from "jotai";
+import { useAtom, useAtomValue } from "jotai";
 
 import { deserializeAddress } from "@meshsdk/core";
 
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,8 +21,11 @@ import {
   looksLikeCardanoAddress
 } from "@/lib/contracts/payout-address";
 import { type StateAssetAmountForm, createDefaultStateAssetAmountForm } from "@/lib/contracts/state-form";
+import { MAX_ALLOWANCE_ENTRIES } from "@/lib/contracts/state-validation";
 import { type Asset, type WalletInputRef } from "@/lib/types/contracts";
 import { POLICY_ID_LENGTH } from "@/lib/cardano-assets";
+import { resolvedWalletAddressesAtom } from "@/providers/wallet-address-book";
+import { activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
 
 /**
  * The wallet ids this app can name with an address on its own: the connected wallet's.
@@ -38,11 +42,6 @@ export function buildKnownAddresses(
     : undefined;
 }
 
-/** Resolved id→address pairs, module-global so they outlive the editor instance: a
- * reopened step or accordion must still show the address a user pasted, not the hash
- * it became. */
-const resolvedWalletAddressesAtom = atom<Record<string, string>>({});
-
 const LOVELACE_UNIT = "lovelace";
 // Pseudo-unit marking "type the policy id and asset name yourself". Never valid
 // hex, so it can only ever be selected from the dropdown, not read from a form.
@@ -54,6 +53,7 @@ export function StateAssetAmountListEditor({
   value,
   onChange,
   addLabel,
+  canAdd = true,
   availableAssets = []
 }: {
   label: string;
@@ -61,14 +61,19 @@ export function StateAssetAmountListEditor({
   value: StateAssetAmountForm[];
   onChange: (value: StateAssetAmountForm[]) => void;
   addLabel?: string;
+  canAdd?: boolean;
   /** Assets the wallet actually holds; when present, rows pick from a searchable list instead of typing hex. */
   availableAssets?: Asset[];
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsAssetEditors");
   const uid = useId();
-  // Removing a row unmounts the focused button and drops focus on <body>; the add
-  // button is the one control this list always has.
   const addButtonRef = useRef<HTMLButtonElement | null>(null);
+  const addDisabled = !canAdd || value.length >= MAX_ALLOWANCE_ENTRIES;
+  function addItem() {
+    if (!addDisabled) {
+      onChange([...value, createDefaultStateAssetAmountForm()]);
+    }
+  }
   function updateItem(index: number, patch: Partial<StateAssetAmountForm>) {
     onChange(
       value.map((item, itemIndex) =>
@@ -123,7 +128,7 @@ export function StateAssetAmountListEditor({
   return (
     // A group, not a label: `label` heads the rows below it and points at no single
     // control, so a bare <label> named nothing and clicked through to nothing.
-    <div className="space-y-3" role="group" aria-labelledby={`${uid}-group-label`}>
+    <div className="space-y-3" role="group" aria-labelledby={`${uid}-group-label`} tabIndex={-1}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
           <p id={`${uid}-group-label`} className="text-sm font-medium leading-none">
@@ -135,7 +140,8 @@ export function StateAssetAmountListEditor({
           ref={addButtonRef}
           type="button"
           variant="secondary"
-          onClick={() => onChange([...value, createDefaultStateAssetAmountForm()])}
+          onClick={addItem}
+          disabled={addDisabled}
         >
           {addLabel ?? i18n("addAToken")}
         </Button>
@@ -159,22 +165,22 @@ export function StateAssetAmountListEditor({
             );
             return (
               <div
-                key={`${label}-${index}`}
+                key={`${uid}-${index}`}
                 className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-3"
               >
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="space-y-1">
-                    <Label htmlFor={`${label}-unit-${index}`}>{i18n("asset")}</Label>
+                    <Label htmlFor={`${uid}-unit-${index}`}>{i18n("asset")}</Label>
                     {hasWalletOptions ? (
                       <SearchableAssetUnitDropdown
-                        id={`${label}-unit-${index}`}
+                        id={`${uid}-unit-${index}`}
                         value={isKnownUnit ? unit : CUSTOM_ASSET_UNIT}
                         options={[...rowOptions, customOption]}
                         onChange={(nextUnit) => handleUnitChange(index, asset, nextUnit)}
                       />
                     ) : (
                       <Input
-                        id={`${label}-unit-${index}`}
+                        id={`${uid}-unit-${index}`}
                         value={unit === LOVELACE_UNIT ? "ADA" : unit}
                         onChange={(event) => {
                           const next = event.target.value;
@@ -188,42 +194,27 @@ export function StateAssetAmountListEditor({
                     )}
                   </div>
                   <div className="space-y-1">
-                    {/* The box holds the number the contract stores, and for ADA that is
-                        lovelace (`state-form-encode.ts:78` passes it through as an
-                        integer). Labelling it "Amount" beside a wallet that shows ADA
-                        everywhere else invited a 1,000,000x mistake. */}
-                    <Label htmlFor={`${label}-amount-${index}`}>
-                      {unit === LOVELACE_UNIT ? i18n("amountLovelace") : i18n("amount")}
+                    <Label htmlFor={`${uid}-amount-${index}`}>
+                      {unit === LOVELACE_UNIT ? i18n("amountAda") : i18n("amount")}
                     </Label>
                     <Input
-                      id={`${label}-amount-${index}`}
-                      inputMode="numeric"
+                      id={`${uid}-amount-${index}`}
+                      inputMode={unit === LOVELACE_UNIT ? "decimal" : "numeric"}
                       value={asset.amount}
                       onChange={(event) =>
                         updateItem(index, { amount: event.target.value })
                       }
                       placeholder="0"
-                      aria-describedby={
-                        unit === LOVELACE_UNIT ? `${uid}-lovelace-hint-${index}` : undefined
-                      }
                     />
-                    {unit === LOVELACE_UNIT ? (
-                      <p
-                        id={`${uid}-lovelace-hint-${index}`}
-                        className="text-xs text-muted-foreground"
-                      >
-                        {i18n("oneAdaIsAMillionLovelace")}
-                      </p>
-                    ) : null}
                   </div>
                 </div>
                 {!hasWalletOptions || !isKnownUnit ? (
                   <div className="space-y-3">
                     <div className="grid gap-3 md:grid-cols-2">
                       <div className="space-y-1">
-                        <Label htmlFor={`${label}-policy-${index}`}>{i18n("tokenPolicyId")}</Label>
+                        <Label htmlFor={`${uid}-policy-${index}`}>{i18n("tokenPolicyId")}</Label>
                         <Input
-                          id={`${label}-policy-${index}`}
+                          id={`${uid}-policy-${index}`}
                           value={asset.policyId}
                           onChange={(event) =>
                             updateItem(index, { policyId: event.target.value })
@@ -232,9 +223,9 @@ export function StateAssetAmountListEditor({
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label htmlFor={`${label}-asset-${index}`}>{i18n("tokenNameHex")}</Label>
+                        <Label htmlFor={`${uid}-asset-${index}`}>{i18n("tokenNameHex")}</Label>
                         <Input
-                          id={`${label}-asset-${index}`}
+                          id={`${uid}-asset-${index}`}
                           value={asset.assetName}
                           onChange={(event) =>
                             updateItem(index, { assetName: event.target.value })
@@ -256,7 +247,12 @@ export function StateAssetAmountListEditor({
                   aria-label={i18n("removeTokenNumber", { number: index + 1 })}
                   onClick={() => {
                     onChange(value.filter((_, itemIndex) => itemIndex !== index));
-                    addButtonRef.current?.focus();
+                    const addButton = addButtonRef.current;
+                    if (addButton?.disabled) {
+                      addButton.closest<HTMLElement>('[role="group"]')?.focus();
+                    } else {
+                      addButton?.focus();
+                    }
                   }}
                 >
                   {i18n("remove")}
@@ -278,7 +274,8 @@ export function WalletHashesEditor({
   addLabel,
   emptyLabel,
   placeholder,
-  knownAddresses
+  knownAddresses,
+  canAdd = true
 }: {
   label: string;
   helper?: string;
@@ -289,12 +286,12 @@ export function WalletHashesEditor({
   placeholder?: string;
   /** Wallet id → address pairs the UI can name, e.g. the connected wallet's own id. */
   knownAddresses?: Record<string, string>;
+  canAdd?: boolean;
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsAssetEditors");
   const uid = useId();
-  // Removing a row unmounts the focused button and drops focus on <body>; the add
-  // button is the one control this list always has.
   const addButtonRef = useRef<HTMLButtonElement | null>(null);
+  const connectedHash = useAtomValue(activePaymentKeyHashAtom)?.trim().toLowerCase();
   // A pasted Cardano address is stored as the wallet id (payment key hash) the contract
   // actually compares against; remembering the pairs lets the field keep showing the
   // address the user recognises while the hash stays the stored value.
@@ -311,7 +308,13 @@ export function WalletHashesEditor({
         const deserialized = deserializeAddress(trimmed);
         const hash = deserialized.pubKeyHash || deserialized.scriptHash;
         if (hash) {
-          setResolvedAddresses((current) => ({ ...current, [hash.toLowerCase()]: trimmed }));
+          // First sighting wins, the same rule `rememberWalletAddressAtom` follows.
+          // The book is app-wide and persisted, so rewriting a known hash changes
+          // the address every wallet field shows for that person.
+          setResolvedAddresses((current) => {
+            const key = hash.toLowerCase();
+            return key in current ? current : { ...current, [key]: trimmed };
+          });
           onChange(value.map((entry, entryIndex) => (entryIndex === index ? hash : entry)));
           return;
         }
@@ -326,7 +329,7 @@ export function WalletHashesEditor({
   return (
     // A group, not a label: `label` heads the rows below it and points at no single
     // control, so a bare <label> named nothing and clicked through to nothing.
-    <div className="space-y-3" role="group" aria-labelledby={`${uid}-group-label`}>
+    <div className="space-y-3" role="group" aria-labelledby={`${uid}-group-label`} tabIndex={-1}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
           <p id={`${uid}-group-label`} className="text-sm font-medium leading-none">
@@ -338,7 +341,12 @@ export function WalletHashesEditor({
           ref={addButtonRef}
           type="button"
           variant="secondary"
-          onClick={() => onChange([...value, ""])}
+          disabled={!canAdd}
+          onClick={() => {
+            if (canAdd) {
+              onChange([...value, ""]);
+            }
+          }}
         >
           {addLabel ?? i18n("addAWallet")}
         </Button>
@@ -355,6 +363,8 @@ export function WalletHashesEditor({
             // a negated call narrows it to `never`. Take the length first.
             const typedLength = trimmed.length;
             const storedHash = isCredentialHash(trimmed) ? trimmed : null;
+            const isConnectedWallet = storedHash !== null && storedHash.toLowerCase() === connectedHash;
+            const connectedWalletId = `${uid}-connected-wallet-${index}`;
             const knownAddress = storedHash ? known[storedHash.toLowerCase()] : undefined;
             const malformed = typedLength > 0 && storedHash === null;
             // A mainnet or broken address deserves its own reason (the lib's messages cover
@@ -380,14 +390,21 @@ export function WalletHashesEditor({
                         value2: index + 1
                       })}
                       aria-invalid={malformed ? true : undefined}
-                      // The reason below was visible to sighted readers only: the field
-                      // said "invalid" and named nothing that explained why.
-                      aria-describedby={malformed ? `${uid}-wallet-error-${index}` : undefined}
+                      aria-describedby={
+                        [malformed ? `${uid}-wallet-error-${index}` : null,
+                          isConnectedWallet ? connectedWalletId : null]
+                          .filter(Boolean).join(" ") || undefined
+                      }
                       value={knownAddress ?? wallet}
                       onChange={(event) => handleChange(index, event.target.value)}
                       placeholder={placeholder ?? i18n("walletIdOrAddress")}
                       className={knownAddress ? "font-mono text-xs" : undefined}
                     />
+                    {isConnectedWallet ? (
+                      <Badge id={connectedWalletId} variant="info" className="w-fit">
+                        {i18n("connectedWallet")}
+                      </Badge>
+                    ) : null}
                     {storedHash && knownAddress ? (
                       <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                         <span className="shrink-0">{i18n("walletId")}</span>
@@ -411,7 +428,12 @@ export function WalletHashesEditor({
                     aria-label={i18n("removeWalletNumber", { number: index + 1 })}
                     onClick={() => {
                       onChange(value.filter((_, entryIndex) => entryIndex !== index));
-                      addButtonRef.current?.focus();
+                      const addButton = addButtonRef.current;
+                      if (addButton?.disabled) {
+                        addButton.closest<HTMLElement>('[role="group"]')?.focus();
+                      } else {
+                        addButton?.focus();
+                      }
                     }}
                   >
                     {i18n("remove")}
@@ -505,11 +527,14 @@ export function WalletInputRefsEditor({
                   id={`${label}-index-${index}`}
                   inputMode="numeric"
                   value={String(entry.outputIndex)}
-                  onChange={(event) =>
-                    updateRef(index, {
-                      outputIndex: Number(event.target.value || 0)
-                    })
-                  }
+                  onChange={(event) => {
+                    // Number("1e") is NaN, and the box then showed "NaN"; keep the
+                    // last good index instead of storing what cannot be one.
+                    const parsed = Number(event.target.value || 0);
+                    if (Number.isSafeInteger(parsed) && parsed >= 0) {
+                      updateRef(index, { outputIndex: parsed });
+                    }
+                  }}
                   placeholder="0"
                 />
               </div>
@@ -536,4 +561,3 @@ export function WalletInputRefsEditor({
     </details>
   );
 }
-

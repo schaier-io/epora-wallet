@@ -55,18 +55,38 @@ async function findCurrentStateRef(
   return { txHash: match.input.txHash, index: match.input.outputIndex };
 }
 
-// Re-points the consumed STT state reference at the live UTxO (mutates a parsed
-// copy of the build context).
-function applyCurrentStateRef(
+// Refreshes a saved build context for a replay against live chain state, and
+// returns it. Two things go stale, and only one of them was being refreshed:
+//
+// 1. The consumed STT state reference - someone else may have transacted the
+//    wallet, so the reference is re-pointed at the live UTxO.
+// 2. The original build's validity-window stamp. The builders prefer an input
+//    carried `validityWindowReferenceTimeMs` over the current clock, so a
+//    rebuilt transaction was born holding the ORIGINAL build's window - already
+//    fully in the past. That is the exact failure a rebuild exists to repair:
+//    the stamp is dropped so the builder derives a fresh window from the
+//    current clock (the same "resolved once per build" rule the draft and final
+//    builds of one session share still applies within this new session).
+//
+// Mutates a parsed copy of the build context.
+export function refreshContextForRebuild(
   buildContext: ProposalBuildContext,
   ref: { txHash: string; index: number }
-): void {
-  const input = buildContext.input as { sttInputTxHash?: string; sttInputOutputIndex?: number };
+): ProposalBuildContext {
+  const input = buildContext.input as {
+    sttInputTxHash?: string;
+    sttInputOutputIndex?: number;
+    validityWindowReferenceTimeMs?: number;
+  };
   input.sttInputTxHash = ref.txHash;
   input.sttInputOutputIndex = ref.index;
+  delete input.validityWindowReferenceTimeMs;
+  return buildContext;
 }
 
-async function dispatchBuild(
+// Runs the builder a saved context names. Also used by the create form, which
+// rebuilds the transaction once the proposer has chosen the co-signers to list.
+export async function buildProposalTx(
   wallet: BrowserWallet,
   buildContext: ProposalBuildContext
 ): Promise<BuildResult> {
@@ -115,9 +135,9 @@ export async function rebuildProposalTx(
   const fetcher = new ServerFetcher();
   const identity = buildWalletIdentity(proposal.walletUnit, proposal.walletPolicyId);
   const currentRef = await findCurrentStateRef(fetcher, identity);
-  applyCurrentStateRef(buildContext, currentRef);
+  refreshContextForRebuild(buildContext, currentRef);
 
-  const result = await dispatchBuild(wallet, buildContext);
+  const result = await buildProposalTx(wallet, buildContext);
   return {
     txHex: result.txHex,
     txBodyHash: resolveProposalBodyHash(result.txHex),

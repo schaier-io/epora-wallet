@@ -1,10 +1,120 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createDefaultStateForm, type UserFormState } from "@/lib/contracts/state-form";
+import { ServerFetcher } from "@/lib/mesh/server-fetcher";
+import { proposalCopy } from "@/lib/proposals/copy";
+import { MAX_UNSIGNED_TX_BYTES } from "@/lib/proposals/limits";
+import { resolveProposalBodyHash, serializeJsonSafe } from "@/lib/proposals/serialization";
+import type { ProposalBuildContext, ProposalDetailDto } from "@/lib/proposals/types";
 import {
+  checkInputLiveness,
   computeSignerSatisfaction,
-  determineProposalValidity
+  decodeEffect,
+  decodeRequiredSigners,
+  determineProposalValidity,
+  isProposalExpired,
+  verifyProposal
 } from "@/lib/proposals/verify";
+
+test("proposal verification rejects stored transaction bytes above the ledger limit", () => {
+  const effect = decodeEffect("00".repeat(MAX_UNSIGNED_TX_BYTES + 1));
+
+  assert.equal(
+    effect.decodeError,
+    proposalCopy.transactionTooLarge(MAX_UNSIGNED_TX_BYTES)
+  );
+});
+
+test("proposal verification checks every input above the former fixed cap", async () => {
+  const inputs = Array.from({ length: 17 }, (_, outputIndex) => ({
+    txHash: outputIndex.toString(16).padStart(64, "0"),
+    outputIndex,
+    live: null,
+    isSttState: false
+  }));
+  let activeLookups = 0;
+  let peakLookups = 0;
+  let releaseFirstBatch!: () => void;
+  const firstBatch = new Promise<void>((resolve) => {
+    releaseFirstBatch = resolve;
+  });
+  const fetcher = {
+    get: async (path: string) => {
+      activeLookups += 1;
+      peakLookups = Math.max(peakLookups, activeLookups);
+      if (peakLookups === 8) releaseFirstBatch();
+      await firstBatch;
+      activeLookups -= 1;
+      const txHash = path.split("/")[1];
+      const input = inputs.find((candidate) => candidate.txHash === txHash)!;
+      return {
+        outputs: [{ output_index: input.outputIndex, consumed_by_tx: null }]
+      };
+    }
+  } as unknown as ServerFetcher;
+
+  const result = await checkInputLiveness(fetcher, inputs);
+
+  assert.equal(result.complete, true);
+  assert.deepEqual(result.reasons, []);
+  assert.ok(inputs.every((input) => input.live === true));
+  assert.equal(peakLookups, 8);
+});
+
+test("proposal liveness uses bounded exact transaction lookups instead of address scans", async () => {
+  let exactLookups = 0;
+  const fetcher = {
+    get: async () => {
+      exactLookups += 1;
+      return {
+        outputs: [
+          { output_index: 0, consumed_by_tx: null },
+          { output_index: 1, consumed_by_tx: "ff".repeat(32) }
+        ]
+      };
+    },
+    fetchAddressUTxOs: () => {
+      throw new Error("address scans must not run");
+    }
+  } as unknown as ServerFetcher;
+  const inputs = [
+    { txHash: "aa".repeat(32), outputIndex: 0, live: null, isSttState: false },
+    { txHash: "aa".repeat(32), outputIndex: 1, live: null, isSttState: false }
+  ];
+
+  const result = await checkInputLiveness(fetcher, inputs);
+
+  assert.equal(exactLookups, 1);
+  assert.equal(result.complete, true);
+  assert.equal(inputs[0]!.live, true);
+  assert.equal(inputs[1]!.live, false);
+  assert.ok(result.reasons.some((reason) => reason.includes("already been spent")));
+});
+
+test("proposal liveness stays incomplete for collateral outputs with null consumption", async () => {
+  const txHash = "aa".repeat(32);
+  const fetcher = {
+    get: async () => ({
+      outputs: [
+        { output_index: 0, collateral: false, consumed_by_tx: null },
+        { output_index: 1, collateral: true, consumed_by_tx: null }
+      ]
+    })
+  } as unknown as ServerFetcher;
+  const inputs = [
+    { txHash, outputIndex: 0, live: null, isSttState: false },
+    { txHash, outputIndex: 1, live: null, isSttState: false }
+  ];
+
+  const result = await checkInputLiveness(fetcher, inputs);
+
+  assert.equal(result.complete, false);
+  assert.equal(inputs[0]!.live, true);
+  assert.equal(inputs[1]!.live, null);
+  assert.deepEqual(result.reasons, [
+    proposalCopy.couldNotConfirmInput(`${`${txHash}#1`.slice(0, 16)}…`)
+  ]);
+});
 
 function makeUser(overrides: Partial<UserFormState>): UserFormState {
   return {
@@ -86,6 +196,25 @@ test("multisig path is not satisfied below the threshold", () => {
   assert.equal(result.satisfied, false);
 });
 
+test("multisig comparison stays exact above the safe number range", () => {
+  const form = createDefaultStateForm();
+  form.multiSigThresholdMode = "some";
+  form.multiSigThreshold = "9007199254740993";
+  form.users = [
+    makeUser({
+      id: "u1",
+      wallets: ["w1"],
+      multiSigPowerMode: "some",
+      multiSigPower: "9007199254740992"
+    })
+  ];
+
+  const result = computeSignerSatisfaction(form, "multisig", ["w1"]);
+  assert.equal(result.threshold, 9_007_199_254_740_993n);
+  assert.equal(result.satisfiedPower, 9_007_199_254_740_992n);
+  assert.equal(result.satisfied, false);
+});
+
 test("multisig path with no threshold is never satisfied", () => {
   const form = createDefaultStateForm();
   form.multiSigThresholdMode = "none";
@@ -95,6 +224,13 @@ test("multisig path with no threshold is never satisfied", () => {
   const result = computeSignerSatisfaction(form, "multisig", ["w1"]);
   assert.equal(result.threshold, null);
   assert.equal(result.satisfied, false);
+});
+
+test("a multisig threshold of zero never passes, as on-chain", () => {
+  const form = multisigForm();
+  form.multiSigThreshold = "0";
+  assert.equal(computeSignerSatisfaction(form, "multisig", ["w1"]).satisfied, false);
+  assert.equal(computeSignerSatisfaction(form, "multisig", ["w1"], ["w1"]).satisfied, false);
 });
 
 test("multisig required signers exclude users without voting power", () => {
@@ -118,7 +254,10 @@ test("proposal verification fails closed when any security check is unresolved",
     allInputsLive: true,
     stateInputBound: true,
     signerStateResolved: true,
-    signaturesValid: true
+    stateTransitionReviewed: true,
+    signaturesValid: true,
+    notExpired: true,
+    listedSignersCanPass: true
   };
 
   assert.equal(determineProposalValidity(verified), "valid");
@@ -129,4 +268,196 @@ test("proposal verification fails closed when any security check is unresolved",
       `${check} must fail closed`
     );
   }
+});
+
+test("a body with no upper validity bound never expires", () => {
+  assert.equal(isProposalExpired(null, Number.MAX_SAFE_INTEGER), false);
+});
+
+test("a body expires from the start of its invalid_hereafter slot, not one slot later", () => {
+  const validUntilMs = 1_700_000_000_000;
+  assert.equal(isProposalExpired(validUntilMs, validUntilMs - 1), false);
+  assert.equal(isProposalExpired(validUntilMs, validUntilMs), true);
+  assert.equal(isProposalExpired(validUntilMs, validUntilMs + 60_000), true);
+});
+
+function multisigForm(): ReturnType<typeof createDefaultStateForm> {
+  const form = createDefaultStateForm();
+  form.multiSigThresholdMode = "some";
+  form.multiSigThreshold = "3";
+  form.users = [
+    makeUser({ id: "u1", wallets: ["w1"], multiSigPowerMode: "some", multiSigPower: "2" }),
+    makeUser({ id: "u2", wallets: ["w2"], multiSigPowerMode: "some", multiSigPower: "2" }),
+    makeUser({ id: "u3", wallets: ["w3"], multiSigPowerMode: "some", multiSigPower: "2" })
+  ];
+  return form;
+}
+
+test("only the keys the body lists count towards the threshold", () => {
+  // The validator reads `extra_signatories`, which holds the body's required
+  // signers and nothing else, so w3's signature adds no power on-chain.
+  const result = computeSignerSatisfaction(multisigForm(), "multisig", ["w1", "w3"], ["w1", "w2"]);
+  assert.equal(result.satisfiedPower, 2);
+  assert.equal(result.satisfied, false);
+  assert.deepEqual(
+    result.requiredSigners.map((signer) => signer.keyHash),
+    ["w1", "w2"]
+  );
+});
+
+test("a listed request is satisfied only once every listed key has signed", () => {
+  const form = multisigForm();
+  form.multiSigThreshold = "2";
+  // w1 alone reaches the threshold, but the ledger still wants w2's witness.
+  const partial = computeSignerSatisfaction(form, "multisig", ["w1"], ["w1", "w2"]);
+  assert.equal(partial.satisfiedPower, 2);
+  assert.equal(partial.satisfied, false);
+  const complete = computeSignerSatisfaction(form, "multisig", ["w1", "w2"], ["w1", "w2"]);
+  assert.equal(complete.satisfied, true);
+});
+
+test("a listed key outside the access list must still sign and carries no power", () => {
+  const result = computeSignerSatisfaction(multisigForm(), "multisig", ["w1", "w2"], ["w1", "w2", "fee-payer"]);
+  assert.equal(result.satisfiedPower, 4);
+  assert.equal(result.satisfied, false);
+  assert.deepEqual(result.requiredSigners.at(-1), { keyHash: "fee-payer", power: 0, isAdmin: false });
+});
+
+test("an admin request lists only the admins named in the body", () => {
+  const form = createDefaultStateForm();
+  form.users = [
+    makeUser({ id: "a", wallets: ["a1"], isAdmin: true }),
+    makeUser({ id: "b", wallets: ["b1"], isAdmin: true })
+  ];
+  const result = computeSignerSatisfaction(form, "admin", ["b1"], ["a1"]);
+  assert.deepEqual(result.requiredSigners, [{ keyHash: "a1", power: 1, isAdmin: true }]);
+  assert.equal(result.satisfied, false);
+  assert.equal(computeSignerSatisfaction(form, "admin", ["a1"], ["a1"]).satisfied, true);
+});
+
+// Built with MeshTxBuilder: one input, one output, and `requiredSignerHash` for
+// aa…aa and bb…bb. What the validator sees as `extra_signatories`.
+const TX_WITH_TWO_REQUIRED_SIGNERS =
+  "84a500d9010281825820111111111111111111111111111111111111111111111111111111111111111100018182581d6033c378cee41b2e15ac848f7f6f1d2f78155ab12d93b713de898d855f1a001e84800200075820bdaa99eb158414dea0a91d6c727e2268574b23efe6e08ab3b841abe8059a030c0ed9010282581caaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa581cbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbba0f5d90103a0";
+
+test("the body's required signers decode to lower-case key hashes", () => {
+  assert.deepEqual(decodeRequiredSigners(TX_WITH_TWO_REQUIRED_SIGNERS), [
+    "aa".repeat(28),
+    "bb".repeat(28)
+  ]);
+});
+
+test("a body that lists no required signers decodes to an empty list", () => {
+  // Same transaction with the `required_signers` entry (key 14) removed.
+  const withoutSigners = TX_WITH_TWO_REQUIRED_SIGNERS
+    .replace("84a500", "84a400")
+    .replace(/0ed9010282581c(aa){28}581c(bb){28}/, "");
+  assert.deepEqual(decodeRequiredSigners(withoutSigners), []);
+  assert.deepEqual(decodeRequiredSigners("not cbor"), []);
+});
+
+// One state input with a Payout redeemer. The saved build context claims Use.
+const PAYOUT_TX =
+  "84a40081825820aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa00018182581d60bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb1a004c4b40021a00030d40031a055d4a80a10581840000d87d9f80ff820101f5f6";
+const MULTISIG_USE_TX =
+  "84a40081825820aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa00018182581d60bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb1a004c4b40021a00030d40031a055d4a80a10581840000d8799fd8799fd87a80d87980ffff820101f5f6";
+
+function stubMissingChainInput(t: { after: (callback: () => void) => void }) {
+  const fetcher = ServerFetcher.prototype as unknown as {
+    fetchUTxOs: (...args: unknown[]) => Promise<unknown[]>;
+  };
+  const originalFetchUTxOs = fetcher.fetchUTxOs;
+  fetcher.fetchUTxOs = async () => [];
+  t.after(() => {
+    fetcher.fetchUTxOs = originalFetchUTxOs;
+  });
+}
+
+function proposalFixture(unsignedTxHex: string, actionKind = "use"): ProposalDetailDto {
+  const policyId = "bb".repeat(28);
+  const buildContext = {
+    builder: "stt-spend",
+    mode: "use",
+    config: { walletPolicyId: policyId, walletAssetNameHex: "01" },
+    input: {
+      sttInputTxHash: "aa".repeat(32),
+      sttInputOutputIndex: 0,
+      authorityPath: "multisig"
+    }
+  } as ProposalBuildContext;
+  return {
+    id: "proposal",
+    walletUnit: `${policyId}01`,
+    walletPolicyId: policyId,
+    title: "Use wallet",
+    description: null,
+    actionKind,
+    authorityPath: "multisig",
+    status: "OPEN",
+    txBodyHash: resolveProposalBodyHash(unsignedTxHex),
+    submittedTxHash: null,
+    createdByKeyHash: "cc".repeat(28),
+    createdAt: new Date(0).toISOString(),
+    updatedAt: new Date(0).toISOString(),
+    signatureCount: 0,
+    signerKeyHashes: [],
+    unsignedTxHex,
+    buildContextJson: serializeJsonSafe(buildContext),
+    summaryJson: null,
+    signatures: []
+  } satisfies ProposalDetailDto;
+}
+
+test("proposal verification rejects transaction bytes whose redeemer mismatches the context", async (t) => {
+  stubMissingChainInput(t);
+
+  const result = await verifyProposal(proposalFixture(PAYOUT_TX));
+
+  assert.equal(result.validity, "invalid");
+  assert.ok(result.reasons.includes(proposalCopy.walletIdentityMismatch()));
+});
+
+test("proposal verification rejects a displayed action that mismatches the verified context", async (t) => {
+  stubMissingChainInput(t);
+
+  const result = await verifyProposal(proposalFixture(MULTISIG_USE_TX, "update-state"));
+
+  assert.equal(result.validity, "invalid");
+  assert.ok(result.reasons.includes(proposalCopy.walletIdentityMismatch()));
+});
+
+test("background verification returns unknown without chain lookups above its input budget", async (t) => {
+  let chainLookups = 0;
+  const fetcher = ServerFetcher.prototype as unknown as {
+    get: (...args: unknown[]) => Promise<unknown>;
+    fetchUTxOs: (...args: unknown[]) => Promise<unknown[]>;
+    fetchAddressUTxOs: (...args: unknown[]) => Promise<unknown[]>;
+  };
+  const originalGet = fetcher.get;
+  const originalFetchUTxOs = fetcher.fetchUTxOs;
+  const originalFetchAddressUTxOs = fetcher.fetchAddressUTxOs;
+  fetcher.get = async () => {
+    chainLookups += 1;
+    return {};
+  };
+  fetcher.fetchUTxOs = async () => {
+    chainLookups += 1;
+    return [];
+  };
+  fetcher.fetchAddressUTxOs = async () => {
+    chainLookups += 1;
+    return [];
+  };
+  t.after(() => {
+    fetcher.get = originalGet;
+    fetcher.fetchUTxOs = originalFetchUTxOs;
+    fetcher.fetchAddressUTxOs = originalFetchAddressUTxOs;
+  });
+
+  const result = await verifyProposal(proposalFixture(MULTISIG_USE_TX), {
+    maxInputLookups: 0
+  });
+
+  assert.equal(result.validity, "unknown");
+  assert.equal(chainLookups, 0);
 });

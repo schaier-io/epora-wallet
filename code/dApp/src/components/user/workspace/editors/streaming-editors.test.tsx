@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -12,6 +12,28 @@ import {
 } from "@/lib/contracts/state-form";
 
 describe("streaming payment edit boundaries", () => {
+  it("labels the effective period amount after integer daily conversion", () => {
+    const payment = {
+      ...createDefaultStreamingPaymentFormState("7"),
+      amountPerDay: "142857"
+    };
+    render(
+      <StreamingPaymentEditor
+        streamingPayment={payment}
+        index={0}
+        onChange={() => {}}
+        onRemove={() => {}}
+        existing={false}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText("Rate period"), { target: { value: "7" } });
+
+    expect(
+      screen.getByText("Effective per week amount after daily conversion: 0.999999 ADA.")
+    ).toBeInTheDocument();
+  });
+
   it("forwards an existing UpdateState schedule unchanged", () => {
     const payment = createDefaultStreamingPaymentFormState("7");
     const { container } = render(
@@ -227,5 +249,42 @@ describe("scheduled payment destination addresses", () => {
 
     expect(input).toBeValid();
     expect(screen.queryByText(/Enter the address/)).not.toBeInTheDocument();
+  });
+});
+
+/** The money is collected on `/payee`, not on this screen. Every row says so, with the link. */
+describe("where the money goes", () => {
+  it("points the reader at the page where the payee collects it", () => {
+    render(
+      <ScheduledPaymentEditor
+        streamingPayment={createDefaultStreamingPaymentFormState("7")}
+        displayIndex={1}
+        onChange={() => {}}
+        onRemove={() => {}}
+      />
+    );
+
+    expect(screen.getByText(/Your payee collects this on the/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Payments to you page." })).toHaveAttribute(
+      "href",
+      "/payee"
+    );
+  });
+
+  it("says so on the manage-payments row too", () => {
+    render(
+      <StreamingPaymentEditor
+        streamingPayment={createDefaultStreamingPaymentFormState("7")}
+        index={0}
+        onChange={() => {}}
+        onRemove={() => {}}
+        existing={false}
+      />
+    );
+
+    expect(screen.getByRole("link", { name: "Payments to you page." })).toHaveAttribute(
+      "href",
+      "/payee"
+    );
   });
 });

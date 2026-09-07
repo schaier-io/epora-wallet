@@ -10,12 +10,14 @@ import {
 
 import {
   deriveAllowanceWithdrawalStateDatum,
+  AllowanceDerivationError,
   type AllowanceWithdrawalComputation,
   type AllowanceWithdrawalTarget
 } from "@/lib/contracts/use-allowance";
 import {
   type DetectedSttToken
 } from "@/lib/mesh/detection";
+import { getValidityWindow } from "@/lib/mesh/transactions";
 
 import {
   type WalletInputRef } from "@/lib/types/contracts";
@@ -66,6 +68,17 @@ export function computeAllowancePreview(params: AllowancePreviewParams): Allowan
       };
     }
 
+    const serializedTransfers = serializeTransfers(sttExtraTransfers);
+    if (serializedTransfers.length === 0) {
+      // Before anything is staged the derivation would only fail on the missing
+      // transfer; that reads as a resolver error, so say what is actually next.
+      return {
+        computation: null,
+        target: null,
+        error: i18n("addAPayoutToSeeTheLimit")
+      };
+    }
+
     try {
       const sourceDatum =
         selectedDetectedToken?.datum ??
@@ -74,12 +87,11 @@ export function computeAllowancePreview(params: AllowancePreviewParams): Allowan
           resolveOperatorActionAlternative("admin")
         );
       const serializedWalletOutputs = serializeWalletOutputs(sttWalletOutputs);
-      const serializedTransfers = serializeTransfers(sttExtraTransfers);
       const walletInputAmounts = sttWalletInputs.map((walletInputRef) => {
         const resolved = findMatchingLockedUtxo(lockedContractUtxos, walletInputRef);
 
         if (!resolved) {
-          throw new Error(
+          throw new AllowanceDerivationError(
             `Fund pool ${walletInputRef.txHash}#${walletInputRef.outputIndex} is not loaded yet. Refresh the wallet's funds, or remove that row.`
           );
         }
@@ -87,16 +99,19 @@ export function computeAllowancePreview(params: AllowancePreviewParams): Allowan
         return resolved.output.amount;
       });
 
+      const validityWindow = getValidityWindow();
+
       const computation = deriveAllowanceWithdrawalStateDatum({
         stateDatum: sourceDatum,
         allowanceSignerKeyHash: activePaymentKeyHash,
         walletInputAmounts,
         walletOutputs: serializedWalletOutputs,
         extraTransfers: serializedTransfers,
-        // Bounds mirror getValidityWindow's reference offsets; the reset
-        // decision is anchored to the lower (earliest) bound on-chain.
-        txEarliestTimeMs: Date.now() - 120000,
-        txLatestTimeMs: Date.now() + 240000
+        // The builder's own window, so the preview and the transaction it
+        // previews agree down to the slot. The reset decision is anchored to
+        // the lower (earliest) bound on-chain.
+        txEarliestTimeMs: validityWindow.earliestTimeMs,
+        txLatestTimeMs: validityWindow.latestTimeMs
       });
 
       const target: AllowanceWithdrawalTarget = {
@@ -110,6 +125,10 @@ export function computeAllowancePreview(params: AllowancePreviewParams): Allowan
 
       return { computation, target, error: null };
     } catch (error) {
+      if (error instanceof AllowanceDerivationError) {
+        return { computation: null, target: null, error: error.message };
+      }
+
       return {
         computation: null,
         target: null,

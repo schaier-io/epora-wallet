@@ -1,3 +1,4 @@
+import { beneficiaryPreparationActiveAtom } from "./atoms/forms/consolidate-form.atoms";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import { describe, expect, it, vi } from "vitest";
@@ -14,6 +15,7 @@ const holder = vi.hoisted(() => ({
   increment: undefined as number | null | undefined,
   unlockTime: undefined as number | null | undefined,
   sttWalletInputs: [] as Array<{ txHash: string; outputIndex: number }>,
+  consolidateWalletInputs: [] as Array<{ txHash: string; outputIndex: number }>,
   refreshLockedContractUtxos: vi.fn()
 }));
 
@@ -32,6 +34,7 @@ vi.mock("@/components/user/workspace/editors", async (importOriginal) => ({
     onRefresh?: () => void;
   }) => (
     <div>
+      <p>Which funds to spend</p>
       <p data-testid="selector-helper">{helper}</p>
       {error ? <p data-testid="selector-error">{error}</p> : null}
       {error && onRefresh ? (
@@ -101,7 +104,7 @@ vi.mock("@/components/user/workspace/workspace-actions-context", () => ({
 
 vi.mock("@/components/user/workspace/forms/use-consolidate-form", () => ({
   useConsolidateForm: () => ({
-    consolidateWalletInputs: [],
+    consolidateWalletInputs: holder.consolidateWalletInputs,
     setConsolidateWalletInputs: vi.fn()
   })
 }));
@@ -130,6 +133,13 @@ const { STT_SPEND_ACTION_TABS } = await import(
 // The shipped entry, not a fixture. An earlier draft of these tests hardcoded the new strings
 // into `holder.tab` and so passed against the reverted source, proving nothing.
 const CONSOLIDATE_TAB = STT_SPEND_ACTION_TABS.find((tab) => tab.value === "consolidate-utxo")!;
+const UPDATE_STATE_TAB = STT_SPEND_ACTION_TABS.find((tab) => tab.value === "update-state")!;
+const MANAGE_PAYMENTS_TAB = STT_SPEND_ACTION_TABS.find(
+  (tab) => tab.value === "manage-streaming-payments"
+)!;
+const RENEW_PROOF_OF_LIFE_TAB = STT_SPEND_ACTION_TABS.find(
+  (tab) => tab.value === "renew-proof-of-life"
+)!;
 
 type Utxo = {
   input: { txHash: string; outputIndex: number };
@@ -137,12 +147,14 @@ type Utxo = {
 };
 
 function renderView({
+  preparationActive = false,
   selectedAction = "use",
   showProofOfLifeOverride = true,
   showLockedContractUtxoBrowser = false,
   increment = 30 * 24 * 60 * 60 * 1000 as number | null | undefined,
   unlockTime = 1_767_225_600_000 as number | null | undefined,
   walletInputs = [] as Array<{ txHash: string; outputIndex: number }>,
+  consolidateWalletInputs = [] as Array<{ txHash: string; outputIndex: number }>,
   address = "addr_test1wallet" as string | null,
   utxos = [] as Utxo[],
   utxosLoading = false,
@@ -165,8 +177,10 @@ function renderView({
   holder.increment = increment;
   holder.unlockTime = unlockTime;
   holder.sttWalletInputs = walletInputs;
+  holder.consolidateWalletInputs = consolidateWalletInputs;
 
   const store = createStore();
+  store.set(beneficiaryPreparationActiveAtom, preparationActive);
   store.set(lockedContractUtxosAtom, utxos as never);
   store.set(lockedContractUtxosLoadingAtom, utxosLoading);
   store.set(lockedContractUtxosErrorAtom, utxosError);
@@ -191,6 +205,21 @@ function renderTidyFunds(overrides: Parameters<typeof renderView>[0] = {}) {
  * it-can-wait panel with a labelled group each.
  */
 describe("advanced settings disclosure", () => {
+  it.each([
+    ["update-state", UPDATE_STATE_TAB],
+    ["manage-streaming-payments", MANAGE_PAYMENTS_TAB],
+    ["renew-proof-of-life", RENEW_PROOF_OF_LIFE_TAB]
+  ])("hides fund-pool inputs for the %s action", (selectedAction, tab) => {
+    renderView({
+      selectedAction,
+      tab: { ...tab, showQuickTransferBuilder: false },
+      walletInputs: [{ txHash: "aa", outputIndex: 0 }]
+    });
+
+    expect(screen.queryByText("Fund pools")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Add each fund pool/)).not.toBeInTheDocument();
+  });
+
   it("names itself the way the app's other advanced disclosures do", () => {
     renderView();
 
@@ -200,12 +229,12 @@ describe("advanced settings disclosure", () => {
     expect(screen.queryByRole("button", { name: /Proof of life/ })).not.toBeInTheDocument();
   });
 
-  it("says the app already picks the funds and the timer, and does not repeat itself inside", () => {
+  it("says the app already picks the funds and proof of life without repeating itself", () => {
     renderView({ walletInputs: [{ txHash: "aa", outputIndex: 0 }] });
 
     expect(
       screen.getByText(
-        "The app already picks the funds and renews the proof-of-life timer. Open this only to change either yourself."
+        "The app already picks the funds and renews the proof of life. Open this only to change either yourself."
       )
     ).toBeInTheDocument();
     expect(screen.getByTestId("selector-helper")).toHaveTextContent(
@@ -300,6 +329,15 @@ function openAdvancedSettings() {
 }
 
 describe("proof of life", () => {
+  it("puts proof of life before fund selection", () => {
+    renderView();
+    openAdvancedSettings();
+
+    const proofOfLife = screen.getByRole("heading", { name: "Proof of life" });
+    const funds = screen.getByText("Which funds to spend");
+    expect(proofOfLife.compareDocumentPosition(funds) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("describes the three choices it actually offers", () => {
     renderView();
     openAdvancedSettings();
@@ -308,7 +346,7 @@ describe("proof of life", () => {
     // tab called "Renew Proof of life" that does not exist (it is "Refresh proof of life").
     expect(
       screen.getByText(
-        "Auto suits most sends. Open this only to clear the timer or set an exact date and time."
+        "Auto suits most sends. Open this only to clear the proof of life or set an exact date and time."
       )
     ).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Auto (recommended)" })).toBeInTheDocument();
@@ -323,11 +361,11 @@ describe("proof of life", () => {
     renderView();
     openAdvancedSettings();
 
-    expect(screen.getByLabelText("What happens to the timer")).toBeInTheDocument();
+    expect(screen.getByLabelText("What happens to the proof of life")).toBeInTheDocument();
     expect(screen.queryByText("Proof of life Update")).not.toBeInTheDocument();
   });
 
-  it("shows the timer extension as a duration, not as raw milliseconds", () => {
+  it("shows the proof-of-life extension as a duration, not as raw milliseconds", () => {
     renderView();
     openAdvancedSettings();
 
@@ -371,15 +409,12 @@ describe("proof of life", () => {
  * funds screen.
  */
 describe("tidy funds: choosing pools", () => {
-  it("asks for one pool, which is what the validator and the builder ask for", () => {
+  it("allows one pool without promising that every one-pool action is a migration", () => {
     renderTidyFunds();
 
-    // `action-validation.ts:238-243` passes a minimum of 1, and
-    // `lib/mesh/transactions/consolidate-utxos.ts:19` rejects only `length < 1`. The form used
-    // to say "at least two" three lines above an error that said "at least one".
     expect(
       screen.getByText(
-        "Choose the fund pools to merge. Picking just one is allowed: that moves it back to the wallet's main address."
+        "Choose one or more fund pools. A single pool can move an old-address pool back to the wallet's main address."
       )
     ).toBeInTheDocument();
     expect(screen.queryByText(/at least two fund pools/)).not.toBeInTheDocument();
@@ -437,6 +472,23 @@ describe("tidy funds: choosing pools", () => {
     expect(screen.queryByRole("button", { name: "Add fund pool" })).not.toBeInTheDocument();
   });
 
+  it("allows another consolidation pool after two are selected", () => {
+    renderTidyFunds({
+      consolidateWalletInputs: [
+        { txHash: "aa11", outputIndex: 0 },
+        { txHash: "bb22", outputIndex: 1 }
+      ],
+      utxos: [
+        {
+          input: { txHash: "cc33", outputIndex: 2 },
+          output: { amount: [{ unit: "lovelace", quantity: "5000000" }] }
+        }
+      ]
+    });
+
+    expect(screen.getByRole("button", { name: "Use this pool" })).toBeEnabled();
+  });
+
   it("does not report a failed read as an empty wallet", () => {
     renderTidyFunds({ utxosError: "Could not reach the chain." });
 
@@ -468,4 +520,15 @@ describe("tidy funds: choosing pools", () => {
     expect(container.querySelectorAll("div.rounded-lg.border")).toHaveLength(1);
     expect(container.querySelectorAll("div.rounded-md.border").length).toBeGreaterThan(1);
   });
+});
+
+it("exact distribution does not render generic input, transfer or advanced editors", () => {
+  const tab = STT_SPEND_ACTION_TABS.find(tab => tab.value === "distribute-beneficiaries")!;
+  const { container } = renderView({ selectedAction: "distribute-beneficiaries", tab });
+  expect(container).toBeEmptyDOMElement();
+});
+
+it("recovery preparation owns its inputs and does not show generic Consolidate editors", () => {
+  const { container } = renderView({ selectedAction: "consolidate-utxo", preparationActive: true, tab: CONSOLIDATE_TAB });
+  expect(container).toBeEmptyDOMElement();
 });

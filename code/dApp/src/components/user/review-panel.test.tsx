@@ -30,6 +30,45 @@ const BASE: ComponentProps<typeof UserReviewPanel> = {
 };
 
 describe("review rail live regions", () => {
+  it("stacks direct signing above an approval request and describes the request", () => {
+    const { container } = render(
+      <UserReviewPanel
+        {...BASE}
+        secondaryActionLabel="Save as approval request"
+        onSecondaryAction={() => {}}
+        approvalActionNote="This rule needs 2 approval power between the co-signers."
+      />
+    );
+
+    const buttons = screen.getAllByRole("button");
+    expect(buttons.map((button) => button.textContent)).toEqual([
+      "Send funds",
+      "Save as approval request"
+    ]);
+    expect(buttons[1]).toHaveAccessibleDescription(
+      "This rule needs 2 approval power between the co-signers."
+    );
+    expect(container.querySelector(".flex-col")).toBeTruthy();
+  });
+
+  it("uses the approval action as the only primary action when direct signing is unavailable", () => {
+    render(
+      <UserReviewPanel
+        {...BASE}
+        primaryActionLabel="Save as approval request"
+        primaryActionKind="approval"
+        approvalActionNote="This rule needs 2 approval power between the co-signers."
+      />
+    );
+
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+    expect(
+      screen.getByRole("button", { name: "Save as approval request" })
+    ).toHaveAccessibleDescription(
+      "This rule needs 2 approval power between the co-signers."
+    );
+  });
+
   it("announces a build failure assertively", () => {
     render(<UserReviewPanel {...BASE} buildError="Not enough ADA to cover the fee." />);
 
@@ -114,6 +153,20 @@ describe("review rail live regions", () => {
   });
 
   /**
+   * The confirming note used to spin forever: nothing watched the chain, so "your
+   * balance updates after the next block" was a promise no code kept. When the
+   * post-submit poll sees the hash, the banner flips to a confirmed headline and
+   * stops spinning.
+   */
+  it("resolves the submitted banner to confirmed once the tx is seen on chain", () => {
+    render(<UserReviewPanel {...BASE} submitHash={"ab".repeat(32)} submitConfirmed />);
+
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent("Transaction confirmed");
+    expect(status.querySelector(".animate-spin")).toBeNull();
+  });
+
+  /**
    * Ten labels in the rail hand-rolled an eyebrow at `text-xs uppercase tracking-wide`, which
    * is 12px with 0.025em of tracking, while the `.eyebrow` class is 11px at 0.16em.
    * The sidebar was settled onto the same rung in C4.
@@ -141,34 +194,96 @@ describe("review rail live regions", () => {
     expect(status.textContent).not.toContain("\u2014");
   });
 
+  const ISSUES: Pick<ComponentProps<typeof UserReviewPanel>, "readinessIssues" | "fieldErrors"> = {
+    readinessIssues: [
+      {
+        id: "no-wallet",
+        label: "Receive address",
+        description: "Choose a smart wallet first.",
+        recovery: "Open a wallet from the sidebar.",
+        status: "error",
+        blocking: true
+      }
+    ],
+    fieldErrors: { "Payout address": ["This field is required."] }
+  };
+
   /**
    * Readiness and field errors are recomputed on every keystroke. `role="alert"` is
    * assertive and would cut across the user mid-word each time one appeared or cleared,
-   * so these two carry `aria-live="polite"` instead and must NOT be alerts.
+   * so the list carries `aria-live="polite"` instead and must NOT be an alert.
    */
-  it("keeps the typing-driven blocks polite, not assertive", () => {
-    const { container } = render(
-      <UserReviewPanel
-        {...BASE}
-        readinessIssues={[
-          {
-            id: "no-wallet",
-            label: "Receive address",
-            description: "Choose a smart wallet first.",
-            status: "error",
-            blocking: true
-          }
-        ]}
-        fieldErrors={{ "Payout address": ["This field is required."] }}
-      />
-    );
+  it("keeps the typing-driven list polite, not assertive", () => {
+    const { container } = render(<UserReviewPanel {...BASE} {...ISSUES} />);
 
     expect(screen.queryByRole("alert")).toBeNull();
 
     const polite = Array.from(container.querySelectorAll('[aria-live="polite"]'));
-    const texts = polite.map((node) => node.textContent ?? "");
-    expect(texts.some((t) => t.includes("Something needs attention"))).toBe(true);
-    expect(texts.some((t) => t.includes("Fix these fields first"))).toBe(true);
+    expect(polite).toHaveLength(1);
+    expect(polite[0]).toHaveTextContent("Something needs attention");
+    expect(polite[0]).toHaveTextContent("Receive address: Choose a smart wallet first.");
+    expect(polite[0]).toHaveTextContent("To clear this: Open a wallet from the sidebar.");
+    expect(polite[0]).toHaveTextContent("Payout address: This field is required.");
+  });
+
+  /**
+   * Readiness blockers and field errors used to render as two amber boxes with two
+   * headings ("Something needs attention", "Fix these fields first"), so one form said
+   * "something is wrong" twice. One list, one heading; the build error keeps its own
+   * alert because it is an event, not a running commentary on the form.
+   */
+  it("merges readiness and field issues into one list", () => {
+    render(
+      <UserReviewPanel {...BASE} {...ISSUES} buildError="Not enough ADA to cover the fee." />
+    );
+
+    expect(screen.getAllByText("Something needs attention")).toHaveLength(1);
+    expect(screen.queryByText("Fix these fields first")).toBeNull();
+    expect(screen.queryByText("Show all issues")).toBeNull();
+    expect(screen.getByRole("alert")).toHaveTextContent("Not enough ADA to cover the fee.");
+    expect(screen.getByRole("alert")).not.toHaveTextContent("Payout address");
+  });
+
+  it("stacks issue labels above complete messages", () => {
+    render(
+      <UserReviewPanel
+        {...BASE}
+        readinessIssues={[]}
+        fieldErrors={{ "Assets to lock": ["Complete asset row 1 before you continue."] }}
+      />
+    );
+
+    expect(screen.getByText("Assets to lock:")).toHaveClass("block");
+    expect(screen.getByText("Complete asset row 1 before you continue.")).toHaveClass(
+      "block",
+      "text-pretty"
+    );
+  });
+
+  it("hides the form's issues once the transaction is submitted", () => {
+    render(<UserReviewPanel {...BASE} {...ISSUES} submitHash={"ab".repeat(32)} />);
+
+    expect(screen.queryByText("Something needs attention")).toBeNull();
+    expect(screen.queryByText("Payout address: This field is required.")).toBeNull();
+  });
+
+  it("shows the success copy without an ASCII receipt", () => {
+    const { container } = render(
+      <UserReviewPanel
+        {...BASE}
+        submitHash={"ab".repeat(32)}
+        completion={{
+          title: "Funds sent",
+          description: "The wallet confirmed the payout.",
+          statusLabel: "Confirming",
+          progress: 40
+        }}
+      />
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent("Funds sent");
+    expect(container.querySelector("pre")).toBeNull();
+    expect(screen.queryByText(/WALLET OK/)).toBeNull();
   });
 
   /**

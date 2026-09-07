@@ -13,6 +13,12 @@ import type {
 
 export type ProposalSessionInfo = { paymentKeyHash: string; address: string };
 
+export class ProposalRequestError extends Error {}
+
+export function getProposalErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof ProposalRequestError ? error.message : fallback;
+}
+
 async function readError(response: Response): Promise<string> {
   try {
     const data = (await response.json()) as { error?: unknown };
@@ -28,7 +34,7 @@ async function readError(response: Response): Promise<string> {
 async function getJson<T>(url: string): Promise<T> {
   const response = await fetch(url, { credentials: "same-origin" });
   if (!response.ok) {
-    throw new Error(await readError(response));
+    throw new ProposalRequestError(await readError(response));
   }
   return response.json() as Promise<T>;
 }
@@ -41,7 +47,7 @@ async function sendJson<T>(url: string, method: string, body: unknown): Promise<
     body: serializeJsonSafe(body)
   });
   if (!response.ok) {
-    throw new Error(await readError(response));
+    throw new ProposalRequestError(await readError(response));
   }
   return response.json() as Promise<T>;
 }
@@ -54,7 +60,7 @@ export async function fetchProposalSession(): Promise<ProposalSessionInfo | null
     return null;
   }
   if (!response.ok) {
-    throw new Error(await readError(response));
+    throw new ProposalRequestError(await readError(response));
   }
   return response.json() as Promise<ProposalSessionInfo>;
 }
@@ -76,10 +82,21 @@ export async function completeSignIn(payload: {
 }
 
 export async function signOutProposals(): Promise<void> {
-  await fetch("/api/proposals/auth", { method: "DELETE", credentials: "same-origin" });
+  const response = await fetch("/api/proposals/auth", {
+    method: "DELETE",
+    credentials: "same-origin"
+  });
+  if (!response.ok) {
+    throw new ProposalRequestError(await readError(response));
+  }
 }
 
 // ---- proposals -----------------------------------------------------------
+
+// Keep a proposal ID from a shared link within one URL path segment.
+function proposalPath(id: string, suffix = ""): string {
+  return `/api/proposals/${encodeURIComponent(id)}${suffix}`;
+}
 
 export async function listProposals(options?: {
   walletUnit?: string;
@@ -95,7 +112,7 @@ export async function listProposals(options?: {
 }
 
 export async function fetchProposal(id: string): Promise<ProposalDetailDto> {
-  const { proposal } = await getJson<{ proposal: ProposalDetailDto }>(`/api/proposals/${id}`);
+  const { proposal } = await getJson<{ proposal: ProposalDetailDto }>(proposalPath(id));
   return proposal;
 }
 
@@ -113,7 +130,7 @@ export async function signProposal(
   payload: { witnessSetHex: string; txBodyHash: string }
 ): Promise<ProposalDetailDto> {
   const { proposal } = await sendJson<{ proposal: ProposalDetailDto }>(
-    `/api/proposals/${id}/sign`,
+    proposalPath(id, "/sign"),
     "POST",
     payload
   );
@@ -130,7 +147,7 @@ export async function rebuildProposal(
   }
 ): Promise<ProposalDetailDto> {
   const { proposal } = await sendJson<{ proposal: ProposalDetailDto }>(
-    `/api/proposals/${id}/rebuild`,
+    proposalPath(id, "/rebuild"),
     "PATCH",
     payload
   );
@@ -142,7 +159,7 @@ export async function markProposalSubmitted(
   expectedBodyHash: string
 ): Promise<ProposalDetailDto> {
   const { proposal } = await sendJson<{ proposal: ProposalDetailDto }>(
-    `/api/proposals/${id}/submit`,
+    proposalPath(id, "/submit"),
     "POST",
     { expectedBodyHash }
   );
@@ -150,12 +167,12 @@ export async function markProposalSubmitted(
 }
 
 export async function cancelProposal(id: string): Promise<void> {
-  const response = await fetch(`/api/proposals/${id}`, {
+  const response = await fetch(proposalPath(id), {
     method: "DELETE",
     credentials: "same-origin"
   });
   if (!response.ok) {
-    throw new Error(await readError(response));
+    throw new ProposalRequestError(await readError(response));
   }
 }
 

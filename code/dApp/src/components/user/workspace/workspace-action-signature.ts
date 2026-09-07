@@ -1,4 +1,5 @@
 "use client";
+import type { UTxO } from "@meshsdk/core";
 
 import type {
   UserActionKind
@@ -17,7 +18,6 @@ import {
 import { type useWithdrawForm } from "@/components/user/workspace/forms/use-withdraw-form";
 import { type useTransferForm } from "@/components/user/workspace/forms/use-transfer-form";
 import { type useLockFundsForm } from "@/components/user/workspace/forms/use-lock-funds-form";
-import { type useWalletSpendForm } from "@/components/user/workspace/forms/use-wallet-spend-form";
 import { type useMintForm } from "@/components/user/workspace/forms/use-mint-form";
 import { type useSttSpendForm } from "@/components/user/workspace/forms/use-stt-spend-form";
 import { type usePublishForm } from "@/components/user/workspace/forms/use-publish-form";
@@ -33,18 +33,20 @@ export type BuildActionSignatureCtx = ReturnType<typeof useMintForm> &
   ReturnType<typeof useVoteForm> &
   ReturnType<typeof useConsolidateForm> &
   ReturnType<typeof useLockFundsForm> &
-  ReturnType<typeof useWalletSpendForm> &
   ReturnType<typeof useTransferForm> &
   {
+  activeInferredSttStateForm: StateFormState;
   activePaymentKeyHash: string | null;
   config: ContractConfig;
   streamingPaymentPayout: PreparedStreamingPaymentPayout;
+  lockedContractUtxos?: UTxO[];
   selectedDetectedToken: DetectedSttToken | null;
   selectedDetectedTokenStateForm: StateFormState | null;
 };
 
 export function computeActionSignature(action: UserActionKind, ctx: BuildActionSignatureCtx) {
   const {
+    activeInferredSttStateForm,
     activePaymentKeyHash,
     config,
     consolidateAuthorityPath,
@@ -86,10 +88,6 @@ export function computeActionSignature(action: UserActionKind, ctx: BuildActionS
     sttZeroAdminConfirmed,
     streamingPaymentPayout,
     walletOperatorPath,
-    walletSpendInputHash,
-    walletSpendInputIndex,
-    walletSpendOutputs,
-    walletSpendRedeemerPreset,
     withdrawAmount,
     withdrawRewardAddress,
     withdrawSttAssets,
@@ -99,6 +97,15 @@ export function computeActionSignature(action: UserActionKind, ctx: BuildActionS
     withdrawZeroAdminConfirmed
   } = ctx;
     switch (action) {
+      case "distribute-beneficiaries":
+        return safeStringify({ config, action, sttInputTxHash, sttInputOutputIndex,
+          activePaymentKeyHash, state: selectedDetectedTokenStateForm ?? sttStateForm, sttWalletInputs,
+          walletInputs: ctx.lockedContractUtxos?.filter((utxo) => sttWalletInputs.some((ref) =>
+            ref.txHash === utxo.input.txHash && ref.outputIndex === utxo.input.outputIndex)) });
+      case "stop-beneficiary-stream":
+        return safeStringify({ config, action, sttInputTxHash, sttInputOutputIndex,
+          activePaymentKeyHash, selectedDetectedTokenStateForm,
+          beneficiaryStreamStopId: ctx.beneficiaryStreamStopId });
       case "mint":
         return safeStringify({
           mintReference,
@@ -113,6 +120,7 @@ export function computeActionSignature(action: UserActionKind, ctx: BuildActionS
       case "manage-streaming-payments":
       case "use-allowance":
       case "use-beneficiary":
+    case "exit-beneficiary":
       case "payout-streaming-payment":
         return safeStringify({
           config,
@@ -134,6 +142,13 @@ export function computeActionSignature(action: UserActionKind, ctx: BuildActionS
             : {})
         });
       case "consolidate-utxo":
+        if (ctx.beneficiaryPreparationActive) return safeStringify({
+          config, action, activePaymentKeyHash,
+          state: selectedDetectedTokenStateForm ?? consolidateStateForm,
+          consolidateSttInputHash, consolidateSttInputIndex, consolidateWalletInputs,
+          preparation: ctx.beneficiaryPreparationActive, poolAssets: ctx.beneficiaryPreparationPoolAssets,
+          walletInputs: ctx.lockedContractUtxos?.filter(utxo => consolidateWalletInputs.some(ref => ref.txHash === utxo.input.txHash && ref.outputIndex === utxo.input.outputIndex))
+        });
         return safeStringify({
           config,
           action,
@@ -149,14 +164,6 @@ export function computeActionSignature(action: UserActionKind, ctx: BuildActionS
         return safeStringify({
           config,
           lockFundsAssets
-        });
-      case "wallet-spend":
-        return safeStringify({
-          config,
-          walletSpendInputHash,
-          walletSpendInputIndex,
-          walletSpendRedeemerPreset,
-          walletSpendOutputs
         });
       case "wallet-withdraw": {
         const wRef = resolveWalletWrapperSttInputRef(
@@ -214,6 +221,20 @@ export function computeActionSignature(action: UserActionKind, ctx: BuildActionS
           voteSttAssets,
           walletOperatorPath,
           voteZeroAdminConfirmed
+        });
+      }
+      case "set-intended-stake-credential": {
+        const stakeSigRef = resolveWalletWrapperSttInputRef(selectedDetectedToken, "", "");
+        return safeStringify({
+          config,
+          action,
+          activePaymentKeyHash,
+          stakeSttInputHash: stakeSigRef.txHash,
+          stakeSttInputIndex: stakeSigRef.indexStr,
+          stakeSttStateForm: cloneStateForm(
+            selectedDetectedTokenStateForm ?? activeInferredSttStateForm
+          ),
+          walletOperatorPath
         });
       }
       default:

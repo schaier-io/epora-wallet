@@ -9,6 +9,7 @@ import type { UTxO } from "@meshsdk/common";
 import type * as ServerWallet from "@/lib/mesh/server-wallet";
 import { BuildResultSchema } from "@/lib/api/tx-result";
 import { ApiErrorSchema } from "@/lib/api/errors";
+import { addVKeyWitnessSetToTransaction, createVKeyWitnessSetHex, deserializeTx, deserializeVKeyWitnessSet } from "@/lib/mesh/cst";
 
 // Generation cannot check that a handler's real response matches the schema it
 // claims, because it never runs one. This file runs the real route handler and
@@ -76,7 +77,7 @@ import { POST as publish } from "./tx/publish/route";
 import { POST as setStakeCredential } from "./tx/set-stake-credential/route";
 import { POST as sttSpend } from "./tx/stt-spend/route";
 import { POST as vote } from "./tx/vote/route";
-import { POST as walletSpend } from "./tx/wallet-spend/route";
+import { POST as deprecatedWalletSpend } from "./tx/wallet-spend/route";
 import { POST as walletWithdraw } from "./tx/wallet-withdraw/route";
 
 // Every build route the spec documents. The list is asserted against the spec
@@ -90,7 +91,6 @@ const BUILD_ROUTES = [
   ["/api/v1/tx/set-stake-credential", setStakeCredential],
   ["/api/v1/tx/stt-spend", sttSpend],
   ["/api/v1/tx/vote", vote],
-  ["/api/v1/tx/wallet-spend", walletSpend],
   ["/api/v1/tx/wallet-withdraw", walletWithdraw]
 ] as const;
 
@@ -145,9 +145,40 @@ describe("a real build against a mock chain client", () => {
     expect(Number(result.estimatedFeeLovelace)).toBeGreaterThan(0);
     expect(result.preview.txSize?.usedBytes ?? 0).toBeGreaterThan(0);
   });
+
+  it("deploys the current shared reference script within the transaction size limit", async () => {
+    const response = await post(deployReference, { address: CALLER });
+    const body: unknown = await response.json();
+
+    expect(response.status, `unexpected body: ${JSON.stringify(body)}`).toBe(200);
+    const parsed = BuildResultSchema.parse(body);
+    const txSize = parsed.preview.txSize;
+
+    expect(txSize?.usedBytes ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(
+      txSize?.maxBytes ?? 0
+    );
+    // The previous 1 KiB reserve is no longer available. Check the actual
+    // serialized transaction with the single funding-key witness instead.
+    // Fixed witness bytes measure size only; this is not ledger validation.
+    const signed = addVKeyWitnessSetToTransaction(parsed.txHex, createVKeyWitnessSetHex([
+      { publicKeyHex: "11".repeat(32), signatureHex: "22".repeat(64) }
+    ]));
+    expect(deserializeVKeyWitnessSet(deserializeTx(signed).witnessSet().toCbor()).vkeys()?.values()).toHaveLength(1);
+    expect(signed.length / 2).toBeLessThanOrEqual(txSize?.maxBytes ?? 0);
+  });
 });
 
 describe("documented failures", () => {
+  it("retires the standalone wallet-spend route before it builds an invalid transaction", async () => {
+    const response = await post(deprecatedWalletSpend, {});
+
+    expect(response.status).toBe(410);
+    expect((await response.json() as { error: string }).error).toContain(
+      "/api/v1/tx/stt-spend"
+    );
+    expect(chain.calls).toEqual([]);
+  });
+
   it("rejects a body that the request schema does not accept, naming the field", async () => {
     const response = await post(mint, { address: CALLER });
     const body: unknown = await response.json();
@@ -224,8 +255,13 @@ describe("documented failures", () => {
 describe("every documented build route", () => {
   it("is in this file's list, so none goes untested", async () => {
     const { buildOpenApiDocument } = await import("@/lib/api/openapi");
-    const documented = Object.keys(buildOpenApiDocument().paths ?? {})
-      .filter((route) => route.startsWith("/api/v1/tx/"))
+    const documented = Object.entries(buildOpenApiDocument().paths ?? {})
+      .filter(([route, item]) => {
+        const responses = (item as { post?: { responses?: Record<string, unknown> } }).post
+          ?.responses;
+        return route.startsWith("/api/v1/tx/") && responses !== undefined && "200" in responses;
+      })
+      .map(([route]) => route)
       .sort();
 
     expect(BUILD_ROUTES.map(([route]) => route)).toEqual(documented);

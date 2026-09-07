@@ -1,4 +1,6 @@
 "use client";
+
+import { StateTransitionReview } from "./state-transition-review";
 import { useTranslations } from "next-intl";
 
 import { useState } from "react";
@@ -7,6 +9,7 @@ import {
   ArrowLeft,
   Check,
   CheckCircle2,
+  ExternalLink,
   FileSignature,
   Hammer,
   Link2,
@@ -15,6 +18,7 @@ import {
   ShieldCheck,
   XCircle
 } from "lucide-react";
+import { cardanoscanTransactionUrl } from "@/lib/cardano-network";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -61,6 +65,7 @@ export function ProposalDetail({
     isOpen,
     loading,
     loadError,
+    rebuildNeedsProposer,
     summary,
     verification,
     verifying
@@ -70,9 +75,17 @@ export function ProposalDetail({
   // three separate conditions, and a disabled button is not focusable, so a co-signer used
   // to face two grey buttons with nothing anywhere saying whether they were early, late, or
   // looking at a request that can never be signed. Highest-stakes state first.
+  // `txBodyHash` is the fallback for requests saved before the column existed: the
+  // body hash identifies the same transaction on the explorer.
+  const submittedTxHash = detail?.submittedTxHash ?? detail?.txBodyHash ?? null;
   const statusNote = ((): string | null => {
     if (detail?.status === "SUBMITTED") {
       return i18n("thisRequestHasBeenSentToTheBlockchain");
+    }
+    if (detail?.status === "SUBMITTING") {
+      // The chain may already hold this tx while the record is unfinished; the
+      // out-of-date note below would send the proposer off to build it a second time.
+      return i18n("thisRequestIsBeingSentToTheBlockchain");
     }
     if (detail?.status === "CANCELLED") {
       return i18n("thisRequestWasWithdrawnNobodyCanSignIt");
@@ -83,9 +96,19 @@ export function ProposalDetail({
     if (isInvalid) {
       // The reset is not a detail: every co-signer who already signed has to sign again,
       // and until this slice it was only mentioned in the message that appeared afterwards.
-      return canRebuild
-        ? i18n("thisRequestIsOutOfDateItUses")
-        : i18n("thisRequestIsOutOfDateItUses_1ec8c3");
+      // An expired body is the common case (every build carries a short validity window)
+      // and reads differently from moved funds, so it gets its own wording.
+      if (verification?.expired) {
+        if (canRebuild) return i18n("thisRequestExpiredMakingANewVersion");
+        if (rebuildNeedsProposer) return i18n("thisRequestExpiredOnlyTheProposer");
+        return i18n("thisRequestExpiredBuildItAgain");
+      }
+      if (!verification?.stateTransition && verification?.effect.inputs.every((input) => input.live === true)) {
+        return i18n("stateChangesUnavailable");
+      }
+      if (canRebuild) return i18n("thisRequestIsOutOfDateItUses");
+      if (rebuildNeedsProposer) return i18n("thisRequestIsOutOfDateOnlyTheProposer");
+      return i18n("thisRequestIsOutOfDateItUses_1ec8c3");
     }
     if (!verification) {
       return i18n("theCheckDidNotFinishSoSigningIs");
@@ -182,23 +205,35 @@ export function ProposalDetail({
 
       <Card>
         <CardHeader>
+          {/* The note names its author instead of warning the reader about it. The
+              caution lives once, on the decoded transaction below, whose caption
+              already says to read the bytes rather than the note. */}
+          <p className="text-xs text-muted-foreground">
+            {isCreator
+              ? i18n("youWroteThisTitleAndNote")
+              : i18n("noteFromWhoeverCreatedThisRequest")}
+          </p>
           <div className="flex flex-wrap items-center gap-2">
             {/* `h2`: this card sits under the workspace's `<h1>`, and below `lg` the list
                 column (which owns the only other `<h2>`) is `display: none`, so the
                 default `h3` left the outline jumping h1 → h3 on every narrow screen. */}
-            <CardTitle as="h2">{detail.title}</CardTitle>
+            <CardTitle as="h2" className="min-w-0 wrap-anywhere">{detail.title}</CardTitle>
             <Badge variant="outline">{actionKindLabel(detail.actionKind)}</Badge>
             <Badge variant="outline">{authorityPathLabel(detail.authorityPath)}</Badge>
             {detail.status === "SUBMITTED" ? <Badge variant="info">{i18n("submitted")}</Badge> : null}
+            {detail.status === "SUBMITTING" ? <Badge variant="info">{i18n("sending")}</Badge> : null}
             {detail.status === "CANCELLED" ? <Badge variant="secondary">{i18n("cancelled")}</Badge> : null}
           </div>
           {detail.description ? (
-            <p className="text-sm text-muted-foreground">{detail.description}</p>
+            <p className="wrap-anywhere text-sm text-muted-foreground">{detail.description}</p>
           ) : null}
         </CardHeader>
         <CardContent className="space-y-4">
+          {detail.status === "OPEN" ? <StateTransitionReview transition={verification?.stateTransition ?? null} /> : null}
+
           {summary ? (
             <section className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
+              <p className="mb-2 text-xs font-semibold text-muted-foreground">{i18n("proposerSummarySource")}</p>
               {/* No `uppercase tracking-wide` here. The headline is a sentence about money:
                   it names the amount and the destination address, and a bech32 address is
                   canonically lowercase. Uppercasing changes the shape a co-signer compares
@@ -208,17 +243,14 @@ export function ProposalDetail({
                   `break-words` for the same reason: with the default `overflow-wrap` the
                   103-character address is one unbreakable token and simply ran past the
                   panel border. */}
-              <p className="mb-1 text-xs font-semibold text-muted-foreground">
-                {i18n("writtenByWhoeverMadeThisRequestNobodyHas")}
-              </p>
               <p className="mb-2 break-words text-xs text-muted-foreground">
                 {summary.headline}
               </p>
               <dl className="grid grid-cols-1 gap-1 text-sm sm:grid-cols-2">
                 {summary.rows.map((row, index) => (
-                  <div key={`${row.label}-${index}`} className="flex justify-between gap-2">
+                  <div key={`${row.label}-${index}`} className="flex min-w-0 flex-wrap justify-between gap-2">
                     <dt className="text-muted-foreground">{row.label}</dt>
-                    <dd className="text-right">{row.value}</dd>
+                    <dd className="min-w-0 wrap-anywhere text-right">{row.value}</dd>
                   </div>
                 ))}
               </dl>
@@ -270,42 +302,62 @@ export function ProposalDetail({
             {statusNote}
           </p>
 
+          {/* The submitted tx hash is the one thing every signer cross-checks against the
+              chain, so it stays a Cardanoscan link for as long as the request is open —
+              not just in the transient toast-style line that appears right after sending. */}
+          {detail?.status === "SUBMITTED" && submittedTxHash ? (
+            <a
+              href={cardanoscanTransactionUrl(submittedTxHash)}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 font-mono text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+              title={i18n("openTransactionOnCardanoscan")}
+            >
+              {truncateMiddle(submittedTxHash, 12, 8)}
+              <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+            </a>
+          ) : null}
+
+          {/* Only what the reader can do right now. Four buttons used to sit here, mostly
+              grey, with the reason in the note above. Once enough people have signed, Submit
+              is the one primary action. */}
           <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              onClick={() => void handleSign()}
-              disabled={!canSign || busy !== null}
-              aria-busy={busy === "sign"}
-            >
-              {busy === "sign" ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-              ) : (
-                <FileSignature className="h-4 w-4" aria-hidden="true" />
-              )}
-              {alreadySigned ? i18n("youHaveSigned") : i18n("signThisRequest")}
-            </Button>
+            {canSubmit ? (
+              <Button
+                type="button"
+                onClick={() => void handleSubmit()}
+                disabled={busy !== null}
+                aria-busy={busy === "submit"}
+              >
+                {busy === "submit" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Send className="h-4 w-4" aria-hidden="true" />
+                )}
+                {i18n("submitTransaction")}
+              </Button>
+            ) : canSign ? (
+              <Button
+                type="button"
+                onClick={() => void handleSign()}
+                disabled={busy !== null}
+                aria-busy={busy === "sign"}
+              >
+                {busy === "sign" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <FileSignature className="h-4 w-4" aria-hidden="true" />
+                )}
+                {i18n("signThisRequest")}
+              </Button>
+            ) : null}
 
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => void handleSubmit()}
-              disabled={!canSubmit || busy !== null}
-              aria-busy={busy === "submit"}
-            >
-              {busy === "submit" ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-              ) : (
-                <Send className="h-4 w-4" aria-hidden="true" />
-              )}
-              {i18n("submitTransaction")}
-            </Button>
-
-            {isInvalid ? (
+            {canRebuild ? (
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => void handleRebuild()}
-                disabled={!canRebuild || busy !== null}
+                disabled={busy !== null}
                 aria-busy={busy === "rebuild"}
               >
                 {busy === "rebuild" ? (
@@ -367,12 +419,17 @@ function EffectSection({ verification }: { verification: ProposalVerification | 
                 key={`${input.txHash}#${input.outputIndex}`}
                 className="flex items-center justify-between gap-2"
               >
-                {/* 8+4 of a 64-character hash cannot be checked against an explorer, and
-                    this panel exists so a co-signer can check the transaction before they
-                    sign it. `title` keeps the whole hash reachable. */}
-                <span className="font-mono" title={input.txHash}>
-                  {truncateMiddle(input.txHash, 8, 4)}#{input.outputIndex}
-                </span>
+                <a
+                  href={cardanoscanTransactionUrl(input.txHash)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-mono text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                  title={i18n("openTransactionOnCardanoscan")}
+                >
+                  <span title={input.txHash}>
+                    {truncateMiddle(input.txHash, 8, 4)}#{input.outputIndex}
+                  </span>
+                </a>
                 <span className="flex items-center gap-1">
                   {input.isSttState ? <Badge variant="info">{i18n("walletState")}</Badge> : null}
                   {input.live === true ? (
@@ -478,7 +535,7 @@ function SignersSection({ verification }: { verification: ProposalVerification |
                 {signer.isAdmin ? <Badge variant="outline">{i18n("owner_89ff31")}</Badge> : null}
                 {signers.threshold != null ? (
                   <span className="text-muted-foreground">
-                    {signer.power} {i18n("approvalPower")}
+                    {signer.power.toString()} {i18n("approvalPower")}
                   </span>
                 ) : null}
                 {has ? (

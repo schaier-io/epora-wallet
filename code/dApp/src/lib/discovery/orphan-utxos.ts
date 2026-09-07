@@ -1,8 +1,8 @@
 // Pure helpers (no server-only imports) for classifying discovered wallet UTxOs
 // into those at the intended/canonical address vs. "orphan" / Franken UTxOs at a
-// different stake credential, and for feeding the orphans into the existing
-// consolidation flow that sweeps them back to the intended address.
+// different stake credential, and for feeding them into a wallet action.
 
+import type { UTxO } from "@meshsdk/core";
 import type { WalletInputRef } from "@/lib/types/contracts";
 import type { DiscoveredUtxo } from "@/lib/discovery/types";
 
@@ -43,6 +43,37 @@ export function orphanUtxosToWalletInputRefs(
     txHash: utxo.txHash,
     outputIndex: utxo.outputIndex
   }));
+}
+
+/// Load Koios-discovered outputs into the same fund-pool model as the canonical
+/// address query. The transaction builder resolves every selected reference
+/// again before spending it, so this model only supplies the selector and its
+/// value preview.
+export function mergeDiscoveredWalletUtxos(
+  loaded: UTxO[],
+  discovered: DiscoveredUtxo[]
+): UTxO[] {
+  const byReference = new Map(
+    loaded.map((utxo) => [
+      `${utxo.input.txHash}#${utxo.input.outputIndex}`,
+      utxo
+    ])
+  );
+
+  for (const utxo of discovered) {
+    byReference.set(`${utxo.txHash}#${utxo.outputIndex}`, {
+      input: { txHash: utxo.txHash, outputIndex: utxo.outputIndex },
+      output: {
+        address: utxo.address,
+        amount: [
+          { unit: "lovelace", quantity: utxo.lovelace },
+          ...utxo.assets.map((asset) => ({ ...asset }))
+        ]
+      }
+    } as UTxO);
+  }
+
+  return [...byReference.values()];
 }
 
 function safeBigInt(value: string): bigint {

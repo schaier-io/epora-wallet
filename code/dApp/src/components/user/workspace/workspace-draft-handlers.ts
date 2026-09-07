@@ -1,13 +1,12 @@
 "use client";
 import { useSetAtom } from "jotai";
-import { consolidateStateFormAtom, consolidateSttAssetsAtom, consolidateSttInputHashAtom, consolidateSttInputIndexAtom, consolidateWalletInputsAtom, consolidateWalletOutputsAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
+import { beneficiaryPreparationActiveAtom, beneficiaryPreparationPoolAssetsAtom, consolidateStateFormAtom, consolidateSttAssetsAtom, consolidateSttInputHashAtom, consolidateSttInputIndexAtom, consolidateWalletInputsAtom, consolidateWalletOutputsAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
 import { lockFundsAssetsAtom } from "@/components/user/workspace/atoms/forms/lock-funds-form.atoms";
 import { mintReferenceAtom, mintStarterAssetsAtom, mintStateFormAtom, mintZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/mint-form.atoms";
 import { voteJsonAtom, voteSttAssetsAtom, voteSttInputHashAtom, voteSttInputIndexAtom, voteSttStateFormAtom, voteZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/vote-form.atoms";
 import { publishCertificateJsonAtom, publishSttAssetsAtom, publishSttInputHashAtom, publishSttInputIndexAtom, publishSttStateFormAtom, publishZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/publish-form.atoms";
-import { consolidateAuthorityPathAtom, streamingPaymentPayoutAmountsAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputOutputIndexAtom, sttInputTxHashAtom, sttOutputAssetsAtom, sttProofOfLifeOverrideModeAtom, sttProofOfLifeSpecificDateTimeAtom, sttStateFormAtom, sttTransferAddressAtom, sttTransferAmountsAtom, sttWalletInputsAtom, sttWalletOutputsAtom, sttZeroAdminConfirmedAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import { beneficiaryStreamStopIdAtom, consolidateAuthorityPathAtom, streamingPaymentPayoutAmountsAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputOutputIndexAtom, sttInputTxHashAtom, sttOutputAssetsAtom, sttProofOfLifeOverrideModeAtom, sttProofOfLifeSpecificDateTimeAtom, sttStateFormAtom, sttTransferAddressAtom, sttTransferAmountsAtom, sttWalletInputsAtom, sttWalletOutputsAtom, sttZeroAdminConfirmedAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { transferCustomAddressAtom, transferDisplayAmountAtom, transferRecipientModeAtom, transferSelectedUnitAtom } from "@/components/user/workspace/atoms/forms/transfer-form.atoms";
-import { walletSpendInputHashAtom, walletSpendInputIndexAtom, walletSpendOutputsAtom, walletSpendRedeemerPresetAtom } from "@/components/user/workspace/atoms/forms/wallet-spend-form.atoms";
 import { withdrawAmountAtom, withdrawRewardAddressAtom, withdrawSttAssetsAtom, withdrawSttInputHashAtom, withdrawSttInputIndexAtom, withdrawSttStateFormAtom, withdrawZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/withdraw-form.atoms";
 import { type MutableRefObject } from "react";
 import { type WalletInputRef } from "@/lib/types/contracts";
@@ -24,7 +23,7 @@ import {
 
 import { type useWorkspaceDetectedTokenDerivations } from "@/components/user/workspace/use-workspace-detected-token-derivations";
 
-import { DEFAULT_LOCK_ASSETS, DEFAULT_MINT_STARTER_ASSETS, DEFAULT_REQUIRED_CONSTR_PRESET } from "@/components/user/workspace/constants";
+import { DEFAULT_LOCK_ASSETS, DEFAULT_MINT_STARTER_ASSETS } from "@/components/user/workspace/constants";
 import { cloneAssets, cloneStateForm } from "@/components/user/workspace/helpers";
 
 /**
@@ -51,6 +50,8 @@ export function useWorkspaceDraftHandlers(ctx: WorkspaceDraftHandlersCtx) {
     selectedDetectedToken,
     pendingOrphanWalletInputsRef
   } = ctx;
+  const setPreparationActive = useSetAtom(beneficiaryPreparationActiveAtom);
+  const setPreparationAssets = useSetAtom(beneficiaryPreparationPoolAssetsAtom);
   const setConsolidateAuthorityPath = useSetAtom(consolidateAuthorityPathAtom);
   const setConsolidateStateForm = useSetAtom(consolidateStateFormAtom);
   const setConsolidateSttAssets = useSetAtom(consolidateSttAssetsAtom);
@@ -83,6 +84,7 @@ export function useWorkspaceDraftHandlers(ctx: WorkspaceDraftHandlersCtx) {
   const setSttOutputAssets = useSetAtom(sttOutputAssetsAtom);
   const setSttProofOfLifeOverrideMode = useSetAtom(sttProofOfLifeOverrideModeAtom);
   const setSttProofOfLifeSpecificDateTime = useSetAtom(sttProofOfLifeSpecificDateTimeAtom);
+  const setBeneficiaryStreamStopId = useSetAtom(beneficiaryStreamStopIdAtom);
   const setSttStateForm = useSetAtom(sttStateFormAtom);
   const setSttTransferAddress = useSetAtom(sttTransferAddressAtom);
   const setSttTransferAmounts = useSetAtom(sttTransferAmountsAtom);
@@ -94,10 +96,6 @@ export function useWorkspaceDraftHandlers(ctx: WorkspaceDraftHandlersCtx) {
   const setTransferRecipientMode = useSetAtom(transferRecipientModeAtom);
   const setTransferSelectedUnit = useSetAtom(transferSelectedUnitAtom);
   const setWalletOperatorPath = useSetAtom(walletOperatorPathAtom);
-  const setWalletSpendInputHash = useSetAtom(walletSpendInputHashAtom);
-  const setWalletSpendInputIndex = useSetAtom(walletSpendInputIndexAtom);
-  const setWalletSpendOutputs = useSetAtom(walletSpendOutputsAtom);
-  const setWalletSpendRedeemerPreset = useSetAtom(walletSpendRedeemerPresetAtom);
   const setWithdrawAmount = useSetAtom(withdrawAmountAtom);
   const setWithdrawRewardAddress = useSetAtom(withdrawRewardAddressAtom);
   const setWithdrawSttAssets = useSetAtom(withdrawSttAssetsAtom);
@@ -122,7 +120,9 @@ export function useWorkspaceDraftHandlers(ctx: WorkspaceDraftHandlersCtx) {
       action === "update-state" ||
       action === "manage-streaming-payments" ||
       action === "use-allowance" ||
-      action === "use-beneficiary" ||
+      (action === "use-beneficiary" || action === "exit-beneficiary") ||
+      action === "distribute-beneficiaries" ||
+      action === "stop-beneficiary-stream" ||
       action === "payout-streaming-payment"
     ) {
       const nextState = selectedDetectedToken
@@ -148,6 +148,7 @@ export function useWorkspaceDraftHandlers(ctx: WorkspaceDraftHandlersCtx) {
       setTransferSelectedUnit("lovelace");
       setTransferDisplayAmount("");
       setStreamingPaymentPayoutAmounts({});
+      if (action === "stop-beneficiary-stream") setBeneficiaryStreamStopId("");
       setSttAuthorityPath("admin");
       clearPreviewResult();
       clearBuildMessages();
@@ -169,6 +170,8 @@ export function useWorkspaceDraftHandlers(ctx: WorkspaceDraftHandlersCtx) {
       // "move to my wallet address" action); otherwise start empty.
       setConsolidateWalletInputs(pendingOrphanWalletInputsRef.current ?? []);
       pendingOrphanWalletInputsRef.current = null;
+      setPreparationActive(false);
+      setPreparationAssets([]);
       setConsolidateWalletOutputs([]);
       setConsolidateAuthorityPath("admin");
       clearPreviewResult();
@@ -178,16 +181,6 @@ export function useWorkspaceDraftHandlers(ctx: WorkspaceDraftHandlersCtx) {
 
     if (action === "lock-funds") {
       setLockFundsAssets(cloneAssets(DEFAULT_LOCK_ASSETS));
-      clearPreviewResult();
-      clearBuildMessages();
-      return;
-    }
-
-    if (action === "wallet-spend") {
-      setWalletSpendInputHash("");
-      setWalletSpendInputIndex("");
-      setWalletSpendRedeemerPreset({ ...DEFAULT_REQUIRED_CONSTR_PRESET });
-      setWalletSpendOutputs([]);
       clearPreviewResult();
       clearBuildMessages();
       return;
@@ -261,7 +254,9 @@ export function useWorkspaceDraftHandlers(ctx: WorkspaceDraftHandlersCtx) {
       action === "update-state" ||
       action === "manage-streaming-payments" ||
       action === "use-allowance" ||
-      action === "use-beneficiary" ||
+      (action === "use-beneficiary" || action === "exit-beneficiary") ||
+      action === "distribute-beneficiaries" ||
+      action === "stop-beneficiary-stream" ||
       action === "payout-streaming-payment"
     ) {
       /* Same as reload defaults: keep STT input + datum-derived state tied to the opened smart wallet. */
@@ -276,16 +271,6 @@ export function useWorkspaceDraftHandlers(ctx: WorkspaceDraftHandlersCtx) {
 
     if (action === "lock-funds") {
       setLockFundsAssets([]);
-      clearPreviewResult();
-      clearBuildMessages();
-      return;
-    }
-
-    if (action === "wallet-spend") {
-      setWalletSpendInputHash("");
-      setWalletSpendInputIndex("");
-      setWalletSpendRedeemerPreset({ ...DEFAULT_REQUIRED_CONSTR_PRESET });
-      setWalletSpendOutputs([]);
       clearPreviewResult();
       clearBuildMessages();
       return;

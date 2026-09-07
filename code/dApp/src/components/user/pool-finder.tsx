@@ -3,7 +3,7 @@ import { useTranslations } from "next-intl";
 
 
 import { CheckCircle2, ExternalLink, Loader2, Search } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,6 +27,14 @@ export type StakePool = {
   retiring: boolean;
 };
 
+function pct(value: number | null, notReported: string): string {
+  return value == null ? notReported : `${(value * 100).toFixed(1)}%`;
+}
+
+function ada(lovelace: string | null, notReported: string): string {
+  return lovelace == null ? notReported : `${formatLovelaceAsAda(lovelace)} ₳`;
+}
+
 /**
  * "Find your pool": verifies a stake pool by id through the server-side Blockfrost route
  * (`/api/v1/pools`) and shows the ticker, name, saturation and fees so the reader can confirm
@@ -47,26 +55,24 @@ export function PoolFinder({
   onSelect: (pool: StakePool | null) => void;
 }) {
   const i18n = useTranslations("ComponentsUserPoolFinder");
-  // A blank cell used to be an em dash, which reads as a value rather than a gap. The pool
-  // lookup returns null when the chain data does not carry the figure, and that is what the
-  // cell should say. Both formatters live in the component because that word is copy: as
-  // module constants they were an English literal the i18n migrator does not scan.
   const notReported = i18n("unknown");
-  const pct = (value: number | null): string =>
-    value == null ? notReported : `${(value * 100).toFixed(1)}%`;
-  const ada = (lovelace: string | null): string =>
-    lovelace == null ? notReported : `${formatLovelaceAsAda(lovelace)} ₳`;
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<StakePool | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Enter and the button both call this; a ref blocks the second call before
+  // React has re-rendered the button as disabled.
+  const inFlightRef = useRef(false);
+
   const lookup = useCallback(async () => {
+    if (inFlightRef.current) return;
     const id = query.trim();
     if (!id) {
       setError(i18n("pasteAPoolIdPool1ToLookIt"));
       return;
     }
+    inFlightRef.current = true;
     setLoading(true);
     setError(null);
     setResult(null);
@@ -81,6 +87,7 @@ export function PoolFinder({
     } catch {
       setError(i18n("couldnTReachThePoolLookupTryAgain_fb9241"));
     } finally {
+      inFlightRef.current = false;
       setLoading(false);
     }
   }, [query, i18n]);
@@ -112,7 +119,28 @@ export function PoolFinder({
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">
-          {i18n("donTHaveOneBrowsePoolsOnPool_b446d3")}
+          {i18n.rich("donTHaveOneBrowsePoolsOnPool_b446d3", {
+            poolPm: (chunks) => (
+              <a
+                href="https://pool.pm/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-2 hover:text-foreground"
+              >
+                {chunks}
+              </a>
+            ),
+            cexplorer: (chunks) => (
+              <a
+                href="https://cexplorer.io/pool"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-2 hover:text-foreground"
+              >
+                {chunks}
+              </a>
+            )
+          })}
         </p>
       </div>
 
@@ -162,7 +190,7 @@ export function PoolFinder({
             ) : null}
           </div>
 
-          <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-4">
+          <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-4 [&>div]:min-w-0 [&>div]:[overflow-wrap:anywhere]">
             <div>
               <dt className="eyebrow text-muted-foreground">{i18n("saturation")}</dt>
               <dd
@@ -171,20 +199,20 @@ export function PoolFinder({
                   (shown.saturation ?? 0) >= 1 ? "text-amber-300" : "text-foreground"
                 )}
               >
-                {pct(shown.saturation)}
+                {pct(shown.saturation, notReported)}
               </dd>
             </div>
             <div>
               <dt className="eyebrow text-muted-foreground">{i18n("liveStake")}</dt>
-              <dd className="mt-0.5 font-medium text-foreground">{ada(shown.liveStakeLovelace)}</dd>
+              <dd className="mt-0.5 font-medium text-foreground">{ada(shown.liveStakeLovelace, notReported)}</dd>
             </div>
             <div>
               <dt className="eyebrow text-muted-foreground">{i18n("margin")}</dt>
-              <dd className="mt-0.5 font-medium text-foreground">{pct(shown.marginPct)}</dd>
+              <dd className="mt-0.5 font-medium text-foreground">{pct(shown.marginPct, notReported)}</dd>
             </div>
             <div>
               <dt className="eyebrow text-muted-foreground">{i18n("fixedFee")}</dt>
-              <dd className="mt-0.5 font-medium text-foreground">{ada(shown.fixedCostLovelace)}</dd>
+              <dd className="mt-0.5 font-medium text-foreground">{ada(shown.fixedCostLovelace, notReported)}</dd>
             </div>
           </dl>
 

@@ -1,8 +1,26 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { useState } from "react";
+import { execFileSync } from "node:child_process";
 
 import { StateFormEditor } from "./state-form-editor";
-import { createDefaultStateForm } from "@/lib/contracts/state-form";
+import {
+  withRecoveryContactAdded,
+  withScheduledPaymentAdded,
+  withUserAdded
+} from "@/components/user/workspace/helpers";
+import {
+  createDefaultStateForm,
+  createDefaultUserFormState,
+  stateFormToDatum,
+  type StateFormState
+} from "@/lib/contracts/state-form";
+import { isConstrData, readStateSections } from "@/lib/contracts/state-layout";
+import {
+  MAX_ACCESS_RECORDS,
+  MAX_STREAMING_PAYMENTS,
+  MAX_USERS
+} from "@/lib/contracts/state-validation";
 
 describe("StateFormEditor streaming-payment controls", () => {
   it("does not offer schedule creation on the UpdateState path", () => {
@@ -18,6 +36,20 @@ describe("StateFormEditor streaming-payment controls", () => {
     expect(
       screen.queryByRole("button", { name: "Add scheduled payment" })
     ).not.toBeInTheDocument();
+  });
+
+  it("stops adding schedules at the on-chain cap", () => {
+    let value = createDefaultStateForm();
+    for (let index = 0; index < MAX_STREAMING_PAYMENTS; index += 1) {
+      value = withScheduledPaymentAdded(value);
+    }
+    const onChange = vi.fn();
+    render(<StateFormEditor label="Wallet rules" value={value} onChange={onChange} />);
+
+    const add = screen.getByRole("button", { name: "Add scheduled payment" });
+    expect(add).toBeDisabled();
+    fireEvent.click(add);
+    expect(onChange).not.toHaveBeenCalled();
   });
 });
 
@@ -69,13 +101,200 @@ describe("what the wallet can hold", () => {
    * 15. The screen said "up to 15 owners", which promised 15 owner slots on top of however
    * many spenders.
    */
-  it("does not promise a separate allowance of owners", () => {
+  function withOwners(count: number) {
+    let value = createDefaultStateForm();
+    for (let index = 0; index < count; index += 1) {
+      value = withUserAdded(value, "admin");
+    }
+    return value;
+  }
+
+  /** The caps used to be a paragraph above an empty form. Nobody at zero people needs them. */
+  it("says nothing about a cap until it is reached", () => {
     render(
       <StateFormEditor label="Wallet rules" value={createDefaultStateForm()} onChange={() => {}} />
     );
 
-    expect(screen.getByText(/15 people in total, owners and spenders/)).toBeInTheDocument();
+    expect(screen.queryByText(/owners and spenders together/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add owner" })).toBeEnabled();
+  });
+
+  it("names the shared cap and stops the add buttons once it is reached", () => {
+    render(<StateFormEditor label="Wallet rules" value={withOwners(MAX_USERS)} onChange={() => {}} />);
+
+    expect(
+      screen.getAllByText(`This wallet already holds ${MAX_USERS} people, owners and spenders together. Remove one to add another.`).length
+    ).toBeGreaterThan(0);
     expect(screen.queryByText(/up to 15 owners/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add owner" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Add spender" })).toBeDisabled();
+  });
+
+  it("stops every access add button at the combined record cap", () => {
+    let value = withOwners(MAX_USERS - 1);
+    for (let index = value.users.length; index < MAX_ACCESS_RECORDS; index += 1) {
+      value = withRecoveryContactAdded(value, index);
+    }
+
+    render(<StateFormEditor label="Wallet rules" value={value} onChange={() => {}} />);
+
+    expect(
+      screen.getAllByText(
+        `This wallet already holds ${MAX_ACCESS_RECORDS} owners, spenders, and recovery contacts in total. Remove one to add another.`
+      ).length
+    ).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Add owner" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Add spender" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Add recovery contact" })).toBeDisabled();
+  });
+
+  it("stops growing allowances after all users reach the total cap", () => {
+    const entries = (count: number) =>
+      Array.from({ length: count }, () => ({ policyId: "", assetName: "", amount: "1" }));
+    const value = createDefaultStateForm();
+    value.users = [
+      {
+        ...createDefaultUserFormState("0"),
+        perDayAllowance: entries(5),
+        remainingAllowance: entries(5)
+      },
+      {
+        ...createDefaultUserFormState("1"),
+        perDayAllowance: entries(2),
+        remainingAllowance: entries(3)
+      }
+    ];
+    render(<StateFormEditor label="Wallet rules" value={value} onChange={vi.fn()} />);
+
+    expect(
+      screen
+        .getAllByRole("button", { name: "Add daily limit" })
+        .every((button) => button.hasAttribute("disabled"))
+    ).toBe(true);
+  });
+});
+
+describe("one place per fact", () => {
+  it("does not repeat the counts as tiles above the sections that show them", () => {
+    render(
+      <StateFormEditor label="Wallet rules" value={createDefaultStateForm()} onChange={() => {}} />
+    );
+
+    expect(screen.queryByText("Optional people with daily spending limits.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Optional recurring payouts from this wallet.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Kept within safe limits")).not.toBeInTheDocument();
+  });
+});
+
+describe("create flow", () => {
+  it.each([
+    {
+      kind: "key",
+      address: "addr_test1qqg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyfzyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3qwzdgzn",
+      credentialKind: 0,
+      paymentHash: "11".repeat(28),
+      stakeHash: "22".repeat(28)
+    },
+    {
+      kind: "script",
+      address: "addr_test1xqenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxv6yg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zqq7lpaj",
+      credentialKind: 1,
+      paymentHash: "33".repeat(28),
+      stakeHash: "44".repeat(28)
+    }
+  ])("lets a new recovery contact store a full $kind payout address", ({
+    address, credentialKind, paymentHash, stakeHash
+  }) => {
+    let draft = createDefaultStateForm();
+    function CreateForm() {
+      const [value, setValue] = useState(draft);
+      const onChange = (next: StateFormState) => { draft = next; setValue(next); };
+      return <StateFormEditor label="Wallet rules" value={value} onChange={onChange} moreSettingsCollapsed />;
+    }
+    render(<CreateForm />);
+    fireEvent.click(screen.getByRole("button", { name: /More settings/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Add recovery contact" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add recovery wallet" }));
+    fireEvent.change(screen.getByRole("textbox", { name: /Recovery wallet IDs.*wallet 1/i }), {
+      target: { value: "55".repeat(28) }
+    });
+
+    expect(() => stateFormToDatum(draft)).toThrow("Beneficiary 1 requires a payout address.");
+    const payout = screen.getByLabelText("Exact-distribution payout address");
+    expect(payout).toHaveValue("");
+    fireEvent.change(payout, { target: { value: address } });
+    expect(payout).not.toHaveAttribute("aria-invalid", "true");
+    // Mesh's address encoder needs one Uint8Array realm. Serialize the actual
+    // edited form in Node, outside jsdom, without replacing the address codec.
+    const datum: unknown = JSON.parse(execFileSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", `
+      import { readFileSync } from "node:fs";
+      import { stateFormToDatum } from "./src/lib/contracts/state-form.ts";
+      process.stdout.write(JSON.stringify(stateFormToDatum(JSON.parse(readFileSync(0, "utf8")))));
+    `], { input: JSON.stringify(draft), encoding: "utf8" }));
+    if (!isConstrData(datum)) throw new Error("Expected a State constructor.");
+    expect(readStateSections(datum).beneficiaries).toEqual([{
+      alternative: 0,
+      fields: [0, ["55".repeat(28)], { alternative: 1, fields: [] }, 1, {
+        alternative: 0,
+        fields: [
+          { alternative: credentialKind, fields: [paymentHash] },
+          { alternative: 0, fields: [{ alternative: 0, fields: [
+            { alternative: credentialKind, fields: [stakeHash] }
+          ] }] }
+        ]
+      }]
+    }]);
+  });
+
+  it("keeps the owners in view and folds the rest behind More settings", () => {
+    render(
+      <StateFormEditor
+        label="Wallet rules"
+        value={createDefaultStateForm()}
+        onChange={() => {}}
+        moreSettingsCollapsed
+      />
+    );
+
+    expect(screen.getByText("Who can manage this wallet")).toBeInTheDocument();
+    expect(screen.queryByText("Recovery contacts")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /More settings/ }));
+    expect(screen.getByText("Recovery contacts")).toBeInTheDocument();
+    expect(screen.getByText("Scheduled payments")).toBeInTheDocument();
+  });
+
+  it("opens More settings on its own when the draft already uses one of them", () => {
+    const value = withRecoveryContactAdded(createDefaultStateForm(), Date.now());
+    render(
+      <StateFormEditor label="Wallet rules" value={value} onChange={() => {}} moreSettingsCollapsed />
+    );
+
+    expect(screen.getByText("Recovery contacts")).toBeInTheDocument();
+  });
+
+  /**
+   * Nothing in the create flow sets a person's approval power, so a threshold there could
+   * exceed the wallet's total power and lock it. The threshold is offered after minting.
+   */
+  it("does not offer the co-signer threshold before the wallet exists", () => {
+    render(
+      <StateFormEditor
+        label="Wallet rules"
+        value={createDefaultStateForm()}
+        onChange={() => {}}
+        moreSettingsCollapsed
+      />
+    );
+    fireEvent.click(screen.getByRole("button", { name: /More settings/ }));
+
+    expect(screen.queryByText("Co-signer threshold")).not.toBeInTheDocument();
+  });
+
+  it("offers the co-signer threshold on an existing wallet", () => {
+    render(<StateFormEditor label="Wallet rules" value={createDefaultStateForm()} onChange={() => {}} />);
+
+    expect(screen.getByText("Co-signer threshold")).toBeInTheDocument();
   });
 });
 

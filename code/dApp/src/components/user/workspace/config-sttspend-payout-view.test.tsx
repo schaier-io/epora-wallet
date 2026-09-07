@@ -13,7 +13,7 @@ const state = vi.hoisted(() => ({
  * `config-sttspend-view.test.tsx` stubs `FocusedTaskSurface` to null, which hides the whole
  * payout surface. This file renders its children so the pay-due rows can be asked about.
  */
-vi.mock("@/components/user/workspace/editors", () => ({
+vi.mock("@/components/user/workspace/editors", async () => ({
   FocusedPeopleEditor: () => null,
   FocusedStreamingPaymentRulesEditor: () => null,
   FocusedTaskSurface: ({
@@ -29,7 +29,7 @@ vi.mock("@/components/user/workspace/editors", () => ({
     </div>
   ),
   FocusedWalletSettingsEditor: () => null,
-  InlineFieldError: () => null,
+  InlineFieldError: (await import("./editors/primitives")).InlineFieldError,
   SearchableAssetUnitDropdown: () => null,
   StateFormEditor: () => null
 }));
@@ -143,6 +143,7 @@ function renderPayout(
     lockedContractUtxosLoading?: boolean;
     selectedAction?: string;
     stateful?: boolean;
+    activeFieldErrors?: Record<string, string[]>;
   } = {}
 ) {
   state.value = {
@@ -163,7 +164,7 @@ function renderPayout(
     selectedIntent: "pay-streaming-payments",
     useAllowancePreview: { error: null, target: null, computation: null },
     config: { walletPolicyId: "policy" },
-    activeFieldErrors: {},
+    activeFieldErrors: options.activeFieldErrors ?? {},
     addSimpleTransferRecipient: vi.fn(),
     flowAvailability: {},
     guidedStreamingPaymentTaskBadges: {},
@@ -521,10 +522,37 @@ describe("the tick box and the amount field drive the payout", () => {
     renderPayout([payoutRow({ configuredAmount: "2000000" })], { stateful: true });
     const field = screen.getByLabelText("Payout amount (ADA)") as HTMLInputElement;
 
+    fireEvent.focus(field);
     fireEvent.change(field, { target: { value: "" } });
 
     expect(field.value).toBe("");
     expect(stage.amounts).toEqual({ "0": "0" });
+  });
+
+  it("links a row validation error to its ADA amount field", () => {
+    renderPayout([payoutRow()], {
+      activeFieldErrors: { "Scheduled payment 1": ["Amount exceeds the available balance."] }
+    });
+    const field = screen.getByLabelText("Payout amount (ADA)");
+    expect(field).toHaveAttribute("aria-invalid", "true");
+    const errorId = field.getAttribute("aria-describedby");
+    expect(errorId).toBeTruthy();
+    expect(document.getElementById(errorId!)).toHaveTextContent("Amount exceeds the available balance.");
+  });
+
+  it("clears a staged payout when the ADA draft has more than six decimals", () => {
+    renderPayout([payoutRow()], { stateful: true });
+    const field = screen.getByLabelText("Payout amount (ADA)") as HTMLInputElement;
+
+    fireEvent.focus(field);
+    fireEvent.change(field, { target: { value: "2" } });
+    expect(stage.amounts).toEqual({ "0": "2000000" });
+    fireEvent.change(field, { target: { value: "1.0000001" } });
+    fireEvent.blur(field);
+
+    expect(stage.amounts).toEqual({ "0": "0" });
+    expect(field.value).toBe("1.0000001");
+    expect(field).toHaveAttribute("aria-invalid", "true");
   });
 
   it("the tick box still replaces whatever was typed", () => {
@@ -549,6 +577,19 @@ describe("the tick box and the amount field drive the payout", () => {
     screen.getByRole("checkbox").click();
 
     expect(stage.calls).toBe(0);
+  });
+
+  it("lets a third positive payment enter the transaction", () => {
+    const rows = [0, 1, 2].map((id) =>
+      payoutRow({
+        configuredAmount: id < 2 ? "1" : "0",
+        streamingPayment: { ...payoutRow().streamingPayment, id: String(id) }
+      })
+    );
+    renderPayout(rows);
+
+    screen.getAllByRole("checkbox")[2]!.click();
+    expect(stage.amounts).toEqual({ "2": "2000000" });
   });
 });
 

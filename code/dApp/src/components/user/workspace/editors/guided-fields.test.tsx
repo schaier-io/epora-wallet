@@ -1,5 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { useState } from "react";
+import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
+import type { WalletInputRef } from "@/lib/types/contracts";
 
 import { GuidedDateTimeField, GuidedDurationField, GuidedLockedUtxoSelector } from "./guided-fields";
 
@@ -28,6 +31,17 @@ describe("a date and time field", () => {
     expect(screen.getByText("Choose both a date and time.")).toBeInTheDocument();
   });
 
+  it("keeps a uint64 timestamp visible when it is outside the JavaScript Date range", () => {
+    const value = MAX_ON_CHAIN_STATE_INTEGER.toString();
+
+    render(
+      <GuidedDateTimeField idPrefix="t" label="Starts" value={value} onChange={vi.fn()} />
+    );
+
+    expect(screen.getByText(new RegExp(value))).toBeInTheDocument();
+    expect(screen.getByLabelText("Starts", { selector: "input" })).toHaveValue("");
+  });
+
   /**
    * Typing today's date and a time into two browser pickers was the long way round the
    * usual answer ("roughly now"), so the label row carries a small Now button.
@@ -46,8 +60,43 @@ describe("a date and time field", () => {
     const today = new Date();
     const pad = (value: number) => String(value).padStart(2, "0");
     expect(
-      (screen.getByLabelText("Starts") as HTMLInputElement).value
+      (screen.getByLabelText("Starts", { selector: "input" }) as HTMLInputElement).value
     ).toBe(`${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`);
+  });
+
+  it("keeps a date picked before its time, even when the stored value was 0", () => {
+    // A date alone combines to "", the same as an untouched field. Remounting on
+    // every stored-value change threw the date away as soon as it was picked.
+    function Harness() {
+      const [value, setValue] = useState("0");
+      return <GuidedDateTimeField idPrefix="t" label="Starts" value={value} onChange={setValue} />;
+    }
+    render(<Harness />);
+
+    fireEvent.change(screen.getByLabelText("Starts", { selector: "input" }), { target: { value: "2026-09-02" } });
+
+    // Re-query: a remount would leave the old node detached with its value intact.
+    expect((screen.getByLabelText("Starts", { selector: "input" }) as HTMLInputElement).value).toBe("2026-09-02");
+  });
+
+  it("clears both halves when the stored value is reset from outside", () => {
+    function Harness() {
+      const [value, setValue] = useState("1750000000000");
+      return (
+        <>
+          <GuidedDateTimeField idPrefix="t" label="Starts" value={value} onChange={setValue} />
+          <button type="button" onClick={() => setValue("")}>
+            Reset
+          </button>
+        </>
+      );
+    }
+    render(<Harness />);
+    expect((screen.getByLabelText("Starts", { selector: "input" }) as HTMLInputElement).value).not.toBe("");
+
+    fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+
+    expect((screen.getByLabelText("Starts", { selector: "input" }) as HTMLInputElement).value).toBe("");
   });
 
   it("offers no Now button while it is disabled", () => {
@@ -60,6 +109,40 @@ describe("a date and time field", () => {
 });
 
 describe("a length-of-time field", () => {
+  it("does not offer zero for a proof-of-life duration", () => {
+    render(<GuidedDurationField idPrefix="d" label="Waits" value="" onChange={vi.fn()} />);
+
+    expect(screen.getByLabelText("Waits", { selector: "input" })).toHaveAttribute("min", "1");
+  });
+
+  it("rejects zero typed directly instead of storing an invalid duration", () => {
+    const onChange = vi.fn();
+    render(<GuidedDurationField idPrefix="d" label="Waits" value="" onChange={onChange} />);
+
+    fireEvent.change(screen.getByLabelText("Waits", { selector: "input" }), {
+      target: { value: "0" }
+    });
+
+    expect(onChange).toHaveBeenLastCalledWith("");
+    expect(screen.getByLabelText("Waits", { selector: "input" })).toHaveAttribute(
+      "aria-invalid",
+      "true"
+    );
+    expect(screen.getByText("Enter a whole number of 1 or more.")).toBeInTheDocument();
+  });
+
+  it("rejects other manual values that are not positive whole numbers", () => {
+    const onChange = vi.fn();
+    render(<GuidedDurationField idPrefix="d" label="Waits" value="" onChange={onChange} />);
+    const input = screen.getByLabelText("Waits", { selector: "input" });
+
+    fireEvent.change(input, { target: { value: "-1" } });
+    fireEvent.change(input, { target: { value: "1.5" } });
+
+    expect(onChange).toHaveBeenNthCalledWith(1, "");
+    expect(onChange).toHaveBeenNthCalledWith(2, "");
+  });
+
   /** The echo repeated the number and unit already shown in the two controls above it. */
   it("does not echo the two controls back at the reader", () => {
     render(
@@ -85,7 +168,26 @@ describe("a length-of-time field", () => {
     render(<GuidedDurationField idPrefix="d" label="Waits" value="1234" onChange={vi.fn()} />);
 
     expect(screen.getByRole("option", { name: "Milliseconds" })).toBeInTheDocument();
-    expect((screen.getByLabelText("Waits") as HTMLInputElement).value).toBe("1234");
+    expect((screen.getByLabelText("Waits", { selector: "input" }) as HTMLInputElement).value).toBe("1234");
+  });
+
+  it("keeps the unit the person chose while they type", () => {
+    // 48 hours stores the same milliseconds as 2 days; re-splitting the stored
+    // value flipped the unit to days under the cursor.
+    function Harness() {
+      const [value, setValue] = useState("");
+      return <GuidedDurationField idPrefix="d" label="Waits" value={value} onChange={setValue} />;
+    }
+    const { container } = render(<Harness />);
+    const unit = () => container.querySelector<HTMLSelectElement>("#d-unit")!;
+    const amount = () => screen.getByLabelText("Waits", { selector: "input" }) as HTMLInputElement;
+
+    fireEvent.change(unit(), { target: { value: "hours" } });
+    fireEvent.change(amount(), { target: { value: "48" } });
+
+    // Re-query: a remount would leave the old nodes detached with their values intact.
+    expect(amount().value).toBe("48");
+    expect(unit().value).toBe("hours");
   });
 
   it("does not offer milliseconds for a fresh value", () => {
@@ -201,4 +303,99 @@ describe("choosing which funds to spend", () => {
 
     expect(screen.queryByRole("button", { name: "Refresh funds" })).not.toBeInTheDocument();
   });
+
+  it("allows selecting multiple fund pools and selecting all", () => {
+    const twoUtxos = [
+      ...utxos,
+      {
+        input: { txHash: "bb".repeat(32), outputIndex: 1 },
+        output: {
+          address: "addr_test1x",
+          amount: [{ unit: "lovelace", quantity: "6000000" }]
+        }
+      }
+    ];
+
+    function Harness() {
+      const [selectedRefs, setSelectedRefs] = useState<WalletInputRef[]>([]);
+      return (
+        <GuidedLockedUtxoSelector
+          utxos={twoUtxos as never}
+          selectedRefs={selectedRefs}
+          onChange={setSelectedRefs}
+          onSuggest={vi.fn()}
+          helper="Pick fund pools."
+        />
+      );
+    }
+
+    const { container } = render(<Harness />);
+    const rows = [...container.querySelectorAll<HTMLButtonElement>("button.w-full")];
+
+    expect(screen.getByRole("button", { name: "Select all" })).toBeEnabled();
+    fireEvent.click(rows[0]!);
+    fireEvent.click(rows[1]!);
+    expect(
+      screen.getByText((_, element) => element?.textContent === "2 fund pools selected.")
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    fireEvent.click(screen.getByRole("button", { name: "Select all" }));
+    expect(
+      screen.getByText((_, element) => element?.textContent === "2 fund pools selected.")
+    ).toBeInTheDocument();
+  });
+});
+
+/**
+ * Both fields split one question across two controls. The label names only the first, so the
+ * second was announced as an unnamed edit field: "Starts, edit" followed by "edit". The
+ * comment above the date/time field even claimed the time input carried its own label.
+ *
+ * The pair is a group named by the visible label now, and the control the label does not
+ * reach carries its own name. `toHaveAccessibleName` with no argument asserts a non-empty
+ * name, so this holds for any wording.
+ */
+describe("every control in a split field has a name", () => {
+  it("names both halves of a date and time field", () => {
+    const { container } = render(
+      <GuidedDateTimeField idPrefix="t" label="Starts" value="" onChange={vi.fn()} />
+    );
+
+    for (const control of container.querySelectorAll("input, select")) {
+      expect(control).toHaveAccessibleName();
+    }
+    expect(screen.getByRole("group", { name: "Starts" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Time of day")).toHaveAttribute("type", "time");
+  });
+
+  it("names both halves of a length-of-time field", () => {
+    const { container } = render(
+      <GuidedDurationField idPrefix="d" label="Waits" value="" onChange={vi.fn()} />
+    );
+
+    for (const control of container.querySelectorAll("input, select")) {
+      expect(control).toHaveAccessibleName();
+    }
+    expect(screen.getByRole("group", { name: "Waits" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Unit of time").tagName).toBe("SELECT");
+  });
+});
+
+it("single fund-pool selection replaces the prior input and offers no automatic multi-selection", () => {
+  const utxos = [0, 1].map(outputIndex => ({ input: { txHash: "aa".repeat(32), outputIndex }, output: { address: "wallet", amount: [{ unit: "lovelace", quantity: "6000000" }] } }));
+  function Harness() {
+    const [selectedRefs, onChange] = useState<WalletInputRef[]>([]);
+    return <GuidedLockedUtxoSelector utxos={utxos} selectedRefs={selectedRefs} onChange={onChange} selectionMode="single" helper="Select one." />;
+  }
+  const { container } = render(<Harness />);
+  expect(screen.queryByRole("button", { name: "Select all" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Pick enough for this payment" })).not.toBeInTheDocument();
+  const rows = [...container.querySelectorAll<HTMLButtonElement>("button.w-full")];
+  fireEvent.click(rows[0]!);
+  fireEvent.click(rows[1]!);
+  expect(rows[0]).toHaveAttribute("aria-pressed", "false");
+  expect(rows[1]).toHaveAttribute("aria-pressed", "true");
+  fireEvent.click(rows[1]!);
+  expect(rows[1]).toHaveAttribute("aria-pressed", "false");
 });

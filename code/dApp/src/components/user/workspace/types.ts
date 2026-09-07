@@ -100,10 +100,13 @@ export type SttSpendActionMode =
   | "manage-streaming-payments"
   | "use-allowance"
   | "use-beneficiary"
+  | "exit-beneficiary"
+  | "stop-beneficiary-stream"
+  | "distribute-beneficiaries"
   | "payout-streaming-payment"
   | "consolidate-utxo";
 
-export type GuidedAdminGroupId = "manage-people" | "wallet-settings" | "streamingPayments";
+export type GuidedAdminGroupId = "wallet-settings" | "streamingPayments";
 
 export type GuidedAdminTaskDefinition = {
   id: UserWorkspaceTask;
@@ -131,7 +134,7 @@ type MintConfirmationPhase =
   | "delayed";
 
 export type MintConfirmationState = {
-  txHash: string;
+  txHash: string | null;
   phase: MintConfirmationPhase;
   attempts: number;
   maxAttempts: number;

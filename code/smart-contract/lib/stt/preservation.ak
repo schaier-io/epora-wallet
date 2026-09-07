@@ -6,16 +6,13 @@
 //// `validators/stt.ak::eval_spend`) stay declarative instead of carrying the
 //// field-by-field plumbing.
 ////
-//// Every helper routes its "unchanged field" checks through ONE enumeration of
-//// the preservable `State` fields (`StateField` + `state_preserved_except`), so a
-//// new field is added in a single place and is then preserved by DEFAULT across
-//// every action (opt-OUT via a `mutable` list, never opt-in — a field a future
-//// author forgets stays locked, it does not silently become mutable). This
-//// mirrors `streaming_payments/types.core_fields_match` for the streaming-payment
-//// record. `intended_stake_credential` and `last_non_admin_payout_at` are
-//// deliberately NOT in the set: they are preserved CENTRALLY in
-//// `validators/stt.ak::eval_spend` (every action but their one dedicated
-//// mutator action(s)), so they never appear in a per-handler check here.
+//// Every helper checks preserved fields through `state_preserved_except`.
+//// Four named flags permit changes to users, beneficiaries, proof-of-life
+//// unlock time, and streams. The predicate builds the expected State and
+//// compares it to the output. The multisig threshold, proof-of-life increment,
+//// and wallet name always come from the input.
+//// `validators/stt.ak::eval_spend` separately guards `intended_stake_credential`
+//// and `last_non_admin_payout_at` across their permitted action paths.
 ////
 //// State mutation matrix — which fields each action allows to change:
 ////
@@ -28,18 +25,21 @@
 ////   RunOperator(SetIntendedStakeCredential) |   -    |     -      |    -     |    -    |  -   | state_completely_unchanged ⁵
 ////   RenewProofOfLife                        |   -    |     y      |    -     |    -    |  -   | state_unchanged_except_pol_unlock_time
 ////   UseAllowance(_)                         |   y²   |     y      |    -     |    -    |  -   | state_unchanged_except_users_and_pol_unlock_time
-////   UseBeneficiary(_)                       |   y³   |     -      |    -     |    -    |  -   | state_unchanged_except_beneficiary_removed
+////   UseBeneficiary(_)                       |   y³   |     -      |    -     |    -    |  -   | earlier removed; final stays unchanged
+////   DistributeBeneficiaries(_)              |   -    |     -      |    -     |    -    |  -   | state_completely_unchanged
+////   ExitBeneficiary(_)                      |   y³   |     -      |    -     |    -    |  -   | actor always removed
 ////   PayStreamingPayment(_)                  |   -    |     -      |    -     |    y    |  -   | state_unchanged_except_streaming_payments
 ////   Consolidate(_)                          |   -    |     -      |    -     |    -    |  -   | state_completely_unchanged
 ////   CancelStreamingPayment(_)               |   -    |     -      |    -     |    y⁶   |  -   | state_unchanged_except_streaming_payments ⁷
+////   StopBeneficiaryStream(_, _)             |   -    |     -      |    -     |    y⁶   |  -   | state_unchanged_except_streaming_payments ⁷
 ////
 ////   y  = field may change
 ////   -  = field must equal input
 ////   y¹ = only admin path may change wallet_name
 ////   y² = only the changed user's mutable allowance fields; static user fields
 ////        and the access-level multi_sig_threshold / beneficiaries are preserved
-////   y³ = only the acting beneficiary is removed from access.beneficiaries;
-////        users and multi_sig_threshold are preserved
+////   y³ = only the acting beneficiary is removed. UseBeneficiary preserves
+////        the final actor, while ExitBeneficiary removes it.
 ////   y⁴ = exactly one entry (user or beneficiary, by index) is removed from the
 ////        targeted access list; the other access sub-fields are preserved
 ////   ⁵  = the new credential value itself is not a matrix column — it is guarded
@@ -52,47 +52,56 @@
 ////        `settlement_handlers.ak`, not by the preservation helper (which only
 ////        frees the `streaming_payments` field)
 ////   ⁷  = Cancel also advances `last_non_admin_payout_at`; that field is outside
-////        this matrix and is pinned by the shared cadence helper
+////        this matrix and is pinned by the shared cadence helper. Final
+////        beneficiary recovery advances the same field without changing a
+////        matrix field.
 
 use aiken/collection/list
 use aiken/fuzz
 use state/types as state_types
 
-/// The set of `State` fields some action is allowed to mutate, so a preservation
-/// check reads as "everything equal EXCEPT these". THE single enumeration of the
-/// preservable field set: adding a `State` field means adding one variant here
-/// plus one arm in `state_preserved_except`, after which every helper below
-/// preserves it by default. `access` is split into its three sub-fields (actions
-/// mutate different parts of it) and `proof_of_life` into its two. Excludes
-/// `intended_stake_credential` and `last_non_admin_payout_at` — those are
-/// guarded centrally in `validators/stt.ak::eval_spend`, not per-handler.
-type StateField {
-  AccessUsers
-  AccessMultisigThreshold
-  AccessBeneficiaries
-  PolUnlockTime
-  PolIncrement
-  StreamingPayments
-  WalletName
-}
-
-/// True when every preservable `State` field is equal between `input` and
-/// `output`, except those listed in `mutable`. The one place the field set is
-/// enumerated; `||` short-circuits the equality check for a mutable field.
+/// True when the output preserves every field except those permitted by the
+/// named flags. Allowed fields come from the output; preserved fields come
+/// from the input. The two centrally guarded fields also come from the output.
 fn state_preserved_except(
   input: state_types.State,
   output: state_types.State,
-  mutable: List<StateField>,
+  allow_users: Bool,
+  allow_beneficiaries: Bool,
+  allow_unlock_time: Bool,
+  allow_streaming_payments: Bool,
 ) -> Bool {
-  and {
-    (list.has(mutable, AccessUsers) || input.access.users == output.access.users)?,
-    (list.has(mutable, AccessMultisigThreshold) || input.access.multi_sig_threshold == output.access.multi_sig_threshold)?,
-    (list.has(mutable, AccessBeneficiaries) || input.access.beneficiaries == output.access.beneficiaries)?,
-    (list.has(mutable, PolUnlockTime) || input.proof_of_life.unlock_time == output.proof_of_life.unlock_time)?,
-    (list.has(mutable, PolIncrement) || input.proof_of_life.increment == output.proof_of_life.increment)?,
-    (list.has(mutable, StreamingPayments) || input.streaming_payments == output.streaming_payments)?,
-    (list.has(mutable, WalletName) || input.wallet_name == output.wallet_name)?,
-  }
+  (state_types.State {
+    access: state_types.AccessControl {
+      users: if allow_users {
+        output.access.users
+      } else {
+        input.access.users
+      },
+      beneficiaries: if allow_beneficiaries {
+        output.access.beneficiaries
+      } else {
+        input.access.beneficiaries
+      },
+      multi_sig_threshold: input.access.multi_sig_threshold,
+    },
+    proof_of_life: state_types.ProofOfLifeSettings {
+      unlock_time: if allow_unlock_time {
+        output.proof_of_life.unlock_time
+      } else {
+        input.proof_of_life.unlock_time
+      },
+      increment: input.proof_of_life.increment,
+    },
+    streaming_payments: if allow_streaming_payments {
+      output.streaming_payments
+    } else {
+      input.streaming_payments
+    },
+    wallet_name: input.wallet_name,
+    intended_stake_credential: output.intended_stake_credential,
+    last_non_admin_payout_at: output.last_non_admin_payout_at,
+  } == output)?
 }
 
 /// Every field except proof-of-life `unlock_time` must be equal.
@@ -101,7 +110,14 @@ pub fn state_unchanged_except_pol_unlock_time(
   input: state_types.State,
   output: state_types.State,
 ) -> Bool {
-  state_preserved_except(input, output, [PolUnlockTime])
+  state_preserved_except(
+    input,
+    output,
+    allow_users: False,
+    allow_beneficiaries: False,
+    allow_unlock_time: True,
+    allow_streaming_payments: False,
+  )
 }
 
 /// Access + proof-of-life increment + wallet_name preserved; streaming_payments and
@@ -111,7 +127,14 @@ pub fn state_unchanged_except_pol_unlock_time_and_streaming_payments(
   input: state_types.State,
   output: state_types.State,
 ) -> Bool {
-  state_preserved_except(input, output, [PolUnlockTime, StreamingPayments])
+  state_preserved_except(
+    input,
+    output,
+    allow_users: False,
+    allow_beneficiaries: False,
+    allow_unlock_time: True,
+    allow_streaming_payments: True,
+  )
 }
 
 /// Multisig threshold + beneficiaries + proof-of-life increment + streaming_payments
@@ -121,27 +144,41 @@ pub fn state_unchanged_except_users_and_pol_unlock_time(
   input: state_types.State,
   output: state_types.State,
 ) -> Bool {
-  state_preserved_except(input, output, [AccessUsers, PolUnlockTime])
+  state_preserved_except(
+    input,
+    output,
+    allow_users: True,
+    allow_beneficiaries: False,
+    allow_unlock_time: True,
+    allow_streaming_payments: False,
+  )
 }
 
 /// Everything preserved. Note this spans only the preservable field set:
-/// `intended_stake_credential` is not a `StateField` (guarded centrally in
-/// `eval_spend`), which is why SetIntendedStakeCredential — whose one mutation
-/// is exempted there — can share this predicate and assert the new credential
-/// value separately (see matrix footnote ⁵).
-/// Used by: Consolidate, SetIntendedStakeCredential.
+/// `intended_stake_credential` and `last_non_admin_payout_at` have no
+/// preservation flags because `eval_spend` guards them centrally. This lets
+/// SetIntendedStakeCredential and final-beneficiary recovery use this predicate
+/// while their handlers validate the one central-field mutation separately.
+/// Used by: Consolidate, SetIntendedStakeCredential, final UseBeneficiary.
 pub fn state_completely_unchanged(
   input: state_types.State,
   output: state_types.State,
 ) -> Bool {
-  state_preserved_except(input, output, [])
+  state_preserved_except(
+    input,
+    output,
+    allow_users: False,
+    allow_beneficiaries: False,
+    allow_unlock_time: False,
+    allow_streaming_payments: False,
+  )
 }
 
 /// Everything preserved except that exactly the acting beneficiary (matched by
 /// its unique id) is removed from the beneficiary list. Beneficiary ids are
 /// guaranteed unique by `expect_valid_state_configuration`, so filtering by
 /// `id != removed` drops exactly one entry.
-/// Used by: UseBeneficiary.
+/// Used by: UseBeneficiary and ExitBeneficiary.
 pub fn state_unchanged_except_beneficiary_removed(
   input: state_types.State,
   output: state_types.State,
@@ -152,20 +189,35 @@ pub fn state_unchanged_except_beneficiary_removed(
     fn(beneficiary) { beneficiary.id != removed_beneficiary_id },
   )
   and {
-    state_preserved_except(input, output, [AccessBeneficiaries])?,
+    state_preserved_except(
+      input,
+      output,
+      allow_users: False,
+      allow_beneficiaries: True,
+      allow_unlock_time: False,
+      allow_streaming_payments: False,
+    )?,
     (output.access.beneficiaries == expected_beneficiaries)?,
   }
 }
 
 /// Access + proof-of-life + wallet_name preserved; only streaming_payments may
 /// change.
-/// Used by: PayStreamingPayment and CancelStreamingPayment. Their cadence-clock
+/// Used by: PayStreamingPayment, CancelStreamingPayment, and beneficiary stops.
+/// Their cadence-clock
 /// handling is enforced separately because that field sits outside this matrix.
 pub fn state_unchanged_except_streaming_payments(
   input: state_types.State,
   output: state_types.State,
 ) -> Bool {
-  state_preserved_except(input, output, [StreamingPayments])
+  state_preserved_except(
+    input,
+    output,
+    allow_users: False,
+    allow_beneficiaries: False,
+    allow_unlock_time: False,
+    allow_streaming_payments: True,
+  )
 }
 
 /// Output equals the input with exactly the entry at `index` removed from the
@@ -180,12 +232,26 @@ pub fn state_unchanged_except_access_index_removed(
 ) -> Bool {
   when target is {
     state_types.UserIndex(index) -> and {
-        state_preserved_except(input, output, [AccessUsers])?,
+        state_preserved_except(
+          input,
+          output,
+          allow_users: True,
+          allow_beneficiaries: False,
+          allow_unlock_time: False,
+          allow_streaming_payments: False,
+        )?,
         (output.access.users == remove_at(input.access.users, index))?,
         (list.length(output.access.users) == list.length(input.access.users) - 1)?,
       }
     state_types.BeneficiaryIndex(index) -> and {
-        state_preserved_except(input, output, [AccessBeneficiaries])?,
+        state_preserved_except(
+          input,
+          output,
+          allow_users: False,
+          allow_beneficiaries: True,
+          allow_unlock_time: False,
+          allow_streaming_payments: False,
+        )?,
         (output.access.beneficiaries == remove_at(
           input.access.beneficiaries,
           index,
@@ -200,7 +266,19 @@ pub fn state_unchanged_except_access_index_removed(
 /// Drop the element at `index` (0-based). An out-of-range or negative `index`
 /// returns the list unchanged, so callers MUST assert the length decreased.
 fn remove_at(items: List<a>, index: Int) -> List<a> {
-  list.concat(list.take(items, index), list.drop(items, index + 1))
+  if index < 0 {
+    items
+  } else {
+    when items is {
+      [] -> []
+      [head, ..tail] ->
+        if index == 0 {
+          tail
+        } else {
+          [head, ..remove_at(tail, index - 1)]
+        }
+    }
+  }
 }
 
 // ===========================================================================

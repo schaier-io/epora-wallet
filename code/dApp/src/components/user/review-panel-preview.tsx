@@ -10,6 +10,7 @@ import { ReviewCosts } from "@/components/user/review-panel-sections";
 import { buildPresignCostRows } from "@/lib/user-flow/presign-costs";
 import { cn } from "@/lib/utils/cn";
 import { shortenAddress } from "@/lib/utils/explorer";
+import { AddressCopyButton } from "@/components/ui/address-copy-button";
 // Pure constants module (no imports of its own), already imported client-side by
 // `workspace/helpers/formatters.ts`. Read directly rather than through the
 // internals barrel, which would pull server-only build code into the bundle.
@@ -101,6 +102,7 @@ export function ReviewTransactionPreview({
                 title={signerAddress}
               >
                 {shortenAddress(signerAddress)}
+                <AddressCopyButton value={signerAddress} className="mx-1 inline-flex align-middle" />
               </dd>
               <dd className="min-w-0 basis-full break-words text-xs leading-snug text-muted-foreground">
                 {i18n("signerDetail")}

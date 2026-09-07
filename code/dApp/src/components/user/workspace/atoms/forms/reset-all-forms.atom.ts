@@ -7,7 +7,6 @@ import { resetPublishFormAtom } from "@/components/user/workspace/atoms/forms/pu
 import { resetVoteFormAtom } from "@/components/user/workspace/atoms/forms/vote-form.atoms";
 import { resetConsolidateFormAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
 import { resetTransferFormAtom } from "@/components/user/workspace/atoms/forms/transfer-form.atoms";
-import { resetWalletSpendFormAtom } from "@/components/user/workspace/atoms/forms/wallet-spend-form.atoms";
 import { resetLockFundsFormAtom } from "@/components/user/workspace/atoms/forms/lock-funds-form.atoms";
 
 /**
@@ -23,6 +22,5 @@ export const resetAllFormsAtom = atom(null, (_get, set) => {
   set(resetVoteFormAtom);
   set(resetConsolidateFormAtom);
   set(resetTransferFormAtom);
-  set(resetWalletSpendFormAtom);
   set(resetLockFundsFormAtom);
 });

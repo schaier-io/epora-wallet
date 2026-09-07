@@ -101,6 +101,10 @@ Against live preprod, from `addr_test1qz7r704...ps72xr59` and the wallet
 `Smart wallet` (STT `67c11430...703d95ae`, State at `f8482092...#1`). Builds
 only: nothing was signed and nothing was submitted.
 
+**Current behavior update, 2026-09-05.** `Consolidate` now accepts one wallet
+input and can repartition exact aggregate wallet Value across multiple outputs.
+The quoted 2026-08-31 failures below record the earlier builder behavior.
+
 | Path | Result |
 | --- | --- |
 | `mint` | **Built.** fee 426433, 849 bytes |
@@ -116,7 +120,7 @@ only: nothing was signed and nothing was submitted.
 
 VERIFIED: no path answered `500`, and no caller mistake answered `502`.
 
-The five 400s are the request bodies, not the routes. Each one reached its
+At that revision, the five 400s were the request bodies, not the routes. Each one reached its
 builder and was rejected on chain state or payload semantics: the wallet holds a
 single UTxO so a consolidation has nothing to merge, and a valid wallet-spend
 redeemer, reward withdrawal, governance vote and certificate each need a
@@ -152,8 +156,8 @@ the two sweeps: `mint`, `lock-funds`, `stt-spend`, `set-stake-credential`,
 `deploy-reference`, `vote` and `publish`. `vote` and `publish` are new here, and
 they were the two the first sweep could not build.
 
-The remaining three need chain state that only a signed, submitted transaction
-can create: a second wallet UTxO to consolidate, a contract-valid wallet-spend
+At that revision, the remaining three needed chain state that only a signed,
+submitted transaction could create: a second wallet UTxO to consolidate, a contract-valid wallet-spend
 redeemer, and a registered stake credential with rewards. That is the
 [walkthrough](m3-walk-02-run.md)'s job.
 

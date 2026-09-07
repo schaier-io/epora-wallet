@@ -6,6 +6,7 @@ import {
   deriveStreamingPayoutCooldown,
   deriveStreamingPaymentRowStatus
 } from "./streaming-payment-status";
+import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
 
 const MINUTE_MS = 60_000;
 const NOW = 1_760_000_000_000;
@@ -51,6 +52,13 @@ test("the start-date boundary counts as active, not upcoming", () => {
 
 test("a payment inside its run is active", () => {
   assert.deepEqual(rowStatus(), { kind: "active" });
+});
+
+test("an exact uint64 start date stays exact in upcoming status", () => {
+  assert.deepEqual(
+    rowStatus({ startDateMs: MAX_ON_CHAIN_STATE_INTEGER }),
+    { kind: "upcoming", startDateMs: MAX_ON_CHAIN_STATE_INTEGER }
+  );
 });
 
 test("a zero end date (unset or malformed) reads as ended, never active", () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { ServerFetcher } from "@/lib/mesh/server-fetcher";
@@ -31,6 +31,8 @@ const ASSET_BADGE_STYLES: Record<AssetKind, string> = {
 const STORAGE_KEY = "smart-wallet:asset-icon-cache:v1";
 const STORAGE_NOT_FOUND = "__none__";
 const MAX_CACHE_ENTRIES = 200;
+const MAX_EMBEDDED_ICON_DATA_URI_LENGTH = 512 * 1024;
+const PNG_DATA_URI_PREFIX = "data:image/png;base64,";
 
 type AssetIconCacheEntry = {
   url: string | typeof STORAGE_NOT_FOUND;
@@ -40,6 +42,18 @@ type AssetIconCacheEntry = {
 const memoryCache = new Map<string, AssetIconCacheEntry>();
 const inflight = new Map<string, Promise<string | null>>();
 let storageHydrated = false;
+
+// The cache is an external store, so the components reading it subscribe rather than each
+// holding their own copy of the answer. A second badge for the same asset now updates with
+// the first, instead of waiting for its own lookup.
+const cacheListeners = new Set<() => void>();
+
+function subscribeToCache(listener: () => void) {
+  cacheListeners.add(listener);
+  return () => {
+    cacheListeners.delete(listener);
+  };
+}
 
 function readStorage(): Record<string, AssetIconCacheEntry> {
   if (typeof window === "undefined") return {};
@@ -96,6 +110,7 @@ function writeCache(unit: string, url: string | null) {
     fetchedAt: Date.now()
   });
   persist();
+  for (const listener of cacheListeners) listener();
 }
 
 function pickLogoFromMetadata(meta: unknown): string | null {
@@ -104,21 +119,25 @@ function pickLogoFromMetadata(meta: unknown): string | null {
 
   // Cardano Token Registry (CIP-26) returns logo as base64 PNG.
   if (typeof obj.logo === "string" && obj.logo.length > 0) {
-    const value = obj.logo.startsWith("data:") || obj.logo.startsWith("http")
-      ? obj.logo
-      : `data:image/png;base64,${obj.logo}`;
-    return value;
+    if (obj.logo.startsWith("data:image/")) return isSafeIconSource(obj.logo) ? obj.logo : null;
+    if (obj.logo.startsWith("data:") || obj.logo.startsWith("http")) return null;
+    if (obj.logo.length > MAX_EMBEDDED_ICON_DATA_URI_LENGTH - PNG_DATA_URI_PREFIX.length) return null;
+    return `${PNG_DATA_URI_PREFIX}${obj.logo}`;
   }
 
-  // CIP-25 NFT metadata often uses `image`. Can be ipfs://... or https://...
-  if (typeof obj.image === "string" && obj.image.length > 0) {
-    if (obj.image.startsWith("ipfs://")) {
-      return `https://ipfs.io/ipfs/${obj.image.slice("ipfs://".length)}`;
-    }
-    if (obj.image.startsWith("http")) return obj.image;
+  // Do not load remote CIP-25 images in the browser. A token issuer could use
+  // one as a tracking pixel that links a wallet view to the viewer's IP.
+  if (typeof obj.image === "string" && obj.image.startsWith("data:image/") && isSafeIconSource(obj.image)) {
+    return obj.image;
   }
 
   return null;
+}
+
+function isSafeIconSource(value: string): boolean {
+  const isLocalPath = value.startsWith("/") && !value.startsWith("//") && !value.includes("\\");
+  const isEmbeddedRaster = /^data:image\/(?:avif|gif|jpeg|png|webp);base64,/i.test(value);
+  return isLocalPath || (isEmbeddedRaster && value.length <= MAX_EMBEDDED_ICON_DATA_URI_LENGTH);
 }
 
 async function lookupAssetIcon(unit: string): Promise<string | null> {
@@ -136,7 +155,8 @@ async function lookupAssetIcon(unit: string): Promise<string | null> {
       writeCache(unit, url);
       return url;
     } catch {
-      writeCache(unit, null);
+      // A failed lookup (rate limit, dropped connection) is not "no logo"; caching
+      // it would hide the logo for the rest of the session.
       return null;
     } finally {
       inflight.delete(unit);
@@ -160,6 +180,20 @@ export function prefetchAssetIcons(units: string[]) {
 
 /** Hook returning a resolved icon URL for an asset, or null while unresolved. */
 function useAssetIconUrl(unit: string, knownMeta: KnownAssetMeta | null): string | null {
+  // `useSyncExternalStore`, not a plain call to `readCache`. The cache is hydrated from
+  // `sessionStorage`, which the server cannot see, and `readCache` hydrates it on first use.
+  // Reading it straight from the render body meant the first client render disagreed with
+  // the server HTML for any asset an earlier visit had cached: the server drew the Lucide
+  // fallback, the client drew the logo, and React throws the mismatched subtree away and
+  // rebuilds it. `getServerSnapshot` reports "nothing cached" for both the server render and
+  // the hydration render, and the store's own update paints the logo straight afterwards,
+  // with no second lookup.
+  const cachedUrl = useSyncExternalStore(
+    subscribeToCache,
+    () => readCache(unit),
+    () => undefined
+  );
+
   const cached = (() => {
     if (unit === "lovelace") {
       return { found: true, url: null };
@@ -169,39 +203,33 @@ function useAssetIconUrl(unit: string, knownMeta: KnownAssetMeta | null): string
       return { found: true, url: knownMeta.icon };
     }
 
-    const cachedUrl = readCache(unit);
     return cachedUrl === undefined
       ? { found: false, url: null }
       : { found: true, url: cachedUrl };
   })();
-  const [resolved, setResolved] = useState<{ unit: string; url: string | null } | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
-
     if (cached.found) {
       return;
     }
 
-    void lookupAssetIcon(unit).then((resolved) => {
-      if (!cancelled) setResolved({ unit, url: resolved });
-    });
-    return () => {
-      cancelled = true;
-    };
+    // No cancellation flag and no local copy of the answer: a successful lookup writes to
+    // the cache, and the subscription above delivers it to every badge showing that asset.
+    // A failed lookup writes nothing on purpose, so the fallback stays and the next mount
+    // tries again.
+    void lookupAssetIcon(unit);
   }, [cached.found, unit]);
 
-  if (cached.found) {
-    return cached.url;
-  }
-
-  return resolved?.unit === unit ? resolved.url : null;
+  return cached.url;
 }
 
 export function AssetIcon({ kind, unit, identity, Icon, className }: AssetIconProps) {
   const fallbackIdentity = useMemo(() => resolveAssetIdentity(unit), [unit]);
   const id = identity ?? fallbackIdentity;
-  const url = useAssetIconUrl(unit, id.knownMeta);
+  const resolvedUrl = useAssetIconUrl(unit, id.knownMeta);
+  const url = resolvedUrl && isSafeIconSource(resolvedUrl) ? resolvedUrl : null;
+  // A URL whose image failed to load; the Lucide fallback takes its place.
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
 
   const badge = cn(
     "inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border",
@@ -228,7 +256,7 @@ export function AssetIcon({ kind, unit, identity, Icon, className }: AssetIconPr
     );
   }
 
-  if (url) {
+  if (url && url !== failedUrl) {
     return (
       <span className={badge}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -237,11 +265,7 @@ export function AssetIcon({ kind, unit, identity, Icon, className }: AssetIconPr
           alt=""
           aria-hidden="true"
           className="h-full w-full object-cover"
-          onError={(event) => {
-            // If the URL fails to load, blank it so the Lucide fallback shows next render.
-            event.currentTarget.style.display = "none";
-            writeCache(unit, null);
-          }}
+          onError={() => setFailedUrl(url)}
         />
       </span>
     );

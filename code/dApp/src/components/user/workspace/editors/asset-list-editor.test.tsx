@@ -67,3 +67,18 @@ describe("an ADA amount row", () => {
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "Add Asset" }));
   });
 });
+
+it("keeps focus in an exhausted asset list when a row is removed", () => {
+  function Harness() {
+    const [value, setValue] = useState<Asset[]>([{ unit: "lovelace", quantity: "0" }]);
+    return <AssetListEditor label="Send" value={value} onChange={setValue}
+      availableAssets={[{ unit: "lovelace", quantity: "1000000" }]} />;
+  }
+  render(<Harness />);
+  expect(screen.getByRole("button", { name: "Add Asset" })).toBeDisabled();
+  const remove = screen.getByRole("button", { name: "Remove asset 1" });
+  remove.focus();
+  fireEvent.click(remove);
+  expect(document.activeElement).toBe(screen.getByRole("group", { name: "Send" }));
+  expect(screen.getByRole("button", { name: "Add Asset" })).not.toBeDisabled();
+});

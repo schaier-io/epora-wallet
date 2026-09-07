@@ -3,7 +3,6 @@ import { useTranslations } from "next-intl";
 
 
 import { Button } from "@/components/ui/button";
-import { MAX_ORPHAN_SWEEP_INPUTS } from "@/components/user/workspace/constants";
 import type { DiscoveredUtxo } from "@/lib/discovery/types";
 import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 
@@ -12,6 +11,7 @@ type OrphanUtxoNoticeProps = {
   orphanLovelace: bigint;
   busy?: boolean;
   onConsolidate: (orphans: DiscoveredUtxo[]) => void;
+  onRecover?: (orphans: DiscoveredUtxo[]) => void;
   onDismiss?: () => void;
   onRefresh?: () => void;
 };
@@ -19,12 +19,14 @@ type OrphanUtxoNoticeProps = {
 /// Surfaced when wallet funds are discovered at a stake credential other than
 /// the wallet's intended one (e.g. an inbound deposit to a "Franken" address, or
 /// a legacy UTxO left over from before the intended stake credential changed).
-/// Offers to move them back to the wallet's intended address via consolidation.
+/// Offers consolidation, plus direct withdrawal when the connected key is the
+/// repeatable final beneficiary.
 export function OrphanUtxoNotice({
   orphans,
   orphanLovelace,
   busy = false,
   onConsolidate,
+  onRecover,
   onDismiss,
   onRefresh
 }: OrphanUtxoNoticeProps) {
@@ -32,9 +34,6 @@ export function OrphanUtxoNotice({
   if (orphans.length === 0) {
     return null;
   }
-
-  const count = orphans.length;
-  const batched = count > MAX_ORPHAN_SWEEP_INPUTS;
 
   // The sidebar Card is `rounded-xl` (14px), so this panel steps down to `rounded-lg` (10px),
   // which is what the three panels rendered beside it already use.
@@ -60,20 +59,26 @@ export function OrphanUtxoNotice({
           })}
         </strong>
         <p className="text-amber-100/80">
-          {i18n("thisMoneyIsYoursAndItIsSafe")}
+          {onRecover
+            ? i18n("theFinalRecoveryContactCanWithdrawThisMoneyDirectly")
+            : i18n("thisMoneyIsYoursAndItIsSafe")}
         </p>
-        {batched ? (
-          <p className="text-amber-100/70">
-            {i18n("thisTakesTransactions", {
-              count: Math.ceil(count / MAX_ORPHAN_SWEEP_INPUTS)
-            })}
-          </p>
-        ) : null}
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2">
+        {onRecover ? (
+          <Button
+            type="button"
+            size="sm"
+            disabled={busy}
+            onClick={() => onRecover(orphans)}
+          >
+            {i18n("recoverFunds")}
+          </Button>
+        ) : null}
         <Button
           type="button"
           size="sm"
+          variant={onRecover ? "outline" : undefined}
           disabled={busy}
           onClick={() => onConsolidate(orphans)}
         >

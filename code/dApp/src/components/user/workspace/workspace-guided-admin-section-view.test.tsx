@@ -17,7 +17,7 @@ vi.mock("@/components/user/workspace/workspace-actions-context", () => ({
       }
     ],
     guidedAdminGroupBadgeText: { "manage-people": "1 owner" },
-    guidedAdminGroupStatusText: { "manage-people": "Ready" },
+    guidedAdminGroupStatusText: { "manage-people": "Configured" },
     activeAdminGroupId: mockState.activeAdminGroupId,
     openGuidedAdminGroup: vi.fn()
   })
@@ -34,6 +34,12 @@ const { GuidedAdminSectionView } = await import(
  * 11px uppercase eyebrow. Both are now the rung the column already used.
  */
 describe("guided admin section", () => {
+  it("labels a valid admin group as configured", () => {
+    render(<GuidedAdminSectionView />);
+
+    expect(screen.getByText("Configured")).toHaveClass("bg-secondary");
+  });
+
   it("puts the section label on the eyebrow rung", () => {
     render(<GuidedAdminSectionView />);
 

@@ -1,3 +1,7 @@
+import { parseWorkspaceRouteState } from "@/components/user/workspace-controller";
+import { routeStateAtom } from "./atoms/workspace-route.atoms";
+import { currentRecoveryCapacityFailureAtom } from "./atoms/recovery-capacity.atoms";
+import { sttWalletInputsAtom } from "./atoms/forms/stt-spend-form.atoms";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createStore } from "jotai";
@@ -8,6 +12,7 @@ import {
   type WorkspaceFlowHandlersCtx
 } from "./workspace-flow-handlers";
 import { OwnedMessageError } from "./helpers/build-errors";
+import { resetAllFlowAtom, resetFlowAtom, mintConfirmationRunAtom } from "./atoms/transaction-flow.atoms";
 
 // 64 hex chars: the ref shape a stale-inputs failure reports.
 const HASH = "cd".repeat(32);
@@ -53,7 +58,7 @@ test("stale fund-pool build failure arms the recovery flag and keeps the draft s
   const { withBuildGuard } = createWorkspaceFlowHandlers(ctx);
 
   const result = await withBuildGuard(
-    "wallet-spend",
+    "use",
     () => Promise.reject(new Error(`Unknown transaction input (missing from UTxO set): ${HASH}#0`)),
     { walletInputRefs: [{ txHash: HASH, outputIndex: 0 }] }
   );
@@ -77,7 +82,7 @@ test("a plain build failure does not arm the recovery affordance", async () => {
   const { ctx, calls } = makeCtx();
   const { withBuildGuard } = createWorkspaceFlowHandlers(ctx);
 
-  await withBuildGuard("wallet-spend", () => Promise.reject(new Error('{"boom":true}')));
+  await withBuildGuard("use", () => Promise.reject(new Error('{"boom":true}')));
 
   const errorWrites = calls.setBuildError ?? [];
   assert.equal(errorWrites.length, 2);
@@ -90,7 +95,7 @@ test("a declined signature stays calm and recovery-free, with the draft kept", a
   const { withBuildGuard } = createWorkspaceFlowHandlers(ctx);
 
   await withBuildGuard(
-    "wallet-spend",
+    "use",
     () => Promise.reject(new OwnedMessageError("User declined to sign tx"))
   );
 
@@ -123,11 +128,11 @@ test("an older overlapping build cannot overwrite the newer run's state", async 
   let settleOlder!: (settle: { ok: boolean; value?: unknown }) => void;
   let settleNewer!: (settle: { ok: boolean; value?: unknown }) => void;
   const older = withBuildGuard(
-    "wallet-spend",
+    "use",
     () => new Promise((resolve, reject) => settleOlder = (s) => s.ok ? resolve(s.value as BuildResult) : reject(s.value))
   );
   const newer = withBuildGuard(
-    "wallet-spend",
+    "use",
     () => new Promise((resolve, reject) => settleNewer = (s) => s.ok ? resolve(s.value as BuildResult) : reject(s.value))
   );
 
@@ -151,12 +156,35 @@ test("an older overlapping build cannot overwrite the newer run's state", async 
   assert.equal(calls.setActiveBuild?.length, 3);
 });
 
+test("an older overlapping build returns no preview after the newer run wins", async () => {
+  const { ctx } = makeCtx();
+  const { withBuildGuard } = createWorkspaceFlowHandlers(ctx);
+  const olderPreview = { txHex: "older" } as unknown as BuildResult;
+
+  let settleOlder!: (preview: BuildResult) => void;
+  let settleNewer!: (preview: BuildResult) => void;
+  const older = withBuildGuard(
+    "use",
+    () => new Promise((resolve) => { settleOlder = resolve; })
+  );
+  const newer = withBuildGuard(
+    "use",
+    () => new Promise((resolve) => { settleNewer = resolve; })
+  );
+
+  settleNewer(fakePreview);
+  assert.equal(await newer, fakePreview);
+  settleOlder(olderPreview);
+
+  assert.equal(await older, null);
+});
+
 test("a re-render during a pending build cannot let the older run overwrite newer state", async () => {
   const { ctx, calls } = makeCtx();
   const startPending = (factory: ReturnType<typeof createWorkspaceFlowHandlers>) => {
     let settle!: (s: { ok: boolean; value?: unknown }) => void;
     const pending = factory.withBuildGuard(
-      "wallet-spend",
+      "use",
       () => new Promise((resolve, reject) => settle = (s) => s.ok ? resolve(s.value as BuildResult) : reject(s.value))
     );
     return { pending, settle };
@@ -180,4 +208,129 @@ test("a re-render during a pending build cannot let the older run overwrite newe
   assert.deepEqual(calls.setPreview?.[0], [fakePreview]);
   assert.equal(calls.setPreview?.length, 1);
   assert.equal(calls.setActiveBuild?.length, 3);
+});
+
+test("an invalidated final mint scan settles as delayed", async () => {
+  const originalWindow = globalThis.window;
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: { setTimeout: (callback: () => void) => (callback(), 0) }
+  });
+  const { ctx, calls } = makeCtx({
+    refreshDetectedTokens: async () => null
+  });
+
+  try {
+    await createWorkspaceFlowHandlers(ctx).watchMintCreationConfirmation(HASH);
+  } finally {
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: originalWindow
+    });
+  }
+
+  const confirmations = calls.setMintConfirmation ?? [];
+  assert.equal(
+    (confirmations.at(-1)?.[0] as { phase?: string } | undefined)?.phase,
+    "delayed"
+  );
+});
+
+test("an invalidated scan cannot overwrite a newer mint confirmation run", async () => {
+  const originalWindow = globalThis.window;
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: { setTimeout: (callback: () => void) => (callback(), 0) }
+  });
+  const { ctx, calls } = makeCtx();
+  ctx.refreshDetectedTokens = async () => {
+    ctx.jotaiStore.set(
+      mintConfirmationRunAtom,
+      ctx.jotaiStore.get(mintConfirmationRunAtom) + 1
+    );
+    ctx.setMintConfirmation({
+      txHash: "new-run",
+      phase: "waiting",
+      attempts: 0,
+      maxAttempts: 12,
+      updatedAt: 1
+    });
+    return null;
+  };
+
+  try {
+    await createWorkspaceFlowHandlers(ctx).watchMintCreationConfirmation(HASH);
+  } finally {
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: originalWindow
+    });
+  }
+
+  const confirmations = calls.setMintConfirmation ?? [];
+  assert.equal(
+    (confirmations.at(-1)?.[0] as { txHash?: string } | undefined)?.txHash,
+    "new-run"
+  );
+});
+
+test("Exit capacity failure records fallback, while a later funding failure clears it", async () => {
+  const { ctx } = makeCtx();
+  ctx.jotaiStore.set(routeStateAtom, parseWorkspaceRouteState(new URLSearchParams("mode=existing-wallet&action=exit-beneficiary")));
+  const handlers = createWorkspaceFlowHandlers(ctx);
+  await handlers.withBuildGuard("exit-beneficiary", async () => { throw new Error("Serialized transaction uses 17000 bytes. The protocol limit is 16384."); });
+  assert.equal(ctx.jotaiStore.get(currentRecoveryCapacityFailureAtom)?.kind, "bytes");
+  await handlers.withBuildGuard("exit-beneficiary", async () => { throw new Error("Insufficient funds"); });
+  assert.equal(ctx.jotaiStore.get(currentRecoveryCapacityFailureAtom), null);
+});
+test("a capacity failure after an Exit input edit cannot offer fallback for the new draft", async () => {
+  const { ctx } = makeCtx();
+  ctx.jotaiStore.set(routeStateAtom, parseWorkspaceRouteState(new URLSearchParams("mode=existing-wallet&action=exit-beneficiary")));
+  await createWorkspaceFlowHandlers(ctx).withBuildGuard("exit-beneficiary", async () => {
+    ctx.jotaiStore.set(sttWalletInputsAtom, [{ txHash: "aa".repeat(32), outputIndex: 0 }]);
+    throw new Error("Serialized transaction uses 17000 bytes. The protocol limit is 16384.");
+  });
+  assert.equal(ctx.jotaiStore.get(currentRecoveryCapacityFailureAtom), null);
+});
+
+// A retired workspace must never receive a late build result or error.
+for (const reset of [resetFlowAtom, resetAllFlowAtom]) {
+  for (const outcome of ["success", "failure"] as const) {
+    test(`drops build ${outcome} after ${reset === resetFlowAtom ? "flow reset" : "unmount reset"}`, async () => {
+      const { ctx, calls } = makeCtx();
+      let settle!: () => void;
+      const pending = createWorkspaceFlowHandlers(ctx).withBuildGuard("mint", () =>
+        new Promise((resolve, reject) => {
+          settle = () => outcome === "success" ? resolve(fakePreview) : reject(new Error("late failure"));
+        })
+      );
+      ctx.jotaiStore.set(reset);
+      settle();
+      assert.equal(await pending, null);
+      assert.equal(calls.setPreview, undefined);
+      assert.deepEqual(calls.setBuildError, [[null]]);
+    });
+  }
+}
+
+test("drops a build after the selected wallet changes", async () => {
+  const { ctx, calls } = makeCtx();
+  ctx.jotaiStore.set(routeStateAtom, parseWorkspaceRouteState(new URLSearchParams("wallet=wallet-a")));
+  let resolve!: (value: BuildResult) => void;
+  const pending = createWorkspaceFlowHandlers(ctx).withBuildGuard("use", () => new Promise(done => { resolve = done; }));
+  ctx.jotaiStore.set(routeStateAtom, parseWorkspaceRouteState(new URLSearchParams("wallet=wallet-b")));
+  resolve(fakePreview);
+  assert.equal(await pending, null);
+  assert.equal(calls.setPreview, undefined);
+});
+
+test("builds in separate workspace stores do not invalidate each other", async () => {
+  const first = makeCtx();
+  const second = makeCtx();
+  let resolve!: (value: BuildResult) => void;
+  const pending = createWorkspaceFlowHandlers(first.ctx).withBuildGuard("use", () => new Promise(done => { resolve = done; }));
+  await createWorkspaceFlowHandlers(second.ctx).withBuildGuard("mint", async () => fakePreview);
+  resolve(fakePreview);
+  assert.equal(await pending, fakePreview);
+  assert.deepEqual(first.calls.setPreview, [[fakePreview]]);
 });

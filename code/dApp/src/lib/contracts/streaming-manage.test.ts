@@ -2,12 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  validateManagedStreamingPayments,
+  validateManagedStreamingPayments as validateManagedStreamingPaymentsForWallet,
   validateManagedStreamingPaymentsStatic
 } from "@/lib/contracts/streaming-manage";
+import type { OnChainInteger } from "@/lib/contracts/on-chain-integer";
 import type { ConstrData } from "@/lib/types/contracts";
 
 const NONE: ConstrData = { alternative: 1, fields: [] };
+const WALLET_SCRIPT_HASH = "ff".repeat(28);
+const STT_POLICY_ID = "dd".repeat(28);
 const PAYOUT_ADDRESS: ConstrData = {
   alternative: 0,
   fields: [
@@ -17,16 +20,17 @@ const PAYOUT_ADDRESS: ConstrData = {
 };
 
 function payment(
-  id: number,
-  paidOutAmount: number,
-  startDate: number,
-  endDate: number
+  id: OnChainInteger,
+  paidOutAmount: OnChainInteger,
+  startDate: OnChainInteger,
+  endDate: OnChainInteger,
+  payoutAddress: ConstrData = PAYOUT_ADDRESS
 ): ConstrData {
   return {
     alternative: 0,
     fields: [
       id,
-      PAYOUT_ADDRESS,
+      payoutAddress,
       paidOutAmount,
       "",
       "",
@@ -35,6 +39,33 @@ function payment(
       endDate
     ]
   };
+}
+
+function scriptAddress(
+  paymentScriptHash: string,
+  stakeOption: ConstrData = NONE
+): ConstrData {
+  return {
+    alternative: 0,
+    fields: [
+      { alternative: 1, fields: [paymentScriptHash] },
+      stakeOption
+    ]
+  };
+}
+
+function validateManagedStreamingPayments(
+  inputStateDatum: ConstrData,
+  outputStateDatum: ConstrData,
+  txLatestTimeMs: number
+): string[] {
+  return validateManagedStreamingPaymentsForWallet(
+    inputStateDatum,
+    outputStateDatum,
+    txLatestTimeMs,
+    WALLET_SCRIPT_HASH,
+    STT_POLICY_ID
+  );
 }
 
 function state(streamingPayments: ConstrData[]): ConstrData {
@@ -136,6 +167,28 @@ test("existing zero-duration stream may be preserved or extended", () => {
   );
 });
 
+test("equal streaming fields compare exactly across number and bigint representations", () => {
+  const inputPayment = payment(1, 0, 100, 1_000);
+  const outputPayment = payment(1n, 0n, 100n, 1_000n);
+  outputPayment.fields[5] = 1_000_000n;
+
+  assert.deepEqual(
+    validateManagedStreamingPaymentsStatic(
+      state([inputPayment]),
+      state([outputPayment])
+    ),
+    []
+  );
+  assert.deepEqual(
+    validateManagedStreamingPayments(
+      state([inputPayment]),
+      state([outputPayment]),
+      600
+    ),
+    []
+  );
+});
+
 test("fresh ids remain unpaid and positive-duration", () => {
   const input = state([]);
 
@@ -177,4 +230,132 @@ test("fresh ids remain unpaid and positive-duration", () => {
       /must start with zero already-paid amount/
     )
   );
+});
+
+test("fresh streams cannot use the wallet payment credential across stake variants", () => {
+  const input = state([]);
+  const stakeVariant: ConstrData = {
+    alternative: 0,
+    fields: [
+      {
+        alternative: 0,
+        fields: [{ alternative: 0, fields: ["11".repeat(28)] }]
+      }
+    ]
+  };
+
+  for (const payoutAddress of [
+    scriptAddress(WALLET_SCRIPT_HASH),
+    scriptAddress(WALLET_SCRIPT_HASH, stakeVariant)
+  ]) {
+    assert.ok(
+      hasError(
+        validateManagedStreamingPayments(
+          input,
+          state([payment(2, 0, 100, 101, payoutAddress)]),
+          50
+        ),
+        /cannot pay to this smart wallet/i
+      )
+    );
+  }
+});
+
+test("fresh streams cannot use the STT policy, but existing streams stay manageable", () => {
+  const matchingPolicy = payment(2, 0, 100, 101);
+  matchingPolicy.fields[3] = STT_POLICY_ID.toUpperCase();
+  const input = state([]);
+  const output = state([matchingPolicy]);
+
+  assert.ok(
+    hasError(
+      validateManagedStreamingPayments(input, output, 50),
+      /cannot use this wallet.*policy/i
+    )
+  );
+  assert.ok(
+    hasError(
+      validateManagedStreamingPaymentsStatic(input, output, STT_POLICY_ID),
+      /cannot use this wallet.*policy/i
+    )
+  );
+  assert.deepEqual(
+    validateManagedStreamingPayments(
+      state([matchingPolicy]),
+      state([matchingPolicy]),
+      50
+    ),
+    []
+  );
+});
+
+test("fresh key and unrelated script payout addresses remain valid", () => {
+  const input = state([]);
+
+  for (const payoutAddress of [
+    PAYOUT_ADDRESS,
+    scriptAddress("ee".repeat(28))
+  ]) {
+    assert.deepEqual(
+      validateManagedStreamingPayments(
+        input,
+        state([payment(2, 0, 100, 101, payoutAddress)]),
+        50
+      ),
+      []
+    );
+  }
+});
+
+test("an existing self-addressed stream remains manageable", () => {
+  const existing = payment(
+    1,
+    0,
+    100,
+    1_000,
+    scriptAddress(WALLET_SCRIPT_HASH)
+  );
+
+  assert.deepEqual(
+    validateManagedStreamingPayments(
+      state([existing]),
+      state([existing]),
+      600
+    ),
+    []
+  );
+});
+
+test("existing streams preserve every immutable contract field", () => {
+  const original = payment(1, 0, 100, 1_000);
+  const mutations: Array<{ field: string; index: number; value: ConstrData["fields"][number] }> = [
+    {
+      field: "payout address",
+      index: 1,
+      value: {
+        alternative: 0,
+        fields: [{ alternative: 0, fields: ["bb".repeat(28)] }, NONE]
+      }
+    },
+    { field: "already-paid amount", index: 2, value: 1 },
+    { field: "policy id", index: 3, value: "aa".repeat(28) },
+    { field: "asset name", index: 4, value: "01" },
+    { field: "daily rate", index: 5, value: 2_000_000 },
+    { field: "start date", index: 6, value: 101 }
+  ];
+
+  mutations.forEach(({ field, index, value }) => {
+    const fields = [...original.fields];
+    fields[index] = value;
+    const output = state([{ ...original, fields }]);
+
+    assert.ok(
+      hasError(validateManagedStreamingPaymentsStatic(state([original]), output), new RegExp(field)),
+      `${field} mutation must fail static validation`
+    );
+    assert.ok(
+      hasError(validateManagedStreamingPayments(state([original]), output, 600), new RegExp(field)),
+      `${field} mutation must fail builder validation`
+    );
+  });
 });

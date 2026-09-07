@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProposalListItemDto } from "@/lib/proposals/types";
 
@@ -41,7 +41,10 @@ vi.mock("./use-proposals", () => ({
   }
 }));
 vi.mock("@/lib/proposals/client", () => ({ fetchProposal: client.fetch }));
-vi.mock("@/lib/proposals/verify", () => ({ verifyProposal: verify.proposal }));
+vi.mock("@/lib/proposals/verify", () => ({
+  MAX_BACKGROUND_PROPOSAL_INPUT_LOOKUPS: 8,
+  verifyProposal: verify.proposal
+}));
 vi.mock("./sign-in-gate", () => ({ SignInGate: () => <p>sign in gate</p> }));
 vi.mock("./proposal-detail", () => ({ ProposalDetail: () => <p>detail</p> }));
 vi.mock("./create-proposal-panel", () => ({ CreateProposalPanel: () => <p>create</p> }));
@@ -51,7 +54,10 @@ vi.mock("./proposal-list", () => ({
   )
 }));
 
-import { ProposalsWorkspace } from "./proposals-workspace";
+import {
+  BACKGROUND_PROPOSAL_VERIFICATION_TIMEOUT_MS,
+  ProposalsWorkspace
+} from "./proposals-workspace";
 
 function openProposal(id: string): ProposalListItemDto {
   return {
@@ -124,6 +130,84 @@ describe("the background validity pass", () => {
     expect(seeded.p19?.validity).toBe("checking");
     expect(seeded.p20?.validity).toBe("unknown");
   });
+
+  it("verifies a full page serially", async () => {
+    list.proposals = Array.from({ length: 20 }, (_, index) => openProposal(`p${index}`));
+    client.fetch.mockReturnValue(new Promise(() => undefined));
+
+    render(<ProposalsWorkspace />);
+
+    await waitFor(() => expect(client.fetch).toHaveBeenCalledTimes(1));
+    expect(client.fetch).toHaveBeenCalledWith("p0");
+  });
+
+  it("uses the background input budget", async () => {
+    list.proposals = [openProposal("p0")];
+    client.fetch.mockResolvedValue({ id: "p0" });
+    verify.proposal.mockResolvedValue({ validity: "valid", signers: null });
+
+    render(<ProposalsWorkspace />);
+
+    await waitFor(() =>
+      expect(verify.proposal).toHaveBeenCalledWith(
+        { id: "p0" },
+        { maxInputLookups: 8 }
+      )
+    );
+  });
+
+  it("stops the serial queue and clears checking rows after one item stalls", async () => {
+    vi.useFakeTimers();
+    try {
+      list.proposals = [openProposal("p0"), openProposal("p1"), openProposal("p2")];
+      client.fetch.mockReturnValue(new Promise(() => undefined));
+
+      render(<ProposalsWorkspace />);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(BACKGROUND_PROPOSAL_VERIFICATION_TIMEOUT_MS);
+      });
+
+      const settled = JSON.parse(screen.getByTestId("report").textContent ?? "{}") as Record<
+        string,
+        { validity: string }
+      >;
+      expect(settled.p0?.validity).toBe("unknown");
+      expect(settled.p1?.validity).toBe("unknown");
+      expect(settled.p2?.validity).toBe("unknown");
+      expect(client.fetch).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("queues the newest proposal list without stacking verification work", async () => {
+    let release!: (value: { id: string }) => void;
+    const pending = new Promise<{ id: string }>((resolve) => {
+      release = resolve;
+    });
+    list.proposals = [openProposal("p0")];
+    client.fetch.mockImplementation((id: string) =>
+      id === "p0" ? pending : Promise.resolve({ id })
+    );
+    verify.proposal.mockResolvedValue({ validity: "valid", signers: null });
+
+    const rendered = render(<ProposalsWorkspace />);
+    await waitFor(() => expect(client.fetch).toHaveBeenCalledTimes(1));
+
+    list.proposals = [openProposal("p1")];
+    rendered.rerender(<ProposalsWorkspace />);
+
+    await waitFor(async () => expect((await report()).p1?.validity).toBe("unknown"));
+    expect(client.fetch).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      release({ id: "p0" });
+      await pending;
+    });
+
+    await waitFor(() => expect(client.fetch).toHaveBeenCalledTimes(2));
+    expect(client.fetch).toHaveBeenLastCalledWith("p1");
+    await waitFor(async () => expect((await report()).p1?.validity).toBe("valid"));
+  });
 });
 
 describe("the proposals shell", () => {
@@ -156,5 +240,17 @@ describe("the proposals shell", () => {
     // something a user can recognize in their wallet or paste into an explorer.
     expect(screen.getByText(/^addr_test1/).className).toContain("font-mono");
     expect(screen.queryByText(/^cccccccccc/)).toBeNull();
+  });
+
+  it("announces a sign-out failure without hiding the signed-in workspace", () => {
+    session.value = {
+      ...session.value,
+      error: "Could not sign out. Try again."
+    };
+    render(<ProposalsWorkspace />);
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Could not sign out. Try again.");
+    expect(screen.getByRole("heading", { name: "Approval requests" })).toBeInTheDocument();
+    expect(screen.queryByText("sign in gate")).not.toBeInTheDocument();
   });
 });

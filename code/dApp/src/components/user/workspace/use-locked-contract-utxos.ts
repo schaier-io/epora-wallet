@@ -2,8 +2,9 @@
 import { useTranslations } from "next-intl";
 
 
-import { useCallback, useRef } from "react";
-import { useSetAtom } from "jotai";
+import { useCallback, useEffect, useRef } from "react";
+import { workspaceSessionAtom } from "./atoms/transaction-flow.atoms";
+import { useSetAtom, useStore } from "jotai";
 import { fetchScriptUtxos } from "@/components/user/workspace/helpers";
 import {
   lockedContractUtxosAtom,
@@ -20,14 +21,17 @@ import {
  * (address switches, rapid manual refreshes) unable to overwrite a newer result.
  */
 export function useLockedContractUtxos() {
+  const store = useStore();
   const i18n = useTranslations("ComponentsUserWorkspaceUseLockedContractUtxos");
   const setLockedContractUtxos = useSetAtom(lockedContractUtxosAtom);
   const setLockedContractUtxosLoading = useSetAtom(lockedContractUtxosLoadingAtom);
   const setLockedContractUtxosError = useSetAtom(lockedContractUtxosErrorAtom);
   const requestIdRef = useRef(0);
+  useEffect(() => () => { requestIdRef.current += 1; }, []);
 
   const refreshLockedContractUtxos = useCallback(
     async (lockingContractAddress: string | null) => {
+      const session = store.get(workspaceSessionAtom);
       const requestId = requestIdRef.current + 1;
       requestIdRef.current = requestId;
 
@@ -43,25 +47,23 @@ export function useLockedContractUtxos() {
 
       try {
         const utxos = await fetchScriptUtxos(lockingContractAddress);
-        if (requestIdRef.current !== requestId) {
+        if (requestIdRef.current !== requestId || store.get(workspaceSessionAtom) !== session) {
           return;
         }
         setLockedContractUtxos(utxos);
-      } catch (error) {
-        if (requestIdRef.current !== requestId) {
+      } catch {
+        if (requestIdRef.current !== requestId || store.get(workspaceSessionAtom) !== session) {
           return;
         }
         setLockedContractUtxos([]);
-        setLockedContractUtxosError(
-          error instanceof Error ? error.message : i18n("couldNotLoadThisWalletSFunds")
-        );
+        setLockedContractUtxosError(i18n("couldNotLoadThisWalletSFunds"));
       } finally {
         if (requestIdRef.current === requestId) {
           setLockedContractUtxosLoading(false);
         }
       }
     },
-    [setLockedContractUtxos, setLockedContractUtxosLoading, setLockedContractUtxosError, i18n]
+    [store, setLockedContractUtxos, setLockedContractUtxosLoading, setLockedContractUtxosError, i18n]
   );
 
   return { refreshLockedContractUtxos };

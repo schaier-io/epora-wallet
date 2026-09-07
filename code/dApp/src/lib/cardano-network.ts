@@ -7,6 +7,10 @@ export type CardanoNetwork = "preprod" | "preview" | "mainnet";
 
 export const CARDANO_NETWORK: CardanoNetwork = "preprod";
 
+export function cardanoNetworkId(network: CardanoNetwork = CARDANO_NETWORK): 0 | 1 {
+  return network === "mainnet" ? 1 : 0;
+}
+
 const CARDANOSCAN_HOSTS: Record<CardanoNetwork, string> = {
   preprod: "https://preprod.cardanoscan.io",
   preview: "https://preview.cardanoscan.io",

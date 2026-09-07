@@ -20,6 +20,7 @@ import {
   normalizeBlockTimeMs
 } from "./formatters";
 import { POLICY_ID_LENGTH } from "@/lib/cardano-assets";
+import { defaultLocale, defaultTimeZone } from "@/i18n/config";
 import { type Asset } from "@/lib/types/contracts";
 
 const POLICY = "f".repeat(POLICY_ID_LENGTH);
@@ -85,11 +86,11 @@ test("formatInputRefLabel and formatCompactHash format references and hashes", (
   assert.equal(formatCompactHash("short"), "short");
 });
 
-test("formatCountLabel handles singular, plural, and custom plurals", () => {
+test("formatCountLabel handles singular, plural, and irregular plurals", () => {
   assert.equal(formatCountLabel(1, "input"), "1 input");
   assert.equal(formatCountLabel(0, "input"), "0 inputs");
   assert.equal(formatCountLabel(3, "input"), "3 inputs");
-  assert.equal(formatCountLabel(2, "entry", "entries"), "2 entries");
+  assert.equal(formatCountLabel(2, "entry"), "2 entries");
 });
 
 test("normalizeBlockTimeMs scales seconds to ms, passes ms through, rejects invalid", () => {
@@ -101,16 +102,16 @@ test("normalizeBlockTimeMs scales seconds to ms, passes ms through, rejects inva
 });
 
 test("formatWalletTransactionTime names the localized date with its timezone", () => {
-  // 2023-11-14T22:13:20Z (seconds input, gets scaled to ms). The formatter runs on
-  // the runtime locale and zone, so the expectation is built from the same Intl
-  // configuration: the label must match it exactly, timezone name included.
-  const expected = new Intl.DateTimeFormat(undefined, {
+  // 2023-11-14T22:13:20Z (seconds input, gets scaled to ms). The app timezone must
+  // win over the machine timezone so server and browser labels stay identical.
+  const expected = new Intl.DateTimeFormat(defaultLocale, {
     year: "numeric",
     month: "short",
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
-    timeZoneName: "short"
+    timeZoneName: "short",
+    timeZone: defaultTimeZone
   }).format(1_700_000_000_000);
   assert.equal(formatWalletTransactionTime(1_700_000_000), expected);
   assert.equal(formatWalletTransactionTime(undefined), null);
@@ -206,7 +207,7 @@ test("formatDurationMillisLabel names the largest whole unit", () => {
   assert.equal(formatDurationMillisLabel(60 * 1000), "1 minute");
   // No whole unit divides 90 seconds, so it falls back to the stored unit rather
   // than rounding a number the reader would then be unable to reproduce.
-  assert.equal(formatDurationMillisLabel(90_000), "90000 milliseconds");
+  assert.equal(formatDurationMillisLabel(90_000), "90,000 milliseconds");
 });
 
 test("formatDurationMillisLabel keeps an unreadable duration honest", () => {

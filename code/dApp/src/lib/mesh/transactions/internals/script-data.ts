@@ -1,6 +1,7 @@
 import { CARDANO_MAX_TX_SIZE_BYTES } from "./constants";
 import { collectErrorText } from "./errors";
 import { isRecord } from "./guards";
+import { defaultFormatter } from "@/i18n/default-translator";
 import { type TxFetcher } from "@/lib/mesh/tx-context";
 import { CborWriter, CostModel, Costmdls, Hash32ByteBase16, deserializeTx } from "@/lib/mesh/cst";
 import { blake2b } from "ethereum-cryptography/blake2b";
@@ -297,6 +298,5 @@ export function plutusScriptSizeBytes(script: { code: string }) {
 
 
 export function formatByteCount(value: number) {
-  return new Intl.NumberFormat().format(value);
+  return defaultFormatter.number(value, "integer");
 }
-

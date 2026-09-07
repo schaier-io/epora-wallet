@@ -1,5 +1,6 @@
 import type { Prisma, PrismaClient } from "@/generated/prisma";
 import type { TransactionInfo } from "@meshsdk/common";
+import { serializeJsonSafe } from "@/lib/proposals/serialization";
 import {
   buildWalletIdentity,
   classifySttWalletTransition,
@@ -34,7 +35,7 @@ export type IndexedTransactionInfo = Omit<TransactionInfo, "blockHeight" | "bloc
 };
 
 export function stringifyJson(value: unknown) {
-  return JSON.stringify(value);
+  return serializeJsonSafe(value);
 }
 
 function parseJsonRecord(value: string | null | undefined) {
@@ -92,7 +93,7 @@ export async function writeSyncCursor(
   payload: {
     cursorValue: string | null;
     state?: Record<string, unknown> | null;
-    lastSyncedAt: Date;
+    lastSyncedAt: Date | null;
   }
 ) {
   await db.sttSyncCursor.upsert({
@@ -214,8 +215,10 @@ async function upsertChainTransaction(
     update: {
       slot: transaction.slot,
       block: transaction.block,
-      blockHeight: transaction.blockHeight,
-      blockTime: transaction.blockTime,
+      // Mesh's fetchTxInfo carries no block height or time; only a page entry
+      // does. A reconcile pass must not blank what the head sync recorded.
+      blockHeight: transaction.blockHeight ?? undefined,
+      blockTime: transaction.blockTime ?? undefined,
       fees: transaction.fees,
       size: transaction.size,
       deposit: transaction.deposit,
@@ -311,8 +314,8 @@ export async function persistTransactionInfo(
       update: {
         transitionKind,
         txIndex: transaction.index,
-        blockHeight: transaction.blockHeight,
-        blockTime: transaction.blockTime,
+        blockHeight: transaction.blockHeight ?? undefined,
+        blockTime: transaction.blockTime ?? undefined,
         slot: transaction.slot
       }
     });

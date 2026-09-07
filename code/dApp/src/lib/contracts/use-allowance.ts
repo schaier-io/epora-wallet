@@ -22,8 +22,12 @@ import type {
   PayoutTransfer,
   WalletScriptOutput
 } from "@/lib/types/contracts";
+import {
+  assertNonNegativeUint64,
+  type OnChainInteger
+} from "@/lib/contracts/on-chain-integer";
 
-const ALLOWANCE_DAY_MS = 86_400_000;
+const ALLOWANCE_DAY_MS = 86_400_000n;
 
 type ParsedAllowanceAsset = {
   policyId: string;
@@ -32,11 +36,11 @@ type ParsedAllowanceAsset = {
 };
 
 type ParsedUser = {
-  id: number;
+  id: OnChainInteger;
   userWallets: string[];
   perDayAllowance: ParsedAllowanceAsset[];
   remainingAllowance: ParsedAllowanceAsset[];
-  nextAllowanceReset: number;
+  nextAllowanceReset: OnChainInteger;
   canRenewProofOfLife: boolean;
   isAdmin: boolean;
   raw: ConstrData;
@@ -44,8 +48,8 @@ type ParsedUser = {
 
 type ParsedState = {
   users: ParsedUser[];
-  proofOfLifeUnlockTime: number | null;
-  proofOfLifeIncrement: number | null;
+  proofOfLifeUnlockTime: OnChainInteger | null;
+  proofOfLifeIncrement: OnChainInteger | null;
   accessRaw: ConstrData;
   proofOfLifeRaw: ConstrData;
   raw: ConstrData;
@@ -56,16 +60,22 @@ type MatchedUserCandidate = {
   matchedUser: ParsedUser;
   matchedUserIndex: number;
   effectiveRemainingAllowance: ParsedAllowanceAsset[];
-  nextAllowanceReset: number;
+  nextAllowanceReset: OnChainInteger;
 };
 
+// Thrown for rule outcomes a spender can act on (no matching allowance, limit
+// exhausted, …). Their messages are written as user-facing copy, so previews
+// surface them verbatim instead of a generic "could not work out" fallback.
+// Structural failures (a datum that does not parse) stay plain Errors.
+export class AllowanceDerivationError extends Error {}
+
 export type AllowanceWithdrawalTarget = {
-  matchedUserId: number;
+  matchedUserId: OnChainInteger;
   matchedUserIndex: number;
   matchedUserWallets: string[];
   effectiveRemainingAllowance: Asset[];
   currentRemainingAllowance: Asset[];
-  nextAllowanceReset: number;
+  nextAllowanceReset: OnChainInteger;
 };
 
 export type AllowanceWithdrawalComputation = AllowanceWithdrawalTarget & {
@@ -116,10 +126,7 @@ function parseUser(value: Data, label: string): ParsedUser {
       remainingAllowance,
       `${label}.remaining_allowance`
     ),
-    nextAllowanceReset: readInteger(
-      nextAllowanceReset,
-      `${label}.next_allowance_reset`
-    ),
+    nextAllowanceReset: readInteger(nextAllowanceReset, `${label}.next_allowance_reset`),
     canRenewProofOfLife: readBoolean(
       canRenewProofOfLife,
       `${label}.can_renew_proof_of_life`
@@ -153,14 +160,20 @@ function assetKey(policyId: string, assetName: string) {
   return `${policyId}.${assetName}`;
 }
 
+function toDataInteger(value: bigint): number | bigint {
+  assertNonNegativeUint64(value, "Derived state integer");
+  const asNumber = Number(value);
+  return Number.isSafeInteger(asNumber) ? asNumber : value;
+}
+
 function normalizeAllowance(
   allowance: ParsedAllowanceAsset[],
   txEarliestTimeMs: number,
   txLatestTimeMs: number,
-  nextAllowanceReset: number,
+  nextAllowanceReset: OnChainInteger,
   perDayAllowance: ParsedAllowanceAsset[]
 ) {
-  const minimumNextAllowanceReset = txLatestTimeMs + ALLOWANCE_DAY_MS;
+  const minimumNextAllowanceReset = BigInt(txLatestTimeMs) + ALLOWANCE_DAY_MS;
 
   return {
     // The reset DECISION mirrors the on-chain rule
@@ -173,14 +186,14 @@ function normalizeAllowance(
     // transaction. This is the off-chain half of the security fix pinned by
     // `attack_allowance_reset_cannot_anchor_to_stale_lower_bound`.
     effectiveRemainingAllowance:
-      nextAllowanceReset <= txEarliestTimeMs ? perDayAllowance : allowance,
+      BigInt(nextAllowanceReset) <= BigInt(txEarliestTimeMs) ? perDayAllowance : allowance,
     // The reset REBASE still uses the upper bound, matching
     // `next_allowance_reset_after_use`: the new deadline must clear the latest
     // slot this tx can land in by one full period.
     nextAllowanceReset:
-      nextAllowanceReset > minimumNextAllowanceReset
+      BigInt(nextAllowanceReset) > minimumNextAllowanceReset
         ? nextAllowanceReset
-        : minimumNextAllowanceReset
+        : toDataInteger(minimumNextAllowanceReset)
   };
 }
 
@@ -230,7 +243,7 @@ function ensureRequestedAssetsFitWithinInputs(
   for (const [unit, quantity] of requestedByUnit.entries()) {
     const available = availableByUnit.get(unit) ?? 0n;
     if (quantity > available) {
-      throw new Error(
+      throw new AllowanceDerivationError(
         `Requested locked-fund usage for ${unit} exceeds the selected wallet inputs.`
       );
     }
@@ -287,7 +300,9 @@ function findMatchedUsers(
 ): MatchedUserCandidate[] {
   const normalizedSigner = allowanceSignerKeyHash.trim();
   if (!normalizedSigner) {
-    throw new Error("Connected payment key hash is required for Allowance Withdrawal.");
+    throw new AllowanceDerivationError(
+      "Connected payment key hash is required for Allowance Withdrawal."
+    );
   }
 
   const parsedState = parseState(stateDatum);
@@ -321,13 +336,13 @@ function selectMatchedUser(
   );
 
   if (viableMatches.length === 0) {
-    throw new Error(
+    throw new AllowanceDerivationError(
       "The connected payment key hash does not match any spender with enough remaining allowance for the requested transfer."
     );
   }
 
   if (viableMatches.length > 1) {
-    throw new Error(
+    throw new AllowanceDerivationError(
       "The connected payment key hash can satisfy multiple user records for this allowance spend. Narrow the transfer amount or use a non-shared signer."
     );
   }
@@ -355,7 +370,9 @@ export function deriveAllowanceWithdrawalStateDatum(input: {
   );
 
   if (spentAllowance.length === 0) {
-    throw new Error("Allowance Withdrawal requires at least one positive forwarded transfer.");
+    throw new AllowanceDerivationError(
+    "Allowance Withdrawal requires at least one positive forwarded transfer."
+  );
   }
 
   const matches = findMatchedUsers(
@@ -379,7 +396,7 @@ export function deriveAllowanceWithdrawalStateDatum(input: {
     const spent = spentByKey.get(key) ?? 0n;
 
     if (spent > asset.amount) {
-      throw new Error(
+      throw new AllowanceDerivationError(
         `Allowance Withdrawal exceeds the available remaining allowance for ${partsToUnit(asset.policyId, asset.assetName)}.`
       );
     }
@@ -393,7 +410,7 @@ export function deriveAllowanceWithdrawalStateDatum(input: {
 
   if (spentByKey.size > 0) {
     const [unexpectedKey] = spentByKey.keys();
-    throw new Error(
+    throw new AllowanceDerivationError(
       `Allowance Withdrawal cannot spend assets outside the matched user's allowance (${unexpectedKey}).`
     );
   }
@@ -417,6 +434,7 @@ export function deriveAllowanceWithdrawalStateDatum(input: {
   const nextProofOfLifeUnlockTime = nextProofOfLifeUnlockTimeForUser(
     parsedState,
     matchedUser,
+    input.txEarliestTimeMs,
     input.txLatestTimeMs
   );
   nextProofOfLifeFields[0] =
@@ -460,9 +478,10 @@ export function deriveAllowanceWithdrawalStateDatum(input: {
   };
 }
 
-function nextProofOfLifeUnlockTimeForUser(
-  parsedState: ParsedState,
-  matchedUser: ParsedUser,
+export function nextProofOfLifeUnlockTimeForUser(
+  parsedState: Pick<ParsedState, "proofOfLifeUnlockTime" | "proofOfLifeIncrement">,
+  matchedUser: Pick<ParsedUser, "canRenewProofOfLife" | "isAdmin">,
+  txEarliestTimeMs: number,
   txLatestTimeMs: number
 ) {
   if (!matchedUser.canRenewProofOfLife || matchedUser.isAdmin) {
@@ -473,10 +492,20 @@ function nextProofOfLifeUnlockTimeForUser(
     return parsedState.proofOfLifeUnlockTime;
   }
 
-  const renewedUnlockTime = txLatestTimeMs + parsedState.proofOfLifeIncrement;
-  if (parsedState.proofOfLifeUnlockTime !== null && parsedState.proofOfLifeUnlockTime > renewedUnlockTime) {
+  // The validator caps a renewal at tx_earliest_time + increment and requires it
+  // to sit at or after tx_latest_time (proof_of_life.ak expect_valid_renewal_window).
+  const renewedUnlockTime = BigInt(txEarliestTimeMs) + BigInt(parsedState.proofOfLifeIncrement);
+  if (renewedUnlockTime < BigInt(txLatestTimeMs)) {
+    // No stamp inside [tx_latest, tx_earliest + increment] exists for this tx;
+    // renewing is impossible, and leaving the stamp unchanged is legal.
+    return parsedState.proofOfLifeUnlockTime;
+  }
+  if (
+    parsedState.proofOfLifeUnlockTime !== null &&
+    BigInt(parsedState.proofOfLifeUnlockTime) > renewedUnlockTime
+  ) {
     return parsedState.proofOfLifeUnlockTime;
   }
 
-  return renewedUnlockTime;
+  return toDataInteger(renewedUnlockTime);
 }

@@ -1,8 +1,8 @@
 "use client";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 
 
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { Coins, Download, Gem, Sparkles, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InfoHint } from "@/components/ui/info-hint";
@@ -29,11 +29,11 @@ function classifyAssetKind(
   return "token";
 }
 
-function getAssetKindLabel(kind: AssetKind): string {
-  if (kind === "ada") return "Native";
-  if (kind === "stable") return "Stablecoin";
-  if (kind === "nft") return "NFT";
-  return "Token";
+function getAssetKindMessageKey(kind: AssetKind) {
+  if (kind === "ada") return "native" as const;
+  if (kind === "stable") return "stablecoin" as const;
+  if (kind === "nft") return "nft" as const;
+  return "token" as const;
 }
 
 function getAssetIcon(kind: AssetKind): LucideIcon {
@@ -43,12 +43,15 @@ function getAssetIcon(kind: AssetKind): LucideIcon {
   return Coins;
 }
 
-function formatAssetQuantityDisplay(asset: { unit: string; quantity: string }): string {
+function formatAssetQuantityDisplay(
+  asset: { unit: string; quantity: string },
+  formatInteger: (value: bigint) => string
+): string {
   if (asset.unit === "lovelace") {
     return formatLovelaceAsAda(asset.quantity);
   }
   try {
-    return new Intl.NumberFormat("en-US").format(BigInt(asset.quantity));
+    return formatInteger(BigInt(asset.quantity));
   } catch {
     return asset.quantity;
   }
@@ -59,11 +62,14 @@ function formatAssetQuantityDisplay(asset: { unit: string; quantity: string }): 
  * ("5000000") is machine-speak, so lovelace is named alongside the ADA it converts to, and
  * another token gets the name the row already prints plus its full on-chain unit.
  */
-function assetQuantityTooltip(asset: { unit: string; quantity: string }): string {
+function assetQuantityTooltip(
+  asset: { unit: string; quantity: string },
+  formatInteger: (value: bigint) => string
+): string {
   if (asset.unit === "lovelace") {
-    return `${formatAssetQuantityDisplay(asset)} ₳ · ${asset.quantity} lovelace`;
+    return `${formatAssetQuantityDisplay(asset, formatInteger)} ₳ · ${asset.quantity} lovelace`;
   }
-  return `${formatAssetQuantityDisplay(asset)} ${resolveAssetIdentity(asset.unit).symbol} · ${asset.unit}`;
+  return `${formatAssetQuantityDisplay(asset, formatInteger)} ${resolveAssetIdentity(asset.unit).symbol} · ${asset.unit}`;
 }
 
 /**
@@ -82,6 +88,7 @@ function MicroSparkline({
   height?: number;
   ariaLabel?: string;
 }) {
+  const sparklineId = useId().replace(/:/g, "");
   if (values.length < 2) return null;
   const min = Math.min(...values);
   const max = Math.max(...values);
@@ -117,7 +124,7 @@ function MicroSparkline({
         ? "hsl(0 72% 65%)"
         : "var(--muted-foreground)";
   const fillOpacity = trend === "flat" ? 0.06 : 0.18;
-  const gradientId = `spark-fill-${trend}`;
+  const gradientId = `spark-fill-${trend}-${sparklineId}`;
   return (
     <svg
       width={width}
@@ -178,7 +185,8 @@ export function LockedAssetsOverviewPanel({
   emptyCta
 }: LockedAssetsOverviewPanelProps) {
   const i18n = useTranslations("ComponentsUserLockedAssetsPanel");
-  const [assetPageIndex, setAssetPageIndex] = useState(0);
+  const format = useFormatter();
+  const formatInteger = (value: bigint) => format.number(value, "integer");
 
   const sortedAssets = useMemo(
     () =>
@@ -189,6 +197,10 @@ export function LockedAssetsOverviewPanel({
       }),
     [assets]
   );
+  const assetSetKey = sortedAssets.map((asset) => asset.unit).join("|");
+  const [assetPage, setAssetPage] = useState({ key: assetSetKey, index: 0 });
+  if (assetPage.key !== assetSetKey) setAssetPage({ key: assetSetKey, index: 0 });
+  const assetPageIndex = assetPage.key === assetSetKey ? assetPage.index : 0;
   const assetPageSize = Math.max(1, listPreviewLimit);
   const assetPageCount = Math.max(1, Math.ceil(sortedAssets.length / assetPageSize));
   const normalizedAssetPageIndex = Math.min(assetPageIndex, assetPageCount - 1);
@@ -226,7 +238,7 @@ export function LockedAssetsOverviewPanel({
         {utxoCount > 1 ? (
           <span className="flex shrink-0 items-center gap-2 self-start">
             <span className="rounded-full border border-border/50 bg-background/60 px-2 py-1 text-xs uppercase tracking-[0.16em] text-muted-foreground">
-              {formatCountLabel(utxoCount, "fund pool")}
+              {formatCountLabel(utxoCount, "fundPool")}
             </span>
             <InfoHint label={i18n("whatAFundPoolIs")} contentClassName="max-w-xs">
               {FUND_POOLS_HINT}
@@ -277,7 +289,7 @@ export function LockedAssetsOverviewPanel({
                   size="sm"
                   variant="outline"
                   onClick={emptyCta.onClick}
-                  className="h-8 px-2 text-xs"
+                  className="px-2 text-xs"
                 >
                   <Download className="h-3 w-3" />
                   {emptyCta.label}
@@ -297,8 +309,8 @@ export function LockedAssetsOverviewPanel({
               const identity = resolveAssetIdentity(asset.unit);
               const kind = classifyAssetKind(asset, identity.knownMeta);
               const Icon = getAssetIcon(kind);
-              const kindLabel = getAssetKindLabel(kind);
-              const qty = formatAssetQuantityDisplay(asset);
+              const kindLabel = i18n(getAssetKindMessageKey(kind));
+              const qty = formatAssetQuantityDisplay(asset, formatInteger);
               const subtitle = identity.knownMeta?.name || kindLabel;
               const showSubtitle = kind !== "ada";
               const sparkValues = getSparkSeries?.(asset.unit) ?? null;
@@ -306,7 +318,7 @@ export function LockedAssetsOverviewPanel({
               const rowContent = (
                 <>
                   <AssetIcon kind={kind} unit={asset.unit} identity={identity} Icon={Icon} />
-                  <div className="min-w-0 flex-1 text-left">
+                  <div className="min-w-0 flex-1 basis-24 text-left">
                     <p
                       className="truncate text-sm font-medium text-foreground"
                       title={identity.symbol}
@@ -326,8 +338,8 @@ export function LockedAssetsOverviewPanel({
                     />
                   ) : null}
                   <p
-                    className="shrink-0 text-right text-sm font-semibold tabular-nums text-foreground"
-                    title={assetQuantityTooltip(asset)}
+                    className="ml-auto min-w-0 wrap-anywhere text-right text-sm font-semibold tabular-nums text-foreground"
+                    title={assetQuantityTooltip(asset, formatInteger)}
                   >
                     {qty}
                   </p>
@@ -343,15 +355,15 @@ export function LockedAssetsOverviewPanel({
                     <button
                       type="button"
                       onClick={() => onAssetClick(asset.unit)}
-                      title={assetQuantityTooltip(asset)}
-                      className="group flex w-full items-center gap-3 rounded-md border border-border/50 bg-background/45 px-3 py-2 text-left transition-[background-color,border-color,transform,box-shadow] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform hover:-translate-y-px hover:border-primary/40 hover:bg-background/65 hover:shadow-[0_8px_24px_-22px_hsl(var(--brand-teal)/0.6)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                      title={assetQuantityTooltip(asset, formatInteger)}
+                      className="group flex w-full flex-wrap items-center gap-3 rounded-md border border-border/50 bg-background/45 px-3 py-2 text-left transition-[background-color,border-color,transform,box-shadow] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform hover:-translate-y-px hover:border-primary/40 hover:bg-background/65 hover:shadow-[0_8px_24px_-22px_hsl(var(--brand-teal)/0.6)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                     >
                       {rowContent}
                     </button>
                   ) : (
                     <div
-                      className="flex items-center gap-3 rounded-md border border-border/50 bg-background/45 px-3 py-2"
-                      title={assetQuantityTooltip(asset)}
+                      className="flex flex-wrap items-center gap-3 rounded-md border border-border/50 bg-background/45 px-3 py-2"
+                      title={assetQuantityTooltip(asset, formatInteger)}
                     >
                       {rowContent}
                     </div>
@@ -374,8 +386,13 @@ export function LockedAssetsOverviewPanel({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
-                  onClick={() => setAssetPageIndex(Math.max(normalizedAssetPageIndex - 1, 0))}
+                  className="px-2 text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() =>
+                    setAssetPage({
+                      key: assetSetKey,
+                      index: Math.max(normalizedAssetPageIndex - 1, 0)
+                    })
+                  }
                   disabled={normalizedAssetPageIndex === 0}
                 >
                   {i18n("previous")}
@@ -384,9 +401,12 @@ export function LockedAssetsOverviewPanel({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+                  className="px-2 text-xs text-muted-foreground hover:text-foreground"
                   onClick={() =>
-                    setAssetPageIndex(Math.min(normalizedAssetPageIndex + 1, assetPageCount - 1))
+                    setAssetPage({
+                      key: assetSetKey,
+                      index: Math.min(normalizedAssetPageIndex + 1, assetPageCount - 1)
+                    })
                   }
                   disabled={normalizedAssetPageIndex >= assetPageCount - 1}
                 >
