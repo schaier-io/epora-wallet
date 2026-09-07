@@ -22,9 +22,11 @@ describe("recent activity timeline", () => {
   it("names a row's parts separately", () => {
     render(<RecentActivityTimeline events={[EVENT]} />);
 
-    expect(
-      screen.getByRole("button", { name: "Funds added, Top-up, 5m ago, +8 ₳" })
-    ).toBeTruthy();
+    const row = screen.getByRole("button", {
+      name: "Top-up, Funds added, 5m ago, +8 ₳"
+    });
+
+    expect(row.textContent).toBe("Top-upFunds added5m ago+8 ₳");
   });
 
   it("keeps showing what it has while it refreshes", () => {

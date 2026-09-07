@@ -148,8 +148,8 @@ export function RecentActivityTimeline({
                   type="button"
                   onClick={() => onEventClick?.(event)}
                   aria-label={[
-                    event.title,
                     event.label,
+                    event.title,
                     event.timestampDisplay,
                     event.amountSummary
                   ].join(", ")}
@@ -162,7 +162,6 @@ export function RecentActivityTimeline({
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex min-w-0 items-center gap-2">
-                      <p className="truncate text-sm text-foreground">{event.title}</p>
                       <Badge
                         variant="outline"
                         className={cn(
@@ -172,6 +171,7 @@ export function RecentActivityTimeline({
                       >
                         {event.label}
                       </Badge>
+                      <p className="truncate text-sm text-foreground">{event.title}</p>
                     </div>
                     <p
                       className="mt-1 text-xs text-muted-foreground"
