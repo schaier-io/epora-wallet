@@ -297,6 +297,16 @@ test("the wallet's own state input names the wallet as the actor, not 'External 
   assert.equal(events[0]!.actorDetail, "this wallet's state");
 });
 
+test("a co-signer sees another signer's fee change as a settings update", () => {
+  const events = buildWalletActivityEvents(normalizeTransactionIo(rawStateUpdate()), WALLET, {
+    sttUnit: STT,
+    activeAddress: "addr_test1cosigneraddress"
+  });
+
+  assert.equal(events[0]!.title, "Wallet settings updated");
+  assert.equal(events[0]!.label, "Settings");
+});
+
 test("a state rewrite that also pays an outside address is a send, not a settings edit", () => {
   const tx = transaction({
     inputs: [utxo("cc".repeat(32), 0, SCRIPT, withStt("2000000"))],
