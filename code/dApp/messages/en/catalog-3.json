@@ -209,8 +209,9 @@
     "thisPersonMeetsTheThresholdAlone": "This person meets the threshold alone. Nobody else has to approve.",
     "walletsThisPersonSignsWith": "Wallets this person signs with",
     "yes": "Yes",
-    "exactPayoutAddress": "Exact-distribution payout address",
-    "exactPayoutAddressHelp": "Used for exact distribution. A script must accept our existing payout datum. Signing wallets are configured separately.",
+    "payoutAndSigningWallet": "Payout and signing wallet",
+    "payoutAndSigningWalletHelp": "This address receives exact distributions. Its payment key also signs for this recovery contact.",
+    "payoutAddressNeedsPaymentKey": "Use a Cardano wallet address with a payment key. A script address cannot sign for recovery.",
     "payoutAddressPlaceholder": "addr_test1...",
     "recoveryContact": "Recovery contact"
   },

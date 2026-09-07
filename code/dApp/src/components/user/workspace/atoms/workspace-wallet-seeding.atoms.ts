@@ -25,6 +25,7 @@ import {
   sttProofOfLifeOverrideModeAtom,
   sttProofOfLifeSpecificDateTimeAtom,
   sttStateFormAtom,
+  updateStateFormAtom,
   sttTransferAddressAtom,
   sttTransferAmountsAtom,
   sttWalletInputsAtom,
@@ -52,7 +53,7 @@ import {
   withdrawZeroAdminConfirmedAtom
 } from "@/components/user/workspace/atoms/forms/withdraw-form.atoms";
 import { configAtom } from "@/components/user/workspace/atoms/workspace-config.atoms";
-import { cloneStateForm } from "@/components/user/workspace/helpers/form-state";
+import { cloneStateForm, withBeneficiarySigningAddressesDerived } from "@/components/user/workspace/helpers/form-state";
 import { stateFormFromDatum } from "@/lib/contracts/state-form";
 import type { DetectedSttToken } from "@/lib/mesh/detection";
 
@@ -75,6 +76,7 @@ export const seedWorkspaceWalletAtom = atom(
     set(sttInputOutputIndexAtom, inputOutputIndex);
     set(sttZeroAdminConfirmedAtom, false);
     set(sttStateFormAtom, cloneStateForm(stateForm));
+    set(updateStateFormAtom, withBeneficiarySigningAddressesDerived(cloneStateForm(stateForm)));
     set(sttOutputAssetsAtom, []);
     set(sttWalletInputsAtom, []);
     set(sttWalletOutputsAtom, []);

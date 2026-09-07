@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { pubKeyAddress, serializeAddressObj, serializeRewardAddress } from "@meshsdk/core";
+import { pubKeyAddress, scriptAddress, serializeAddressObj, serializeRewardAddress } from "@meshsdk/core";
+import { CARDANO_NETWORK } from "@/lib/cardano-network";
 import {
   composeWalletReceiveAddress,
   decodePayoutAddressFromData,
@@ -8,7 +9,8 @@ import {
   describeAddressProblemForNetwork,
   encodePayoutAddressToData,
   isAddressData,
-  looksLikeCardanoAddress
+  looksLikeCardanoAddress,
+  paymentKeyHashFromAddress
 } from "@/lib/contracts/payout-address";
 
 // A real preprod base address (payment + stake credential), network id 0.
@@ -17,6 +19,7 @@ const BASE_ADDRESS =
 const BASE_PAYMENT_HASH = "fa7298793722c028e8a23fd5dab58175b24191ad06c34199a9a9cb95";
 const HASH_A = "aa".repeat(28);
 const HASH_B = "bb".repeat(28);
+const NETWORK_ID = CARDANO_NETWORK === "mainnet" ? 1 : 0;
 
 // A well-formed mainnet enterprise address built with the same library the validator
 // uses, so the fixture cannot drift into an unparseable string.
@@ -50,6 +53,15 @@ test("encodePayoutAddressToData produces a structurally valid Address datum", ()
 test("encode -> decode round-trips a base address byte-for-byte", () => {
   const encoded = encodePayoutAddressToData(BASE_ADDRESS);
   assert.equal(decodePayoutAddressFromData(encoded), BASE_ADDRESS);
+});
+
+test("paymentKeyHashFromAddress accepts only a valid payment-key address", () => {
+  assert.equal(paymentKeyHashFromAddress(BASE_ADDRESS), BASE_PAYMENT_HASH);
+  assert.equal(
+    paymentKeyHashFromAddress(serializeAddressObj(scriptAddress(HASH_A, undefined, undefined), NETWORK_ID)),
+    null
+  );
+  assert.equal(paymentKeyHashFromAddress("not-an-address"), null);
 });
 
 test("encodePayoutAddressToData rejects empty / whitespace input", () => {

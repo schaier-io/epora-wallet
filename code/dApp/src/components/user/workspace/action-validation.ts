@@ -76,6 +76,7 @@ export type ActionFieldErrorsInput = {
   sttProofOfLifeOverrideMode: ProofOfLifeOverrideMode;
   sttProofOfLifeSpecificDateTime: string;
   sttStateForm: StateFormState;
+  updateStateForm: StateFormState;
   sttWalletInputs: WalletInputRef[];
   sttWalletOutputs: WalletScriptOutputFormState[];
   sttZeroAdminConfirmed: boolean;
@@ -124,7 +125,7 @@ export function computeActionFieldErrors(
     sttAuthorityPath,
     sttProofOfLifeOverrideMode,
     sttProofOfLifeSpecificDateTime,
-    sttStateForm,
+    updateStateForm,
     walletOperatorPath,
     withdrawAmount,
     withdrawRewardAddress,
@@ -169,7 +170,7 @@ export function computeActionFieldErrors(
     }
 
     const walletNameChanged =
-      normalizeWalletName(sttStateForm.walletName) !==
+      normalizeWalletName(updateStateForm.walletName) !==
       normalizeWalletName(activeInferredSttStateForm.walletName);
 
     const mintErrors: FieldErrors = {};

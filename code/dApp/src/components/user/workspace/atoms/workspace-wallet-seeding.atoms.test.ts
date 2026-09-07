@@ -33,6 +33,7 @@ import {
   sttProofOfLifeOverrideModeAtom,
   sttProofOfLifeSpecificDateTimeAtom,
   sttStateFormAtom,
+  updateStateFormAtom,
   sttTransferAddressAtom,
   sttTransferAmountsAtom,
   sttWalletInputsAtom,
@@ -176,6 +177,7 @@ function assertSeeded(store: Store, token: DetectedSttToken) {
   assert.equal(store.get(sttInputOutputIndexAtom), inputOutputIndex);
   assert.equal(store.get(sttZeroAdminConfirmedAtom), false);
   assert.deepEqual(store.get(sttStateFormAtom), expectedStateForm);
+  assert.deepEqual(store.get(updateStateFormAtom), expectedStateForm);
   assert.deepEqual(store.get(sttOutputAssetsAtom), []);
   assert.deepEqual(store.get(sttWalletInputsAtom), []);
   assert.deepEqual(store.get(sttWalletOutputsAtom), []);
@@ -253,6 +255,7 @@ test("wallet seeding gives each action an independent State form", () => {
 
   const forms = [
     store.get(sttStateFormAtom),
+    store.get(updateStateFormAtom),
     store.get(withdrawSttStateFormAtom),
     store.get(publishSttStateFormAtom),
     store.get(voteSttStateFormAtom),

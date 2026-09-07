@@ -3,9 +3,9 @@ import { beforeEach, expect, it, vi } from "vitest";
 import { validateBeneficiaryDistributionInput } from "@/lib/mesh/transactions/beneficiary-distribution";
 import { createWorkspaceSttBuilder } from "./workspace-stt-builder";
 import type { WorkspaceTransactionsCtx } from "./workspace-transactions-types";
-import { beneficiaryStreamStopIdAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputTxHashAtom, sttInputOutputIndexAtom, sttOutputAssetsAtom, sttWalletInputsAtom } from "./atoms/forms/stt-spend-form.atoms";
+import { beneficiaryStreamStopIdAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputTxHashAtom, sttInputOutputIndexAtom, sttOutputAssetsAtom, sttStateFormAtom, sttWalletInputsAtom, updateStateFormAtom } from "./atoms/forms/stt-spend-form.atoms";
 import type { SttSpendFormInput } from "@/lib/types/contracts";
-import { createDefaultStateForm } from "@/lib/contracts/state-form";
+import { createDefaultStateForm, stateFormFromDatum } from "@/lib/contracts/state-form";
 const mocks = vi.hoisted(() => ({ build: vi.fn() }));
 vi.mock("@/lib/mesh/transactions", () => ({
   buildSttSpendTx: mocks.build,
@@ -71,4 +71,19 @@ it("keeps the extracted operator builder's approval capture and signer path", as
     outputAssets,
     requiredSignerKeyHashes: ["22".repeat(28)]
   }));
+});
+
+it("keeps update-state and streaming-management State drafts separate", async () => {
+  const { store, ctx, capture, requiredSigners } = fixture();
+  store.set(sttStateFormAtom, { ...createDefaultStateForm(), walletName: "Raw chain state" });
+  store.set(updateStateFormAtom, { ...createDefaultStateForm(), walletName: "Settings draft" });
+  const builder = createWorkspaceSttBuilder(ctx, capture, requiredSigners);
+
+  await builder.buildSttTx("update-state", "admin");
+  const updateInput = mocks.build.mock.calls.at(-1)![3] as SttSpendFormInput;
+  expect(stateFormFromDatum(updateInput.outputDatum).walletName).toBe("Settings draft");
+
+  await builder.buildSttTx("manage-streaming-payments", "admin");
+  const manageInput = mocks.build.mock.calls.at(-1)![3] as SttSpendFormInput;
+  expect(stateFormFromDatum(manageInput.outputDatum).walletName).toBe("Raw chain state");
 });

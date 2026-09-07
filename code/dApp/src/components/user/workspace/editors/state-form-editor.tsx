@@ -40,10 +40,8 @@ import {
 import {
   MAX_ACCESS_RECORDS,
   MAX_BENEFICIARIES,
-  MAX_BENEFICIARY_WALLETS,
   MAX_STREAMING_PAYMENTS,
   MAX_TOTAL_ALLOWANCE_ENTRIES,
-  MAX_TOTAL_BENEFICIARY_WALLETS,
   MAX_TOTAL_USER_WALLETS,
   MAX_WALLETS_PER_USER,
   MAX_USERS
@@ -120,8 +118,6 @@ export function StateFormEditor({
   const scheduledAtCap = value.streamingPayments.length >= MAX_STREAMING_PAYMENTS;
   const canAddUserWalletEntry =
     countWalletEntries(value.users) < MAX_TOTAL_USER_WALLETS;
-  const canAddBeneficiaryWalletEntry =
-    countWalletEntries(value.beneficiaries) < MAX_TOTAL_BENEFICIARY_WALLETS;
   const hasMoreSettings =
     spendingUsers.length > 0 ||
     value.beneficiaries.length > 0 ||
@@ -306,12 +302,6 @@ export function StateFormEditor({
                   (sum, entry) => sum + (Number.parseInt(entry.weight, 10) || 0),
                   0
                 )}
-                connectedPaymentKeyHash={normalizedConnectedHash}
-                connectedAddress={connectedAddress}
-                canAddWallet={
-                  canAddBeneficiaryWalletEntry &&
-                  beneficiary.wallets.length < MAX_BENEFICIARY_WALLETS
-                }
                 onChange={(nextBeneficiary) =>
                   onChange({
                     ...value,

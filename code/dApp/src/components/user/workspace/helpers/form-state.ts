@@ -20,6 +20,7 @@ import {
   MAX_ON_CHAIN_STATE_INTEGER
 } from "@/lib/contracts/on-chain-integer";
 import { OwnedMessageError } from "./build-errors";
+import { paymentKeyHashFromAddress } from "@/lib/contracts/payout-address";
 
 function readFormUint64(value: string): bigint | null {
   const normalized = value.trim();
@@ -103,6 +104,34 @@ export function cloneStateForm(form: StateFormState): StateFormState {
     users: form.users.map(cloneUserForm),
     beneficiaries: form.beneficiaries.map(cloneBeneficiaryForm),
     streamingPayments: form.streamingPayments.map(cloneStreamingPaymentForm)
+  };
+}
+
+/** One beneficiary address supplies both the exact payout route and its signing key. */
+export function withBeneficiaryPayoutAndSigningAddress(
+  beneficiary: BeneficiaryFormState,
+  payoutAddress: string
+): BeneficiaryFormState {
+  const paymentKeyHash = paymentKeyHashFromAddress(payoutAddress);
+  return {
+    ...beneficiary,
+    payoutAddress,
+    wallets: paymentKeyHash ? [paymentKeyHash] : []
+  };
+}
+
+/**
+ * Migrate the editable UpdateState draft without changing decoded on-chain state used by
+ * preservation-only actions.
+ */
+export function withBeneficiarySigningAddressesDerived(
+  form: StateFormState
+): StateFormState {
+  return {
+    ...form,
+    beneficiaries: form.beneficiaries.map((beneficiary) =>
+      withBeneficiaryPayoutAndSigningAddress(beneficiary, beneficiary.payoutAddress)
+    )
   };
 }
 

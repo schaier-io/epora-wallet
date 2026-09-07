@@ -5,7 +5,7 @@ import { createRef } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { activeBuildAtom, activeSubmitAtom, buildErrorAtom, buildErrorStaleInputsAtom, previewAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
-import { sttStateFormAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import { sttStateFormAtom, updateStateFormAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { routeStateAtom } from "@/components/user/workspace/atoms/workspace-route.atoms";
 import { activeAddressAtom } from "@/providers/wallet.atoms";
 import { WorkspaceActionsProvider } from "@/components/user/workspace/workspace-actions-context";
@@ -414,6 +414,10 @@ describe("context-aware signing actions", () => {
       selectedAction: "update-state",
       seedStore: (store) => {
         store.set(sttStateFormAtom, {
+          ...store.get(sttStateFormAtom),
+          walletName: "Current wallet"
+        });
+        store.set(updateStateFormAtom, {
           ...store.get(sttStateFormAtom),
           walletName: "Renamed wallet"
         });

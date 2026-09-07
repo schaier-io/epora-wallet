@@ -129,6 +129,7 @@ export function computeSpendActionErrors(
     sttProofOfLifeOverrideMode,
     sttProofOfLifeSpecificDateTime,
     sttStateForm,
+    updateStateForm,
     sttWalletInputs,
     sttWalletOutputs,
     sttZeroAdminConfirmed,
@@ -231,11 +232,11 @@ export function computeSpendActionErrors(
   const updateErrors: FieldErrors = {};
   validateSttInputRef(updateErrors, sttInputTxHash, sttInputOutputIndex);
   validateSpendCollections(updateErrors, collectionsWithoutFundPoolInputs);
-  validateOutputStateDatum(updateErrors, () => cloneStateForm(sttStateForm), updateStateActionAlternative, {
+  validateOutputStateDatum(updateErrors, () => cloneStateForm(updateStateForm), updateStateActionAlternative, {
     key: "Output state",
     fallbackMessage: i18n("outputStateIsInvalid")
   });
-  requireZeroAdminConfirmation(updateErrors, sttStateForm, sttZeroAdminConfirmed);
+  requireZeroAdminConfirmation(updateErrors, updateStateForm, sttZeroAdminConfirmed);
   if (walletNameChanged && sttAuthorityPath !== "admin") {
     pushFieldError(
       updateErrors,

@@ -20,7 +20,7 @@ export function createWorkspaceSttBuilder(
   requiredSignerKeyHashesFor: (authorityPath: AuthorityPath) => string[] | undefined
 ) {
   const { activeInferredSttStateForm, activePaymentKeyHash, activeWallet, jotaiStore, lockingContract, streamingPaymentPayout, withBuildGuard } = ctx;
-  const { config, beneficiaryStreamStopId, sttAuthorityPath, sttExtraTransfers, sttInputOutputIndex, sttInputTxHash, sttOutputAssets, sttProofOfLifeOverrideMode, sttProofOfLifeSpecificDateTime, sttStateForm, sttWalletInputs, sttWalletOutputs } = resolveWorkspaceTransactionInputs(jotaiStore);
+  const { config, beneficiaryStreamStopId, sttAuthorityPath, sttExtraTransfers, sttInputOutputIndex, sttInputTxHash, sttOutputAssets, sttProofOfLifeOverrideMode, sttProofOfLifeSpecificDateTime, sttStateForm, sttWalletInputs, sttWalletOutputs, updateStateForm } = resolveWorkspaceTransactionInputs(jotaiStore);
   async function buildSttTx(
     mode:
       | "use"
@@ -69,8 +69,9 @@ export function createWorkspaceSttBuilder(
         if (mode !== "payout-streaming-payment") {
           jotaiStore.set(renderNowMsAtom, validityWindowReferenceTimeMs);
         }
-        let effectiveForm =
-          mode === "update-state" || mode === "manage-streaming-payments"
+        let effectiveForm = mode === "update-state"
+          ? cloneStateForm(updateStateForm)
+          : mode === "manage-streaming-payments"
             ? cloneStateForm(sttStateForm)
             : cloneStateForm(activeInferredSttStateForm);
 
