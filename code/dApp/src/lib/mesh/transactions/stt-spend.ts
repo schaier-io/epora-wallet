@@ -7,6 +7,7 @@ import { beneficiaryExitFeeWarning, captureBeneficiaryExitFeeEvidence, type Bene
 import { WALLET_SPEND_VALIDATOR, addExtraRequiredSigners, buildTransactionWithReestimatedLimits, classifyStreamingPayoutBatch, createInputRefKey, createStateForwarding, createStreamingPayoutBuild, createTxPreview, decodeConstrDatumFromUtxo, deriveBeneficiaryExitStateDatum, deriveBeneficiaryWithdrawalId, deriveBeneficiaryWithdrawalStateDatum, ensureUniqueWalletInputRefs, resolveExactWalletInputUtxos, resolveStreamingAdaPayoutTopUps, runStateForwarding, getValidityWindow, mergeAssetLists, mergeAssetsByUnit, mergeRestrictedSttAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, setupTransaction, subtractSelectedInputRemainder, validateForwardedStateDatum, withStage } from "./internals";
 import { deriveAccessIndexRemovalStateDatum } from "@/lib/contracts/access-removal";
 import { prepareManagedStreamingPayments } from "./internals/streaming-asset-proof";
+import { validateBeneficiaryDestinations } from "@/lib/contracts/state-validation-streaming";
 import { type OnChainStructuredAction, buildSttSpendRedeemerData, buildWalletSpendRedeemerData, resolveStructuredOnChainAction } from "@/lib/contracts/action-data";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import { getWalletSpendScript, resolveWalletContinuingOutputAddressFromState, resolveWalletSpendScriptHash } from "@/lib/contracts/blueprint";
@@ -572,6 +573,17 @@ export async function buildSttSpendTx(
               walletPaymentScriptHash,
               ...sttParams
             });
+          }
+
+          if (action === "update-state") {
+            const beneficiaryDestinationErrors = validateBeneficiaryDestinations(
+              effectiveForwardedDatum,
+              walletPaymentScriptHash,
+              sttParams.sttPolicyId
+            );
+            if (beneficiaryDestinationErrors.length > 0) {
+              throw new Error(beneficiaryDestinationErrors[0]);
+            }
           }
 
           forwardedStateWarnings = validateForwardedStateDatum(

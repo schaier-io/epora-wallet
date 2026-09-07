@@ -98,12 +98,18 @@ pub fn eval_operator_use(
 pub fn eval_operator_state_update(
   operator_action: state_types.OperatorAction,
   transaction: Transaction,
+  stt_payment_credential: Credential,
   input_stt_value: Value,
   output_stt_value: Value,
   input_state: state_types.State,
   output_state: state_types.State,
 ) -> Bool {
   expect state_configuration.expect_valid_state_configuration(output_state)
+  expect
+    state_configuration.beneficiary_destinations_are_valid(
+      output_state.access.beneficiaries,
+      stt_payment_credential,
+    )
   expect
     streaming_payment_forwarding.are_forwarded(
       input_state.streaming_payments,

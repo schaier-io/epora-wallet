@@ -26,10 +26,6 @@ pub fn all_shares_are_paid(
       // Configuration ingress validates this opaque Address. Preservation-only
       // actions retain it unchanged; routing must cast it before use.
       expect payout_address: Address = beneficiary.payout_address
-      expect
-        payout_address.payment_credential != context.wallet_address.payment_credential
-      expect
-        payout_address.payment_credential != context.stt_address.payment_credential
       let payout_tag = InlineDatum(
         expected_payout_tag(beneficiary.id, context.stt_input_reference),
       )

@@ -34,6 +34,7 @@ By using this software you acknowledge and accept these risks. See the [LICENSE]
 
 ## Documentation
 
+- [Contract state diagrams and action cycles](docs/smart-contract-state-diagram.md): permissions, state transitions, and separate examples traced from executable contract code.
 - [Whitepaper (PDF)](whitepaper/whitepaper.pdf) — the canonical design document. Its LaTeX source lives in [whitepaper/](whitepaper/README.md), and CI rebuilds the committed PDF whenever the source changes.
 - [Smart contract](code/smart-contract/README.md) — validator roles, the transition map, trust boundaries, test layout, and the local Aiken workflow.
 - [dApp](code/dApp/README.md) — running the reference interface locally: setup, environment, and the flows it covers.

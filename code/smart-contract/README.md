@@ -10,6 +10,8 @@ layout and the contract-level details a contributor or auditor needs.
 
 ## Validator Roles
 
+See [state diagrams and action cycles](../../docs/smart-contract-state-diagram.md) for every action's permissions and a separate example sequence.
+
 - `validators/stt.ak`
   Owns both sides of the STT lifecycle:
   - `mint` mints the state-thread token (STT) and validates the initial state datum.
@@ -101,16 +103,18 @@ The field stores the encoded `Address` as `Data`, with no extra wrapper. Mint an
 value exactly. This avoids repeated address decoding when the action does not use it.
 `DistributeBeneficiaries` casts this field to route exact payouts. `UseBeneficiary` and
 `ExitBeneficiary` retain their current payout rules and do not use this destination.
-State ingress checks address shape, but it permits a payout payment credential that
-matches the wallet or STT script. Exact distribution rejects both credentials, including
-stake variants. A beneficiary that will use exact distribution must use another payment
-credential. The other beneficiary actions remain available because they do not use this
-field.
+On-chain mint and `UpdateState` reject a payout payment credential that matches the
+STT script, including stake variants. The maintained frontend also rejects a payment
+credential that matches the derived wallet script at mint and update. Exact distribution
+does not repeat these checks. It cannot create a wallet output because its wallet output
+count must be zero. The other beneficiary actions remain available because they do not use
+this field.
 
 _VERIFIED:_ `state/configuration.ak::expect_beneficiaries_are_valid` checks address
-shape. `wallet/beneficiary_distribution.ak::all_shares_are_paid` rejects both protocol
-payment credentials. The matching rejection tests are in
-`validators/beneficiary_distribution_tests.ak`.
+shape. `state/configuration.ak::beneficiary_destinations_are_valid` rejects the STT
+payment credential at mint and `UpdateState`. `wallet/rules.ak` requires zero wallet
+outputs for exact distribution. The maintained dApp validates the derived wallet credential
+in `state-validation-streaming.ts`.
 
 `StreamingPayment` remains an eight-field constructor. Payee cancellation is
 represented only by a smaller `end_date`; there is no persistent cancellation

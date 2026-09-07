@@ -33,6 +33,8 @@
     "ownersAndSpendersCanListAtMostMaxWalletIdsInTotal": "Owners and spenders can list at most {limit} wallet IDs in total.",
     "recoveryContactsCanListAtMostMaxBeneficiaryWalletsInTotal": "Recovery contacts can list at most {limit} wallet IDs in total.",
     "recoveryContactsNeedAProofOfLifeBefore": "Recovery contacts need a proof of life before they can be used.",
+    "recoveryContactValue1CannotUseThisStateScript": "Recovery contact {value1} cannot use this wallet's State script as its payout address.",
+    "recoveryContactValue1CannotUseThisWallet": "Recovery contact {value1} cannot use this smart wallet as its payout address.",
     "stateBeneficiariesContainsDuplicateIdId": "The recovery contacts list contains the duplicate id {id}.",
     "stateBeneficiariesIndexAndStateBeneficiariesOtherindexMust": "Recovery contacts {index} and {otherIndex} must not share a wallet ID.",
     "stateBeneficiariesIndexBeneficiaryWalletsContainsDuplicateWallet": "Recovery contact {index} lists the wallet ID {duplicateWallet} twice.",
