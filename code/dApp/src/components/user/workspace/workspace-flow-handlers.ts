@@ -232,21 +232,27 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
         const createdToken = detected.tokens.find(
           (token) => token.utxo.input.txHash.toLowerCase() === txHash.toLowerCase()
         );
+        const createdWallet = createdToken
+          ? {
+              token: createdToken,
+              address: resolveWalletSpendAddress({
+                sttPolicyId: createdToken.policyId,
+                sttAssetNameHex: createdToken.assetNameHex
+              })
+            }
+          : null;
 
         await Promise.allSettled([
           addSubmittedTransactionToActivity(txHash),
           refreshWalletBalance(),
-          refreshLockedContractUtxos(lockingContract.address),
+          refreshLockedContractUtxos(createdWallet?.address ?? lockingContract.address),
           refreshPermissionWalletSummaries(detected.tokens),
-          ...(createdToken
+          ...(createdWallet
             ? [
                 runWalletTransactionsRefresh({
-                  walletAddress: resolveWalletSpendAddress({
-                    sttPolicyId: createdToken.policyId,
-                    sttAssetNameHex: createdToken.assetNameHex
-                  }),
-                  sttScriptAddress: createdToken.scriptAddress,
-                  sttUnit: createdToken.unit,
+                  walletAddress: createdWallet.address,
+                  sttScriptAddress: createdWallet.token.scriptAddress,
+                  sttUnit: createdWallet.token.unit,
                   anchorTxHashes: [txHash]
                 })
               ]

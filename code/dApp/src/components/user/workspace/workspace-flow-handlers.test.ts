@@ -272,12 +272,14 @@ test("a confirmed mint refreshes the created wallet activity before completion",
     });
   }
 
+  const createdWalletAddress = resolveWalletSpendAddress({
+    sttPolicyId: createdToken.policyId,
+    sttAssetNameHex: createdToken.assetNameHex
+  });
   assert.equal(requestedUnit, createdToken.unit);
+  assert.deepEqual(calls.refreshLockedContractUtxos, [[createdWalletAddress]]);
   assert.deepEqual(calls.runWalletTransactionsRefresh, [[{
-    walletAddress: resolveWalletSpendAddress({
-      sttPolicyId: createdToken.policyId,
-      sttAssetNameHex: createdToken.assetNameHex
-    }),
+    walletAddress: createdWalletAddress,
     sttScriptAddress: createdToken.scriptAddress,
     sttUnit: createdToken.unit,
     anchorTxHashes: [HASH]
