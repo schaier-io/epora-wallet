@@ -7,17 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import { DisclosureSection } from "@/components/user/workspace/editors";
 import {
   deriveWalletAccessSummary,
+  formatConfiguredAllowance,
   type WalletAccessRole
 } from "@/components/user/workspace/wallet-access-summary";
-import type { StateAssetAmountForm, StateFormState } from "@/lib/contracts/state-form";
+import type { StateFormState } from "@/lib/contracts/state-form";
 import { formatTimestampLabel } from "@/components/user/workspace/helpers/formatters";
-
-function formatAllowance(entry: StateAssetAmountForm) {
-  if (!entry.policyId.trim() && !entry.assetName.trim()) {
-    return `${entry.amount.trim()} ₳`;
-  }
-  return `${entry.amount.trim()} ${entry.assetName.trim() || entry.policyId.trim()}`;
-}
 
 function AccessDetailRow({ label, value }: { label: string; value: string }) {
   return (
@@ -62,7 +56,7 @@ export function WalletAccessOverview({
   ].filter((value): value is string => Boolean(value)).join(" ") || i18n("notGranted");
   const dailyAllowance = summary.dailyAllowances.length > 0
     ? i18n("allowancePerDay", {
-        allowance: summary.dailyAllowances.map(formatAllowance).join(" + ")
+        allowance: summary.dailyAllowances.map(formatConfiguredAllowance).join(" + ")
       })
     : i18n("notGranted");
   const recoveryAccess = summary.recoveryAccess.length > 0

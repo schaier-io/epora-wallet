@@ -21,6 +21,7 @@ import { getValidityWindow } from "@/lib/mesh/transactions";
 
 import {
   type WalletInputRef } from "@/lib/types/contracts";
+import { positiveAllowanceEntries } from "@/components/user/workspace/wallet-access-summary";
 import { cloneStateForm, findMatchingLockedUtxo, resolveOperatorActionAlternative, serializeTransfers, serializeWalletOutputs } from "@/components/user/workspace/helpers";
 import { type SttSpendActionMode, type TransferFormState, type WalletScriptOutputFormState } from "@/components/user/workspace/types";
 import { createDefaultTranslator } from "@/i18n/default-translator";
@@ -40,6 +41,10 @@ export interface AllowancePreviewParams {
 }
 
 export interface AllowancePreviewResult {
+  configuredAllowances: Array<{
+    userId: string;
+    perDayAllowance: StateFormState["users"][number]["perDayAllowance"];
+  }>;
   computation: AllowanceWithdrawalComputation | null;
   target: AllowanceWithdrawalTarget | null;
   error: string | null;
@@ -57,25 +62,30 @@ export function computeAllowancePreview(params: AllowancePreviewParams): Allowan
     lockedContractUtxos
   } = params;
     if (effectiveSttAction !== "use-allowance") {
-      return { computation: null, target: null, error: null };
+      return { configuredAllowances: [], computation: null, target: null, error: null };
     }
 
     if (!activePaymentKeyHash) {
       return {
+        configuredAllowances: [],
         computation: null,
         target: null,
         error: i18n("connectAWalletBeforeYouContinueSendingFrom")
       };
     }
 
+    const configuredAllowances = activeInferredSttStateForm.users.flatMap((user) => {
+      if (!user.wallets.includes(activePaymentKeyHash)) return [];
+      const perDayAllowance = positiveAllowanceEntries(user);
+      return perDayAllowance.length > 0 ? [{ userId: user.id, perDayAllowance }] : [];
+    });
     const serializedTransfers = serializeTransfers(sttExtraTransfers);
     if (serializedTransfers.length === 0) {
-      // Before anything is staged the derivation would only fail on the missing
-      // transfer; that reads as a resolver error, so say what is actually next.
       return {
+        configuredAllowances,
         computation: null,
         target: null,
-        error: i18n("addAPayoutToSeeTheLimit")
+        error: null
       };
     }
 
@@ -123,13 +133,21 @@ export function computeAllowancePreview(params: AllowancePreviewParams): Allowan
         nextAllowanceReset: computation.nextAllowanceReset
       };
 
-      return { computation, target, error: null };
+      return {
+        configuredAllowances: configuredAllowances.filter(
+          (allowance) => allowance.userId === target.matchedUserId.toString()
+        ),
+        computation,
+        target,
+        error: null
+      };
     } catch (error) {
       if (error instanceof AllowanceDerivationError) {
-        return { computation: null, target: null, error: error.message };
+        return { configuredAllowances, computation: null, target: null, error: error.message };
       }
 
       return {
+        configuredAllowances,
         computation: null,
         target: null,
         error: getUserFacingErrorMessage(error, i18n("couldNotWorkOutWhichSpenderThisSend"))

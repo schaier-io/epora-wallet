@@ -27,6 +27,7 @@ import { BeneficiaryStreamStopView } from "./beneficiary-stream-stop-view";
 import { SttSpendPayoutView } from "@/components/user/workspace/config-sttspend-payout-view";
 import { useConfigSttSpendState } from "@/components/user/workspace/use-config-sttspend-state";
 import { type PayoutRejection } from "@/components/user/workspace/workspace-stt-editors";
+import { formatConfiguredAllowance } from "@/components/user/workspace/wallet-access-summary";
 
 export function SttSpendConfigView() {
   const preparationActive = useAtomValue(beneficiaryPreparationActiveAtom);
@@ -221,27 +222,34 @@ export function SttSpendConfigView() {
             <div className="space-y-3 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
               <div className="space-y-1">
                 <Label>{i18n("yourSpendingLimit")}</Label>
-                {/* Was: "The connected payment key hash plus the requested spend must resolve to
-                    exactly one spender. This mode derives the next STT datum automatically
-                    instead of allowing manual state edits." A spender on this screen needs to
-                    know what they may spend, not how the datum is derived. */}
                 <p className="text-xs text-muted-foreground">
                   {i18n("thisWalletGivesYouAnAllowanceToSpend")}
                 </p>
               </div>
+              {useAllowancePreview.configuredAllowances.length > 0 ? (
+                <div className="grid gap-3 md:grid-cols-2">
+                  {useAllowancePreview.configuredAllowances.map((allowance) => (
+                    <div
+                      key={allowance.userId}
+                      className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground"
+                    >
+                      <p>{i18n("spenderNumber", { number: allowance.userId })}</p>
+                      <p>
+                        {i18n("dailyAllowancePerDay", {
+                          allowance: allowance.perDayAllowance
+                            .map(formatConfiguredAllowance)
+                            .join(", ")
+                        })}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
               {useAllowancePreview.error ? (
                 <p className="text-xs text-rose-300">{useAllowancePreview.error}</p>
               ) : useAllowancePreview.target ? (
                 <>
-                  {/* Seven tiles became five. "Matched user: 3" and "Wallets: 2" were raw
-                      identifiers a spender cannot act on, and "Current remaining" sat beside
-                      "Effective allowance now" as a second, different number for the same idea:
-                      the effective one is what can actually be spent, so it is the one kept.
-                      "Not derived yet" said the app had not computed, rather than what to do. */}
                   <div className="grid gap-3 md:grid-cols-2">
-                    <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                      {i18n("matchedAsSpender")}{useAllowancePreview.target.matchedUserId.toString()}
-                    </div>
                     <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
                       {i18n("limitResets")}{" "}
                       {formatTimestampLabel(
@@ -250,13 +258,7 @@ export function SttSpendConfigView() {
                       )}
                     </div>
                   </div>
-                  <div className="grid gap-3 tabular-nums md:grid-cols-3">
-                    <div className="min-w-0 wrap-anywhere rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                      {i18n("youCanSpendNow")}{" "}
-                      {formatAmountSummary(
-                        useAllowancePreview.target.effectiveRemainingAllowance
-                      )}
-                    </div>
+                  <div className="grid gap-3 tabular-nums md:grid-cols-2">
                     <div className="min-w-0 wrap-anywhere rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
                       {i18n("thisSendUses")}{" "}
                       {useAllowancePreview.computation

@@ -546,6 +546,7 @@
     "checkingThisWalletSFunds": "Checking this wallet's funds…",
     "chooseARecipient": "Choose a recipient",
     "customAddress": "Custom address",
+    "dailyAllowancePerDay": "Daily allowance: {allowance} per day",
     "dueNow": "Due now:",
     "end": "End:",
     "enterAnAmountFirst": "Enter an amount first",
@@ -553,7 +554,6 @@
     "howMuchAda": "How much (ADA)",
     "leftAfterThisSend": "Left after this send:",
     "limitResets": "Limit resets:",
-    "matchedAsSpender": "Matched as: Spender #",
     "max": "Max",
     "myAddress": "My address",
     "nobodyToPay": "This payment has nobody to pay.",
@@ -578,6 +578,7 @@
     "selectedFundPools": "Selected fund pools",
     "sendFromThisSmartWallet": "Send from this smart wallet",
     "spender": "Spender:",
+    "spenderNumber": "Spender #{number}",
     "start": "Start:",
     "starts": "Starts:",
     "stops": "Stops:",
@@ -592,7 +593,6 @@
     "value1Ada": "{value1} ADA",
     "value1Value2": "{value1} {value2}",
     "willSendTo": "Will send to",
-    "youCanSpendNow": "You can spend now:",
     "yourSpendingLimit": "Your spending limit"
   },
   "ComponentsUserWorkspaceConfigWalletpublishView": {

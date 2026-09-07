@@ -24,13 +24,24 @@ export type WalletAccessSummary = {
   recoveryAccess: Array<{ weight: string; unlockAfter: string | null }>;
 };
 
+export function formatConfiguredAllowance(entry: StateAssetAmountForm) {
+  if (!entry.policyId.trim() && !entry.assetName.trim()) {
+    return `${entry.amount.trim()} ₳`;
+  }
+  return `${entry.amount.trim()} ${entry.assetName.trim() || entry.policyId.trim()}`;
+}
+
 function isPositiveNumberText(value: string) {
   const normalized = value.trim();
   return /^\d+(?:\.\d+)?$/.test(normalized) && /[1-9]/.test(normalized);
 }
 
+export function positiveAllowanceEntries(user: UserFormState) {
+  return user.perDayAllowance.filter(({ amount }) => isPositiveNumberText(amount));
+}
+
 export function userHasPositiveAllowance(user: UserFormState) {
-  return user.perDayAllowance.some(({ amount }) => isPositiveNumberText(amount));
+  return positiveAllowanceEntries(user).length > 0;
 }
 
 function effectiveRecoveryUnlockTime(
@@ -101,9 +112,7 @@ export function deriveWalletAccessSummary(
       coSigners.length > 0 && isPositiveNumberText(state.multiSigThreshold)
         ? state.multiSigThreshold.trim()
         : null,
-    dailyAllowances: spenders.flatMap((user) =>
-      user.perDayAllowance.filter(({ amount }) => isPositiveNumberText(amount))
-    ),
+    dailyAllowances: spenders.flatMap(positiveAllowanceEntries),
     recoveryAccess: beneficiaries.map((entry) => ({
       weight: entry.weight.trim() || "1",
       unlockAfter: effectiveRecoveryUnlockTime(state, entry.unlockAfterMode, entry.unlockAfter)
