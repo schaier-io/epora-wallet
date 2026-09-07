@@ -107,6 +107,29 @@ it.each([
   expect(mocks.fetchAssetMetadata).toHaveBeenCalledTimes(1);
 });
 
+it("evicts the oldest entries once the cache passes its cap", async () => {
+  // The cap used to trim only the sessionStorage snapshot; the module-level Map grew for
+  // the life of the tab, one entry (up to 512 KB) per distinct asset ever rendered.
+  vi.resetModules();
+  const { prefetchAssetIcons: prefetch } = await import("./asset-icon");
+  const maxEntries = 200;
+  const units = Array.from(
+    { length: maxEntries + 1 },
+    (_, index) => `${"ba".repeat(28)}${index.toString(16).padStart(6, "0")}`
+  );
+  mocks.fetchAssetMetadata.mockResolvedValue({ logo: "aW1hZ2U=" });
+
+  prefetch(units);
+
+  await waitFor(() => {
+    const snapshot = JSON.parse(window.sessionStorage.getItem(STORAGE_KEY) ?? "{}") as Record<string, unknown>;
+    expect(Object.keys(snapshot).length).toBe(maxEntries);
+  });
+  const snapshot = JSON.parse(window.sessionStorage.getItem(STORAGE_KEY) ?? "{}") as Record<string, unknown>;
+  expect(snapshot[units[0]]).toBeUndefined();
+  expect(snapshot[units[maxEntries]]).toBeDefined();
+});
+
 /**
  * The logo cache is hydrated from `sessionStorage`, which the server cannot see, and the
  * hook used to read it straight from the render body. For any asset an earlier visit had

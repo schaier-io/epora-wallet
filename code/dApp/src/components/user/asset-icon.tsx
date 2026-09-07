@@ -68,16 +68,19 @@ function readStorage(): Record<string, AssetIconCacheEntry> {
 function writeStorage(snapshot: Record<string, AssetIconCacheEntry>) {
   if (typeof window === "undefined") return;
   try {
-    const entries = Object.entries(snapshot);
-    if (entries.length > MAX_CACHE_ENTRIES) {
-      entries.sort(([, a], [, b]) => a.fetchedAt - b.fetchedAt);
-      const trimmed = Object.fromEntries(entries.slice(-MAX_CACHE_ENTRIES));
-      window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
-      return;
-    }
     window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
   } catch {
     /* storage may be disabled (private mode, quota); fall back to in-memory */
+  }
+}
+
+// The cap has to bind the Map itself, not just the sessionStorage copy: entries hold data
+// URIs up to 512 KB, and the Map lives for the whole tab. Oldest-fetched entries go first.
+function trimMemoryCache() {
+  if (memoryCache.size <= MAX_CACHE_ENTRIES) return;
+  const entries = [...memoryCache.entries()].sort(([, a], [, b]) => a.fetchedAt - b.fetchedAt);
+  for (const [unit] of entries.slice(0, entries.length - MAX_CACHE_ENTRIES)) {
+    memoryCache.delete(unit);
   }
 }
 
@@ -88,6 +91,7 @@ function hydrateOnce() {
   for (const [unit, entry] of Object.entries(snapshot)) {
     memoryCache.set(unit, entry);
   }
+  trimMemoryCache();
 }
 
 function persist() {
@@ -109,6 +113,7 @@ function writeCache(unit: string, url: string | null) {
     url: url ?? STORAGE_NOT_FOUND,
     fetchedAt: Date.now()
   });
+  trimMemoryCache();
   persist();
   for (const listener of cacheListeners) listener();
 }
