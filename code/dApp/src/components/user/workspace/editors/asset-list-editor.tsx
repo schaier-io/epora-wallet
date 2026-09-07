@@ -3,6 +3,7 @@ import { useTranslations } from "next-intl";
 
 
 import { SearchableAssetUnitDropdown } from "./asset-unit-dropdown";
+import { AmountInput } from "./config-form-primitives";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +12,7 @@ import { resolveAssetIdentity } from "@/lib/cardano-assets";
 import { type Asset } from "@/lib/types/contracts";
 import { formatLovelaceAsAda, parseAdaToLovelace } from "@/lib/user-flow/guided-helpers";
 import { Plus } from "lucide-react";
-import { useMemo } from "react";
+import { useId, useMemo, useRef } from "react";
 
 export function AssetListEditor({
   label,
@@ -29,6 +30,11 @@ export function AssetListEditor({
   availableAssets?: Asset[];
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsAssetListEditor");
+  const uid = useId();
+  // Removing a row unmounts the button that was focused, which drops focus on <body>
+  // and costs a keyboard reader their place in a long form. The add button is the one
+  // control this list always has.
+  const addButtonRef = useRef<HTMLButtonElement | null>(null);
   const availableOptions = useMemo(
     () => buildAssetSelectionOptions(availableAssets),
     [availableAssets]
@@ -60,23 +66,37 @@ export function AssetListEditor({
     ]);
   }
 
+  // Every asset the wallet holds is already on the list, so there is nothing left to add.
+  const addIsExhausted = hasAvailableOptions && !hasUnusedAvailableOption;
+
   return (
-    <div className="space-y-3">
+    // A group, not a label: `label` heads the rows below it and points at no single
+    // control, so a bare <label> named nothing and clicked through to nothing.
+    <div className="space-y-3" role="group" aria-labelledby={`${uid}-group-label`}>
       <div className="flex w-full min-w-0 flex-wrap items-center gap-3 rounded-lg border border-border/60 bg-muted/15 p-3">
         <div className="min-w-0 flex-1 space-y-1">
-          <Label>{label}</Label>
+          <p id={`${uid}-group-label`} className="text-sm font-medium leading-none">
+            {label}
+          </p>
           {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}
         </div>
         <Button
+          ref={addButtonRef}
           type="button"
           variant="secondary"
           className="ml-auto shrink-0 gap-1.5"
           onClick={addAssetRow}
-          disabled={hasAvailableOptions && !hasUnusedAvailableOption}
+          disabled={addIsExhausted}
         >
           <Plus className="h-4 w-4" aria-hidden />
           {addLabel ?? i18n("addAsset_f05393")}
         </Button>
+        {/* A greyed-out button with nothing said beside it reads as a fault. */}
+        {addIsExhausted ? (
+          <p className="w-full text-xs text-muted-foreground">
+            {i18n("everyAssetInThisWalletIsAlreadyOnTheList")}
+          </p>
+        ) : null}
       </div>
       {value.length === 0 ? (
         <p className="rounded-md border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
@@ -127,20 +147,18 @@ export function AssetListEditor({
                     {isAdaRow ? i18n("howMuchAda") : i18n("howMuch")}
                   </Label>
                   <div className="relative">
-                    <Input
+                    <AmountInput
                       id={`${label}-quantity-${index}`}
                       value={displayQuantity}
-                      onChange={(event) => {
+                      onChange={(text) => {
                         if (isAdaRow) {
                           updateAsset(index, {
-                            quantity: event.target.value.trim()
-                              ? parseAdaToLovelace(event.target.value) ?? ""
-                              : ""
+                            quantity: text.trim() ? parseAdaToLovelace(text) ?? "" : ""
                           });
                           return;
                         }
 
-                        updateAsset(index, { quantity: event.target.value });
+                        updateAsset(index, { quantity: text });
                       }}
                       placeholder={isAdaRow ? "5" : "0"}
                       inputMode={isAdaRow ? "decimal" : "numeric"}
@@ -213,10 +231,16 @@ export function AssetListEditor({
                 </div>
 
                 <div className="flex items-end justify-end">
+                  {/* Every row's button reads "Remove", so on its own the name says
+                      nothing about which asset it drops. */}
                   <Button
                     type="button"
                     variant="ghost"
-                    onClick={() => onChange(value.filter((_, assetIndex) => assetIndex !== index))}
+                    aria-label={i18n("removeAssetNumber", { number: index + 1 })}
+                    onClick={() => {
+                      onChange(value.filter((_, assetIndex) => assetIndex !== index));
+                      addButtonRef.current?.focus();
+                    }}
                   >
                     {i18n("remove")}
                   </Button>

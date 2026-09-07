@@ -107,7 +107,13 @@ export function MintConfigView() {
                     </div>
                   ) : null}
                   {sharedReferenceBuildError ? (
-                    <div className="rounded-md border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-100">
+                    /* `role="alert"`: this appears only in answer to the button above it,
+                       and the button keeps focus, so without a live region the failure was
+                       announced to nobody. */
+                    <div
+                      role="alert"
+                      className="rounded-md border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-100"
+                    >
                       {sharedReferenceBuildError}
                     </div>
                   ) : null}
@@ -115,7 +121,12 @@ export function MintConfigView() {
               )}
 
               {sharedReferenceSubmitHash ? (
-                <div className="mt-3 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3">
+                /* Same reason as the failure above, politely: the confirmation replaces no
+                   focused control, so it needs a live region to reach a screen reader. */
+                <div
+                  role="status"
+                  className="mt-3 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3"
+                >
                   <p className="text-sm font-medium text-foreground">{i18n("setupHelperCreated")}</p>
                   <p className="mt-2 break-all font-mono text-xs text-foreground">
                     {sharedReferenceSubmitHash}

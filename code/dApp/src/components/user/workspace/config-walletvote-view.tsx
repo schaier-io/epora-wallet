@@ -23,6 +23,11 @@ export function WalletVoteConfigView() {
   } = state;
   const { voteJson, setVoteJson } = useVoteForm();
   const { setWalletOperatorPath, walletOperatorPath } = useSttSpendForm();
+  // Hoisted so the box can point `aria-invalid` and `aria-describedby` at the message:
+  // the rejection was visible to sighted readers and invisible to assistive tech.
+  const voteJsonError =
+    getFirstFieldError(activeFieldErrors, "Vote JSON") ??
+    getFirstFieldError(activeFieldErrors, "Vote");
 
       return (
         <div className="space-y-4">
@@ -59,14 +64,15 @@ export function WalletVoteConfigView() {
               value={voteJson}
               onChange={(event) => setVoteJson(event.target.value)}
               rows={10}
-              className="font-mono text-xs"
+              // No `text-xs`: `tailwind-merge` resolves the conflict in favour of the call
+              // site, so it deleted the primitive's `text-base` and left this box at 12px on
+              // mobile. iOS Safari zooms the page when a focused control's text is under 16px
+              // and never zooms back. The primitive's own `text-base sm:text-sm` stands.
+              className="font-mono"
+              aria-invalid={voteJsonError ? true : undefined}
+              aria-describedby={voteJsonError ? "userVoteJson-error" : undefined}
             />
-            <InlineFieldError
-              message={
-                getFirstFieldError(activeFieldErrors, "Vote JSON") ??
-                getFirstFieldError(activeFieldErrors, "Vote")
-              }
-            />
+            <InlineFieldError id="userVoteJson-error" message={voteJsonError} />
           </div>
         </div>
       );

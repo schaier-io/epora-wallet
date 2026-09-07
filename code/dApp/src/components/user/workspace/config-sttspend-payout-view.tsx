@@ -2,6 +2,7 @@
 import { useAtomValue } from "jotai";
 import { Loader2, Repeat } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -87,6 +88,24 @@ export function SttSpendPayoutView() {
     txEarliestTimeMs: clockReady ? getValidityWindow(renderNowMs).earliestTimeMs : 0,
     nowMs: renderNowMs
   });
+  /**
+   * What the reader has typed into an ADA payout box, kept as text.
+   *
+   * The box used to render `formatLovelaceAsAda(configuredAmount)` and parse it back on
+   * every keystroke. That round-trip cannot survive a decimal point:
+   * `parseAdaToLovelace("1.")` returns "1000000" (its pattern allows a trailing dot) and
+   * `formatLovelaceAsAda` strips the trailing zeros back to "1", so the staged value did
+   * not change, the surface re-rendered, and React reset the box and erased the dot as it
+   * was typed. The next digit then landed against the whole number: entering 1.5 staged
+   * 15 ADA, silently, on a payout. Same fix as the rewards claim
+   * (`config-walletwithdraw-view.tsx:51-76`), keyed per row.
+   *
+   * A draft is honoured only while it still represents the staged lovelace, so the tick
+   * box writing the full due amount replaces it with no reconciliation effect.
+   */
+  const [amountDrafts, setAmountDrafts] = useState<
+    Record<string, { text: string; lovelace: string }>
+  >({});
   const rows = streamingPaymentPayoutRows;
   const payingCount = rows.filter(
     (row) => row.cleanupRequired || streamingPayoutAmountIsSelected(row.configuredAmount)
@@ -148,6 +167,18 @@ export function SttSpendPayoutView() {
               const selectedAmount = row.configuredAmount;
               const isSelected = streamingPayoutAmountIsSelected(selectedAmount);
               const isCleanup = row.cleanupRequired;
+              const rowId = row.streamingPayment.id;
+              const draft = amountDrafts[rowId];
+              const amountText =
+                row.unit !== "lovelace"
+                  ? selectedAmount
+                  : draft && draft.lovelace === selectedAmount
+                    ? draft.text
+                    : formatLovelaceAsAda(selectedAmount);
+              const rowAmountError = getFirstFieldError(
+                activeFieldErrors,
+                `StreamingPayment ${rowId}`
+              );
               const status = clockReady
                 ? deriveStreamingPaymentRowStatus({
                     cleanupRequired: isCleanup,
@@ -191,7 +222,10 @@ export function SttSpendPayoutView() {
                       {isSelected ? <Badge variant="secondary">{i18n("payingNow")}</Badge> : null}
                     </div>
                   </div>
-                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  {/* `tabular-nums`: this is a two-column grid of amounts, and "Still owed"
+                      is recomputed against the display clock, so proportional digits made
+                      the column change width under the reader. */}
+                  <div className="mt-3 grid gap-3 tabular-nums md:grid-cols-2">
                     <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
                       {i18n("assetLabel")} {resolveAssetIdentity(row.unit).symbol}
                     </div>
@@ -257,7 +291,7 @@ export function SttSpendPayoutView() {
                         ? i18n("closingThisFinishedPayment")
                         : i18n("payThisOneNow")}
                     </label>
-                    <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground md:col-start-2 md:row-start-2">
+                    <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs tabular-nums text-muted-foreground md:col-start-2 md:row-start-2">
                       {i18n("dueNow")}{" "}
                       {row.unit === "lovelace"
                         ? i18n("value1Ada", { value1: formatLovelaceAsAda(row.dueAmount) })
@@ -272,23 +306,43 @@ export function SttSpendPayoutView() {
                     </div>
                     <div className="md:col-start-3 md:row-start-2">
                       <Input
-                        id={`streaming-payment-amount-${row.streamingPayment.id}`}
+                        id={`streaming-payment-amount-${rowId}`}
                         type="text"
                         inputMode={row.unit === "lovelace" ? "decimal" : "numeric"}
-                        value={
-                          row.unit === "lovelace"
-                            ? formatLovelaceAsAda(selectedAmount)
-                            : selectedAmount
+                        value={amountText}
+                        aria-invalid={rowAmountError ? true : undefined}
+                        aria-describedby={
+                          rowAmountError
+                            ? `streaming-payment-amount-${rowId}-error`
+                            : undefined
                         }
-                        onChange={(event) =>
-                          setStreamingPaymentPayoutAmounts((current) => ({
+                        onChange={(event) => {
+                          const typed = event.target.value;
+                          if (row.unit !== "lovelace") {
+                            setStreamingPaymentPayoutAmounts((current) => ({
+                              ...current,
+                              [rowId]: typed
+                            }));
+                            return;
+                          }
+
+                          // An empty box means "do not pay this one", so it stages 0.
+                          // Anything else that is not yet a complete ADA amount leaves the
+                          // last staged value in place for the validator to report against,
+                          // exactly as the rewards claim does.
+                          const staged =
+                            typed.trim() === "" ? "0" : parseAdaToLovelace(typed);
+                          setAmountDrafts((current) => ({
                             ...current,
-                            [row.streamingPayment.id]:
-                              row.unit === "lovelace"
-                                ? parseAdaToLovelace(event.target.value) ?? "0"
-                                : event.target.value
-                          }))
-                        }
+                            [rowId]: { text: typed, lovelace: staged ?? selectedAmount }
+                          }));
+                          if (staged !== null) {
+                            setStreamingPaymentPayoutAmounts((current) => ({
+                              ...current,
+                              [rowId]: staged
+                            }));
+                          }
+                        }}
                       />
                     </div>
                   </div>
@@ -320,10 +374,8 @@ export function SttSpendPayoutView() {
                     </p>
                   ) : null}
                   <InlineFieldError
-                    message={getFirstFieldError(
-                      activeFieldErrors,
-                      `StreamingPayment ${row.streamingPayment.id}`
-                    )}
+                    id={`streaming-payment-amount-${rowId}-error`}
+                    message={rowAmountError}
                   />
                 </div>
               );

@@ -369,23 +369,22 @@
     "native": "Native",
     "next": "Next",
     "nft": "NFT",
-    "of": "of",
     "previous": "Previous",
     "token": "Token",
     "value1RecentBalanceTrend": "{value1} recent balance trend",
     "walletAssets": "Wallet assets",
     "walletReadyFundItToBegin": "Wallet ready. Fund it to begin.",
-    "whatAFundPoolIs": "What a fund pool is"
+    "whatAFundPoolIs": "What a fund pool is",
+    "rangeOfTotal": "{start}-{end} of {total}"
   },
   "ComponentsUserOrphanUtxoNotice": {
+    "amountIsInTheWrongSpot": "{amount} ₳ is in the wrong spot",
     "dismiss": "Dismiss",
-    "isInTheWrongSpot": "₳ is in the wrong spot",
     "moveItBack": "Move it back",
     "moving": "Moving…",
     "reCheck": "Re-check",
     "thisMoneyIsYoursAndItIsSafe": "This money is yours and it is safe. It just is not earning staking rewards, and it may be missing from your balance. Moving it back fixes both.",
-    "thisTakes": "This takes",
-    "transactionsSignTheFirstThenChooseReCheck": "transactions. Sign the first, then choose Re-check to move the rest."
+    "thisTakesTransactions": "This takes {count} transactions. Sign the first, then choose Re-check to move the rest."
   },
   "ComponentsUserPoolFinder": {
     "clear": "Clear",
@@ -405,6 +404,7 @@
     "saturation": "Saturation",
     "stakePool": "Stake pool",
     "thisPoolIsClosing": "This pool is closing",
+    "unknown": "Unknown",
     "value1": "[{value1}]",
     "website": "Website"
   },

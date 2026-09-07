@@ -12,7 +12,7 @@ import { type WalletInputRef } from "@/lib/types/contracts";
 import { type DurationUnit, combineDurationToMillis, combineLocalDateAndTimeToTimestamp, splitDurationMillis, splitTimestampToLocalInputParts } from "@/lib/user-flow/guided-helpers";
 import { cn } from "@/lib/utils/cn";
 import { type UTxO } from "@meshsdk/core";
-import { useState } from "react";
+import { useId, useState } from "react";
 
 function GuidedDateTimeFieldBody({
   label,
@@ -195,6 +195,7 @@ export function GuidedLockedUtxoSelector({
   onRefresh?: () => void;
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsGuidedFields");
+  const uid = useId();
   const selectedKeys = new Set(
     selectedRefs.map((ref) => formatInputRefLabel(ref.txHash, ref.outputIndex))
   );
@@ -219,10 +220,18 @@ export function GuidedLockedUtxoSelector({
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
+    // A group, not a label: the heading names the list of fund pools below and points at
+    // no single control, so a bare <label> named nothing and clicked through to nothing.
+    <div
+      className="space-y-3 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4"
+      role="group"
+      aria-labelledby={`${uid}-group-label`}
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">
-          <Label>{i18n("whichFundsToSpend")}</Label>
+          <p id={`${uid}-group-label`} className="text-sm font-medium leading-none">
+            {i18n("whichFundsToSpend")}
+          </p>
           <p className="text-xs text-muted-foreground">{helper}</p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -269,7 +278,9 @@ export function GuidedLockedUtxoSelector({
       {error ? (
         /* Not the dashed empty line: a failed read reported as "nothing to spend"
            is the exact mistake the tidy screen's browser was corrected for. */
-        <p className="text-xs text-rose-300">{error}</p>
+        // `role="alert"`: the read fails after the panel is on screen, and nothing else
+        // announces it. It is not tied to a field, so `aria-describedby` cannot carry it.
+        <p role="alert" className="text-xs text-rose-300">{error}</p>
       ) : utxos.length === 0 ? (
         <p className="rounded-lg border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
           {i18n("thisWalletHasNothingToSpendRightNow")}

@@ -27,19 +27,6 @@ export type StakePool = {
   retiring: boolean;
 };
 
-// A blank cell used to be an em dash, which reads as a value rather than a gap. The pool
-// lookup returns null when the chain data does not carry the figure, and that is what the
-// cell should say.
-const NOT_REPORTED = "Unknown";
-
-function pct(value: number | null): string {
-  return value == null ? NOT_REPORTED : `${(value * 100).toFixed(1)}%`;
-}
-
-function ada(lovelace: string | null): string {
-  return lovelace == null ? NOT_REPORTED : `${formatLovelaceAsAda(lovelace)} ₳`;
-}
-
 /**
  * "Find your pool": verifies a stake pool by id through the server-side Blockfrost route
  * (`/api/v1/pools`) and shows the ticker, name, saturation and fees so the reader can confirm
@@ -60,6 +47,15 @@ export function PoolFinder({
   onSelect: (pool: StakePool | null) => void;
 }) {
   const i18n = useTranslations("ComponentsUserPoolFinder");
+  // A blank cell used to be an em dash, which reads as a value rather than a gap. The pool
+  // lookup returns null when the chain data does not carry the figure, and that is what the
+  // cell should say. Both formatters live in the component because that word is copy: as
+  // module constants they were an English literal the i18n migrator does not scan.
+  const notReported = i18n("unknown");
+  const pct = (value: number | null): string =>
+    value == null ? notReported : `${(value * 100).toFixed(1)}%`;
+  const ada = (lovelace: string | null): string =>
+    lovelace == null ? notReported : `${formatLovelaceAsAda(lovelace)} ₳`;
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<StakePool | null>(null);
   const [loading, setLoading] = useState(false);
@@ -121,7 +117,12 @@ export function PoolFinder({
       </div>
 
       {error ? (
-        <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+        // `role="alert"`: the lookup runs on demand and this is its only failure cue.
+        // Without it a screen-reader user presses Look up and hears nothing back.
+        <p
+          role="alert"
+          className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100"
+        >
           {error}
         </p>
       ) : null}

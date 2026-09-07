@@ -31,6 +31,11 @@ export function WalletPublishConfigView() {
   } = state;
   const { publishCertificateJson, setPublishCertificateJson } = usePublishForm();
   const { setWalletOperatorPath, walletOperatorPath } = useSttSpendForm();
+  // Hoisted so the box can point `aria-invalid` and `aria-describedby` at the message:
+  // the rejection was visible to sighted readers and invisible to assistive tech.
+  const certificateJsonError =
+    getFirstFieldError(activeFieldErrors, "Certificate JSON") ??
+    getFirstFieldError(activeFieldErrors, "Publish");
 
       return (
         <div className="space-y-4">
@@ -131,13 +136,19 @@ export function WalletPublishConfigView() {
               value={publishCertificateJson}
               onChange={(event) => setPublishCertificateJson(event.target.value)}
               rows={10}
-              className="font-mono text-xs"
+              // No `text-xs`: `tailwind-merge` resolves the conflict in favour of the call
+              // site, so it deleted the primitive's `text-base` and left this box at 12px on
+              // mobile. iOS Safari zooms the page when a focused control's text is under 16px
+              // and never zooms back. The primitive's own `text-base sm:text-sm` stands.
+              className="font-mono"
+              aria-invalid={certificateJsonError ? true : undefined}
+              aria-describedby={
+                certificateJsonError ? "userPublishCertificateJson-error" : undefined
+              }
             />
             <InlineFieldError
-              message={
-                getFirstFieldError(activeFieldErrors, "Certificate JSON") ??
-                getFirstFieldError(activeFieldErrors, "Publish")
-              }
+              id="userPublishCertificateJson-error"
+              message={certificateJsonError}
             />
           </div>
         </div>

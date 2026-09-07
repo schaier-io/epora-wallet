@@ -142,7 +142,9 @@ export function StateFormEditor({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
           <div className="flex items-center gap-2">
-            <Label>{label}</Label>
+            {/* Not a <label>: this heads the whole panel and points at no single
+                control, so it named nothing and clicked through to nothing. */}
+            <p className="text-sm font-medium leading-none">{label}</p>
             {helperIsLong ? (
               <InfoHint label={i18n("moreAboutLabel", { label: label })} contentClassName="max-w-sm">
                 {helper}
@@ -464,6 +466,7 @@ export function StateFormEditor({
             <Label htmlFor={`${uid}-approvals-needed`}>{i18n("approvalPowerNeeded")}</Label>
             <Input
               id={`${uid}-approvals-needed`}
+              inputMode="numeric"
               value={value.multiSigThreshold}
               onChange={(event) =>
                 onChange({ ...value, multiSigThreshold: event.target.value })

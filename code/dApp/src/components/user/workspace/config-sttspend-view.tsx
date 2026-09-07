@@ -106,10 +106,17 @@ export function SttSpendConfigView() {
                   </Label>
                   <Select
                     id="sttAuthorityPath"
-                    // Kept at h-8: this sits in a row of Badges (py-0.5 text-xs, ~22px),
-                    // not among 40px controls. The primitive supplies the focus ring it
-                    // was missing.
-                    className="h-8 w-auto min-w-[10rem] px-2 text-xs"
+                    // Small from `sm` up: this sits in a row of Badges (py-0.5 text-xs,
+                    // ~22px), not among 40px controls. The primitive supplies the focus
+                    // ring it was missing.
+                    //
+                    // Mobile keeps the primitive's own size. A bare `text-xs` here beat
+                    // the primitive's `text-base` through `tailwind-merge`, so the control
+                    // rendered at 12px on a phone, and iOS Safari zooms the page when a
+                    // focused control's text is under 16px and never zooms back. 16px text
+                    // does not fit a 32px box either, so the height steps with it, the
+                    // same way `Button` already does (`h-11 sm:h-10`).
+                    className="h-10 w-auto min-w-[10rem] px-2 text-base sm:h-8 sm:text-xs"
                     value={
                       selectedAction === "consolidate-utxo"
                         ? consolidateAuthorityPath
@@ -251,7 +258,10 @@ export function SttSpendConfigView() {
                       )}
                     </div>
                   </div>
-                  <div className="grid gap-3 md:grid-cols-3">
+                  {/* `tabular-nums`: all three recompute on every keystroke in the amount
+                      box, and proportional digits change width as they change, so the row
+                      of amounts jittered while the reader was reading it. */}
+                  <div className="grid gap-3 tabular-nums md:grid-cols-3">
                     <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
                       {i18n("youCanSpendNow")}{" "}
                       {formatAmountSummary(
@@ -347,7 +357,18 @@ export function SttSpendConfigView() {
                       "Recipient: None added yet". It is also skipped entirely while no
                       recipient is chosen, which is now the starting state. */}
                   {i18n("willSendTo")}{" "}
-                  <span className="font-medium text-foreground">
+                  {/* `title` carries the untruncated address, the way the review card
+                      does (`review-panel-preview.tsx:98-101`). A middle-truncated
+                      address is the only recipient this box shows, so the exact value
+                      has to stay reachable from it. */}
+                  <span
+                    className="font-medium text-foreground"
+                    title={
+                      transferRecipientMode === "my-address"
+                        ? activeAddress ?? undefined
+                        : transferRecipientMode.slice("recent:".length)
+                    }
+                  >
                     {transferRecipientMode === "my-address"
                       ? shortenAddress(activeAddress)
                       : shortenAddress(transferRecipientMode.slice("recent:".length))}
@@ -475,13 +496,24 @@ export function SttSpendConfigView() {
                   {sttExtraTransfers.map((transfer, index) => (
                     <div
                       key={`simple-transfer-${index}`}
-                      className="flex w-full flex-wrap items-start gap-x-3 gap-y-2 rounded-lg border border-border/60 bg-muted/20 p-3"
+                      /* rounded-md, not rounded-lg: the panel around this list is already
+                         rounded-lg, and every other tile inside it (the recipient note, the
+                         allowance tiles) is rounded-md. Only this row repeated its parent's
+                         radius, so it read as a peer of the panel rather than a child. */
+                      className="flex w-full flex-wrap items-start gap-x-3 gap-y-2 rounded-md border border-border/60 bg-muted/20 p-3"
                     >
                       <div className="min-w-0 flex-1 space-y-1">
-                        <p className="text-sm font-medium text-foreground">
+                        {/* This is the last place the recipient is stated before the
+                            wallet is asked to sign, and it is middle-truncated, so
+                            `title` carries the exact address the way the review card
+                            does (`review-panel-preview.tsx:98-101`). */}
+                        <p
+                          className="text-sm font-medium text-foreground"
+                          title={transfer.address}
+                        >
                           {shortenAddress(transfer.address)}
                         </p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs tabular-nums text-muted-foreground">
                           {formatAmountSummary(transfer.amount)}
                         </p>
                       </div>

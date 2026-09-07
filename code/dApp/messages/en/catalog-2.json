@@ -39,6 +39,7 @@
     "somethingNeedsAttention": "Something needs attention",
     "toClearThis": "To clear this",
     "transactionSubmitted": "Transaction submitted",
+    "viewTransactionHashOnCardanoscan": "View transaction on Cardanoscan: {hash}",
     "viewTransactionOnCardanoscan": "View transaction on Cardanoscan",
     "walletOkChain": "* . * +-----------+ | WALLET OK | +-----------+ -> chain",
     "whatWillHappen": "What will happen"
@@ -363,6 +364,7 @@
     "addrTest": "addr_test...",
     "advanced": "Advanced:",
     "amount": "Amount",
+    "amountLovelace": "Amount (lovelace)",
     "asset": "Asset",
     "assetNameHex": "Asset name (hex)",
     "assetNameHex_559b83": "asset name hex",
@@ -376,12 +378,16 @@
     "none": "None",
     "nothingAddedYet": "Nothing added yet.",
     "noWalletAddedYet": "No wallet added yet.",
+    "oneAdaIsAMillionLovelace": "1 ADA is 1,000,000 lovelace.",
     "outputIndex": "Output index",
     "outputIndex_7d014b": "Output Index",
     "policyId": "Policy ID",
     "policyId_f606df": "policy id",
     "pro": "Pro",
     "remove": "Remove",
+    "removeFundPoolNumber": "Remove fund pool {number}",
+    "removeTokenNumber": "Remove token {number}",
+    "removeWalletNumber": "Remove wallet {number}",
     "tokenNameHex": "Token name (hex)",
     "tokenPolicyId": "Token policy id",
     "txHash": "Tx Hash",
@@ -396,12 +402,14 @@
     "addAsset": "Add asset",
     "addAsset_f05393": "Add Asset",
     "asset": "Asset",
+    "everyAssetInThisWalletIsAlreadyOnTheList": "Every asset this wallet holds is already on the list.",
     "howMuch": "How much",
     "howMuchAda": "How much (ADA)",
     "max": "Max",
     "noAssetRowsAdded": "No asset rows added.",
     "notInYourWalletYet": "Not in your wallet yet",
     "remove": "Remove",
+    "removeAssetNumber": "Remove asset {number}",
     "value1Value2": "{value1} · {value2}"
   },
   "ComponentsUserWorkspaceEditorsConfigFormPrimitives": {
@@ -510,6 +518,10 @@
     "viewOnCardanoscan": "View on Cardanoscan",
     "waitingForTheNetwork": "Waiting for the network…",
     "walletFunds": "Wallet funds",
-    "walletToken": "Wallet token"
+    "walletToken": "Wallet token",
+    "stepDone": "Done",
+    "stepNow": "Now",
+    "stepBlocked": "Blocked",
+    "stepWaiting": "Waiting"
   }
 }

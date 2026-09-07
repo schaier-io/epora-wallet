@@ -2,6 +2,7 @@
 import { useTranslations } from "next-intl";
 
 
+import { AmountInput } from "./config-form-primitives";
 import { GuidedDateTimeField } from "./guided-fields";
 import { DisclosureSection, InlineFieldError } from "./primitives";
 import { FocusedTaskSurface, TaskEmptyState } from "./task-surface";
@@ -123,12 +124,12 @@ export function StreamingPaymentEditor({
             <Label htmlFor={`${uid}-amount`}>{i18n("amount")}{ada ? i18n("ada") : ""}</Label>
           </div>
           <div className="flex gap-2">
-            <Input
+            <AmountInput
               id={`${uid}-amount`}
               inputMode="decimal"
               value={ada ? formatLovelaceAsAda(perPeriod) : perPeriod}
-              onChange={(event) =>
-                onChange(withScheduledPaymentRate(streamingPayment, event.target.value, rateDays))
+              onChange={(text) =>
+                onChange(withScheduledPaymentRate(streamingPayment, text, rateDays))
               }
             />
             <Select
@@ -286,7 +287,7 @@ export function ScheduledPaymentEditor({
           <Label htmlFor={`${uid}-amount-per-day`}>
             {i18n("amountPerDay")}{isAdaScheduledPayment(streamingPayment) ? i18n("ada") : ""}
           </Label>
-          <Input
+          <AmountInput
             id={`${uid}-amount-per-day`}
             inputMode="decimal"
             value={
@@ -294,8 +295,8 @@ export function ScheduledPaymentEditor({
                 ? formatLovelaceAsAda(streamingPayment.amountPerDay)
                 : streamingPayment.amountPerDay
             }
-            onChange={(event) =>
-              onChange(withScheduledPaymentRate(streamingPayment, event.target.value, 1))
+            onChange={(text) =>
+              onChange(withScheduledPaymentRate(streamingPayment, text, 1))
             }
             placeholder="0"
           />

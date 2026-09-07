@@ -2,7 +2,7 @@
 import { useTranslations } from "next-intl";
 
 
-import { useMemo } from "react";
+import { useId, useMemo, useRef } from "react";
 import { atom, useAtom } from "jotai";
 
 import { deserializeAddress } from "@meshsdk/core";
@@ -65,6 +65,10 @@ export function StateAssetAmountListEditor({
   availableAssets?: Asset[];
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsAssetEditors");
+  const uid = useId();
+  // Removing a row unmounts the focused button and drops focus on <body>; the add
+  // button is the one control this list always has.
+  const addButtonRef = useRef<HTMLButtonElement | null>(null);
   function updateItem(index: number, patch: Partial<StateAssetAmountForm>) {
     onChange(
       value.map((item, itemIndex) =>
@@ -117,13 +121,18 @@ export function StateAssetAmountListEditor({
   }
 
   return (
-    <div className="space-y-3">
+    // A group, not a label: `label` heads the rows below it and points at no single
+    // control, so a bare <label> named nothing and clicked through to nothing.
+    <div className="space-y-3" role="group" aria-labelledby={`${uid}-group-label`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
-          <Label>{label}</Label>
+          <p id={`${uid}-group-label`} className="text-sm font-medium leading-none">
+            {label}
+          </p>
           {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}
         </div>
         <Button
+          ref={addButtonRef}
           type="button"
           variant="secondary"
           onClick={() => onChange([...value, createDefaultStateAssetAmountForm()])}
@@ -179,15 +188,33 @@ export function StateAssetAmountListEditor({
                     )}
                   </div>
                   <div className="space-y-1">
-                    <Label htmlFor={`${label}-amount-${index}`}>{i18n("amount")}</Label>
+                    {/* The box holds the number the contract stores, and for ADA that is
+                        lovelace (`state-form-encode.ts:78` passes it through as an
+                        integer). Labelling it "Amount" beside a wallet that shows ADA
+                        everywhere else invited a 1,000,000x mistake. */}
+                    <Label htmlFor={`${label}-amount-${index}`}>
+                      {unit === LOVELACE_UNIT ? i18n("amountLovelace") : i18n("amount")}
+                    </Label>
                     <Input
                       id={`${label}-amount-${index}`}
+                      inputMode="numeric"
                       value={asset.amount}
                       onChange={(event) =>
                         updateItem(index, { amount: event.target.value })
                       }
                       placeholder="0"
+                      aria-describedby={
+                        unit === LOVELACE_UNIT ? `${uid}-lovelace-hint-${index}` : undefined
+                      }
                     />
+                    {unit === LOVELACE_UNIT ? (
+                      <p
+                        id={`${uid}-lovelace-hint-${index}`}
+                        className="text-xs text-muted-foreground"
+                      >
+                        {i18n("oneAdaIsAMillionLovelace")}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
                 {!hasWalletOptions || !isKnownUnit ? (
@@ -221,10 +248,16 @@ export function StateAssetAmountListEditor({
                     </p>
                   </div>
                 ) : null}
+                {/* Every row's button reads "Remove", so on its own the name says
+                    nothing about which row it drops. */}
                 <Button
                   type="button"
                   variant="ghost"
-                  onClick={() => onChange(value.filter((_, itemIndex) => itemIndex !== index))}
+                  aria-label={i18n("removeTokenNumber", { number: index + 1 })}
+                  onClick={() => {
+                    onChange(value.filter((_, itemIndex) => itemIndex !== index));
+                    addButtonRef.current?.focus();
+                  }}
                 >
                   {i18n("remove")}
                 </Button>
@@ -258,6 +291,10 @@ export function WalletHashesEditor({
   knownAddresses?: Record<string, string>;
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsAssetEditors");
+  const uid = useId();
+  // Removing a row unmounts the focused button and drops focus on <body>; the add
+  // button is the one control this list always has.
+  const addButtonRef = useRef<HTMLButtonElement | null>(null);
   // A pasted Cardano address is stored as the wallet id (payment key hash) the contract
   // actually compares against; remembering the pairs lets the field keep showing the
   // address the user recognises while the hash stays the stored value.
@@ -287,13 +324,18 @@ export function WalletHashesEditor({
   };
 
   return (
-    <div className="space-y-3">
+    // A group, not a label: `label` heads the rows below it and points at no single
+    // control, so a bare <label> named nothing and clicked through to nothing.
+    <div className="space-y-3" role="group" aria-labelledby={`${uid}-group-label`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
-          <Label>{label}</Label>
+          <p id={`${uid}-group-label`} className="text-sm font-medium leading-none">
+            {label}
+          </p>
           {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}
         </div>
         <Button
+          ref={addButtonRef}
           type="button"
           variant="secondary"
           onClick={() => onChange([...value, ""])}
@@ -338,6 +380,9 @@ export function WalletHashesEditor({
                         value2: index + 1
                       })}
                       aria-invalid={malformed ? true : undefined}
+                      // The reason below was visible to sighted readers only: the field
+                      // said "invalid" and named nothing that explained why.
+                      aria-describedby={malformed ? `${uid}-wallet-error-${index}` : undefined}
                       value={knownAddress ?? wallet}
                       onChange={(event) => handleChange(index, event.target.value)}
                       placeholder={placeholder ?? i18n("walletIdOrAddress")}
@@ -358,16 +403,22 @@ export function WalletHashesEditor({
                       </p>
                     ) : null}
                   </div>
+                  {/* Every row's button reads "Remove", so on its own the name says
+                      nothing about which wallet it drops. */}
                   <Button
                     type="button"
                     variant="ghost"
-                    onClick={() => onChange(value.filter((_, entryIndex) => entryIndex !== index))}
+                    aria-label={i18n("removeWalletNumber", { number: index + 1 })}
+                    onClick={() => {
+                      onChange(value.filter((_, entryIndex) => entryIndex !== index));
+                      addButtonRef.current?.focus();
+                    }}
                   >
                     {i18n("remove")}
                   </Button>
                 </div>
                 {malformed ? (
-                  <p className="text-xs text-amber-200">
+                  <p id={`${uid}-wallet-error-${index}`} className="text-xs text-amber-200">
                     {problem ??
                       i18n("enterACardanoAddressOrA56Character", { value1: typedLength })}
                   </p>
@@ -393,6 +444,9 @@ export function WalletInputRefsEditor({
   onChange: (value: WalletInputRef[]) => void;
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsAssetEditors");
+  // Removing a row unmounts the focused button and drops focus on <body>; the add
+  // button is the one control this list always has.
+  const addButtonRef = useRef<HTMLButtonElement | null>(null);
   function updateRef(index: number, patch: Partial<WalletInputRef>) {
     onChange(
       value.map((entry, entryIndex) =>
@@ -417,6 +471,7 @@ export function WalletInputRefsEditor({
           {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}
         </div>
         <Button
+          ref={addButtonRef}
           type="button"
           variant="secondary"
           onClick={() => onChange([...value, createDefaultWalletInputRef()])}
@@ -448,6 +503,7 @@ export function WalletInputRefsEditor({
                 <Label htmlFor={`${label}-index-${index}`}>{i18n("outputIndex_7d014b")}</Label>
                 <Input
                   id={`${label}-index-${index}`}
+                  inputMode="numeric"
                   value={String(entry.outputIndex)}
                   onChange={(event) =>
                     updateRef(index, {
@@ -458,10 +514,16 @@ export function WalletInputRefsEditor({
                 />
               </div>
               <div className="flex items-end">
+                {/* Every row's button reads "Remove", so on its own the name says
+                    nothing about which fund pool it drops. */}
                 <Button
                   type="button"
                   variant="ghost"
-                  onClick={() => onChange(value.filter((_, refIndex) => refIndex !== index))}
+                  aria-label={i18n("removeFundPoolNumber", { number: index + 1 })}
+                  onClick={() => {
+                    onChange(value.filter((_, refIndex) => refIndex !== index));
+                    addButtonRef.current?.focus();
+                  }}
                 >
                   {i18n("remove")}
                 </Button>

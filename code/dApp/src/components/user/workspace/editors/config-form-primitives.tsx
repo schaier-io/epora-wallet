@@ -2,7 +2,7 @@
 import { useTranslations } from "next-intl";
 
 
-import { type ReactNode } from "react";
+import { type ComponentProps, type ReactNode, useState } from "react";
 
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -70,7 +70,9 @@ export function LabeledField({
       <Label htmlFor={htmlFor}>{label}</Label>
       {children}
       {helper !== undefined ? (
-        <p className="text-xs text-muted-foreground">{helper}</p>
+        <p id={`${htmlFor}-helper`} className="text-xs text-muted-foreground">
+          {helper}
+        </p>
       ) : null}
       <InlineFieldError id={errorId} message={error} />
     </div>
@@ -112,7 +114,13 @@ export function LabeledInputField({
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
         aria-invalid={error ? true : undefined}
-        aria-describedby={error ? `${id}-error` : undefined}
+        // The helper line says what the box will accept, so it belongs in the field's
+        // description too; without it the sentence is visible only to sighted readers.
+        aria-describedby={
+          [helper !== undefined ? `${id}-helper` : null, error ? `${id}-error` : null]
+            .filter(Boolean)
+            .join(" ") || undefined
+        }
       />
     </LabeledField>
   );
@@ -143,6 +151,7 @@ export function OperatorPathSelector({
           id={id}
           value={value}
           onChange={(event) => onChange(event.target.value as OperatorAuthorityPath)}
+          aria-describedby={helper ? `${id}-helper` : undefined}
         >
           {options.map((option) => (
             <option key={option.value} value={option.value}>
@@ -151,7 +160,9 @@ export function OperatorPathSelector({
           ))}
         </Select>
         {helper ? (
-          <p className="text-xs text-muted-foreground">{helper}</p>
+          <p id={`${id}-helper`} className="text-xs text-muted-foreground">
+            {helper}
+          </p>
         ) : null}
       </div>
     );
@@ -167,5 +178,37 @@ export function OperatorPathSelector({
       {i18n("signingAs")}{" "}
       <span className="font-medium text-foreground">{single.label}</span>
     </div>
+  );
+}
+
+// The reader's own keystrokes, kept while the box has focus. A money box whose text is
+// derived from the stored value (ADA text from a lovelace integer) re-derives on every
+// keystroke, and the derived text cannot spell a half-typed number: typing "1.5" stored
+// "1", the "." was thrown away, and the next key made it 15 ADA. Blur snaps the text back
+// to the stored value's own formatting, so any rounding is still shown.
+export function AmountInput({
+  value,
+  onChange,
+  onBlur,
+  ...inputProps
+}: Omit<ComponentProps<typeof Input>, "value" | "onChange"> & {
+  value: string;
+  onChange: (text: string) => void;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+
+  return (
+    <Input
+      {...inputProps}
+      value={draft ?? value}
+      onChange={(event) => {
+        setDraft(event.target.value);
+        onChange(event.target.value);
+      }}
+      onBlur={(event) => {
+        setDraft(null);
+        onBlur?.(event);
+      }}
+    />
   );
 }

@@ -51,15 +51,22 @@ export function OrphanUtxoNotice({
         consequences.
       */}
       <div className="flex flex-col gap-1">
+        {/* One templated sentence per line below, not a label fragment glued either side
+            of the number. Word order around an amount and a count moves between
+            languages, and the fragments cannot follow it. */}
         <strong className="font-semibold">
-          {formatLovelaceAsAda(orphanLovelace)} {i18n("isInTheWrongSpot")}
+          {i18n("amountIsInTheWrongSpot", {
+            amount: formatLovelaceAsAda(orphanLovelace)
+          })}
         </strong>
         <p className="text-amber-100/80">
           {i18n("thisMoneyIsYoursAndItIsSafe")}
         </p>
         {batched ? (
           <p className="text-amber-100/70">
-            {i18n("thisTakes")} {Math.ceil(count / MAX_ORPHAN_SWEEP_INPUTS)} {i18n("transactionsSignTheFirstThenChooseReCheck")}
+            {i18n("thisTakesTransactions", {
+              count: Math.ceil(count / MAX_ORPHAN_SWEEP_INPUTS)
+            })}
           </p>
         ) : null}
       </div>

@@ -449,6 +449,8 @@
     "worksWithLaceEternlNamiVesprAndOther": "Works with Lace, Eternl, Nami, Vespr, and other wallets on Preprod."
   },
   "ComponentsUserWorkspaceWorkspaceReviewRailView": {
+    "proposalBlockedByFieldErrors": "Fix the highlighted fields first. Then this can be saved for the other signers.",
+    "proposalBlockedByIssue": "{issue} Then this can be saved for the other signers.",
     "refreshChainState": "Refresh chain state",
     "refreshingChainState": "Refreshing chain state...",
     "review": "Review",

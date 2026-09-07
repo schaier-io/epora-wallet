@@ -363,7 +363,11 @@ export function LockedAssetsOverviewPanel({
           {sortedAssets.length > assetPageSize ? (
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
               <p className="text-xs tabular-nums text-muted-foreground">
-                {visibleStart}-{visibleEnd} {i18n("of")} {sortedAssets.length}
+                {i18n("rangeOfTotal", {
+                  start: visibleStart,
+                  end: visibleEnd,
+                  total: sortedAssets.length
+                })}
               </p>
               <div className="flex items-center gap-2">
                 <Button

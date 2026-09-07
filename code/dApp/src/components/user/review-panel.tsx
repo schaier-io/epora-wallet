@@ -405,6 +405,11 @@ export function UserReviewPanel({
                   rel="noreferrer noopener"
                   className="inline-flex items-center gap-1.5 rounded-md border border-emerald-300/30 bg-emerald-400/10 px-2 py-1 font-mono text-xs text-emerald-50 transition-colors hover:border-emerald-300/60 hover:bg-emerald-400/20"
                   title={i18n("viewTransactionOnCardanoscan")}
+                  // Without this the link announces as its own visible text, a
+                  // truncated hash, which says neither where it goes nor what the
+                  // hash is. The label names the destination and carries the full
+                  // value, which is otherwise nowhere on this card.
+                  aria-label={i18n("viewTransactionHashOnCardanoscan", { hash: submitHash })}
                 >
                   {formatCompactHash(submitHash)}
                   <ExternalLink className="h-3 w-3 shrink-0" />
@@ -456,6 +461,11 @@ export function UserReviewPanel({
                   rel="noreferrer noopener"
                   className="inline-flex items-center gap-1.5 rounded-md border border-emerald-300/30 bg-emerald-400/10 px-2 py-1 font-mono text-xs text-emerald-50 transition-colors hover:border-emerald-300/60 hover:bg-emerald-400/20"
                   title={i18n("viewTransactionOnCardanoscan")}
+                  // Without this the link announces as its own visible text, a
+                  // truncated hash, which says neither where it goes nor what the
+                  // hash is. The label names the destination and carries the full
+                  // value, which is otherwise nowhere on this card.
+                  aria-label={i18n("viewTransactionHashOnCardanoscan", { hash: submitHash })}
                 >
                   {formatCompactHash(submitHash)}
                   <ExternalLink className="h-3 w-3 shrink-0" />

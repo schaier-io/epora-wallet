@@ -202,6 +202,7 @@ export function MultisigThresholdEditor({
             <Label htmlFor={`${uid}-required-approvals`}>{i18n("approvalPowerNeeded")}</Label>
             <Input
               id={`${uid}-required-approvals`}
+              inputMode="numeric"
               value={value.multiSigThreshold}
               onChange={(event) =>
                 onChange({ ...value, multiSigThreshold: event.target.value })

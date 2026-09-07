@@ -146,16 +146,24 @@ export function WorkspaceTransactionsView() {
                               <button
                                 type="button"
                                 onClick={() => openAssetDetail(null)}
-                                className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:underline"
+                                className="inline-flex items-center gap-1 rounded-md text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                               >
                                 <ChevronRight className="h-3 w-3 rotate-180" aria-hidden="true" />
                                 {i18n("backToWalletBalance")}
                               </button>
                               {/* Asset summary card. `rounded-lg` (10px), not the Card's own
                                   `rounded-xl` (14px): a child that repeats its parent's radius
-                                  reads as floating loose rather than nested. */}
+                                  reads as floating loose rather than nested.
+
+                                  `.section-transition`, not an inline `animate-[section-fade-in…]`:
+                                  it runs the same keyframe on the project's motion tokens, so the
+                                  named class and the arbitrary utility stay in step. Motion was
+                                  already safe either way -- the `*, *::before, *::after` catch-all
+                                  at the end of `globals/animations.css` collapses every animation
+                                  under `prefers-reduced-motion: reduce`, arbitrary utilities
+                                  included. This is consistency, not a motion fix. */}
                               <div
-                                className="relative overflow-hidden rounded-lg border border-border/60 bg-background/45 p-3 sm:p-4 animate-[section-fade-in_360ms_cubic-bezier(0.22,1,0.36,1)_both]"
+                                className="section-transition relative overflow-hidden rounded-lg border border-border/60 bg-background/45 p-3 sm:p-4"
                                 aria-label={i18n("value1Summary", { value1: isAda ? "ADA" : identity.symbol })}
                               >
                                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -200,7 +208,7 @@ export function WorkspaceTransactionsView() {
                                       >
                                         {trendUp ? "+" : "−"}
                                         {formatVal(Math.abs(delta))}
-                                        <span className="ml-1 text-[10px] font-medium text-muted-foreground">
+                                        <span className="ml-1 text-[11px] font-medium text-muted-foreground">
                                           ({trendUp ? "+" : "−"}
                                           {Math.abs(deltaPct).toFixed(1)}%)
                                         </span>
@@ -310,7 +318,14 @@ export function WorkspaceTransactionsView() {
                       </div>
 
                       {walletTransactions.error ? (
-                        <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-100">
+                        // `role="alert"`: the fetch the reader just asked for failed, and the
+                        // only other cue is a rose-tinted box they may not be looking at. The
+                        // Refresh button above it is the recovery, so the announcement has
+                        // somewhere to send them.
+                        <div
+                          role="alert"
+                          className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-100"
+                        >
                           {walletTransactions.error}
                         </div>
                       ) : null}
@@ -496,7 +511,7 @@ export function WorkspaceTransactionsView() {
                                       <p className="eyebrow text-muted-foreground">
                                         {i18n("fee")}
                                       </p>
-                                      <p className="mt-1 text-xs text-foreground">
+                                      <p className="mt-1 text-xs tabular-nums text-foreground">
                                         {formatLovelaceAsAda(transaction.fees ?? "0")} {i18n("ada")}
                                       </p>
                                     </div>
@@ -525,9 +540,16 @@ export function WorkspaceTransactionsView() {
                           })}
                           {recentWalletActivityEvents.length > WALLET_ACTIVITY_PAGE_SIZE ? (
                             <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/60 bg-background/30 px-3 py-2">
-                              <p className="text-xs text-muted-foreground">
-                                {i18n("showing")} {activityVisibleStart}-{activityVisibleEnd} {i18n("of")}{" "}
-                                {recentWalletActivityEvents.length}
+                              {/* One templated string, not "Showing" + range + "of" + count
+                                  assembled around the numbers: word order moves between
+                                  languages and the fragments cannot follow it. `tabular-nums`
+                                  holds the row still as the page changes under it. */}
+                              <p className="text-xs tabular-nums text-muted-foreground">
+                                {i18n("showingRangeOfTotal", {
+                                  start: activityVisibleStart,
+                                  end: activityVisibleEnd,
+                                  total: recentWalletActivityEvents.length
+                                })}
                               </p>
                               <div className="flex items-center gap-1.5">
                                 <Button

@@ -214,7 +214,10 @@ export function ReviewCosts({ rows }: { rows: PresignCostRow[] }) {
             <dt className="eyebrow text-muted-foreground">
               {i18n(COST_ROW_LABEL_KEYS[row.id])}
             </dt>
-            <dd className="flex items-baseline gap-1.5 text-sm font-medium text-foreground">
+            {/* `tabular-nums`: these are the amounts the reader compares down the
+                column before signing, and proportional digits shift the decimal
+                point from row to row. */}
+            <dd className="flex items-baseline gap-1.5 text-sm font-medium tabular-nums text-foreground">
               {formatLovelaceAsAda(row.lovelace)} ₳
               {row.precision === "estimated" ? (
                 <span className="eyebrow rounded border border-border/60 px-1">

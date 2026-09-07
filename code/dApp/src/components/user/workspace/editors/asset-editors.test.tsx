@@ -144,7 +144,9 @@ describe("a list of token amounts", () => {
     );
 
     expect(screen.getByRole("button", { name: "Add a token" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Remove" })).toBeInTheDocument();
+    // "Remove" is the visible text; the accessible name adds the row, because every
+    // row's button reads the same and one list can hold several.
+    expect(screen.getByRole("button", { name: "Remove token 1" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Asset Limit/ })).not.toBeInTheDocument();
   });
 

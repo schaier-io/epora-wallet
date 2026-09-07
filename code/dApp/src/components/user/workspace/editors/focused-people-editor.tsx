@@ -110,6 +110,7 @@ function AdminSignerUserEditor({
           <Label htmlFor={`${uid}-cosign-weight`}>{i18n("approvalPower")}</Label>
           <Input
             id={`${uid}-cosign-weight`}
+            inputMode="numeric"
             value={user.multiSigPower}
             onChange={(event) => onChange({ ...user, multiSigPower: event.target.value })}
             disabled={user.multiSigPowerMode === "none"}

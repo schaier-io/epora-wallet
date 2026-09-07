@@ -184,8 +184,13 @@ export function InlineFieldError({
     return null;
   }
 
+  // `role="alert"` because this is every inline validation message in the app.
+  // Without it the reason a money field was rejected reached no screen reader at
+  // all, and `aria-describedby` alone does not help: a description change on an
+  // already-focused control is not announced. An assertive region IS announced on
+  // insertion, which is what this conditional render does.
   return (
-    <p id={id} className="text-xs text-amber-300">
+    <p role="alert" id={id} className="text-xs text-amber-300">
       {message}
     </p>
   );
@@ -252,9 +257,21 @@ export function SetupProgressStepper({ steps }: { steps: SetupProgressStep[] }) 
           // people" reported "People are set." while the owners editor sat a full screen
           // below, reachable only by scrolling blind. Steps without a target ("Connect
           // wallet" spans the page, "Confirm" lives in the review panel) stay informative.
+          // Green, teal, amber and grey were the only thing separating done from now,
+          // blocked and waiting: three of the four states drew the same numbered circle,
+          // so a reader who cannot tell the hues apart could not tell the states apart.
+          // The word is the cue; the colour now only reinforces it.
+          const statusWord = isDone
+            ? i18n("stepDone")
+            : isActive
+              ? i18n("stepNow")
+              : isBlocked
+                ? i18n("stepBlocked")
+                : i18n("stepWaiting");
+
           const stepBody = (
             <>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                 <span
                   className={cn(
                     "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-xs font-semibold",
@@ -267,9 +284,23 @@ export function SetupProgressStepper({ steps }: { steps: SetupProgressStep[] }) 
                           : "border-border/70 bg-background/50 text-muted-foreground"
                   )}
                 >
-                  {isDone ? <CheckCircle2 className="h-3.5 w-3.5" /> : index + 1}
+                  {isDone ? <CheckCircle2 className="h-3.5 w-3.5" aria-hidden /> : index + 1}
                 </span>
                 <p className="text-sm font-medium text-foreground">{step.label}</p>
+                <span
+                  className={cn(
+                    "eyebrow shrink-0",
+                    isDone
+                      ? "text-emerald-100/80"
+                      : isBlocked
+                        ? "text-amber-100/90"
+                        : isActive
+                          ? "text-primary"
+                          : "text-muted-foreground"
+                  )}
+                >
+                  {statusWord}
+                </span>
               </div>
               <p className="mt-2 text-xs leading-snug text-muted-foreground">
                 {step.description}

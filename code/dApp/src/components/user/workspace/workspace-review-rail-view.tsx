@@ -75,12 +75,17 @@ export function WorkspaceReviewRailView() {
   // was disabled -- a send with no payout staged could be routed to the co-signers instead.
   // Both build the same bytes, so both answer to the same readiness.
   const proposalBlockingIssue = activeReadinessIssues.find((issue) => issue.blocking);
+  // Both sentences were English literals here. The i18n migrator only reads JSX, so a
+  // string built in the component body ships untranslated and `i18n:check` never sees it.
+  // The issue text stays a placeholder: it is data the readiness gate produced, not copy.
   const proposalBlockedReason = proposalBlockingIssue
-    ? `${proposalBlockingIssue.description}${
-        proposalBlockingIssue.recovery ? ` ${proposalBlockingIssue.recovery}` : ""
-      } Then this can be saved for the other signers.`
+    ? i18n("proposalBlockedByIssue", {
+        issue: `${proposalBlockingIssue.description}${
+          proposalBlockingIssue.recovery ? ` ${proposalBlockingIssue.recovery}` : ""
+        }`
+      })
     : hasFieldErrors(activeFieldErrors)
-      ? "Fix the highlighted fields first. Then this can be saved for the other signers."
+      ? i18n("proposalBlockedByFieldErrors")
       : null;
   const [preparingProposal, setPreparingProposal] = useState(false);
   const [refreshingChainState, setRefreshingChainState] = useState(false);
@@ -224,7 +229,11 @@ export function WorkspaceReviewRailView() {
                         : i18n("refreshChainState")}
                     </Button>
                     {refreshChainStateFailed ? (
-                      <p role="status" className="text-xs leading-relaxed text-rose-200">
+                      // No `role="status"` of its own: the wrapper above is already one,
+                      // so text appearing inside it is announced. A live region nested in
+                      // a live region is announced twice or not at all, depending on the
+                      // screen reader.
+                      <p className="text-xs leading-relaxed text-rose-200">
                         {i18n("refreshChainStateFailed")}
                       </p>
                     ) : null}
