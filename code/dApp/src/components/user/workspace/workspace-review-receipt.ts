@@ -76,8 +76,6 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
     mintHasOwnerChoice,
     mintOwnerCount,
     selectedAction,
-    sharedSttReferenceStoreLoading,
-    showSharedReferenceSetup,
     streamingPaymentPayoutTransfers,
     isWalletStakingEnabled,
     withdrawAmount,
@@ -130,15 +128,7 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
                 }
               ]
             : []),
-          ...(showSharedReferenceSetup
-            ? [
-                {
-                  label: i18n("oneTimeHelper"),
-                  value: sharedSttReferenceStoreLoading ? i18n("checking") : i18n("neededFirst"),
-                  tone: "warning" as const
-                }
-              ]
-            : [])
+
         ]
       };
     }

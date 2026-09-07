@@ -214,7 +214,7 @@ export async function buildTransactionWithReestimatedLimits(
     executionUnits: finalExecution.summary,
     // The required signer `setupTransaction` pinned on the builder; surfaced so
     // the review panel shows the signer the built tx actually needs.
-    signerAddress: (finalPrepared.tx.txBuilder as RuntimeTxBuilder).meshTxBuilderBody.changeAddress,
+    signerAddress: finalPrepared.signerAddress,
     context: refreshedContext
   };
 }

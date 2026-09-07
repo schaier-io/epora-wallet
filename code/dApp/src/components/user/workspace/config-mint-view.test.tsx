@@ -1,10 +1,11 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import { describe, expect, it, vi } from "vitest";
 import { sharedSttReferenceStoreLoadingAtom, sharedSttReferenceStoreErrorAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 
 import { activeWalletAtom, networkIdAtom } from "@/providers/wallet.atoms";
 const createHelper = vi.hoisted(() => vi.fn());
+const refreshHelper = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 
 const showSharedReferenceSetup = vi.hoisted(() => ({ value: true }));
 
@@ -22,6 +23,7 @@ vi.mock("@/components/user/workspace/workspace-actions-context", () => ({
   useWorkspaceActions: () => ({
     activeFieldErrors: {},
     createInlineSharedReference: createHelper,
+    refreshSharedSttReferenceStore: refreshHelper,
     mintSetupSteps: [],
     showSharedReferenceSetup: showSharedReferenceSetup.value
   })
@@ -93,35 +95,10 @@ describe("mint configuration view", () => {
     expect(container.querySelectorAll('[class*="grid-cols-"]')).toHaveLength(0);
   });
 
-  /**
-   * The line under "One-time setup helper" read "Keeps later actions easier to use.", which
-   * is what its own info hint already said, only vaguer. `showSharedReferenceSetup` clears
-   * once the shared store reports ready, so "create this once" is literally true.
-   */
-  it("says what creating the helper buys the reader", () => {
-    renderView();
-
-    expect(screen.getByText(/Create this once/)).toBeInTheDocument();
-    expect(screen.queryByText("Keeps later actions easier to use.")).not.toBeInTheDocument();
-  });
-
-  it("says what it is checking while the helper store loads", () => {
-    renderView({ helperLoading: true });
-
-    expect(screen.getByText("Checking whether this helper already exists…")).toBeInTheDocument();
-    expect(screen.queryByText("Checking wallet setup now.")).not.toBeInTheDocument();
-  });
-
-  /**
-   * "Setup helper" is this app's coinage for a reference-script deposit. The definition
-   * lives once in `mental-model-copy.ts`, and the setup checkpoint card renders the same
-   * string, so a reader who meets the term on either screen gets the same explanation.
-   */
-  it("explains the helper term behind the hint, in the shared words", () => {
-    renderView();
-
-    fireEvent.click(screen.getByRole("button", { name: "More about setup helper" }));
-    expect(screen.getByText(/places a copy of the shared program/)).toBeInTheDocument();
+  it.each([false, true])("keeps helper infrastructure out of mint setup while loading=%s", (helperLoading) => {
+    renderView({ helperLoading, lookupError: "Internal helper lookup failed" });
+    expect(screen.queryByText(/helper/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Check again" })).not.toBeInTheDocument();
   });
 
   it("describes the starter assets without naming the widget", () => {
@@ -131,13 +108,4 @@ describe("mint configuration view", () => {
     expect(helper).not.toContain("token rows");
     expect(helper).toContain("any tokens you want in the wallet from the start");
   });
-});
-
-
-it("offers explicit replacement when a saved helper cannot be checked", () => {
-  showSharedReferenceSetup.value = true;
-  renderView({ lookupError: "Saved helper is unavailable." });
-  expect(screen.getByText(/locks more ADA and pays a new network fee/)).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "Create a replacement helper" }));
-  expect(createHelper).toHaveBeenCalledWith(true);
 });

@@ -147,7 +147,7 @@ export function OwnerAccessEditor({
     <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
-          <PersonHeading person={user}>{personLabel("Owner", user)}</PersonHeading>
+          <PersonHeading person={user}>{personLabel(i18n("owner"), user)}</PersonHeading>
           <div className="flex flex-wrap gap-2">
             <Badge variant="secondary">{i18n("canManageWallet")}</Badge>
             <Badge variant="outline">{formatCountLabel(user.wallets.length, "walletId")}</Badge>
@@ -214,7 +214,7 @@ export function SpendingAccessEditor({
     <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
-          <PersonHeading person={user}>{personLabel("Spender", user)}</PersonHeading>
+          <PersonHeading person={user}>{personLabel(i18n("spender"), user)}</PersonHeading>
           <div className="flex flex-wrap gap-2">
             <Badge variant="outline">{formatCountLabel(user.wallets.length, "walletId")}</Badge>
             <Badge variant="outline">{formatCountLabel(user.perDayAllowance.length, "limit")}</Badge>
@@ -281,7 +281,7 @@ export function RecoveryAccessEditor({
     <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
-          <PersonHeading person={beneficiary}>{personLabel("Recovery contact", beneficiary)}</PersonHeading>
+          <PersonHeading person={beneficiary}>{personLabel(i18n("recoveryContact"), beneficiary)}</PersonHeading>
           <Badge variant="outline">{formatCountLabel(beneficiary.wallets.length, "walletId")}</Badge>
         </div>
         <Button type="button" variant="ghost" onClick={onRemove}>

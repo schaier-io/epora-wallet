@@ -1,5 +1,5 @@
 import { type RuntimeTxBuilder, STT_MINT_VALIDATOR, addWalletInput, applyMintWitness, buildReferenceScriptDiagnostics, buildTransactionWithReestimatedLimits, createStageError, createTxPreview, deriveAssetName, describeReferenceScriptUsage, getLovelaceQuantity, hasReferenceScript, inspectSharedSttReferenceStore, normalizeMintStarterAssets, resolveMintReferenceInput, sendAssetsWithOptionalInlineDatumAndReferenceScript, setupTransaction, summarizeAmountForTxPreview, withStage } from "./internals";
-import { getSttMintScript, resolveScriptAddress, resolveWalletSpendAddress, resolveWalletSpendScriptHash } from "@/lib/contracts/blueprint";
+import { getSttMintScript, resolveScriptAddress, resolveWalletSpendAddress, resolveWalletSpendScriptHash, resolveWalletContinuingOutputAddressFromState } from "@/lib/contracts/blueprint";
 import { readStateSections } from "@/lib/contracts/state-layout";
 import { collectStateDatumWarnings } from "@/lib/contracts/state-validation";
 import { validateMintStateDatum } from "@/lib/contracts/state-validation-streaming";
@@ -11,6 +11,7 @@ import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
 import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/LibMeshTransactionsMintStateToken.json";
+import { addStreamingAssetProof } from "./internals/streaming-asset-proof";
 
 const i18n = createDefaultTranslator("LibMeshTransactionsMintStateToken", defaultMessages);
 
@@ -55,14 +56,16 @@ export async function buildMintStateTokenTx(
     "mint:tx.draft-build",
     "mint:tx.build",
     async (overrides) => {
+      const setup = await setupTransaction(wallet, undefined, txFetcher);
       const {
         tx,
+        signerAddress,
         fetcher,
         walletUtxos,
         spendableWalletUtxos,
         setupDiagnostics,
         reserveInputRef
-      } = await setupTransaction(wallet, undefined, txFetcher);
+      } = setup;
       const mintReferenceInput = await withStage(
         "mint:referenceUtxo",
         async () =>
@@ -127,7 +130,7 @@ export async function buildMintStateTokenTx(
       if (!sttReferenceScript) {
         throw createStageError(
           "mint:referenceScript",
-          new Error("Create or configure the one-time setup helper before creating this wallet."),
+          new Error("Wallet service is temporarily unavailable. Try again later."),
           { policyId, requiredField: "sttSpendReference", setupRoute: "/api/v1/tx/deploy-reference" }
         );
       }
@@ -141,6 +144,15 @@ export async function buildMintStateTokenTx(
       const txBuilder = tx.txBuilder as RuntimeTxBuilder;
 
       addWalletInput(txBuilder, mintReferenceInput.utxo);
+      await addStreamingAssetProof(setup, {
+        outputStateDatum: normalizedStateDatum,
+        includedUtxos: [mintReferenceInput.utxo, sttReferenceScript.utxo],
+        walletAddress: resolveWalletContinuingOutputAddressFromState({
+          sttPolicyId: policyId,
+          sttAssetNameHex: assetName,
+          stateDatum: normalizedStateDatum
+        })
+      });
 
       applyMintWitness(
         txBuilder,
@@ -174,6 +186,7 @@ export async function buildMintStateTokenTx(
 
       return {
         tx,
+        signerAddress,
         diagnostics: {
           ...setupDiagnostics,
           policyId,

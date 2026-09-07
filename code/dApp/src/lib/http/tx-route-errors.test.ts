@@ -11,6 +11,12 @@ import { createStageError } from "@/lib/mesh/transactions/internals";
 import { ConsolidateTxRequestSchema } from "@/lib/api/tx-requests";
 
 describe("classifyBuildFailure", () => {
+  it("classifies shared helper failures as service failures without provider details", () => {
+    const error = new Error("SHARED_HELPER_UNAVAILABLE", { cause: new Error("fetch failed: internal endpoint") });
+    assert.deepEqual(classifyBuildFailure(error), {
+      status: 503, message: "SHARED_HELPER_UNAVAILABLE", severity: "error"
+    });
+  });
   it("treats a plain builder Error as the caller's mistake and returns its message", () => {
     const failure = classifyBuildFailure(new Error("Wallet script parameters are missing."));
 

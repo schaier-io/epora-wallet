@@ -110,9 +110,7 @@ export function buildSetupReadinessIssues(setupState: SetupState): ReadinessIssu
           id: "stt-reference",
           key: "stt-reference",
           label: i18n("setupHelper"),
-          description:
-            setupState.sharedSttReferenceError ??
-            i18n("createTheSharedSetupHelperBeforeContinuing"),
+          description: i18n("createTheSharedSetupHelperBeforeContinuing"),
           recovery: i18n("recoveryRunSetupHelper"),
           status: "warning",
           blocking: true

@@ -34,7 +34,7 @@ export async function buildLockFundsTx(
     "lock-funds:tx.draft-build",
     "lock-funds:tx.build",
     async () => {
-      const { tx, setupDiagnostics } = await setupTransaction(wallet, undefined, txFetcher);
+      const { tx, signerAddress, setupDiagnostics } = await setupTransaction(wallet, undefined, txFetcher);
 
       tx.sendAssets(
         recipientWithOptionalInlineDatum(walletAddress, input.inlineDatum),
@@ -43,6 +43,7 @@ export async function buildLockFundsTx(
 
       return {
         tx,
+        signerAddress,
         diagnostics: {
           ...setupDiagnostics,
           walletAddress,

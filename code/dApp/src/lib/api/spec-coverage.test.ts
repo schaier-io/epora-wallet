@@ -35,6 +35,7 @@ function routePathsOnDisk(directory = API_ROOT, prefix = "/api"): string[] {
 // contract, not a way to silence this test.
 const DELIBERATELY_UNDOCUMENTED = new Map([
   ["/api/mesh", "Chain-read proxy for the app's own browser client."],
+  ["/api/shared-helper", "Shared setup reference discovery for the app's own browser client."],
   ["/api/stt/sync", "Indexer trigger, gated by a shared secret."],
   ["/api/koios/credential-utxos", "CORS proxy for Koios."],
   ["/api/proposals", "Multi-signature coordination, session-gated."],

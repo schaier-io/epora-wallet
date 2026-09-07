@@ -5,7 +5,8 @@ import { deriveBeneficiaryStreamStopPreview } from "./beneficiary-stream-stop-mo
 import { type FieldErrors, type UserActionKind } from "@/components/user/flow-types";
 import { MINT_PERFORMED_ACTION, NON_NEGATIVE_INTEGER_SCHEMA, OPTIONAL_NON_NEGATIVE_INTEGER_SCHEMA, RENEW_PROOF_OF_LIFE_ACTION, REQUIRED_TEXT_SCHEMA } from "@/components/user/workspace/constants";
 import { appendValidationErrors, cloneStateForm, hasPositiveAssetAmount, pushFieldError, resolveConsolidateActionAlternative, resolveManageStreamingPaymentsActionAlternative, resolveOperatorActionAlternative, resolveUpdateStateActionAlternative, resolveUseActionAlternative, resolveProofOfLifeOverrideTimestamp, resolveWalletWrapperSttInputRef, serializeWalletOutputs, validateAssetRows, validateField, validateWalletInputRefs, validateWalletScriptOutputs, walletNameAlreadyExists } from "@/components/user/workspace/helpers";
-import { type TransferFormState, type WalletScriptOutputFormState } from "@/components/user/workspace/types";
+import { type TransferFormState, type WalletBalanceSummary, type WalletScriptOutputFormState } from "@/components/user/workspace/types";
+import { validateStreamingAssetProofDraft } from "./streaming-asset-proof-validation";
 import { type ProofOfLifeOverrideMode, type StateFormState, applyProofOfLifeOverrideToStateForm, countAdminUsersInStateForm, stateFormToDatum } from "@/lib/contracts/state-form";
 import { validateStateDatum } from "@/lib/contracts/state-validation";
 import { validateMintStateDatum } from "@/lib/contracts/state-validation-streaming";
@@ -34,6 +35,7 @@ export type ActionFieldErrorsInput = {
   lockedContractUtxos?: UTxO[];
   lockedContractUtxosLoading?: boolean;
   lockedContractUtxosError?: string | null;
+  walletBalanceSummary?: WalletBalanceSummary;
   consolidateAuthorityPath: ConsolidateAuthorityPath;
   consolidateSttAssets: Asset[];
   consolidateSttInputHash: string;
@@ -194,9 +196,13 @@ export function computeActionFieldErrors(
       );
       appendValidationErrors(
         mintErrors,
-        "Wallet rules",
+        i18n("walletRules"),
         validateMintStateDatum(mintDatum, undefined, getSttMintPolicyId())
       );
+      appendValidationErrors(mintErrors, "Wallet rules", validateStreamingAssetProofDraft(
+        mintDatum,
+        input.walletBalanceSummary ? [input.walletBalanceSummary] : []
+      ));
     } catch (error) {
       pushFieldError(
         mintErrors,
@@ -207,7 +213,7 @@ export function computeActionFieldErrors(
     if (mintStarterAssets.length === 0) {
       pushFieldError(mintErrors, i18n("starterFunds"), i18n("addAdaOrOneAssetForTheNew"));
     }
-    validateAssetRows(mintErrors, "Starter funds", mintStarterAssets);
+    validateAssetRows(mintErrors, i18n("starterFunds"), mintStarterAssets);
     if (!hasPositiveAssetAmount(mintStarterAssets)) {
       pushFieldError(
         mintErrors,
@@ -250,7 +256,7 @@ export function computeActionFieldErrors(
     );
     validateWalletInputRefs(
       consolidateErrors,
-      "Fund pools",
+      i18n("fundPools"),
       consolidateWalletInputs,
       1
     );
@@ -261,10 +267,10 @@ export function computeActionFieldErrors(
     } else {
     validateWalletScriptOutputs(
       consolidateErrors,
-      "New fund pools",
+      i18n("newFundPools"),
       consolidateWalletOutputs
     );
-    validateAssetRows(consolidateErrors, "Forwarded STT assets", consolidateSttAssets);
+    validateAssetRows(consolidateErrors, i18n("forwardedSttAssets"), consolidateSttAssets);
     try {
       stateFormToDatum(
         cloneStateForm(activeInferredSttStateForm),
@@ -283,20 +289,26 @@ export function computeActionFieldErrors(
     const lockFundsErrors: FieldErrors = {};
     if (lockFundsAssets.length === 0) {
       pushFieldError(lockFundsErrors, i18n("assetsToLock"), i18n("addAtLeastOneAssetRow"));
+    } else if (!hasPositiveAssetAmount(lockFundsAssets)) {
+      pushFieldError(
+        lockFundsErrors,
+        i18n("assetsToLock"),
+        i18n("addAtLeastOneAmountGreaterThanZero")
+      );
     }
-    validateAssetRows(lockFundsErrors, "Assets to lock", lockFundsAssets);
+    validateAssetRows(lockFundsErrors, i18n("assetsToLock"), lockFundsAssets);
 
     const withdrawErrors: FieldErrors = {};
     requireStakingEnabled(withdrawErrors, activeInferredSttStateForm);
     validateField(
       withdrawErrors,
-      "Staking address",
+      i18n("stakingAddress"),
       REQUIRED_TEXT_SCHEMA,
       withdrawRewardAddress
     );
     validateField(
       withdrawErrors,
-      "Withdrawal amount",
+      i18n("withdrawalAmount"),
       NON_NEGATIVE_INTEGER_SCHEMA,
       withdrawAmount
     );
@@ -312,7 +324,7 @@ export function computeActionFieldErrors(
       OPTIONAL_NON_NEGATIVE_INTEGER_SCHEMA,
       withdrawSttRef.indexStr
     );
-    validateAssetRows(withdrawErrors, "Forwarded STT assets", withdrawSttAssets);
+    validateAssetRows(withdrawErrors, i18n("forwardedSttAssets"), withdrawSttAssets);
     try {
       const withdrawStateDatum = stateFormToDatum(
         cloneStateForm(withdrawSttStateForm),
@@ -320,7 +332,7 @@ export function computeActionFieldErrors(
       );
       appendValidationErrors(
         withdrawErrors,
-        "Forwarded STT state",
+        i18n("forwardedSttState"),
         validateStateDatum(withdrawStateDatum, {
           expectedPerformedAction: operatorActionAlternative
         })
@@ -337,7 +349,7 @@ export function computeActionFieldErrors(
     const publishErrors: FieldErrors = {};
     validateField(
       publishErrors,
-      "Certificate JSON",
+      i18n("certificateJson"),
       REQUIRED_TEXT_SCHEMA,
       publishCertificateJson
     );
@@ -356,7 +368,7 @@ export function computeActionFieldErrors(
     const publishGovernanceStateForm = selectedDetectedTokenStateForm
       ? cloneStateForm(selectedDetectedTokenStateForm)
       : cloneStateForm(publishSttStateForm);
-    validateAssetRows(publishErrors, "Forwarded STT assets", publishSttAssets);
+    validateAssetRows(publishErrors, i18n("forwardedSttAssets"), publishSttAssets);
     try {
       // `{}` parses, so the old check passed it straight through to a wallet signature on a
       // certificate with no content. A certificate is identified by its `type`, and nothing
@@ -381,7 +393,7 @@ export function computeActionFieldErrors(
       );
       appendValidationErrors(
         publishErrors,
-        "Forwarded STT state",
+        i18n("forwardedSttState"),
         validateStateDatum(publishStateDatum, {
           expectedPerformedAction: operatorActionAlternative
         })
@@ -408,7 +420,7 @@ export function computeActionFieldErrors(
     const voteErrors: FieldErrors = {};
     validateField(
       voteErrors,
-      "Vote JSON",
+      i18n("voteJson"),
       REQUIRED_TEXT_SCHEMA,
       voteJson
     );
@@ -427,7 +439,7 @@ export function computeActionFieldErrors(
     const voteGovernanceStateForm = selectedDetectedTokenStateForm
       ? cloneStateForm(selectedDetectedTokenStateForm)
       : cloneStateForm(voteSttStateForm);
-    validateAssetRows(voteErrors, "Forwarded STT assets", voteSttAssets);
+    validateAssetRows(voteErrors, i18n("forwardedSttAssets"), voteSttAssets);
     validateGovernanceVotePayload(voteErrors, voteJson);
     try {
       JSON.parse(voteJson);
@@ -437,7 +449,7 @@ export function computeActionFieldErrors(
       );
       appendValidationErrors(
         voteErrors,
-        "Forwarded STT state",
+        i18n("forwardedSttState"),
         validateStateDatum(voteStateDatum, {
           expectedPerformedAction: operatorActionAlternative
         })

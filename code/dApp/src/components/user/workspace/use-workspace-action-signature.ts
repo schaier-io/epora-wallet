@@ -4,6 +4,7 @@ import { useAtomValue } from "jotai";
 import type { UserActionKind } from "@/components/user/flow-types";
 import { computeActionSignature } from "@/components/user/workspace/workspace-action-signature";
 import { configAtom } from "@/components/user/workspace/atoms/workspace-config.atoms";
+import { activeInferredSttStateFormAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import { type useWalletContext } from "@/providers/wallet-provider";
 import { type useWorkspaceDetectedTokenDerivations } from "@/components/user/workspace/use-workspace-detected-token-derivations";
 import { useMintForm } from "@/components/user/workspace/forms/use-mint-form";
@@ -37,6 +38,7 @@ export function useWorkspaceActionSignature(ctx: WorkspaceActionSignatureCtx) {
     streamingPaymentPayout
   } = ctx;
   const config = useAtomValue(configAtom);
+  const activeInferredSttStateForm = useAtomValue(activeInferredSttStateFormAtom);
   const lockedContractUtxos = useAtomValue(lockedContractUtxosAtom);
   const mintForm = useMintForm();
   const sttForm = useSttSpendForm();
@@ -57,6 +59,7 @@ export function useWorkspaceActionSignature(ctx: WorkspaceActionSignatureCtx) {
       ...consolidateForm,
       ...lockFundsForm,
       ...transferForm,
+      activeInferredSttStateForm,
       activePaymentKeyHash,
       config,
       selectedDetectedToken,

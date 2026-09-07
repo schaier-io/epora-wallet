@@ -1,9 +1,8 @@
-import { resolveScriptHash, type UTxO } from "@meshsdk/core";
-import { inspectSharedSttReferenceStore } from "./transactions/internals/reference-scripts";
+import { type UTxO } from "@meshsdk/core";
+import { z } from "zod";
 import {
   getSttMintPolicyId,
   getSttSpendScript,
-  resolveSttReferenceStoreAddress,
   resolveScriptAddress
 } from "@/lib/contracts/blueprint";
 import { decodeDatumFromUtxo } from "@/lib/mesh/datum";
@@ -138,24 +137,26 @@ export async function countSttTokens(policyId: string): Promise<number> {
   return total;
 }
 
-export async function detectSharedSttReferenceStore(configuredReference?: string): Promise<SharedSttReferenceStoreInfo> {
-  const fetcher = new ServerFetcher();
-  const sttScript = getSttSpendScript();
-  const storeAddress = resolveSttReferenceStoreAddress();
-  const inspection = await inspectSharedSttReferenceStore(fetcher, {
-    script: sttScript, configuredReference, stage: "detect:shared-stt-reference"
-  });
-  const matchingReferences = inspection.matchingReferences.map((entry) => entry.reference);
-  const matchingCount = matchingReferences.length;
+const SharedHelperResponseSchema = z.object({
+  result: z.object({
+    policyId: z.string().regex(/^[0-9a-f]{56}$/),
+    sttScriptHash: z.string().regex(/^[0-9a-f]{56}$/),
+    storeAddress: z.string().min(1),
+    status: z.enum(["missing", "ready"]),
+    activeReference: z.string().regex(/^[0-9a-f]{64}#\d+$/).nullable(),
+    matchingReferences: z.array(z.string().regex(/^[0-9a-f]{64}#\d+$/)),
+    matchingCount: z.number().int().nonnegative(),
+    checkedReferenceCount: z.number().int().nonnegative()
+  })
+});
 
-  return {
-    policyId: getSttMintPolicyId(),
-    sttScriptHash: resolveScriptHash(sttScript.code, sttScript.version),
-    storeAddress,
-    status: matchingCount === 0 ? "missing" : "ready",
-    activeReference: matchingReferences[0] ?? null,
-    matchingReferences,
-    matchingCount,
-    checkedReferenceCount: inspection.checkedReferenceCount
-  };
+/** The server owns discovery. The browser only receives the verified locator. */
+export async function detectSharedSttReferenceStore(): Promise<SharedSttReferenceStoreInfo> {
+  const response = await fetch("/api/shared-helper", { cache: "no-store" });
+  if (!response.ok) throw new Error("Wallet service is temporarily unavailable.");
+  const parsed = SharedHelperResponseSchema.safeParse(await response.json());
+  if (!parsed.success || (parsed.data.result.status === "ready" && !parsed.data.result.activeReference)) {
+    throw new Error("Wallet service returned an invalid setup response.");
+  }
+  return parsed.data.result;
 }

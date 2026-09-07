@@ -31,9 +31,9 @@ export async function buildWalletWithdrawTx(
     "wallet-withdraw:tx.draft-build",
     "wallet-withdraw:tx.build",
     async (overrides) => {
-      const { tx, fetcher, changeAddress, setupDiagnostics, walletUtxos } =
+      const { tx, fetcher, signerAddress, changeAddress, setupDiagnostics, walletUtxos } =
         await setupTransaction(wallet, undefined, txFetcher);
-      addExtraRequiredSigners(tx, changeAddress, input.requiredSignerKeyHashes);
+      addExtraRequiredSigners(tx, signerAddress, input.requiredSignerKeyHashes);
       const spendValidatorsByRef = new Map<string, string>();
       const changeAddressUtxos = await fetchChangeAddressReferenceUtxos(
         fetcher,
@@ -104,6 +104,7 @@ export async function buildWalletWithdrawTx(
 
       return {
         tx,
+        signerAddress,
         diagnostics: {
           ...setupDiagnostics,
           ...forwarding.diagnostics,

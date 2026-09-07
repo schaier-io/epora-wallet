@@ -102,3 +102,12 @@ test("getSiteUrl precedence: explicit > VERCEL_URL > localhost", () => {
   );
   assert.equal(getSiteUrl(parseServerEnv({})), "http://localhost:3000");
 });
+
+test("shared helper reference is optional and requires an exact output reference", () => {
+  const reference = `${"ab".repeat(32)}#0`;
+  assert.equal(parseServerEnv({ SHARED_STT_REFERENCE: ` ${reference} ` }).SHARED_STT_REFERENCE, reference);
+  assert.equal(parseServerEnv({ SHARED_STT_REFERENCE: " " }).SHARED_STT_REFERENCE, undefined);
+  for (const value of ["tx#0", `${"ab".repeat(32)}#-1`, `${"ab".repeat(32)}#01`]) {
+    assert.throws(() => parseServerEnv({ SHARED_STT_REFERENCE: value }), /SHARED_STT_REFERENCE/);
+  }
+});

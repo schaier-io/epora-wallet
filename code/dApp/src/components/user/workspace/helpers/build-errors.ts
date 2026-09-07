@@ -210,7 +210,7 @@ function resolveBuildErrorOutcome(
       message.includes("No shared STT reference script is deployed")
     )
   ) {
-    return ["This wallet still needs its one-time shared setup helper before it can do this. Go back to the wallet home, run the setup it offers, then try again.", true];
+    return ["Service temporarily unavailable. Please try again shortly.", true];
   }
 
   if (allMessages.some((message) => message.includes("PPViewHashesDontMatch"))) {
