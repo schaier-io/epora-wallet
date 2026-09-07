@@ -354,6 +354,7 @@ const SilkWaves: React.FC<SilkWavesProps> = ({
     let isDocumentVisible = !document.hidden;
     let isElementVisible = true;
     let isDisposed = false;
+    let isContextLost = false;
 
     const renderFrame = () => {
       const elapsedTime = (performance.now() - clockStart) / 1000;
@@ -363,7 +364,7 @@ const SilkWaves: React.FC<SilkWavesProps> = ({
     renderFrameRef.current = renderFrame;
 
     const canAnimate = () =>
-      shouldAnimate && isDocumentVisible && isElementVisible && !isDisposed;
+      shouldAnimate && isDocumentVisible && isElementVisible && !isDisposed && !isContextLost;
 
     const stopAnimation = () => {
       if (animationFrameRef.current !== null) {
@@ -426,6 +427,21 @@ const SilkWaves: React.FC<SilkWavesProps> = ({
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
+    // Chrome evicts WebGL contexts under a global cap, and three.js does not restore them
+    // on its own; without these handlers the loop keeps rendering into a dead context.
+    const handleContextLost = (event: Event) => {
+      event.preventDefault();
+      isContextLost = true;
+      stopAnimation();
+    };
+    const handleContextRestored = () => {
+      isContextLost = false;
+      renderFrame();
+      startAnimation();
+    };
+    renderer.domElement.addEventListener("webglcontextlost", handleContextLost);
+    renderer.domElement.addEventListener("webglcontextrestored", handleContextRestored);
+
     const intersectionObserver =
       pauseWhenOffscreen && typeof IntersectionObserver !== "undefined"
         ? new IntersectionObserver(([entry]) => {
@@ -448,6 +464,9 @@ const SilkWaves: React.FC<SilkWavesProps> = ({
       resizeObserver.disconnect();
       intersectionObserver?.disconnect();
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      // Before forceContextLoss(), so the teardown's own loss event has no handler to run.
+      renderer.domElement.removeEventListener("webglcontextlost", handleContextLost);
+      renderer.domElement.removeEventListener("webglcontextrestored", handleContextRestored);
 
       renderer.dispose();
       renderer.forceContextLoss();
