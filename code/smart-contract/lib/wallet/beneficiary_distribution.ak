@@ -36,7 +36,7 @@ pub fn all_shares_are_paid(
         fn(output) { output.datum == payout_tag },
       )
       expect payout.address == payout_address
-      let exact_share = list.foldl(
+      let exact_share = list.foldr(
         input_assets,
         assets.zero,
         fn(asset, value) {

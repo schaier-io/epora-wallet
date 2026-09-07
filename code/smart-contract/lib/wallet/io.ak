@@ -128,28 +128,27 @@ pub fn collect_wallet_value_snapshot(
   wallet_address: Address,
 ) -> WalletValueSnapshot {
   let wallet_payment_credential = wallet_address.payment_credential
-  let wallet_inputs = inputs
-    |> list.filter(
-        fn(input) {
-          input.output.address.payment_credential == wallet_payment_credential
-        },
-      )
-  let wallet_outputs = outputs
-    |> list.filter(
-        fn(output) {
-          output.address.payment_credential == wallet_payment_credential
-        },
-      )
-
   let input_accumulator = list.foldl(
-    wallet_inputs,
+    inputs,
     Pair(0, assets.zero),
-    fn(input, acc) { accumulate_wallet_value(input.output.value, acc) },
+    fn(input, acc) {
+      if input.output.address.payment_credential == wallet_payment_credential {
+        accumulate_wallet_value(input.output.value, acc)
+      } else {
+        acc
+      }
+    },
   )
   let output_accumulator = list.foldl(
-    wallet_outputs,
+    outputs,
     Pair(0, assets.zero),
-    fn(output, acc) { accumulate_wallet_value(output.value, acc) },
+    fn(output, acc) {
+      if output.address.payment_credential == wallet_payment_credential {
+        accumulate_wallet_value(output.value, acc)
+      } else {
+        acc
+      }
+    },
   )
   let Pair(input_count, input_value) = input_accumulator
   let Pair(output_count, output_value) = output_accumulator
@@ -157,7 +156,7 @@ pub fn collect_wallet_value_snapshot(
   WalletValueSnapshot {
     input_value,
     output_value,
-    // UTxO counts over the SAME filtered lists as the value sums, so the
+    // UTxO counts use the same credential check as the value sums, so the
     // action-specific layout bounds (`wallet/rules`: UseAllowance,
     // UseBeneficiary, and PayStreamingPayment) and value aggregation can never
     // disagree about what counts as a wallet UTxO.
