@@ -4,15 +4,15 @@
 use aiken/collection/list
 use cardano/address.{Address}
 use cardano/assets
-use cardano/transaction.{InlineDatum}
+use cardano/transaction.{InlineDatum, Output, OutputReference}
 use state/types.{Beneficiary}
 use streaming_payments/types.{expected_payout_tag} as streaming_payment_types
-use wallet/payout_routing.{OutputContext}
 
 pub fn all_shares_are_paid(
   beneficiaries: List<Beneficiary>,
   input_value: assets.Value,
-  context: OutputContext,
+  stt_input_reference: OutputReference,
+  outputs: List<Output>,
 ) -> Bool {
   let total_weight = list.foldl(
     beneficiaries,
@@ -27,12 +27,12 @@ pub fn all_shares_are_paid(
       // actions retain it unchanged; routing must cast it before use.
       expect payout_address: Address = beneficiary.payout_address
       let payout_tag = InlineDatum(
-        expected_payout_tag(beneficiary.id, context.stt_input_reference),
+        expected_payout_tag(beneficiary.id, stt_input_reference),
       )
       // Unique ids make tags disjoint. Exactly one output may satisfy each tag,
       // even when several beneficiaries share a full payout address.
       expect [payout] = list.filter(
-        context.outputs,
+        outputs,
         fn(output) { output.datum == payout_tag },
       )
       expect payout.address == payout_address

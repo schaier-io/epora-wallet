@@ -28,7 +28,8 @@ use streaming_payments/shape as streaming_payment_shape
 use streaming_payments/types as streaming_payment_type
 use stt/io.{stt_value_preserved_with_lovelace_top_up}
 use stt/preservation.{
-  state_completely_unchanged, state_unchanged_except_streaming_payments,
+  state_unchanged_except_centrally_guarded_fields,
+  state_unchanged_except_streaming_payments,
 }
 use time/bounds
 
@@ -367,7 +368,8 @@ pub fn eval_consolidate(
   input_state: state_types.State,
   output_state: state_types.State,
 ) -> Bool {
-  expect state_completely_unchanged(input_state, output_state)
+  expect
+    state_unchanged_except_centrally_guarded_fields(input_state, output_state)
   expect
     state_authorization.has_consolidate_authority(
       transaction,

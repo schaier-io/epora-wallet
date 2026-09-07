@@ -22,13 +22,13 @@
 ////   RunOperator(UpdateState)                |   y    |     y      |    y     |    -    |  y¹  | (inline; no preservation helper — arbitrary)
 ////   RunOperator(ManageStreamingPayments)    |   -    |     y      |    -     |    y    |  -   | state_unchanged_except_pol_unlock_time_and_streaming_payments
 ////   RunOperator(RemoveAccessIndex)          |   y⁴   |     -      |    -     |    -    |  -   | state_unchanged_except_access_index_removed
-////   RunOperator(SetIntendedStakeCredential) |   -    |     -      |    -     |    -    |  -   | state_completely_unchanged ⁵
+////   RunOperator(SetIntendedStakeCredential) |   -    |     -      |    -     |    -    |  -   | state_unchanged_except_centrally_guarded_fields ⁵
 ////   RenewProofOfLife                        |   -    |     y      |    -     |    -    |  -   | state_unchanged_except_pol_unlock_time
 ////   UseAllowance(_)                         |   y²   |     y      |    -     |    -    |  -   | state_unchanged_except_users_and_pol_unlock_time
 ////   UseBeneficiary(_)                       |   y³   |     -      |    -     |    -    |  -   | earlier removed; final stays unchanged
-////   DistributeBeneficiaries(_)              |   -    |     -      |    -     |    -    |  -   | state_completely_unchanged
+////   DistributeBeneficiaries(_)              |   -    |     -      |    -     |    -    |  -   | state_unchanged_except_centrally_guarded_fields
 ////   PayStreamingPayment(_)                  |   -    |     -      |    -     |    y    |  -   | state_unchanged_except_streaming_payments
-////   Consolidate(_)                          |   -    |     -      |    -     |    -    |  -   | state_completely_unchanged
+////   Consolidate(_)                          |   -    |     -      |    -     |    -    |  -   | state_unchanged_except_centrally_guarded_fields
 ////   CancelStreamingPayment(_)               |   -    |     -      |    -     |    y⁶   |  -   | state_unchanged_except_streaming_payments ⁷
 ////   StopBeneficiaryStream(_, _)             |   -    |     -      |    -     |    y⁶   |  -   | state_unchanged_except_streaming_payments ⁷
 ////
@@ -44,7 +44,7 @@
 ////   ⁵  = the new credential value itself is not a matrix column — it is guarded
 ////        centrally in `validators/stt.ak::eval_spend` (see the field-set note
 ////        above), so "everything else preserved" IS the complete check and the
-////        action shares `state_completely_unchanged` with Consolidate; the
+////        action shares `state_unchanged_except_centrally_guarded_fields` with Consolidate; the
 ////        handler pins the new credential against the redeemer target itself
 ////   y⁶ = only the target payee-owned payment's `end_date` may move — enforced
 ////        by `is_payee_cancelled` in
@@ -153,13 +153,12 @@ pub fn state_unchanged_except_users_and_pol_unlock_time(
   )
 }
 
-/// Everything preserved. Note this spans only the preservable field set:
-/// `intended_stake_credential` and `last_non_admin_payout_at` have no
-/// preservation flags because `eval_spend` guards them centrally. This lets
+/// Preserve every field except `intended_stake_credential` and
+/// `last_non_admin_payout_at`. `eval_spend` guards those fields centrally. This lets
 /// SetIntendedStakeCredential and final-beneficiary recovery use this predicate
 /// while their handlers validate the one central-field mutation separately.
 /// Used by: Consolidate, SetIntendedStakeCredential, final UseBeneficiary.
-pub fn state_completely_unchanged(
+pub fn state_unchanged_except_centrally_guarded_fields(
   input: state_types.State,
   output: state_types.State,
 ) -> Bool {

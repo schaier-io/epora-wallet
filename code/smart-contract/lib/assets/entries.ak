@@ -68,15 +68,3 @@ pub fn flatten_to_entries(value: assets.Value) -> List<AssetEntry> {
     },
   )
 }
-
-/// Check `predicate` against every asset in a `Value`, each presented as an
-/// `AssetEntry` record — so call sites read `asset.policy_id` / `asset.asset_name`
-/// / `asset.quantity` instead of destructuring a stdlib `assets.flatten` tuple.
-/// DRYs the `list.all(assets.flatten(value), fn(asset) { … })` idiom used by the
-/// wallet payout and streaming-funding reserve checks.
-pub fn every_asset(
-  value: assets.Value,
-  predicate: fn(AssetEntry) -> Bool,
-) -> Bool {
-  list.all(flatten_to_entries(value), predicate)
-}

@@ -23,7 +23,8 @@ use state/types as state_types
 use streaming_payments/types as streaming_payment_type
 use stt/io.{stt_value_preserved_with_lovelace_top_up}
 use stt/preservation.{
-  state_completely_unchanged, state_unchanged_except_beneficiary_removed,
+  state_unchanged_except_beneficiary_removed,
+  state_unchanged_except_centrally_guarded_fields,
   state_unchanged_except_pol_unlock_time,
   state_unchanged_except_users_and_pol_unlock_time,
 }
@@ -239,7 +240,7 @@ pub fn eval_use_beneficiary(
   let is_final_beneficiary = list.length(input_state.access.beneficiaries) == 1
   expect
     if is_final_beneficiary {
-      state_completely_unchanged(input_state, output_state)
+      state_unchanged_except_centrally_guarded_fields(input_state, output_state)
     } else {
       state_unchanged_except_beneficiary_removed(
         input_state,
@@ -329,7 +330,8 @@ pub fn eval_distribute_beneficiaries(
         )
       },
     )
-  expect state_completely_unchanged(input_state, output_state)
+  expect
+    state_unchanged_except_centrally_guarded_fields(input_state, output_state)
   expect
     beneficiary_cadence_and_value_are_valid(
       validity_range: validity_range,
