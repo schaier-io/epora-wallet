@@ -1443,7 +1443,7 @@ describe("exact beneficiary distribution builder",()=>{
     const output=(deserializeTx(result.txHex).body().outputs() as CstTransactionOutput[]).find(o=>o.address().toBech32().toString()===context.stateAddress)!;
     expect(inlineDatumCbor(output)).toBe(serializeData(expected,"Mesh"));
   });
-  it.each(["wrong-signer","locked-recipient","streams","native-remainder","ada-remainder","wallet-output","transfer","caller-state","operator","two-inputs","wallet-destination","state-destination"] as const)("rejects %s before returning a draft",async reason=>{
+  it.each(["wrong-signer","locked-recipient","streams","native-remainder","ada-remainder","wallet-output","transfer","caller-state","operator","two-inputs","wallet-destination"] as const)("rejects %s before returning a draft",async reason=>{
     const c=setupExact();const input:Parameters<typeof buildSttSpendTx>[3]={...c.input};
     if(reason==="wrong-signer")input.beneficiarySignerKeyHash="77".repeat(28);
     if(reason==="locked-recipient"){c.state.beneficiaries[1]!.unlockAfterMode="some";c.state.beneficiaries[1]!.unlockAfter="10000000";}
@@ -1456,10 +1456,9 @@ describe("exact beneficiary distribution builder",()=>{
     if(reason==="operator")input.authorityPath="admin";
     if(reason==="two-inputs")input.walletInputs=[...c.input.walletInputs,...c.input.walletInputs];
     if(reason==="wallet-destination")c.state.beneficiaries[1]!.payoutAddress=c.walletAddress;
-    if(reason==="state-destination")c.state.beneficiaries[1]!.payoutAddress=c.stateAddress;
     c.stateUtxo.output.plutusData=serializeData(stateFormToDatum(c.state),"Mesh");
     const expected=reason==="wrong-signer"?/match the connected/:reason==="locked-recipient"?/still locked/:reason==="streams"?/settled and removed/:
-      reason.endsWith("remainder")?/cannot be split exactly/:reason==="two-inputs"?/exactly one/:reason.endsWith("destination")?/outside both scripts/:/Caller outputs/;
+      reason.endsWith("remainder")?/cannot be split exactly/:reason==="two-inputs"?/exactly one/:reason==="wallet-destination"?/continuing wallet outputs/:/Caller outputs/;
     await expect(buildSttSpendTx(c.wallet,c.config,"distribute-beneficiaries",input)).rejects.toThrow(expected);
   });
 });

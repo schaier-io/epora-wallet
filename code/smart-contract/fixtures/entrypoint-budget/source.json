@@ -1,11 +1,11 @@
 {
   "scenario": "capped-list-and-scalar-near-transaction-limit-partial-streaming-payout",
-  "transactionBytes": 16046,
-  "nativeAssetCount": 120,
-  "walletValueCborBytes": 398,
-  "walletValueCborSha256": "6a0a162549a3f9668a19596b7637a9f4ed5fe8948bcb69597b893eb1c259716b",
+  "transactionBytes": 16003,
+  "nativeAssetCount": 130,
+  "walletValueCborBytes": 428,
+  "walletValueCborSha256": "345ab483c65390702e0b795ae2f51c2e8c3831d2a6cbda63b5ad7b2410b0c39e",
   "stateDatumCborBytes": 5470,
-  "stateDatumCborSha256": "bf68404f97e589c25dd10b2359d0f9456f1d5a7c94ebf8a28d73b624b0f460a7",
+  "stateDatumCborSha256": "013763499de136833c3f9702fa82024c2b039d26a77e2261a217ce88c2bfb818",
   "stateShape": {
     "users": 10,
     "userWallets": 15,
@@ -21,17 +21,17 @@
       14
     ],
     "targetStreamingPaymentIndex": 14,
-    "targetNativeAssetIndex": 119,
+    "targetNativeAssetIndex": 129,
     "payoutQuantity": "1"
   },
   "walletParameters": {
-    "sttPolicyId": "6b785243692ea2b72869a34d5dc0b6c8a52fb8497c0e96a29d310b04",
+    "sttPolicyId": "28d6c505619df7735930fafbe0962a87488ec0ca0095f41989f84b46",
     "sttAssetNameHex": "deadbeef"
   },
-  "sttScriptHash": "6b785243692ea2b72869a34d5dc0b6c8a52fb8497c0e96a29d310b04",
-  "walletScriptHash": "8f51892918b55458abcd29663ca89928425587c24c82dbe891912e23",
-  "sttScriptCodeSha256": "4ddf479699e83ef79288b442f7ea18568365d25d48871119633e4bbf5b33fdb2",
-  "walletScriptCodeSha256": "94af880a1d14fece7065dc1d319537b359dfa10bc4b08444bf3994fd86e163d8",
+  "sttScriptHash": "28d6c505619df7735930fafbe0962a87488ec0ca0095f41989f84b46",
+  "walletScriptHash": "cbb41d49c3a9b139d90b310feea5646ea11d28b2da3a8798b03ea80e",
+  "sttScriptCodeSha256": "052c4ee796e4a52ca024779ee381f3f8af7fc171db5243ab5f571fcb10d285c0",
+  "walletScriptCodeSha256": "05ddac11f3f9d4415ed5e9c4e0423e6feb572aa8c3059d61999706dd149d0c90",
   "scriptInputs": [
     {
       "tag": "Spend",

@@ -44,17 +44,45 @@
       "mem": 8169,
       "cpu": 4536050
     },
+    "beneficiary_destination_configuration_tests.mint_rejects_beneficiary_stt_destination": {
+      "mem": 778035,
+      "cpu": 253869397
+    },
+    "beneficiary_destination_configuration_tests.mint_rejects_beneficiary_stt_destination_with_stake": {
+      "mem": 800217,
+      "cpu": 264759589
+    },
+    "beneficiary_destination_configuration_tests.update_rejects_beneficiary_stt_destination": {
+      "mem": 967320,
+      "cpu": 313719071
+    },
+    "beneficiary_destination_configuration_tests.update_rejects_beneficiary_stt_destination_with_stake": {
+      "mem": 1009502,
+      "cpu": 327809263
+    },
+    "beneficiary_destination_configuration_tests.mint_accepts_supported_beneficiary_destinations": {
+      "mem": 3282616,
+      "cpu": 1075561483
+    },
+    "beneficiary_destination_configuration_tests.update_accepts_supported_beneficiary_destinations": {
+      "mem": 4209416,
+      "cpu": 1373383855
+    },
+    "beneficiary_destination_configuration_tests.update_can_replace_an_incompatible_beneficiary_destination": {
+      "mem": 1113074,
+      "cpu": 365141642
+    },
     "beneficiary_distribution_tests.distribute_constructor_is_appended_at_nine": {
       "mem": 60536,
       "cpu": 17074038
     },
     "beneficiary_distribution_tests.exact_weighted_distribution_keeps_beneficiaries": {
-      "mem": 1928522,
-      "cpu": 651985896
+      "mem": 1912230,
+      "cpu": 641079456
     },
     "beneficiary_distribution_tests.final_exact_distribution_keeps_final_and_advances_cadence": {
-      "mem": 1505920,
-      "cpu": 504468687
+      "mem": 1497774,
+      "cpu": 499015467
     },
     "beneficiary_distribution_tests.other_beneficiary_signatures_are_allowed": {
       "mem": 1070652,
@@ -105,48 +133,48 @@
       "cpu": 341011073
     },
     "beneficiary_distribution_tests.indivisible_native_quantity_is_rejected": {
-      "mem": 1137754,
-      "cpu": 378226692
+      "mem": 1117108,
+      "cpu": 370773472
     },
     "beneficiary_distribution_tests.indivisible_lovelace_is_rejected": {
-      "mem": 1116625,
-      "cpu": 370485875
+      "mem": 1095979,
+      "cpu": 363032655
     },
     "beneficiary_distribution_tests.external_ada_topup_is_allowed": {
-      "mem": 1396997,
-      "cpu": 476017863
+      "mem": 1380705,
+      "cpu": 465111423
     },
     "beneficiary_distribution_tests.native_topup_is_rejected": {
-      "mem": 1202182,
-      "cpu": 403249079
+      "mem": 1201536,
+      "cpu": 398995859
     },
     "beneficiary_distribution_tests.lovelace_underpayment_is_rejected": {
-      "mem": 1201880,
-      "cpu": 399159770
+      "mem": 1201234,
+      "cpu": 394906550
     },
     "beneficiary_distribution_tests.full_payout_address_is_required": {
-      "mem": 1117947,
-      "cpu": 374129761
+      "mem": 1097301,
+      "cpu": 366676541
     },
     "beneficiary_distribution_tests.script_address_with_stake_receives_exact_share": {
-      "mem": 1982115,
-      "cpu": 671974172
+      "mem": 1965823,
+      "cpu": 661067732
     },
     "beneficiary_distribution_tests.missing_tag_is_rejected": {
-      "mem": 1097382,
-      "cpu": 366255633
+      "mem": 1096736,
+      "cpu": 362002413
     },
     "beneficiary_distribution_tests.stale_stt_tag_is_rejected": {
-      "mem": 1118011,
-      "cpu": 372627080
+      "mem": 1117365,
+      "cpu": 368373860
     },
     "beneficiary_distribution_tests.duplicate_tag_cannot_satisfy_two_beneficiaries": {
-      "mem": 1117862,
-      "cpu": 371414521
+      "mem": 1097216,
+      "cpu": 363961301
     },
     "beneficiary_distribution_tests.duplicate_output_for_one_tag_is_rejected": {
-      "mem": 1138739,
-      "cpu": 381632454
+      "mem": 1138093,
+      "cpu": 377379234
     },
     "beneficiary_distribution_tests.continuing_wallet_output_is_rejected": {
       "mem": 1053416,
@@ -164,25 +192,17 @@
       "mem": 1032382,
       "cpu": 338731043
     },
-    "beneficiary_distribution_tests.stt_self_destination_is_rejected": {
-      "mem": 1075683,
-      "cpu": 354365039
-    },
     "beneficiary_distribution_tests.authorized_stt_only_transaction_preserves_multiple_beneficiary_state": {
       "mem": 1052714,
       "cpu": 344389771
     },
     "beneficiary_distribution_tests.duplicate_tag_outputs_fail_even_when_their_sum_is_exact": {
-      "mem": 1159294,
-      "cpu": 387077974
+      "mem": 1138648,
+      "cpu": 379624754
     },
     "beneficiary_distribution_tests.ada_topups_cannot_make_indivisible_input_divisible": {
-      "mem": 1179573,
-      "cpu": 390295387
-    },
-    "beneficiary_distribution_tests.stt_payment_credential_is_rejected_across_stake_variants": {
-      "mem": 1117594,
-      "cpu": 367438341
+      "mem": 1178927,
+      "cpu": 386042167
     },
     "beneficiary_distribution_tests.wallet_payment_credential_is_rejected_across_stake_variants": {
       "mem": 990990,
@@ -197,8 +217,8 @@
       "cpu": 210471406
     },
     "beneficiary_distribution_tests.dense_divisible_input_has_no_asset_count_cap_wallet": {
-      "mem": 7085977,
-      "cpu": 2155340293
+      "mem": 7069685,
+      "cpu": 2144433853
     },
     "collections_tests.all_unique_accepts_empty_list": {
       "mem": 3332,
@@ -225,12 +245,12 @@
       "cpu": 808249577
     },
     "config_cap_tests.stt_mint_accepts_max_beneficiary_configuration_under_ledger_budget": {
-      "mem": 3367304,
-      "cpu": 1058290720
+      "mem": 3785714,
+      "cpu": 1207251565
     },
     "config_cap_tests.stt_update_accepts_max_beneficiary_configuration_under_ledger_budget": {
-      "mem": 3628412,
-      "cpu": 1142686013
+      "mem": 4045558,
+      "cpu": 1291360345
     },
     "config_cap_tests.config_accepts_max_streaming_payments": {
       "mem": 1798782,
@@ -377,8 +397,8 @@
       "cpu": 78476025
     },
     "guard_isolation_tests.mint_rejects_seeded_cooldown_stamp": {
-      "mem": 588897,
-      "cpu": 187806809
+      "mem": 589314,
+      "cpu": 188810267
     },
     "numeric_bounds_tests.state_integer_cap_is_uint64_maximum": {
       "mem": 200,
@@ -1305,8 +1325,8 @@
       "cpu": 400818244
     },
     "stt_beneficiary_address_tests.beneficiary_address_mint_accepts_full_script_destination": {
-      "mem": 788406,
-      "cpu": 251025318
+      "mem": 838218,
+      "cpu": 267604780
     },
     "stt_beneficiary_address_tests.beneficiary_address_mint_rejects_non_address_data": {
       "mem": 610518,
@@ -1317,8 +1337,8 @@
       "cpu": 209373091
     },
     "stt_beneficiary_address_tests.beneficiary_address_update_accepts_changed_full_destination": {
-      "mem": 1100741,
-      "cpu": 353329408
+      "mem": 1133517,
+      "cpu": 364825608
     },
     "stt_beneficiary_address_tests.beneficiary_address_update_rejects_non_address_data": {
       "mem": 905069,
@@ -1577,8 +1597,8 @@
       "cpu": 55216415
     },
     "stt_mint_tests.stt_mint_rejects_multiple_asset_names_under_policy": {
-      "mem": 609936,
-      "cpu": 195229980
+      "mem": 630353,
+      "cpu": 199433438
     },
     "stt_mint_tests.stt_mint_rejects_multiple_asset_names_in_stt_output": {
       "mem": 191094,
@@ -1605,20 +1625,20 @@
       "cpu": 166458629
     },
     "stt_mint_tests.stt_mint_rejects_stream_to_stt_payment_credential_stake_variant": {
-      "mem": 758711,
-      "cpu": 246924353
+      "mem": 759128,
+      "cpu": 247927811
     },
     "stt_mint_tests.stt_mint_accepts_stream_to_unrelated_script_credential": {
-      "mem": 796814,
-      "cpu": 259538816
+      "mem": 803631,
+      "cpu": 261566274
     },
     "stt_mint_tests.stt_mint_rejects_stream_asset_only_in_current_stt_mint": {
-      "mem": 779654,
-      "cpu": 253856199
+      "mem": 780071,
+      "cpu": 254859657
     },
     "stt_mint_tests.stt_mint_accepts_stream_to_wallet_address": {
-      "mem": 796814,
-      "cpu": 259538816
+      "mem": 803631,
+      "cpu": 261566274
     },
     "stt_mint_tests.stt_mint_rejects_duplicate_streaming_payment_ids": {
       "mem": 527933,
@@ -1629,8 +1649,8 @@
       "cpu": 200000345
     },
     "stt_mint_tests.stt_mint_rejects_prepaid_streaming_payment": {
-      "mem": 695314,
-      "cpu": 225591743
+      "mem": 715731,
+      "cpu": 229795201
     },
     "stt_mint_tests.stt_mint_rejects_malformed_streaming_asset_identifier": {
       "mem": 506778,
@@ -1653,28 +1673,28 @@
       "cpu": 243430798
     },
     "stt_operator_tests.operator_state_update_accepts_valid_admin_rewrite": {
-      "mem": 1223495,
-      "cpu": 389029874
+      "mem": 1256271,
+      "cpu": 400526074
     },
     "stt_operator_tests.operator_state_update_accepts_admin_wallet_name_change": {
-      "mem": 864956,
-      "cpu": 274463023
+      "mem": 870277,
+      "cpu": 276160785
     },
     "stt_operator_tests.operator_state_update_accepts_zero_duration_stream_forwarding": {
-      "mem": 1111751,
-      "cpu": 358065272
+      "mem": 1117072,
+      "cpu": 359763034
     },
     "stt_operator_tests.operator_state_update_rejects_malformed_allowance_asset_identifier": {
       "mem": 778372,
       "cpu": 248507006
     },
     "stt_operator_tests.operator_state_update_rejects_multisig_wallet_name_change": {
-      "mem": 904000,
-      "cpu": 285898194
+      "mem": 904321,
+      "cpu": 286795956
     },
     "stt_operator_tests.operator_state_update_rejects_streaming_payment_edit": {
-      "mem": 1118145,
-      "cpu": 362180504
+      "mem": 1118466,
+      "cpu": 363078266
     },
     "stt_operator_tests.operator_state_update_rejects_invalid_output_configuration": {
       "mem": 798499,
@@ -1981,20 +2001,20 @@
       "cpu": 231552144
     },
     "stt_spend_value_tests.stt_spend_else_branch_accepts_lovelace_topup": {
-      "mem": 908821,
-      "cpu": 284688882
+      "mem": 914142,
+      "cpu": 286386644
     },
     "stt_spend_value_tests.stt_spend_admin_update_accepts_wallet_name_change": {
-      "mem": 844637,
-      "cpu": 267185436
+      "mem": 849958,
+      "cpu": 268883198
     },
     "stt_spend_value_tests.stt_spend_multisig_update_rejects_wallet_name_change": {
-      "mem": 903936,
-      "cpu": 285803681
+      "mem": 904257,
+      "cpu": 286701443
     },
     "stt_spend_value_tests.stt_spend_else_branch_rejects_lovelace_drop": {
-      "mem": 839055,
-      "cpu": 263623130
+      "mem": 839376,
+      "cpu": 264520892
     },
     "stt_spend_value_tests.stt_spend_wildcard_branch_accepts_lovelace_topup": {
       "mem": 744947,
@@ -2005,12 +2025,12 @@
       "cpu": 226131661
     },
     "stt_spend_value_tests.stt_spend_else_branch_rejects_added_non_lovelace_asset": {
-      "mem": 839572,
-      "cpu": 266993464
+      "mem": 839893,
+      "cpu": 267891226
     },
     "stt_spend_value_tests.stt_spend_else_branch_rejects_removed_non_lovelace_asset": {
-      "mem": 839572,
-      "cpu": 266993464
+      "mem": 839893,
+      "cpu": 267891226
     },
     "stt_spend_value_tests.stt_spend_wildcard_branch_rejects_added_non_lovelace_asset": {
       "mem": 695136,
@@ -2141,96 +2161,96 @@
       "cpu": 1301639744
     },
     "stt_streaming_asset_presence_tests.mint_accepts_one_unit_in_consumed_input": {
-      "mem": 898384,
-      "cpu": 290449741
+      "mem": 905201,
+      "cpu": 292477199
     },
     "stt_streaming_asset_presence_tests.manage_accepts_one_unit_in_consumed_input": {
       "mem": 995364,
       "cpu": 334464550
     },
     "stt_streaming_asset_presence_tests.mint_accepts_reference_input_at_unrelated_address": {
-      "mem": 877891,
-      "cpu": 283943588
+      "mem": 884708,
+      "cpu": 285971046
     },
     "stt_streaming_asset_presence_tests.manage_accepts_reference_input_at_unrelated_address": {
       "mem": 979708,
       "cpu": 326145241
     },
     "stt_streaming_asset_presence_tests.mint_rejects_missing_asset": {
-      "mem": 780114,
-      "cpu": 253795034
+      "mem": 800531,
+      "cpu": 257998492
     },
     "stt_streaming_asset_presence_tests.manage_rejects_missing_asset": {
       "mem": 844148,
       "cpu": 280946710
     },
     "stt_streaming_asset_presence_tests.mint_rejects_wrong_policy_in_reference_input": {
-      "mem": 842853,
-      "cpu": 274022233
+      "mem": 863270,
+      "cpu": 278225691
     },
     "stt_streaming_asset_presence_tests.manage_rejects_wrong_policy_in_reference_input": {
       "mem": 906920,
       "cpu": 301241541
     },
     "stt_streaming_asset_presence_tests.mint_rejects_wrong_name_in_consumed_input": {
-      "mem": 884142,
-      "cpu": 284579183
+      "mem": 884559,
+      "cpu": 285582641
     },
     "stt_streaming_asset_presence_tests.manage_rejects_wrong_name_in_consumed_input": {
       "mem": 928272,
       "cpu": 311195647
     },
     "stt_streaming_asset_presence_tests.mint_rejects_zero_quantity": {
-      "mem": 822252,
-      "cpu": 267874942
+      "mem": 842669,
+      "cpu": 272078400
     },
     "stt_streaming_asset_presence_tests.manage_rejects_zero_quantity": {
       "mem": 906338,
       "cpu": 299741857
     },
     "stt_streaming_asset_presence_tests.mint_rejects_asset_only_in_mint": {
-      "mem": 821398,
-      "cpu": 264748070
+      "mem": 821815,
+      "cpu": 265751528
     },
     "stt_streaming_asset_presence_tests.manage_rejects_asset_only_in_mint": {
       "mem": 865013,
       "cpu": 287479436
     },
     "stt_streaming_asset_presence_tests.mint_rejects_asset_only_in_output": {
-      "mem": 843234,
-      "cpu": 274972629
+      "mem": 863651,
+      "cpu": 279176087
     },
     "stt_streaming_asset_presence_tests.manage_rejects_asset_only_in_output": {
       "mem": 906818,
       "cpu": 301891100
     },
     "stt_streaming_asset_presence_tests.mint_accepts_distinct_assets_across_both_input_kinds": {
-      "mem": 1191229,
-      "cpu": 388645042
+      "mem": 1198046,
+      "cpu": 390672500
     },
     "stt_streaming_asset_presence_tests.manage_accepts_distinct_assets_across_both_input_kinds": {
       "mem": 1297371,
       "cpu": 437742627
     },
     "stt_streaming_asset_presence_tests.mint_rejects_one_missing_asset_among_distinct_assets": {
-      "mem": 1096794,
-      "cpu": 359058429
+      "mem": 1117211,
+      "cpu": 363261887
     },
     "stt_streaming_asset_presence_tests.manage_rejects_one_missing_asset_among_distinct_assets": {
       "mem": 1181187,
       "cpu": 395786002
     },
     "stt_streaming_asset_presence_tests.mint_accepts_one_unit_for_multiple_streams_of_same_asset": {
-      "mem": 1109513,
-      "cpu": 361486050
+      "mem": 1116330,
+      "cpu": 363513508
     },
     "stt_streaming_asset_presence_tests.manage_accepts_one_unit_for_multiple_streams_of_same_asset": {
       "mem": 1220793,
       "cpu": 408870812
     },
     "stt_streaming_asset_presence_tests.mint_accepts_native_asset_with_empty_name": {
-      "mem": 877891,
-      "cpu": 283943588
+      "mem": 884708,
+      "cpu": 285971046
     },
     "stt_streaming_asset_presence_tests.manage_accepts_forwarded_stream_without_asset_evidence": {
       "mem": 988303,
@@ -2245,8 +2265,8 @@
       "cpu": 383182035
     },
     "stt_streaming_asset_presence_tests.mint_accepts_ada_from_normal_fee_input": {
-      "mem": 804115,
-      "cpu": 259007499
+      "mem": 810932,
+      "cpu": 261034957
     },
     "stt_streaming_asset_presence_tests.manage_accepts_ada_from_consumed_stt_input": {
       "mem": 905399,
@@ -2297,20 +2317,20 @@
       "cpu": 337515260
     },
     "transaction_budget_tests.max_state_mint_w00__stt": {
-      "mem": 8925493,
-      "cpu": 2789638194
+      "mem": 9151763,
+      "cpu": 2865776399
     },
     "transaction_budget_tests.max_state_update_w00__stt": {
-      "mem": 10869778,
-      "cpu": 3405303666
+      "mem": 11094584,
+      "cpu": 3481123358
     },
     "transaction_budget_tests.legacy_fifteen_signer_update_w00__stt": {
-      "mem": 10338558,
-      "cpu": 3219359617
+      "mem": 10563364,
+      "cpu": 3295179309
     },
     "transaction_budget_tests.scalar_heavy_max_state_update_w00__stt": {
-      "mem": 10877225,
-      "cpu": 3407606051
+      "mem": 11102031,
+      "cpu": 3483425743
     },
     "transaction_budget_tests.max_state_manage_streaming_w00__stt": {
       "mem": 8709083,
@@ -2493,8 +2513,8 @@
       "cpu": 710372833
     },
     "transaction_budget_tests.max_five_asset_exact_distribution_w01__wallet_00": {
-      "mem": 6936121,
-      "cpu": 2657136892
+      "mem": 6813931,
+      "cpu": 2575338592
     },
     "transaction_shape_tests.governance_shape_accepts_stt_plus_one_wallet_purpose": {
       "mem": 62908,
@@ -2919,49 +2939,49 @@
   },
   "transactions": {
     "transaction_budget_tests.max_state_mint": {
-      "mem": 8925493,
-      "cpu": 2789638194,
+      "mem": 9151763,
+      "cpu": 2865776399,
       "legs": 1,
       "scripts": {
         "stt.stt.spend": {
-          "mem": 8925493,
-          "cpu": 2789638194,
+          "mem": 9151763,
+          "cpu": 2865776399,
           "executions": 1
         }
       }
     },
     "transaction_budget_tests.max_state_update": {
-      "mem": 10869778,
-      "cpu": 3405303666,
+      "mem": 11094584,
+      "cpu": 3481123358,
       "legs": 1,
       "scripts": {
         "stt.stt.spend": {
-          "mem": 10869778,
-          "cpu": 3405303666,
+          "mem": 11094584,
+          "cpu": 3481123358,
           "executions": 1
         }
       }
     },
     "transaction_budget_tests.legacy_fifteen_signer_update": {
-      "mem": 10338558,
-      "cpu": 3219359617,
+      "mem": 10563364,
+      "cpu": 3295179309,
       "legs": 1,
       "scripts": {
         "stt.stt.spend": {
-          "mem": 10338558,
-          "cpu": 3219359617,
+          "mem": 10563364,
+          "cpu": 3295179309,
           "executions": 1
         }
       }
     },
     "transaction_budget_tests.scalar_heavy_max_state_update": {
-      "mem": 10877225,
-      "cpu": 3407606051,
+      "mem": 11102031,
+      "cpu": 3483425743,
       "legs": 1,
       "scripts": {
         "stt.stt.spend": {
-          "mem": 10877225,
-          "cpu": 3407606051,
+          "mem": 11102031,
+          "cpu": 3483425743,
           "executions": 1
         }
       }
@@ -3343,8 +3363,8 @@
       }
     },
     "transaction_budget_tests.max_five_asset_exact_distribution": {
-      "mem": 9060685,
-      "cpu": 3367509725,
+      "mem": 8938495,
+      "cpu": 3285711425,
       "legs": 2,
       "scripts": {
         "stt.stt.spend": {
@@ -3353,8 +3373,8 @@
           "executions": 1
         },
         "wallet.wallet.spend": {
-          "mem": 6936121,
-          "cpu": 2657136892,
+          "mem": 6813931,
+          "cpu": 2575338592,
           "executions": 1
         }
       }
@@ -3362,13 +3382,13 @@
   },
   "scripts": {
     "stt.stt.mint": {
-      "size": 14513
+      "size": 14642
     },
     "stt.stt.spend": {
-      "size": 14513
+      "size": 14642
     },
     "stt.stt.else": {
-      "size": 14513
+      "size": 14642
     },
     "stt_reference_store.stt_reference_store.spend": {
       "size": 93
@@ -3377,22 +3397,22 @@
       "size": 93
     },
     "wallet.wallet.spend": {
-      "size": 9375
+      "size": 9302
     },
     "wallet.wallet.withdraw": {
-      "size": 9375
+      "size": 9302
     },
     "wallet.wallet.mint": {
-      "size": 9375
+      "size": 9302
     },
     "wallet.wallet.publish": {
-      "size": 9375
+      "size": 9302
     },
     "wallet.wallet.vote": {
-      "size": 9375
+      "size": 9302
     },
     "wallet.wallet.else": {
-      "size": 9375
+      "size": 9302
     }
   }
 }
