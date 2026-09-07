@@ -159,15 +159,26 @@ body {
   transition: opacity var(--user-motion-fast) var(--user-motion-ease);
 }
 
-.user-card-lift:hover {
-  transform: translateY(-2px);
+/* Hover-only transforms are gated on a real pointer. A tap on a touch screen leaves
+   `:hover` matched until the user taps something else, so an ungated lift sticks: the card
+   stays 2px up long after the tap that raised it. `.user-scrollbar` below already gates the
+   same way. Keyboard `:focus-visible` is deliberately outside the query. */
+@media (hover: hover) and (pointer: fine) {
+  .user-card-lift:hover {
+    transform: translateY(-2px);
+  }
 }
 
 .user-sidebar-card {
   contain: layout;
 }
 
-.user-sidebar-card:hover .user-sidebar-chevron,
+@media (hover: hover) and (pointer: fine) {
+  .user-sidebar-card:hover .user-sidebar-chevron {
+    transform: translateX(2px);
+  }
+}
+
 .user-sidebar-card:focus-visible .user-sidebar-chevron {
   transform: translateX(2px);
 }
@@ -190,8 +201,10 @@ body {
   transform-origin: top;
 }
 
-.user-task-chip:hover {
-  transform: translateY(-1px);
+@media (hover: hover) and (pointer: fine) {
+  .user-task-chip:hover {
+    transform: translateY(-1px);
+  }
 }
 
 .user-section-panel {
@@ -439,8 +452,9 @@ body:has(> [role="alertdialog"]) .user-soft-aurora-blob {
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.145 0 0);
   --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
+  --input: oklch(1 0 0 / 35%);
   --ring: oklch(0.556 0 0);
 }
 

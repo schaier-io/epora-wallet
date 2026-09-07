@@ -13,6 +13,7 @@ import {
   CardHeader,
   CardTitle
 } from "@/components/ui/card";
+import { CopyButton } from "@/components/ui/copy-button";
 import { detectSttInfo, type DetectedSttToken } from "@/lib/mesh/detection";
 import { buildSttSpendTx, getValidityWindow, signAndSubmitTx } from "@/lib/mesh/transactions";
 import {
@@ -43,46 +44,53 @@ function streamKey(payment: PayeeStreamingPayment): string {
   return `${payment.sttInputTxHash}#${payment.sttInputOutputIndex}:${payment.streamingPaymentId}`;
 }
 
-function assetLabel(policyId: string, assetName: string): string {
-  if (policyId.length === 0 && assetName.length === 0) {
-    return "ADA";
-  }
-  return assetName.length > 0 ? assetName : `${policyId.slice(0, 8)}…`;
-}
-
-function formatAmountPerDay(payment: PayeeStreamingPayment): string {
-  if (payment.policyId.length === 0 && payment.assetName.length === 0) {
-    return `${lovelaceToAdaNumber(payment.amountPerDay).toLocaleString()} ADA / day`;
-  }
-  return `${payment.amountPerDay.toLocaleString()} ${assetLabel(payment.policyId, payment.assetName)} / day`;
-}
-
 /**
- * The running total, in the same unit as the rate above it. Mirrors `formatAmountPerDay`
- * deliberately: printing the raw datum integer here put `5 ADA / day` and `10,000,000` in
- * one row, a factor of a million apart with only one of them carrying a unit.
+ * A figure and the unit it is counted in, kept apart so the catalog owns the sentence that
+ * joins them rather than a template literal here. Every figure in a row goes through this one
+ * function deliberately: printing the raw datum integer beside the rate put `5 ADA per day`
+ * and `10,000,000` in one row, a factor of a million apart with only one carrying a unit.
+ * The due figure comes from `computePayeeDueAmount`, which runs the payer's own calculation,
+ * so the two sides cannot disagree about what is owed.
  */
-function formatPaidOut(payment: PayeeStreamingPayment): string {
+function amountParts(
+  value: string | number,
+  payment: PayeeStreamingPayment
+): { amount: string; asset: string } {
   if (payment.policyId.length === 0 && payment.assetName.length === 0) {
-    return `${lovelaceToAdaNumber(payment.paidOutAmount).toLocaleString()} ADA`;
+    return { amount: lovelaceToAdaNumber(value).toLocaleString(), asset: "ADA" };
   }
-  return `${payment.paidOutAmount.toLocaleString()} ${assetLabel(payment.policyId, payment.assetName)}`;
-}
-
-/**
- * What is owed right now, in the same unit as the rate and the running total above it.
- * `computePayeeDueAmount` runs the payer's own calculation, so the two sides cannot disagree.
- */
-function formatDueNow(payment: PayeeStreamingPayment, nowMs: number): string {
-  const due = computePayeeDueAmount(payment, nowMs);
-  if (payment.policyId.length === 0 && payment.assetName.length === 0) {
-    return `${lovelaceToAdaNumber(due).toLocaleString()} ADA`;
-  }
-  return `${Number(due).toLocaleString()} ${assetLabel(payment.policyId, payment.assetName)}`;
+  return {
+    amount: Number(value).toLocaleString(),
+    asset:
+      payment.assetName.length > 0 ? payment.assetName : `${payment.policyId.slice(0, 8)}…`
+  };
 }
 
 function formatDate(posixMs: number): string {
   return new Date(posixMs).toLocaleString();
+}
+
+/**
+ * A submitted transaction hash. Shown truncated because all 64 characters wrap the row, but
+ * the full value has to stay reachable: it is the only handle the reader has for looking the
+ * payout up. `title` covers a pointer, the copy control covers touch and keyboard. The
+ * outcome is announced politely, so the reader is not left with a colour as the only signal
+ * that the transaction went out.
+ */
+function SubmittedTransaction({ txHash }: { txHash: string }) {
+  const i18n = useTranslations("ComponentsPayeePayeeView");
+  return (
+    <span className="flex items-center gap-1">
+      <span
+        role="status"
+        title={txHash}
+        className="font-mono text-xs tabular-nums text-emerald-300"
+      >
+        {i18n("transactionSubmitted", { hash: `${txHash.slice(0, 10)}…` })}
+      </span>
+      <CopyButton value={txHash} hideLabel variant="ghost" className="h-6 px-1.5" />
+    </span>
+  );
 }
 
 export function PayeeView() {
@@ -227,7 +235,7 @@ export function PayeeView() {
         <CardHeader>
           <div className="flex w-full flex-wrap items-start justify-between gap-x-3 gap-y-2">
             <div>
-              <CardTitle>{i18n("scheduledPaymentsToYou")}</CardTitle>
+              <CardTitle as="h2">{i18n("scheduledPaymentsToYou")}</CardTitle>
               <CardDescription>
                 {i18n("paymentsOtherWalletsSendToYouALittle")}
               </CardDescription>
@@ -266,7 +274,10 @@ export function PayeeView() {
               </span>
             </div>
           ) : loading ? (
-            <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+            <div
+              role="status"
+              className="inline-flex items-center gap-2 text-sm text-muted-foreground"
+            >
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               {i18n("lookingForPaymentsScheduledToYou")}
             </div>
@@ -275,7 +286,10 @@ export function PayeeView() {
               {loadError}
             </p>
           ) : myPayments.length === 0 ? (
-            <div className="flex items-start gap-3 rounded-lg border border-border/60 bg-background/40 p-3 text-sm text-muted-foreground">
+            <div
+              role="status"
+              className="flex items-start gap-3 rounded-lg border border-border/60 bg-background/40 p-3 text-sm text-muted-foreground"
+            >
               <CircleSlash className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
               <span>{describeEmptyScan(scan)}</span>
             </div>
@@ -314,9 +328,11 @@ export function PayeeView() {
                     className="rounded-lg border border-border/70 bg-card/60 p-3"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{formatAmountPerDay(payment)}</span>
+                      <div className="min-w-0 space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-medium tabular-nums">
+                            {i18n("amountPerDay", amountParts(payment.amountPerDay, payment))}
+                          </span>
                           {alreadyEnded ? (
                             <Badge variant="outline">{i18n("ended")}</Badge>
                           ) : cooldownBlocked ? (
@@ -325,18 +341,30 @@ export function PayeeView() {
                             <Badge variant="secondary">{i18n("active")}</Badge>
                           )}
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                          {i18n("from")} {payment.payerWalletName} {i18n("runs")} {formatDate(payment.startDate)}{" "}
-                          {i18n("to")} {formatDate(payment.endDate)}
+                        <p className="break-words text-sm text-muted-foreground">
+                          {i18n("runsFromTo", {
+                            payer: payment.payerWalletName,
+                            start: formatDate(payment.startDate),
+                            end: formatDate(payment.endDate)
+                          })}
                         </p>
                         <p className="text-sm text-foreground">
                           <span className="text-muted-foreground">{i18n("owedToYouNow")} </span>
                           <span className="font-medium tabular-nums">
-                            {formatDueNow(payment, renderNowMs)}
+                            {i18n(
+                              "amount",
+                              amountParts(computePayeeDueAmount(payment, renderNowMs), payment)
+                            )}
                           </span>
                         </p>
-                        <p className="text-xs text-muted-foreground">
-                          {i18n("paidOutSoFar")} {formatPaidOut(payment)} {i18n("payment")}{payment.streamingPaymentId}
+                        <p className="break-words text-xs tabular-nums text-muted-foreground">
+                          {i18n("paidOutSoFar", {
+                            amount: i18n(
+                              "amount",
+                              amountParts(payment.paidOutAmount, payment)
+                            ),
+                            id: String(payment.streamingPaymentId)
+                          })}
                         </p>
                       </div>
                       <div className="flex flex-col items-end gap-2">
@@ -383,9 +411,7 @@ export function PayeeView() {
                           </span>
                         ) : null}
                         {collectState.status === "done" ? (
-                          <span className="text-right text-xs text-emerald-300">
-                            {i18n("transaction")} {collectState.txHash.slice(0, 10)}…
-                          </span>
+                          <SubmittedTransaction txHash={collectState.txHash} />
                         ) : null}
                         {nothingOwed && !cooldownBlocked && collectState.status === "idle" ? (
                           <span className="max-w-xs text-right text-xs text-muted-foreground">
@@ -399,8 +425,10 @@ export function PayeeView() {
                         ) : null}
                         {cooldownBlocked && state.status !== "error" ? (
                           <span className="max-w-xs text-right text-xs text-muted-foreground">
-                            {i18n("somebodyOtherThanAnOwnerJustActedOn")}{" "}
-                            {NON_ADMIN_STREAMING_ACTION_COOLDOWN_MS / 60_000} {i18n("minutesTryAgainAround")} {formatDate(renderNowMs + cooldownRemainingMs)}.
+                            {i18n("cooldownHolding", {
+                              minutes: NON_ADMIN_STREAMING_ACTION_COOLDOWN_MS / 60_000,
+                              time: formatDate(renderNowMs + cooldownRemainingMs)
+                            })}
                           </span>
                         ) : null}
                         {!alreadyEnded && !cooldownBlocked && cannotShorten ? (
@@ -409,9 +437,7 @@ export function PayeeView() {
                           </span>
                         ) : null}
                         {state.status === "done" ? (
-                          <span className="text-right text-xs text-emerald-300">
-                            {i18n("transaction")} {state.txHash.slice(0, 10)}…
-                          </span>
+                          <SubmittedTransaction txHash={state.txHash} />
                         ) : null}
                       </div>
                     </div>

@@ -9,7 +9,7 @@ const buttonVariants = cva(
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
     "disabled:pointer-events-none disabled:opacity-50",
     "aria-[busy=true]:cursor-progress",
-    "active:duration-75 active:scale-[0.98]"
+    "active:duration-75 active:scale-[0.96]"
   ].join(" "),
   {
     variants: {

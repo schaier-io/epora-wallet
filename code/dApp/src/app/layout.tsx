@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import { NextIntlClientProvider } from "next-intl";
-import { getLocale, getMessages, getTimeZone } from "next-intl/server";
+import { getLocale, getMessages, getTimeZone, getTranslations } from "next-intl/server";
 import {
   pickMessageNamespaces,
   ROOT_CLIENT_NAMESPACES,
@@ -150,11 +150,12 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const [requestHeaders, locale, messages, timeZone] = await Promise.all([
+  const [requestHeaders, locale, messages, timeZone, i18n] = await Promise.all([
     headers(),
     getLocale(),
     getMessages(),
-    getTimeZone()
+    getTimeZone(),
+    getTranslations("AppLayout")
   ]);
   const nonce = requestHeaders.get("x-nonce") ?? undefined;
   const clientMessages = pickMessageNamespaces(messages as MessageCatalog, ROOT_CLIENT_NAMESPACES);
@@ -191,13 +192,19 @@ export default async function RootLayout({
                 href="#main"
                 className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[60] focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:shadow-panel focus:outline-none focus:ring-2 focus:ring-ring"
               >
-                Skip to content
+                {i18n("skipToContent")}
               </a>
               <div className="flex min-h-screen min-h-dvh flex-col">
                 <TopNav />
                 <BetaNotice />
                 <ErrorBoundary>
-                  <div id="main" className="flex min-h-0 flex-1 flex-col">
+                  {/*
+                    `tabIndex={-1}` is what makes the skip link above do anything. A fragment
+                    link only moves focus when its target is focusable; on a plain `<div>`
+                    some engines move only the sequential-focus starting point and Safari
+                    moves nothing at all, so "Skip to content" left focus in the header.
+                  */}
+                  <div id="main" tabIndex={-1} className="flex min-h-0 flex-1 flex-col">
                     {children}
                   </div>
                 </ErrorBoundary>
