@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useSetAtom } from "jotai";
 import { copyFeedbackAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
 import { CLIPBOARD_BLOCKED_MESSAGE, copyTextToClipboard as writeToClipboard } from "@/lib/utils/clipboard";
@@ -21,6 +21,19 @@ export type CopyFeedbackController = {
 export function useCopyFeedback(): CopyFeedbackController {
   const setCopyFeedback = useSetAtom(copyFeedbackAtom);
   const toast = useToast();
+  // The atom is module-global, so a pending timer must not just be dropped on unmount:
+  // clearing it applies the same guarded reset the timer would have, immediately.
+  const pendingRef = useRef<{ id: number; label: string } | null>(null);
+
+  const clearPending = useCallback(() => {
+    const pending = pendingRef.current;
+    if (!pending) return;
+    window.clearTimeout(pending.id);
+    pendingRef.current = null;
+    setCopyFeedback((current) => (current === pending.label ? null : current));
+  }, [setCopyFeedback]);
+
+  useEffect(() => clearPending, [clearPending]);
 
   const copyTextToClipboard = useCallback(
     async (value: string, successLabel: string) => {
@@ -31,12 +44,17 @@ export function useCopyFeedback(): CopyFeedbackController {
         return;
       }
 
+      clearPending();
       setCopyFeedback(successLabel);
-      window.setTimeout(() => {
-        setCopyFeedback((current) => (current === successLabel ? null : current));
-      }, 1800);
+      pendingRef.current = {
+        label: successLabel,
+        id: window.setTimeout(() => {
+          pendingRef.current = null;
+          setCopyFeedback((current) => (current === successLabel ? null : current));
+        }, 1800)
+      };
     },
-    [setCopyFeedback, toast]
+    [clearPending, setCopyFeedback, toast]
   );
 
   return { copyTextToClipboard };
