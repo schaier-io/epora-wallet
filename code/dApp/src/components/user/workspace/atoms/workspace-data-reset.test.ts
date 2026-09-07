@@ -20,9 +20,10 @@ import type { DetectedSttToken } from "@/lib/mesh/detection";
 import type { WalletTransactionSummary } from "@/components/user/workspace/types";
 
 /**
- * The fetched-data atoms are module-global (no jotai Provider in the app), so the workspace
- * unmount cleanup dispatches these resets. Without them, the last wallet's chain snapshot
- * (UTxOs with datums, detected tokens, transaction pages) stays resident for the tab's life.
+ * The fetched-data atoms are module-global (no jotai Provider in the app), so the foundation
+ * dispatches these resets when the wallet session ends (disconnect, or mounting signed out).
+ * Without them, the last wallet's chain snapshot (UTxOs with datums, detected tokens,
+ * transaction pages) stays resident for the tab's life.
  */
 
 const utxo = {

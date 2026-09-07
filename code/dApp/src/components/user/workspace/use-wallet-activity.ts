@@ -40,6 +40,10 @@ export function useWalletActivity() {
   const setWalletTransactions = useSetAtom(walletTransactionsAtom);
   const setActivityPageIndex = useSetAtom(activityPageIndexAtom);
   const walletTransactionsRequestIdRef = useRef(0);
+  // Retire the in-flight fetch on unmount, like every sibling data hook: without this a
+  // late resolution writes the full multi-page transaction payload back into the
+  // module-global atom after the session-end reset already cleared it.
+  useEffect(() => () => { walletTransactionsRequestIdRef.current += 1; }, []);
 
   const runWalletTransactionsRefresh = useCallback(
     async ({

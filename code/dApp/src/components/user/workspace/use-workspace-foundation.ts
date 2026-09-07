@@ -1,6 +1,7 @@
 "use client";
 import { lockedContractUtxosAtom, lockedContractUtxosLoadingAtom, resetWorkspaceDataAtom, sharedSttReferenceStoreAtom, sharedSttReferenceStoreLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { resetWorkspaceActivityAtom } from "@/components/user/workspace/atoms/workspace-activity.atoms";
+import { beneficiaryPreparationProtocolAtom } from "@/components/user/workspace/atoms/beneficiary-preparation.atoms";
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef } from "react";
@@ -156,19 +157,32 @@ export function useWorkspaceFoundation() {
   const resetConfig = useSetAtom(resetConfigAtom);
   const resetWorkspaceData = useSetAtom(resetWorkspaceDataAtom);
   const resetWorkspaceActivity = useSetAtom(resetWorkspaceActivityAtom);
-  // Flow + UI + form + fetched-data atoms are module-global; reset them on unmount so each
-  // fresh mount starts clean (mirrors component-local useState's per-mount reset) and the
-  // last wallet's chain snapshot does not stay resident after the workspace closes.
+  const setBeneficiaryPreparationProtocol = useSetAtom(beneficiaryPreparationProtocolAtom);
+  // Flow + UI + form atoms are module-global; reset them on unmount so each fresh mount
+  // starts clean (mirrors component-local useState's per-mount reset).
   useEffect(() => {
     return () => {
       resetWorkspaceFlow();
       resetWorkspaceUi();
       resetAllForms();
       resetConfig();
-      resetWorkspaceData();
-      resetWorkspaceActivity();
     };
-  }, [resetWorkspaceFlow, resetWorkspaceUi, resetAllForms, resetConfig, resetWorkspaceData, resetWorkspaceActivity]);
+  }, [resetWorkspaceFlow, resetWorkspaceUi, resetAllForms, resetConfig]);
+
+  // The fetched-data atoms are NOT in the unmount reset above: while a wallet stays
+  // connected they are a warm start across route trips, and the setup checkpoint plus the
+  // create-wallet guard read them on remount. They must not outlive the wallet session,
+  // though, so drop the snapshot once no connection is live or being attempted. This also
+  // clears a previous session's data when the workspace mounts signed out.
+  useEffect(() => {
+    if (chainReadsEnabled) {
+      return;
+    }
+
+    resetWorkspaceData();
+    resetWorkspaceActivity();
+    setBeneficiaryPreparationProtocol(null);
+  }, [chainReadsEnabled, resetWorkspaceData, resetWorkspaceActivity, setBeneficiaryPreparationProtocol]);
 
   // The one build-error writer the whole workspace shares. The write atom pairs the
   // message with the stale-inputs recovery flag (default false), so a plain error can
