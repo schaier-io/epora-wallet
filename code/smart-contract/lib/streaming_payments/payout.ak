@@ -369,28 +369,30 @@ fn output_with_streaming_payment_id_matches(
   list.any(
     outputs,
     fn(output) {
-      when streaming_payment_type.output_payout_tag(output) is {
-        Some(output_tag) -> {
-          let expected_output_id = streaming_payment_type.expected_payout_tag(
-            input_streaming_payment.id,
-            stt_input_reference,
-          )
-          let asset_output = quantity_of(
-            output.value,
-            input_streaming_payment.policy_id,
-            input_streaming_payment.asset_name,
-          )
-          // No `?` on ANY conjunct (§9): this lambda is a `list.any` scan
-          // predicate, so a False is a normal miss for every non-matching
-          // output, not a violation — tracing it would fire on each legitimate
-          // miss and drown the signal.
-          and {
-            output.address == input_streaming_payment.payout_address,
-            output_tag == expected_output_id,
-            asset_output >= requested_change,
+      if output.address != input_streaming_payment.payout_address {
+        False
+      } else {
+        when streaming_payment_type.output_payout_tag(output) is {
+          Some(output_tag) -> {
+            let expected_output_id = streaming_payment_type.expected_payout_tag(
+              input_streaming_payment.id,
+              stt_input_reference,
+            )
+            // No `?` on ANY conjunct (§9): this lambda is a `list.any` scan
+            // predicate, so a False is a normal miss for every non-matching
+            // output, not a violation — tracing it would fire on each legitimate
+            // miss and drown the signal.
+            and {
+              output_tag == expected_output_id,
+              quantity_of(
+                output.value,
+                input_streaming_payment.policy_id,
+                input_streaming_payment.asset_name,
+              ) >= requested_change,
+            }
           }
+          None -> False
         }
-        None -> False
       }
     },
   )
