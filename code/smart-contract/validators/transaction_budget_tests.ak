@@ -911,6 +911,16 @@ const max_state_mint_transaction: Transaction = {
         ],
         fixtures.tx_id(#"7931"),
       ),
+      reference_inputs: [
+        fixtures.external_input(
+          fixtures.output_ref(fixtures.tx_id(#"7932"), 0),
+          fixtures.address_from_key("stream-asset-holder"),
+          assets.merge(
+            assets.from_lovelace(wallet_input_lovelace),
+            make_payout_value_from(1, fixture_stream_count),
+          ),
+        ),
+      ],
       mint: assets.from_asset(
         fixtures.default_policy_id(),
         max_state_mint_asset_name,
@@ -1045,6 +1055,37 @@ const max_state_manage_streaming_transaction: Transaction =
     0,
     max_state_manage_streaming_action,
   )
+
+// All 15 output ids are fresh. Separate, reversed reference inputs exercise
+// exact-asset scans past nonmatching inputs; one base unit witnesses each asset.
+const max_state_manage_add_streaming_transaction: Transaction = {
+    let transaction = with_spend_redeemers(
+      fixtures.stt_spend_tx(
+        interval.between(120, 120),
+        [max_state_admin_wallet],
+        state_types.State { ..max_recovery_state, streaming_payments: [] },
+        max_recovery_state,
+        [],
+        fixtures.tx_id(#"7b31"),
+      ),
+      0,
+      max_state_manage_streaming_action,
+    )
+    Transaction {
+      ..transaction,
+      reference_inputs: list.map(
+        list.reverse(max_recovery_state.streaming_payments),
+        fn(payment) {
+          fixtures.external_input(
+            fixtures.output_ref(fixtures.tx_id(payment.asset_name), 0),
+            fixtures.address_from_key("stream-asset-holder"),
+            assets.from_lovelace(wallet_input_lovelace)
+              |> assets.add(payment.policy_id, payment.asset_name, 1),
+          )
+        },
+      ),
+    }
+  }
 
 const beneficiary_actor_wallet: ByteArray =
   from_int_big_endian(fixture_total_beneficiary_wallet_count, 28)
@@ -2616,6 +2657,8 @@ test fixture_shape_state_and_value_bounds_match() {
   expect list.length(beneficiary_use_transaction.redeemers) == 2
   expect list.length(payout_delta) == minimum_positive_payout_count
   expect
+    list.length(max_state_manage_add_streaming_transaction.reference_inputs) == constants.max_streaming_payments
+  expect
     list.length(settled_max_recovery_state.streaming_payments) == constants.max_streaming_payments
   expect
     list.all(
@@ -2630,6 +2673,7 @@ test fixture_shape_declared_wallet_execution_counts_match() {
   expect wallet_execution_count(legacy_fifteen_signer_update_transaction) == 0
   expect wallet_execution_count(scalar_heavy_max_state_update_transaction) == 0
   expect wallet_execution_count(max_state_manage_streaming_transaction) == 0
+  expect wallet_execution_count(max_state_manage_add_streaming_transaction) == 0
   expect
     wallet_execution_count(max_state_governance_operator_use_transaction) == 1
   expect wallet_execution_count(consolidation_transaction) == 2
@@ -2704,6 +2748,16 @@ test max_state_manage_streaming_w00__stt() {
       max_state_manage_streaming_action,
       fixtures.stt_input_ref(),
       max_state_manage_streaming_transaction,
+    )
+}
+
+test max_state_manage_add_streaming_w00__stt() {
+  expect
+    stt.eval_spend(
+      None,
+      max_state_manage_streaming_action,
+      fixtures.stt_input_ref(),
+      max_state_manage_add_streaming_transaction,
     )
 }
 
