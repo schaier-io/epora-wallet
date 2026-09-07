@@ -3,6 +3,18 @@ import { Provider, createStore } from "jotai";
 import type { PropsWithChildren } from "react";
 import { expect, it, vi } from "vitest";
 import type * as PayoutAddress from "@/lib/contracts/payout-address";
+import type * as DefaultTranslator from "@/i18n/default-translator";
+
+vi.mock("@/i18n/default-translator", async (importOriginal) => {
+  const actual = await importOriginal<typeof DefaultTranslator>();
+  return {
+    ...actual,
+    createDefaultTranslator: (namespace: string, messages: Record<string, string>) =>
+      actual.createDefaultTranslator(namespace, namespace === "ComponentsUserWorkspaceActionValidation"
+        ? { ...messages, walletRules: "Pravidla peněženky" }
+        : messages)
+  };
+});
 
 vi.mock("@/lib/contracts/blueprint", () => ({
   getSttMintPolicyId: () => "aa".repeat(28)
@@ -93,6 +105,12 @@ it("blocks missing asset proof at mint and manage before Build", () => {
   const { result } = renderStreamValidation();
   expect(assetProofErrors(result.current.mint)).toEqual([expect.stringContaining(STREAM_UNIT)]);
   expect(assetProofErrors(result.current["manage-streaming-payments"])).toEqual([expect.stringContaining(STREAM_UNIT)]);
+});
+
+it("groups mint asset-proof errors under the translated wallet-rules field", () => {
+  const { result } = renderStreamValidation();
+  expect(result.current.mint["Pravidla peněženky"]).toContainEqual(expect.stringContaining(STREAM_UNIT));
+  expect(result.current.mint["Wallet rules"]).toBeUndefined();
 });
 
 it("refreshing to one exact token clears both draft guards", () => {
@@ -194,7 +212,7 @@ it("blocks wallet setup and user updates that reuse a positive-power credential"
   );
 
   const duplicateCredentialError = /positive-power co-signer must use a distinct wallet ID/i;
-  expect(result.current.mint["Wallet rules"]).toEqual(
+  expect(result.current.mint["Pravidla peněženky"]).toEqual(
     expect.arrayContaining([expect.stringMatching(duplicateCredentialError)])
   );
   expect(result.current["update-state"]["Output state"]).toEqual(

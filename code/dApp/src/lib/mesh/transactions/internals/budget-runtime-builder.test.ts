@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   assertRuntimeBuilderShape,
+  type PreparedTransaction,
   type RuntimeTxBuilder
 } from "@/lib/mesh/transactions/internals/budget-runtime-builder";
 
@@ -32,4 +33,13 @@ test("assertRuntimeBuilderShape accepts getActualFee as the fee-calculator alter
     getActualFee: () => 0n
   } as unknown as RuntimeTxBuilder;
   assert.doesNotThrow(() => assertRuntimeBuilderShape(builder));
+});
+
+// TypeScript must reject a prepared transaction that lacks its signing authority.
+const signerAddressIsRequired: PreparedTransaction extends { signerAddress: string }
+  ? true
+  : false = true;
+
+test("PreparedTransaction requires a signer address", () => {
+  assert.equal(signerAddressIsRequired, true);
 });
