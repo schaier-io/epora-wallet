@@ -50,8 +50,13 @@ export function OrphanUtxoNotice({
         consequences.
       */}
       <div className="flex flex-col gap-1">
+        {/* One templated sentence per line below, not a label fragment glued either side
+            of the number. Word order around an amount and a count moves between
+            languages, and the fragments cannot follow it. */}
         <strong className="font-semibold">
-          {formatLovelaceAsAda(orphanLovelace)} {i18n("isInTheWrongSpot")}
+          {i18n("amountIsInTheWrongSpot", {
+            amount: formatLovelaceAsAda(orphanLovelace)
+          })}
         </strong>
         <p className="text-amber-100/80">
           {onRecover

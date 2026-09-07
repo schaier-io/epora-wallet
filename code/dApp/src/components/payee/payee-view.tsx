@@ -15,6 +15,7 @@ import {
   CardHeader,
   CardTitle
 } from "@/components/ui/card";
+import { CopyButton } from "@/components/ui/copy-button";
 import { detectSttInfo, type DetectedSttToken } from "@/lib/mesh/detection";
 import { buildSttSpendTx, getValidityWindow, signAndSubmitTx } from "@/lib/mesh/transactions";
 import {
@@ -67,37 +68,25 @@ function assetLabel(policyId: string, assetName: string): string {
   return resolveAssetIdentity(`${policyId}${assetName}`).symbol;
 }
 
-// `toLocaleString()` on an ADA number keeps three decimals, so 400 lovelace a
-// day read as "0 ADA / day"; the lovelace formatter keeps all six.
-function formatAmountPerDay(payment: PayeeStreamingPayment): string {
-  if (payment.policyId.length === 0 && payment.assetName.length === 0) {
-    return `${formatLovelaceAsAda(String(payment.amountPerDay))} ADA / day`;
-  }
-  return `${payment.amountPerDay.toLocaleString()} ${assetLabel(payment.policyId, payment.assetName)} / day`;
-}
-
 /**
- * The running total, in the same unit as the rate above it. Mirrors `formatAmountPerDay`
- * deliberately: printing the raw datum integer here put `5 ADA / day` and `10,000,000` in
- * one row, a factor of a million apart with only one of them carrying a unit.
+ * A figure and the unit it is counted in, kept apart so the catalog owns the sentence that
+ * joins them rather than a template literal here. Every figure in a row goes through this one
+ * function deliberately: printing the raw datum integer beside the rate put `5 ADA per day`
+ * and `10,000,000` in one row, a factor of a million apart with only one carrying a unit.
+ * The due figure comes from `computePayeeDueAmount`, which runs the payer's own calculation,
+ * so the two sides cannot disagree about what is owed.
  */
-function formatPaidOut(payment: PayeeStreamingPayment): string {
+function amountParts(
+  value: string | number | bigint,
+  payment: PayeeStreamingPayment
+): { amount: string; asset: string } {
   if (payment.policyId.length === 0 && payment.assetName.length === 0) {
-    return `${formatLovelaceAsAda(String(payment.paidOutAmount))} ADA`;
+    return { amount: formatLovelaceAsAda(String(value)), asset: "ADA" };
   }
-  return `${payment.paidOutAmount.toLocaleString()} ${assetLabel(payment.policyId, payment.assetName)}`;
-}
-
-/**
- * What is owed right now, in the same unit as the rate and the running total above it.
- * `computePayeeDueAmount` runs the payer's own calculation, so the two sides cannot disagree.
- */
-function formatDueNow(payment: PayeeStreamingPayment, nowMs: number): string {
-  const due = computePayeeDueAmount(payment, nowMs);
-  if (payment.policyId.length === 0 && payment.assetName.length === 0) {
-    return `${formatLovelaceAsAda(due)} ADA`;
-  }
-  return `${BigInt(due).toLocaleString()} ${assetLabel(payment.policyId, payment.assetName)}`;
+  return {
+    amount: BigInt(value).toLocaleString(),
+    asset: assetLabel(payment.policyId, payment.assetName)
+  };
 }
 
 function formatDate(posixMs: number | bigint): string {
@@ -106,6 +95,27 @@ function formatDate(posixMs: number | bigint): string {
   return Number.isSafeInteger(asNumber) && Number.isFinite(date.getTime())
     ? date.toLocaleString()
     : posixMs.toString();
+}
+
+/**
+ * A submitted transaction hash. Shown truncated because all 64 characters wrap the row, but
+ * the full value has to stay reachable: it is the only handle the reader has for looking the
+ * payout up. `title` covers a pointer, the copy control covers touch and keyboard. The
+ * page announces submission through its persistent action status.
+ */
+function SubmittedTransaction({ txHash }: { txHash: string }) {
+  const i18n = useTranslations("ComponentsPayeePayeeView");
+  return (
+    <span className="flex items-center gap-1">
+      <span
+        title={txHash}
+        className="font-mono text-xs tabular-nums text-emerald-300"
+      >
+        {i18n("transactionSubmitted", { hash: `${txHash.slice(0, 10)}…` })}
+      </span>
+      <CopyButton value={txHash} hideLabel variant="ghost" className="h-6 px-1.5" />
+    </span>
+  );
 }
 
 export function PayeeView() {
@@ -421,7 +431,7 @@ export function PayeeView() {
               </div>
             ) : null}
             {loading ? (
-            <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+            <div role="status" className="inline-flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               {i18n("lookingForPaymentsScheduledToYou")}
             </div>
@@ -430,7 +440,10 @@ export function PayeeView() {
               {loadError}
             </p>
           ) : myPayments.length === 0 ? (
-            <div className="flex items-start gap-3 rounded-lg border border-border/60 bg-background/40 p-3 text-sm text-muted-foreground">
+            <div
+              role="status"
+              className="flex items-start gap-3 rounded-lg border border-border/60 bg-background/40 p-3 text-sm text-muted-foreground"
+            >
               <CircleSlash className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
               <span>{describeEmptyScan(scan)}</span>
             </div>
@@ -477,6 +490,9 @@ export function PayeeView() {
                 const collected = collectState.status === "done";
                 const nothingOwed =
                   BigInt(computePayeeDueAmount(payment, renderValidityWindow.earliestTimeMs)) <= 0n;
+                const submittedTxHash = collectState.status === "done"
+                  ? collectState.txHash
+                  : shortenState.status === "done" ? shortenState.txHash : null;
                 // One line per row. Up to five used to stack here, so a row could carry an
                 // error, a transaction id, a cooldown and a "nothing owed" note at once.
                 const status: { text: string; tone: "error" | "done" | "note" } | null =
@@ -488,7 +504,10 @@ export function PayeeView() {
                         ? { text: i18n("sentTheListUpdatesAfterTheNextRefresh"), tone: "done" }
                         : collectCooldownBlocked
                           ? {
-                              text: `${i18n("somebodyOtherThanAnOwnerJustActedOn")} ${NON_ADMIN_STREAMING_ACTION_COOLDOWN_MS / 60_000} ${i18n("minutesTryAgainAround")} ${formatDate(renderNowMs + cooldownRemainingMs)}.`,
+                              text: i18n("cooldownHolding", {
+                                minutes: NON_ADMIN_STREAMING_ACTION_COOLDOWN_MS / 60_000,
+                                time: formatDate(renderNowMs + cooldownRemainingMs)
+                              }),
                               tone: "note"
                             }
                           : nothingOwed
@@ -503,8 +522,10 @@ export function PayeeView() {
                   >
                     <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
                       <div className="min-w-0 space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="min-w-0 wrap-anywhere font-medium">{formatAmountPerDay(payment)}</span>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="min-w-0 wrap-anywhere font-medium tabular-nums">
+                            {i18n("amountPerDay", amountParts(payment.amountPerDay, payment))}
+                          </span>
                           {alreadyEnded ? (
                             <Badge variant="outline" className="shrink-0">{i18n("ended")}</Badge>
                           ) : collectCooldownBlocked ? (
@@ -514,17 +535,29 @@ export function PayeeView() {
                           )}
                         </div>
                         <p className="wrap-anywhere text-sm text-muted-foreground">
-                          {i18n("from")} {payment.payerWalletName} {i18n("runs")} {formatDate(payment.startDate)}{" "}
-                          {i18n("to")} {formatDate(payment.endDate)}
+                          {i18n("runsFromTo", {
+                            payer: payment.payerWalletName,
+                            start: formatDate(payment.startDate),
+                            end: formatDate(payment.endDate)
+                          })}
                         </p>
                         <p className="wrap-anywhere text-sm text-foreground">
                           <span className="text-muted-foreground">{i18n("owedToYouNow")} </span>
                           <span className="font-medium tabular-nums">
-                            {formatDueNow(payment, renderNowMs)}
+                            {i18n(
+                              "amount",
+                              amountParts(computePayeeDueAmount(payment, renderNowMs), payment)
+                            )}
                           </span>
                         </p>
-                        <p className="wrap-anywhere text-xs text-muted-foreground">
-                          {i18n("paidOutSoFar")} {formatPaidOut(payment)} {i18n("payment")}{String(payment.streamingPaymentId)}
+                        <p className="wrap-anywhere text-xs tabular-nums text-muted-foreground">
+                          {i18n("paidOutSoFar", {
+                            amount: i18n(
+                              "amount",
+                              amountParts(payment.paidOutAmount, payment)
+                            ),
+                            id: String(payment.streamingPaymentId)
+                          })}
                         </p>
                       </div>
                       <div className="flex flex-col items-end gap-2">
@@ -569,7 +602,9 @@ export function PayeeView() {
                             {shortened ? i18n("shortened") : shortening ? i18n("shortening") : i18n("shortenPayment")}
                           </Button>
                         ) : null}
-                        {status ? (
+                        {status?.tone === "done" && submittedTxHash ? (
+                          <SubmittedTransaction txHash={submittedTxHash} />
+                        ) : status ? (
                           <span
                             role={status.tone === "error" ? "alert" : undefined}
                             className={`max-w-xs text-right text-xs ${

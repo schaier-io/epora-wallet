@@ -10,6 +10,7 @@ import {
 import { COPY } from "@/lib/copy";
 import "@/app/globals.css";
 import "@/app/globals/animations.css";
+import { MotionConfig } from "motion/react";
 import "@/components/ProfileCard.css";
 import { WalletProvider } from "@/providers/wallet-provider";
 import { WalletConnectProvider } from "@/providers/walletconnect-provider";
@@ -178,6 +179,15 @@ export default async function RootLayout({
           locale={locale}
           timeZone={timeZone}
         >
+          {/*
+            `motion` defaults to `reducedMotion: "never"` (verified in
+            motion@13.1.1's MotionConfigContext), so every `motion.*` element
+            animated regardless of the user's preference. The `*` catch-all in
+            globals/animations.css cannot reach these: it flattens CSS
+            animations and transitions, and this library drives transforms from
+            JS. One provider covers every consumer.
+          */}
+          <MotionConfig reducedMotion="user">
           <GlobalBackground />
           <RiskDisclaimerGate />
           <ToastProvider>
@@ -199,6 +209,12 @@ export default async function RootLayout({
                 <TopNav />
                 <BetaNotice />
                 <ErrorBoundary>
+                  {/*
+                    `tabIndex={-1}` is what makes the skip link above do anything. A fragment
+                    link only moves focus when its target is focusable; on a plain `<div>`
+                    some engines move only the sequential-focus starting point and Safari
+                    moves nothing at all, so "Skip to content" left focus in the header.
+                  */}
                   <div id="main" tabIndex={-1} className="flex min-h-0 flex-1 flex-col">
                     {children}
                   </div>
@@ -209,6 +225,7 @@ export default async function RootLayout({
               </WalletConnectProvider>
             </WalletProvider>
           </ToastProvider>
+          </MotionConfig>
         </NextIntlClientProvider>
       </body>
     </html>

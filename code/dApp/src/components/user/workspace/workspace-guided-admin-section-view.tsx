@@ -71,16 +71,30 @@ export function GuidedAdminSectionView() {
               >
                 {isActive ? <SidebarActiveGlow /> : null}
                 <div
+                  // `data-expanded` is only the CSS hook `globals.css:186` rotates the chevron
+                  // with; a data attribute reaches no screen reader, so it does not undo the
+                  // `aria-current` below. The name still describes the wrong thing -- it marks
+                  // the active group, not an expanded one -- and renaming it means editing
+                  // globals.css.
                   data-expanded={isActive ? "true" : undefined}
                   className={cn(
                     "user-surface user-card-lift user-sidebar-card relative z-10 min-w-0 overflow-hidden rounded-lg border p-3 transition-[background-color,border-color,box-shadow,transform]",
                     isActive ? guidedSidebarActiveSurfaceClass : guidedSidebarIdleSurfaceClass
                   )}
                 >
+                  {/* `aria-current`, not `aria-expanded`. Nothing expands here:
+                      `openGuidedAdminGroup` (workspace-navigation.ts:304) forwards to
+                      `handleFocusedTaskSelect` -> `openWorkspaceIntent`, which swaps the main
+                      panel, and there is no region under this button to expand. The old
+                      `aria-expanded` announced "collapsed"/"expanded" for a control that
+                      navigates, and left the real state -- this is the group you are in --
+                      exposed by colour and the chevron alone. Every other sidebar entry
+                      already marks that state with `aria-current` (workspace-sidebar-view.tsx:115
+                      and :163, workspace-guided-action-section-view.tsx:72). */}
                   <button
                     type="button"
                     onClick={() => openGuidedAdminGroup(group.id)}
-                    aria-expanded={isActive}
+                    aria-current={isActive ? "true" : undefined}
                     className="flex w-full min-w-0 items-start justify-between gap-3 text-left"
                   >
                     <div className="flex min-w-0 flex-1 items-start gap-3 overflow-hidden">

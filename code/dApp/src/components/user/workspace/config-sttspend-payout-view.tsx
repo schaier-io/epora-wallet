@@ -164,6 +164,11 @@ export function SttSpendPayoutView() {
               const selectedAmount = row.configuredAmount;
               const isSelected = streamingPayoutAmountIsSelected(selectedAmount);
               const isCleanup = row.cleanupRequired;
+              const rowId = row.streamingPayment.id;
+              const rowAmountError = getFirstFieldError(
+                activeFieldErrors,
+                `Scheduled payment ${index + 1}`
+              );
               const status = clockReady
                 ? deriveStreamingPaymentRowStatus({
                     cleanupRequired: isCleanup,
@@ -207,7 +212,7 @@ export function SttSpendPayoutView() {
                       {isSelected ? <Badge variant="secondary">{i18n("payingNow")}</Badge> : null}
                     </div>
                   </div>
-                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  <div className="mt-3 grid gap-3 tabular-nums md:grid-cols-2">
                     <div className="min-w-0 wrap-anywhere rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
                       {i18n("assetLabel")} {resolveAssetIdentity(row.unit).symbol}
                     </div>
@@ -273,7 +278,7 @@ export function SttSpendPayoutView() {
                         ? i18n("closingThisFinishedPayment")
                         : i18n("payThisOneNow")}
                     </label>
-                    <div className="min-w-0 wrap-anywhere rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground md:col-start-2 md:row-start-2">
+                    <div className="min-w-0 wrap-anywhere rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs tabular-nums text-muted-foreground md:col-start-2 md:row-start-2">
                       {i18n("dueNow")}{" "}
                       {row.unit === "lovelace"
                         ? i18n("value1Ada", { value1: formatLovelaceAsAda(row.dueAmount) })
@@ -289,27 +294,31 @@ export function SttSpendPayoutView() {
                     <div className="md:col-start-3 md:row-start-2">
                       {row.unit === "lovelace" ? (
                         <AdaAmountInput
-                          id={`streaming-payment-amount-${row.streamingPayment.id}`}
+                          id={`streaming-payment-amount-${rowId}`}
                           value={selectedAmount}
                           disabled={isCleanup}
+                          aria-invalid={rowAmountError ? true : undefined}
+                          aria-describedby={rowAmountError ? `streaming-payment-amount-${rowId}-error` : undefined}
                           onChange={(text) =>
                             setStreamingPaymentPayoutAmounts((current) => ({
                               ...current,
-                              [row.streamingPayment.id]: parseAdaToLovelace(text) ?? "0"
+                              [rowId]: parseAdaToLovelace(text) ?? "0"
                             }))
                           }
                         />
                       ) : (
                         <Input
-                          id={`streaming-payment-amount-${row.streamingPayment.id}`}
+                          id={`streaming-payment-amount-${rowId}`}
                           type="text"
                           inputMode="numeric"
                           value={selectedAmount}
                           disabled={isCleanup}
+                          aria-invalid={rowAmountError ? true : undefined}
+                          aria-describedby={rowAmountError ? `streaming-payment-amount-${rowId}-error` : undefined}
                           onChange={(event) =>
                             setStreamingPaymentPayoutAmounts((current) => ({
                               ...current,
-                              [row.streamingPayment.id]: event.target.value
+                              [rowId]: event.target.value
                             }))
                           }
                         />
@@ -344,10 +353,8 @@ export function SttSpendPayoutView() {
                     </p>
                   ) : null}
                   <InlineFieldError
-                    message={getFirstFieldError(
-                      activeFieldErrors,
-                      `Scheduled payment ${index + 1}`
-                    )}
+                    id={`streaming-payment-amount-${rowId}-error`}
+                    message={rowAmountError}
                   />
                 </div>
               );

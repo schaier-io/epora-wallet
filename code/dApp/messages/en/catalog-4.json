@@ -273,6 +273,31 @@
     "scheduledPaymentsLeaveOnTimeMultiSignatureWhen": "Scheduled payments leave on time. Payments above your threshold wait for a co-signer.",
     "worksWithLaceEternlVesprAndOtherWallets": "Works with Lace, Eternl, Vespr, and other wallets on Preprod."
   },
+  "ComponentsUserWorkspaceWorkspaceReviewRailView": {
+    "approvalRequestsCannotRenameThisWallet": "Approval requests cannot rename this wallet. Restore the current name first.",
+    "approvalRuleNeedsPower": "This rule needs {approvalThreshold} approval power between the co-signers.",
+    "fixHighlightedFieldsBeforeSaving": "Fix the highlighted fields first. Then this can be saved for the other signers.",
+    "proposalBlocked": "{description} Then this can be saved for the other signers.",
+    "proposalBlockedWithRecovery": "{description} {recovery} Then this can be saved for the other signers.",
+    "refreshChainState": "Refresh chain state",
+    "refreshChainStateFailed": "The refresh could not complete, so the fund pools are still stale. Check the connection, then press the button to try again.",
+    "refreshingChainState": "Refreshing chain state...",
+    "review": "Review",
+    "reviewAndConfirm": "Review and confirm",
+    "scrollToReviewAndConfirm": "Scroll to review and confirm",
+    "staleChainStateNotice": "The selected fund pool is no longer spendable: the chain moved on since this transaction was prepared. Refresh the chain state to reload the fund pools, then choose pools that are still unspent. Nothing you entered was discarded, and nothing was sent.",
+    "previewPermanentExit": "Preview permanent withdrawal",
+    "confirmPermanentExit": "Confirm permanent withdrawal",
+    "previewStreamStop": "Preview stop",
+    "confirmStreamStop": "Confirm stop",
+    "previewDistribution": "Preview distribution",
+    "confirmDistribution": "Confirm distribution",
+    "previewPreparation": "Preview preparation",
+    "confirmPreparation": "Confirm preparation",
+    "directActionInFlight": "Wait for the transaction in progress to finish. Then this can be saved for the other signers.",
+    "proposalBlockedByFieldErrors": "Fix the highlighted fields first. Then this can be saved for the other signers.",
+    "proposalBlockedByIssue": "{issue} Then this can be saved for the other signers."
+  },
   "ComponentsUserWorkspaceWorkspaceReviewReceipt": {
     "action": "Action",
     "actionReceipt": "Action receipt",
@@ -404,7 +429,8 @@
     "theWalletYouConnectedCannotManageThisSmart": "The wallet you connected cannot manage this smart wallet.",
     "value1": "{value1}",
     "wallet": "Wallet",
-    "walletCouldNotLoad": "Wallet could not load"
+    "walletCouldNotLoad": "Wallet could not load",
+    "walletNavigation": "Wallet navigation"
   },
   "ComponentsUserWorkspaceWorkspaceStateDiff": {
     "afterValue": "after {value}",
@@ -468,6 +494,23 @@
     "coSigners": "Co-signers",
     "owner": "Owner"
   },
+  "ComponentsUserWorkspaceWorkspaceTransactions": {
+    "connectWalletFirst": "Connect wallet first.",
+    "demoWalletCannotConfirmActionsConnectABrowser": "Demo wallet cannot confirm actions. Connect a browser wallet to continue.",
+    "finishTheSetupChecklistBeforeContinuing": "Finish the setup checklist before continuing.",
+    "fixTheHighlightedFieldsBeforeContinuing": "Fix the highlighted fields before continuing.",
+    "reviewTheseWarningsBeforeYouSignContinue": "Review these warnings before you sign:\n\n{warnings}\n\nContinue?",
+    "theSelectedActionIsNotWiredToA_ee5fb7": "The selected action is not wired to a builder yet.",
+    "theTransactionCouldNotBePreparedTryAgain": "The transaction could not be prepared. Try again.",
+    "theTransactionDetailsAreStaleContinueAgainTo_34b074": "The transaction details are stale. Continue again to refresh them.",
+    "thisActionWasAlreadyCompletedChangeSomethingBefore": "This action was already completed. Change something before trying again.",
+    "value1Value2": "{value1}{value2}",
+    "exitDiscoveryAddressRequired": "Load the wallet address before reviewing a permanent withdrawal.",
+    "exitRightsWarning": "This withdrawal permanently removes your recovery access. You give up rights to remaining funds and future deposits.",
+    "exitUnusedShareWarning": "Any part of your share that you leave unwithdrawn is forfeited when you exit.",
+    "exitOmittedFundsWarning": "This transaction omits {count} discovered wallet UTxOs. You cannot return through this recovery entry to claim them.",
+    "exitAllDiscoveredSelectedWarning": "All discovered UTxOs are selected. Discovery cannot prove that no other funds or future deposits exist."
+  },
   "ComponentsUserWorkspaceWorkspaceTransactionsView": {
     "activity": "Activity",
     "activityIsUnavailable": "Activity is unavailable",
@@ -489,7 +532,6 @@
     "next": "Next",
     "noInputDetailsWereReturnedForThisTransaction": "No input details were returned for this transaction.",
     "noOutputDetailsWereReturnedForThisTransaction": "No output details were returned for this transaction.",
-    "of": "of",
     "openOnCardanoscan": "Open on Cardanoscan",
     "openTransactionOnCardanoscan": "Open transaction on Cardanoscan",
     "outputsCreated": "Outputs created",
@@ -500,7 +542,6 @@
     "recentSendsReceivesAndWalletUpdates": "Recent sends, receives, and wallet updates.",
     "refresh": "Refresh",
     "send": "Send",
-    "showing": "Showing",
     "slot": "Slot",
     "slotValue1": "Slot {value1}",
     "timeNotAvailable": "Time not available",
@@ -512,7 +553,8 @@
     "txHashCopiedValue1_81ef78": "Tx hash copied:{value1}",
     "value1Balance": "{value1} balance",
     "value1Summary": "{value1} summary",
-    "walletBalance": "Wallet balance"
+    "walletBalance": "Wallet balance",
+    "showingRangeOfTotal": "Showing {start}-{end} of {total}"
   },
   "ComponentsUserWorkspaceWorkspaceView": {
     "chooseSmartWallet": "Choose smart wallet",
@@ -600,33 +642,5 @@
     "youCanSpendFromThisWalletWithinYour": "You can spend from this wallet within your allowance.",
     "youHaveOneSmartWalletSoItWas": "You have one smart wallet, so it was opened for you.",
     "yourWalletIsOnTheWrongNetwork": "Your wallet is on the wrong network"
-  },
-  "Counts": {
-    "asset": "{count, plural, one {# asset} other {# assets}}",
-    "destination": "{count, plural, one {# destination} other {# destinations}}",
-    "entry": "{count, plural, one {# entry} other {# entries}}",
-    "fundPool": "{count, plural, one {# fund pool} other {# fund pools}}",
-    "input": "{count, plural, one {# input} other {# inputs}}",
-    "issue": "{count, plural, one {# issue} other {# issues}}",
-    "limit": "{count, plural, one {# limit} other {# limits}}",
-    "output": "{count, plural, one {# output} other {# outputs}}",
-    "owner": "{count, plural, one {# owner} other {# owners}}",
-    "payment": "{count, plural, one {# payment} other {# payments}}",
-    "person": "{count, plural, one {# person} other {# people}}",
-    "recipient": "{count, plural, one {# recipient} other {# recipients}}",
-    "recoveryContact": "{count, plural, one {# recovery contact} other {# recovery contacts}}",
-    "source": "{count, plural, one {# source} other {# sources}}",
-    "spender": "{count, plural, one {# spender} other {# spenders}}",
-    "walletId": "{count, plural, one {# wallet ID} other {# wallet IDs}}"
-  },
-  "HooksUseOrphanWalletUtxos": {
-    "discoveryFailed_32684a": "Discovery failed"
-  },
-  "LibContractsCrankCooldown": {
-    "labelRequiresFiniteValidityWindow": "{label} requires a finite, ordered validity window.",
-    "labelStillInCooldown": "{label} is still in the shared 30-minute receiver/payout cooldown. Try again in about {count, plural, one {# minute} other {# minutes}}.",
-    "labelValidityWindowTooLong": "{label} validity window cannot exceed 60 minutes.",
-    "lastPayoutMustBeNonNegativeSafeInteger": "State last_non_admin_payout_at must be a non-negative safe integer.",
-    "lowerBoundMustBeNonNegativeSafeInteger": "Streaming action tx lower-bound time must be a non-negative safe integer."
   }
 }

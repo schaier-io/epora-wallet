@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import { describe, expect, it, vi } from "vitest";
 import { lockedContractUtxosLoadingAtom, sharedSttReferenceStoreLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
@@ -52,6 +52,35 @@ describe("setup checkpoint, funding", () => {
     expect(screen.getByText("This wallet has no funds yet")).toBeTruthy();
     expect(screen.getByText(/Choose Receive funds to add some/)).toBeTruthy();
     expect(screen.queryByText(/Checking this wallet's funds/)).toBeNull();
+  });
+
+  /**
+   * This card is the only thing that says why the panel beneath it cannot be used, and it
+   * rewrites itself with no input from the reader. `role="status"` carries that, but a polite
+   * region only announces reliably when the node survives the update: every branch returns one
+   * `div` in the same position, so React reconciles them onto one host node and the text
+   * changes in place. Pinning the identity keeps a future branch from returning a different
+   * wrapper and silently turning the announcement back off.
+   */
+  it("updates one live region in place when the funds finish loading", () => {
+    setupCheckpoint.value = "funding";
+    const store = createStore();
+    store.set(lockedContractUtxosLoadingAtom, true);
+    const { container } = render(
+      <Provider store={store}>
+        <SetupCheckpointCardView />
+      </Provider>
+    );
+
+    const region = container.querySelector('[role="status"]');
+    expect(region?.textContent).toContain("Checking this wallet's funds");
+
+    act(() => {
+      store.set(lockedContractUtxosLoadingAtom, false);
+    });
+
+    expect(container.querySelector('[role="status"]')).toBe(region);
+    expect(region?.textContent).toContain("This wallet has no funds yet");
   });
 });
 

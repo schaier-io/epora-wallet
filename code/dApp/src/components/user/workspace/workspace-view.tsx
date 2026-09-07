@@ -115,6 +115,14 @@ export function WorkspaceView() {
         className="flex min-h-0 flex-1 flex-col gap-4"
         aria-label={i18n("walletWorkspace")}
       >
+        {/* The level-2 heading the shell was missing. `app/user/page.tsx:43` owns the only
+            `h1` and every card under here is an `h3` (`CardTitle`'s default), so the outline
+            ran h1 -> h3 in the state the app spends most of its life in: a wallet open, where
+            `workspace-header-view.tsx:116` deliberately renders no title because the top nav
+            already names the wallet. This heading is unconditional, so the level is there in
+            every state, and it stays out of the way visually. The landmark keeps its literal
+            `aria-label` rather than pointing `aria-labelledby` here: a literal cannot dangle. */}
+        <h2 className="sr-only">{i18n("walletWorkspace")}</h2>
         <WalletConnectionDialog
           open={walletConnectionDialogOpen}
           onOpenChange={setWalletConnectionDialogOpen}

@@ -39,6 +39,20 @@ describe("error boundary fallback", () => {
     expect(alert.textContent).toContain("This part of the page stopped working");
   });
 
+  it("keeps a focusable main target when the page fails", () => {
+    render(
+      <ErrorBoundary>
+        <Boom />
+      </ErrorBoundary>
+    );
+
+    const main = screen.getByRole("main");
+    expect(main).toHaveAttribute("id", "main");
+    expect(main).toHaveAttribute("tabindex", "-1");
+    main.focus();
+    expect(main).toHaveFocus();
+  });
+
   it("renders its children when nothing throws", () => {
     render(
       <ErrorBoundary>

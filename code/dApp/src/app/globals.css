@@ -210,15 +210,26 @@ body {
   transition: opacity var(--user-motion-fast) var(--user-motion-ease);
 }
 
-.user-card-lift:hover {
-  transform: translateY(-2px);
+/* Hover-only transforms are gated on a real pointer. A tap on a touch screen leaves
+   `:hover` matched until the user taps something else, so an ungated lift sticks: the card
+   stays 2px up long after the tap that raised it. `.user-scrollbar` below already gates the
+   same way. Keyboard `:focus-visible` is deliberately outside the query. */
+@media (hover: hover) and (pointer: fine) {
+  .user-card-lift:hover {
+    transform: translateY(-2px);
+  }
 }
 
 .user-sidebar-card {
   contain: layout;
 }
 
-.user-sidebar-card:hover .user-sidebar-chevron,
+@media (hover: hover) and (pointer: fine) {
+  .user-sidebar-card:hover .user-sidebar-chevron {
+    transform: translateX(2px);
+  }
+}
+
 .user-sidebar-card:focus-visible .user-sidebar-chevron {
   transform: translateX(2px);
 }
@@ -241,8 +252,10 @@ body {
   transform-origin: top;
 }
 
-.user-task-chip:hover {
-  transform: translateY(-1px);
+@media (hover: hover) and (pointer: fine) {
+  .user-task-chip:hover {
+    transform: translateY(-1px);
+  }
 }
 
 .user-section-panel {
@@ -497,13 +510,18 @@ body:has(> [role="alertdialog"]) .user-soft-aurora-blob {
      takes the same value and reaches 6.21:1. */
   --destructive-foreground: oklch(0.205 0 0);
   --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
+  --input: oklch(1 0 0 / 35%);
   --ring: oklch(0.556 0 0);
 }
 
 @layer base {
+  /* Full-strength `--ring`, not shadcn's default `/50`. This is the outline colour
+     every element falls back to when it authors no focus style of its own, and at
+     50% alpha it composites to 1.87:1 against card, background and muted alike --
+     under the 3:1 floor WCAG 1.4.11 sets for a focus indicator. At full strength
+     the same three pairs measure 3.79:1, 4.18:1 and 3.19:1. */
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border outline-ring;
   }
   body {
     @apply bg-background text-foreground;

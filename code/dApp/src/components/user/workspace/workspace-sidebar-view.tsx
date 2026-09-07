@@ -114,8 +114,15 @@ export function WorkspaceSidebarView() {
                 ) : null}
 
                 {selectedDetectedToken ? (
-                  <div className="user-scrollbar min-h-0 overflow-x-clip overflow-y-auto px-1 pb-1 pr-2">
-                    <div className="space-y-4">
+                  <div className="user-scrollbar min-h-0 space-y-4 overflow-x-clip overflow-y-auto px-1 pb-1 pr-2">
+                    {/* This column is the app's second navigation and it had no landmark:
+                        every entry below moves the main panel, but a screen reader met a card
+                        full of buttons with nothing to jump to. The `space-y-4` that used to
+                        sit on a plain wrapper is now split -- the `nav` keeps the four groups
+                        at their old gaps, and the scroller keeps the gap to the discovery
+                        panel, which stays outside the landmark because it is not navigation.
+                        Labelled, because `top-nav.tsx:215` already claims "Primary". */}
+                    <nav className="space-y-4" aria-label={i18n("walletNavigation")}>
                       <div className="space-y-2">
                         <p className="eyebrow pt-1 font-medium text-muted-foreground/70">
                           {i18n("wallet")}
@@ -271,19 +278,17 @@ export function WorkspaceSidebarView() {
                           </div>
                         </details>
                       ) : null}
-                      <StakeAddressDiscoveryPanel
-                        sttPolicyId={orphanDiscoveryPolicyId}
-                        sttAssetNameHex={orphanDiscoveryAssetNameHex}
-                        walletScriptAddress={orphanDiscoveryWalletAddress}
-                        enabled={networkId === 0}
-                        onConsolidate={handleConsolidateOrphans}
-                        onRecover={
-                          canRecoverOrphansDirectly
-                            ? handleRecoverOrphans
-                            : undefined
-                        }
-                      />
-                    </div>
+                    </nav>
+                    <StakeAddressDiscoveryPanel
+                      sttPolicyId={orphanDiscoveryPolicyId}
+                      sttAssetNameHex={orphanDiscoveryAssetNameHex}
+                      walletScriptAddress={orphanDiscoveryWalletAddress}
+                      enabled={networkId === 0}
+                      onConsolidate={handleConsolidateOrphans}
+                      onRecover={
+                        canRecoverOrphansDirectly ? handleRecoverOrphans : undefined
+                      }
+                    />
                   </div>
                 ) : null}
 

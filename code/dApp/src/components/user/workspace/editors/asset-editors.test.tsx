@@ -211,7 +211,9 @@ describe("a list of token amounts", () => {
     );
 
     expect(screen.getByRole("button", { name: "Add a token" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Remove" })).toBeInTheDocument();
+    // "Remove" is the visible text; the accessible name adds the row, because every
+    // row's button reads the same and one list can hold several.
+    expect(screen.getByRole("button", { name: "Remove token 1" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Asset Limit/ })).not.toBeInTheDocument();
   });
 
@@ -656,5 +658,36 @@ describe("a list of fund references", () => {
       ...refs,
       { txHash: "", outputIndex: 0 }
     ]);
+  });
+});
+
+describe("removal while adding is disabled", () => {
+  it("keeps focus in the capped allowance list", () => {
+    function Harness() {
+      const [value, setValue] = useState<StateAssetAmountForm[]>(
+        Array.from({ length: MAX_ALLOWANCE_ENTRIES }, () => ({ policyId: "", assetName: "", amount: "0" }))
+      );
+      return <StateAssetAmountListEditor label="Daily limit" value={value} onChange={setValue} />;
+    }
+    render(<Harness />);
+    expect(screen.getByRole("button", { name: "Add a token" })).toBeDisabled();
+    const remove = screen.getByRole("button", { name: "Remove token 1" });
+    remove.focus();
+    fireEvent.click(remove);
+    expect(document.activeElement).toBe(screen.getByRole("group", { name: "Daily limit" }));
+    expect(screen.getByRole("button", { name: "Add a token" })).not.toBeDisabled();
+  });
+
+  it("keeps focus in the wallet list when adding remains unavailable", () => {
+    function Harness() {
+      const [value, setValue] = useState(["aa".repeat(28)]);
+      return <WalletHashesEditor label="Wallets" value={value} onChange={setValue} canAdd={false} />;
+    }
+    render(<Harness />);
+    const remove = screen.getByRole("button", { name: "Remove wallet 1" });
+    remove.focus();
+    fireEvent.click(remove);
+    expect(document.activeElement).toBe(screen.getByRole("group", { name: "Wallets" }));
+    expect(screen.getByRole("button", { name: "Add a wallet" })).toBeDisabled();
   });
 });

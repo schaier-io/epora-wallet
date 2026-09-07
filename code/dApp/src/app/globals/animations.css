@@ -126,6 +126,13 @@
   }
 }
 
+/* The theme tokens hold complete oklch() colours, so `hsl(var(--token) / a)` is not a
+   valid colour: every such declaration below resolved to the guaranteed-invalid value and
+   the property fell back to its initial one. Measured in the browser before the fix, this
+   keyframe painted `border-color: rgb(250,250,250)` (currentColor) and
+   `background-color: rgba(0,0,0,0)` at 0%, 30% AND 100% -- a 720ms white-border flash with
+   the tile's own background dropped out. `color-mix()` is what the rest of the app already
+   uses to tint a token (`.user-scrollbar` in globals.css, `status-dot-breathe` below). */
 @keyframes tile-bump {
   0% {
     border-color: color-mix(in oklch, var(--border) 60%, transparent);
@@ -154,6 +161,10 @@
   }
 }
 
+/* Same invalid-colour bug as `tile-bump`, and total here: every declaration used a token,
+   so measured frames were `box-shadow: none` and `background-color: rgba(0,0,0,0)` at 0%,
+   60% and 100%. The animation ran forever and painted nothing, and because an animated
+   value beats the element's own, it also erased the `bg-primary/20` its two call sites set. */
 @keyframes pill-pulse {
   0% {
     box-shadow: 0 0 0 0 color-mix(in oklch, var(--primary) 50%, transparent);

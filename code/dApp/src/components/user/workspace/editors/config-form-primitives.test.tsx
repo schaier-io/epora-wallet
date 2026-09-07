@@ -125,3 +125,8 @@ test("AdaAmountInput shows a stored amount that changed from outside", () => {
   view.rerender(<AdaAmountInput aria-label="Amount" value="2000000" onChange={vi.fn()} />);
   assert.equal((screen.getByLabelText("Amount") as HTMLInputElement).value, "2");
 });
+
+test("AdaAmountInput preserves a validation error supplied by its caller", () => {
+  render(<AdaAmountInput aria-label="Amount" value="2000000" onChange={vi.fn()} aria-invalid />);
+  assert.equal(screen.getByLabelText("Amount").getAttribute("aria-invalid"), "true");
+});

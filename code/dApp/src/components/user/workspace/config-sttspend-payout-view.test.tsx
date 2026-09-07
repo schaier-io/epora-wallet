@@ -3,13 +3,17 @@ import { Provider, createStore } from "jotai";
 import { describe, expect, it, vi } from "vitest";
 import { type ReactNode } from "react";
 
-const state = vi.hoisted(() => ({ value: {} as Record<string, unknown> }));
+const state = vi.hoisted(() => ({
+  value: {} as Record<string, unknown>,
+  // See the `stateful` option on `renderPayout`.
+  stateful: false
+}));
 
 /**
  * `config-sttspend-view.test.tsx` stubs `FocusedTaskSurface` to null, which hides the whole
  * payout surface. This file renders its children so the pay-due rows can be asked about.
  */
-vi.mock("@/components/user/workspace/editors", () => ({
+vi.mock("@/components/user/workspace/editors", async () => ({
   FocusedPeopleEditor: () => null,
   FocusedStreamingPaymentRulesEditor: () => null,
   FocusedTaskSurface: ({
@@ -25,16 +29,56 @@ vi.mock("@/components/user/workspace/editors", () => ({
     </div>
   ),
   FocusedWalletSettingsEditor: () => null,
-  InlineFieldError: () => null,
+  InlineFieldError: (await import("./editors/primitives")).InlineFieldError,
   SearchableAssetUnitDropdown: () => null,
   StateFormEditor: () => null
 }));
 vi.mock("@/components/user/workspace/config-sttspend-editors-view", () => ({
   SttSpendEditorsView: () => null
 }));
-vi.mock("@/components/user/workspace/use-config-sttspend-state", () => ({
-  useConfigSttSpendState: () => state.value
-}));
+/**
+ * Two modes.
+ *
+ * The default returns the fixture unchanged: a staged amount is recorded and the surface
+ * does not re-render, which is enough for everything that only reads the fixture.
+ *
+ * `state.stateful` closes the loop the real atoms close: a write lands, the rows are
+ * rebuilt from it, and the surface re-renders. Without that, every bug that needs a
+ * re-render between two keystrokes is invisible to this file.
+ */
+vi.mock("@/components/user/workspace/use-config-sttspend-state", async () => {
+  const { useRef, useState } = await import("react");
+  return {
+    useConfigSttSpendState: () => {
+      const stagedRef = useRef<Record<string, string>>({});
+      const [, setTick] = useState(0);
+      if (!state.stateful) {
+        return state.value;
+      }
+
+      const rows = state.value.streamingPaymentPayoutRows as Array<{
+        configuredAmount: string;
+        streamingPayment: { id: string };
+      }>;
+      return {
+        ...state.value,
+        streamingPaymentPayoutRows: rows.map((row) => ({
+          ...row,
+          configuredAmount:
+            stagedRef.current[row.streamingPayment.id] ?? row.configuredAmount
+        })),
+        setStreamingPaymentPayoutAmounts: (
+          update: (current: Record<string, string>) => Record<string, string>
+        ) => {
+          stagedRef.current = update(stagedRef.current);
+          stage.amounts = stagedRef.current;
+          stage.calls += 1;
+          setTick((tick) => tick + 1);
+        }
+      };
+    }
+  };
+});
 vi.mock(
   "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms",
   async (importOriginal) => {
@@ -98,6 +142,8 @@ function renderPayout(
     sttAuthorityPath?: string;
     lockedContractUtxosLoading?: boolean;
     selectedAction?: string;
+    stateful?: boolean;
+    activeFieldErrors?: Record<string, string[]>;
   } = {}
 ) {
   state.value = {
@@ -118,7 +164,7 @@ function renderPayout(
     selectedIntent: "pay-streaming-payments",
     useAllowancePreview: { error: null, target: null, computation: null },
     config: { walletPolicyId: "policy" },
-    activeFieldErrors: {},
+    activeFieldErrors: options.activeFieldErrors ?? {},
     addSimpleTransferRecipient: vi.fn(),
     flowAvailability: {},
     guidedStreamingPaymentTaskBadges: {},
@@ -152,6 +198,9 @@ function renderPayout(
   const store = createStore();
   stage.amounts = {};
   stage.calls = 0;
+  // Off by default: only the tests that type across several keystrokes need the
+  // staged amounts fed back into the rows.
+  state.stateful = options.stateful ?? false;
   // The surface refuses to show time-derived states before the display clock
   // seeds; every rendering test wants it seeded.
   store.set(renderNowMsAtom, options.renderNowMs ?? NOW);
@@ -437,6 +486,89 @@ describe("the tick box and the amount field drive the payout", () => {
 
     expect(stage.calls).toBe(1);
     expect(stage.amounts).toEqual({ "0": "1500000" });
+  });
+
+  /**
+   * The box stages lovelace but is typed in ADA, so it has to survive the moment
+   * between "1" and "1.5" when the amount is a decimal point and nothing else.
+   * Re-formatting the staged lovelace on every render erased that dot, and the next
+   * digit landed against the whole number: 1.5 staged 15 ADA, a 10x overpayment with
+   * no warning. Same failure the rewards claim already fixed
+   * (`config-walletwithdraw-view.tsx:51-76`).
+   */
+  it("keeps a decimal point that is still being typed", () => {
+    renderPayout([payoutRow()], { stateful: true });
+    const field = screen.getByLabelText("Payout amount (ADA)") as HTMLInputElement;
+
+    fireEvent.change(field, { target: { value: "1" } });
+    fireEvent.change(field, { target: { value: "1." } });
+
+    expect(field.value).toBe("1.");
+  });
+
+  it("stages what was typed, not what a re-format left behind", () => {
+    renderPayout([payoutRow()], { stateful: true });
+    const field = screen.getByLabelText("Payout amount (ADA)") as HTMLInputElement;
+
+    fireEvent.change(field, { target: { value: "1" } });
+    fireEvent.change(field, { target: { value: "1." } });
+    fireEvent.change(field, { target: { value: "1.5" } });
+
+    expect(field.value).toBe("1.5");
+    expect(stage.amounts).toEqual({ "0": "1500000" });
+  });
+
+  it("an emptied box stages nothing for that row", () => {
+    renderPayout([payoutRow({ configuredAmount: "2000000" })], { stateful: true });
+    const field = screen.getByLabelText("Payout amount (ADA)") as HTMLInputElement;
+
+    fireEvent.focus(field);
+    fireEvent.change(field, { target: { value: "" } });
+
+    expect(field.value).toBe("");
+    expect(stage.amounts).toEqual({ "0": "0" });
+  });
+
+  it("links a row validation error to its ADA amount field", () => {
+    renderPayout([payoutRow()], {
+      activeFieldErrors: { "Scheduled payment 1": ["Amount exceeds the available balance."] }
+    });
+    const field = screen.getByLabelText("Payout amount (ADA)");
+    expect(field).toHaveAttribute("aria-invalid", "true");
+    const errorId = field.getAttribute("aria-describedby");
+    expect(errorId).toBeTruthy();
+    expect(document.getElementById(errorId!)).toHaveTextContent("Amount exceeds the available balance.");
+  });
+
+  it("clears a staged payout when the ADA draft has more than six decimals", () => {
+    renderPayout([payoutRow()], { stateful: true });
+    const field = screen.getByLabelText("Payout amount (ADA)") as HTMLInputElement;
+
+    fireEvent.focus(field);
+    fireEvent.change(field, { target: { value: "2" } });
+    expect(stage.amounts).toEqual({ "0": "2000000" });
+    fireEvent.change(field, { target: { value: "1.0000001" } });
+    fireEvent.blur(field);
+
+    expect(stage.amounts).toEqual({ "0": "0" });
+    expect(field.value).toBe("1.0000001");
+    expect(field).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("the tick box still replaces whatever was typed", () => {
+    renderPayout([payoutRow()], { stateful: true });
+    const field = screen.getByLabelText("Payout amount (ADA)") as HTMLInputElement;
+
+    fireEvent.change(field, { target: { value: "1." } });
+    // Typing an amount ticks the row, so the first click clears it and the second
+    // stages the full due amount. Either way the half-typed draft is dropped.
+    screen.getByRole("checkbox").click();
+    expect(field.value).toBe("0");
+
+    screen.getByRole("checkbox").click();
+
+    expect(stage.amounts).toEqual({ "0": "2000000" });
+    expect(field.value).toBe("2");
   });
 
   it("a finished payment's locked box cannot be changed", () => {

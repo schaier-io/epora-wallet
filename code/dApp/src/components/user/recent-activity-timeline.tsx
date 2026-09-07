@@ -47,13 +47,6 @@ function dotToneClass(amountClassName?: string) {
   return "bg-primary";
 }
 
-function dotHaloClass(amountClassName?: string) {
-  if (amountClassName?.includes("text-emerald")) return "bg-emerald-400/40";
-  if (amountClassName?.includes("text-rose") || amountClassName?.includes("text-red"))
-    return "bg-rose-400/40";
-  return "bg-primary/40";
-}
-
 export function RecentActivityTimeline({
   events,
   limit = 5,
@@ -74,7 +67,7 @@ export function RecentActivityTimeline({
           <button
             type="button"
             onClick={onSeeAll}
-            className="text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:underline"
+            className="rounded-sm text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
             {i18n("seeAll")}
             <ChevronRight
@@ -140,14 +133,15 @@ export function RecentActivityTimeline({
                     dotToneClass(event.amountClassName)
                   )}
                 />
+                {/* The halo used to carry a tone-matched `bg-*` class beside the animation.
+                    `pill-pulse` sets `background-color` at every keyframe, and an animated
+                    value beats the element's own, so the tone class only ever painted under
+                    reduced motion, where the animation is off. The dot above already carries
+                    the tone; this layer is the pulse alone. */}
                 {isFirst ? (
                   <span
                     aria-hidden="true"
-                    className={cn(
-                      "absolute left-[0.5625rem] top-[0.9375rem] block h-[0.625rem] w-[0.625rem] rounded-full opacity-60",
-                      dotHaloClass(event.amountClassName),
-                      "animate-[pill-pulse_2200ms_cubic-bezier(0.22,1,0.36,1)_infinite]"
-                    )}
+                    className="absolute left-[0.5625rem] top-[0.9375rem] block h-[0.625rem] w-[0.625rem] rounded-full opacity-60 animate-[pill-pulse_2200ms_cubic-bezier(0.22,1,0.36,1)_infinite]"
                   />
                 ) : null}
                 <button
@@ -159,7 +153,12 @@ export function RecentActivityTimeline({
                     event.timestampDisplay,
                     event.amountSummary
                   ].join(", ")}
-                  className="group -mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-md px-2 py-1.5 text-left transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-background/65 focus-visible:bg-background/65 focus-visible:outline-none"
+                  // The focus treatment used to be `focus-visible:bg-background/65`, the same
+                  // tint as `hover:`, on top of `outline-none`: a keyboard stop was
+                  // indistinguishable from a mouse hover and had no ring at all. The ring
+                  // carries no offset because the `ol` above is `overflow-hidden`, and an
+                  // offset ring would be clipped by it.
+                  className="group -mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-md px-2 py-1.5 text-left transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-background/65 focus-visible:bg-background/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex min-w-0 items-center gap-2">
@@ -190,7 +189,7 @@ export function RecentActivityTimeline({
                     {event.amountSummary}
                   </p>
                   <ChevronRight
-                    className="h-3.5 w-3.5 shrink-0 -translate-x-1 text-muted-foreground/0 transition-[transform,color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:translate-x-0 group-hover:text-muted-foreground/80"
+                    className="h-3.5 w-3.5 shrink-0 -translate-x-1 text-muted-foreground/0 transition-[transform,color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:translate-x-0 group-hover:text-muted-foreground/80 group-focus-visible:translate-x-0 group-focus-visible:text-muted-foreground/80"
                     aria-hidden="true"
                   />
                 </button>

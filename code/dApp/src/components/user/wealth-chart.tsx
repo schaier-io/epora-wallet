@@ -266,7 +266,13 @@ export function WealthChart({
                 type="button"
                 onClick={() => setRange(pill.id)}
                 className={cn(
+                  // These carried no focus treatment at all, so the only keyboard cue was
+                  // the user-agent ring, whose colour the base layer overrides globally
+                  // (`* { outline-ring }` in globals.css). No ring offset: the pills sit
+                  // 2px inside their own container, and an offset ring would sit on its
+                  // border rather than clear of it.
                   "relative isolate rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   active ? "text-foreground" : "text-muted-foreground hover:text-foreground"
                 )}
                 aria-pressed={active}

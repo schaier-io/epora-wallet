@@ -80,7 +80,7 @@
     "structuredDataDescription": "Epora Wallet is a non-custodial, permission-based Cardano wallet. Share one on-chain wallet across owners, spenders, and recovery contacts, with per-spender daily limits, multisig approvals, scheduled ADA payments, staking, governance voting, and a dead-man switch that lets recovery contacts recover the wallet if owners lose their keys."
   },
   "AppLoading": {
-    "loading": "Loading"
+    "loadingBrand": "Loading {brand}…"
   },
   "AppManifest": {
     "aNonCustodialCardanoWalletYouShareAcross": "A non-custodial Cardano wallet you share across owners and spenders, with on-chain daily limits, multisig, scheduled ADA payments, and key recovery once a proof of life expires.",
@@ -121,11 +121,11 @@
     "somethingWentWrong": "Something went wrong",
     "thisPartOfThePageStoppedWorking": "This part of the page stopped working. Reloading usually fixes it. If it keeps happening, try again later.",
     "title": "Page could not load",
-    "tryAgain": "Try again"
+    "tryAgain": "Try again",
+    "technicalDetails": "Technical details"
   },
   "ComponentsLayoutBetaNotice": {
     "betaOnThePreprodTestNetworkDoNot": "Beta on the Preprod test network. Do not use real funds.",
-    "dismissBetaNotice": "Dismiss beta notice",
     "gotIt": "Got it"
   },
   "ComponentsLayoutRiskDisclaimerGate": {
@@ -233,17 +233,16 @@
     "mainnet": "Mainnet",
     "menu": "Menu",
     "networklabelSigner": "{networkLabel} signer",
-    "networkStatusNetworklabel": "Network status: {networkLabel}",
     "notConnected": "Not connected",
     "openWalletMenu": "Open wallet menu",
-    "page": "page",
     "preprod": "Preprod",
     "primary": "Primary",
     "readOnlyMode": "Read-only mode",
     "scheduledIncome": "Scheduled income",
     "smartWallet": "Smart wallet",
     "value1Home_689835": "{value1}, home",
-    "wallet": "Wallet"
+    "wallet": "Wallet",
+    "networkStatus": "Network status:"
   },
   "ComponentsLayoutWalletConnectErrorBridge": {
     "browseTheDemoSigningStaysDisabled": "Browse the demo. Signing stays disabled.",
@@ -294,7 +293,6 @@
     "browseTheAppWithoutAWalletExtension": "Browse the app without a wallet extension.",
     "changeConnectedWallet": "Change connected wallet",
     "checkWalletExtension": "Check the {wallet} extension popup and approve the connection.",
-    "checkThe": "Check the",
     "chooseTheBrowserWalletToUseHereConnecting": "Choose the browser wallet to use here. Connecting lets Epora read your address and balance, and ask your wallet to sign. It cannot move funds on its own: every transaction needs your signature.",
     "connect": "Connect",
     "connectABrowserWalletToCreateAndConfirm": "Connect a browser wallet to create and confirm wallet actions.",
@@ -306,7 +304,6 @@
     "demoReadOnly": "Demo read-only",
     "disconnect": "Disconnect",
     "eternl": "Eternl",
-    "extensionPopupAndApproveTheConnection": "extension popup and approve the connection.",
     "installACardanoWalletForYourBrowserSuchAs": "Install a Cardano wallet for your browser, such as",
     "installCardanoWallet": "Install a Cardano wallet for your browser, such as <lace>Lace</lace>, <eternl>Eternl</eternl>, or <vespr>Vespr</vespr>. After installing, enable the extension for this site and reload the page.",
     "lace": "Lace",
@@ -324,7 +321,9 @@
     "value1Icon": "{value1} icon",
     "vespr": "Vespr",
     "wallet": "wallet",
-    "youCanOpenTheDemoWalletToBrowse": "You can open the demo wallet to browse the interface without an extension. Creating and confirming wallet actions still needs a real browser wallet."
+    "youCanOpenTheDemoWalletToBrowse": "You can open the demo wallet to browse the interface without an extension. Creating and confirming wallet actions still needs a real browser wallet.",
+    "cancel": "Cancel",
+    "checkTheWalletnameExtensionPopupAndApprove": "Check the {walletName} extension popup and approve the connection."
   },
   "ComponentsPayeePayeeCollect": {
     "nothingIsOwedYet": "Nothing is owed to you yet. The amount grows each day the schedule runs.",
@@ -350,34 +349,30 @@
     "collecting": "Collecting…",
     "collectPayment": "Collect payment",
     "ended": "Ended",
-    "failedToCollectThePayment": "Failed to collect the payment.",
-    "failedToStopThePayment": "Failed to stop the payment.",
-    "from": "From",
+    "failedToCollectThePayment": "Failed to collect the payment. Press Refresh, then try again.",
+    "failedToStopThePayment": "Failed to shorten the payment. Press Refresh, then try again.",
     "lookingForPaymentsScheduledToYou": "Looking for payments scheduled to you…",
-    "minutesTryAgainAround": "minutes. Try again around",
     "nothingIsOwedToYouYetTheAmount": "Nothing is owed to you yet. The amount grows each day the schedule runs.",
     "noWalletIsConnectedYetUseTheConnect": "No wallet is connected yet. Use the Connect button at the top of this page to see payments scheduled to you.",
     "onHold": "On hold",
     "owedToYouNow": "Owed to you now:",
-    "paidOutSoFar": "Paid out so far:",
-    "payment": "· payment #",
+    "paidOutSoFar": "Paid out so far: {amount} · payment #{id}",
     "paymentsOtherWalletsSendToYouALittle": "Payments other wallets send to you a little at a time. Collect what you are owed whenever you like. Shortening a payment stops it building up further, and never reduces what is already owed. The paying wallet’s owners can change a payment later.",
     "refresh": "Refresh",
     "reviewTheseWarningsBeforeYouSignContinue": "Review these warnings before you sign:\n\n{warnings}\n\nContinue?",
-    "runs": "· runs",
     "scheduledPaymentsToYou": "Scheduled payments to you",
     "sentTheListUpdatesAfterTheNextRefresh": "Sent. The list updates after the next refresh.",
     "shortened": "Shortened",
     "shortening": "Shortening…",
     "shortenPayment": "Shorten payment",
-    "somebodyOtherThanAnOwnerJustActedOn": "Somebody other than an owner just acted on this wallet. It allows that once every",
-    "theDemoIsReadOnlyConnectABrowser": "The demo is read-only. Connect a browser wallet from the top-right menu to stop a schedule.",
     "theDemoWalletCannotSignSoConnectYour": "The demo wallet cannot sign, so connect your own wallet to collect or shorten payments.",
     "thisPaymentEndsTooSoonToShortenIt": "This payment ends too soon to shorten. It will finish on its own.",
-    "to": "to",
-    "unableToLoadScheduledPayments": "Unable to load scheduled payments.",
+    "unableToLoadScheduledPayments": "Unable to load scheduled payments. Check your connection, then press Refresh.",
     "yourWalletIsOnCardanoMainnetEporaRuns": "Your wallet is on Cardano mainnet. Epora runs on the Preprod test network, so nothing on this page can find payments made to you. Switch your wallet to Preprod, then press Refresh.",
-    "theWalletHoldingThisPaymentCouldNotBe": "The wallet holding this payment could not be read again. Press Refresh and try once more."
+    "theWalletHoldingThisPaymentCouldNotBe": "The wallet holding this payment could not be read again. Press Refresh and try once more.",
+    "cooldownHolding": "Somebody other than an owner just acted on this wallet. It allows that once every {minutes} minutes. Try again around {time}.",
+    "runsFromTo": "From {payer} · runs {start} to {end}",
+    "transactionSubmitted": "Transaction {hash}"
   },
   "ComponentsProfileCard": {
     "contactValue1": "Contact {value1}",
@@ -483,26 +478,25 @@
     "native": "Native",
     "next": "Next",
     "nft": "NFT",
-    "of": "of",
     "previous": "Previous",
     "stablecoin": "Stablecoin",
     "token": "Token",
     "value1RecentBalanceTrend": "{value1} recent balance trend",
     "walletAssets": "Wallet assets",
     "walletReadyFundItToBegin": "Wallet ready. Fund it to begin.",
-    "whatAFundPoolIs": "What a fund pool is"
+    "whatAFundPoolIs": "What a fund pool is",
+    "rangeOfTotal": "{start}-{end} of {total}"
   },
   "ComponentsUserOrphanUtxoNotice": {
     "dismiss": "Dismiss",
-    "isInTheWrongSpot": "₳ is in the wrong spot",
     "moveItBack": "Move it back",
     "moving": "Moving…",
     "reCheck": "Re-check",
     "recoverFunds": "Recover funds",
     "theFinalRecoveryContactCanWithdrawThisMoneyDirectly": "As the final recovery contact, you can withdraw this money directly. You can also move it back first.",
     "thisMoneyIsYoursAndItIsSafe": "This money is yours and it is safe. It just is not earning staking rewards, and it may be missing from your balance. Moving it back fixes both.",
-    "thisTakes": "This takes",
-    "transactionsSignTheFirstThenChooseReCheck": "transactions. Sign the first, then choose Re-check to move the rest."
+    "amountIsInTheWrongSpot": "{amount} ₳ is in the wrong spot",
+    "thisTakesTransactions": "This takes {count} transactions. Sign the first, then choose Re-check to move the rest."
   },
   "ComponentsUserPoolFinder": {
     "clear": "Clear",
@@ -554,7 +548,7 @@
     "nothingToSaveYetBuildATransactionOn": "Nothing to save yet. Build a transaction on the wallet page, then choose “Save as approval request”.",
     "saveAsApprovalRequest": "Save as approval request",
     "saveRequest": "Save request",
-    "thePeopleWhoHaveToSignWillSee": ". The people who have to sign will see this exact transaction and check it before they sign.",
+    "thePeopleWhoHaveToSignWillSee": "The people who have to sign will see this exact transaction and check it before they sign.",
     "title": "Title",
     "whatYouAreAskingFor": "What you are asking for",
     "whyAreYouAskingForThisTheOthers": "Why are you asking for this? The others read it before they sign."
@@ -583,7 +577,7 @@
     "couldNotReadWhereTheMoneyGoes": "Could not read where the money goes.",
     "enoughPeopleHaveSignedAnybodyCanSendIt": "Enough people have signed. Anybody can send it to the blockchain now.",
     "fundsItUses": "Funds it uses",
-    "invalid": "Invalid",
+    "invalid": "Out of date",
     "linkCopied": "Link copied",
     "loadingApprovalRequest": "Loading approval request…",
     "makeANewVersion": "Make a new version",

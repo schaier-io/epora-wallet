@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 /* eslint-disable @next/next/no-img-element */
 
 import React, { useEffect, useRef, useCallback, useMemo } from 'react';
+import { usePrefersReducedMotion } from '@/lib/hooks/use-prefers-reduced-motion';
 
 interface ProfileCardProps {
   avatarUrl?: string;
@@ -73,6 +74,26 @@ const ProfileCardComponent: React.FC<ProfileCardProps> = ({
   verticalTiltMode = 'default'
 }) => {
   const i18n = useTranslations("ComponentsProfileCard");
+  /*
+   * The reduced-motion rules in ProfileCard.css only zero the card's `transform` and stop the
+   * shine/glare keyframes. They do not reach the pointer-driven custom properties this file
+   * writes, and two always-on rules read them: `.pc-card`'s box-shadow offset is
+   * `calc(var(--pointer-from-left) * 10px - 3px)` / `calc(var(--pointer-from-top) * 20px - 6px)`,
+   * and `.pc-shine`'s mask-position is `calc(100% - var(--background-x))`. Measured in the
+   * browser: sweeping `--pointer-from-left` and `--pointer-from-top` from 0 to 1 moves the
+   * computed box-shadow from `-3px -6px` to `7px 14px`. So with `prefers-reduced-motion: reduce`
+   * set, moving a pointer over the card still slid its shadow through a 10x20px box and dragged
+   * the holographic sheen under the cursor.
+   *
+   * `wallet-session-profile-card.tsx` already picks its static twin under the preference, so the
+   * consumer this reached was `wallet-membership-card.tsx`, which has no gate of its own. The
+   * gate belongs here rather than there, because every consumer of this file needs it.
+   *
+   * Gating the engine leaves every one of those properties at its `:root` default, which is the
+   * card's resting state, and stops the render loop for those users at the same time.
+   */
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const tiltEnabled = enableTilt && !prefersReducedMotion;
   const wrapRef = useRef<HTMLDivElement>(null);
   const shellRef = useRef<HTMLDivElement>(null);
 
@@ -80,7 +101,7 @@ const ProfileCardComponent: React.FC<ProfileCardProps> = ({
   const leaveRafRef = useRef<number | null>(null);
 
   const tiltEngine = useMemo(() => {
-    if (!enableTilt) return null;
+    if (!tiltEnabled) return null;
 
     let rafId: number | null = null;
     let running = false;
@@ -191,7 +212,7 @@ const ProfileCardComponent: React.FC<ProfileCardProps> = ({
         lastTs = 0;
       }
     };
-  }, [enableTilt, verticalTiltMode]);
+  }, [tiltEnabled, verticalTiltMode]);
 
   const getOffsets = (evt: PointerEvent, el: HTMLElement) => {
     const rect = el.getBoundingClientRect();
@@ -269,7 +290,7 @@ const ProfileCardComponent: React.FC<ProfileCardProps> = ({
   );
 
   useEffect(() => {
-    if (!enableTilt || !tiltEngine) return;
+    if (!tiltEnabled || !tiltEngine) return;
 
     const shell = shellRef.current;
     if (!shell) return;
@@ -321,7 +342,7 @@ const ProfileCardComponent: React.FC<ProfileCardProps> = ({
       shell.classList.remove('entering');
     };
   }, [
-    enableTilt,
+    tiltEnabled,
     enableMobileTilt,
     tiltEngine,
     handlePointerMove,

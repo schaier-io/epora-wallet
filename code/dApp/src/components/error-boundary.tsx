@@ -23,7 +23,7 @@ function ErrorFallback({ onReset, onReload }: { onReset: () => void; onReload: (
   return (
     // The fallback replaces `#main`, whose ancestors carry no horizontal padding,
     // so it has to bring the shell's gutter with it rather than relying on one.
-    <div className="container py-10">
+    <main id="main" tabIndex={-1} className="container py-10">
       <div
         role="alert"
         className="mx-auto flex max-w-2xl flex-col items-start gap-4 rounded-xl border border-rose-500/30 bg-rose-500/5 p-4 text-foreground shadow-panel backdrop-blur sm:p-6"
@@ -37,7 +37,7 @@ function ErrorFallback({ onReset, onReload }: { onReset: () => void; onReload: (
         </p>
         <div className="flex flex-wrap gap-2">
           <Button type="button" size="sm" onClick={onReset}>
-            <RefreshCw className="h-3.5 w-3.5" />
+            <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
             {i18n("tryAgain")}
           </Button>
           <Button type="button" size="sm" variant="outline" onClick={onReload}>
@@ -45,7 +45,7 @@ function ErrorFallback({ onReset, onReload }: { onReset: () => void; onReload: (
           </Button>
         </div>
       </div>
-    </div>
+    </main>
   );
 }
 
