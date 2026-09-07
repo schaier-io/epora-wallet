@@ -26,7 +26,8 @@ function formWithPayments(ids: string[]): StateFormState {
 function renderSurface({
   value = formWithPayments([]),
   task = "streaming-payments-add" as UserWorkspaceTask,
-  existingIds = [] as string[]
+  existingIds = [] as string[],
+  existingValue = undefined as StateFormState | undefined
 } = {}) {
   const onChange = vi.fn();
   return {
@@ -39,7 +40,10 @@ function renderSurface({
         onSelectTask={vi.fn()}
         fieldErrors={{}}
         canPayDue={false}
-        existingStreamingPaymentIds={new Set(existingIds)}
+        existingStreamingPayments={
+          existingValue?.streamingPayments ??
+          value.streamingPayments.filter((payment) => existingIds.includes(payment.id))
+        }
       />
     )
   };
@@ -230,6 +234,8 @@ describe("a payment already running", () => {
 });
 
 describe("stopping a payment that is already running", () => {
+  const NOW = 1_800_000_000_000;
+
   /**
    * VERIFIED, `smart-contract/lib/streaming_payments/forwarding.ak:14-30`: "Existing
    * payments can never be dropped ... an operator stops a payment by rescheduling its
@@ -265,14 +271,12 @@ describe("stopping a payment that is already running", () => {
 
     expect(
       screen.getByText(
-        "This payment is already running. You can only change when it stops. To stop it, bring that time forward to now: money stops building up, and whatever has already built up stays theirs."
+        "This payment is already running. You can only change when it stops. To stop it, select Stop as soon as possible. Whatever has already built up stays theirs."
       )
     ).toBeInTheDocument();
   });
 
-  /** `end_date_floor` (`forwarding.ak:89-115`) refuses a date below the lesser of the
-   * current end date and the time the transaction lands. */
-  it("warns that a past stop time is refused, on live payments only", () => {
+  it("explains the validity window, signing buffer, and sooner-end exception", () => {
     renderSurface({
       value: formWithPayments(["7"]),
       task: "streaming-payments-edit-renew",
@@ -281,9 +285,106 @@ describe("stopping a payment that is already running", () => {
 
     expect(
       screen.getByText(
-        "Move this later to keep the payment running, or forward to now to stop it. A time in the past is refused."
+        "This sets the stop time 45 minutes ahead. The transaction can stay valid for 30 minutes. The extra 15 minutes gives you time to review and sign. If this payment already ends sooner, the app keeps that earlier time."
       )
     ).toBeInTheDocument();
+  });
+
+  it("sets a normal live payment 45 minutes ahead", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+    const value = formWithPayments(["7"]);
+    value.streamingPayments[0]!.startDate = String(NOW - 60_000);
+    value.streamingPayments[0]!.endDate = String(NOW + 86_400_000);
+
+    try {
+      const { onChange } = renderSurface({
+        value,
+        task: "streaming-payments-edit-renew",
+        existingIds: ["7"]
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: "Stop as soon as possible" }));
+
+      expect(
+        (onChange.mock.calls[0]![0] as StateFormState).streamingPayments[0]!.endDate
+      ).toBe(String(NOW + 45 * 60_000));
+      expect(screen.getByRole("button", { name: "Now" })).toBeDisabled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps an earlier current end instead of extending the payment", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+    const value = formWithPayments(["7"]);
+    value.streamingPayments[0]!.startDate = String(NOW - 60_000);
+    value.streamingPayments[0]!.endDate = String(NOW + 10 * 60_000);
+
+    try {
+      const { onChange } = renderSurface({
+        value,
+        task: "streaming-payments-edit-renew",
+        existingIds: ["7"]
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Stop as soon as possible" }));
+
+      expect(
+        (onChange.mock.calls[0]![0] as StateFormState).streamingPayments[0]!.endDate
+      ).toBe(String(NOW + 10 * 60_000));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("caps against the consumed end after the edited end was moved later", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+    const originalValue = formWithPayments(["7"]);
+    originalValue.streamingPayments[0]!.startDate = String(NOW - 60_000);
+    originalValue.streamingPayments[0]!.endDate = String(NOW + 10 * 60_000);
+    const editedValue = structuredClone(originalValue);
+    editedValue.streamingPayments[0]!.endDate = String(NOW + 86_400_000);
+
+    try {
+      const { onChange } = renderSurface({
+        value: editedValue,
+        existingValue: originalValue,
+        task: "streaming-payments-edit-renew",
+        existingIds: ["7"]
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Stop as soon as possible" }));
+
+      expect(
+        (onChange.mock.calls[0]![0] as StateFormState).streamingPayments[0]!.endDate
+      ).toBe(String(NOW + 10 * 60_000));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("uses the first whole minute after a future start without passing the current end", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+    const value = formWithPayments(["7"]);
+    value.streamingPayments[0]!.startDate = String(NOW + 60 * 60_000);
+    value.streamingPayments[0]!.endDate = String(NOW + 2 * 60 * 60_000);
+
+    try {
+      const { onChange } = renderSurface({
+        value,
+        task: "streaming-payments-edit-renew",
+        existingIds: ["7"]
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Stop as soon as possible" }));
+
+      expect(
+        (onChange.mock.calls[0]![0] as StateFormState).streamingPayments[0]!.endDate
+      ).toBe(String(NOW + 61 * 60_000));
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("keeps the plain stop helper on a payment being added", () => {
@@ -294,6 +395,7 @@ describe("stopping a payment that is already running", () => {
         "Nothing builds up after this time. They can still collect what already has."
       )
     ).toBeInTheDocument();
-    expect(screen.queryByText(/A time in the past is refused/)).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Now" })).toHaveLength(2);
+    expect(screen.queryByRole("button", { name: "Stop as soon as possible" })).not.toBeInTheDocument();
   });
 });

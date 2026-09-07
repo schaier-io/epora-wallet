@@ -180,11 +180,9 @@ export function SttSpendConfigView() {
                   onSelectTask={handleFocusedTaskSelect}
                   fieldErrors={activeFieldErrors}
                   canPayDue={flowAvailability.canPayStreamingPayments}
-                  existingStreamingPaymentIds={new Set(
-                    selectedDetectedTokenStateForm?.streamingPayments.map(
-                      (streamingPayment) => streamingPayment.id
-                    ) ?? []
-                  )}
+                  existingStreamingPayments={
+                    selectedDetectedTokenStateForm?.streamingPayments ?? []
+                  }
                 />
               ) : (
                 <StateFormEditor

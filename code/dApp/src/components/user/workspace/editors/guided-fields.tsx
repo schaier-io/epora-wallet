@@ -20,6 +20,7 @@ export function GuidedDateTimeField({
   value,
   onChange,
   helper,
+  shortcut,
   disabled = false,
   stacked = false,
   idPrefix
@@ -28,6 +29,7 @@ export function GuidedDateTimeField({
   value: string;
   onChange: (value: string) => void;
   helper?: string;
+  shortcut?: { label: string; onSelect: () => void };
   disabled?: boolean;
   stacked?: boolean;
   idPrefix: string;
@@ -89,9 +91,13 @@ export function GuidedDateTimeField({
             type="button"
             variant="ghost"
             className="px-2 text-xs"
-            onClick={() => updateParts(splitTimestampToLocalInputParts(String(Date.now())))}
+            onClick={
+              shortcut
+                ? shortcut.onSelect
+                : () => updateParts(splitTimestampToLocalInputParts(String(Date.now())))
+            }
           >
-            {i18n("now")}
+            {shortcut?.label ?? i18n("now")}
           </Button>
         ) : null}
       </div>

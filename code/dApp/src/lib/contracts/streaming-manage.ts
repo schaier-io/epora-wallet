@@ -7,11 +7,19 @@ import type { Data } from "@meshsdk/common";
 import { isConstrData, readStateSections } from "@/lib/contracts/state-layout";
 import { validateFreshStreamingPayments } from "@/lib/contracts/state-validation-streaming";
 import type { ConstrData } from "@/lib/types/contracts";
-import { createDefaultTranslator } from "@/i18n/default-translator";
+import { createDefaultTranslator, defaultFormatter } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/LibContractsStreamingManage.json";
 import { isOnChainInteger } from "@/lib/contracts/on-chain-integer";
 
 const i18n = createDefaultTranslator("LibContractsStreamingManage", defaultMessages);
+
+function formatEndDateFloor(endDateFloor: bigint) {
+  const timestamp = Number(endDateFloor);
+  if (!Number.isSafeInteger(timestamp) || Number.isNaN(new Date(timestamp).getTime())) {
+    return i18n("theRequiredOnChainCutoff");
+  }
+  return `${defaultFormatter.dateTime(timestamp, "short")} UTC`;
+}
 
 type ManagedPayment = {
   amountPerDay: bigint;
@@ -176,9 +184,8 @@ function validateExistingManagedPayments(
     }
 
     if (txLatestTimeMs === null) {
-      // Static UI guard: a positive-duration input uses the operator-only
-      // start+1 floor. Equality is valid only when the INPUT was already the
-      // receiver-created zero-duration form.
+      // Callers without a transaction time can only enforce the start+1 floor.
+      // Render-time and builder-time callers pass the current upper validity bound.
       if (input.endDate > input.startDate && output.endDate === input.startDate) {
         errors.push(
           i18n("existingStreamingPaymentValue1CannotBeShortenedTo", { value1: input.id.toString() })
@@ -200,7 +207,7 @@ function validateExistingManagedPayments(
       errors.push(
         i18n("existingStreamingPaymentValue1EndDateMustBe", {
           value1: input.id.toString(),
-          endDateFloor: endDateFloor.toString()
+          endDateFloor: formatEndDateFloor(endDateFloor)
         })
       );
     }
@@ -243,14 +250,14 @@ export function validateManagedStreamingPayments(
 }
 
 /**
- * Render-time subset that catches the dangerous positive-duration → equality
- * edit without rejecting an existing zero-duration schedule forwarded as-is.
- * The builder performs the final time-dependent floor check above.
+ * Render-time validation uses the current transaction upper bound when supplied.
+ * Builder-time validation repeats the same floor check against its exact validity window.
  */
 export function validateManagedStreamingPaymentsStatic(
   inputStateDatum: ConstrData,
   outputStateDatum: ConstrData,
-  sttPolicyId?: string
+  sttPolicyId?: string,
+  txLatestTimeMs: number | null = null
 ): string[] {
   return [
     ...validateFreshStreamingPayments(
@@ -259,6 +266,6 @@ export function validateManagedStreamingPaymentsStatic(
       undefined,
       sttPolicyId
     ),
-    ...validateExistingManagedPayments(inputStateDatum, outputStateDatum, null)
+    ...validateExistingManagedPayments(inputStateDatum, outputStateDatum, txLatestTimeMs)
   ];
 }

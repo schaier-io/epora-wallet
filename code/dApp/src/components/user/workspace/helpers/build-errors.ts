@@ -229,6 +229,16 @@ function resolveBuildErrorOutcome(
     return ["Cardano rejected this transaction because one of its payments holds less ADA than the network allows. If you staged a very small payout, raise it and try again.", true];
   }
 
+  const streamingPaymentStopError = allMessages.find(
+    (message) =>
+      /^Existing scheduled payment .+ must stop at or after .+ Stop as soon as possible/.test(
+        message
+      )
+  );
+  if (streamingPaymentStopError) {
+    return [streamingPaymentStopError, true];
+  }
+
   // Ogmios returned `EvaluationFailure` with an EMPTY `ScriptFailures` map (no per-redeemer
   // detail). In practice this has two causes: a Plutus validator REJECTED the transaction
   // without surfacing a trace (most common: the action is not permitted for the wallet's

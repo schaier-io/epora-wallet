@@ -24,10 +24,30 @@ import {
 import { type StateFormState, type StreamingPaymentFormState } from "@/lib/contracts/state-form";
 import { MAX_STREAMING_PAYMENTS } from "@/lib/contracts/state-validation";
 import { describeAddressProblem, looksLikeCardanoAddress } from "@/lib/contracts/payout-address";
+import { VALIDITY_WINDOW_FUTURE_MS } from "@/lib/mesh/transactions/internals/constants";
 import { formatLovelaceAsAda } from "@/lib/user-flow/guided-helpers";
 import { CalendarPlus2, CalendarSearch, Plus, Repeat } from "lucide-react";
 import Link from "next/link";
 import { useId, useState } from "react";
+
+const EXISTING_STREAM_STOP_SIGNING_BUFFER_MS = 15 * 60 * 1000;
+const EXISTING_STREAM_STOP_DELAY_MS =
+  VALIDITY_WINDOW_FUTURE_MS + EXISTING_STREAM_STOP_SIGNING_BUFFER_MS;
+const ONE_MINUTE_MS = 60_000n;
+
+function resolveExistingStreamStopTime(
+  streamingPayment: StreamingPaymentFormState,
+  nowMs = Date.now()
+) {
+  const startDate = BigInt(streamingPayment.startDate);
+  const currentEndDate = BigInt(streamingPayment.endDate);
+  const delayedStop = BigInt(nowMs + EXISTING_STREAM_STOP_DELAY_MS);
+  const firstWholeMinuteAfterStart = (startDate / ONE_MINUTE_MS + 1n) * ONE_MINUTE_MS;
+  const safeStop = delayedStop > firstWholeMinuteAfterStart
+    ? delayedStop
+    : firstWholeMinuteAfterStart;
+  return (safeStop < currentEndDate ? safeStop : currentEndDate).toString();
+}
 
 // The on-chain rate is per-day. These let the user enter a rate per day/week/
 // month/year; we convert to per-day in the background. Months/years use round
@@ -65,17 +85,18 @@ function payoutAddressProblem(value: string): string | null {
 
 export function StreamingPaymentEditor({
   streamingPayment,
+  existingStreamingPayment,
   index,
   onChange,
   onRemove,
-  existing
 }: {
   streamingPayment: StreamingPaymentFormState;
+  existingStreamingPayment?: StreamingPaymentFormState;
   index: number;
   onChange: (value: StreamingPaymentFormState) => void;
   onRemove: () => void;
-  existing: boolean;
 }) {
+  const existing = existingStreamingPayment !== undefined;
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsStreamingEditors");
   // Rate-entry period (days). The stored amount is always per-day; this just
   // scales the displayed/entered value for convenience.
@@ -207,17 +228,29 @@ export function StreamingPaymentEditor({
         </div>
         {/*
          * `end_date_floor` (`smart-contract/lib/streaming_payments/forwarding.ak:89-115`)
-         * refuses an end date below the lesser of the current one and the time the
-         * transaction lands. Pushing it out is always fine; pulling it back stops at now.
+         * refuses an end date below the lesser of the consumed end and the transaction's
+         * upper validity bound. The shortcut leaves 15 minutes beyond that validity window.
          */}
         <GuidedDateTimeField
           idPrefix={`streaming-payment-${index}-end-date`}
           label={i18n("stops")}
           value={streamingPayment.endDate}
           onChange={(endDate) => onChange({ ...streamingPayment, endDate })}
+          shortcut={
+            existing
+              ? {
+                  label: i18n("stopAsSoonAsPossible"),
+                  onSelect: () =>
+                    onChange({
+                      ...streamingPayment,
+                      endDate: resolveExistingStreamStopTime(existingStreamingPayment)
+                    })
+                }
+              : undefined
+          }
           helper={
             existing
-              ? i18n("moveThisLaterToKeepThePaymentRunning")
+              ? i18n("stopAsSoonAsPossibleTiming")
               : i18n("nothingBuildsUpAfterThisTimeTheyCan")
           }
           stacked
@@ -385,7 +418,7 @@ export function FocusedStreamingPaymentRulesEditor({
   onSelectTask,
   fieldErrors,
   canPayDue,
-  existingStreamingPaymentIds = new Set<string>()
+  existingStreamingPayments
 }: {
   value: StateFormState;
   onChange: (value: StateFormState) => void;
@@ -393,20 +426,23 @@ export function FocusedStreamingPaymentRulesEditor({
   onSelectTask: (task: UserWorkspaceTask) => void;
   fieldErrors: FieldErrors;
   canPayDue: boolean;
-  existingStreamingPaymentIds?: ReadonlySet<string>;
+  existingStreamingPayments: readonly StreamingPaymentFormState[];
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsStreamingEditors");
   const tasks = GUIDED_ADMIN_TASKS.filter((task) => task.group === "streamingPayments");
   const issueCount = countFieldErrorMessages(fieldErrors);
   const adding = selectedTask === "streaming-payments-add";
   const scheduledAtCap = value.streamingPayments.length >= MAX_STREAMING_PAYMENTS;
+  const existingStreamingPaymentsById = new Map(
+    existingStreamingPayments.map((streamingPayment) => [streamingPayment.id, streamingPayment])
+  );
   const shownPayments = value.streamingPayments
     .map((streamingPayment, index) => ({
       streamingPayment,
       index,
-      existing: existingStreamingPaymentIds.has(streamingPayment.id)
+      existingStreamingPayment: existingStreamingPaymentsById.get(streamingPayment.id)
     }))
-    .filter((entry) => entry.existing !== adding);
+    .filter((entry) => (entry.existingStreamingPayment !== undefined) !== adding);
   const addStreamingPayment = () => {
     if (!scheduledAtCap) {
       onChange(withScheduledPaymentAdded(value));
@@ -463,12 +499,12 @@ export function FocusedStreamingPaymentRulesEditor({
           onAction={adding && !scheduledAtCap ? addStreamingPayment : undefined}
         />
       ) : (
-        shownPayments.map(({ streamingPayment, index, existing }) => (
+        shownPayments.map(({ streamingPayment, index, existingStreamingPayment }) => (
           <StreamingPaymentEditor
             key={`focused-streaming-payment-${index}-${streamingPayment.id}`}
             streamingPayment={streamingPayment}
+            existingStreamingPayment={existingStreamingPayment}
             index={index}
-            existing={existing}
             onChange={(nextStreamingPayment) =>
               onChange({
                 ...value,

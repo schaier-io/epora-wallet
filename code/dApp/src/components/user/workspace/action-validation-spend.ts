@@ -23,6 +23,7 @@ import { extractErrorMessage } from "@/lib/utils/errors";
 import { type ActionFieldErrorsInput } from "@/components/user/workspace/action-validation";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceActionValidationSpend.json";
+import { getValidityWindow } from "@/lib/mesh/transactions";
 
 const i18n = createDefaultTranslator("ComponentsUserWorkspaceActionValidationSpend", defaultMessages);
 
@@ -262,7 +263,8 @@ export function computeSpendActionErrors(
       validateManagedStreamingPaymentsStatic(
         stateFormToDatum(activeInferredSttStateForm),
         stateFormToDatum(sttStateForm),
-        selectedDetectedToken?.policyId
+        selectedDetectedToken?.policyId,
+        getValidityWindow(Date.now()).latestTimeMs
       )
     );
     // Without a detected input State, the inferred State can be the edited form
