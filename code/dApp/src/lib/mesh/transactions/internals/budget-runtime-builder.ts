@@ -4,7 +4,7 @@ import { type Transaction, type UTxO } from "@meshsdk/core";
 
 export type PreparedTransaction = {
   tx: Transaction;
-  signerAddress?: string;
+  signerAddress: string;
   diagnostics: Record<string, unknown>;
   context?: Record<string, unknown>;
   executionLabels?: ExecutionValidatorLabels;
