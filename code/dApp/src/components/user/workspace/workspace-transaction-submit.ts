@@ -2,10 +2,20 @@ import { beneficiaryPreparationActiveAtom, consolidateWalletInputsAtom } from ".
 import { recoveryCapacityFailureAtom, recoveryCapacitySignatureAtom } from "./atoms/recovery-capacity.atoms";
 import { recordRecoveryCapacityFailure } from "./recovery-capacity-model";
 import { workspaceSessionAtom, buildDiagnosticIdAtom, mintConfirmationRunAtom, submitConfirmedAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
+import {
+  beginWalletStateUpdateAtom,
+  completeWalletStateUpdateAtom,
+  pendingWalletStateUpdateAtom,
+  resolveSpentSttRef,
+  walletStateUpdateRunAtom,
+  type PendingWalletStateUpdate
+} from "@/components/user/workspace/atoms/wallet-state-update.atoms";
 import { resetLockFundsFormAtom } from "@/components/user/workspace/atoms/forms/lock-funds-form.atoms";
 import { sttExtraTransfersAtom, sttWalletInputsAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import {
   MINT_CONFIRMATION_MAX_ATTEMPTS,
+  STT_STATE_REFRESH_MAX_ATTEMPTS,
+  STT_STATE_REFRESH_POLL_MS,
   SUBMIT_CONFIRMATION_INITIAL_DELAY_MS,
   SUBMIT_CONFIRMATION_MAX_ATTEMPTS,
   SUBMIT_CONFIRMATION_POLL_MS
@@ -43,6 +53,7 @@ type SubmitDeps = Pick<
   | "networkId"
   | "jotaiStore"
   | "selectedAction"
+  | "selectedDetectedToken"
   | "preview"
   | "previewMatchesSelectedAction"
   | "submitHash"
@@ -82,6 +93,7 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
     networkId,
     jotaiStore,
     selectedAction,
+    selectedDetectedToken,
     preview,
     previewMatchesSelectedAction,
     submitHash,
@@ -95,6 +107,7 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
     addSubmittedTransactionToActivity,
     rememberRecipients,
     refreshLockedContractUtxos,
+    refreshDetectedTokens,
     refreshPermissionWalletSummaries,
     refreshWalletBalance,
     lockingContract,
@@ -187,6 +200,7 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
     }
 
     const isCurrent = () => jotaiStore.get(workspaceSessionAtom) === session;
+    const spentSttRef = resolveSpentSttRef(jotaiStore, selectedAction, selectedDetectedToken);
     let txHash: string;
     try {
       txHash = await signAndSubmitTx(activeWallet, transactionPreview.txHex);
@@ -221,6 +235,16 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
     }
 
     if (!isCurrent()) return;
+    const pendingStateUpdate = spentSttRef && selectedDetectedToken
+      ? {
+          walletUnit: selectedDetectedToken.unit,
+          submittedTxHash: txHash,
+          spentRef: spentSttRef
+        }
+      : null;
+    if (pendingStateUpdate) {
+      jotaiStore.set(beginWalletStateUpdateAtom, pendingStateUpdate);
+    }
     setSubmitHash(txHash);
     jotaiStore.set(submitConfirmedAtom, false);
     runPostSubmitTask("confirmation", () => watchTransactionConfirmation(txHash));
@@ -277,7 +301,8 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
       );
 
       // A newer build/submit (or a flow reset) replaced the hash: this run is stale.
-      if (jotaiStore.get(submitHashAtom) !== txHash) {
+      const pending = jotaiStore.get(pendingWalletStateUpdateAtom);
+      if (jotaiStore.get(submitHashAtom) !== txHash && pending?.submittedTxHash !== txHash) {
         return;
       }
 
@@ -290,7 +315,47 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
         jotaiStore.set(submitConfirmedAtom, true);
         void refreshWalletBalance();
       }
+      if (pending?.submittedTxHash === txHash) {
+        await refreshContinuingWalletState(pending);
+      }
       return;
+    }
+  }
+
+  async function refreshContinuingWalletState(pending: PendingWalletStateUpdate) {
+    const runId = jotaiStore.get(walletStateUpdateRunAtom);
+    for (let attempt = 1; attempt <= STT_STATE_REFRESH_MAX_ATTEMPTS; attempt += 1) {
+      if (attempt > 1) await waitFor(STT_STATE_REFRESH_POLL_MS);
+      if (
+        jotaiStore.get(walletStateUpdateRunAtom) !== runId ||
+        jotaiStore.get(pendingWalletStateUpdateAtom)?.submittedTxHash !== pending.submittedTxHash
+      ) return;
+
+      try {
+        const detected = await refreshDetectedTokens({
+          keepSelection: true,
+          knownUnit: pending.walletUnit,
+          exactStateRefresh: true
+        });
+        if (!detected) continue;
+        const replacement = detected?.tokens.find((token) =>
+          token.unit === pending.walletUnit &&
+          (token.utxo.input.txHash.toLowerCase() !== pending.spentRef.txHash.toLowerCase() ||
+            token.utxo.input.outputIndex !== pending.spentRef.outputIndex)
+        );
+        if (!replacement) continue;
+        const completed = jotaiStore.set(completeWalletStateUpdateAtom, {
+          pending,
+          replacementRef: replacement.utxo.input
+        });
+        if (completed) {
+          void refreshPermissionWalletSummaries(detected.tokens);
+          void refreshLockedContractUtxos(lockingContract.address);
+        }
+        return;
+      } catch {
+        // Indexer lag is expected here. The bounded next attempt repeats the exact-unit read.
+      }
     }
   }
 

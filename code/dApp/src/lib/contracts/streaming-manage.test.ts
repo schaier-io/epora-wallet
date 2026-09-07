@@ -99,7 +99,7 @@ test("positive-duration existing stream cannot be edited to equality", () => {
   assert.ok(
     hasError(
       validateManagedStreamingPayments(input, output, 600),
-      /end date must be at least 701/
+      /must stop at or after .* UTC\. Stop as soon as possible again/
     )
   );
 });
@@ -107,16 +107,14 @@ test("positive-duration existing stream cannot be edited to equality", () => {
 test("existing stream uses the exact transaction no-clawback floor", () => {
   const input = state([payment(1, 0, 100, 1_000)]);
 
-  assert.ok(
-    hasError(
-      validateManagedStreamingPayments(
-        input,
-        state([payment(1, 0, 100, 599)]),
-        600
-      ),
-      /end date must be at least 600/
-    )
+  const tooEarly = validateManagedStreamingPayments(
+    input,
+    state([payment(1, 0, 100, 599)]),
+    600
   );
+  assert.ok(hasError(tooEarly, /must stop at or after .* UTC/));
+  assert.ok(hasError(tooEarly, /choose a later stop time/i));
+  assert.ok(tooEarly.every((error) => !error.includes("600")));
   assert.deepEqual(
     validateManagedStreamingPayments(
       input,
@@ -135,7 +133,7 @@ test("existing stream uses the exact transaction no-clawback floor", () => {
         state([payment(1, 0, 100, 999)]),
         1_200
       ),
-      /end date must be at least 1000/
+      /must stop at or after .* UTC/
     )
   );
   assert.deepEqual(
@@ -145,6 +143,18 @@ test("existing stream uses the exact transaction no-clawback floor", () => {
       1_200
     ),
     []
+  );
+});
+
+test("render-time validation uses the same transaction end-date floor", () => {
+  const input = state([payment(1, 0, 100, 1_000)]);
+  const output = state([payment(1, 0, 100, 599)]);
+
+  assert.ok(
+    hasError(
+      validateManagedStreamingPaymentsStatic(input, output, undefined, 600),
+      /must stop at or after .* UTC/
+    )
   );
 });
 

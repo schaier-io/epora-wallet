@@ -21,7 +21,6 @@ import { RebuildUnsupportedError, isAutoRebuildable, rebuildProposalTx } from "@
 import type { ProposalDetailDto, ProposalSummary, ProposalVerification } from "@/lib/proposals/types";
 import { verifyProposal } from "@/lib/proposals/verify";
 import { useWalletContext } from "@/providers/wallet-provider";
-import { truncateMiddle } from "./format";
 
 type ProposalOrchestrationArgs = {
   proposalId: string;
@@ -268,13 +267,7 @@ export function useProposalOrchestration({
     setActionInfo(null);
     try {
       const submitted = await markProposalSubmitted(actionProposalId, detail.txBodyHash);
-      if (apply(submitted, actionProposalId, lifecycleToken)) {
-        setActionInfo(
-          i18n("submittedOnChainValue1", {
-            value1: truncateMiddle(submitted.submittedTxHash ?? detail.txBodyHash, 12, 8)
-          })
-        );
-      }
+      apply(submitted, actionProposalId, lifecycleToken);
     } catch (caught) {
       if (isCurrentLifecycle(actionProposalId, lifecycleToken)) {
         setActionError(getProposalErrorMessage(caught, i18n("submissionFailed")));

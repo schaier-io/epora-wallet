@@ -411,6 +411,7 @@ describe("proposal lifecycle Model", () => {
       initial.txBodyHash
     );
     expect(result.current.detail?.status).toBe("SUBMITTED");
+    expect(result.current.actionInfo).toBeNull();
     expect(onChanged).toHaveBeenCalledTimes(2);
   });
 

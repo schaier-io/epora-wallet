@@ -199,7 +199,7 @@ export function WalletBalanceChartSection() {
             />
             <span>
               <span className="font-medium text-foreground">{i18n("availableOnly")}</span>
-              {" — "}
+              {": "}
               {i18n("availableOnlyHelper")}
               {hasStreamsForSelection
                 ? null

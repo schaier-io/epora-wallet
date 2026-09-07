@@ -13,6 +13,7 @@ const NO_CAPABILITIES: TokenCapabilityMap = {
   hasDirectAdminSigner: false,
   hasMultisigPath: false,
   hasDirectUserMatch: false,
+  hasDirectAllowance: false,
   hasDirectProofOfLifeRenewalMatch: false,
   hasBeneficiaryMatch: false,
   hasStreamingPayments: false,

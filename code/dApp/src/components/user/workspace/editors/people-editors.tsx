@@ -14,11 +14,12 @@ import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { InlineFieldError } from "./primitives";
-import { describeAddressProblem, looksLikeCardanoAddress } from "@/lib/contracts/payout-address";
+import { describeAddressProblem, looksLikeCardanoAddress, paymentKeyHashFromAddress } from "@/lib/contracts/payout-address";
 import {
   approvalThresholdCeiling,
   personApprovalPowerCeiling,
   reachableApprovalPower,
+  withBeneficiaryPayoutAndSigningAddress,
   withCoSignerAdded,
   withMultisigDerivedFromCoSigners
 } from "@/components/user/workspace/helpers/form-state";
@@ -43,11 +44,13 @@ export function BeneficiaryPayoutAddressEditor({
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsPeopleEditors");
   const uid = useId();
   const payoutAddressError = looksLikeCardanoAddress(value)
-    ? describeAddressProblem(value) : null;
+    ? describeAddressProblem(value) ??
+      (paymentKeyHashFromAddress(value) ? null : i18n("payoutAddressNeedsPaymentKey"))
+    : null;
 
   return (
     <div className="space-y-1">
-      <Label htmlFor={`${uid}-payout-address`}>{i18n("exactPayoutAddress")}</Label>
+      <Label htmlFor={`${uid}-payout-address`}>{i18n("payoutAndSigningWallet")}</Label>
       <Input
         id={`${uid}-payout-address`}
         value={value}
@@ -58,7 +61,7 @@ export function BeneficiaryPayoutAddressEditor({
       />
       <InlineFieldError id={`${uid}-payout-address-error`} message={payoutAddressError} />
       <p id={`${uid}-payout-address-help`} className="text-xs text-muted-foreground">
-        {i18n("exactPayoutAddressHelp")}
+        {i18n("payoutAndSigningWalletHelp")}
       </p>
     </div>
   );
@@ -68,21 +71,17 @@ export function BeneficiaryEditor({
   beneficiary,
   index,
   totalWeight,
-  canAddWallet,
   onChange,
   onRemove
 }: {
   beneficiary: BeneficiaryFormState;
   index: number;
   totalWeight: number;
-  canAddWallet: boolean;
   onChange: (value: BeneficiaryFormState) => void;
   onRemove: () => void;
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsPeopleEditors");
   const uid = useId();
-  const activePaymentKeyHash = useAtomValue(activePaymentKeyHashAtom);
-  const activeAddress = useAtomValue(activeAddressAtom);
   const ownWeight = Number.parseInt(beneficiary.weight, 10);
   const sharePercent =
     Number.isFinite(ownWeight) && ownWeight > 0 && totalWeight > 0
@@ -167,18 +166,9 @@ export function BeneficiaryEditor({
       </div>
       <BeneficiaryPayoutAddressEditor
         value={beneficiary.payoutAddress}
-        onChange={(payoutAddress) => onChange({ ...beneficiary, payoutAddress })}
-      />
-      <WalletHashesEditor
-        label={i18n("walletsThisPersonSignsWith")}
-        helper={i18n("thisPersonCanOnlyClaimTheirShareFrom")}
-        value={beneficiary.wallets}
-        onChange={(wallets) => onChange({ ...beneficiary, wallets })}
-        addLabel={i18n("addAWallet")}
-        emptyLabel={i18n("noWalletAddedYetSoThisPersonCould")}
-        placeholder={i18n("cardanoWalletId")}
-        knownAddresses={buildKnownAddresses(activePaymentKeyHash, activeAddress)}
-        canAdd={canAddWallet}
+        onChange={(payoutAddress) =>
+          onChange(withBeneficiaryPayoutAndSigningAddress(beneficiary, payoutAddress))
+        }
       />
     </div>
   );

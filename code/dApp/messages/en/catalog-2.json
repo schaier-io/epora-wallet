@@ -64,7 +64,6 @@
     "couldnTRebuildThisProposalTryAgain": "Could not rebuild this proposal. Try again.",
     "couldnTSubmitThisProposalTryAgain": "Could not submit this proposal. Try again.",
     "rebuiltAgainstLiveChainStateSignaturesReset": "Rebuilt against live chain state. Existing signatures were reset.",
-    "submittedOnChainValue1": "Submitted on-chain: {value1}",
     "thisProposalCannotBeRebuiltAutomaticallyCreateA": "This proposal cannot be rebuilt automatically. Create a new proposal instead.",
     "yourSignatureWasAdded": "Your signature was added."
   },
@@ -89,7 +88,6 @@
   },
   "ComponentsUserReviewPanel": {
     "checkWhatSAboutToHappenThenSign": "Check what's about to happen, then sign in your wallet.",
-    "confirmingOnChainYourBalanceUpdatesAfterThe": "Confirming on-chain. Your balance updates after the next block.",
     "diagnosticReference": "Diagnostic reference",
     "fieldAdvancedOptions": "Advanced options",
     "fieldAssetsToLock": "Assets to add",
@@ -123,7 +121,7 @@
     "review": "Review",
     "somethingNeedsAttention": "Something needs attention",
     "toClearThis": "To clear this",
-    "transactionSubmitted": "Transaction submitted",
+    "transactionSubmitted": "Submitted. Waiting for confirmation.",
     "viewTransactionOnCardanoscan": "View transaction on Cardanoscan",
     "whatWillHappen": "What will happen",
     "transactionConfirmed": "Transaction confirmed",
@@ -548,6 +546,7 @@
     "checkingThisWalletSFunds": "Checking this wallet's funds…",
     "chooseARecipient": "Choose a recipient",
     "customAddress": "Custom address",
+    "dailyAllowancePerDay": "Daily allowance: {allowance} per day",
     "dueNow": "Due now:",
     "end": "End:",
     "enterAnAmountFirst": "Enter an amount first",
@@ -555,7 +554,6 @@
     "howMuchAda": "How much (ADA)",
     "leftAfterThisSend": "Left after this send:",
     "limitResets": "Limit resets:",
-    "matchedAsSpender": "Matched as: Spender #",
     "max": "Max",
     "myAddress": "My address",
     "nobodyToPay": "This payment has nobody to pay.",
@@ -580,6 +578,7 @@
     "selectedFundPools": "Selected fund pools",
     "sendFromThisSmartWallet": "Send from this smart wallet",
     "spender": "Spender:",
+    "spenderNumber": "Spender #{number}",
     "start": "Start:",
     "starts": "Starts:",
     "stops": "Stops:",
@@ -594,7 +593,6 @@
     "value1Ada": "{value1} ADA",
     "value1Value2": "{value1} {value2}",
     "willSendTo": "Will send to",
-    "youCanSpendNow": "You can spend now:",
     "yourSpendingLimit": "Your spending limit"
   },
   "ComponentsUserWorkspaceConfigWalletpublishView": {

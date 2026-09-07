@@ -66,13 +66,23 @@ function renderStreamValidation({
   selectedOutputIndex = 0,
   requestedOutputIndex = String(selectedOutputIndex),
   requestedTxHash = STATE_TX_HASH,
+  inputStartDate,
+  inputEndDate,
+  outputEndDate,
   balance = { assets: [], loading: false, error: null },
   locked = []
 }: { existing?: boolean; advanced?: boolean; extended?: boolean; selectedOutputIndex?: number;
-  requestedOutputIndex?: string; requestedTxHash?: string; balance?: WalletBalanceSummary; locked?: UTxO[] } = {}) {
+  requestedOutputIndex?: string; requestedTxHash?: string; inputStartDate?: string;
+  inputEndDate?: string; outputEndDate?: string; balance?: WalletBalanceSummary; locked?: UTxO[] } = {}) {
   const output = streamState();
   if (extended) output.streamingPayments[0]!.endDate = "2000";
   const source = existing ? streamState() : createDefaultStateForm();
+  if (existing && inputStartDate) {
+    source.streamingPayments[0]!.startDate = inputStartDate;
+    output.streamingPayments[0]!.startDate = inputStartDate;
+  }
+  if (existing && inputEndDate) source.streamingPayments[0]!.endDate = inputEndDate;
+  if (outputEndDate) output.streamingPayments[0]!.endDate = outputEndDate;
   const stateUtxo = { input: { txHash: STATE_TX_HASH, outputIndex: selectedOutputIndex },
     output: { address: PAYOUT_ADDRESS, amount: [{ unit: "lovelace", quantity: "2000000" }] } };
   const store = createStore();
@@ -130,6 +140,28 @@ it("a smart-wallet reference-script output proves managed additions but not mint
 it("an existing stream edit does not need asset proof again", () => {
   const { result } = renderStreamValidation({ existing: true });
   expect(assetProofErrors(result.current["manage-streaming-payments"])).toEqual([]);
+});
+
+it("blocks an existing stop below the current transaction floor before Build", () => {
+  const now = 1_800_000_000_000;
+  vi.useFakeTimers();
+  vi.setSystemTime(now);
+
+  try {
+    const { result } = renderStreamValidation({
+      existing: true,
+      inputStartDate: String(now - 86_400_000),
+      inputEndDate: String(now + 86_400_000),
+      outputEndDate: String(now)
+    });
+    const errors = result.current["manage-streaming-payments"]["Output state"] ?? [];
+
+    expect(errors).toEqual(expect.arrayContaining([
+      expect.stringMatching(/must stop at or after .* UTC.*Stop as soon as possible again/)
+    ]));
+  } finally {
+    vi.useRealTimers();
+  }
 });
 
 // Streaming asset existence invariant: only IDs absent from the input State

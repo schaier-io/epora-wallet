@@ -35,6 +35,7 @@ function normalizeTransactionUtxo(
     output?: { address?: string; amount?: Array<{ unit: string; quantity: string }> };
     address?: string;
     amount?: Array<{ unit: string; quantity: string }>;
+    inline_datum?: string | null;
     tx_hash?: string;
     output_index?: number;
     transaction?: { hash?: string; index?: number };
@@ -66,7 +67,8 @@ function normalizeTransactionUtxo(
     },
     output: {
       address,
-      amount: Array.isArray(candidate.amount) ? candidate.amount : []
+      amount: Array.isArray(candidate.amount) ? candidate.amount : [],
+      ...(candidate.inline_datum ? { plutusData: candidate.inline_datum } : {})
     }
   };
 }
@@ -251,4 +253,3 @@ export async function fetchTransactionsByHash(txHashes: string[]) {
     result.status === "fulfilled" ? [normalizeTransactionIo(result.value)] : []
   );
 }
-

@@ -89,6 +89,27 @@ describe("the combined recovery tab", () => {
     expect(screen.queryByText("Nobody can recover this wallet")).not.toBeInTheDocument();
   });
 
+  it("uses the payout address as the recovery contact's only signing wallet", () => {
+    const value = timerForm(true);
+    value.beneficiaries = [{
+      ...createDefaultBeneficiaryFormState("1"),
+      wallets: ["ab".repeat(28), "cd".repeat(28)]
+    }];
+    const { onChange } = renderTimer(value);
+    const address = "addr_test1qqg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyfzyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3qwzdgzn";
+
+    fireEvent.change(screen.getByLabelText("Payout and signing wallet"), {
+      target: { value: address }
+    });
+
+    const next = onChange.mock.calls[0]![0] as StateFormState;
+    expect(next.beneficiaries[0]).toMatchObject({
+      payoutAddress: address,
+      wallets: ["11".repeat(28)]
+    });
+    expect(screen.queryByText("Recovery wallet IDs")).not.toBeInTheDocument();
+  });
+
   it("offers one right-aligned add while nobody can recover", () => {
     renderTimer();
 

@@ -421,6 +421,7 @@ test("guided beneficiary sending retains final recovery access", () => {
   assert.equal(resolveAutomaticSendPath({
     hasAdminPath: false, hasDirectAdminSigner: false, hasMultisigPath: false,
     hasDirectUserMatch: false, hasDirectProofOfLifeRenewalMatch: false,
+    hasDirectAllowance: false,
     hasBeneficiaryMatch: true, hasStreamingPayments: false,
     hasLockedUtxos: true, lockedUtxosLoading: false,
     availableOperatorPaths: [], availableConsolidatePaths: ["beneficiary"]

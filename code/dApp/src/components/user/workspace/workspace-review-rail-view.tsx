@@ -4,12 +4,13 @@ import { RecoveryFallbackView } from "./recovery-fallback-view";
 import { useTranslations } from "next-intl";
 
 import { activeBuildAtom, activeSubmitAtom, buildDiagnosticIdAtom, buildErrorAtom, buildErrorExpectedAtom, buildErrorStaleInputsAtom, previewAtom, submitConfirmedAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
-import { sttStateFormAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import { activeSttStateFormAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { walletBalanceSummaryAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { activeInferredSttStateFormAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import { selectedWizardActionDescriptorAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { selectedActionAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
 import { selectedSigningActionAvailabilityAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
+import { walletStateUpdatingAtom } from "@/components/user/workspace/atoms/wallet-state-update.atoms";
 import { activeAddressAtom } from "@/providers/wallet.atoms";
 import { useAtomValue } from "jotai";
 import { useState } from "react";
@@ -47,8 +48,9 @@ export function WorkspaceReviewRailView() {
   const selectedWizardActionDescriptor = useAtomValue(selectedWizardActionDescriptorAtom);
   const submitHash = useAtomValue(submitHashAtom);
   const signingActions = useAtomValue(selectedSigningActionAvailabilityAtom);
-  const sttStateForm = useAtomValue(sttStateFormAtom);
+  const sttStateForm = useAtomValue(activeSttStateFormAtom);
   const submitConfirmed = useAtomValue(submitConfirmedAtom);
+  const walletStateUpdating = useAtomValue(walletStateUpdatingAtom);
   // The review tells the user whose signature the built tx needs. The builders pin
   // it to the change address `setupTransaction` resolved (`setRequiredSigners`),
   // which can differ from `usedAddresses[0]`; before a build exists, the connected
@@ -80,7 +82,7 @@ export function WorkspaceReviewRailView() {
     ? null
     : getAssetQuantityByUnit(walletBalanceSummary.assets, "lovelace");
   const [preparingProposal, setPreparingProposal] = useState(false);
-  const transactionInFlight = activeBuild !== null || activeSubmit;
+  const transactionInFlight = activeBuild !== null || activeSubmit || walletStateUpdating;
   const directActionInFlight = !preparingProposal && transactionInFlight;
   const proposalBlockingIssue = activeReadinessIssues.find((issue) => issue.blocking);
   // Both sentences were English literals here. The i18n migrator only reads JSX, so a
@@ -223,7 +225,8 @@ export function WorkspaceReviewRailView() {
                     isBuilding={approvalOnly ? preparingProposal : activeBuild === selectedAction}
                     isSubmitting={activeSubmit}
                     primaryActionLabel={
-                      approvalOnly ? approvalActionLabel
+                      walletStateUpdating ? i18n("updatingWalletState")
+                        : approvalOnly ? approvalActionLabel
                         : preparationActive
                           ? previewMatchesSelectedAction && preview?.txHex
                             ? i18n("confirmPreparation") : i18n("previewPreparation")
@@ -244,7 +247,7 @@ export function WorkspaceReviewRailView() {
                         ? transactionInFlight ||
                           preparingProposal ||
                           Boolean(approvalBlockedReason)
-                        : reviewPrimaryActionDisabled
+                        : walletStateUpdating || reviewPrimaryActionDisabled
                     }
                     onPrimaryAction={() => {
                       if (approvalOnly) {

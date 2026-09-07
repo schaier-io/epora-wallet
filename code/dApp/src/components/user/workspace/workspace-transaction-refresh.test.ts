@@ -5,6 +5,7 @@ import { resetAllFlowAtom, resetFlowAtom } from "./atoms/transaction-flow.atoms"
 import assert from "node:assert/strict";
 import test from "node:test";
 import { schedulePostSubmitRefresh } from "./workspace-transaction-refresh";
+import { beginWalletStateUpdateAtom } from "./atoms/wallet-state-update.atoms";
 
 test("settles every timer refresh batch before discarding its result", async () => {
   const callbacks: Array<() => void> = [];
@@ -98,6 +99,56 @@ test("refreshes summaries from the token scan that triggered them", async () => 
     resolveDetected({ tokens });
     await new Promise((resolve) => setImmediate(resolve));
     assert.deepEqual(summaryInputs, [tokens]);
+  } finally {
+    if (originalWindow) {
+      Object.defineProperty(globalThis, "window", originalWindow);
+    } else {
+      Reflect.deleteProperty(globalThis, "window");
+    }
+  }
+});
+
+test("scheduled refreshes do not start a generic State scan while an exact refresh is pending", async () => {
+  const callbacks: Array<() => void> = [];
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: {
+      clearTimeout: () => undefined,
+      setTimeout: (callback: () => void) => {
+        callbacks.push(callback);
+        return callbacks.length;
+      }
+    }
+  });
+  const store = createStore();
+  store.set(beginWalletStateUpdateAtom, {
+    walletUnit: "policy01",
+    submittedTxHash: "ab".repeat(32),
+    spentRef: { txHash: "cd".repeat(32), outputIndex: 0 }
+  });
+  const refreshDetectedTokens = async () => {
+    assert.fail("generic State scan must stay idle");
+  };
+  let otherRefreshes = 0;
+  const refresh = async () => {
+    otherRefreshes += 1;
+  };
+  const deps = {
+    postSubmitRefreshTimersRef: { current: [] },
+    jotaiStore: store,
+    refreshLockedContractUtxos: refresh,
+    refreshWalletBalance: refresh,
+    refreshPermissionWalletSummaries: refresh,
+    refreshDetectedTokens,
+    lockingContract: { address: "addr_test1lock" }
+  } as unknown as Parameters<typeof schedulePostSubmitRefresh>[0];
+
+  try {
+    schedulePostSubmitRefresh(deps);
+    callbacks[0]?.();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(otherRefreshes, 2);
   } finally {
     if (originalWindow) {
       Object.defineProperty(globalThis, "window", originalWindow);

@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { wealthSeriesForAssetAtom } from "@/components/user/workspace/atoms/workspace-transfer-derivations.atoms";
 import { recentWalletActivityEventsAtom, walletTransactionsAtom } from "@/components/user/workspace/atoms/workspace-activity.atoms";
 import { selectedDetectedTokenAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
+import { activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
 import { activeInferredSttStateFormAtom, lockingContractAtom, totalLockedContractAssetsAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import { lockedContractUtxosAtom, lockedContractUtxosErrorAtom, lockedContractUtxosLoadingAtom, walletBalanceSummaryAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 
@@ -53,6 +54,7 @@ import { useWorkspaceActions } from "@/components/user/workspace/workspace-actio
 import { useAtomValue } from "jotai";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { copyFeedbackAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
+import { WalletAccessOverview } from "@/components/user/workspace/wallet-access-overview";
 
 const WorkspaceTransactionsView = lazy(() =>
   import("@/components/user/workspace/workspace-transactions-view").then((module) => ({
@@ -150,6 +152,7 @@ export function WorkspaceWalletDashboardView() {
   const lockedContractUtxos = useAtomValue(lockedContractUtxosAtom);
   const lockedContractUtxosLoading = useAtomValue(lockedContractUtxosLoadingAtom);
   const lockedContractUtxosError = useAtomValue(lockedContractUtxosErrorAtom);
+  const activePaymentKeyHash = useAtomValue(activePaymentKeyHashAtom);
   // Ticks, rather than freezing at mount. This clock drives the proof of life tile, whose
   // whole job is to show a deadline approaching, so a countdown captured once kept reading
   // "< 1 hour" after the hour had passed and recovery contacts could already claim the
@@ -223,6 +226,10 @@ export function WorkspaceWalletDashboardView() {
                             "settings-wallet-name"
                           )
                         }
+                      />
+                      <WalletAccessOverview
+                        state={activeInferredSttStateForm}
+                        paymentKeyHash={activePaymentKeyHash}
                       />
                       <LockedAssetsOverviewPanel
                         utxoCount={lockedContractUtxos.length}

@@ -48,6 +48,7 @@ function lockFundsInput(lockFundsAssets: Asset[]): ActionFieldErrorsInput {
     sttProofOfLifeOverrideMode: "unchanged",
     sttProofOfLifeSpecificDateTime: "",
     sttStateForm: createDefaultStateForm(),
+    updateStateForm: createDefaultStateForm(),
     sttWalletInputs: [],
     sttWalletOutputs: [],
     sttZeroAdminConfirmed: false,

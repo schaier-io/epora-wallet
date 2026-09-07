@@ -15,7 +15,7 @@ import { InfoHint } from "@/components/ui/info-hint";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LONG_DESCRIPTION_LIMIT } from "@/components/user/workspace/constants";
-import { defaultSafetyUnlockTimestamp, formatCountLabel } from "@/components/user/workspace/helpers";
+import { defaultSafetyUnlockTimestamp, formatCountLabel, withBeneficiaryPayoutAndSigningAddress } from "@/components/user/workspace/helpers";
 import { PersonHeading } from "@/components/user/workspace/editors/person-heading";
 import { personLabel } from "@/lib/contracts/person-label";
 import { type BeneficiaryFormState, type UserFormState } from "@/lib/contracts/state-form";
@@ -258,18 +258,12 @@ export function RecoveryAccessEditor({
   beneficiary,
   displayIndex,
   totalWeight,
-  connectedPaymentKeyHash,
-  connectedAddress,
-  canAddWallet,
   onChange,
   onRemove
 }: {
   beneficiary: BeneficiaryFormState;
   displayIndex: number;
   totalWeight: number;
-  connectedPaymentKeyHash?: string | null;
-  connectedAddress?: string | null;
-  canAddWallet: boolean;
   onChange: (value: BeneficiaryFormState) => void;
   onRemove: () => void;
 }) {
@@ -281,11 +275,6 @@ export function RecoveryAccessEditor({
     Number.isFinite(ownWeight) && ownWeight > 0 && totalWeight > 0
       ? ((ownWeight / totalWeight) * 100).toFixed(1)
       : null;
-  const knownAddresses = buildKnownAddresses(
-    connectedPaymentKeyHash?.trim() ?? "",
-    connectedAddress
-  );
-
   return (
     <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -297,18 +286,11 @@ export function RecoveryAccessEditor({
           {i18n("removeRecoveryContact")}
         </Button>
       </div>
-      <WalletHashesEditor
-        label={i18n("recoveryWalletIds")}
-        helper={i18n("addTheWalletIdsThatMayHelpRecover")}
-        value={beneficiary.wallets}
-        onChange={(wallets) => onChange({ ...beneficiary, wallets })}
-        addLabel={i18n("addRecoveryWallet")}
-        knownAddresses={knownAddresses}
-        canAdd={canAddWallet}
-      />
       <BeneficiaryPayoutAddressEditor
         value={beneficiary.payoutAddress}
-        onChange={(payoutAddress) => onChange({ ...beneficiary, payoutAddress })}
+        onChange={(payoutAddress) =>
+          onChange(withBeneficiaryPayoutAndSigningAddress(beneficiary, payoutAddress))
+        }
       />
       <WalletRuleTogglePanel
         title={i18n("useAPersonalWaitDate")}

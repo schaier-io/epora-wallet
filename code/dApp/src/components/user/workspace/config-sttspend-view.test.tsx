@@ -96,7 +96,12 @@ function renderView({
     selectedDetectedTokenStateForm: null,
     selectedIntent: "send",
     sendAuthorizationOptions: [],
-    useAllowancePreview: { error: null, target: null, computation: null },
+    useAllowancePreview: {
+      configuredAllowances: [],
+      error: null,
+      target: null,
+      computation: null
+    },
     config: { walletPolicyId: "policy" },
     activeFieldErrors: {},
     addSimpleTransferRecipient: vi.fn(),
@@ -184,6 +189,17 @@ describe("send form, nothing available to send", () => {
     expect(screen.queryByText(/nothing to send yet/)).not.toBeInTheDocument();
   });
 
+  it("keeps the checking state visible while cached funds refresh", () => {
+    renderView({
+      address: "addr_test1wallet",
+      loading: true,
+      view: { availableLockedTransferAssets: [{ unit: "lovelace", quantity: "1000000" }] }
+    });
+
+    expect(screen.getByText("Checking this wallet's funds…")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Payout amount (ADA)")).not.toBeInTheDocument();
+  });
+
   it("does not report a failed read as an empty wallet", () => {
     renderView({ address: "addr_test1wallet", utxoError: "Could not reach the network." });
 
@@ -231,14 +247,14 @@ describe("send form intro", () => {
   });
 });
 
-/**
- * The allowance path is a spender's send screen. It opened with "The connected payment key hash
- * plus the requested spend must resolve to exactly one spender. This mode derives the next STT
- * datum automatically instead of allowing manual state edits", then listed seven tiles including
- * a raw `matchedUserId`, a wallet count, and two different numbers both meaning "what is left".
- */
 describe("allowance send", () => {
-  const preview = {
+  const resolvedPreview = {
+    configuredAllowances: [
+      {
+        userId: "3",
+        perDayAllowance: [{ policyId: "", assetName: "", amount: "8" }]
+      }
+    ],
     error: null,
     target: {
       matchedUserId: "3",
@@ -247,12 +263,16 @@ describe("allowance send", () => {
       effectiveRemainingAllowance: [{ unit: "lovelace", quantity: "8000000" }],
       nextAllowanceReset: 1_760_000_000_000
     },
-    computation: null
+    computation: {
+      spentAllowance: [{ unit: "lovelace", quantity: "2000000" }],
+      resultingRemainingAllowance: [{ unit: "lovelace", quantity: "6000000" }],
+      nextAllowanceReset: 1_760_000_000_000
+    }
   };
 
   it("explains the allowance without naming the datum or the key hash", () => {
     const { container } = renderView({
-      view: { selectedAction: "use-allowance", useAllowancePreview: preview }
+      view: { selectedAction: "use-allowance", useAllowancePreview: resolvedPreview }
     });
 
     expect(screen.getByText("Your spending limit")).toBeInTheDocument();
@@ -260,23 +280,60 @@ describe("allowance send", () => {
     expect(container.textContent).not.toContain("STT datum");
   });
 
-  it("drops the tiles a spender cannot act on", () => {
-    const { container } = renderView({
-      view: { selectedAction: "use-allowance", useAllowancePreview: preview }
+  it("shows every configured daily allowance before a payout selects one", () => {
+    renderView({
+      view: {
+        selectedAction: "use-allowance",
+        useAllowancePreview: {
+          configuredAllowances: [
+            {
+              userId: "3",
+              perDayAllowance: [{ policyId: "", assetName: "", amount: "8" }]
+            },
+            {
+              userId: "4",
+              perDayAllowance: [{ policyId: "policy", assetName: "TOKEN", amount: "12" }]
+            }
+          ],
+          error: null,
+          target: null,
+          computation: null
+        }
+      }
     });
 
-    expect(container.textContent).not.toContain("Matched user:");
-    expect(container.textContent).not.toContain("Wallets: 2");
-    expect(container.textContent).toContain("Matched as: Spender #3");
+    expect(screen.getByText("Spender #3")).toBeInTheDocument();
+    expect(screen.getByText("Daily allowance: 8 ₳ per day")).toBeInTheDocument();
+    expect(screen.getByText("Spender #4")).toBeInTheDocument();
+    expect(screen.getByText("Daily allowance: 12 TOKEN per day")).toBeInTheDocument();
+    expect(screen.queryByText(/Add a payout to see the spender/)).not.toBeInTheDocument();
   });
 
-  it("says what to do instead of that nothing was derived", () => {
-    const { container } = renderView({
-      view: { selectedAction: "use-allowance", useAllowancePreview: preview }
+  it("shows the selected daily allowance, amount used, and amount left", () => {
+    renderView({
+      view: { selectedAction: "use-allowance", useAllowancePreview: resolvedPreview }
     });
 
-    expect(container.textContent).not.toContain("Not derived yet");
-    expect(screen.getAllByText(/Enter an amount first/).length).toBeGreaterThan(0);
+    expect(screen.getByText("Daily allowance: 8 ₳ per day")).toBeInTheDocument();
+    expect(screen.getByText("This send uses: 2 ₳")).toBeInTheDocument();
+    expect(screen.getByText("Left after this send: 6 ₳")).toBeInTheDocument();
+  });
+
+  it("keeps configured limits visible beside a payout error", () => {
+    renderView({
+      view: {
+        selectedAction: "use-allowance",
+        useAllowancePreview: {
+          configuredAllowances: resolvedPreview.configuredAllowances,
+          error: "The requested transfer is above this allowance.",
+          target: null,
+          computation: null
+        }
+      }
+    });
+
+    expect(screen.getByText("Daily allowance: 8 ₳ per day")).toBeInTheDocument();
+    expect(screen.getByText("The requested transfer is above this allowance.")).toBeInTheDocument();
   });
 });
 

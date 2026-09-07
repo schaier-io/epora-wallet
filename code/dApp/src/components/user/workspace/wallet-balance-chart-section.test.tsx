@@ -143,6 +143,17 @@ describe("wallet balance chart section", () => {
     expect(screen.queryByText("9.00 ₳")).not.toBeInTheDocument();
   });
 
+  it("describes the chart as accrued unpaid amounts without claiming spendability", () => {
+    render(<WalletBalanceChartSection />);
+
+    expect(
+      screen.getByText(/Accrued unpaid scheduled payments are subtracted at each point/)
+    ).toHaveTextContent(
+      "Available only: Accrued unpaid scheduled payments are subtracted at each point. Future amounts are not included."
+    );
+    expect(screen.queryByText(/actually spendable/)).toBeNull();
+  });
+
   it("says the switch changes nothing when no charted asset has a stream", () => {
     render(<WalletBalanceChartSection />);
 

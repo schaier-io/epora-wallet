@@ -1,4 +1,34 @@
 {
+  "ComponentsUserWorkspaceWalletAccessOverview": {
+    "allowancePerDay": "{allowance} per day",
+    "approvalPower": "Approval power",
+    "canRenewProofOfLife": "Can renew the proof of life.",
+    "cannotRenewProofOfLife": "Cannot renew the proof of life.",
+    "coSigner": "Co-signer",
+    "connectForPermissions": "Connect a wallet to see its roles and permissions.",
+    "dailyAllowance": "Daily allowance",
+    "listedUser": "Listed user",
+    "managePermission": "Manage wallet rules and people.",
+    "noActivePermissions": "No active permissions are assigned to this key.",
+    "notGranted": "Not granted",
+    "owner": "Owner",
+    "ownerApproval": "Owner approval. No co-signer threshold is required.",
+    "permissionDetails": "Permission details",
+    "permissionDetailsDescription": "Approval power, spending limits, proof of life, and recovery access.",
+    "powerValueThreshold": "{power} power. Wallet threshold: {threshold}.",
+    "proofOfLife": "Proof-of-life renewer",
+    "proofOfLifeRights": "Proof-of-life rights",
+    "readOnly": "Read-only",
+    "recoveryAccess": "Recovery access",
+    "recoveryContact": "Recovery contact",
+    "recoveryPermission": "Recover funds after access unlocks.",
+    "recoveryValueAfter": "Share weight {weight}. Available after {date}.",
+    "recoveryValueNow": "Share weight {weight}. Available when recovery opens.",
+    "renewPermission": "Renew the proof of life.",
+    "sendPermission": "Send through your available authorization paths.",
+    "spender": "Spender",
+    "yourAccess": "Your access"
+  },
   "Counts": {
     "asset": "{count, plural, one {# asset} other {# assets}}",
     "destination": "{count, plural, one {# destination} other {# destinations}}",
@@ -134,10 +164,11 @@
   },
   "LibContractsStreamingManage": {
     "existingStreamingPaymentValue1CannotBeShortenedTo": "Existing streaming payment {value1} cannot be shortened to zero duration.",
-    "existingStreamingPaymentValue1EndDateMustBe": "Existing streaming payment {value1} end date must be at least {endDateFloor} for this transaction.",
+    "existingStreamingPaymentValue1EndDateMustBe": "Existing scheduled payment {value1} must stop at or after {endDateFloor}. Stop as soon as possible again, or choose a later stop time.",
     "existingStreamingPaymentValue1MustKeepItsImmutable": "Existing streaming payment {value1} must keep its {field, select, payoutAddress {payout address} paidOutAmount {already-paid amount} policyId {policy id} assetName {asset name} amountPerDay {daily rate} startDate {start date} other {protected field}} unchanged.",
     "existingStreamingPaymentValue1MustRemainInThe": "Existing streaming payment {value1} must remain in the managed State.",
-    "managingStreamingPaymentsRequiresANonNegativeSafe": "Managing streaming payments requires a non-negative safe transaction upper-bound time."
+    "managingStreamingPaymentsRequiresANonNegativeSafe": "Managing streaming payments requires a non-negative safe transaction upper-bound time.",
+    "theRequiredOnChainCutoff": "the required on-chain cutoff"
   },
   "LibContractsTerminalRecovery": {
     "thisIsPermanentAfterYouSign": "This withdrawal uses the selected fund pools. The final recovery contact stays available for remaining value and funds sent later. Repeat this action if value remains."

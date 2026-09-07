@@ -1,7 +1,7 @@
 "use client";
 
 import { useAtom } from "jotai";
-import { sttInputTxHashAtom, sttInputOutputIndexAtom, sttStateFormAtom, sttZeroAdminConfirmedAtom, sttOutputAssetsAtom, sttWalletInputsAtom, sttWalletOutputsAtom, sttExtraTransfersAtom, sttProofOfLifeOverrideModeAtom, sttProofOfLifeSpecificDateTimeAtom, sttTransferAddressAtom, sttTransferAmountsAtom, beneficiaryStreamStopIdAtom, streamingPaymentPayoutAmountsAtom, selectedSttActionAtom, sttAuthorityPathAtom, consolidateAuthorityPathAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import { activeSttStateFormAtom, sttInputTxHashAtom, sttInputOutputIndexAtom, sttZeroAdminConfirmedAtom, sttOutputAssetsAtom, sttWalletInputsAtom, sttWalletOutputsAtom, sttExtraTransfersAtom, sttProofOfLifeOverrideModeAtom, sttProofOfLifeSpecificDateTimeAtom, sttTransferAddressAtom, sttTransferAmountsAtom, beneficiaryStreamStopIdAtom, streamingPaymentPayoutAmountsAtom, selectedSttActionAtom, sttAuthorityPathAtom, consolidateAuthorityPathAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 
 /**
  * Form state for the STT-spend composer (the use/renew/update/manage/allowance/beneficiary/payout/consolidate spend of an existing wallet).
@@ -9,7 +9,7 @@ import { sttInputTxHashAtom, sttInputOutputIndexAtom, sttStateFormAtom, sttZeroA
 export function useSttSpendForm() {
   const [sttInputTxHash, setSttInputTxHash] = useAtom(sttInputTxHashAtom);
   const [sttInputOutputIndex, setSttInputOutputIndex] = useAtom(sttInputOutputIndexAtom);
-  const [sttStateForm, setSttStateForm] = useAtom(sttStateFormAtom);
+  const [sttStateForm, setSttStateForm] = useAtom(activeSttStateFormAtom);
   const [sttZeroAdminConfirmed, setSttZeroAdminConfirmed] = useAtom(sttZeroAdminConfirmedAtom);
   const [sttOutputAssets, setSttOutputAssets] = useAtom(sttOutputAssetsAtom);
   const [sttWalletInputs, setSttWalletInputs] = useAtom(sttWalletInputsAtom);

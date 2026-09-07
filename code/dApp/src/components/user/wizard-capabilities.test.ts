@@ -5,7 +5,11 @@ import {
   holdsAnyRole,
   resolveTokenCapabilityMap
 } from "@/components/user/wizard-capabilities";
-import { deriveWalletHomeFlowAvailability } from "@/lib/user-flow/guided-helpers";
+import {
+  derivePermissionWalletBadgeLabels,
+  deriveWalletHomeFlowAvailability,
+  resolveAutomaticSendPath
+} from "@/lib/user-flow/guided-helpers";
 import { createDefaultStateForm, type UserFormState } from "@/lib/contracts/state-form";
 
 const OWNER_KEY_HASH = "bc3f3eae902eaf53b3d8a1f9d7ad2e6b370f8b9ec8c9b62a9044455b";
@@ -91,7 +95,7 @@ test("holding no role is what sends a viewer back to the wallet selection", () =
   assert.equal(holdsAnyRole(capabilitiesFor(null, owners)), false);
 });
 
-test("a spender holds a role without holding the owner path", () => {
+test("a user record without a positive allowance is not a spender", () => {
   const users = [
     user({ isAdmin: true, wallets: [OWNER_KEY_HASH] }),
     user({ id: "1", wallets: [STRANGER_KEY_HASH] })
@@ -99,10 +103,49 @@ test("a spender holds a role without holding the owner path", () => {
   const capabilities = capabilitiesFor(STRANGER_KEY_HASH, users);
 
   assert.equal(holdsAnyRole(capabilities), true);
+  assert.equal(capabilities.hasDirectAllowance, false);
   assert.deepEqual(capabilities.availableOperatorPaths, []);
   assert.equal(
     buildAvailableWizardActions(capabilities).some((action) => action.kind === "use-allowance"),
+    false
+  );
+  assert.equal(derivePermissionWalletBadgeLabels(capabilities).includes("Allowance"), false);
+  assert.equal(resolveAutomaticSendPath(capabilities), "use");
+  assert.equal(deriveWalletHomeFlowAvailability(capabilities).canSend, false);
+});
+
+test("a positive daily allowance enables the spender path", () => {
+  const users = [
+    user({
+      id: "1",
+      wallets: [STRANGER_KEY_HASH],
+      perDayAllowance: [{ policyId: "", assetName: "", amount: "10" }]
+    })
+  ];
+  const capabilities = capabilitiesFor(STRANGER_KEY_HASH, users);
+
+  assert.equal(capabilities.hasDirectAllowance, true);
+  assert.equal(
+    buildAvailableWizardActions(capabilities).some((action) => action.kind === "use-allowance"),
     true
+  );
+  assert.equal(derivePermissionWalletBadgeLabels(capabilities).includes("Allowance"), true);
+  assert.equal(resolveAutomaticSendPath(capabilities), "use-allowance");
+  assert.equal(deriveWalletHomeFlowAvailability(capabilities).canSend, true);
+});
+
+test("a zero daily allowance does not enable the spender path", () => {
+  const capabilities = capabilitiesFor(STRANGER_KEY_HASH, [
+    user({
+      wallets: [STRANGER_KEY_HASH],
+      perDayAllowance: [{ policyId: "", assetName: "", amount: "0.000000" }]
+    })
+  ]);
+
+  assert.equal(capabilities.hasDirectAllowance, false);
+  assert.equal(
+    buildAvailableWizardActions(capabilities).some((action) => action.kind === "use-allowance"),
+    false
   );
 });
 

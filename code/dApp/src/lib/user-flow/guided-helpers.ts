@@ -137,7 +137,7 @@ export function derivePermissionWalletBadgeLabels(
   if (capabilityMap.hasDirectAdminSigner) {
     badges.push(i18n("owner"));
   }
-  if (capabilityMap.hasDirectUserMatch) {
+  if (capabilityMap.hasDirectAllowance) {
     badges.push(i18n("allowance"));
   }
   if (capabilityMap.hasBeneficiaryMatch) {
@@ -168,7 +168,7 @@ export function resolveAutomaticSendPath(
     return "use";
   }
 
-  if (capabilityMap.hasDirectUserMatch) {
+  if (capabilityMap.hasDirectAllowance) {
     return "use-allowance";
   }
 
@@ -192,7 +192,7 @@ export function deriveWalletHomeFlowAvailability(
   const canSend = Boolean(
     capabilityMap &&
       (capabilityMap.availableOperatorPaths.length > 0 ||
-        capabilityMap.hasDirectUserMatch ||
+        capabilityMap.hasDirectAllowance ||
         capabilityMap.hasBeneficiaryMatch)
   );
 

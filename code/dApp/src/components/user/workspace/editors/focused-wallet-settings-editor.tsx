@@ -26,11 +26,8 @@ import { type StateFormState, countAdminUsersInStateForm } from "@/lib/contracts
 import { normalizeWalletName } from "@/lib/contracts/state-wallet-name";
 import {
   MAX_ACCESS_RECORDS,
-  MAX_BENEFICIARIES,
-  MAX_BENEFICIARY_WALLETS,
-  MAX_TOTAL_BENEFICIARY_WALLETS
+  MAX_BENEFICIARIES
 } from "@/lib/contracts/state-validation";
-import { countWalletEntries } from "@/lib/contracts/wallet-capacity";
 import { HandHeart, Plus, Settings2 } from "lucide-react";
 
 function ProofOfLifeSettingsEditor({
@@ -129,8 +126,6 @@ function RecoveryContactsSection({
   const recoveryAtCap =
     value.beneficiaries.length >= MAX_BENEFICIARIES ||
     value.users.length + value.beneficiaries.length >= MAX_ACCESS_RECORDS;
-  const canAddBeneficiaryWalletEntry =
-    countWalletEntries(value.beneficiaries) < MAX_TOTAL_BENEFICIARY_WALLETS;
   const addRecoveryContact = () => {
     if (!recoveryAtCap) {
       onChange(withRecoveryContactAdded(value, Date.now()));
@@ -176,10 +171,6 @@ function RecoveryContactsSection({
               (sum, entry) => sum + (Number.parseInt(entry.weight, 10) || 0),
               0
             )}
-            canAddWallet={
-              canAddBeneficiaryWalletEntry &&
-              beneficiary.wallets.length < MAX_BENEFICIARY_WALLETS
-            }
             onChange={(nextBeneficiary) =>
               onChange({
                 ...value,

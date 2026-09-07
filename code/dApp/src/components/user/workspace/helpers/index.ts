@@ -18,6 +18,8 @@ export {
   safetyTimerIsReady,
   scheduledPaymentRateForPeriod,
   withApprovalPowerEnabled,
+  withBeneficiaryPayoutAndSigningAddress,
+  withBeneficiarySigningAddressesDerived,
   withCoSignerAdded,
   withMultisigDerivedFromCoSigners,
   withProofOfLifeIncrement,
