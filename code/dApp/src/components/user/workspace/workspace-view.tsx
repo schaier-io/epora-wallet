@@ -40,10 +40,12 @@ import { WorkspaceLandingView } from "@/components/user/workspace/workspace-land
 import { WorkspaceLayoutView } from "@/components/user/workspace/workspace-layout-view";
 import { WalletSelectionDialogView } from "@/components/user/workspace/workspace-wallet-selection-dialog-view";
 import { shouldForwardToWalletSelection } from "@/components/user/workspace/workspace-view-routing";
+import { useWalletContext } from "@/providers/wallet-provider";
 
 export function WorkspaceView() {
   const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceView");
   const state = useWorkspaceActions();
+  const { walletSessionLoading } = useWalletContext();
   const mintProgressDismissed = useAtomValue(mintProgressDismissedAtom);
   const setDismissedSubmitHash = useSetAtom(dismissedSubmitHashAtom);
   const setMintCelebration = useSetAtom(mintCelebrationAtom);
@@ -102,6 +104,20 @@ export function WorkspaceView() {
           : undefined
       }
     : null;
+
+  if (walletSessionLoading) {
+    return (
+      <section
+        className="flex min-h-0 flex-1 items-center justify-center"
+        aria-label={i18n("walletWorkspace")}
+      >
+        <div className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
+          <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden="true" />
+          {i18n("detectingWallets")}
+        </div>
+      </section>
+    );
+  }
 
     // A `section`, not a `main`. `app/user/page.tsx` already opens a `main` around this, and a
     // document may hold only one: the two nested, so landmark navigation offered a `main`

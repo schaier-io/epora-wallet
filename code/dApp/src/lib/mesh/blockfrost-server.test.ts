@@ -86,3 +86,29 @@ test("fetchAddressTxs accepts the page budget and strips unrelated options", asy
   ]);
   assert.deepEqual(calls, [{ maxPage: 8, order: "asc" }]);
 });
+
+test("fetchAddressTxs treats an unseen address as empty history", async () => {
+  const provider = {
+    fetchAddressTxs: async () => {
+      throw JSON.stringify({ data: { status_code: 404 }, headers: {}, status: 404 });
+    }
+  } as unknown as BlockfrostProvider;
+
+  assert.deepEqual(
+    await executeMeshMethod(provider, "fetchAddressTxs", ["addr_test1new", { order: "desc" }]),
+    []
+  );
+});
+
+test("fetchAddressTxs still surfaces provider failures", async () => {
+  const provider = {
+    fetchAddressTxs: async () => {
+      throw JSON.stringify({ data: { status_code: 429 }, headers: {}, status: 429 });
+    }
+  } as unknown as BlockfrostProvider;
+
+  await assert.rejects(
+    executeMeshMethod(provider, "fetchAddressTxs", ["addr_test1new", { order: "desc" }]),
+    /"status":429/
+  );
+});

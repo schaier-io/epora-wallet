@@ -9,8 +9,12 @@ export function hasCardanoInjection() {
   return typeof window !== "undefined" && typeof window.cardano !== "undefined";
 }
 
-export async function waitForCardanoInjection(timeoutMs = CARDANO_INJECTION_WAIT_MS) {
-  if (typeof window === "undefined" || hasCardanoInjection()) {
+export function hasCardanoWalletInjection(walletName: string) {
+  return hasCardanoInjection() && typeof window.cardano?.[walletName] !== "undefined";
+}
+
+async function waitForInjection(check: () => boolean, timeoutMs: number) {
+  if (typeof window === "undefined" || check()) {
     return;
   }
 
@@ -28,7 +32,7 @@ export async function waitForCardanoInjection(timeoutMs = CARDANO_INJECTION_WAIT
     };
 
     const checkForInjection = () => {
-      if (hasCardanoInjection()) {
+      if (check()) {
         finish();
       }
     };
@@ -54,4 +58,15 @@ export async function waitForCardanoInjection(timeoutMs = CARDANO_INJECTION_WAIT
 
     checkForInjection();
   });
+}
+
+export function waitForCardanoInjection(timeoutMs = CARDANO_INJECTION_WAIT_MS) {
+  return waitForInjection(hasCardanoInjection, timeoutMs);
+}
+
+export function waitForCardanoWalletInjection(
+  walletName: string,
+  timeoutMs = CARDANO_INJECTION_WAIT_MS
+) {
+  return waitForInjection(() => hasCardanoWalletInjection(walletName), timeoutMs);
 }

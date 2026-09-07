@@ -125,6 +125,9 @@ describe("buildMintStateTokenTx (integration: real MeshSDK build, mocked chain I
     expect(result.estimatedFeeLovelace).toBeDefined();
     expect(BigInt(result.estimatedFeeLovelace ?? "0")).toBeGreaterThan(0n);
     expect(result.preview.action).toBe("mint");
+    expect(result.createdWalletUnit).toBe(
+      `${getSttMintPolicyId()}${deriveAssetName({ txHash: "11".repeat(32), outputIndex: 0 })}`
+    );
     expect(result.preview.summary).toContain("and fund it with");
     expect(result.executionUnits).toBeDefined();
     expect(result.preview.txSize!.usedBytes).toBeLessThanOrEqual(result.preview.txSize!.maxBytes);

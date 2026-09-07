@@ -2,6 +2,7 @@ import { BlockfrostProvider } from "@meshsdk/core";
 import type { IFetcherOptions, UTxO } from "@meshsdk/common";
 import type { ChainMethod } from "@/lib/types/contracts";
 import { requireServerEnv } from "@/lib/env/server-env";
+import { meshHttpStatus } from "@/lib/mesh/http-error";
 
 export const METHOD_VALUES = [
   "fetchAccountInfo",
@@ -245,12 +246,17 @@ export async function executeMeshMethod(
       );
     }
     case "fetchAddressTxs": {
-      return toUnknown(
-        provider.fetchAddressTxs(
+      try {
+        return await provider.fetchAddressTxs(
           getStringArg(args, 0, "address"),
           getAddressTxOptionsArg(args, 1, "options")
-        )
-      );
+        );
+      } catch (error) {
+        // Blockfrost uses 404 for an address it has never indexed. A newly created
+        // smart wallet has no fund-pool history yet, so this is an empty page.
+        if (meshHttpStatus(error) === 404) return [];
+        throw error;
+      }
     }
     case "fetchAssetAddresses": {
       return toUnknown(provider.fetchAssetAddresses(getStringArg(args, 0, "asset")));

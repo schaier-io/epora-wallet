@@ -238,6 +238,20 @@ it("refreshes the known wallet by identity and preserves other cached wallets", 
   expect(store.get(detectedSttTokensAtom)).toContainEqual(token);
 });
 
+it("queries a newly minted wallet by unit without dropping the current wallet", async () => {
+  const minted = { ...token, unit: "policycc", assetNameHex: "cc" };
+  mocks.detectSttInfo.mockResolvedValue({ policyId: "policy", tokens: [minted] });
+  const { store, hook, setSelectedDetectedTokenUnit } = setup(token.unit);
+
+  await act(async () => {
+    await hook.result.current.refreshDetectedTokens({ knownUnit: minted.unit });
+  });
+
+  expect(mocks.detectSttInfo).toHaveBeenCalledWith(minted.unit);
+  expect(store.get(detectedSttTokensAtom)).toEqual([token, minted]);
+  expect(setSelectedDetectedTokenUnit).not.toHaveBeenCalled();
+});
+
 
 it("manual refresh discovers other wallets even when a wallet is selected", async () => {
   const other = { ...token, unit: "policybb", assetNameHex: "bb" };
