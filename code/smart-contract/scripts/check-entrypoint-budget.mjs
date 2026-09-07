@@ -63,9 +63,9 @@ const FIXTURE_NATIVE_ASSET_FLOOR = 120;
 const FIXTURE_WALLET_VALUE_SIZE_FLOOR_BYTES = 128;
 const FIXTURE_STATE_DATUM_SIZE_FLOOR_BYTES = 5_000;
 const REQUIRED_WALLET_VALUE_CBOR_SHA256 =
-  "6a0a162549a3f9668a19596b7637a9f4ed5fe8948bcb69597b893eb1c259716b";
+  "257d4b76ca030ad8d7118feec1ce074e859b1337657ada2a7c53844c9bbb564f";
 const REQUIRED_STATE_DATUM_CBOR_SHA256 =
-  "bf68404f97e589c25dd10b2359d0f9456f1d5a7c94ebf8a28d73b624b0f460a7";
+  "3a8b6dcc1591feb9362877aa78b71c9e52679f28529971f53b5193af1df82b26";
 const REQUIRED_FIXTURE_SCENARIO =
   "capped-list-and-scalar-near-transaction-limit-partial-streaming-payout";
 const REQUIRED_STATE_SHAPE = {
@@ -81,7 +81,7 @@ const REQUIRED_STRESS_PROFILE = {
   crankSignerMatchesBeneficiary: false,
   crankSignerStreamingPayeeIndexes: [14],
   targetStreamingPaymentIndex: 14,
-  targetNativeAssetIndex: 119,
+  targetNativeAssetIndex: 144,
   payoutQuantity: "1"
 };
 const CONSOLIDATION_TRANSACTION_SIZE_FLOOR_BYTES = 10_000;

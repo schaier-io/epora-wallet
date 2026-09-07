@@ -49,15 +49,14 @@ export async function buildBeneficiaryDistributionTx(wallet: WalletSource, confi
   const definition = createStateForwarding(config);
   const walletScript = getWalletSpendScript(definition.params);
   const walletPaymentScriptHash = resolveWalletSpendScriptHash(definition.params);
-  const sttPaymentScriptHash = deserializeAddress(definition.address).scriptHash;
   const referenceTime = input.validityWindowReferenceTimeMs ?? Date.now();
   const prepared = await buildTransactionWithReestimatedLimits("beneficiary-distribution:draft-build", "beneficiary-distribution:build", async (overrides) => {
-    const { tx, fetcher, setupDiagnostics, changeAddress } = await setupTransaction(wallet, referenceTime, txFetcher);
-    const connectedSigner = deserializeAddress(changeAddress).pubKeyHash;
+    const { tx, fetcher, setupDiagnostics, signerAddress, changeAddress } = await setupTransaction(wallet, referenceTime, txFetcher);
+    const connectedSigner = deserializeAddress(signerAddress).pubKeyHash;
     if (connectedSigner !== input.beneficiarySignerKeyHash!.trim().toLowerCase()) {
       throw new Error("Exact distribution beneficiary signer must match the connected wallet.");
     }
-    addExtraRequiredSigners(tx, changeAddress, input.requiredSignerKeyHashes);
+    addExtraRequiredSigners(tx, signerAddress, input.requiredSignerKeyHashes);
     const spendValidatorsByRef = new Map<string, string>();
     const outputs: ExpectedDistributionOutput[] = [];
     const warnings: string[] = [];
@@ -132,8 +131,7 @@ export async function buildBeneficiaryDistributionTx(wallet: WalletSource, confi
           changeAddress,
           sttInput: resolved.input.input,
           walletInput: walletInput.input,
-          walletPaymentScriptHash,
-          sttPaymentScriptHash
+          walletPaymentScriptHash
         };
         warnings.push(i18n("beneficiaryDistributionNotice", { count: computation.payouts.length }));
         return {
@@ -148,9 +146,6 @@ export async function buildBeneficiaryDistributionTx(wallet: WalletSource, confi
           }],
           afterOutput: () => {
             for (const payout of computation.payouts) {
-              if ([walletPaymentScriptHash, sttPaymentScriptHash].includes(deserializeAddress(payout.address).scriptHash)) {
-                throw new Error("A beneficiary payout address points to this wallet or its State script. Exact distribution requires a destination outside both scripts.");
-              }
               const output = sendAssetsWithOptionalInlineDatumAndReferenceScript(tx, payout.address, payout.amount, payout.inlineDatum);
               outputs.push({
                 address: payout.address,
@@ -174,6 +169,7 @@ export async function buildBeneficiaryDistributionTx(wallet: WalletSource, confi
     });
     return {
       tx,
+      signerAddress,
       diagnostics: {
         ...setupDiagnostics,
         ...forwarding.diagnostics

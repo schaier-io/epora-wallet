@@ -6,5 +6,7 @@
   "minutes": "Minutes",
   "owner": "Owner",
   "recovery": "Recovery",
-  "scheduledPayments": "Scheduled payments"
+  "scheduledPayments": "Scheduled payments",
+  "receiveOnly": "Receive only",
+  "scheduled": "Scheduled"
 }

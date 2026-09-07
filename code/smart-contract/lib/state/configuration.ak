@@ -45,7 +45,7 @@ use aiken/collection/list
 use aiken/option
 use aiken/primitive/bytearray
 use assets/entries as asset_entries
-use cardano/address.{Address}
+use cardano/address.{Address, Credential}
 use collections
 use constants
 use numeric_bounds
@@ -306,5 +306,19 @@ fn users_have_reachable_multisig_access_path(
     users,
     multi_sig_threshold,
     fn(user) { list.length(user.user_wallets) > 0 },
+  )
+}
+
+/// Mint and UpdateState reject beneficiary destinations at the STT credential.
+pub fn beneficiary_destinations_are_valid(
+  beneficiaries: List<Beneficiary>,
+  stt_payment_credential: Credential,
+) -> Bool {
+  list.all(
+    beneficiaries,
+    fn(beneficiary) {
+      expect payout_address: Address = beneficiary.payout_address
+      payout_address.payment_credential != stt_payment_credential
+    },
   )
 }

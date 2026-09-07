@@ -1,3 +1,4 @@
+import { resetAllFlowAtom } from "./atoms/transaction-flow.atoms";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import type { PropsWithChildren } from "react";
@@ -245,4 +246,32 @@ it("manual refresh discovers other wallets even when a wallet is selected", asyn
   await act(async () => { await hook.result.current.refreshDetectedTokens(); });
   expect(mocks.detectSttInfo).toHaveBeenCalledWith(undefined);
   expect(store.get(detectedSttTokensAtom)).toEqual([token, other]);
+});
+
+it("retires an in-flight token scan after unmount reset", async () => {
+  const { store, hook } = setup(token.unit);
+  let resolve!: (value: unknown) => void;
+  mocks.detectSttInfo.mockImplementationOnce(() => new Promise(done => { resolve = done; }));
+  let pending!: ReturnType<typeof hook.result.current.refreshDetectedTokens>;
+  await act(async () => { pending = hook.result.current.refreshDetectedTokens(); });
+  await act(async () => {
+    store.set(resetAllFlowAtom);
+    resolve({ policyId: "policy", tokens: [] });
+    await pending;
+  });
+  expect(store.get(detectedSttTokensAtom)).toEqual([token]);
+});
+
+it("retires in-flight balance summaries after unmount reset", async () => {
+  const { store, hook } = setup(token.unit);
+  let resolve!: (value: unknown) => void;
+  mocks.fetchScriptUtxos.mockImplementationOnce(() => new Promise(done => { resolve = done; }));
+  let pending!: ReturnType<typeof hook.result.current.refreshPermissionWalletSummaries>;
+  await act(async () => { pending = hook.result.current.refreshPermissionWalletSummaries([token]); });
+  await act(async () => {
+    store.set(resetAllFlowAtom);
+    resolve([]);
+    await pending;
+  });
+  expect(store.get(permissionWalletSummariesAtom)).toEqual({});
 });

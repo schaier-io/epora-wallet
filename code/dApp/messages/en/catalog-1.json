@@ -523,7 +523,8 @@
     "stakePool": "Stake pool",
     "thisPoolIsClosing": "This pool is closing",
     "value1": "[{value1}]",
-    "website": "Website"
+    "website": "Website",
+    "unknown": "Unknown"
   },
   "ComponentsUserPreprodFaucetHint": {
     "getFreeTestAdaFromTheCardanoPreprodFaucet": "Get free test ADA from the Preprod faucet",
@@ -641,6 +642,7 @@
     "stateBefore": "Before",
     "stateAfter": "After",
     "stateAbsent": "Not present",
-    "proposerSummarySource": "Proposer-provided summary. Not verified against the transaction."
+    "proposerSummarySource": "Proposer-provided summary. Not verified against the transaction.",
+    "sending": "Sending"
   }
 }

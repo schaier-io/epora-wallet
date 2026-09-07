@@ -1,3 +1,5 @@
+import { resetAllFlowAtom } from "./atoms/transaction-flow.atoms";
+import { schedulePostSubmitRefresh } from "./workspace-transaction-refresh";
 import { parseWorkspaceRouteState } from "@/components/user/workspace-controller";
 import { routeStateAtom } from "./atoms/workspace-route.atoms";
 import { currentRecoveryCapacityFailureAtom } from "./atoms/recovery-capacity.atoms";
@@ -198,3 +200,28 @@ it("successful preparation clears selected inputs while keeping preparation avai
   expect(deps.jotaiStore.get(consolidateWalletInputsAtom)).toEqual([]);
   expect(deps.jotaiStore.get(beneficiaryPreparationActiveAtom)).toBe(true);
 });
+
+for (const transition of ["wallet switch", "unmount"] as const) {
+  for (const outcome of ["success", "failure"] as const) {
+    it(`ignores submit ${outcome} after ${transition}`, async () => {
+      const deps = makeDeps();
+      vi.mocked(schedulePostSubmitRefresh).mockClear();
+      let settle!: () => void;
+      mocks.signAndSubmitTx.mockImplementationOnce(() => new Promise((resolve, reject) => {
+        settle = () => outcome === "success" ? resolve(TX_HASH) : reject(new Error("late submit failure"));
+      }));
+      const pending = createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
+      if (transition === "unmount") deps.jotaiStore.set(resetAllFlowAtom);
+      else deps.jotaiStore.set(routeStateAtom, parseWorkspaceRouteState(new URLSearchParams("wallet=wallet-b")));
+      settle();
+      await pending;
+      expect(deps.setSubmitHash).not.toHaveBeenCalled();
+      expect(deps.setBuildError).toHaveBeenCalledExactlyOnceWith(null);
+      expect(deps.setActiveSubmit).toHaveBeenCalledExactlyOnceWith(true);
+      expect(deps.refreshLockedContractUtxos).not.toHaveBeenCalled();
+      expect(deps.refreshWalletBalance).not.toHaveBeenCalled();
+      expect(schedulePostSubmitRefresh).not.toHaveBeenCalled();
+      expect(deps.submitInFlightRef.current).toBe(false);
+    });
+  }
+}

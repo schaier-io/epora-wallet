@@ -12,6 +12,7 @@ use cardano/assets.{PolicyId}
 use cardano/transaction.{OutputReference, Transaction}
 use state/configuration as state_configuration
 use state/types as state_types
+use streaming_payments/asset_presence
 use streaming_payments/shape as streaming_payment_shape
 use stt/io.{
   expect_minted_stt_state_and_asset_name, expect_sole_stt_token,
@@ -79,6 +80,11 @@ pub fn eval_mint(
   expect token_name_bound_to_spent_input
   // Validate the state payload.
   expect state_configuration.expect_valid_state_configuration(state)
+  expect
+    state_configuration.beneficiary_destinations_are_valid(
+      state.access.beneficiaries,
+      Script(policy_id),
+    )
   // Every schedule at mint is fresh: it must begin unpaid and have positive
   // duration. The reusable shape check allows zero-duration entries because a
   // receiver may later shorten an existing schedule exactly to its start, and
@@ -87,6 +93,13 @@ pub fn eval_mint(
     streaming_payment_shape.fresh_are_valid(
       state.streaming_payments,
       Script(policy_id),
+    )
+  expect
+    asset_presence.new_assets_are_present(
+      [],
+      state.streaming_payments,
+      inputs,
+      self.reference_inputs,
     )
   // A freshly minted wallet has no crank history, so the cooldown clock starts
   // empty. Pinning `None` here (not in `expect_valid_state_configuration`, which
@@ -189,6 +202,7 @@ pub fn eval_spend(
           eval_operator_state_update(
             operator_action,
             transaction: transaction,
+            stt_payment_credential: stt_payment_credential,
             input_stt_value: input_stt_value,
             output_stt_value: output_stt_value,
             input_state: input_state,

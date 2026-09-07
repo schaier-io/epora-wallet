@@ -480,9 +480,9 @@ test stt_mint_accepts_stream_to_unrelated_script_credential() {
 }
 
 // The payment asset policy is separate from the payout payment credential.
-// On-chain ingress intentionally accepts the current STT policy as an asset;
-// maintained builders reject this fresh configuration before construction.
-test stt_mint_accepts_stream_asset_under_stt_policy() {
+// A just-minted STT is not consumed/reference input evidence for a new stream.
+// The asset must already exist in an input, even under the current STT policy.
+test stt_mint_rejects_stream_asset_only_in_current_stt_mint() fail {
   let policy_id = fixtures.policy_id("stt")
   let input_ref = fixtures.stt_input_ref()
   let asset_name = io.output_reference_to_asset_name(input_ref)

@@ -1,3 +1,4 @@
+import { decodeRequiredSigners } from "@/lib/proposals/verify";
 import type { ConstrData } from "@/lib/types/contracts";
 import { getValidityWindow } from "@/lib/mesh/transactions/internals/core";
 // @vitest-environment node
@@ -519,7 +520,7 @@ describe("buildConsolidateUtxosTx integration", () => {
       }
     }
     expect(result.preview.summary).toBe(
-      "Reorganize 1 wallet fund pool into 2 resulting fund pools."
+      "Reorganize 1 wallet fund pool into 2 resulting fund pools using 1 reference script."
     );
     expect(tx.witnessSet().plutusV3Scripts()?.values()).toHaveLength(1);
     expect(tx.witnessSet().redeemers()?.size()).toBe(2);
@@ -1327,6 +1328,16 @@ describe("beneficiary stream stop builder", () => {
     const input = {sttInputTxHash:STATE_TX_HASH,sttInputOutputIndex:0,beneficiarySignerKeyHash:PAYMENT_KEY_HASH,beneficiaryStreamStopId:7,validityWindowReferenceTimeMs:REFERENCE_TIME_MS};
     return {wallet,config,input,datum,stateUtxo,stateAddress,stateAmount};
   }
+  it("stops a beneficiary stream using the used-address authority with a different change key", async () => {
+    const context = setupStop();
+    const changeAddress = serializeAddressObj(pubKeyAddress("77".repeat(28)), 0);
+    context.wallet.getChangeAddress = async () => changeAddress;
+    const result = await buildSttSpendTx(context.wallet, context.config, "stop-beneficiary-stream", context.input);
+    const body = deserializeTx(result.txHex).body();
+    expect(decodeRequiredSigners(result.txHex)).toEqual([PAYMENT_KEY_HASH]);
+    expect(result.signerAddress).toBe(PAYMENT_ADDRESS);
+    expect((body.outputs() as CstTransactionOutput[]).some(output => output.address().toBech32().toString() === changeAddress)).toBe(true);
+  });
   it("derives target, actor, unchanged State value and review debt from the consumed State", async () => {
     const context = setupStop();
     const result = await buildSttSpendTx(context.wallet,context.config,"stop-beneficiary-stream",{
@@ -1392,6 +1403,16 @@ describe("exact beneficiary distribution builder",()=>{
     const input={sttInputTxHash:STATE_TX_HASH,sttInputOutputIndex:0,beneficiarySignerKeyHash:PAYMENT_KEY_HASH,walletInputs:[walletInput.input],validityWindowReferenceTimeMs:REFERENCE_TIME_MS};
     return {wallet,config,input,datum,state,stateUtxo,walletInput,stateAddress,walletAddress};
   }
+  it("distributes with the used-address authority while returning external change elsewhere", async () => {
+    const context = setupExact();
+    const changeAddress = serializeAddressObj(pubKeyAddress("66".repeat(28)), 0);
+    context.wallet.getChangeAddress = async () => changeAddress;
+    const result = await buildSttSpendTx(context.wallet, context.config, "distribute-beneficiaries", context.input);
+    expect(decodeRequiredSigners(result.txHex)).toEqual([PAYMENT_KEY_HASH]);
+    expect(result.signerAddress).toBe(PAYMENT_ADDRESS);
+    expect((deserializeTx(result.txHex).body().outputs() as CstTransactionOutput[])
+      .some(output => output.address().toBech32().toString() === changeAddress)).toBe(true);
+  });
   it.each([false,true])("builds all exact shares and external ADA topups (wallet reference=%s)",async withReference=>{
     const context=setupExact(false,withReference);
     const result=await buildSttSpendTx(context.wallet,context.config,"distribute-beneficiaries",context.input);

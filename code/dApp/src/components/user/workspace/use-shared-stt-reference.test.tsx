@@ -3,105 +3,60 @@ import { Provider, createStore } from "jotai";
 import type { PropsWithChildren } from "react";
 import { beforeEach, expect, it, vi } from "vitest";
 
-const storage = vi.hoisted(() => ({ saveSttReference: vi.fn() }));
-vi.mock("@/lib/mesh/stt-reference-storage", () => storage);
-
-const chain = vi.hoisted(() => ({ detectSharedSttReferenceStore: vi.fn() }));
-const transactions = vi.hoisted(() => ({
-  buildDeploySharedSttReferenceTx: vi.fn(),
-  signAndSubmitTx: vi.fn()
-}));
-
-vi.mock("@/lib/mesh/detection", () => ({
-  detectSharedSttReferenceStore: chain.detectSharedSttReferenceStore
-}));
-vi.mock("@/lib/mesh/transactions", () => ({
-  buildDeploySharedSttReferenceTx: transactions.buildDeploySharedSttReferenceTx,
-  DEFAULT_SHARED_STT_REFERENCE_LOVELACE: "5000000",
-  signAndSubmitTx: transactions.signAndSubmitTx
-}));
+const server = vi.hoisted(() => ({ detectSharedSttReferenceStore: vi.fn() }));
+vi.mock("@/lib/mesh/detection", () => server);
 
 import {
-  sharedReferenceBuildErrorAtom,
-  sharedReferenceSubmitHashAtom,
-  sharedSttReferenceStoreErrorAtom
-} from "@/components/user/workspace/atoms/workspace-data.atoms";
+  sharedSttReferenceStoreAtom,
+  sharedSttReferenceStoreErrorAtom,
+  sharedSttReferenceStoreLoadingAtom
+} from "./atoms/workspace-data.atoms";
 import { configAtom } from "./atoms/workspace-config.atoms";
 import { useSharedSttReference } from "./use-shared-stt-reference";
 
-const TX_HASH = "cd".repeat(32);
+const REFERENCE = `${"cd".repeat(32)}#3`;
 
 beforeEach(() => {
   vi.clearAllMocks();
-  window.localStorage.clear();
-  transactions.buildDeploySharedSttReferenceTx.mockResolvedValue({ txHex: "84a1", referenceScriptOutputIndex: 3 });
-  transactions.signAndSubmitTx.mockResolvedValue(TX_HASH);
+  server.detectSharedSttReferenceStore.mockResolvedValue({ status: "ready", activeReference: REFERENCE });
 });
 
-it("keeps a successful setup submit when its follow-up read fails", async () => {
+function setup(enabled = true) {
   const store = createStore();
-  const readError = new Error("Indexer unavailable");
-  chain.detectSharedSttReferenceStore.mockRejectedValue(readError);
-  const wrapper = ({ children }: PropsWithChildren) => (
-    <Provider store={store}>{children}</Provider>
-  );
-  const { result } = renderHook(
-    () => useSharedSttReference({ activeWallet: {} as never, enabled: false, isDemoWallet: false }),
-    { wrapper }
-  );
+  store.set(configAtom, { ...store.get(configAtom), sttSpendReference: "old-browser-reference" });
+  const wrapper = ({ children }: PropsWithChildren) => <Provider store={store}>{children}</Provider>;
+  const hook = renderHook(() => useSharedSttReference({ enabled }), { wrapper });
+  return { store, ...hook };
+}
 
-  await act(async () => {
-    await result.current.createInlineSharedReference();
-  });
+it("loads the server reference without using the old browser reference", async () => {
+  const { store } = setup();
+  await waitFor(() => expect(store.get(sharedSttReferenceStoreLoadingAtom)).toBe(false));
+  expect(server.detectSharedSttReferenceStore).toHaveBeenCalledWith();
+  expect(server.detectSharedSttReferenceStore).toHaveBeenCalledTimes(1);
+  expect(store.get(configAtom).sttSpendReference).toBe(REFERENCE);
+});
 
-  expect(store.get(sharedReferenceSubmitHashAtom)).toBe(TX_HASH);
-  expect(store.get(configAtom).sttSpendReference).toBe(`${TX_HASH}#3`);
-  expect(storage.saveSttReference).toHaveBeenCalledWith(`${TX_HASH}#3`);
-  expect(store.get(sharedReferenceBuildErrorAtom)).toBe(null);
+it("does not request setup before wallet connection begins", () => {
+  setup(false);
+  expect(server.detectSharedSttReferenceStore).not.toHaveBeenCalled();
+});
+
+it("clears a stale reference when the server has no helper", async () => {
+  server.detectSharedSttReferenceStore.mockResolvedValue({ status: "missing", activeReference: null });
+  const { store } = setup();
+  await waitFor(() => expect(store.get(sharedSttReferenceStoreLoadingAtom)).toBe(false));
+  expect(store.get(configAtom).sttSpendReference).toBe("");
+  expect(store.get(sharedSttReferenceStoreAtom)?.status).toBe("missing");
+});
+
+it("reports lookup failure and lets a read-only retry recover", async () => {
+  server.detectSharedSttReferenceStore.mockRejectedValueOnce(new Error("Server unavailable"));
+  const { store, result } = setup();
+  await waitFor(() => expect(store.get(sharedSttReferenceStoreLoadingAtom)).toBe(false));
   expect(store.get(sharedSttReferenceStoreErrorAtom)).not.toBe(null);
-  expect(transactions.buildDeploySharedSttReferenceTx).toHaveBeenCalledWith(
-    expect.anything(),
-    expect.objectContaining({ lockedLovelace: "5000000" })
-  );
-});
-
-
-it("keeps the successful submit and session reference if persistence is unavailable", async () => {
-  const store = createStore();
-  storage.saveSttReference.mockImplementationOnce(() => { throw new Error("Storage unavailable"); });
-  const wrapper = ({ children }: PropsWithChildren) => <Provider store={store}>{children}</Provider>;
-  const { result } = renderHook(
-    () => useSharedSttReference({ activeWallet: {} as never, enabled: false, isDemoWallet: false }),
-    { wrapper }
-  );
-  await act(async () => { await result.current.createInlineSharedReference(); });
-  expect(store.get(sharedReferenceSubmitHashAtom)).toBe(TX_HASH);
-  expect(store.get(configAtom).sttSpendReference).toBe(`${TX_HASH}#3`);
-  expect(store.get(sharedSttReferenceStoreErrorAtom)).toBe("Could not check the one-time setup.");
-});
-
-
-it("checks an existing configured reference before offering deployment", async () => {
-  const store = createStore();
-  const reference = `${TX_HASH}#4`;
-  store.set(configAtom, { ...store.get(configAtom), sttSpendReference: reference });
-  chain.detectSharedSttReferenceStore.mockResolvedValue({ status: "ready", activeReference: reference });
-  const wrapper = ({ children }: PropsWithChildren) => <Provider store={store}>{children}</Provider>;
-  renderHook(() => useSharedSttReference({ activeWallet: {} as never, enabled: true, isDemoWallet: false }), { wrapper });
-  await waitFor(() => expect(chain.detectSharedSttReferenceStore).toHaveBeenCalledWith(reference));
-  expect(transactions.buildDeploySharedSttReferenceTx).not.toHaveBeenCalled();
-});
-
-it("explicit replacement bypasses the unavailable saved reference and checks the new one", async () => {
-  const store = createStore();
-  store.set(configAtom, { ...store.get(configAtom), sttSpendReference: `${TX_HASH}#99` });
-  chain.detectSharedSttReferenceStore.mockRejectedValue(new Error("Old reference spent"));
-  const wrapper = ({ children }: PropsWithChildren) => <Provider store={store}>{children}</Provider>;
-  const { result } = renderHook(() => useSharedSttReference({ activeWallet: {} as never, enabled: false, isDemoWallet: false }), { wrapper });
-  await act(async () => { await result.current.createInlineSharedReference(true); });
-  expect(transactions.buildDeploySharedSttReferenceTx).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
-    sttSpendReference: "", allowDuplicateCurrentScriptReferences: true
-  }));
-  expect(chain.detectSharedSttReferenceStore).toHaveBeenCalledWith(`${TX_HASH}#3`);
-  expect(store.get(configAtom).sttSpendReference).toBe(`${TX_HASH}#3`);
+  expect(store.get(configAtom).sttSpendReference).toBe("");
+  await act(async () => { await result.current.refreshSharedSttReferenceStore(); });
+  expect(store.get(configAtom).sttSpendReference).toBe(REFERENCE);
+  expect(store.get(sharedSttReferenceStoreErrorAtom)).toBe(null);
 });

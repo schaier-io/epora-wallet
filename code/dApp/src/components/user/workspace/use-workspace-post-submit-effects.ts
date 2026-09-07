@@ -1,6 +1,8 @@
 "use client";
 
 import { getSttMintPolicyId } from "@/lib/contracts/blueprint";
+import { useAtomValue, useSetAtom } from "jotai";
+import { workspaceSessionAtom, invalidateBuildAtom, activeSubmitAtom } from "./atoms/transaction-flow.atoms";
 import { useEffect } from "react";
 
 import {
@@ -36,6 +38,10 @@ export function useWorkspacePostSubmitEffects(ctx: WorkspacePostSubmitEffectsCtx
     setMintCelebration
   } = ctx;
 
+  const session = useAtomValue(workspaceSessionAtom);
+  const invalidateBuild = useSetAtom(invalidateBuildAtom);
+  const setActiveSubmit = useSetAtom(activeSubmitAtom);
+
   useEffect(() => {
     const unit = mintConfirmation?.createdWalletUnit;
     if (mintConfirmation?.phase === "confirmed" && unit && mintCelebrationRef.current !== unit) {
@@ -67,8 +73,12 @@ export function useWorkspacePostSubmitEffects(ctx: WorkspacePostSubmitEffectsCtx
 
   useEffect(
     () => () => {
-      postSubmitRefreshTimersRef.current.forEach((id) => window.clearTimeout(id));
+      invalidateBuild();
+      setActiveSubmit(false);
+      const timers = postSubmitRefreshTimersRef.current;
+      postSubmitRefreshTimersRef.current = [];
+      timers.forEach((id) => window.clearTimeout(id));
     },
-    [postSubmitRefreshTimersRef]
+    [postSubmitRefreshTimersRef, session, invalidateBuild, setActiveSubmit]
   );
 }
