@@ -1,6 +1,6 @@
 {
   "scenario": "capped-list-and-scalar-near-transaction-limit-partial-streaming-payout",
-  "transactionBytes": 16039,
+  "transactionBytes": 16047,
   "nativeAssetCount": 120,
   "walletValueCborBytes": 398,
   "walletValueCborSha256": "6a0a162549a3f9668a19596b7637a9f4ed5fe8948bcb69597b893eb1c259716b",
@@ -29,9 +29,9 @@
     "sttAssetNameHex": "deadbeef"
   },
   "sttScriptHash": "6b5baf556d72b7260d9cb62611a9a53b954f951655953d7a207d8c2d",
-  "walletScriptHash": "9a12a2e55cb3ae3c5ac1bcdf64d70d00a260731bdddd7937deb20369",
+  "walletScriptHash": "0486edeaed62fde2c9e6aa67cf6ac8457230940a8b0b05cedb2d3f55",
   "sttScriptCodeSha256": "d21c4c6b79b6f95613bbb4a64fe51b15b6cacd50130938ad6da5728e92c6e926",
-  "walletScriptCodeSha256": "72892cf59836a099fdc058bbfc4895f16fe2393301fc275543dc18627651b598",
+  "walletScriptCodeSha256": "d50d87badcf7b21e5972f9d9afcacfbdacf82f5c2796c098e0f47dc192c5ce63",
   "scriptInputs": [
     {
       "tag": "Spend",

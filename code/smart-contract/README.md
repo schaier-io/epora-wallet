@@ -427,24 +427,28 @@ compiled artifacts. The following values come from [budgets.json](budgets.json),
 recorded by [check-budgets.mjs](scripts/check-budgets.mjs).
 
 **Correction (2026-09-06):** the previous 14,428-byte STT size and execution
-figures did not match the generated artifacts. The corrected snapshot values
-below were checked by `pnpm verify` on 2026-09-06.
+figures did not match the generated artifacts.
+
+**Optimization update (2026-09-07):** the measurements below replace the
+2026-09-06 snapshot after the three loop changes.
+[Before-and-after measurements](../../docs/validator-optimization-results.md)
+record each change and its trade-offs.
 VERIFIED: these values were read from `budgets.json`, `plutus.json`, and
 [manifest.json](fixtures/entrypoint-budget/manifest.json).
 
 VERIFIED snapshot inventory: `700 unit-cost records, 27 transaction groups, 11 script records`.
 This inventory does not report a fresh test pass count.
-`oversized_value_pay_streaming` records 13,386,440 memory units and
-4,544,203,915 CPU units. Both are the largest recorded group costs.
-It leaves 613,560 memory units, or 4.38%, below the repository ceiling.
-`policy_deep_use_allowance` records 13,064,678 memory units.
-`deep_value_pay_streaming` records 13,334,676 memory units.
-The 151-policy under-funded partial recovery records 12,181,078 memory units.
-The 4,999-byte token-wide partial recovery records 10,008,336 memory units.
-Active owner cleanup records 12,842,273 memory units for the 151-policy shape and
-10,665,569 for the token-wide shape.
+`oversized_value_pay_streaming` records 13,374,556 memory units and
+4,542,525,964 CPU units. Both are the largest recorded group costs.
+It leaves 625,444 memory units, or 4.47%, below the repository ceiling.
+`policy_deep_use_allowance` records 13,053,558 memory units.
+`deep_value_pay_streaming` records 13,322,792 memory units.
+The 151-policy under-funded partial recovery records 12,169,958 memory units.
+The 4,999-byte token-wide partial recovery records 9,997,216 memory units.
+Active owner cleanup records 12,834,381 memory units for the 151-policy shape and
+10,657,677 for the token-wide shape.
 
-VERIFIED: [plutus.json](plutus.json) contains 14,266 STT bytes and 9,375 wallet bytes.
+VERIFIED: [plutus.json](plutus.json) contains 14,273 STT bytes and 9,376 wallet bytes.
 These sizes use `compiledCode.length / 2`, before wallet parameter application.
 REPORTED (earlier refactor against `c6115f9`): extracting the wallet reserve
 policy saved 3 script bytes. Recorded transaction groups added at most 100 memory
@@ -478,13 +482,13 @@ The separate entrypoint fixture closes the entrypoint budget gap for one
 partial streaming payout. Mesh builds the transaction. Aiken's native
 transaction simulator then executes its compiled STT `Spend[0]` and wallet
 `Spend[1]` validators. VERIFIED snapshot: [manifest.json](fixtures/entrypoint-budget/manifest.json)
-records 8,548,941 memory units and 2,836,505,529 CPU units. The fixture reaches the user, combined-access, wallet, allowance, and
+records 8,528,938 memory units and 2,833,735,509 CPU units. The fixture reaches the user, combined-access, wallet, allowance, and
 stream caps. Its five beneficiaries each carry a full script payment address with
 an inline script stake credential. It uses high-width uint64 values and valid
 action times. It has
-120 native assets and a 16,046-byte unsigned transaction.
+120 native assets and a 16,047-byte unsigned transaction.
 The generator requires one crank key shared by funding and collateral. The
-size gate reserves 106 bytes for its vkey witness. This shape uses 16,152 bytes
+size gate reserves 106 bytes for its vkey witness. This shape uses 16,153 bytes
 with that witness, below the 16,384-byte ceiling. The earlier 103-byte estimate
 used a separate signer process. Mesh enables Conway set encoding, which adds
 a three-byte tag. The 250-asset fixture failed construction after script growth.
@@ -502,11 +506,11 @@ The retained Exact integration gate runs with
 It builds, signs, and natively evaluates two production-builder scenarios.
 Both use five native assets with 32-byte names, full script/stake payout addresses,
 one funding input, one collateral input, base-address change, and one payment-key witness.
-VERIFIED on 2026-09-06: `node scripts/check-beneficiary-distribution-native.mjs` recorded the following costs.
-Two beneficiaries with an inline wallet script use 11,438 signed bytes,
-1,654,629 memory units, and 584,870,576 CPU units. Fifteen beneficiaries with
-both reference scripts use 9,925 signed bytes, 7,933,668 memory units, and
-3,096,483,940 CPU units. The checker verifies the merged signature and body,
+VERIFIED on 2026-09-07: `node scripts/check-beneficiary-distribution-native.mjs` recorded the following costs.
+Two beneficiaries with an inline wallet script use 11,439 signed bytes,
+1,543,137 memory units, and 553,397,811 CPU units. Fifteen beneficiaries with
+both reference scripts use 9,925 signed bytes, 7,149,426 memory units, and
+2,872,685,223 CPU units. The checker verifies the merged signature and body,
 declared execution budgets, actual paired costs, and the signed byte limit.
 These fixtures do not establish live UTxO existence, current network parameters,
 or capacity for additional inputs, witnesses, and other asset layouts.
@@ -514,17 +518,17 @@ The current costs are not determined by the retained snapshots cited above.
 
 The diagnostic Aiken Consolidation fixture uses one 151-policy wallet input,
 two continuing wallet outputs, an external funding input, and normal change.
-VERIFIED snapshot: its named STT and wallet helper bodies record 10,294,584 memory units and
-3,208,020,913 CPU units together. These figures leave 26.47% memory margin and
-64.36% CPU margin. Helper-body figures are not the escape-path proof.
+VERIFIED snapshot: its named STT and wallet helper bodies record 10,280,336 memory units and
+3,204,436,418 CPU units together. These figures leave 26.57% memory margin and
+64.40% CPU margin. Helper-body figures are not the escape-path proof.
 
 **VERIFIED snapshot:** the compiled-entrypoint Consolidation fixture is the proof for
 this representative minimum escape. Mesh builds the exact transaction with one
 wallet input, two wallet outputs, ordinary funding and change, collateral, and
 two reference inputs. Aiken's native simulator then executes that transaction's
 compiled STT `Spend[0]` and wallet `Spend[1]` entrypoints. The manifest records
-5,486,880 memory units and 1,882,005,132 CPU units. This leaves 8,513,120 memory
-units, or 60.81%, and 7,117,994,868 CPU units, or 79.09%.
+5,472,632 memory units and 1,878,420,637 CPU units. This leaves 8,527,368 memory
+units, or 60.91%, and 7,121,579,363 CPU units, or 79.13%.
 
 The exact unsigned transaction is 11,151 bytes. It leaves 5,233 bytes, or
 31.94%, below 16,384 bytes. Mesh `Value.toCbor()` measures the 151-policy input
