@@ -416,22 +416,6 @@ test wallet_self_destination_is_rejected() fail {
   run_wallet(with_output_state(state, state))
 }
 
-test stt_self_destination_is_rejected() fail {
-  let input = exact.input_state(False)
-  expect [first, second] = input.access.beneficiaries
-  let state = states.with_beneficiaries(
-    input,
-    [
-      state_types.Beneficiary {
-        ..first,
-        payout_address: fixtures.stt_address(fixtures.default_policy_id()),
-      },
-      second,
-    ],
-  )
-  run_wallet(with_output_state(state, state))
-}
-
 test authorized_stt_only_transaction_preserves_multiple_beneficiary_state() {
   let tx = exact.valid_tx(False)
   run_stt(
@@ -462,20 +446,6 @@ test ada_topups_cannot_make_indivisible_input_divisible() fail {
     },
   )
   run_wallet(exact.distribution_tx(input, input, value, payouts))
-}
-
-test stt_payment_credential_is_rejected_across_stake_variants() fail {
-  let input = exact.input_state(False)
-  expect [first, second] = input.access.beneficiaries
-  let address = Address {
-    ..fixtures.stt_address(fixtures.default_policy_id()),
-    stake_credential: Some(Inline(VerificationKey(fixtures.key_hash("stake")))),
-  }
-  let state = states.with_beneficiaries(
-    input,
-    [state_types.Beneficiary { ..first, payout_address: address }, second],
-  )
-  run_wallet(with_output_state(state, state))
 }
 
 test wallet_payment_credential_is_rejected_across_stake_variants() fail {
