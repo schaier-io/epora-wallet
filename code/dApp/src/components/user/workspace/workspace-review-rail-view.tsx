@@ -79,6 +79,9 @@ export function WorkspaceReviewRailView() {
   const walletBalanceLovelace = walletBalanceSummary.loading || walletBalanceSummary.error
     ? null
     : getAssetQuantityByUnit(walletBalanceSummary.assets, "lovelace");
+  const [preparingProposal, setPreparingProposal] = useState(false);
+  const transactionInFlight = activeBuild !== null || activeSubmit;
+  const directActionInFlight = !preparingProposal && transactionInFlight;
   const proposalBlockingIssue = activeReadinessIssues.find((issue) => issue.blocking);
   const proposalBlockedReason = proposalBlockingIssue
     ? proposalBlockingIssue.recovery
@@ -100,16 +103,16 @@ export function WorkspaceReviewRailView() {
       normalizeWalletName(activeInferredSttStateForm.walletName)
       ? i18n("approvalRequestsCannotRenameThisWallet")
       : null;
-  const approvalBlockedReason = proposalBlockedReason ?? approvalPathBlockedReason;
+  const approvalBlockedReason = directActionInFlight
+    ? i18n("directActionInFlight")
+    : proposalBlockedReason ?? approvalPathBlockedReason;
   const approvalActionNote =
     approvalBlockedReason ??
     (approvalThreshold
       ? i18n("approvalRuleNeedsPower", { approvalThreshold })
       : proposalI18n("preparesTheTransactionAndSavesItForThe"));
-  const [preparingProposal, setPreparingProposal] = useState(false);
   const [refreshingChainState, setRefreshingChainState] = useState(false);
   const [refreshChainStateFailed, setRefreshChainStateFailed] = useState(false);
-  const transactionInFlight = activeBuild === selectedAction || activeSubmit;
 
   // Focused recovery for a stale fund pool: reload what the chain actually holds
   // (fund pools, token summaries). It never rebuilds, signs, or resubmits anything,

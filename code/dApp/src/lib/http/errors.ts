@@ -5,6 +5,8 @@ import defaultMessages from "@/i18n/generated/default-en/LibHttpErrors.json";
 
 const i18n = createDefaultTranslator("LibHttpErrors", defaultMessages);
 
+export const SHARED_HELPER_UNAVAILABLE_CODE = "SHARED_HELPER_UNAVAILABLE";
+
 /** Best-effort human-readable message from an unknown thrown value. */
 export function getErrorMessage(error: unknown, fallback = i18n("unknownError")): string {
   if (error instanceof Error && error.message.trim().length > 0) {

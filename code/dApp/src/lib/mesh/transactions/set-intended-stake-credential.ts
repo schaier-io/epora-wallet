@@ -41,8 +41,8 @@ export async function buildSetIntendedStakeCredentialTx(
     `${stage}:tx.draft-build`,
     `${stage}:tx.build`,
     async (overrides) => {
-      const { tx, fetcher, changeAddress, setupDiagnostics } = await setupTransaction(wallet, undefined, txFetcher);
-      addExtraRequiredSigners(tx, changeAddress, input.requiredSignerKeyHashes);
+      const { tx, fetcher, signerAddress, setupDiagnostics } = await setupTransaction(wallet, undefined, txFetcher);
+      addExtraRequiredSigners(tx, signerAddress, input.requiredSignerKeyHashes);
       const spendValidatorsByRef = new Map<string, string>();
       const forwarding = await runStateForwarding({
         definition: stateForwarding,
@@ -78,6 +78,7 @@ export async function buildSetIntendedStakeCredentialTx(
 
       return {
         tx,
+        signerAddress,
         diagnostics: {
           ...setupDiagnostics,
           action: stage,

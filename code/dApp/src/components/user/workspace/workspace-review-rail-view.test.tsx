@@ -496,3 +496,31 @@ describe("stale fund-pool recovery", () => {
     ).not.toBeInTheDocument();
   });
 });
+
+describe("approval saving during another transaction", () => {
+  it.each([
+    ["the selected action is building", "payout-streaming-payment", false],
+    ["another action is building", "mint", false],
+    ["the wallet is signing", null, true]
+  ] as const)("blocks saving while %s", (_label, activeBuild, activeSubmit) => {
+    const buildSelectedActionTx = vi.fn();
+    const handleSaveProposalFromBuild = vi.fn();
+    renderRail({
+      previewMatchesSelectedAction: true,
+      buildSelectedActionTx,
+      handleSaveProposalFromBuild,
+      seedStore: (store) => {
+        store.set(activeBuildAtom, activeBuild);
+        store.set(activeSubmitAtom, activeSubmit);
+      }
+    });
+
+    expect(reviewPanelProps.latest.secondaryActionDisabled).toBe(true);
+    expect(reviewPanelProps.latest.approvalActionNote).toBe(
+      "Wait for the transaction in progress to finish. Then this can be saved for the other signers."
+    );
+    (reviewPanelProps.latest.onSecondaryAction as () => void)();
+    expect(buildSelectedActionTx).not.toHaveBeenCalled();
+    expect(handleSaveProposalFromBuild).not.toHaveBeenCalled();
+  });
+});

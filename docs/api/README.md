@@ -756,6 +756,9 @@ them.
   preprod chain data, so the risk it manages is quota drain, not disclosure.
   Use a chain provider directly instead. You will get the same data with your
   own quota.
+- **`GET /api/shared-helper`** finds the shared setup reference for the app's
+  browser client. It requires no authentication, but rate limits apply.
+  Its response is part of the app's setup flow, outside the public API contract.
 - **`POST /api/stt/sync`** drives the indexer. It is gated by a shared secret
   and exists for scheduled jobs, not for callers.
 - **`POST /api/koios/credential-utxos`** exists only because Koios sends no

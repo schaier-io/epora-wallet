@@ -36,7 +36,7 @@ export async function buildDeploySharedSttReferenceTx(
     "stt-reference-store:tx.draft-build",
     "stt-reference-store:tx.build",
     async () => {
-      const { tx, fetcher, setupDiagnostics } = await setupTransaction(wallet, undefined, txFetcher);
+      const { tx, fetcher, signerAddress, setupDiagnostics } = await setupTransaction(wallet, undefined, txFetcher);
       const inspection = await inspectSharedSttReferenceStore(fetcher, {
         configuredReference: options?.sttSpendReference,
         script: sttScript,
@@ -67,6 +67,7 @@ export async function buildDeploySharedSttReferenceTx(
 
       return {
         tx,
+        signerAddress,
         diagnostics: {
           ...setupDiagnostics,
           sttScriptHash,

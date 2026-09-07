@@ -1,3 +1,4 @@
+import { decodeRequiredSigners } from "@/lib/proposals/verify";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { pubKeyAddress, serializeAddressObj, serializeData, resolveScriptHash, type UTxO } from "@meshsdk/core";
@@ -79,4 +80,13 @@ test("consolidate API accepts preparation intent and rejects caller output layou
   for (const extra of [{ walletOutputs: [] }, { outputDatum: f.datum }, { outputAssets: [] }, { authorityPath: "admin" }, { extraTransfers: [] }]) {
     assert.equal(ConsolidateTxRequestSchema.safeParse({ ...request, ...extra }).success, false);
   }
+});
+
+test("preparation uses the beneficiary authority when its change address has a different key", async () => {
+  const f = fixture();
+  const changeAddress = serializeAddressObj(pubKeyAddress("77".repeat(28)), 0);
+  f.wallet.getChangeAddress = async () => changeAddress;
+  const result = await buildBeneficiaryPreparationTx(f.wallet, f.config, f.input, f.fetcher);
+  assert.deepEqual(decodeRequiredSigners(result.txHex), [KEY]);
+  assert.equal(result.signerAddress, ADDRESS);
 });

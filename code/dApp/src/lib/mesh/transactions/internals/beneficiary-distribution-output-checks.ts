@@ -13,7 +13,6 @@ export type BeneficiaryDistributionEvidence = {
   sttInput: WalletInputRef;
   walletInput: WalletInputRef;
   walletPaymentScriptHash: string;
-  sttPaymentScriptHash: string;
 };
 
 function inlineDatumCbor(output: CstTransactionOutput): string | undefined {
@@ -41,7 +40,7 @@ export function assertBeneficiaryDistributionOutputs(txHex: string, evidence: Be
     }
   }
   const used = new Set<number>();
-  for (const [expectedIndex, expected] of evidence.outputs.entries()) {
+  for (const expected of evidence.outputs) {
     const tag = serializeData(expected.inlineDatum, "Mesh");
     const matches = outputs.flatMap((output, index) => inlineDatumCbor(output) === tag ? [index] : []);
     if (matches.length !== 1 || used.has(matches[0]!)) {
@@ -50,9 +49,6 @@ export function assertBeneficiaryDistributionOutputs(txHex: string, evidence: Be
     const index = matches[0]!;
     used.add(index);
     const output = outputs[index]!;
-    if (expectedIndex > 0 && deserializeAddress(output.address().toBech32().toString()).scriptHash === evidence.sttPaymentScriptHash) {
-      throw new Error("Exact distribution cannot pay a beneficiary to the State script.");
-    }
     if (output.address().toBech32().toString() !== expected.address) {
       throw new Error("Exact distribution changed a configured full payout address.");
     }

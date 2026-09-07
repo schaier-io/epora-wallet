@@ -29,5 +29,11 @@
   "scheduledPayment": "Scheduled payment",
   "distribution": "Exact distribution",
   "preparation": "Recovery preparation",
-  "preparationRequirements": "Resolve the ADA requirement before preparing funds."
+  "preparationRequirements": "Resolve the ADA requirement before preparing funds.",
+  "fundPools": "Fund pools",
+  "newFundPools": "New fund pools",
+  "forwardedSttAssets": "Forwarded STT assets",
+  "stakingAddress": "Staking address",
+  "withdrawalAmount": "Withdrawal amount",
+  "voteJson": "Vote JSON"
 }

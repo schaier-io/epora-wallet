@@ -1,7 +1,7 @@
 "use client";
 import { beneficiaryPreparationActiveAtom } from "./atoms/forms/consolidate-form.atoms";
 import { beneficiaryPreparationPreviewAtom } from "./atoms/beneficiary-preparation.atoms";
-import { lockedContractUtxosAtom, lockedContractUtxosLoadingAtom, lockedContractUtxosErrorAtom } from "./atoms/workspace-data.atoms";
+import { lockedContractUtxosAtom, lockedContractUtxosLoadingAtom, lockedContractUtxosErrorAtom, walletBalanceSummaryAtom } from "./atoms/workspace-data.atoms";
 import { renderNowMsAtom } from "./atoms/workspace-ui.atoms";
 import { useMemo } from "react";
 import { useAtomValue } from "jotai";
@@ -42,6 +42,7 @@ export function useWorkspaceActionFieldErrors(ctx: WorkspaceActionFieldErrorsCtx
   const lockedContractUtxos = useAtomValue(lockedContractUtxosAtom);
   const lockedContractUtxosLoading = useAtomValue(lockedContractUtxosLoadingAtom);
   const lockedContractUtxosError = useAtomValue(lockedContractUtxosErrorAtom);
+  const walletBalanceSummary = useAtomValue(walletBalanceSummaryAtom);
   const beneficiaryStreamStopId = useAtomValue(beneficiaryStreamStopIdAtom);
   const nowMs = useAtomValue(renderNowMsAtom);
   const consolidateAuthorityPath = useAtomValue(consolidateAuthorityPathAtom);
@@ -94,6 +95,7 @@ export function useWorkspaceActionFieldErrors(ctx: WorkspaceActionFieldErrorsCtx
     () => computeActionFieldErrors({
         beneficiaryPreparation: preparationActive ? { error: preparation.error, ready: preparation.plan?.isReady ?? false } : undefined,
         beneficiaryStreamStopId, nowMs, lockedContractUtxos, lockedContractUtxosLoading, lockedContractUtxosError,
+        walletBalanceSummary,
         activeInferredSttStateForm,
         activePaymentKeyHash,
         consolidateAuthorityPath,
@@ -146,6 +148,7 @@ export function useWorkspaceActionFieldErrors(ctx: WorkspaceActionFieldErrorsCtx
     [
     preparationActive, preparation,
     beneficiaryStreamStopId, nowMs, lockedContractUtxos, lockedContractUtxosLoading, lockedContractUtxosError,
+    walletBalanceSummary,
     activeInferredSttStateForm,
     activePaymentKeyHash,
     consolidateAuthorityPath,

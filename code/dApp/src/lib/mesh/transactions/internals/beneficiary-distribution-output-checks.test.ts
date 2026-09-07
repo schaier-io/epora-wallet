@@ -11,7 +11,7 @@ const UNIT="ee".repeat(28)+"01";
 const STATE_REF={txHash:"22".repeat(32),outputIndex:0};
 const WALLET_REF={txHash:"33".repeat(32),outputIndex:1};
 function plan():BeneficiaryDistributionEvidence {
-  return {changeAddress:CHANGE,sttInput:STATE_REF,walletInput:WALLET_REF,walletPaymentScriptHash:WALLET_HASH,sttPaymentScriptHash:STATE_HASH,
+  return {changeAddress:CHANGE,sttInput:STATE_REF,walletInput:WALLET_REF,walletPaymentScriptHash:WALLET_HASH,
     outputs:[
       {address:STATE,amount:[{unit:"lovelace",quantity:"2000000"}],inlineDatum:{alternative:0,fields:[]}},
       ...[CHANGE,PAYOUT].map((address,index)=>({address,amount:[{unit:"lovelace",quantity:"5000000"},{unit:UNIT,quantity:"2"}],inlineDatum:{alternative:0,fields:[index+7,STATE_REF.txHash,0]}}))
@@ -36,14 +36,12 @@ test("exact output evidence rejects underpaid ADA, native changes, extra native 
     (out:ExpectedDistributionOutput[])=>{out[2]!.address=serializeAddressObj(scriptAddress("cc".repeat(28)),0);}
   ]){const evidence=plan();const outputs=structuredClone(evidence.outputs);mutate(outputs);assert.throws(()=>assertBeneficiaryDistributionOutputs(encoded(outputs),evidence),/reduced|changed|unplanned native/);}
 });
-test("exact output evidence rejects duplicate tags, stale tags, missing inputs and wallet/STT destinations",()=>{
+test("exact output evidence rejects duplicate tags, stale tags, missing inputs and wallet destinations",()=>{
   const evidence=plan();
   assert.throws(()=>assertBeneficiaryDistributionOutputs(encoded([...evidence.outputs,evidence.outputs[1]!]),evidence),/one distinct output/);
   const stale=structuredClone(evidence.outputs);stale[1]!.inlineDatum.fields[1]="99".repeat(32);
   assert.throws(()=>assertBeneficiaryDistributionOutputs(encoded(stale),evidence),/one distinct output/);
   assert.throws(()=>assertBeneficiaryDistributionOutputs(encoded(evidence.outputs,true),evidence),/required consumed input/);
-  for(const address of [WALLET,serializeAddressObj(scriptAddress(STATE_HASH,"dd".repeat(28),false),0)]){
-    const selfPlan=plan();selfPlan.outputs[1]!.address=address;
-    assert.throws(()=>assertBeneficiaryDistributionOutputs(encoded(selfPlan.outputs),selfPlan),/continuing wallet|State script/);
-  }
+  const selfPlan=plan();selfPlan.outputs[1]!.address=WALLET;
+  assert.throws(()=>assertBeneficiaryDistributionOutputs(encoded(selfPlan.outputs),selfPlan),/continuing wallet/);
 });

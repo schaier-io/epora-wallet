@@ -15,6 +15,7 @@ import {
   validateStateDatum
 } from "@/lib/contracts/state-validation";
 import {
+  validateBeneficiaryDestinations,
   validateFreshStreamingPayments,
   validateMintStateDatum
 } from "@/lib/contracts/state-validation-streaming";
@@ -71,6 +72,41 @@ const VALID_PAYOUT_ADDRESS: ConstrData = {
   ]
 };
 
+function scriptPayoutAddress(scriptHash: string, withStake = false): ConstrData {
+  return {
+    alternative: 0,
+    fields: [
+      { alternative: 1, fields: [scriptHash] },
+      withStake
+        ? {
+            alternative: 0,
+            fields: [{ alternative: 0, fields: [{ alternative: 0, fields: [KEY_B] }] }]
+          }
+        : { alternative: 1, fields: [] }
+    ]
+  };
+}
+
+function withBeneficiaryPayoutAddress(state: ConstrData, payoutAddress: ConstrData): ConstrData {
+  const access = state.fields[0] as ConstrData;
+  const beneficiaries = access.fields[2] as ConstrData[];
+  const beneficiary = beneficiaries[0]!;
+  return {
+    ...state,
+    fields: [
+      {
+        ...access,
+        fields: [
+          access.fields[0]!,
+          access.fields[1]!,
+          [{ ...beneficiary, fields: [...beneficiary.fields.slice(0, 4), payoutAddress] }]
+        ]
+      },
+      ...state.fields.slice(1)
+    ]
+  };
+}
+
 function withStreamingPayments(base: ConstrData, payments: ConstrData[]): ConstrData {
   const fields = [...base.fields];
   fields[2] = payments;
@@ -118,6 +154,42 @@ function hasError(errors: string[], pattern: RegExp): boolean {
 test("a single-admin wallet validates with no errors", () => {
   const datum = stateFormToDatum(formWith({ users: [adminUser()] }));
   assert.deepEqual(validateStateDatum(datum), []);
+});
+
+test("configuration rejects beneficiary destinations at the wallet and State scripts", () => {
+  const base = stateFormToDatum(
+    formWith({ users: [adminUser()], beneficiaries: [beneficiary()] })
+  );
+  const walletScriptHash = "ee".repeat(28);
+  const walletDestination = withBeneficiaryPayoutAddress(
+    base,
+    scriptPayoutAddress(walletScriptHash)
+  );
+  const stateDestination = withBeneficiaryPayoutAddress(
+    base,
+    scriptPayoutAddress(STT_POLICY_ID, true)
+  );
+  const externalDestination = withBeneficiaryPayoutAddress(
+    base,
+    scriptPayoutAddress("ff".repeat(28), true)
+  );
+
+  assert.ok(
+    hasError(
+      validateBeneficiaryDestinations(walletDestination, walletScriptHash, STT_POLICY_ID),
+      /cannot use this smart wallet/i
+    )
+  );
+  assert.ok(
+    hasError(
+      validateMintStateDatum(stateDestination, undefined, STT_POLICY_ID),
+      /cannot use this wallet's State script/i
+    )
+  );
+  assert.deepEqual(
+    validateBeneficiaryDestinations(externalDestination, walletScriptHash, STT_POLICY_ID),
+    []
+  );
 });
 
 test("state integers accept exact uint64 bigint and reject imprecise JSON numbers", () => {

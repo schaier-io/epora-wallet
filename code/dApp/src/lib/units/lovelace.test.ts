@@ -27,6 +27,23 @@ test("formatLovelaceAsAda handles negatives and non-numeric input", () => {
   assert.equal(formatLovelaceAsAda("not-a-number"), "not-a-number");
 });
 
+// BigInt("") and BigInt("   ") are both 0n, and BigInt("0x10") is 16n. An amount
+// field the reader has not filled in yet reaches these helpers as "", and it was
+// shown as a real zero balance rather than as nothing.
+test("formatLovelaceAsAda does not invent an amount for input BigInt would accept", () => {
+  assert.equal(formatLovelaceAsAda(""), "");
+  assert.equal(formatLovelaceAsAda("   "), "   ");
+  assert.equal(formatLovelaceAsAda("0x10"), "0x10");
+  assert.equal(formatLovelaceAsAdaRounded(""), "");
+  assert.equal(formatLovelaceAsAdaRounded("0x10"), "0x10");
+});
+
+test("formatLovelaceAsAda still reads a plainly signed integer", () => {
+  assert.equal(formatLovelaceAsAda("+2500000"), "2.5");
+  assert.equal(formatLovelaceAsAda(" 2500000 "), "2.5");
+  assert.equal(formatLovelaceAsAda("0"), "0");
+});
+
 test("formatLovelaceAsAda stays exact past Number.MAX_SAFE_INTEGER", () => {
   // 9,007,199,254.740993 ADA: the naive Number(lovelace)/1e6 path loses the
   // trailing digit here; the bigint implementation must not.

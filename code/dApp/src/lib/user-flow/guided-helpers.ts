@@ -136,20 +136,20 @@ export function derivePermissionWalletBadgeLabels(
   const badges: string[] = [];
 
   if (capabilityMap.hasDirectAdminSigner) {
-    badges.push("Owner");
+    badges.push(i18n("owner"));
   }
   if (capabilityMap.hasDirectUserMatch) {
-    badges.push("Allowance");
+    badges.push(i18n("allowance"));
   }
   if (capabilityMap.hasBeneficiaryMatch) {
-    badges.push("Recovery");
+    badges.push(i18n("recovery"));
   }
   if (capabilityMap.hasStreamingPayments) {
-    badges.push("Scheduled");
+    badges.push(i18n("scheduled"));
   }
 
   if (badges.length === 0) {
-    badges.push("Receive only");
+    badges.push(i18n("receiveOnly"));
   }
 
   return badges;

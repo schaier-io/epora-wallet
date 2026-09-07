@@ -10,6 +10,8 @@ layout and the contract-level details a contributor or auditor needs.
 
 ## Validator Roles
 
+See [state diagrams and action cycles](../../docs/smart-contract-state-diagram.md) for every action's permissions and a separate example sequence.
+
 - `validators/stt.ak`
   Owns both sides of the STT lifecycle:
   - `mint` mints the state-thread token (STT) and validates the initial state datum.
@@ -101,16 +103,18 @@ The field stores the encoded `Address` as `Data`, with no extra wrapper. Mint an
 value exactly. This avoids repeated address decoding when the action does not use it.
 `DistributeBeneficiaries` casts this field to route exact payouts. `UseBeneficiary` and
 `ExitBeneficiary` retain their current payout rules and do not use this destination.
-State ingress checks address shape, but it permits a payout payment credential that
-matches the wallet or STT script. Exact distribution rejects both credentials, including
-stake variants. A beneficiary that will use exact distribution must use another payment
-credential. The other beneficiary actions remain available because they do not use this
-field.
+On-chain mint and `UpdateState` reject a payout payment credential that matches the
+STT script, including stake variants. The maintained frontend also rejects a payment
+credential that matches the derived wallet script at mint and update. Exact distribution
+does not repeat these checks. It cannot create a wallet output because its wallet output
+count must be zero. The other beneficiary actions remain available because they do not use
+this field.
 
 _VERIFIED:_ `state/configuration.ak::expect_beneficiaries_are_valid` checks address
-shape. `wallet/beneficiary_distribution.ak::all_shares_are_paid` rejects both protocol
-payment credentials. The matching rejection tests are in
-`validators/beneficiary_distribution_tests.ak`.
+shape. `state/configuration.ak::beneficiary_destinations_are_valid` rejects the STT
+payment credential at mint and `UpdateState`. `wallet/rules.ak` requires zero wallet
+outputs for exact distribution. The maintained dApp validates the derived wallet credential
+in `state-validation-streaming.ts`.
 
 `StreamingPayment` remains an eight-field constructor. Payee cancellation is
 represented only by a smaller `end_date`; there is no persistent cancellation
@@ -426,17 +430,17 @@ stated a 1,024-byte deployment margin. Those figures did not reflect the current
 compiled artifacts. The following values come from [budgets.json](budgets.json),
 recorded by [check-budgets.mjs](scripts/check-budgets.mjs).
 
-**Correction (2026-09-06):** the previous 14,428-byte STT size and execution
+**Correction (2026-09-07):** the previous 14,266-byte STT size and execution
 figures did not match the generated artifacts. The corrected snapshot values
-below were checked by `pnpm verify` on 2026-09-06.
+below were checked by `pnpm budgets:update` on 2026-09-07.
 VERIFIED: these values were read from `budgets.json`, `plutus.json`, and
 [manifest.json](fixtures/entrypoint-budget/manifest.json).
 
-VERIFIED snapshot inventory: `700 unit-cost records, 27 transaction groups, 11 script records`.
+VERIFIED snapshot inventory: `734 unit-cost records, 28 transaction groups, 11 script records`.
 This inventory does not report a fresh test pass count.
-`oversized_value_pay_streaming` records 13,386,440 memory units and
-4,544,203,915 CPU units. Both are the largest recorded group costs.
-It leaves 613,560 memory units, or 4.38%, below the repository ceiling.
+`oversized_value_pay_streaming` records 13,386,840 memory units and
+4,544,267,915 CPU units. Both are the largest recorded group costs.
+It leaves 613,160 memory units, or 4.38%, below the repository ceiling.
 `policy_deep_use_allowance` records 13,064,678 memory units.
 `deep_value_pay_streaming` records 13,334,676 memory units.
 The 151-policy under-funded partial recovery records 12,181,078 memory units.
@@ -444,7 +448,7 @@ The 4,999-byte token-wide partial recovery records 10,008,336 memory units.
 Active owner cleanup records 12,842,273 memory units for the 151-policy shape and
 10,665,569 for the token-wide shape.
 
-VERIFIED: [plutus.json](plutus.json) contains 14,266 STT bytes and 9,375 wallet bytes.
+VERIFIED: [plutus.json](plutus.json) contains 14,642 STT bytes and 9,302 wallet bytes.
 These sizes use `compiledCode.length / 2`, before wallet parameter application.
 REPORTED (earlier refactor against `c6115f9`): extracting the wallet reserve
 policy saved 3 script bytes. Recorded transaction groups added at most 100 memory
@@ -478,19 +482,19 @@ The separate entrypoint fixture closes the entrypoint budget gap for one
 partial streaming payout. Mesh builds the transaction. Aiken's native
 transaction simulator then executes its compiled STT `Spend[0]` and wallet
 `Spend[1]` validators. VERIFIED snapshot: [manifest.json](fixtures/entrypoint-budget/manifest.json)
-records 8,548,941 memory units and 2,836,505,529 CPU units. The fixture reaches the user, combined-access, wallet, allowance, and
+records 8,648,558 memory units and 2,871,285,245 CPU units. The fixture reaches the user, combined-access, wallet, allowance, and
 stream caps. Its five beneficiaries each carry a full script payment address with
 an inline script stake credential. It uses high-width uint64 values and valid
 action times. It has
-120 native assets and a 16,046-byte unsigned transaction.
+130 native assets and a 16,003-byte unsigned transaction.
 The generator requires one crank key shared by funding and collateral. The
-size gate reserves 106 bytes for its vkey witness. This shape uses 16,152 bytes
-with that witness, below the 16,384-byte ceiling. The earlier 103-byte estimate
-used a separate signer process. Mesh enables Conway set encoding, which adds
+size gate reserves 106 bytes for its vkey witness. This shape uses 16,109 bytes
+with that witness and leaves 275 bytes below the 16,384-byte ceiling. The earlier
+103-byte estimate used a separate signer process. Mesh enables Conway set encoding, which adds
 a three-byte tag. The 250-asset fixture failed construction after script growth.
 The first optimization pass reduced the 30-asset transaction to 15,953 bytes.
 That fell below this test's unchanged 16,000-byte floor.
-The final 120-asset fixture restores the size stress after further script reductions.
+The final 130-asset fixture restores the size stress after further script changes.
 It retains every State cap and scalar-width profile.
 Its execution costs describe this larger fixture, not the previous 30-asset fixture.
 The Mesh evaluator
@@ -502,11 +506,11 @@ The retained Exact integration gate runs with
 It builds, signs, and natively evaluates two production-builder scenarios.
 Both use five native assets with 32-byte names, full script/stake payout addresses,
 one funding input, one collateral input, base-address change, and one payment-key witness.
-VERIFIED on 2026-09-06: `node scripts/check-beneficiary-distribution-native.mjs` recorded the following costs.
-Two beneficiaries with an inline wallet script use 11,438 signed bytes,
-1,654,629 memory units, and 584,870,576 CPU units. Fifteen beneficiaries with
-both reference scripts use 9,925 signed bytes, 7,933,668 memory units, and
-3,096,483,940 CPU units. The checker verifies the merged signature and body,
+VERIFIED on 2026-09-07: `node scripts/check-beneficiary-distribution-native.mjs` recorded the following costs.
+Two beneficiaries with an inline wallet script use 11,365 signed bytes,
+1,638,937 memory units, and 573,732,788 CPU units. Fifteen beneficiaries with
+both reference scripts use 9,925 signed bytes, 7,812,078 memory units, and
+3,012,326,530 CPU units. The checker verifies the merged signature and body,
 declared execution budgets, actual paired costs, and the signed byte limit.
 These fixtures do not establish live UTxO existence, current network parameters,
 or capacity for additional inputs, witnesses, and other asset layouts.
@@ -514,8 +518,8 @@ The current costs are not determined by the retained snapshots cited above.
 
 The diagnostic Aiken Consolidation fixture uses one 151-policy wallet input,
 two continuing wallet outputs, an external funding input, and normal change.
-VERIFIED snapshot: its named STT and wallet helper bodies record 10,294,584 memory units and
-3,208,020,913 CPU units together. These figures leave 26.47% memory margin and
+VERIFIED snapshot: its named STT and wallet helper bodies record 10,294,984 memory units and
+3,208,084,913 CPU units together. These figures leave 26.47% memory margin and
 64.36% CPU margin. Helper-body figures are not the escape-path proof.
 
 **VERIFIED snapshot:** the compiled-entrypoint Consolidation fixture is the proof for
@@ -523,8 +527,8 @@ this representative minimum escape. Mesh builds the exact transaction with one
 wallet input, two wallet outputs, ordinary funding and change, collateral, and
 two reference inputs. Aiken's native simulator then executes that transaction's
 compiled STT `Spend[0]` and wallet `Spend[1]` entrypoints. The manifest records
-5,486,880 memory units and 1,882,005,132 CPU units. This leaves 8,513,120 memory
-units, or 60.81%, and 7,117,994,868 CPU units, or 79.09%.
+5,487,480 memory units and 1,882,101,132 CPU units. This leaves 8,512,520 memory
+units, or 60.80%, and 7,117,898,868 CPU units, or 79.09%.
 
 The exact unsigned transaction is 11,151 bytes. It leaves 5,233 bytes, or
 31.94%, below 16,384 bytes. Mesh `Value.toCbor()` measures the 151-policy input

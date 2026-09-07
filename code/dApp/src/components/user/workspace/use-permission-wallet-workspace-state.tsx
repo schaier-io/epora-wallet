@@ -43,7 +43,7 @@ export function usePermissionWalletWorkspaceState() {
     activePaymentKeyHash,
     isDemoWallet,
     networkId,
-    createInlineSharedReference,
+    refreshSharedSttReferenceStore,
     resetSharedReferencePreview,
     rememberRecipient,
     rememberRecipients,
@@ -651,7 +651,7 @@ export function usePermissionWalletWorkspaceState() {
     handleCreateAnotherWallet,
     handleOpenCreatedWallet,
     copyTextToClipboard,
-    createInlineSharedReference,
+    refreshSharedSttReferenceStore,
     setupCheckpoint,
 
     // Guided sidebar: sections, admin groups, badges, and selection state.

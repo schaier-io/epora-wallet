@@ -48,12 +48,76 @@ function validateFreshStreamingPaymentBoundary(
   }
 }
 
+function validateBeneficiaryDestinationBoundary(
+  beneficiary: ConstrData,
+  index: number,
+  walletPaymentScriptHash: string | undefined,
+  sttPaymentScriptHash: string | undefined,
+  errors: string[]
+) {
+  const payoutAddress = beneficiary.fields[4];
+  if (
+    walletPaymentScriptHash &&
+    addressUsesPaymentScriptHash(payoutAddress, walletPaymentScriptHash)
+  ) {
+    errors.push(
+      i18n("recoveryContactValue1CannotUseThisWallet", { value1: index + 1 })
+    );
+  }
+  if (
+    sttPaymentScriptHash &&
+    addressUsesPaymentScriptHash(payoutAddress, sttPaymentScriptHash)
+  ) {
+    errors.push(
+      i18n("recoveryContactValue1CannotUseThisStateScript", { value1: index + 1 })
+    );
+  }
+}
+
+export function validateBeneficiaryDestinations(
+  stateDatum: ConstrData,
+  walletPaymentScriptHash?: string,
+  sttPaymentScriptHash?: string
+): string[] {
+  let sections;
+  try {
+    sections = readStateSections(stateDatum, "State datum");
+  } catch {
+    return [];
+  }
+
+  const errors: string[] = [];
+  sections.beneficiaries.forEach((beneficiary, index) => {
+    if (
+      isConstrData(beneficiary) &&
+      beneficiary.alternative === 0 &&
+      beneficiary.fields.length === 5
+    ) {
+      validateBeneficiaryDestinationBoundary(
+        beneficiary,
+        index,
+        walletPaymentScriptHash,
+        sttPaymentScriptHash,
+        errors
+      );
+    }
+  });
+  return errors;
+}
+
 export function validateMintStateDatum(
   stateDatum: ConstrData,
   walletPaymentScriptHash?: string,
   sttPolicyId?: string
 ): string[] {
   const errors = validateCurrentStateDatum(stateDatum);
+  errors.push(
+    ...validateBeneficiaryDestinations(
+      stateDatum,
+      walletPaymentScriptHash,
+      sttPolicyId
+    )
+  );
   let sections;
   try {
     sections = readStateSections(stateDatum, "Mint State datum");
