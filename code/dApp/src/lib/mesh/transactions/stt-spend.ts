@@ -174,13 +174,13 @@ export async function buildSttSpendTx(
         txFetcher,
         payoutBuild.setupOptions
       );
-      const { tx, fetcher, setupDiagnostics, changeAddress } = setup;
+      const { tx, fetcher, setupDiagnostics, signerAddress } = setup;
       // Co-signers of an approval request: the validator reads `extra_signatories`,
       // which holds only the body's required signers, so a co-signer has to be
       // listed here for their signature to count. Every listed key must then sign.
       const extraRequiredSignerKeyHashes = addExtraRequiredSigners(
         tx,
-        changeAddress,
+        signerAddress,
         input.requiredSignerKeyHashes
       );
       const spendValidatorsByRef = new Map<string, string>();
@@ -481,7 +481,7 @@ export async function buildSttSpendTx(
           } else if (action === "stop-beneficiary-stream") {
             const sourceStateDatum = decodeConstrDatumFromUtxo(scriptInput);
             if (!sourceStateDatum) throw new Error("Stopping a beneficiary stream requires an inline STT state datum.");
-            const connectedSigner = deserializeAddress(changeAddress).pubKeyHash;
+            const connectedSigner = deserializeAddress(signerAddress).pubKeyHash;
             if (connectedSigner !== input.beneficiarySignerKeyHash?.trim().toLowerCase()) {
               throw new Error("The beneficiary signer must match the connected wallet payment key hash.");
             }
@@ -621,6 +621,7 @@ export async function buildSttSpendTx(
 
       return {
         tx,
+        signerAddress,
         diagnostics: {
           ...setupDiagnostics,
           action,

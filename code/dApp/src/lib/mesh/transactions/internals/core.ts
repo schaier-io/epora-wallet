@@ -1,3 +1,4 @@
+import { readWalletAuthorityAddress } from "@/lib/wallet/authority-address";
 import { type RuntimeTxBuilder } from "./budget-runtime-builder";
 import {
   MIN_COLLATERAL_LOVELACE,
@@ -72,6 +73,8 @@ export async function setupTransaction(
     source: changeAddressSource,
     diagnostics: changeAddressDiagnostics
   } = await resolveChangeAddress(wallet, walletUtxos, addressCandidates);
+  const signerAddress = await readWalletAuthorityAddress(wallet);
+  if (!signerAddress) throw new Error("Connected wallet returned no authority address.");
   const spendableWalletUtxos = walletUtxos.filter((utxo) => !hasReferenceScript(utxo));
   const referenceScriptWalletUtxos = walletUtxos.filter((utxo) =>
     hasReferenceScript(utxo)
@@ -206,7 +209,7 @@ export async function setupTransaction(
 
       txBuilder.protocolParams?.(protocolParams);
       txBuilder.selectUtxosFrom?.(spendableWalletUtxos);
-      tx.setChangeAddress(changeAddress).setRequiredSigners([changeAddress]);
+      tx.setChangeAddress(changeAddress).setRequiredSigners([signerAddress]);
       tx.setNetwork(NETWORK);
 
       const { invalidBefore, invalidHereafter } = getValidityWindow(
@@ -221,6 +224,7 @@ export async function setupTransaction(
   return {
     tx,
     fetcher,
+    signerAddress,
     changeAddress,
     walletUtxos,
     spendableWalletUtxos,

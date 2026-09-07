@@ -52,12 +52,12 @@ export async function buildBeneficiaryDistributionTx(wallet: WalletSource, confi
   const sttPaymentScriptHash = deserializeAddress(definition.address).scriptHash;
   const referenceTime = input.validityWindowReferenceTimeMs ?? Date.now();
   const prepared = await buildTransactionWithReestimatedLimits("beneficiary-distribution:draft-build", "beneficiary-distribution:build", async (overrides) => {
-    const { tx, fetcher, setupDiagnostics, changeAddress } = await setupTransaction(wallet, referenceTime, txFetcher);
-    const connectedSigner = deserializeAddress(changeAddress).pubKeyHash;
+    const { tx, fetcher, setupDiagnostics, signerAddress, changeAddress } = await setupTransaction(wallet, referenceTime, txFetcher);
+    const connectedSigner = deserializeAddress(signerAddress).pubKeyHash;
     if (connectedSigner !== input.beneficiarySignerKeyHash!.trim().toLowerCase()) {
       throw new Error("Exact distribution beneficiary signer must match the connected wallet.");
     }
-    addExtraRequiredSigners(tx, changeAddress, input.requiredSignerKeyHashes);
+    addExtraRequiredSigners(tx, signerAddress, input.requiredSignerKeyHashes);
     const spendValidatorsByRef = new Map<string, string>();
     const outputs: ExpectedDistributionOutput[] = [];
     const warnings: string[] = [];
@@ -174,6 +174,7 @@ export async function buildBeneficiaryDistributionTx(wallet: WalletSource, confi
     });
     return {
       tx,
+      signerAddress,
       diagnostics: {
         ...setupDiagnostics,
         ...forwarding.diagnostics

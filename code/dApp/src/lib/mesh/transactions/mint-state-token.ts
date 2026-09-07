@@ -59,6 +59,7 @@ export async function buildMintStateTokenTx(
       const setup = await setupTransaction(wallet, undefined, txFetcher);
       const {
         tx,
+        signerAddress,
         fetcher,
         walletUtxos,
         spendableWalletUtxos,
@@ -185,6 +186,7 @@ export async function buildMintStateTokenTx(
 
       return {
         tx,
+        signerAddress,
         diagnostics: {
           ...setupDiagnostics,
           policyId,

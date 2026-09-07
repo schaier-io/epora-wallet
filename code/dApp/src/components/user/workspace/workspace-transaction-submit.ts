@@ -1,7 +1,7 @@
 import { beneficiaryPreparationActiveAtom, consolidateWalletInputsAtom } from "./atoms/forms/consolidate-form.atoms";
 import { recoveryCapacityFailureAtom, recoveryCapacitySignatureAtom } from "./atoms/recovery-capacity.atoms";
 import { recordRecoveryCapacityFailure } from "./recovery-capacity-model";
-import { buildDiagnosticIdAtom, mintConfirmationRunAtom, submitConfirmedAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
+import { workspaceSessionAtom, buildDiagnosticIdAtom, mintConfirmationRunAtom, submitConfirmedAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { resetLockFundsFormAtom } from "@/components/user/workspace/atoms/forms/lock-funds-form.atoms";
 import { sttExtraTransfersAtom, sttWalletInputsAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import {
@@ -186,10 +186,13 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
       });
     }
 
+    const session = jotaiStore.get(workspaceSessionAtom);
+    const isCurrent = () => jotaiStore.get(workspaceSessionAtom) === session;
     let txHash: string;
     try {
       txHash = await signAndSubmitTx(activeWallet, transactionPreview.txHex);
     } catch (error) {
+      if (!isCurrent()) return;
       const parsed = formatBuildError(error, {
         action: "submit",
         wallet: activeWalletName,
@@ -214,10 +217,11 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
       }
       return;
     } finally {
-      setActiveSubmit(false);
+      if (isCurrent()) setActiveSubmit(false);
       submitInFlightRef.current = false;
     }
 
+    if (!isCurrent()) return;
     setSubmitHash(txHash);
     jotaiStore.set(submitConfirmedAtom, false);
     runPostSubmitTask("confirmation", () => watchTransactionConfirmation(txHash));

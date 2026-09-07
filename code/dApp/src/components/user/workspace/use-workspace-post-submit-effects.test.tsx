@@ -1,8 +1,15 @@
-import { render } from "@testing-library/react";
+import { act, render, renderHook } from "@testing-library/react";
+import { Provider, createStore } from "jotai";
+import type { PropsWithChildren } from "react";
 import { useEffect, useRef } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useWorkspacePostSubmitEffects } from "@/components/user/workspace/use-workspace-post-submit-effects";
-import { schedulePostSubmitRefresh } from "@/components/user/workspace/workspace-transaction-refresh";
+import { activeBuildAtom, activeSubmitAtom } from "./atoms/transaction-flow.atoms";
+import { routeStateAtom } from "./atoms/workspace-route.atoms";
+import {
+  type WorkspacePostSubmitEffectsCtx,
+  useWorkspacePostSubmitEffects
+} from "./use-workspace-post-submit-effects";
+import { schedulePostSubmitRefresh } from "./workspace-transaction-refresh";
 import type { StateFormState } from "@/lib/contracts/state-form";
 import type { DetectedSttInfo } from "@/lib/mesh/detection";
 
@@ -17,8 +24,6 @@ const EMPTY_DETECTION: DetectedSttInfo = {
 const WALLET_A = "addr_test_wallet_a";
 const WALLET_B = "addr_test_wallet_b";
 
-// Only the post-submit poll's own dependencies; the rest of the workspace ctx is
-// not reachable from these effects.
 function createRefreshSpies() {
   return {
     refreshLockedContractUtxos: vi.fn(() => Promise.resolve()),
@@ -30,45 +35,38 @@ function createRefreshSpies() {
 
 type RefreshSpies = ReturnType<typeof createRefreshSpies>;
 
-/**
- * Renders the effects with a live timers ref and schedules the poll exactly as a
- * submit does, so the test exercises the real timer lifetime rather than a copy
- * of it.
- */
 function Harness({
   lockingContractAddress,
-  spies
+  spies,
+  store
 }: {
   lockingContractAddress: string;
   spies: RefreshSpies;
+  store: ReturnType<typeof createStore>;
 }) {
   const postSubmitRefreshTimersRef = useRef<number[]>([]);
   const mintCelebrationRef = useRef<string | null>(null);
   const scheduledRef = useRef(false);
 
   useWorkspacePostSubmitEffects({
-    lockingContractAddress,
     mintCelebrationRef,
     mintConfirmation: null,
-    mintStateForm: { walletName: "" } as unknown as StateFormState,
+    mintStateForm: { walletName: "" } as StateFormState,
     mintedWalletName: "",
     postSubmitRefreshTimersRef,
     setMintCelebration: () => {}
   });
 
   useEffect(() => {
-    // Schedule once, as a submit does. A re-render with a different address must
-    // not re-arm the poll, or the test would not see it dropped.
-    if (scheduledRef.current) {
-      return;
-    }
+    if (scheduledRef.current) return;
     scheduledRef.current = true;
     schedulePostSubmitRefresh({
+      jotaiStore: store,
       postSubmitRefreshTimersRef,
       lockingContract: { address: lockingContractAddress, error: null },
       ...spies
     });
-  }, [lockingContractAddress, spies]);
+  }, [lockingContractAddress, spies, store]);
 
   return null;
 }
@@ -82,9 +80,19 @@ describe("useWorkspacePostSubmitEffects", () => {
     vi.useRealTimers();
   });
 
+  function renderHarness(spies: RefreshSpies) {
+    const store = createStore();
+    const view = render(
+      <Provider store={store}>
+        <Harness lockingContractAddress={WALLET_A} spies={spies} store={store} />
+      </Provider>
+    );
+    return { store, ...view };
+  }
+
   it("polls the wallet the transaction was submitted from", async () => {
     const spies = createRefreshSpies();
-    render(<Harness lockingContractAddress={WALLET_A} spies={spies} />);
+    renderHarness(spies);
 
     await vi.advanceTimersByTimeAsync(80_000);
 
@@ -93,11 +101,14 @@ describe("useWorkspacePostSubmitEffects", () => {
 
   it("drops the pending poll when the workspace opens another wallet", async () => {
     const spies = createRefreshSpies();
-    const { rerender } = render(<Harness lockingContractAddress={WALLET_A} spies={spies} />);
+    const { store } = renderHarness(spies);
 
-    // Opening another wallet goes through history.pushState, so the workspace
-    // re-renders with a new address and nothing unmounts.
-    rerender(<Harness lockingContractAddress={WALLET_B} spies={spies} />);
+    act(() => {
+      store.set(routeStateAtom, {
+        ...store.get(routeStateAtom),
+        selectedWalletUnit: WALLET_B
+      });
+    });
     await vi.advanceTimersByTimeAsync(80_000);
 
     expect(spies.refreshLockedContractUtxos).not.toHaveBeenCalledWith(WALLET_A);
@@ -105,11 +116,42 @@ describe("useWorkspacePostSubmitEffects", () => {
 
   it("clears the pending poll on unmount", async () => {
     const spies = createRefreshSpies();
-    const { unmount } = render(<Harness lockingContractAddress={WALLET_A} spies={spies} />);
+    const { unmount } = renderHarness(spies);
 
     unmount();
     await vi.advanceTimersByTimeAsync(80_000);
 
     expect(spies.refreshLockedContractUtxos).not.toHaveBeenCalled();
+  });
+
+  it("retires pending work on wallet selection changes but preserves action navigation", () => {
+    const store = createStore();
+    const wrapper = ({ children }: PropsWithChildren) => <Provider store={store}>{children}</Provider>;
+    const clearTimeout = vi.spyOn(window, "clearTimeout");
+    const ctx: WorkspacePostSubmitEffectsCtx = {
+      mintCelebrationRef: { current: null },
+      mintConfirmation: null,
+      mintStateForm: { walletName: "Test" } as WorkspacePostSubmitEffectsCtx["mintStateForm"],
+      mintedWalletName: "",
+      postSubmitRefreshTimersRef: { current: [71] },
+      setMintCelebration: vi.fn()
+    };
+    const hook = renderHook(() => useWorkspacePostSubmitEffects(ctx), { wrapper });
+    try {
+      act(() => {
+        store.set(activeBuildAtom, "use");
+        store.set(activeSubmitAtom, true);
+        store.set(routeStateAtom, { ...store.get(routeStateAtom), selectedAction: "mint" });
+      });
+      expect(clearTimeout).not.toHaveBeenCalledWith(71);
+      expect(store.get(activeSubmitAtom)).toBe(true);
+      act(() => store.set(routeStateAtom, { ...store.get(routeStateAtom), selectedWalletUnit: "wallet-b" }));
+      expect(clearTimeout).toHaveBeenCalledWith(71);
+      expect(store.get(activeBuildAtom)).toBeNull();
+      expect(store.get(activeSubmitAtom)).toBe(false);
+    } finally {
+      hook.unmount();
+      clearTimeout.mockRestore();
+    }
   });
 });
