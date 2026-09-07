@@ -95,6 +95,7 @@ function renderView({
     selectedDetectedToken: { unit: "policy.asset" },
     selectedDetectedTokenStateForm: null,
     selectedIntent: "send",
+    sendAuthorizationOptions: [],
     useAllowancePreview: { error: null, target: null, computation: null },
     config: { walletPolicyId: "policy" },
     activeFieldErrors: {},
@@ -103,6 +104,7 @@ function renderView({
     guidedStreamingPaymentTaskBadges: {},
     guidedStreamingPaymentsDisabledTasks: [],
     handleFocusedTaskSelect: vi.fn(),
+    openWorkspaceIntent: vi.fn(),
     consolidateAuthorityPath: "admin",
     setConsolidateAuthorityPath: vi.fn(),
     setStreamingPaymentPayoutAmounts: vi.fn(),
@@ -440,5 +442,40 @@ describe("the automatic authorization path", () => {
     });
 
     expect(setSttAuthorityPath).not.toHaveBeenCalled();
+  });
+});
+
+describe("send authorization choice", () => {
+  const SEND_PATHS = [
+    { kind: "use", pathLabels: ["Co-signers"], note: "Standard send" },
+    { kind: "use-allowance", pathLabels: ["Spender"], note: "Use allowance" }
+  ];
+
+  it("lets a spender choose the co-signer path", () => {
+    const openWorkspaceIntent = vi.fn();
+    renderView({
+      view: {
+        selectedAction: "use-allowance",
+        sendAuthorizationOptions: SEND_PATHS,
+        openWorkspaceIntent
+      }
+    });
+
+    const authorizationPath = screen.getByLabelText("Authorization path");
+    expect(authorizationPath).toHaveValue("use-allowance");
+    expect(authorizationPath).toHaveTextContent("Co-signers");
+    expect(authorizationPath).toHaveTextContent("Spender");
+
+    fireEvent.change(authorizationPath, {
+      target: { value: "use" }
+    });
+
+    expect(openWorkspaceIntent).toHaveBeenCalledWith("send", "use");
+  });
+
+  it("stays hidden when only one send path is available", () => {
+    renderView({ view: { sendAuthorizationOptions: [SEND_PATHS[1]] } });
+
+    expect(screen.queryByLabelText("Authorization path")).not.toBeInTheDocument();
   });
 });

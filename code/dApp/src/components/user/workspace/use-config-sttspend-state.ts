@@ -4,7 +4,7 @@
 // named object, keeping the view itself presentation-only.
 import { availableLockedTransferAssetOptionsAtom, availableLockedTransferAssetsAtom, selectedTransferAssetAtom, streamingPaymentPayoutRowsAtom, streamingPaymentPayoutTransfersAtom } from "@/components/user/workspace/atoms/workspace-transfer-derivations.atoms";
 import { recentRecipientsAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
-import { effectiveWalletAssetNameHexAtom, selectedDetectedTokenAtom, selectedDetectedTokenStateFormAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
+import { availableWizardActionsAtom, effectiveWalletAssetNameHexAtom, selectedDetectedTokenAtom, selectedDetectedTokenStateFormAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { resolvedSelectedTaskAtom, selectedActionAtom, selectedIntentAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
 import { activeSttActionTabAtom, activeSttAuthorityOptionsAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
 import { useAllowancePreviewAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
@@ -34,6 +34,9 @@ export function useConfigSttSpendState() {
   const selectedDetectedToken = useAtomValue(selectedDetectedTokenAtom);
   const selectedDetectedTokenStateForm = useAtomValue(selectedDetectedTokenStateFormAtom);
   const selectedIntent = useAtomValue(selectedIntentAtom);
+  const sendAuthorizationOptions = useAtomValue(availableWizardActionsAtom).filter(
+    ({ kind }) => kind === "use" || kind === "use-allowance" || kind === "use-beneficiary"
+  );
   const useAllowancePreview = useAtomValue(useAllowancePreviewAtom);
   const config = useAtomValue(configAtom);
   const {
@@ -42,7 +45,8 @@ export function useConfigSttSpendState() {
     flowAvailability,
     guidedStreamingPaymentTaskBadges,
     guidedStreamingPaymentsDisabledTasks,
-    handleFocusedTaskSelect
+    handleFocusedTaskSelect,
+    openWorkspaceIntent
   } = state;
   const { consolidateAuthorityPath, setConsolidateAuthorityPath, setStreamingPaymentPayoutAmounts, setSttAuthorityPath, setSttExtraTransfers, setSttStateForm, setSttZeroAdminConfirmed, sttAuthorityPath, sttExtraTransfers, sttStateForm, sttWalletInputs, sttZeroAdminConfirmed } = useSttSpendForm();
   const { setTransferCustomAddress, setTransferDisplayAmount, setTransferRecipientMode, setTransferSelectedUnit, transferCustomAddress, transferDisplayAmount, transferRecipientMode, transferSelectedUnit } = useTransferForm();
@@ -64,6 +68,7 @@ export function useConfigSttSpendState() {
     selectedDetectedToken,
     selectedDetectedTokenStateForm,
     selectedIntent,
+    sendAuthorizationOptions,
     useAllowancePreview,
     config,
     activeFieldErrors,
@@ -72,6 +77,7 @@ export function useConfigSttSpendState() {
     guidedStreamingPaymentTaskBadges,
     guidedStreamingPaymentsDisabledTasks,
     handleFocusedTaskSelect,
+    openWorkspaceIntent,
     consolidateAuthorityPath,
     setConsolidateAuthorityPath,
     setStreamingPaymentPayoutAmounts,

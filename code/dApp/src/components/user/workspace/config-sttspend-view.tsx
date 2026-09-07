@@ -55,12 +55,14 @@ export function SttSpendConfigView() {
     selectedAction,
     selectedDetectedTokenStateForm,
     selectedIntent,
+    sendAuthorizationOptions,
     useAllowancePreview,
     config,
     activeFieldErrors,
     addSimpleTransferRecipient,
     flowAvailability,
     handleFocusedTaskSelect,
+    openWorkspaceIntent,
     setSttAuthorityPath,
     setSttExtraTransfers,
     setSttStateForm,
@@ -116,6 +118,29 @@ export function SttSpendConfigView() {
           {selectedAction === "consolidate-utxo" && preparationActive ? <BeneficiaryPreparationView /> : null}
           {selectedAction === "distribute-beneficiaries" ? <BeneficiaryDistributionView /> : null}
           {(selectedAction === "use-beneficiary" || selectedAction === "stop-beneficiary-stream") ? <BeneficiaryStreamStopView /> : null}
+          {selectedIntent === "send" && sendAuthorizationOptions.length > 1 ? (
+            <div className="max-w-sm space-y-1">
+              <Label htmlFor="sendAuthorizationPath">{i18n("authorizationPath")}</Label>
+              <Select
+                id="sendAuthorizationPath"
+                value={selectedAction}
+                onChange={(event) => {
+                  const nextPath = sendAuthorizationOptions.find(
+                    ({ kind }) => kind === event.target.value
+                  );
+                  if (nextPath) {
+                    openWorkspaceIntent("send", nextPath.kind);
+                  }
+                }}
+              >
+                {sendAuthorizationOptions.map((option) => (
+                  <option key={option.kind} value={option.kind}>
+                    {option.pathLabels.join(" / ")}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          ) : null}
           {activeSttActionTab.allowsStateEditing ? (
             <>
               {usesFocusedPeopleEditor ? (
