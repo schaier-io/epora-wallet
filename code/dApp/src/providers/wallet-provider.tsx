@@ -44,7 +44,11 @@ import {
   readLastConnectedWalletName
 } from "@/lib/wallet/storage";
 import { readWalletAuthorityAddress } from "@/lib/wallet/authority-address";
-import { hasCardanoInjection, waitForCardanoInjection } from "@/lib/wallet/injection";
+import {
+  hasCardanoInjection,
+  waitForCardanoInjection,
+  waitForCardanoWalletInjection
+} from "@/lib/wallet/injection";
 
 export { DEMO_WALLET_ID } from "@/providers/wallet.atoms";
 
@@ -83,6 +87,23 @@ const WalletContext = createContext<WalletContextType | null>(null);
 // opens, or the user walks away), which would strand the UI in "connecting".
 // Cap the wait so the attempt fails cleanly and can be retried.
 const WALLET_ENABLE_TIMEOUT_MS = 90_000;
+
+function importWalletRuntime() {
+  return import("@meshsdk/core");
+}
+
+let walletRuntimePromise: ReturnType<typeof importWalletRuntime> | null = null;
+
+function loadWalletRuntime() {
+  const pending = walletRuntimePromise ?? importWalletRuntime();
+  walletRuntimePromise = pending;
+  return pending.catch((error) => {
+    if (walletRuntimePromise === pending) {
+      walletRuntimePromise = null;
+    }
+    throw error;
+  });
+}
 
 // A message this file wrote for the user; it must not be re-mapped by the
 // generic error classifier, which reads "did not respond" as a network fault.
@@ -250,7 +271,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
         updateInstalledWallets(withDemoWalletFallback([], true));
         return;
       }
-      const { BrowserWallet } = await import("@meshsdk/core");
+      const { BrowserWallet } = await loadWalletRuntime();
       const wallets = await BrowserWallet.getAvailableWallets({
         injectFn: () => waitForCardanoInjection()
       });
@@ -310,10 +331,9 @@ export function WalletProvider({ children }: PropsWithChildren) {
         throw new KnownConnectError(i18n("walletNotAvailable", { walletName }));
       }
 
-      // The check above has seen `window.cardano[walletName]`, so an extension is installed
-      // and the mount scan has normally imported this module already: on that path the
-      // await resolves from the module cache and adds no fetch ahead of the prompt.
-      const { BrowserWallet, resolvePaymentKeyHash } = await import("@meshsdk/core");
+      // The direct restore and wallet inventory scan share one runtime import. The restore
+      // does not wait for inventory enumeration, and a later manual connect uses the cache.
+      const { BrowserWallet, resolvePaymentKeyHash } = await loadWalletRuntime();
       // Keep the dapp approval prompt inside the original click gesture.
       const wallet = await withTimeout(
         BrowserWallet.enable(walletName),
@@ -456,7 +476,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
       return;
     }
 
-    if (hasAttemptedAutoReconnect.current || !walletsLoaded || isConnecting) {
+    if (hasAttemptedAutoReconnect.current || isConnecting) {
       return;
     }
 
@@ -469,42 +489,19 @@ export function WalletProvider({ children }: PropsWithChildren) {
       return;
     }
 
-    if (installedWallets.length === 0) {
-      return;
-    }
-
-    const walletStillInstalled = installedWallets.some(
-      (wallet) => wallet.id === lastConnectedWalletName
-    );
-    if (!walletStillInstalled) {
-      const hasDetectedExtensionWallet = installedWallets.some(
-        (wallet) => wallet.id !== DEMO_WALLET_ID
-      );
-      if (!hasDetectedExtensionWallet && lastConnectedWalletName !== DEMO_WALLET_ID) {
-        queueMicrotask(() => {
-          if (isMountedRef.current) setWalletSessionLoading(false);
-        });
+    if (lastConnectedWalletName === DEMO_WALLET_ID) {
+      if (!walletsLoaded || !installedWallets.some((wallet) => wallet.id === DEMO_WALLET_ID)) {
         return;
       }
-
-      clearLastConnectedWalletName();
       hasAttemptedAutoReconnect.current = true;
-      queueMicrotask(() => {
-        if (isMountedRef.current) setWalletSessionLoading(false);
-      });
-      return;
-    }
-
-    hasAttemptedAutoReconnect.current = true;
-
-    if (lastConnectedWalletName === DEMO_WALLET_ID) {
       // Silent auto-reconnect side-effect for the demo wallet.
       // eslint-disable-next-line react-hooks/set-state-in-effect
       void connect(lastConnectedWalletName, true).catch(() => undefined);
       return;
     }
 
-    // Only silently reconnect a real wallet that's ALREADY authorized. Calling
+    // Restore the saved extension directly while the full wallet inventory loads
+    // in parallel. Only silently reconnect a real wallet that's ALREADY authorized. Calling
     // enable() outside a user gesture would block the extension's approval popup
     // (no transient activation) and strand the UI in "connecting", the reported
     // "connection request not showing" hang. If it isn't authorized yet, wait
@@ -512,12 +509,18 @@ export function WalletProvider({ children }: PropsWithChildren) {
     // A click that lands while `isEnabled()` is still pending outranks the restore:
     // starting the restore afterwards would supersede the person's own attempt and
     // hide the result behind the silent-restore mark.
+    hasAttemptedAutoReconnect.current = true;
     const attemptBeforeCheck = connectAttemptRef.current;
     void (async () => {
       try {
+        await waitForCardanoWalletInjection(lastConnectedWalletName);
         const injected = (
           typeof window !== "undefined" ? window.cardano?.[lastConnectedWalletName] : undefined
         ) as { isEnabled?: () => Promise<boolean> } | undefined;
+        if (!injected) {
+          hasAttemptedAutoReconnect.current = false;
+          return;
+        }
         const alreadyAuthorized = injected?.isEnabled
           ? await injected.isEnabled().catch(() => false)
           : false;

@@ -223,6 +223,7 @@ export async function buildMintStateTokenTx(
           spendValidatorsByRef: new Map<string, string>()
         },
         context: {
+          createdWalletUnit: `${policyId}${assetName}`,
           referenceScriptUsage: describeReferenceScriptUsage(scriptWitnessDiagnostics),
           walletAddress,
           requestedStarterAssets,
@@ -247,6 +248,10 @@ export async function buildMintStateTokenTx(
 
   return {
     txHex: prepared.txHex,
+    createdWalletUnit:
+      typeof prepared.context?.createdWalletUnit === "string"
+        ? prepared.context.createdWalletUnit
+        : undefined,
     preview: createTxPreview(
       "mint",
       i18n("createWalletnameWith1SttUnderPolicyPolicyid", { walletName, appliedStarterSummary, value5: typeof prepared.context?.referenceScriptUsage === "string" ? prepared.context.referenceScriptUsage : "" }),

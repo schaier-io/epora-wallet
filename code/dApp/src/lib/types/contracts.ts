@@ -293,6 +293,8 @@ export type SetIntendedStakeCredentialFormInput = {
 export type BuildResult = {
   /** Output containing a newly deployed shared STT reference script. */
   referenceScriptOutputIndex?: number;
+  /** Exact policy id and asset name of a wallet minted by this build. */
+  createdWalletUnit?: string;
   txHex: string;
   preview: TxPreview;
   estimatedFeeLovelace?: string;

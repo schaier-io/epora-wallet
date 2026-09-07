@@ -183,7 +183,7 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
     prependSubmittedTransaction(submittedTransaction);
   }
 
-  async function watchMintCreationConfirmation(txHash: string) {
+  async function watchMintCreationConfirmation(txHash: string, expectedWalletUnit?: string) {
     const runId = jotaiStore.get(mintConfirmationRunAtom) + 1;
     jotaiStore.set(mintConfirmationRunAtom, runId);
     const maxAttempts = MINT_CONFIRMATION_MAX_ATTEMPTS;
@@ -214,7 +214,7 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
       });
 
       try {
-        const detected = await refreshDetectedTokens();
+        const detected = await refreshDetectedTokens({ knownUnit: expectedWalletUnit });
         if (jotaiStore.get(mintConfirmationRunAtom) !== runId) {
           return;
         }

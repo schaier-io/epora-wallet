@@ -77,7 +77,7 @@ type TransferFields = {
 type MintFields = {
   setMintConfirmation: Dispatch<SetStateAction<MintConfirmationState | null>>;
   setMintedWalletName: Dispatch<SetStateAction<string>>;
-  watchMintCreationConfirmation: (txHash: string) => Promise<void>;
+  watchMintCreationConfirmation: (txHash: string, expectedWalletUnit?: string) => Promise<void>;
 };
 
 // Post-submit data refreshers run once a transaction lands.

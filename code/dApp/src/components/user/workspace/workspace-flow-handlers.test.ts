@@ -255,12 +255,16 @@ test("a confirmed mint refreshes the created wallet activity before completion",
     },
     datum: null
   };
+  let requestedUnit: string | undefined;
   const { ctx, calls } = makeCtx({
-    refreshDetectedTokens: async () => ({ tokens: [createdToken] })
+    refreshDetectedTokens: async (options?: { knownUnit?: string }) => {
+      requestedUnit = options?.knownUnit;
+      return { tokens: [createdToken] };
+    }
   });
 
   try {
-    await createWorkspaceFlowHandlers(ctx).watchMintCreationConfirmation(HASH);
+    await createWorkspaceFlowHandlers(ctx).watchMintCreationConfirmation(HASH, createdToken.unit);
   } finally {
     Object.defineProperty(globalThis, "window", {
       configurable: true,
@@ -268,6 +272,7 @@ test("a confirmed mint refreshes the created wallet activity before completion",
     });
   }
 
+  assert.equal(requestedUnit, createdToken.unit);
   assert.deepEqual(calls.runWalletTransactionsRefresh, [[{
     walletAddress: resolveWalletSpendAddress({
       sttPolicyId: createdToken.policyId,
