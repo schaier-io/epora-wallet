@@ -17,6 +17,7 @@ use state/configuration as state_configuration
 use state/credentials as credential_shape
 use state/proof_of_life
 use state/types as state_types
+use streaming_payments/asset_presence
 use streaming_payments/forwarding as streaming_payment_forwarding
 use streaming_payments/shape as streaming_payment_shape
 use stt/io.{stt_value_preserved_with_lovelace_top_up}
@@ -161,6 +162,13 @@ pub fn eval_manage_streaming_payments(
       output_state.streaming_payments,
       tx_latest_time,
       stt_payment_credential,
+    )
+  expect
+    asset_presence.new_assets_are_present(
+      input_state.streaming_payments,
+      output_state.streaming_payments,
+      transaction.inputs,
+      transaction.reference_inputs,
     )
   expect
     proof_of_life.expect_valid_renewal_window(
