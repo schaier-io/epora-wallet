@@ -38,6 +38,15 @@ export const walletTransactionsAtom = atom<WalletTransactionSummary>({
 /** State: the current activity page index. */
 export const activityPageIndexAtom = atom(0);
 
+/**
+ * Reset the fetched-activity state atoms. Module-global like the data atoms: up to 8 pages of
+ * transactions with full input/output IO would otherwise outlive the workspace.
+ */
+export const resetWorkspaceActivityAtom = atom(null, (_get, set) => {
+  set(walletTransactionsAtom, { items: [], loading: false, error: null });
+  set(activityPageIndexAtom, 0);
+});
+
 export const activityAnchorTxHashesAtom = atom((get) =>
   uniqueTransactionHashes([
     get(selectedDetectedTokenAtom)?.utxo.input.txHash,

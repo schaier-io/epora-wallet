@@ -1,5 +1,6 @@
 "use client";
-import { lockedContractUtxosAtom, lockedContractUtxosLoadingAtom, sharedSttReferenceStoreAtom, sharedSttReferenceStoreLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
+import { lockedContractUtxosAtom, lockedContractUtxosLoadingAtom, resetWorkspaceDataAtom, sharedSttReferenceStoreAtom, sharedSttReferenceStoreLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
+import { resetWorkspaceActivityAtom } from "@/components/user/workspace/atoms/workspace-activity.atoms";
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef } from "react";
@@ -153,16 +154,21 @@ export function useWorkspaceFoundation() {
   const resetWorkspaceUi = useSetAtom(resetWorkspaceUiAtom);
   const resetAllForms = useSetAtom(resetAllFormsAtom);
   const resetConfig = useSetAtom(resetConfigAtom);
-  // Flow + UI + form atoms are module-global; reset them on unmount so each fresh mount
-  // starts clean (mirrors component-local useState's per-mount reset).
+  const resetWorkspaceData = useSetAtom(resetWorkspaceDataAtom);
+  const resetWorkspaceActivity = useSetAtom(resetWorkspaceActivityAtom);
+  // Flow + UI + form + fetched-data atoms are module-global; reset them on unmount so each
+  // fresh mount starts clean (mirrors component-local useState's per-mount reset) and the
+  // last wallet's chain snapshot does not stay resident after the workspace closes.
   useEffect(() => {
     return () => {
       resetWorkspaceFlow();
       resetWorkspaceUi();
       resetAllForms();
       resetConfig();
+      resetWorkspaceData();
+      resetWorkspaceActivity();
     };
-  }, [resetWorkspaceFlow, resetWorkspaceUi, resetAllForms, resetConfig]);
+  }, [resetWorkspaceFlow, resetWorkspaceUi, resetAllForms, resetConfig, resetWorkspaceData, resetWorkspaceActivity]);
 
   // The one build-error writer the whole workspace shares. The write atom pairs the
   // message with the stale-inputs recovery flag (default false), so a plain error can

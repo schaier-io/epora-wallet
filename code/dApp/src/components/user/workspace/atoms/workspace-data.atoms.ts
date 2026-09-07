@@ -36,3 +36,27 @@ export const sharedReferencePreviewAtom = atom<BuildResult | null>(null);
 export const sharedReferenceBuildErrorAtom = atom<string | null>(null);
 export const sharedReferenceSubmitHashAtom = atom<string | null>(null);
 export const sharedReferenceBusyAtom = atom<"build" | "submit" | null>(null);
+
+/**
+ * Reset every fetched-data atom to its initial value. The atoms are module-global (no jotai
+ * Provider anywhere), so without this the last wallet's full chain snapshot (UTxOs with
+ * datums, balances, detected tokens) stays resident after the workspace unmounts.
+ */
+export const resetWorkspaceDataAtom = atom(null, (_get, set) => {
+  set(lockedContractUtxosAtom, []);
+  set(lockedContractUtxosLoadingAtom, false);
+  set(lockedContractUtxosErrorAtom, null);
+  set(walletBalanceSummaryAtom, { assets: [], loading: false, error: null });
+  set(detectedSttTokensAtom, []);
+  set(detectedSttTokensLoadingAtom, true);
+  set(detectedSttTokensErrorAtom, null);
+  set(permissionWalletSummariesAtom, {});
+  set(permissionWalletSummariesLoadingAtom, false);
+  set(sharedSttReferenceStoreAtom, null);
+  set(sharedSttReferenceStoreLoadingAtom, false);
+  set(sharedSttReferenceStoreErrorAtom, null);
+  set(sharedReferencePreviewAtom, null);
+  set(sharedReferenceBuildErrorAtom, null);
+  set(sharedReferenceSubmitHashAtom, null);
+  set(sharedReferenceBusyAtom, null);
+});
