@@ -94,7 +94,8 @@ pub fn stt_action_allows_spend(
       beneficiary_distribution.all_shares_are_paid(
         input_state.access.beneficiaries,
         wallet_values.input_value,
-        output_context,
+        output_context.stt_input_reference,
+        output_context.outputs,
       )
     }
 

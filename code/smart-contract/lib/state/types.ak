@@ -270,20 +270,8 @@ pub fn is_set_intended_stake_credential_action(action: SttAction) -> Bool {
   }
 }
 
-/// True iff `action` is a value-moving `PayStreamingPayment` crank. Wallet-side
-/// reserve logic uses this narrower classification; cadence-clock mutation uses
-/// `is_non_admin_cadence_action` below.
-pub fn is_pay_streaming_payment_action(action: SttAction) -> Bool {
-  when action is {
-    PayStreamingPayment(_) -> True
-    _ -> False
-  }
-}
-
 /// True for actions permitted to advance the global non-admin cadence clock.
-/// Wallet reserve logic must continue using `is_pay_streaming_payment_action`,
-/// because cancellation moves no wallet value and beneficiary recovery has its
-/// own reserve rule.
+/// Wallet reserve logic classifies actions separately in `wallet/reserve`.
 pub fn is_non_admin_cadence_action(action: SttAction) -> Bool {
   when action is {
     PayStreamingPayment(_) -> True

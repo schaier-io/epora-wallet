@@ -22,7 +22,8 @@ use streaming_payments/forwarding as streaming_payment_forwarding
 use streaming_payments/shape as streaming_payment_shape
 use stt/io.{stt_value_preserved_with_lovelace_top_up}
 use stt/preservation.{
-  state_completely_unchanged, state_unchanged_except_access_index_removed,
+  state_unchanged_except_access_index_removed,
+  state_unchanged_except_centrally_guarded_fields,
   state_unchanged_except_pol_unlock_time,
   state_unchanged_except_pol_unlock_time_and_streaming_payments,
 }
@@ -268,7 +269,8 @@ pub fn eval_set_intended_stake_credential(
   // guarded centrally in `eval_spend`, which exempts exactly this action), so
   // "completely unchanged" pins every OTHER field and the expect below pins
   // the one field this action exists to change.
-  expect state_completely_unchanged(input_state, output_state)
+  expect
+    state_unchanged_except_centrally_guarded_fields(input_state, output_state)
   expect output_state.intended_stake_credential == target
   expect credential_shape.optional_is_valid(target)
   expect
