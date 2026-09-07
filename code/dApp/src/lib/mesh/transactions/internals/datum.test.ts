@@ -12,7 +12,6 @@ import { buildSttSpendRedeemerData } from "@/lib/contracts/action-data";
 import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
 import {
   decodeConstrDatumFromUtxo,
-  deriveBeneficiaryExitStateDatum,
   deriveBeneficiaryWithdrawalId,
   deriveBeneficiaryWithdrawalStateDatum
 } from "@/lib/mesh/transactions/internals/datum";
@@ -191,38 +190,4 @@ test("decodeConstrDatumFromUtxo still reads integers up to the safe limit", () =
     alternative: 0,
     fields: [9007199254740991]
   });
-});
-
-
-test("permanent final exit removes the beneficiary and stamps its upper bound", () => {
-  const input = stateWith([beneficiary("0", ["cc"])], { walletName: "Vault" });
-  const output = deriveBeneficiaryExitStateDatum(input, 0, 1_000, 2_000);
-  assert.deepEqual((output.fields[0] as ConstrData).fields[2], []);
-  assert.deepEqual((output.fields[0] as ConstrData).fields.slice(0, 2), (input.fields[0] as ConstrData).fields.slice(0, 2));
-  assert.deepEqual(output.fields.slice(1, 5), input.fields.slice(1, 5));
-  assert.deepEqual(output.fields[5], { alternative: 0, fields: [2_000] });
-  assert.equal(((input.fields[0] as ConstrData).fields[2] as unknown[]).length, 1);
-  const decoded = decodeConstrDatumFromUtxo(utxoWithDatum(serializeData(output)));
-  assert.deepEqual(decoded, output);
-});
-
-test("permanent earlier exit preserves streams and cadence", () => {
-  const input = stateWith([beneficiary("0", ["cc"]), beneficiary("1", ["dd"])], {
-    lastNonAdminPayoutAt: { alternative: 0, fields: [999] }
-  });
-  input.fields[2] = [{ alternative: 0, fields: [] }];
-  assert.deepEqual(deriveBeneficiaryExitStateDatum(input, 0, 1_000, 2_000), deriveBeneficiaryWithdrawalStateDatum(input, 0, 2_000));
-});
-
-test("permanent final exit requires empty streams and the finite cooldown window", () => {
-  const input = stateWith([beneficiary("0", ["cc"])]);
-  const withStream = structuredClone(input);
-  withStream.fields[2] = [{ alternative: 0, fields: [] }];
-  assert.throws(() => deriveBeneficiaryExitStateDatum(withStream, 0, 1_000, 2_000), /settled and removed/);
-  assert.throws(() => deriveBeneficiaryExitStateDatum(input, 0, 0, 3_600_001), /window/i);
-  assert.throws(() => deriveBeneficiaryExitStateDatum(input, 0, Infinity, Infinity), /finite/i);
-  input.fields[5] = { alternative: 0, fields: [1_000] };
-  assert.throws(() => deriveBeneficiaryExitStateDatum(input, 0, 1_800_999, 1_801_999), /cooldown/i);
-  assert.doesNotThrow(() => deriveBeneficiaryExitStateDatum(input, 0, 1_801_000, 1_802_000));
-  assert.throws(() => deriveBeneficiaryExitStateDatum(input, 99, 1_801_000, 1_802_000), /exactly one beneficiary/);
 });

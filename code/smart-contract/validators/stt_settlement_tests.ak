@@ -419,7 +419,7 @@ test streaming_payment_payout_rejects_access_mutation() fail {
     )
 }
 
-// Audit L3. Consolidate requires `state_completely_unchanged`; the existing
+// Audit L3. Consolidate requires `state_unchanged_except_centrally_guarded_fields`; the existing
 // fuzz coverage only mutates `wallet_name`. This pins an `access` mutation
 // directly: a correctly-authorized Consolidate (cf. `consolidate_accepts_admin_path`)
 // that also adds an attacker admin must be rejected.

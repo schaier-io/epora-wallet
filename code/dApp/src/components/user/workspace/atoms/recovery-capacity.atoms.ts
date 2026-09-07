@@ -25,5 +25,5 @@ export const recoveryCapacitySignatureAtom = atom((get) => {
 
 export const currentRecoveryCapacityFailureAtom = atom((get) => {
   const failure = get(recoveryCapacityFailureAtom);
-  return get(selectedActionAtom) === "exit-beneficiary" && failure?.signature === get(recoveryCapacitySignatureAtom) ? failure : null;
+  return get(selectedActionAtom) === "use-beneficiary" && failure?.signature === get(recoveryCapacitySignatureAtom) ? failure : null;
 });

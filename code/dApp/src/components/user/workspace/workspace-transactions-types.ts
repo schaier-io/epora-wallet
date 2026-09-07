@@ -7,7 +7,8 @@ import { type MintConfirmationState, type SetBuildError, type SttSpendActionMode
 import { type useWorkspaceDetectedTokenDerivations } from "@/components/user/workspace/use-workspace-detected-token-derivations";
 import { type useWorkspaceWalletDerivations } from "@/components/user/workspace/use-workspace-wallet-derivations";
 import { type useWorkspaceReviewDerivations } from "@/components/user/workspace/use-workspace-review-derivations";
-import { type useStore } from "jotai";
+import { type ExtractAtomValue, type useStore } from "jotai";
+import type { workspaceSessionAtom } from "./atoms/transaction-flow.atoms";
 import { type useDetectedSttTokens } from "@/components/user/workspace/use-detected-stt-tokens";
 import { type useLockedContractUtxos } from "@/components/user/workspace/use-locked-contract-utxos";
 import { type useWalletBalance } from "@/components/user/workspace/use-wallet-balance";
@@ -42,7 +43,7 @@ type BuildStatusFields = {
   previewMatchesSelectedAction: ReturnType<typeof useWorkspaceReviewDerivations>["previewMatchesSelectedAction"];
   submitHash: string | null;
   setSubmitHash: Dispatch<SetStateAction<string | null>>;
-  submitInFlightRef: MutableRefObject<boolean>;
+  submitInFlightRef: MutableRefObject<ExtractAtomValue<typeof workspaceSessionAtom> | null>;
   setBuildError: SetBuildError;
   setBuildErrorExpected: Dispatch<SetStateAction<boolean>>;
   withBuildGuard: (label: string, run: () => Promise<BuildResult>, context?: Record<string, unknown>) => Promise<BuildResult | null>;

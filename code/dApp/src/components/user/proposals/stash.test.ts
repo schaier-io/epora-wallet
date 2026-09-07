@@ -10,7 +10,7 @@ import {
 } from "@/lib/proposals/limits";
 import { CARDANO_MAX_TX_SIZE_BYTES } from "@/lib/mesh/transactions/internals/constants";
 import { EMPTY_CONTRACT_CONFIG } from "@/lib/types/contracts";
-import { fitProposalSummaryForStorage, writeProposalDraft } from "./stash";
+import { clearProposalDraft, fitProposalSummaryForStorage, readProposalDraft, writeProposalDraft, type StashedProposalDraft } from "./stash";
 
 test("saved proposal transaction bytes use the ledger transaction-size limit", () => {
   assert.equal(MAX_UNSIGNED_TX_BYTES, CARDANO_MAX_TX_SIZE_BYTES);
@@ -82,4 +82,77 @@ test("browser draft storage does not require the Node Buffer global", () => {
       Reflect.deleteProperty(globalThis, "window");
     }
   }
+});
+
+function withDraftStorage(run: (entries: Map<string, string>) => void) {
+  const previous = Object.getOwnPropertyDescriptor(globalThis, "window");
+  const entries = new Map<string, string>();
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: {
+      sessionStorage: {
+        getItem: (key: string) => entries.get(key) ?? null,
+        setItem: (key: string, value: string) => entries.set(key, value),
+        removeItem: (key: string) => entries.delete(key)
+      }
+    }
+  });
+  try {
+    run(entries);
+  } finally {
+    if (previous) Object.defineProperty(globalThis, "window", previous);
+    else Reflect.deleteProperty(globalThis, "window");
+  }
+}
+
+function draft(): StashedProposalDraft {
+  return {
+    walletUnit: "policy.asset",
+    walletPolicyId: "policy",
+    actionKind: "mint",
+    authorityPath: "admin",
+    builder: "mint",
+    buildContext: {
+      builder: "mint",
+      config: EMPTY_CONTRACT_CONFIG,
+      input: { stateDatum: { alternative: 0, fields: [] } }
+    },
+    unsignedTxHex: "80",
+    proposerKeyHash: "ab".repeat(28)
+  };
+}
+
+test("proposal drafts round-trip the current version and captured signer", () => {
+  withDraftStorage(() => {
+    writeProposalDraft(draft());
+    assert.deepEqual(readProposalDraft(), draft());
+  });
+});
+
+test("proposal draft versioning preserves summary trimming", () => {
+  withDraftStorage(() => {
+    writeProposalDraft({
+      ...draft(),
+      summary: { headline: "h".repeat(MAX_SUMMARY_HEADLINE_LENGTH + 1), rows: [] }
+    });
+    assert.equal(readProposalDraft()?.summary?.headline.length, MAX_SUMMARY_HEADLINE_LENGTH);
+  });
+});
+
+test("proposal drafts reject old and incomplete stored shapes", () => {
+  withDraftStorage((entries) => {
+    entries.set("pw:proposal-draft", JSON.stringify(draft()));
+    assert.equal(readProposalDraft(), null);
+    const { unsignedTxHex: _omitted, ...withoutTransaction } = draft();
+    entries.set("pw:proposal-draft", JSON.stringify({ version: 1, draft: withoutTransaction }));
+    assert.equal(readProposalDraft(), null);
+  });
+});
+
+test("proposal drafts can be cleared", () => {
+  withDraftStorage(() => {
+    writeProposalDraft(draft());
+    clearProposalDraft();
+    assert.equal(readProposalDraft(), null);
+  });
 });

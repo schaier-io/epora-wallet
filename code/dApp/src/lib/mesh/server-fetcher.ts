@@ -36,10 +36,15 @@ async function rpc<T>(method: ChainMethod, args: unknown[]): Promise<T> {
     body: JSON.stringify(payload)
   });
 
-  const raw: unknown = await response.json();
+  // Preserve the HTTP status when a gateway returns a non-JSON error page.
+  const raw: unknown = await response.json().catch(() => undefined);
 
   if (!isRpcEnvelope(raw)) {
-    throw new Error(`Mesh RPC call returned malformed payload for ${method}`);
+    throw new Error(
+      response.ok
+        ? `Mesh RPC call returned malformed payload for ${method}`
+        : `Mesh RPC call failed for ${method} (HTTP ${response.status})`
+    );
   }
 
   if (!response.ok || typeof raw.error !== "undefined") {

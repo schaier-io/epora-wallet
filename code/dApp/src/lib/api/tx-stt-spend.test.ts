@@ -36,7 +36,7 @@ function baseBody(action: string) {
     action
   };
   if (action === "use-allowance") body.allowanceSignerKeyHash = HASH_HEX;
-  if (action === "use-beneficiary" || action === "exit-beneficiary") body.beneficiarySignerKeyHash = HASH_HEX;
+  if (action === "use-beneficiary") body.beneficiarySignerKeyHash = HASH_HEX;
   if (action === "distribute-beneficiaries") { body.beneficiarySignerKeyHash=HASH_HEX; body.walletInputs=[{txHash:TX_HASH,outputIndex:1}]; }
   if (action === "stop-beneficiary-stream") { body.beneficiarySignerKeyHash = HASH_HEX; body.beneficiaryStreamStopId = 0; }
   if (action === "payout-streaming-payment") body.crankSignerKeyHash = HASH_HEX;
@@ -52,7 +52,6 @@ const ALL_ACTIONS = [
   "manage-streaming-payments",
   "use-allowance",
   "use-beneficiary",
-  "exit-beneficiary",
   "stop-beneficiary-stream",
   "distribute-beneficiaries",
   "payout-streaming-payment",
@@ -212,4 +211,13 @@ it("exact distribution API requires one input and rejects caller outputs, transf
     {walletOutputs:[{amount:[{unit:"lovelace",quantity:"2000000"}]}]},
     {extraTransfers:[{address:ADDRESS,amount:[{unit:"lovelace",quantity:"2000000"}]}]}
   ]) assert.equal(SttSpendTxRequestSchema.safeParse({...body,...changes}).success,false);
+});
+
+
+it("rejects the removed beneficiary exit action instead of converting it to withdrawal", () => {
+  const result = SttSpendTxRequestSchema.safeParse({
+    ...baseBody("use-beneficiary"),
+    action: "exit-beneficiary"
+  });
+  assert.equal(result.success, false);
 });

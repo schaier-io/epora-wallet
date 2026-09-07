@@ -92,9 +92,9 @@ describe("a failed check", () => {
   it("says so in one plain line", () => {
     renderPanel({ error: "Discovery failed" });
 
-    expect(
-      screen.getByText("Could not check where this wallet's funds sit. Reload the page to try again.")
-    ).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Could not check where this wallet's funds sit. Reload the page to try again."
+    );
     expect(screen.queryByText(/Re-check/)).not.toBeInTheDocument();
     expect(screen.queryByText(/—/)).not.toBeInTheDocument();
   });

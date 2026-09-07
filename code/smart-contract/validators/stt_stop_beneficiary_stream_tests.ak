@@ -82,9 +82,7 @@ fn run_stop(transaction: Transaction) -> Bool {
 
 test beneficiary_stop_constructor_is_appended_at_eight() {
   let stop: Data = stop_action
-  let exit: Data = state_types.ExitBeneficiary(7)
   expect cbor.deserialise(#"d90501820701") == Some(stop)
-  expect cbor.deserialise(#"d905008107") == Some(exit)
 }
 
 test beneficiary_stop_active_stream_keeps_earned_debt() {

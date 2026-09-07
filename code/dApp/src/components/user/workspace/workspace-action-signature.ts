@@ -35,6 +35,7 @@ export type BuildActionSignatureCtx = ReturnType<typeof useMintForm> &
   ReturnType<typeof useLockFundsForm> &
   ReturnType<typeof useTransferForm> &
   {
+  activeInferredSttStateForm: StateFormState;
   activePaymentKeyHash: string | null;
   config: ContractConfig;
   streamingPaymentPayout: PreparedStreamingPaymentPayout;
@@ -45,6 +46,7 @@ export type BuildActionSignatureCtx = ReturnType<typeof useMintForm> &
 
 export function computeActionSignature(action: UserActionKind, ctx: BuildActionSignatureCtx) {
   const {
+    activeInferredSttStateForm,
     activePaymentKeyHash,
     config,
     consolidateAuthorityPath,
@@ -118,7 +120,6 @@ export function computeActionSignature(action: UserActionKind, ctx: BuildActionS
       case "manage-streaming-payments":
       case "use-allowance":
       case "use-beneficiary":
-    case "exit-beneficiary":
       case "payout-streaming-payment":
         return safeStringify({
           config,
@@ -219,6 +220,20 @@ export function computeActionSignature(action: UserActionKind, ctx: BuildActionS
           voteSttAssets,
           walletOperatorPath,
           voteZeroAdminConfirmed
+        });
+      }
+      case "set-intended-stake-credential": {
+        const stakeSigRef = resolveWalletWrapperSttInputRef(selectedDetectedToken, "", "");
+        return safeStringify({
+          config,
+          action,
+          activePaymentKeyHash,
+          stakeSttInputHash: stakeSigRef.txHash,
+          stakeSttInputIndex: stakeSigRef.indexStr,
+          stakeSttStateForm: cloneStateForm(
+            selectedDetectedTokenStateForm ?? activeInferredSttStateForm
+          ),
+          walletOperatorPath
         });
       }
       default:

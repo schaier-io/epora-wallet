@@ -287,7 +287,7 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
       return;
     }
     const refs = orphanUtxosToWalletInputRefs(orphans);
-    openWorkspaceIntent("send", "exit-beneficiary");
+    openWorkspaceIntent("send", "use-beneficiary");
     jotaiStore.set(lockedContractUtxosAtom, (loaded) =>
       mergeDiscoveredWalletUtxos(loaded, orphans)
     );
@@ -297,7 +297,6 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
   function handleCreateAnotherWallet() {
     jotaiStore.set(mintConfirmationRunAtom, jotaiStore.get(mintConfirmationRunAtom) + 1);
     setMintConfirmation(null);
-    setSelectedDetectedTokenUnit("");
     handleFlowBranchSelect("new-wallet");
     resetActionDraft("mint");
   }

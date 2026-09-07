@@ -161,15 +161,15 @@ describe("workspace guided tool order", () => {
 
 
 describe("normal beneficiary recovery entry", () => {
-  it("starts with permanent exit and keeps exact distribution off the everyday cards", () => {
+  it("starts with withdrawal and keeps exact distribution off the everyday cards", () => {
     const { result } = renderDerivations(
       { ...NO_CAPABILITIES, hasBeneficiaryMatch: true },
       [],
-      new Set(["exit-beneficiary", "distribute-beneficiaries"])
+      new Set(["use-beneficiary", "distribute-beneficiaries"])
     );
 
     expect(result.current.guidedEverydayActions.find((card) => card.intent === "send"))
-      .toMatchObject({ action: "exit-beneficiary" });
+      .toMatchObject({ action: "use-beneficiary" });
     expect(result.current.guidedEverydayActions.some((card) => card.action === "distribute-beneficiaries"))
       .toBe(false);
   });

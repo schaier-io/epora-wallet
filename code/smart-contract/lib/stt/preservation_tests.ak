@@ -273,35 +273,38 @@ test users_and_pol_rejects_wallet_name_change() {
   )
 }
 
-// --- state_completely_unchanged (Consolidate, SetIntendedStakeCredential) ----
+// --- state_unchanged_except_centrally_guarded_fields (Consolidate, SetIntendedStakeCredential) ----
 
 test completely_unchanged_accepts_identical_state() {
-  preservation.state_completely_unchanged(base_state(), base_state())
+  preservation.state_unchanged_except_centrally_guarded_fields(
+    base_state(),
+    base_state(),
+  )
 }
 
 test completely_unchanged_rejects_access_change() {
-  !preservation.state_completely_unchanged(
+  !preservation.state_unchanged_except_centrally_guarded_fields(
     base_state(),
     with_users(base_state(), [mk_user(1)]),
   )
 }
 
 test completely_unchanged_rejects_pol_change() {
-  !preservation.state_completely_unchanged(
+  !preservation.state_unchanged_except_centrally_guarded_fields(
     base_state(),
     with_unlock_time(base_state(), Some(2_000)),
   )
 }
 
 test completely_unchanged_rejects_streaming_payments_change() {
-  !preservation.state_completely_unchanged(
+  !preservation.state_unchanged_except_centrally_guarded_fields(
     base_state(),
     with_streaming_payments(base_state(), []),
   )
 }
 
 test completely_unchanged_rejects_wallet_name_change() {
-  !preservation.state_completely_unchanged(
+  !preservation.state_unchanged_except_centrally_guarded_fields(
     base_state(),
     with_wallet_name(base_state(), #"02"),
   )
@@ -317,7 +320,10 @@ test completely_unchanged_ignores_centrally_guarded_fields() {
     intended_stake_credential: Some(Script(#"ff")),
     last_non_admin_payout_at: Some(123),
   }
-  preservation.state_completely_unchanged(base_state(), stamped)
+  preservation.state_unchanged_except_centrally_guarded_fields(
+    base_state(),
+    stamped,
+  )
 }
 
 // --- state_unchanged_except_beneficiary_removed (UseBeneficiary) ------------

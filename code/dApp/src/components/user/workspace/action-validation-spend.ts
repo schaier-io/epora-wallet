@@ -18,6 +18,7 @@ import {
   validateStateDatum
 } from "@/lib/contracts/state-validation";
 import { validateManagedStreamingPaymentsStatic } from "@/lib/contracts/streaming-manage";
+import { validateStreamingAssetProofDraft } from "./streaming-asset-proof-validation";
 import { extractErrorMessage } from "@/lib/utils/errors";
 import { type ActionFieldErrorsInput } from "@/components/user/workspace/action-validation";
 import { createDefaultTranslator } from "@/i18n/default-translator";
@@ -263,6 +264,27 @@ export function computeSpendActionErrors(
         selectedDetectedToken?.policyId
       )
     );
+    // Without a detected input State, the inferred State can be the edited form
+    // itself. That fallback cannot establish which streaming-payment IDs existed.
+    const matchingToken = selectedDetectedToken &&
+      selectedDetectedToken.utxo.input.txHash.toLowerCase() === sttInputTxHash.trim().toLowerCase() &&
+      (!sttInputOutputIndex || selectedDetectedToken.utxo.input.outputIndex === Number(sttInputOutputIndex))
+      ? selectedDetectedToken : null;
+    appendValidationErrors(manageStreamingPaymentsErrors, "Output state", validateStreamingAssetProofDraft(
+      stateFormToDatum(sttStateForm),
+      [
+        ...(input.walletBalanceSummary ? [input.walletBalanceSummary] : [{ assets: [], loading: true, error: null }]),
+        {
+          assets: (input.lockedContractUtxos ?? []).flatMap((utxo) => utxo.output.amount),
+          loading: input.lockedContractUtxosLoading ?? false,
+          error: input.lockedContractUtxosError ?? null
+        },
+        { assets: matchingToken?.utxo.output.amount ?? [], loading: false, error: null }
+      ],
+      matchingToken && input.selectedDetectedTokenStateForm
+        ? stateFormToDatum(input.selectedDetectedTokenStateForm)
+        : undefined
+    ));
   } catch {
     // The shared output-state serializer above reports the actionable form error.
   }
@@ -306,11 +328,6 @@ export function computeSpendActionErrors(
       i18n("limitedWithdrawal"),
       extractErrorMessage(error, i18n("limitedWithdrawalInputsAreInvalid"))
     );
-  }
-
-  const exitErrors: FieldErrors = { ...limitedErrors };
-  if (activeInferredSttStateForm.beneficiaries.length === 1 && activeInferredSttStateForm.streamingPayments.length > 0) {
-    pushFieldError(exitErrors, i18n("permanentExit"), i18n("settleStreamsBeforeFinalExit"));
   }
 
   const useAllowanceErrors: FieldErrors = {};
@@ -363,7 +380,6 @@ export function computeSpendActionErrors(
     updateErrors,
     manageStreamingPaymentsErrors,
     limitedErrors,
-    exitErrors,
     useAllowanceErrors,
     streamingPaymentErrors
   };

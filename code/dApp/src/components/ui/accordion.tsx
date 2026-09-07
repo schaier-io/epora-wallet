@@ -4,7 +4,7 @@ import * as React from "react"
 import { Accordion as AccordionPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils/cn"
-import { ChevronDownIcon, ChevronUpIcon } from "lucide-react"
+import { ChevronDownIcon } from "lucide-react"
 
 function Accordion({
   className,
@@ -42,14 +42,23 @@ function AccordionTrigger({
       <AccordionPrimitive.Trigger
         data-slot="accordion-trigger"
         className={cn(
-          "group/accordion-trigger relative flex flex-1 items-start justify-between rounded-lg border border-transparent py-3 text-left text-sm font-medium transition-all outline-none hover:underline focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:after:border-ring disabled:pointer-events-none disabled:opacity-50 **:data-[slot=accordion-trigger-icon]:ml-auto **:data-[slot=accordion-trigger-icon]:size-4 **:data-[slot=accordion-trigger-icon]:text-muted-foreground",
+          // `ring-ring/50` measured 1.89:1 against the card surface these sit on, under the
+          // 3:1 WCAG 1.4.11 floor for a focus indicator. Full-opacity `--ring` measures
+          // 3.76:1. `transition-all` also animated every property the trigger owns; only
+          // colour and the ring ever change on hover or focus.
+          "group/accordion-trigger relative flex flex-1 items-start justify-between rounded-lg border border-transparent py-3 text-left text-sm font-medium outline-none transition-[color,background-color,border-color,box-shadow] duration-150 hover:underline focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 **:data-[slot=accordion-trigger-icon]:ml-auto **:data-[slot=accordion-trigger-icon]:size-4 **:data-[slot=accordion-trigger-icon]:text-muted-foreground",
           className
         )}
         {...props}
       >
         {children}
-        <ChevronDownIcon data-slot="accordion-trigger-icon" className="pointer-events-none shrink-0 group-aria-expanded/accordion-trigger:hidden" />
-        <ChevronUpIcon data-slot="accordion-trigger-icon" className="pointer-events-none hidden shrink-0 group-aria-expanded/accordion-trigger:inline" />
+        {/* One chevron rotated by an interruptible transition, not two swapped with
+            `hidden`/`inline`: a visibility toggle cannot animate and cannot be interrupted
+            half-way when the user closes the item again. */}
+        <ChevronDownIcon
+          data-slot="accordion-trigger-icon"
+          className="pointer-events-none shrink-0 transition-transform duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] group-aria-expanded/accordion-trigger:rotate-180"
+        />
       </AccordionPrimitive.Trigger>
     </AccordionPrimitive.Header>
   )
@@ -63,7 +72,10 @@ function AccordionContent({
   return (
     <AccordionPrimitive.Content
       data-slot="accordion-content"
-      className="overflow-hidden text-sm data-open:animate-accordion-down data-closed:animate-accordion-up"
+      // `data-open:` / `data-closed:` compile to `[data-open]` / `[data-closed]`, and Radix
+      // emits neither: the accordion primitive only ever sets `data-state`. Both animations
+      // were dead, so every panel snapped open and shut at full height.
+      className="overflow-hidden text-sm data-[state=open]:animate-accordion-down data-[state=closed]:animate-accordion-up"
       {...props}
     >
       <div

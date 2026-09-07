@@ -17,11 +17,13 @@ use state/configuration as state_configuration
 use state/credentials as credential_shape
 use state/proof_of_life
 use state/types as state_types
+use streaming_payments/asset_presence
 use streaming_payments/forwarding as streaming_payment_forwarding
 use streaming_payments/shape as streaming_payment_shape
 use stt/io.{stt_value_preserved_with_lovelace_top_up}
 use stt/preservation.{
-  state_completely_unchanged, state_unchanged_except_access_index_removed,
+  state_unchanged_except_access_index_removed,
+  state_unchanged_except_centrally_guarded_fields,
   state_unchanged_except_pol_unlock_time,
   state_unchanged_except_pol_unlock_time_and_streaming_payments,
 }
@@ -97,12 +99,18 @@ pub fn eval_operator_use(
 pub fn eval_operator_state_update(
   operator_action: state_types.OperatorAction,
   transaction: Transaction,
+  stt_payment_credential: Credential,
   input_stt_value: Value,
   output_stt_value: Value,
   input_state: state_types.State,
   output_state: state_types.State,
 ) -> Bool {
   expect state_configuration.expect_valid_state_configuration(output_state)
+  expect
+    state_configuration.beneficiary_destinations_are_valid(
+      output_state.access.beneficiaries,
+      stt_payment_credential,
+    )
   expect
     streaming_payment_forwarding.are_forwarded(
       input_state.streaming_payments,
@@ -161,6 +169,13 @@ pub fn eval_manage_streaming_payments(
       output_state.streaming_payments,
       tx_latest_time,
       stt_payment_credential,
+    )
+  expect
+    asset_presence.new_assets_are_present(
+      input_state.streaming_payments,
+      output_state.streaming_payments,
+      transaction.inputs,
+      transaction.reference_inputs,
     )
   expect
     proof_of_life.expect_valid_renewal_window(
@@ -254,7 +269,8 @@ pub fn eval_set_intended_stake_credential(
   // guarded centrally in `eval_spend`, which exempts exactly this action), so
   // "completely unchanged" pins every OTHER field and the expect below pins
   // the one field this action exists to change.
-  expect state_completely_unchanged(input_state, output_state)
+  expect
+    state_unchanged_except_centrally_guarded_fields(input_state, output_state)
   expect output_state.intended_stake_credential == target
   expect credential_shape.optional_is_valid(target)
   expect

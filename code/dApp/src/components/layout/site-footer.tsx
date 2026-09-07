@@ -21,9 +21,16 @@ export function SiteFooter() {
         <div className="flex flex-wrap items-center gap-3">
           {showWalletHomeLink ? (
             <>
+              {/*
+                The ring the rest of the shell uses, not `outline-none` plus an underline.
+                `focus-visible:outline-none` removed the user agent's own indicator and put
+                back a 1px line, which is neither a 2px perimeter nor an equivalent area,
+                so the footer was the one place in the chrome where a keyboard user lost the
+                focus ring. `rounded-sm` keeps the ring off the glyphs.
+              */}
               <Link
                 href="/user"
-                className="hover:text-foreground focus-visible:outline-none focus-visible:underline"
+                className="rounded-sm hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
                 {i18n("walletHome")}
               </Link>
@@ -34,7 +41,7 @@ export function SiteFooter() {
             href="https://projectcatalyst.io/funds/11/cardano-use-cases-concept/dead-man-switch-permission-based-wallet"
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:text-foreground focus-visible:outline-none focus-visible:underline"
+            className="rounded-sm hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
             {i18n("catalystProposal")}
           </a>

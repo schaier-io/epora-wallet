@@ -368,7 +368,7 @@ export function usePermissionWalletWorkspaceState() {
     Boolean(submitHash) &&
     (selectedAction === "use" ||
       selectedAction === "use-allowance" ||
-      (selectedAction === "use-beneficiary" || selectedAction === "exit-beneficiary") ||
+      selectedAction === "use-beneficiary" ||
       selectedAction === "distribute-beneficiaries" ||
       (selectedAction === "consolidate-utxo" && preparationActive) ||
       selectedAction === "lock-funds");

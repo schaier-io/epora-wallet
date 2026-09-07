@@ -1,4 +1,3 @@
-import { assertNonAdminStreamingActionWindow } from "@/lib/contracts/crank-cooldown";
 import { isConstrData } from "./guards";
 import { readStateSections } from "@/lib/contracts/state-layout";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
@@ -193,34 +192,5 @@ export function deriveBeneficiaryWithdrawalStateDatum(
   return {
     ...unwrappedStateDatum,
     fields: nextFields
-  };
-}
-
-/** Permanent exit shares withdrawal accounting, but also removes the final beneficiary. */
-export function deriveBeneficiaryExitStateDatum(
-  stateDatum: ConstrData,
-  beneficiaryId: OnChainInteger,
-  txEarliestTimeMs: number,
-  txLatestTimeMs: number
-): ConstrData {
-  const sections = readStateSections(stateDatum, "Beneficiary exit state datum");
-  const isFinal = sections.beneficiaries.length === 1;
-  if (isFinal) {
-    if (sections.streamingPayments.length > 0) {
-      throw new Error("Final beneficiary exit requires all streaming payments to be settled and removed first.");
-    }
-    assertNonAdminStreamingActionWindow(
-      stateDatum, txEarliestTimeMs, txLatestTimeMs, "Final beneficiary exit"
-    );
-  }
-  const output = deriveBeneficiaryWithdrawalStateDatum(stateDatum, beneficiaryId, txLatestTimeMs);
-  if (!isFinal) return output;
-  const access = readStateSections(output, "Beneficiary exit output datum").access;
-  return {
-    ...output,
-    fields: [
-      { ...access, fields: [access.fields[0]!, access.fields[1]!, []] },
-      ...output.fields.slice(1)
-    ]
   };
 }

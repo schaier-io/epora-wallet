@@ -391,6 +391,7 @@ describe("what the buttons are waiting for", () => {
     renderAs(detail.createdByKeyHash);
 
     expect(await screen.findByText(/is being sent to the blockchain/)).toBeInTheDocument();
+    expect(screen.getByText("Sending")).toBeInTheDocument();
     expect(screen.queryByText(/build it again from the wallet page/)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /make a new version/i })).toBeNull();
   });

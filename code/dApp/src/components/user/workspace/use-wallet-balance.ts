@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
-import { useSetAtom } from "jotai";
+import { workspaceSessionAtom } from "./atoms/transaction-flow.atoms";
+import { useSetAtom, useStore } from "jotai";
 import { walletBalanceSummaryAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import type { BrowserWallet } from "@meshsdk/core";
 import { isAsset } from "@/components/user/workspace/helpers";
@@ -46,6 +47,7 @@ export function useWalletBalance(
   activeWallet: BrowserWallet | null,
   walletReady: boolean
 ): WalletBalanceController {
+  const store = useStore();
   const setWalletBalanceSummary = useSetAtom(walletBalanceSummaryAtom);
   // One counter for both readers. The auto-sync effect had a `cancelled` flag and the
   // imperative refresh had nothing, so the two could not see each other: a refresh started
@@ -111,6 +113,7 @@ export function useWalletBalance(
       return;
     }
 
+    const session = store.get(workspaceSessionAtom);
     const read = startRead();
     setWalletBalanceSummary((current) => ({
       ...current,
@@ -120,12 +123,16 @@ export function useWalletBalance(
 
     try {
       const utxos = await activeWallet.getUtxos();
-      if (latestReadRef.current === read) {
+      if (latestReadRef.current === read && store.get(workspaceSessionAtom) === session) {
         setWalletBalanceSummary(summarizeUtxoAssets(utxos));
       }
     } catch (error) {
-      if (latestReadRef.current === read) {
+      if (latestReadRef.current === read && store.get(workspaceSessionAtom) === session) {
         setWalletBalanceSummary(balanceError(error));
+      }
+    } finally {
+      if (latestReadRef.current === read) {
+        setWalletBalanceSummary(current => ({ ...current, loading: false }));
       }
     }
   }

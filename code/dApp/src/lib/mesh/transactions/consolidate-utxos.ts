@@ -74,8 +74,8 @@ export async function buildConsolidateUtxosTx(
     "consolidate-utxo:tx.draft-build",
     "consolidate-utxo:tx.build",
     async (overrides) => {
-      const { tx, fetcher, changeAddress, setupDiagnostics } = await setupTransaction(wallet, referenceTime, txFetcher);
-      addExtraRequiredSigners(tx, changeAddress, input.requiredSignerKeyHashes);
+      const { tx, fetcher, signerAddress, changeAddress, setupDiagnostics } = await setupTransaction(wallet, referenceTime, txFetcher);
+      addExtraRequiredSigners(tx, signerAddress, input.requiredSignerKeyHashes);
       const spendValidatorsByRef = new Map<string, string>();
       let walletOutputCount = 0;
       let migratesAddress = false;
@@ -115,7 +115,7 @@ export async function buildConsolidateUtxosTx(
           if (preparation) {
             const protocolParams = (tx.txBuilder as RuntimeTxBuilder)._protocolParams;
             if (!protocolParams) throw new Error("Recovery preparation requires live protocol parameters.");
-            const planned = resolveBeneficiaryPreparation(preparation, resolved.input, walletInputs, changeAddress, protocolParams, referenceTime, sttParams);
+            const planned = resolveBeneficiaryPreparation(preparation, resolved.input, walletInputs, signerAddress, protocolParams, referenceTime, sttParams);
             forwardedDatum = planned.state;
             walletAddress = planned.walletAddress;
             preparationOutputs = planned.plan.walletOutputs;
@@ -215,6 +215,7 @@ export async function buildConsolidateUtxosTx(
 
       return {
         tx,
+        signerAddress,
         diagnostics: {
           ...setupDiagnostics,
           ...forwarding.diagnostics,
@@ -236,7 +237,7 @@ export async function buildConsolidateUtxosTx(
           walletInputCount: walletInputs.length,
           walletOutputCount,
           migratesAddress,
-          warnings: preparation ? [i18n("beneficiaryExitExternalFees")] : forwardedStateWarnings,
+          warnings: preparation ? [i18n("beneficiaryPreparationExternalFees")] : forwardedStateWarnings,
           referenceScriptUsage: forwarding.referenceScriptUsage
         }
       };

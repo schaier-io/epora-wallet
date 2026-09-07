@@ -4,12 +4,12 @@ import { renderNowMsAtom } from "./atoms/workspace-ui.atoms";
 import { resolveWorkspaceTransactionInputs } from "./workspace-transaction-inputs";
 import type { createProposalCaptureWriter } from "./workspace-proposal-capture";
 import { checkSelectedFundPoolCoverage } from "./workspace-fund-selection";
-import { buildReviewedBeneficiaryExit } from "./beneficiary-exit-review";
+import { buildReviewedBeneficiaryWithdrawal } from "./beneficiary-withdrawal-review";
 import { applyProofOfLifeOverrideToStateForm, stateFormToDatum } from "@/lib/contracts/state-form";
 import { parseNonNegativeIntegerString } from "@/lib/contracts/state-form-encode";
 import { buildSttSpendTx, getValidityWindow } from "@/lib/mesh/transactions";
 import type { AuthorityPath, OperatorAuthorityPath, SttSpendFormInput } from "@/lib/types/contracts";
-import { ALLOWANCE_WITHDRAWAL_ACTION, BENEFICIARY_EXIT_ACTION, BENEFICIARY_WITHDRAWAL_ACTION, RENEW_PROOF_OF_LIFE_ACTION, STREAMING_PAYMENT_PAYOUT_ACTION } from "./constants";
+import { ALLOWANCE_WITHDRAWAL_ACTION, BENEFICIARY_WITHDRAWAL_ACTION, RENEW_PROOF_OF_LIFE_ACTION, STREAMING_PAYMENT_PAYOUT_ACTION } from "./constants";
 import { cloneAssets, cloneStateForm, resolveManageStreamingPaymentsActionAlternative, resolveSttFundPoolInputs, resolveUpdateStateActionAlternative, resolveUseActionAlternative, resolveProofOfLifeOverrideTimestamp, serializeTransfers, serializeWalletOutputs } from "./helpers";
 import type { WorkspaceTransactionsCtx } from "./workspace-transactions-types";
 
@@ -29,7 +29,6 @@ export function createWorkspaceSttBuilder(
       | "manage-streaming-payments"
       | "use-allowance"
       | "use-beneficiary"
-      | "exit-beneficiary"
       | "payout-streaming-payment"
       | "stop-beneficiary-stream"
       | "distribute-beneficiaries",
@@ -99,8 +98,8 @@ export function createWorkspaceSttBuilder(
               ? resolveUpdateStateActionAlternative(effectiveAuthorityPath)
               : mode === "manage-streaming-payments"
                 ? resolveManageStreamingPaymentsActionAlternative(effectiveAuthorityPath)
-                : (mode === "use-beneficiary" || mode === "exit-beneficiary")
-                  ? mode === "exit-beneficiary" ? BENEFICIARY_EXIT_ACTION : BENEFICIARY_WITHDRAWAL_ACTION
+                : mode === "use-beneficiary"
+                  ? BENEFICIARY_WITHDRAWAL_ACTION
                   : mode === "payout-streaming-payment"
                       ? STREAMING_PAYMENT_PAYOUT_ACTION
                       : ALLOWANCE_WITHDRAWAL_ACTION;
@@ -150,7 +149,7 @@ export function createWorkspaceSttBuilder(
           allowanceSignerKeyHash:
             mode === "use-allowance" ? activePaymentKeyHash ?? undefined : undefined,
           beneficiarySignerKeyHash:
-            (mode === "use-beneficiary" || mode === "exit-beneficiary") ? activePaymentKeyHash ?? undefined : undefined,
+            mode === "use-beneficiary" ? activePaymentKeyHash ?? undefined : undefined,
           // The connected wallet starts as the crank's primary signer. Pass its key
           // hash with any extra required signer hashes so the builder can evaluate
           // the full authority set and preserve the cooldown stamp when an ADMIN is
@@ -185,8 +184,8 @@ export function createWorkspaceSttBuilder(
         }
 
         const build = () => buildSttSpendTx(activeWallet!, config, mode, payload);
-        return mode === "exit-beneficiary"
-          ? buildReviewedBeneficiaryExit(lockingContract.address, build)
+        return mode === "use-beneficiary"
+          ? buildReviewedBeneficiaryWithdrawal(lockingContract.address, build)
           : build();
       },
       {

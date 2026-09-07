@@ -3,10 +3,10 @@ import { readCallerForwardedState, validateSttSpendInput } from "./internals/stt
 import { deriveBeneficiaryStreamStopStateDatum } from "@/lib/contracts/beneficiary-stream-stop";
 import { formatBeneficiaryStopTimestamp } from "./internals/beneficiary-stream-stop-review";
 import { deserializeAddress } from "@meshsdk/core";
-import { beneficiaryExitFeeWarning, captureBeneficiaryExitFeeEvidence, type BeneficiaryExitFeeEvidence } from "./internals/beneficiary-exit-fees";
-import { WALLET_SPEND_VALIDATOR, addExtraRequiredSigners, buildTransactionWithReestimatedLimits, classifyStreamingPayoutBatch, createInputRefKey, createStateForwarding, createStreamingPayoutBuild, createTxPreview, decodeConstrDatumFromUtxo, deriveBeneficiaryExitStateDatum, deriveBeneficiaryWithdrawalId, deriveBeneficiaryWithdrawalStateDatum, ensureUniqueWalletInputRefs, resolveExactWalletInputUtxos, resolveStreamingAdaPayoutTopUps, runStateForwarding, getValidityWindow, mergeAssetLists, mergeAssetsByUnit, mergeRestrictedSttAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, setupTransaction, subtractSelectedInputRemainder, validateForwardedStateDatum, withStage } from "./internals";
+import { WALLET_SPEND_VALIDATOR, addExtraRequiredSigners, buildTransactionWithReestimatedLimits, classifyStreamingPayoutBatch, createInputRefKey, createStateForwarding, createStreamingPayoutBuild, createTxPreview, decodeConstrDatumFromUtxo, deriveBeneficiaryWithdrawalId, deriveBeneficiaryWithdrawalStateDatum, ensureUniqueWalletInputRefs, resolveExactWalletInputUtxos, resolveStreamingAdaPayoutTopUps, runStateForwarding, getValidityWindow, mergeAssetLists, mergeAssetsByUnit, mergeRestrictedSttAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, setupTransaction, subtractSelectedInputRemainder, validateForwardedStateDatum, withStage } from "./internals";
 import { deriveAccessIndexRemovalStateDatum } from "@/lib/contracts/access-removal";
-import { validateManagedStreamingPayments } from "@/lib/contracts/streaming-manage";
+import { prepareManagedStreamingPayments } from "./internals/streaming-asset-proof";
+import { validateBeneficiaryDestinations } from "@/lib/contracts/state-validation-streaming";
 import { type OnChainStructuredAction, buildSttSpendRedeemerData, buildWalletSpendRedeemerData, resolveStructuredOnChainAction } from "@/lib/contracts/action-data";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import { getWalletSpendScript, resolveWalletContinuingOutputAddressFromState, resolveWalletSpendScriptHash } from "@/lib/contracts/blueprint";
@@ -84,7 +84,6 @@ export async function buildSttSpendTx(
     | "manage-streaming-payments"
     | "use-allowance"
     | "use-beneficiary"
-    | "exit-beneficiary"
     | "stop-beneficiary-stream"
     | "distribute-beneficiaries"
     | "payout-streaming-payment"
@@ -123,7 +122,6 @@ export async function buildSttSpendTx(
   const derivesForwardedDatum =
     action === "use-allowance" ||
     action === "use-beneficiary" ||
-    action === "exit-beneficiary" ||
     action === "stop-beneficiary-stream" ||
     action === "remove-access-index" ||
     action === "cancel-streaming-payment";
@@ -168,18 +166,19 @@ export async function buildSttSpendTx(
         streamingPayoutBatch ?? "empty",
         walletInputs.length > 0
       );
-      const { tx, fetcher, setupDiagnostics, changeAddress } = await setupTransaction(
+      const setup = await setupTransaction(
         wallet,
         validityWindowReferenceTimeMs,
         txFetcher,
         payoutBuild.setupOptions
       );
+      const { tx, fetcher, setupDiagnostics, signerAddress } = setup;
       // Co-signers of an approval request: the validator reads `extra_signatories`,
       // which holds only the body's required signers, so a co-signer has to be
       // listed here for their signature to count. Every listed key must then sign.
       const extraRequiredSignerKeyHashes = addExtraRequiredSigners(
         tx,
-        changeAddress,
+        signerAddress,
         input.requiredSignerKeyHashes
       );
       const spendValidatorsByRef = new Map<string, string>();
@@ -192,7 +191,6 @@ export async function buildSttSpendTx(
       let effectiveForwardedDatum: ConstrData;
       let effectiveOnChainAction = onChainAction;
       let repeatableBeneficiaryRecovery = false;
-      let exitSmartInputLovelace: bigint | undefined;
       let forwardedStateWarnings: string[] = [];
       let beneficiaryStopWarning: string | undefined;
       const resolvedWalletInputs: UTxO[] = [];
@@ -369,10 +367,7 @@ export async function buildSttSpendTx(
               "STT state datum"
             );
             allowanceTargetUserId = allowanceComputation.matchedUserId;
-          } else if (action === "use-beneficiary" || action === "exit-beneficiary") {
-            if (action === "exit-beneficiary") {
-              exitSmartInputLovelace = [scriptInput, ...resolvedWalletInputs].reduce((sum, utxo) => sum + BigInt(utxo.output.amount.find((asset) => asset.unit === "lovelace")?.quantity ?? "0"), 0n);
-            }
+          } else if (action === "use-beneficiary") {
             const sourceStateDatum = decodeConstrDatumFromUtxo(scriptInput);
             if (!sourceStateDatum) {
               throw new Error(
@@ -400,11 +395,11 @@ export async function buildSttSpendTx(
                 "Final beneficiary recovery"
               );
             }
-            const beneficiaryOutputDatum = action === "exit-beneficiary"
-              ? deriveBeneficiaryExitStateDatum(sourceStateDatum, beneficiaryTargetId, earliestTimeMs, latestTimeMs)
-              : deriveBeneficiaryWithdrawalStateDatum(sourceStateDatum, beneficiaryTargetId, latestTimeMs);
+            const beneficiaryOutputDatum = deriveBeneficiaryWithdrawalStateDatum(
+              sourceStateDatum, beneficiaryTargetId, latestTimeMs
+            );
             effectiveOnChainAction = {
-              kind: action === "exit-beneficiary" ? "beneficiary-exit" : "beneficiary-withdrawal",
+              kind: "beneficiary-withdrawal",
               beneficiaryId: beneficiaryTargetId
             };
             effectiveForwardedDatum = unwrapStateDatum(
@@ -412,7 +407,7 @@ export async function buildSttSpendTx(
               "STT state datum"
             );
             if (
-              (repeatableBeneficiaryRecovery || (action === "exit-beneficiary" && isRepeatableBeneficiaryRecovery(sourceStateDatum))) &&
+              repeatableBeneficiaryRecovery &&
               resolvedWalletInputs.length === 0
             ) {
               throw new Error(
@@ -480,7 +475,7 @@ export async function buildSttSpendTx(
           } else if (action === "stop-beneficiary-stream") {
             const sourceStateDatum = decodeConstrDatumFromUtxo(scriptInput);
             if (!sourceStateDatum) throw new Error("Stopping a beneficiary stream requires an inline STT state datum.");
-            const connectedSigner = deserializeAddress(changeAddress).pubKeyHash;
+            const connectedSigner = deserializeAddress(signerAddress).pubKeyHash;
             if (connectedSigner !== input.beneficiarySignerKeyHash?.trim().toLowerCase()) {
               throw new Error("The beneficiary signer must match the connected wallet payment key hash.");
             }
@@ -563,21 +558,24 @@ export async function buildSttSpendTx(
           }
 
           if (action === "manage-streaming-payments") {
-            const sourceStateDatum = decodeConstrDatumFromUtxo(scriptInput);
-            if (!sourceStateDatum) {
-              throw new Error(
-                "Managing streaming payments requires an inline STT state datum on the selected input."
-              );
-            }
-            const managePaymentErrors = validateManagedStreamingPayments(
-              sourceStateDatum,
+            await prepareManagedStreamingPayments(setup, {
+              scriptInput,
+              referenceUtxo: resolved.referenceScript.utxo,
+              outputStateDatum: effectiveForwardedDatum,
+              txLatestTimeMs: latestTimeMs,
+              walletPaymentScriptHash,
+              ...sttParams
+            });
+          }
+
+          if (action === "update-state") {
+            const beneficiaryDestinationErrors = validateBeneficiaryDestinations(
               effectiveForwardedDatum,
-              latestTimeMs,
               walletPaymentScriptHash,
               sttParams.sttPolicyId
             );
-            if (managePaymentErrors.length > 0) {
-              throw new Error(managePaymentErrors[0]);
+            if (beneficiaryDestinationErrors.length > 0) {
+              throw new Error(beneficiaryDestinationErrors[0]);
             }
           }
 
@@ -588,6 +586,9 @@ export async function buildSttSpendTx(
             "Forwarded STT output datum is invalid."
           );
           if (beneficiaryStopWarning) forwardedStateWarnings.push(beneficiaryStopWarning);
+          if (action === "use-beneficiary" && !repeatableBeneficiaryRecovery) {
+            forwardedStateWarnings.push(i18n("beneficiaryAccessRemoved"), i18n("beneficiaryUnusedShare"));
+          }
           if (repeatableBeneficiaryRecovery) {
             forwardedStateWarnings.push(REPEATABLE_RECOVERY_NOTICE);
           }
@@ -628,6 +629,7 @@ export async function buildSttSpendTx(
 
       return {
         tx,
+        signerAddress,
         diagnostics: {
           ...setupDiagnostics,
           action,
@@ -657,7 +659,9 @@ export async function buildSttSpendTx(
           allowanceTargetUserId,
           beneficiaryTargetId,
           warnings: forwardedStateWarnings,
-          exitFeeEvidence: exitSmartInputLovelace === undefined ? undefined : captureBeneficiaryExitFeeEvidence(tx, exitSmartInputLovelace),
+          beneficiaryAccess: action === "use-beneficiary"
+            ? repeatableBeneficiaryRecovery ? "retained" : "removed"
+            : undefined,
           adaPayout: streamingPayoutBatch && streamingPayoutBatch !== "empty"
             ? payoutBuild.adaPayout
             : undefined,
@@ -696,9 +700,6 @@ export async function buildSttSpendTx(
   const warnings = Array.isArray(prepared.context?.warnings)
     ? [...(prepared.context.warnings as string[])]
     : [];
-  if (action === "exit-beneficiary" && prepared.context?.exitFeeEvidence) {
-    warnings.push(beneficiaryExitFeeWarning(prepared.txHex, prepared.context.exitFeeEvidence as BeneficiaryExitFeeEvidence));
-  }
   for (const payoutTopUp of payoutTopUps) {
     warnings.push(
       i18n("adaPayoutTopUp", {
@@ -730,6 +731,7 @@ export async function buildSttSpendTx(
     ),
     estimatedFeeLovelace: prepared.estimatedFeeLovelace,
     signerAddress: prepared.signerAddress,
+    beneficiaryAccess: prepared.context?.beneficiaryAccess as BuildResult["beneficiaryAccess"],
     executionUnits: prepared.executionUnits,
     warnings: warnings.length > 0 ? warnings : undefined
   };

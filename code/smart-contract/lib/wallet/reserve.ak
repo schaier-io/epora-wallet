@@ -48,7 +48,6 @@ pub fn expect_reserve_preserved(
     when stt_action is {
       state_types.UseAllowance(_) -> True
       state_types.UseBeneficiary(_) -> !repeatable_beneficiary_recovery
-      state_types.ExitBeneficiary(_) -> True
       _ -> False
     }
   }
@@ -57,7 +56,6 @@ pub fn expect_reserve_preserved(
     stt_action
   is {
     state_types.UseBeneficiary(_) -> !repeatable_beneficiary_recovery
-    state_types.ExitBeneficiary(_) -> True
     _ -> False
   }
   let spent_wallet_assets = if requires_wallet_delta {

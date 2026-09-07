@@ -79,7 +79,13 @@ export function WorkspaceReviewRailView() {
   const walletBalanceLovelace = walletBalanceSummary.loading || walletBalanceSummary.error
     ? null
     : getAssetQuantityByUnit(walletBalanceSummary.assets, "lovelace");
+  const [preparingProposal, setPreparingProposal] = useState(false);
+  const transactionInFlight = activeBuild !== null || activeSubmit;
+  const directActionInFlight = !preparingProposal && transactionInFlight;
   const proposalBlockingIssue = activeReadinessIssues.find((issue) => issue.blocking);
+  // Both sentences were English literals here. The i18n migrator only reads JSX, so a
+  // string built in the component body ships untranslated and `i18n:check` never sees it.
+  // The issue text stays a placeholder: it is data the readiness gate produced, not copy.
   const proposalBlockedReason = proposalBlockingIssue
     ? proposalBlockingIssue.recovery
       ? i18n("proposalBlockedWithRecovery", {
@@ -100,16 +106,16 @@ export function WorkspaceReviewRailView() {
       normalizeWalletName(activeInferredSttStateForm.walletName)
       ? i18n("approvalRequestsCannotRenameThisWallet")
       : null;
-  const approvalBlockedReason = proposalBlockedReason ?? approvalPathBlockedReason;
+  const approvalBlockedReason = directActionInFlight
+    ? i18n("directActionInFlight")
+    : proposalBlockedReason ?? approvalPathBlockedReason;
   const approvalActionNote =
     approvalBlockedReason ??
     (approvalThreshold
       ? i18n("approvalRuleNeedsPower", { approvalThreshold })
       : proposalI18n("preparesTheTransactionAndSavesItForThe"));
-  const [preparingProposal, setPreparingProposal] = useState(false);
   const [refreshingChainState, setRefreshingChainState] = useState(false);
   const [refreshChainStateFailed, setRefreshChainStateFailed] = useState(false);
-  const transactionInFlight = activeBuild === selectedAction || activeSubmit;
 
   // Focused recovery for a stale fund pool: reload what the chain actually holds
   // (fund pools, token summaries). It never rebuilds, signs, or resubmits anything,
@@ -227,9 +233,9 @@ export function WorkspaceReviewRailView() {
                         : selectedAction === "stop-beneficiary-stream"
                           ? previewMatchesSelectedAction && preview?.txHex
                             ? i18n("confirmStreamStop") : i18n("previewStreamStop")
-                        : selectedAction === "exit-beneficiary"
+                        : selectedAction === "use-beneficiary"
                           ? previewMatchesSelectedAction && preview?.txHex
-                            ? i18n("confirmPermanentExit") : i18n("previewPermanentExit")
+                            ? i18n("confirmBeneficiaryWithdrawal") : i18n("previewBeneficiaryWithdrawal")
                           : reviewPrimaryActionLabel
                     }
                     primaryActionKind={approvalOnly ? "approval" : "direct"}
@@ -245,7 +251,7 @@ export function WorkspaceReviewRailView() {
                         void saveAsApprovalRequest();
                         return;
                       }
-                      if (preparationActive || selectedAction === "exit-beneficiary" || selectedAction === "stop-beneficiary-stream" || selectedAction === "distribute-beneficiaries") {
+                      if (preparationActive || selectedAction === "use-beneficiary" || selectedAction === "stop-beneficiary-stream" || selectedAction === "distribute-beneficiaries") {
                         if (previewMatchesSelectedAction && preview?.txHex) {
                           void submitTransactionPreview(preview);
                         } else {
@@ -298,7 +304,11 @@ export function WorkspaceReviewRailView() {
                         : i18n("refreshChainState")}
                     </Button>
                     {refreshChainStateFailed ? (
-                      <p role="status" className="text-xs leading-relaxed text-rose-200">
+                      // No `role="status"` of its own: the wrapper above is already one,
+                      // so text appearing inside it is announced. A live region nested in
+                      // a live region is announced twice or not at all, depending on the
+                      // screen reader.
+                      <p className="text-xs leading-relaxed text-rose-200">
                         {i18n("refreshChainStateFailed")}
                       </p>
                     ) : null}

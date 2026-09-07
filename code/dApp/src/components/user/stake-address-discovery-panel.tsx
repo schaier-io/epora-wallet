@@ -18,11 +18,10 @@ type StakeAddressDiscoveryPanelProps = {
   onRecover?: (orphans: DiscoveredUtxo[]) => void;
 };
 
-/// Runs the orphan / Franken-address discovery (a direct, client-side Koios query, on
-/// the user's machine) automatically when the wallet opens and surfaces the notice when
-/// funds sit at a non-intended stake address. Renders nothing when there is nothing to
-/// act on: the all-clear strip and its Re-check button sat in every healthy sidebar and
-/// told the reader about a problem they did not have.
+/// Runs orphan / Franken-address discovery through the app's Koios proxy when the
+/// wallet opens. The app server receives the queried payment credential; see
+/// `lib/discovery/koios-client.ts`. Shows a notice for funds at another stake address
+/// and renders nothing when no action is needed.
 export function StakeAddressDiscoveryPanel({
   sttPolicyId,
   sttAssetNameHex,
@@ -55,7 +54,7 @@ export function StakeAddressDiscoveryPanel({
 
   if (error) {
     return (
-      <p className="rounded-lg border border-border/40 bg-background/20 px-3 py-2 text-xs text-muted-foreground">
+      <p role="alert" className="rounded-lg border border-border/40 bg-background/20 px-3 py-2 text-xs text-muted-foreground">
         {i18n("couldNotCheckWhereThisWalletSFunds")}
       </p>
     );

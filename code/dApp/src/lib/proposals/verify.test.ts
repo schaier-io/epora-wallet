@@ -426,6 +426,19 @@ test("proposal verification rejects a displayed action that mismatches the verif
   assert.ok(result.reasons.includes(proposalCopy.walletIdentityMismatch()));
 });
 
+test("proposal verification rejects a saved beneficiary exit context", async (t) => {
+  stubMissingChainInput(t);
+  const proposal = proposalFixture(MULTISIG_USE_TX, "exit-beneficiary");
+  const context = JSON.parse(proposal.buildContextJson!) as { mode: string };
+  context.mode = "exit-beneficiary";
+  proposal.buildContextJson = serializeJsonSafe(context);
+
+  const result = await verifyProposal(proposal);
+
+  assert.equal(result.validity, "invalid");
+  assert.ok(result.reasons.includes(proposalCopy.walletIdentityMismatch()));
+});
+
 test("background verification returns unknown without chain lookups above its input budget", async (t) => {
   let chainLookups = 0;
   const fetcher = ServerFetcher.prototype as unknown as {

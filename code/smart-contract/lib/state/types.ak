@@ -55,8 +55,8 @@ pub type Beneficiary {
   /// Encoded full Address, validated at mint and UpdateState. Keeping this
   /// field opaque avoids repeated nested decoding on preservation-only paths.
   /// Those paths preserve its Data exactly. Exact distribution must
-  /// cast it to Address when routing. UseBeneficiary and ExitBeneficiary do
-  /// not route payouts to this field. Its wire value is the Address itself.
+  /// cast it to Address when routing. UseBeneficiary does not route payouts
+  /// to this field. Its wire value is the Address itself.
   payout_address: Data,
 }
 
@@ -244,10 +244,9 @@ pub type SttAction {
   /// sign, so it has no self-cancel path (operators stop such a stream via
   /// `ManageStreamingPayments`). Constructor index 6. No wallet spend.
   CancelStreamingPayment(Int)
-  /// Permanent beneficiary withdrawal. Removes the actor even when final.
-  /// Final exit requires no streaming payments and obeys the recovery cadence.
-  /// Appended at index 7. Existing constructor indices 0..6 remain unchanged.
-  ExitBeneficiary(Int)
+  /// Retired constructor 7. Always rejected by the STT and wallet validators.
+  /// Keep its original payload to preserve constructor indices 8 and 9.
+  ReservedBeneficiaryExit(Int)
   /// An unlocked beneficiary stops one stream at its exact safe cutoff.
   /// Appended at index 8. Existing constructor indices 0..7 remain unchanged.
   StopBeneficiaryStream(Int, Int)
@@ -271,26 +270,13 @@ pub fn is_set_intended_stake_credential_action(action: SttAction) -> Bool {
   }
 }
 
-/// True iff `action` is a value-moving `PayStreamingPayment` crank. Wallet-side
-/// reserve logic uses this narrower classification; cadence-clock mutation uses
-/// `is_non_admin_cadence_action` below.
-pub fn is_pay_streaming_payment_action(action: SttAction) -> Bool {
-  when action is {
-    PayStreamingPayment(_) -> True
-    _ -> False
-  }
-}
-
 /// True for actions permitted to advance the global non-admin cadence clock.
-/// Wallet reserve logic must continue using `is_pay_streaming_payment_action`,
-/// because cancellation moves no wallet value and beneficiary recovery has its
-/// own reserve rule.
+/// Wallet reserve logic classifies actions separately in `wallet/reserve`.
 pub fn is_non_admin_cadence_action(action: SttAction) -> Bool {
   when action is {
     PayStreamingPayment(_) -> True
     CancelStreamingPayment(_) -> True
     UseBeneficiary(_) -> True
-    ExitBeneficiary(_) -> True
     StopBeneficiaryStream(_, _) -> True
     DistributeBeneficiaries(_) -> True
     _ -> False

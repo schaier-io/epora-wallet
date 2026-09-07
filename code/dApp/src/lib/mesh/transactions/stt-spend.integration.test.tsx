@@ -1,3 +1,4 @@
+import { decodeRequiredSigners } from "@/lib/proposals/verify";
 import type { ConstrData } from "@/lib/types/contracts";
 import { getValidityWindow } from "@/lib/mesh/transactions/internals/core";
 // @vitest-environment node
@@ -519,7 +520,7 @@ describe("buildConsolidateUtxosTx integration", () => {
       }
     }
     expect(result.preview.summary).toBe(
-      "Reorganize 1 wallet fund pool into 2 resulting fund pools."
+      "Reorganize 1 wallet fund pool into 2 resulting fund pools using 1 reference script."
     );
     expect(tx.witnessSet().plutusV3Scripts()?.values()).toHaveLength(1);
     expect(tx.witnessSet().redeemers()?.size()).toBe(2);
@@ -679,13 +680,13 @@ describe("buildConsolidateUtxosTx integration", () => {
 });
 
 describe("buildSttSpendTx ADA payout integration", () => {
-  it.each(["use", "multisig-use", "use-allowance", "use-beneficiary", "exit-beneficiary", "final-beneficiary-exit"] as const)("builds %s with two wallet-script inputs and preserves unrelated assets", async (mode) => {
-    const action = mode === "final-beneficiary-exit"
-      ? "exit-beneficiary"
+  it.each(["use", "multisig-use", "use-allowance", "use-beneficiary", "final-beneficiary-recovery"] as const)("builds %s with two wallet-script inputs and preserves unrelated assets", async (mode) => {
+    const action = mode === "final-beneficiary-recovery"
+      ? "use-beneficiary"
       : mode === "multisig-use"
         ? "use"
         : mode;
-    const isBeneficiary = action === "use-beneficiary" || action === "exit-beneficiary";
+    const isBeneficiary = action === "use-beneficiary";
     const sttScript = getSttSpendScript();
     const policyId = getSttMintPolicyId();
     const stateAddress = resolveScriptAddress(sttScript);
@@ -717,7 +718,7 @@ describe("buildSttSpendTx ADA payout integration", () => {
         id: String(index + 1), wallets: [key], unlockAfterMode: "none", unlockAfter: "", weight: "1"
       }));
     }
-    if (mode === "final-beneficiary-exit") {
+    if (mode === "final-beneficiary-recovery") {
       stateForm.users = [];
       stateForm.multiSigThresholdMode = "none";
       stateForm.beneficiaries = stateForm.beneficiaries.slice(0, 1);
@@ -785,7 +786,7 @@ describe("buildSttSpendTx ADA payout integration", () => {
       getUnusedAddresses: async () => []
     } as unknown as BrowserWallet;
     const operatorAction: OnChainStructuredAction = isBeneficiary ? {
-      kind: action === "exit-beneficiary" ? "beneficiary-exit" : "beneficiary-withdrawal", beneficiaryId: 1n
+      kind: "beneficiary-withdrawal", beneficiaryId: 1n
     } : action === "use-allowance" ? {
       kind: "allowance-withdrawal",
       userId: BigInt(stateForm.users[0]!.id),
@@ -861,14 +862,22 @@ describe("buildSttSpendTx ADA payout integration", () => {
       expect(nativeQuantity(stateOutput!, NATIVE_UNIT)).toBe(3n);
     }
 
-    if (action === "exit-beneficiary") {
-      expect(result.warnings).toContain("The connected wallet funds the transaction fee externally.");
+    if (action === "use-beneficiary") {
+      expect(result.beneficiaryAccess).toBe(mode === "final-beneficiary-recovery" ? "retained" : "removed");
+      if (mode !== "final-beneficiary-recovery") {
+        expect(result.warnings).toEqual(expect.arrayContaining([
+          expect.stringContaining("removes your recovery access"),
+          expect.stringContaining("unused share")
+        ]));
+      }
       const outputs = Array.from((tx.body().outputs() as { values(): CstTransactionOutput[] }).values());
       const stateOutput = outputs.find((output) => output.address().toBech32().toString() === stateAddress)!;
       const expectedState = structuredClone(stateDatum);
       const access = expectedState.fields[0] as ConstrData;
-      access.fields[2] = (access.fields[2] as ConstrData[]).slice(1);
-      if (mode === "final-beneficiary-exit") {
+      if (mode !== "final-beneficiary-recovery") {
+        access.fields[2] = (access.fields[2] as ConstrData[]).slice(1);
+      }
+      if (mode === "final-beneficiary-recovery") {
         expectedState.fields[5] = { alternative: 0, fields: [getValidityWindow(REFERENCE_TIME_MS).latestTimeMs] };
       }
       expect(inlineDatumCbor(stateOutput)).toBe(serializeData(expectedState, "Mesh"));
@@ -1327,6 +1336,16 @@ describe("beneficiary stream stop builder", () => {
     const input = {sttInputTxHash:STATE_TX_HASH,sttInputOutputIndex:0,beneficiarySignerKeyHash:PAYMENT_KEY_HASH,beneficiaryStreamStopId:7,validityWindowReferenceTimeMs:REFERENCE_TIME_MS};
     return {wallet,config,input,datum,stateUtxo,stateAddress,stateAmount};
   }
+  it("stops a beneficiary stream using the used-address authority with a different change key", async () => {
+    const context = setupStop();
+    const changeAddress = serializeAddressObj(pubKeyAddress("77".repeat(28)), 0);
+    context.wallet.getChangeAddress = async () => changeAddress;
+    const result = await buildSttSpendTx(context.wallet, context.config, "stop-beneficiary-stream", context.input);
+    const body = deserializeTx(result.txHex).body();
+    expect(decodeRequiredSigners(result.txHex)).toEqual([PAYMENT_KEY_HASH]);
+    expect(result.signerAddress).toBe(PAYMENT_ADDRESS);
+    expect((body.outputs() as CstTransactionOutput[]).some(output => output.address().toBech32().toString() === changeAddress)).toBe(true);
+  });
   it("derives target, actor, unchanged State value and review debt from the consumed State", async () => {
     const context = setupStop();
     const result = await buildSttSpendTx(context.wallet,context.config,"stop-beneficiary-stream",{
@@ -1392,6 +1411,16 @@ describe("exact beneficiary distribution builder",()=>{
     const input={sttInputTxHash:STATE_TX_HASH,sttInputOutputIndex:0,beneficiarySignerKeyHash:PAYMENT_KEY_HASH,walletInputs:[walletInput.input],validityWindowReferenceTimeMs:REFERENCE_TIME_MS};
     return {wallet,config,input,datum,state,stateUtxo,walletInput,stateAddress,walletAddress};
   }
+  it("distributes with the used-address authority while returning external change elsewhere", async () => {
+    const context = setupExact();
+    const changeAddress = serializeAddressObj(pubKeyAddress("66".repeat(28)), 0);
+    context.wallet.getChangeAddress = async () => changeAddress;
+    const result = await buildSttSpendTx(context.wallet, context.config, "distribute-beneficiaries", context.input);
+    expect(decodeRequiredSigners(result.txHex)).toEqual([PAYMENT_KEY_HASH]);
+    expect(result.signerAddress).toBe(PAYMENT_ADDRESS);
+    expect((deserializeTx(result.txHex).body().outputs() as CstTransactionOutput[])
+      .some(output => output.address().toBech32().toString() === changeAddress)).toBe(true);
+  });
   it.each([false,true])("builds all exact shares and external ADA topups (wallet reference=%s)",async withReference=>{
     const context=setupExact(false,withReference);
     const result=await buildSttSpendTx(context.wallet,context.config,"distribute-beneficiaries",context.input);
@@ -1422,7 +1451,7 @@ describe("exact beneficiary distribution builder",()=>{
     const output=(deserializeTx(result.txHex).body().outputs() as CstTransactionOutput[]).find(o=>o.address().toBech32().toString()===context.stateAddress)!;
     expect(inlineDatumCbor(output)).toBe(serializeData(expected,"Mesh"));
   });
-  it.each(["wrong-signer","locked-recipient","streams","native-remainder","ada-remainder","wallet-output","transfer","caller-state","operator","two-inputs","wallet-destination","state-destination"] as const)("rejects %s before returning a draft",async reason=>{
+  it.each(["wrong-signer","locked-recipient","streams","native-remainder","ada-remainder","wallet-output","transfer","caller-state","operator","two-inputs","wallet-destination"] as const)("rejects %s before returning a draft",async reason=>{
     const c=setupExact();const input:Parameters<typeof buildSttSpendTx>[3]={...c.input};
     if(reason==="wrong-signer")input.beneficiarySignerKeyHash="77".repeat(28);
     if(reason==="locked-recipient"){c.state.beneficiaries[1]!.unlockAfterMode="some";c.state.beneficiaries[1]!.unlockAfter="10000000";}
@@ -1435,10 +1464,9 @@ describe("exact beneficiary distribution builder",()=>{
     if(reason==="operator")input.authorityPath="admin";
     if(reason==="two-inputs")input.walletInputs=[...c.input.walletInputs,...c.input.walletInputs];
     if(reason==="wallet-destination")c.state.beneficiaries[1]!.payoutAddress=c.walletAddress;
-    if(reason==="state-destination")c.state.beneficiaries[1]!.payoutAddress=c.stateAddress;
     c.stateUtxo.output.plutusData=serializeData(stateFormToDatum(c.state),"Mesh");
     const expected=reason==="wrong-signer"?/match the connected/:reason==="locked-recipient"?/still locked/:reason==="streams"?/settled and removed/:
-      reason.endsWith("remainder")?/cannot be split exactly/:reason==="two-inputs"?/exactly one/:reason.endsWith("destination")?/outside both scripts/:/Caller outputs/;
+      reason.endsWith("remainder")?/cannot be split exactly/:reason==="two-inputs"?/exactly one/:reason==="wallet-destination"?/continuing wallet outputs/:/Caller outputs/;
     await expect(buildSttSpendTx(c.wallet,c.config,"distribute-beneficiaries",input)).rejects.toThrow(expected);
   });
 });

@@ -1,3 +1,5 @@
+import { activeWalletAtom, activeWalletNameAtom, activeAddressAtom, networkIdAtom } from "@/providers/wallet.atoms";
+import { routeStateAtom } from "./workspace-route.atoms";
 import { recoveryCapacityFailureAtom } from "./recovery-capacity.atoms";
 import { atom } from "jotai";
 
@@ -17,6 +19,25 @@ import type { MintConfirmationState } from "@/components/user/workspace/types";
  * `submitHashAtom`, `mintConfirmationAtom`) MUST be reset on wallet-change /
  * disconnect, use `resetFlowAtom`.
  */
+
+// A selected wallet is part of the session; action navigation is not.
+const sessionWalletUnitAtom = atom(get => get(routeStateAtom).selectedWalletUnit);
+const workspaceResetGenerationAtom = atom(0);
+export const workspaceSessionAtom = atom(get => ({
+  wallet: get(activeWalletAtom),
+  name: get(activeWalletNameAtom),
+  address: get(activeAddressAtom),
+  network: get(networkIdAtom),
+  selectedWallet: get(sessionWalletUnitAtom),
+  generation: get(workspaceResetGenerationAtom)
+}));
+
+/** Per-store run counter survives renders and can be retired by reset paths. */
+export const buildRunAtom = atom(0);
+export const invalidateBuildAtom = atom(null, (get, set) => {
+  set(buildRunAtom, get(buildRunAtom) + 1);
+  set(activeBuildAtom, null);
+});
 
 /** Celebration overlay shown after a wallet-mint tx confirms. */
 export interface MintCelebration {
@@ -144,6 +165,7 @@ export const submitSettledAtom = atom(null, (_get, set) => {
  * `dismissedSubmitHash`, mirroring the legacy `clearPreviewResult`.)
  */
 export const resetFlowAtom = atom(null, (_get, set) => {
+  set(invalidateBuildAtom);
   set(previewAtom, null);
   set(previewSignatureAtom, null);
   set(lastActionLabelAtom, "");
@@ -172,7 +194,9 @@ export const clearMessagesAtom = atom(null, (_get, set) => {
  * the per-mount reset that component-local `useState` gave for free. Also the
  * natural hook for wallet-change / disconnect.
  */
-export const resetAllFlowAtom = atom(null, (_get, set) => {
+export const resetAllFlowAtom = atom(null, (get, set) => {
+  set(workspaceResetGenerationAtom, get(workspaceResetGenerationAtom) + 1);
+  set(invalidateBuildAtom);
   set(activeBuildAtom, null);
   set(activeSubmitAtom, false);
   set(recoveryCapacityFailureAtom, null);

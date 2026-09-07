@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { detectedSttTokensAtom, detectedSttTokensErrorAtom, detectedSttTokensLoadingAtom, permissionWalletSummariesAtom, permissionWalletSummariesLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { configAtom } from "@/components/user/workspace/atoms/workspace-config.atoms";
 
+import { workspaceSessionAtom } from "./atoms/transaction-flow.atoms";
 import { useEffect, useRef } from "react";
 import { useAtom, useSetAtom, useStore } from "jotai";
 import { detectSttInfo } from "@/lib/mesh/detection";
@@ -225,8 +226,9 @@ export function useDetectedSttTokens({
   }, [enabled, detectedSttTokens, i18n, setPermissionWalletSummaries, setPermissionWalletSummariesLoading]);
 
   async function refreshDetectedTokens({ keepSelection = false } = {}) {
+    const session = store.get(workspaceSessionAtom);
     const generation = (refreshGenerationRef.current += 1);
-    const isLatest = () => refreshGenerationRef.current === generation;
+    const isLatest = () => refreshGenerationRef.current === generation && store.get(workspaceSessionAtom) === session;
     setDetectedSttTokensLoading(true);
     setDetectedSttTokensError(null);
 
@@ -277,15 +279,16 @@ export function useDetectedSttTokens({
       }
       throw error;
     } finally {
-      if (isLatest()) {
+      if (refreshGenerationRef.current === generation) {
         setDetectedSttTokensLoading(false);
       }
     }
   }
 
   async function refreshPermissionWalletSummaries(nextTokens = detectedSttTokens) {
+    const session = store.get(workspaceSessionAtom);
     const generation = (summaryGenerationRef.current += 1);
-    const isLatest = () => summaryGenerationRef.current === generation;
+    const isLatest = () => summaryGenerationRef.current === generation && store.get(workspaceSessionAtom) === session;
     if (nextTokens.length === 0) {
       setPermissionWalletSummaries({});
       setPermissionWalletSummariesLoading(false);
@@ -341,7 +344,7 @@ export function useDetectedSttTokens({
         setPermissionWalletSummaries(nextSummaries);
       }
     } finally {
-      if (isLatest()) {
+      if (summaryGenerationRef.current === generation) {
         setPermissionWalletSummariesLoading(false);
       }
     }

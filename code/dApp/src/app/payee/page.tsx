@@ -26,7 +26,12 @@ export default function PayeePage() {
           <Suspense
             fallback={
               <div className="container space-y-4 py-3 md:py-4">
-                <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+                {/* The SkeletonCard below is `aria-hidden`, so this line is the only thing
+                    a screen reader has to tell it the page is still loading. */}
+                <div
+                  role="status"
+                  className="inline-flex items-center gap-2 text-sm text-muted-foreground"
+                >
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                   {i18n("preparingYourPayments")}
                 </div>

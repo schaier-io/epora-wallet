@@ -136,12 +136,12 @@ function renderRail(options: {
   );
 }
 
-it("builds a permanent withdrawal for review without opening the signing wallet", () => {
+it("builds a beneficiary withdrawal for review without opening the signing wallet", () => {
   const build = vi.fn();
   const submit = vi.fn();
   const combined = vi.fn();
   renderRail({
-    selectedAction: "exit-beneficiary",
+    selectedAction: "use-beneficiary",
     previewMatchesSelectedAction: false,
     buildSelectedActionTx: build,
     submitTransactionPreview: submit,
@@ -149,25 +149,25 @@ it("builds a permanent withdrawal for review without opening the signing wallet"
     handleSaveProposalFromBuild: vi.fn(),
     signingAvailability: { canDirectSign: true, directAuthorityPath: "beneficiary", canSaveApprovalRequest: false }
   });
-  expect(reviewPanelProps.latest.primaryActionLabel).toBe("Preview permanent withdrawal");
+  expect(reviewPanelProps.latest.primaryActionLabel).toBe("Preview withdrawal");
   (reviewPanelProps.latest.onPrimaryAction as () => void)();
   expect(build).toHaveBeenCalledWith("beneficiary");
   expect(submit).not.toHaveBeenCalled();
   expect(combined).not.toHaveBeenCalled();
 });
 
-it("signs the reviewed permanent withdrawal only on the confirmation click", () => {
+it("signs the reviewed beneficiary withdrawal only on the confirmation click", () => {
   const build = vi.fn();
   const submit = vi.fn();
   renderRail({
-    selectedAction: "exit-beneficiary",
+    selectedAction: "use-beneficiary",
     previewMatchesSelectedAction: true,
     buildSelectedActionTx: build,
     submitTransactionPreview: submit,
     handleSaveProposalFromBuild: vi.fn(),
     signingAvailability: { canDirectSign: true, directAuthorityPath: "beneficiary", canSaveApprovalRequest: false }
   });
-  expect(reviewPanelProps.latest.primaryActionLabel).toBe("Confirm permanent withdrawal");
+  expect(reviewPanelProps.latest.primaryActionLabel).toBe("Confirm withdrawal");
   (reviewPanelProps.latest.onPrimaryAction as () => void)();
   expect(submit).toHaveBeenCalledWith(expect.objectContaining({ txHex: "old-payout-tx" }));
   expect(build).not.toHaveBeenCalled();
@@ -494,5 +494,33 @@ describe("stale fund-pool recovery", () => {
     expect(
       screen.queryByRole("button", { name: "Refresh chain state" })
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("approval saving during another transaction", () => {
+  it.each([
+    ["the selected action is building", "payout-streaming-payment", false],
+    ["another action is building", "mint", false],
+    ["the wallet is signing", null, true]
+  ] as const)("blocks saving while %s", (_label, activeBuild, activeSubmit) => {
+    const buildSelectedActionTx = vi.fn();
+    const handleSaveProposalFromBuild = vi.fn();
+    renderRail({
+      previewMatchesSelectedAction: true,
+      buildSelectedActionTx,
+      handleSaveProposalFromBuild,
+      seedStore: (store) => {
+        store.set(activeBuildAtom, activeBuild);
+        store.set(activeSubmitAtom, activeSubmit);
+      }
+    });
+
+    expect(reviewPanelProps.latest.secondaryActionDisabled).toBe(true);
+    expect(reviewPanelProps.latest.approvalActionNote).toBe(
+      "Wait for the transaction in progress to finish. Then this can be saved for the other signers."
+    );
+    (reviewPanelProps.latest.onSecondaryAction as () => void)();
+    expect(buildSelectedActionTx).not.toHaveBeenCalled();
+    expect(handleSaveProposalFromBuild).not.toHaveBeenCalled();
   });
 });

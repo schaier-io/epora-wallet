@@ -22,14 +22,27 @@ const files = tsxFiles(SRC).map((path) => ({
 /**
  * A document may hold one `main`. Every route file already opens one around its page, so a
  * component that opens a second one nests it: `workspace-view.tsx` did, and landmark
- * navigation offered a `main` inside a `main` on the app's busiest screen. The route files are
- * the only place the element belongs.
+ * navigation offered a `main` inside a `main` on the app's busiest screen.
+ *
+ * The rule is about nesting, not about the filename. What may open a `main` is anything that
+ * *replaces* the page's own render, and that is every route convention file, `loading.tsx`
+ * included -- a Suspense fallback stands in for the page, it does not wrap it. Leaving
+ * `loading` out of this list is what left the app's loading states with no main landmark for
+ * the shell's "Skip to content" link to reach.
+ *
+ * `error-boundary.tsx` is the one component allowed, because it is mounted exactly once, in
+ * `app/layout.tsx`, around the element that holds `children`. When it catches, the page's
+ * `main` is already unmounted, so its fallback replaces one rather than nesting inside it.
+ * The allowance is by exact path: a second mount, deeper in the tree, would nest.
  */
 test("only route files open a main landmark", () => {
   const offenders = files
     .filter(({ source }) => /<main[\s>]/.test(source))
     .map(({ path }) => path)
-    .filter((path) => !/^app\/(?:[^/]+\/)*(?:page|not-found|layout|error)\.tsx$/.test(path));
+    .filter((path) => path !== "components/error-boundary.tsx")
+    .filter(
+      (path) => !/^app\/(?:[^/]+\/)*(?:page|not-found|layout|error|loading)\.tsx$/.test(path)
+    );
 
   assert.deepEqual(
     offenders,

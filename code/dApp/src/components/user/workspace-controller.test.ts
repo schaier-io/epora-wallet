@@ -175,3 +175,32 @@ test("an old recovery-contact link opens the combined recovery tab", () => {
 
   assert.equal(parsed.selectedTask, "settings-proof-of-life");
 });
+
+test("starting a new wallet clears the selected wallet by itself", () => {
+  const open = parseWorkspaceRouteState(
+    new URLSearchParams("wallet=unit&action=use&step=configure")
+  );
+  const creating = reduceWorkspaceRouteState(open, { type: "start-create-wallet" });
+
+  assert.equal(creating.selectedWalletUnit, null);
+  assert.equal(creating.workspaceMode, "new-wallet");
+});
+
+test("clearing the action lands on the overview step by itself", () => {
+  const open = parseWorkspaceRouteState(
+    new URLSearchParams("wallet=unit&action=use&step=configure")
+  );
+  const cleared = reduceWorkspaceRouteState(open, { type: "clear-selected-action" });
+
+  assert.equal(cleared.selectedAction, null);
+  assert.equal(cleared.flowStep, "overview");
+});
+
+
+test("legacy beneficiary exit URLs do not select a replacement action", () => {
+  const parsed = parseWorkspaceRouteState(
+    new URLSearchParams("wallet=unit&action=exit-beneficiary&step=configure")
+  );
+  assert.equal(parsed.selectedAction, null);
+  assert.equal(parsed.selectedIntent, null);
+});

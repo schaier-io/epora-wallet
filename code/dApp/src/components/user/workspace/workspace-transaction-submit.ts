@@ -1,7 +1,7 @@
 import { beneficiaryPreparationActiveAtom, consolidateWalletInputsAtom } from "./atoms/forms/consolidate-form.atoms";
 import { recoveryCapacityFailureAtom, recoveryCapacitySignatureAtom } from "./atoms/recovery-capacity.atoms";
 import { recordRecoveryCapacityFailure } from "./recovery-capacity-model";
-import { buildDiagnosticIdAtom, mintConfirmationRunAtom, submitConfirmedAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
+import { workspaceSessionAtom, buildDiagnosticIdAtom, mintConfirmationRunAtom, submitConfirmedAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { resetLockFundsFormAtom } from "@/components/user/workspace/atoms/forms/lock-funds-form.atoms";
 import { sttExtraTransfersAtom, sttWalletInputsAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import {
@@ -111,9 +111,9 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
     jotaiStore.set(recoveryCapacityFailureAtom, null);
     const recoverySignature = jotaiStore.get(recoveryCapacitySignatureAtom);
 
-    // Synchronous re-entry guard: blocks the second handler call when the
-    // user double-clicks before React re-renders the button as disabled.
-    if (submitInFlightRef.current) {
+    const session = jotaiStore.get(workspaceSessionAtom);
+    // Block duplicate calls in this session without blocking a new wallet.
+    if (submitInFlightRef.current === session) {
       return;
     }
 
@@ -167,7 +167,7 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
       return;
     }
 
-    submitInFlightRef.current = true;
+    submitInFlightRef.current = session;
     setActiveSubmit(true);
     setBuildError(null);
     setBuildErrorExpected(false);
@@ -186,10 +186,12 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
       });
     }
 
+    const isCurrent = () => jotaiStore.get(workspaceSessionAtom) === session;
     let txHash: string;
     try {
       txHash = await signAndSubmitTx(activeWallet, transactionPreview.txHex);
     } catch (error) {
+      if (!isCurrent()) return;
       const parsed = formatBuildError(error, {
         action: "submit",
         wallet: activeWalletName,
@@ -214,10 +216,11 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
       }
       return;
     } finally {
-      setActiveSubmit(false);
-      submitInFlightRef.current = false;
+      if (isCurrent()) setActiveSubmit(false);
+      if (submitInFlightRef.current === session) submitInFlightRef.current = null;
     }
 
+    if (!isCurrent()) return;
     setSubmitHash(txHash);
     jotaiStore.set(submitConfirmedAtom, false);
     runPostSubmitTask("confirmation", () => watchTransactionConfirmation(txHash));
@@ -225,7 +228,7 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
     if (
       selectedAction === "use" ||
       selectedAction === "use-allowance" ||
-      (selectedAction === "use-beneficiary" || selectedAction === "exit-beneficiary")
+      selectedAction === "use-beneficiary"
     ) {
       runPostSubmitTask("recent-recipients", () =>
         rememberRecipients(sttExtraTransfers.map((transfer) => transfer.address))

@@ -56,8 +56,13 @@ export function PopupDialog({
     <div className="user-overlay fixed inset-0 z-[100] bg-black/70 backdrop-blur-[2px]">
       <div
         className="flex min-h-dvh items-center justify-center overflow-y-auto p-4 sm:p-6"
+        // Read the flag from this one handler. It used to be set to `true` by an
+        // `onPointerDown` on the dialog itself and to `false` here, but pointer events
+        // bubble inner-to-outer, so this handler always ran second and always won: the
+        // flag was `false` at click time whatever the user pressed. Selecting text inside
+        // the dialog and releasing over the backdrop therefore closed it and discarded
+        // whatever had been typed.
         onPointerDown={(event) => {
-          // A press anywhere but on this backdrop itself started inside the dialog.
           pointerDownInsideRef.current = event.target !== event.currentTarget;
         }}
         onClick={(event) => {
@@ -79,9 +84,9 @@ export function PopupDialog({
         >
           <div className="flex items-start justify-between gap-4 border-b border-border/60 p-4 sm:p-6">
             <div className="space-y-1">
-              <p id={titleId} className="text-base font-semibold text-foreground">
+              <h2 id={titleId} className="text-base font-semibold text-foreground">
                 {title}
-              </p>
+              </h2>
               {/*
                 Every description is shown, at any length. A description over 90 characters
                 used to go into an ⓘ tooltip plus an `sr-only` copy and was never rendered
@@ -104,7 +109,7 @@ export function PopupDialog({
               aria-label={i18n("closeDialog")}
               className="shrink-0 px-2"
             >
-              <X className="h-4 w-4" />
+              <X aria-hidden="true" className="h-4 w-4" />
             </Button>
           </div>
           <div

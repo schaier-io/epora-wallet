@@ -86,6 +86,7 @@ export function WalletRuleTogglePanel({
   children?: ReactNode;
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsWalletSettingsEditors");
+  const uid = useId();
   const descriptionIsLong = description.length > LONG_DESCRIPTION_LIMIT;
 
   return (
@@ -98,7 +99,9 @@ export function WalletRuleTogglePanel({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
           <div className="flex items-center gap-2">
-            <p className="text-sm font-medium text-foreground">{title}</p>
+            <p id={`${uid}-title`} className="text-sm font-medium text-foreground">
+              {title}
+            </p>
             {descriptionIsLong ? (
               <InfoHint label={i18n("moreAboutTitle", { title: title })} contentClassName="max-w-sm">
                 {description}
@@ -109,9 +112,15 @@ export function WalletRuleTogglePanel({
             <p className="text-xs leading-snug text-muted-foreground">{description}</p>
           ) : null}
         </div>
+        {/* A toggle, not a command: its text names the state it is already in ("Using",
+            "Timer on"), so without `aria-pressed` a screen reader read it as an action
+            with the opposite meaning. `aria-describedby` adds the panel title, because
+            several of these panels sit on one screen and "Using" names none of them. */}
         <Button
           type="button"
           variant={checked ? "secondary" : "outline"}
+          aria-pressed={checked}
+          aria-describedby={`${uid}-title`}
           onClick={() => onCheckedChange(!checked)}
         >
           {checked ? (enabledLabel ?? i18n("using")) : (disabledLabel ?? i18n("notUsed"))}
@@ -147,7 +156,7 @@ export function OwnerAccessEditor({
     <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
-          <PersonHeading person={user}>{personLabel("Owner", user)}</PersonHeading>
+          <PersonHeading person={user}>{personLabel(i18n("owner"), user)}</PersonHeading>
           <div className="flex flex-wrap gap-2">
             <Badge variant="secondary">{i18n("canManageWallet")}</Badge>
             <Badge variant="outline">{formatCountLabel(user.wallets.length, "walletId")}</Badge>
@@ -214,7 +223,7 @@ export function SpendingAccessEditor({
     <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
-          <PersonHeading person={user}>{personLabel("Spender", user)}</PersonHeading>
+          <PersonHeading person={user}>{personLabel(i18n("spender"), user)}</PersonHeading>
           <div className="flex flex-wrap gap-2">
             <Badge variant="outline">{formatCountLabel(user.wallets.length, "walletId")}</Badge>
             <Badge variant="outline">{formatCountLabel(user.perDayAllowance.length, "limit")}</Badge>
@@ -281,7 +290,7 @@ export function RecoveryAccessEditor({
     <div className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
-          <PersonHeading person={beneficiary}>{personLabel("Recovery contact", beneficiary)}</PersonHeading>
+          <PersonHeading person={beneficiary}>{personLabel(i18n("recoveryContact"), beneficiary)}</PersonHeading>
           <Badge variant="outline">{formatCountLabel(beneficiary.wallets.length, "walletId")}</Badge>
         </div>
         <Button type="button" variant="ghost" onClick={onRemove}>
@@ -387,7 +396,10 @@ export function WalletNameEditor({
             {i18n("theNameIsStoredWithTheWalletAnd")}
           </InfoHint>
         </div>
-        <span className={cn("text-xs", atLimit ? "text-amber-300" : "text-muted-foreground")}>
+        <span
+          id="wallet-name-count"
+          className={cn("text-xs", atLimit ? "text-amber-300" : "text-muted-foreground")}
+        >
           {byteCount}/{MAX_WALLET_NAME_BYTES} {i18n("used")}
         </span>
       </div>
@@ -397,9 +409,12 @@ export function WalletNameEditor({
         value={value}
         placeholder={DEFAULT_WALLET_NAME}
         disabled={!editable}
+        // The counter and the sentence beneath both say what the box will still take,
+        // including why it stopped taking keystrokes. Neither was announced with it.
+        aria-describedby="wallet-name-count wallet-name-hint"
         onChange={(event) => onChange(clampWalletNameInput(event.target.value))}
       />
-      <p className="mt-2 text-xs text-muted-foreground">
+      <p id="wallet-name-hint" className="mt-2 text-xs text-muted-foreground">
         {editable ? (
           atLimit ? (
             // The box stops accepting keystrokes here. Saying so beats leaving the reader

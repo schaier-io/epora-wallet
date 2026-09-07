@@ -7,7 +7,7 @@ export type { RuntimeTxBuilder } from "./budget-runtime-builder";
 export { STT_MINT_VALIDATOR, STT_SPEND_VALIDATOR, WALLET_PUBLISH_VALIDATOR, WALLET_SPEND_VALIDATOR, WALLET_VOTE_VALIDATOR, WALLET_WITHDRAW_VALIDATOR } from "./constants";
 export { getValidityWindow, resolveSttScriptParams, setupTransaction } from "./core";
 export { createNoChangeAdaSelector } from "./no-change-ada-selector";
-export { decodeConstrDatumFromUtxo, deriveBeneficiaryWithdrawalId, deriveBeneficiaryWithdrawalStateDatum, deriveBeneficiaryExitStateDatum } from "./datum";
+export { decodeConstrDatumFromUtxo, deriveBeneficiaryWithdrawalId, deriveBeneficiaryWithdrawalStateDatum } from "./datum";
 export { collectErrorText, createStageError, createTxPreview, normalizeError, withStage } from "./errors";
 export { assertRecordPayload, assertValidAssetList, assertValidConstrData, assertValidOptionalConstrData, assertValidPayoutTransfers, assertValidWalletInputRefs, assertValidWalletOutputs, validateForwardedStateDatum } from "./guards";
 export { buildReferenceScriptDiagnostics, describeReferenceScriptUsage, fetchChangeAddressReferenceUtxos, hasReferenceScript, inspectSharedSttReferenceStore, resolveMintReferenceInput, resolveReferenceScript, resolveSharedSttReferenceScript } from "./reference-scripts";

@@ -21,9 +21,11 @@ const Select = React.forwardRef<
   return (
     <select
       className={cn(
-        "flex h-10 w-full rounded-md border border-input bg-background/70 px-3 py-2 text-sm",
+        // 16px on mobile, 14px from `sm` up: iOS Safari zooms the page on focus below 16px.
+        // Matches `Input` and `Textarea`.
+        "flex h-10 w-full rounded-md border border-input bg-background/70 px-3 py-2 text-base sm:text-sm",
         "ring-offset-background transition-colors duration-150",
-        "hover:border-input/80",
+        "hover:border-primary/30",
         "focus-visible:outline-none focus-visible:border-primary/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
         "disabled:cursor-not-allowed disabled:opacity-50",
         "aria-[invalid=true]:border-rose-500/60 aria-[invalid=true]:focus-visible:ring-rose-500/40",

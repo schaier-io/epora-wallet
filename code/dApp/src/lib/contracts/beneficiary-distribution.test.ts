@@ -63,5 +63,4 @@ test("distribution codec appends index9 without changing prior beneficiary actio
   assert.throws(()=>buildSttSpendRedeemerData({kind:"distribute-beneficiaries"}),/requires the initiating/);
   assert.throws(()=>buildSttSpendRedeemerData({kind:"distribute-beneficiaries",beneficiaryId:-1}),/must be between/);
   assert.deepEqual(buildSttSpendRedeemerData({kind:"beneficiary-withdrawal",beneficiaryId:7}),{alternative:3,fields:[7]});
-  assert.deepEqual(buildSttSpendRedeemerData({kind:"beneficiary-exit",beneficiaryId:7}),{alternative:7,fields:[7]});
 });

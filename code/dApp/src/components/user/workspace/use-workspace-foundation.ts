@@ -15,13 +15,13 @@ import { useWorkspaceController } from "@/components/user/use-workspace-controll
 import { useSmartWalletDisplay } from "@/providers/smart-wallet-display";
 
 import { useWalletContext } from "@/providers/wallet-provider";
-import { useAtom, useSetAtom, useStore, useAtomValue } from "jotai";
+import { useAtom, useSetAtom, useStore, useAtomValue, type ExtractAtomValue } from "jotai";
 import {
   activeBuildAtom, activeSubmitAtom, buildDiagnosticIdAtom, buildErrorAtom, buildErrorExpectedAtom,
   buildErrorWriteAtom, submitHashAtom,
   mintConfirmationAtom, mintCelebrationAtom, dismissedSubmitHashAtom, previewAtom,
-  previewSignatureAtom, lastActionLabelAtom, resetAllFlowAtom, mintConfirmationRunAtom,
-  mintedWalletNameAtom
+  previewSignatureAtom, lastActionLabelAtom, resetAllFlowAtom, invalidateBuildAtom, mintConfirmationRunAtom,
+  mintedWalletNameAtom, type workspaceSessionAtom
 } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { resetWorkspaceUiAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
 import { resetAllFormsAtom } from "@/components/user/workspace/atoms/forms/reset-all-forms.atom";
@@ -186,10 +186,11 @@ export function useWorkspaceFoundation() {
   }, [jotaiStore, setBuildError, setBuildErrorExpected, setBuildDiagnosticId, setSubmitHash, setMintConfirmation]);
 
   const clearPreviewResult = useCallback(() => {
+    jotaiStore.set(invalidateBuildAtom);
     setPreview(null);
     setPreviewSignature(null);
     setLastActionLabel("");
-  }, [setPreview, setPreviewSignature, setLastActionLabel]);
+  }, [jotaiStore, setPreview, setPreviewSignature, setLastActionLabel]);
   const walletSessionKeyRef = useRef<string | null>(null);
   const actionConfigurationRef = useRef<HTMLDivElement | null>(null);
   const router = useRouter();
@@ -200,7 +201,7 @@ export function useWorkspaceFoundation() {
   // (state) drives button disabling, but React batches state updates so a
   // rapid double-click can pass the disabled check before the re-render.
   // The ref flips synchronously and blocks the second invocation.
-  const submitInFlightRef = useRef(false);
+  const submitInFlightRef = useRef<ExtractAtomValue<typeof workspaceSessionAtom> | null>(null);
   const { refreshWalletBalance } = useWalletBalance(
     activeWallet,
     walletReady

@@ -200,7 +200,7 @@ export function TopNav() {
                 width={32}
                 height={32}
                 priority
-                className="h-full w-full transition-transform will-change-transform group-hover:scale-[1.06] group-hover:-rotate-2 group-active:scale-[0.97]"
+                className="h-full w-full transition-transform group-hover:scale-[1.06] group-hover:-rotate-2 group-active:scale-[0.96]"
               />
             </span>
             <span className="hidden min-w-0 flex-col justify-center gap-1 leading-[1.1] sm:flex">
@@ -208,7 +208,11 @@ export function TopNav() {
                 <span className="font-medium tracking-[-0.005em] text-[#e0e0e0]">{COPY.brand.nameDisplay[0]}</span>
                 <span className="font-semibold tracking-[-0.02em] text-[#fafafa]">{COPY.brand.nameDisplay[1]}</span>
               </span>
-              <span className="eyebrow hidden max-w-[22rem] truncate font-medium text-[#8ba7a7b2] lg:block">{COPY.brand.tagline}</span>
+              {/* Alpha `c4`, not `b2`. Measured on the header's own `#091215`: `#8ba7a7b2`
+                  renders 4.16:1, and `.eyebrow` is 11px, so it needed 4.5:1 and missed.
+                  `#8ba7a7c4` renders 4.80:1 and keeps the tagline subordinate to the
+                  wordmark beside it (14.34:1 and 18.14:1). */}
+              <span className="eyebrow hidden max-w-[22rem] truncate font-medium text-[#8ba7a7c4] lg:block">{COPY.brand.tagline}</span>
             </span>
           </Link>
 
@@ -243,9 +247,13 @@ export function TopNav() {
                     ? "border-amber-400/30 bg-amber-500/10 text-amber-200"
                     : "border-border/70 bg-background/60 text-muted-foreground"
               )}
-              aria-label={i18n("networkStatusNetworklabel", { networkLabel: networkLabel })}
             >
               <span className={cn("h-1.5 w-1.5 rounded-full", networkDotClass)} aria-hidden="true" />
+              {/* An `sr-only` prefix, not an `aria-label` on the pill. This is a role-less
+                  `<span>`, and a name on a generic element is ignored by most screen
+                  readers, so the label was dead markup and the pill announced a bare
+                  "Preprod" with nothing to say what it described. */}
+              <span className="sr-only">{i18n("networkStatus")}</span>
               {networkLabel}
             </span>
 
@@ -270,7 +278,10 @@ export function TopNav() {
               className={cn(
                 "group inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/40 py-1.5 pl-1.5 pr-3 text-foreground",
                 "transition-[background-color,border-color,box-shadow,transform] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
-                "hover:border-primary/40 hover:bg-background/60 active:scale-[0.98]",
+                // `0.96` is the one press scale in this header; the button used to sit at
+                // `0.98` beside a `0.96` hamburger, so two controls 8px apart answered the
+                // same press with two different amounts of give.
+                "hover:border-primary/40 hover:bg-background/60 active:scale-[0.96]",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 "md:hidden",
                 isConnecting && "opacity-80"

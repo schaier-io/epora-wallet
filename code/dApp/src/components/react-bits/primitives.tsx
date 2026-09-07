@@ -214,12 +214,14 @@ export function CountUp({
   const [displayValue, setDisplayValue] = useState(from);
 
   useEffect(() => {
+    if (!isVisible && !prefersReducedMotion) return;
+
     const startValue = previousValueRef.current;
     previousValueRef.current = to;
 
     let frameId = 0;
     let timeoutId = 0;
-    const shouldSkipAnimation = prefersReducedMotion || !isVisible;
+    const shouldSkipAnimation = prefersReducedMotion;
 
     timeoutId = window.setTimeout(() => {
       if (shouldSkipAnimation) {

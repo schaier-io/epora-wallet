@@ -32,7 +32,6 @@ const GUIDED_USER_ACTION_KINDS = [
   "manage-streaming-payments",
   "use-allowance",
   "use-beneficiary",
-  "exit-beneficiary",
   "stop-beneficiary-stream",
   "distribute-beneficiaries",
   "payout-streaming-payment"
@@ -136,20 +135,20 @@ export function derivePermissionWalletBadgeLabels(
   const badges: string[] = [];
 
   if (capabilityMap.hasDirectAdminSigner) {
-    badges.push("Owner");
+    badges.push(i18n("owner"));
   }
   if (capabilityMap.hasDirectUserMatch) {
-    badges.push("Allowance");
+    badges.push(i18n("allowance"));
   }
   if (capabilityMap.hasBeneficiaryMatch) {
-    badges.push("Recovery");
+    badges.push(i18n("recovery"));
   }
   if (capabilityMap.hasStreamingPayments) {
-    badges.push("Scheduled");
+    badges.push(i18n("scheduled"));
   }
 
   if (badges.length === 0) {
-    badges.push("Receive only");
+    badges.push(i18n("receiveOnly"));
   }
 
   return badges;
@@ -157,7 +156,7 @@ export function derivePermissionWalletBadgeLabels(
 
 export function resolveAutomaticSendPath(
   capabilityMap: TokenCapabilityMap | null
-): "use" | "use-allowance" | "exit-beneficiary" {
+): "use" | "use-allowance" | "use-beneficiary" {
   if (!capabilityMap) {
     return "use";
   }
@@ -174,7 +173,7 @@ export function resolveAutomaticSendPath(
   }
 
   if (capabilityMap.hasBeneficiaryMatch) {
-    return "exit-beneficiary";
+    return "use-beneficiary";
   }
 
   if (capabilityMap.availableOperatorPaths.length > 0) {

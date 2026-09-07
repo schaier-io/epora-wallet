@@ -317,13 +317,29 @@ export function WalletConnectionDialog({
                 ) : null}
               </div>
             </div>
+            {/* `role="status"`: every wallet card goes `disabled` the moment a connect starts,
+                so the control the reader just pressed leaves the accessibility tree and this
+                panel is the only thing left describing the state. Cancel is here because an
+                extension popup the reader never answers otherwise leaves the whole list
+                disabled with no labelled way out -- only the dialog's close icon. */}
             {isConnecting ? (
               <div className="mt-3 rounded-xl border border-primary/20 bg-primary/8 p-3 text-xs text-muted-foreground">
-                <p className="text-foreground">
-                  {i18n("checkWalletExtension", {
-                    wallet: connectingWalletLabel ?? i18n("wallet")
-                  })}
-                </p>
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <p role="status" className="min-w-0 flex-1 text-foreground">
+                    {i18n("checkWalletExtension", {
+                      wallet: connectingWalletLabel ?? i18n("wallet")
+                    })}
+                  </p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="shrink-0"
+                    onClick={cancelConnect}
+                  >
+                    {i18n("cancel")}
+                  </Button>
+                </div>
                 <details className="mt-2 rounded-lg border border-border/60 bg-background/45 p-2">
                   <summary className="cursor-pointer text-xs font-medium text-foreground">
                     {i18n("connectionHelp")}
@@ -392,7 +408,11 @@ export function WalletConnectionDialog({
                         })();
                       }}
                       className={cn(
-                        "rounded-xl border p-3 text-left transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                        // Named properties, not `transition-all`: the card only changes border,
+                        // background, shadow, transform and opacity, and `all` also transitions
+                        // the disabled swap the whole grid makes on every connect.
+                        "rounded-xl border p-3 text-left duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                        "transition-[background-color,border-color,box-shadow,transform,opacity]",
                         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                         active
                           ? "border-primary bg-primary/10 shadow-[0_0_0_1px_color-mix(in_oklch,var(--primary)_25%,transparent)]"

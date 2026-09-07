@@ -15,7 +15,7 @@ import { type Dispatch, type MutableRefObject, type SetStateAction } from "react
 import { type MintConfirmationState, type SetBuildError } from "@/components/user/workspace/types";
 import { type useWorkspaceWalletDerivations } from "@/components/user/workspace/use-workspace-wallet-derivations";
 import { type useStore } from "jotai";
-import { buildDiagnosticIdAtom, mintConfirmationRunAtom
+import { buildRunAtom, workspaceSessionAtom, buildDiagnosticIdAtom, mintConfirmationRunAtom
 } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { MINT_CONFIRMATION_INITIAL_DELAY_MS, MINT_CONFIRMATION_MAX_ATTEMPTS, MINT_CONFIRMATION_POLL_MS } from "@/components/user/workspace/constants";
 import { fetchTransactionsByHash, formatBuildError, isUserActionKind, normalizeTransactionHash, waitFor } from "@/components/user/workspace/helpers";
@@ -27,18 +27,6 @@ import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceWorkspaceFlowHandlers.json";
 
 const i18n = createDefaultTranslator("ComponentsUserWorkspaceWorkspaceFlowHandlers", defaultMessages);
-
-// Monotonic id of the newest build that passed the guard. Module-level on
-// purpose: the workspace factories run on every render, so a closure counter
-// would reset under an in-flight build and let an older run's late settle
-// overwrite the newer run's error, diagnostic, and preview. React batches state
-// updates, so the disabled-button check cannot stop a fast double-click (or a
-// "save as approval request" racing "continue") from starting a second build
-// while the first is still awaiting its builder. When two runs overlap, only
-// the newest one may write the shared flow state; the older run's late settles
-// are discarded. The state it protects (the flow atoms) is module-global too,
-// so the token shares their lifetime.
-let newestBuildRunToken = 0;
 
 /**
  * The workspace build/submit FLOW handlers, extracted from the controller hook.
@@ -137,11 +125,14 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
     jotaiStore.set(mintConfirmationRunAtom, jotaiStore.get(mintConfirmationRunAtom) + 1);
     // Reset before each build; supported actions re-capture below.
     proposalCaptureRef.current = null;
-    const runToken = ++newestBuildRunToken;
+    const runToken = jotaiStore.get(buildRunAtom) + 1;
+    jotaiStore.set(buildRunAtom, runToken);
+    const session = jotaiStore.get(workspaceSessionAtom);
+    const isCurrent = () => jotaiStore.get(buildRunAtom) === runToken && jotaiStore.get(workspaceSessionAtom) === session;
 
     try {
       const result = await run();
-      if (runToken !== newestBuildRunToken) {
+      if (!isCurrent()) {
         return null;
       }
       jotaiStore.set(buildDiagnosticIdAtom, null);
@@ -150,7 +141,7 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
       setPreviewSignature(isUserActionKind(label) ? buildActionSignature(label) : null);
       return result;
     } catch (error) {
-      if (runToken === newestBuildRunToken) {
+      if (isCurrent()) {
         const parsed = formatBuildError(error, {
           action: label,
           wallet: activeWalletName,
@@ -169,7 +160,7 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
       }
       return null;
     } finally {
-      if (runToken === newestBuildRunToken) {
+      if (isCurrent()) {
         setActiveBuild(null);
       }
     }

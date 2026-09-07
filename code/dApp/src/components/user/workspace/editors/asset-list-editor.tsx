@@ -12,7 +12,7 @@ import { resolveAssetIdentity } from "@/lib/cardano-assets";
 import { type Asset } from "@/lib/types/contracts";
 import { parseAdaToLovelace } from "@/lib/user-flow/guided-helpers";
 import { Plus } from "lucide-react";
-import { useId, useMemo } from "react";
+import { useId, useMemo, useRef } from "react";
 
 export function AssetListEditor({
   label,
@@ -30,8 +30,11 @@ export function AssetListEditor({
   availableAssets?: Asset[];
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsAssetListEditor");
-  // Two lists with the same label on one page must not share control ids.
   const uid = useId();
+  // Removing a row unmounts the button that was focused, which drops focus on <body>
+  // and costs a keyboard reader their place in a long form. The add button is the one
+  // control this list always has.
+  const addButtonRef = useRef<HTMLButtonElement | null>(null);
   const availableOptions = useMemo(
     () => buildAssetSelectionOptions(availableAssets),
     [availableAssets]
@@ -63,23 +66,35 @@ export function AssetListEditor({
     ]);
   }
 
+  // Every asset the wallet holds is already on the list, so there is nothing left to add.
+  const addIsExhausted = hasAvailableOptions && !hasUnusedAvailableOption;
+
   return (
-    <div className="@container space-y-3">
+    <div className="@container space-y-3" role="group" aria-labelledby={`${uid}-group-label`} tabIndex={-1}>
       <div className="flex w-full min-w-0 flex-wrap items-center gap-3 rounded-lg border border-border/60 bg-muted/15 p-3">
         <div className="min-w-0 flex-1 space-y-1">
-          <Label>{label}</Label>
+          <p id={`${uid}-group-label`} className="text-sm font-medium leading-none">
+            {label}
+          </p>
           {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}
         </div>
         <Button
+          ref={addButtonRef}
           type="button"
           variant="secondary"
           className="ml-auto shrink-0 gap-1.5"
           onClick={addAssetRow}
-          disabled={hasAvailableOptions && !hasUnusedAvailableOption}
+          disabled={addIsExhausted}
         >
           <Plus className="h-4 w-4" aria-hidden />
           {addLabel ?? i18n("addAsset_f05393")}
         </Button>
+        {/* A greyed-out button with nothing said beside it reads as a fault. */}
+        {addIsExhausted ? (
+          <p className="w-full text-xs text-muted-foreground">
+            {i18n("everyAssetInThisWalletIsAlreadyOnTheList")}
+          </p>
+        ) : null}
       </div>
       {value.length === 0 ? (
         <p className="rounded-md border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
@@ -214,10 +229,21 @@ export function AssetListEditor({
                 </div>
 
                 <div className="flex items-end justify-end">
+                  {/* Every row's button reads "Remove", so on its own the name says
+                      nothing about which asset it drops. */}
                   <Button
                     type="button"
                     variant="ghost"
-                    onClick={() => onChange(value.filter((_, assetIndex) => assetIndex !== index))}
+                    aria-label={i18n("removeAssetNumber", { number: index + 1 })}
+                    onClick={() => {
+                      onChange(value.filter((_, assetIndex) => assetIndex !== index));
+                      const addButton = addButtonRef.current;
+                      if (addButton?.disabled) {
+                        addButton.closest<HTMLElement>('[role="group"]')?.focus();
+                      } else {
+                        addButton?.focus();
+                      }
+                    }}
                   >
                     {i18n("remove")}
                   </Button>

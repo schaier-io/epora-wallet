@@ -78,10 +78,18 @@ export function WorkspaceOnboardingView() {
                         </span>
                         <div className="space-y-1">
                           {/* One rung under the old `text-lg md:text-xl`, which put these three
-                              above the `h2` that heads the screen. They now match it. */}
-                          <p className="font-sans text-base font-semibold leading-snug tracking-[-0.02em] text-foreground md:text-lg">
+                              above the `h2` that heads the screen. They now match it.
+
+                              `h3`, not `p`: these are the three sections of the only screen a
+                              visitor sees before connecting, and as paragraphs they were
+                              invisible to heading navigation -- the card offered no way in
+                              between the header's `h2` and the FAQ's own heading. Preflight
+                              resets `h1`-`h6` to `font-size: inherit` and `margin: 0`
+                              (`tailwindcss/preflight.css:78`), so the classes still decide
+                              how it looks and nothing moves. */}
+                          <h3 className="font-sans text-base font-semibold leading-snug tracking-[-0.02em] text-foreground md:text-lg">
                             {row.title}
-                          </p>
+                          </h3>
                           <p className="text-sm leading-relaxed text-muted-foreground">
                             {row.body}
                           </p>

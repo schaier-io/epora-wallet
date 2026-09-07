@@ -48,7 +48,19 @@ export function ProductFaqList() {
               / `list-item` / `inline`. `display` is not a property `::marker` accepts either,
               so it could not have been doing the work on any engine.
             */}
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 py-3 text-sm font-medium text-foreground focus-visible:outline-none focus-visible:underline">
+            {/*
+              A ring, not the `focus-visible:underline` the inline text links carry. This row is
+              a 44px-tall disclosure control, and an underline drawn under the question text
+              alone left the rest of the row, the chevron that states open/closed included, with
+              no indicator on it. The ring is the one `ui/accordion`'s trigger draws, because
+              that is the same disclosure pattern.
+
+              `ring-ring` at full strength, never halved. Measured on the running page: `--ring`
+              is oklch(0.556 0 0) in the dark theme and the card under it is oklch(0.205 0 0),
+              which is 3.79:1. At 50% alpha the ring composites to sRGB 69/255 and the pair
+              falls to 1.87:1, under the 3:1 WCAG 1.4.11 floor a focus indicator has to clear.
+            */}
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-lg py-3 text-sm font-medium text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring">
               {entry.question}
               <ChevronDown
                 className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180"

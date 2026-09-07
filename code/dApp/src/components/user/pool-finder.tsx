@@ -27,17 +27,12 @@ export type StakePool = {
   retiring: boolean;
 };
 
-// A blank cell used to be an em dash, which reads as a value rather than a gap. The pool
-// lookup returns null when the chain data does not carry the figure, and that is what the
-// cell should say.
-const NOT_REPORTED = "Unknown";
-
-function pct(value: number | null): string {
-  return value == null ? NOT_REPORTED : `${(value * 100).toFixed(1)}%`;
+function pct(value: number | null, notReported: string): string {
+  return value == null ? notReported : `${(value * 100).toFixed(1)}%`;
 }
 
-function ada(lovelace: string | null): string {
-  return lovelace == null ? NOT_REPORTED : `${formatLovelaceAsAda(lovelace)} ₳`;
+function ada(lovelace: string | null, notReported: string): string {
+  return lovelace == null ? notReported : `${formatLovelaceAsAda(lovelace)} ₳`;
 }
 
 /**
@@ -60,6 +55,7 @@ export function PoolFinder({
   onSelect: (pool: StakePool | null) => void;
 }) {
   const i18n = useTranslations("ComponentsUserPoolFinder");
+  const notReported = i18n("unknown");
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<StakePool | null>(null);
   const [loading, setLoading] = useState(false);
@@ -149,7 +145,12 @@ export function PoolFinder({
       </div>
 
       {error ? (
-        <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+        // `role="alert"`: the lookup runs on demand and this is its only failure cue.
+        // Without it a screen-reader user presses Look up and hears nothing back.
+        <p
+          role="alert"
+          className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100"
+        >
           {error}
         </p>
       ) : null}
@@ -198,20 +199,20 @@ export function PoolFinder({
                   (shown.saturation ?? 0) >= 1 ? "text-amber-300" : "text-foreground"
                 )}
               >
-                {pct(shown.saturation)}
+                {pct(shown.saturation, notReported)}
               </dd>
             </div>
             <div>
               <dt className="eyebrow text-muted-foreground">{i18n("liveStake")}</dt>
-              <dd className="mt-0.5 font-medium text-foreground">{ada(shown.liveStakeLovelace)}</dd>
+              <dd className="mt-0.5 font-medium text-foreground">{ada(shown.liveStakeLovelace, notReported)}</dd>
             </div>
             <div>
               <dt className="eyebrow text-muted-foreground">{i18n("margin")}</dt>
-              <dd className="mt-0.5 font-medium text-foreground">{pct(shown.marginPct)}</dd>
+              <dd className="mt-0.5 font-medium text-foreground">{pct(shown.marginPct, notReported)}</dd>
             </div>
             <div>
               <dt className="eyebrow text-muted-foreground">{i18n("fixedFee")}</dt>
-              <dd className="mt-0.5 font-medium text-foreground">{ada(shown.fixedCostLovelace)}</dd>
+              <dd className="mt-0.5 font-medium text-foreground">{ada(shown.fixedCostLovelace, notReported)}</dd>
             </div>
           </dl>
 

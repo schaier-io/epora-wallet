@@ -43,6 +43,7 @@ import {
   persistLastConnectedWalletName,
   readLastConnectedWalletName
 } from "@/lib/wallet/storage";
+import { readWalletAuthorityAddress } from "@/lib/wallet/authority-address";
 import { hasCardanoInjection, waitForCardanoInjection } from "@/lib/wallet/injection";
 
 export { DEMO_WALLET_ID } from "@/providers/wallet.atoms";
@@ -112,20 +113,17 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
 /**
  * Who the extension is answering as RIGHT NOW. Read by both the connect path and the
  * focus refresh, so the two can never disagree about which address identifies the account.
- * A rejected address read is treated as "not this one" and falls through to the next
- * source; a rejected `getNetworkId` fails the whole read, leaving the caller to decide.
+ * Identity read failures propagate, so an account change cannot select another key.
  */
 async function readWalletIdentity(wallet: BrowserWallet) {
-  const [usedAddresses, fallbackAddresses, changeAddress, rewards, networkId] = await Promise.all([
-    wallet.getUsedAddresses().catch(() => []),
-    wallet.getUnusedAddresses().catch(() => []),
-    wallet.getChangeAddress().catch(() => null),
+  const [address, rewards, networkId] = await Promise.all([
+    readWalletAuthorityAddress(wallet),
     wallet.getRewardAddresses().catch(() => []),
     wallet.getNetworkId()
   ]);
 
   return {
-    address: usedAddresses[0] ?? fallbackAddresses[0] ?? changeAddress ?? null,
+    address,
     rewardAddress: rewards[0] ?? null,
     networkId
   };
