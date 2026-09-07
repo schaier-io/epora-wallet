@@ -415,7 +415,11 @@ export function UserReviewPanel({
             className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 sm:p-4 text-sm text-emerald-100"
           >
             <div className="flex min-w-0 items-start gap-2.5">
-              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
+              {submitConfirmed ? (
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
+              ) : (
+                <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-emerald-300" />
+              )}
               <div className="min-w-0 flex-1 space-y-2">
                 <div>
                   <p className="font-medium text-emerald-50">
@@ -423,12 +427,6 @@ export function UserReviewPanel({
                       ? i18n("transactionConfirmed")
                       : i18n("transactionSubmitted")}
                   </p>
-                  {submitConfirmed ? null : (
-                    <p className="mt-0.5 inline-flex items-center gap-1.5 text-xs text-emerald-100/80">
-                      <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
-                      {i18n("confirmingOnChainYourBalanceUpdatesAfterThe")}
-                    </p>
-                  )}
                 </div>
                 <a
                   href={buildCardanoscanTransactionUrl(submitHash)}

@@ -80,7 +80,7 @@ export function ProposalDetail({
   const submittedTxHash = detail?.submittedTxHash ?? detail?.txBodyHash ?? null;
   const statusNote = ((): string | null => {
     if (detail?.status === "SUBMITTED") {
-      return i18n("thisRequestHasBeenSentToTheBlockchain");
+      return i18n("submittedWaitingForConfirmation");
     }
     if (detail?.status === "SUBMITTING") {
       // The chain may already hold this tx while the record is unfinished; the
@@ -280,9 +280,8 @@ export function ProposalDetail({
             Both regions stay mounted and go `sr-only` when empty rather than unmounting.
             A polite region that is inserted at the same moment it gains text is announced
             inconsistently, and every handler clears `actionInfo` before it sets the next
-            one, so "Your signature was added." then "Submitted on-chain: …" is exactly the
-            repeated-update case that needs a stable region. `sr-only` is absolutely
-            positioned, so an empty region costs no space in the `space-y-4` column.
+            one. `sr-only` is absolutely positioned, so an empty region costs no space in
+            the `space-y-4` column.
           */}
           <p
             role="status"

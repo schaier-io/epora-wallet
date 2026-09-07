@@ -144,11 +144,12 @@ describe("review rail live regions", () => {
     expect(alarm.className).not.toContain("bg-sky-500/10");
   });
 
-  it("announces a submitted transaction politely", () => {
+  it("announces that a submitted transaction is waiting for confirmation", () => {
     render(<UserReviewPanel {...BASE} submitHash={"ab".repeat(32)} />);
 
     const status = screen.getByRole("status");
-    expect(status).toHaveTextContent("Transaction submitted");
+    expect(status).toHaveTextContent("Submitted. Waiting for confirmation.");
+    expect(status.querySelector(".animate-spin")).not.toBeNull();
     expect(status).toHaveAttribute("aria-live", "polite");
   });
 
@@ -163,6 +164,7 @@ describe("review rail live regions", () => {
 
     const status = screen.getByRole("status");
     expect(status).toHaveTextContent("Transaction confirmed");
+    expect(status).not.toHaveTextContent("Waiting for confirmation");
     expect(status.querySelector(".animate-spin")).toBeNull();
   });
 
@@ -190,7 +192,7 @@ describe("review rail live regions", () => {
     const status = screen.getByRole("status");
     expect(status.className).toContain("rounded-lg");
     expect(status.className).not.toContain("rounded-xl");
-    expect(status.textContent).toContain("Confirming on-chain. Your balance updates");
+    expect(status.textContent).toContain("Submitted. Waiting for confirmation.");
     expect(status.textContent).not.toContain("\u2014");
   });
 

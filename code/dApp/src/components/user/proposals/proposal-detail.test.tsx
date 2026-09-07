@@ -163,6 +163,7 @@ describe("on-chain links", () => {
     );
 
     const link = await screen.findByTitle("Open transaction on Cardanoscan");
+    expect(screen.getByText("Submitted. Waiting for confirmation.")).toBeInTheDocument();
     expect(link).toHaveAttribute(
       "href",
       `https://preprod.cardanoscan.io/transaction/${submittedHash}`

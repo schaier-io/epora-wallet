@@ -64,7 +64,6 @@
     "couldnTRebuildThisProposalTryAgain": "Could not rebuild this proposal. Try again.",
     "couldnTSubmitThisProposalTryAgain": "Could not submit this proposal. Try again.",
     "rebuiltAgainstLiveChainStateSignaturesReset": "Rebuilt against live chain state. Existing signatures were reset.",
-    "submittedOnChainValue1": "Submitted on-chain: {value1}",
     "thisProposalCannotBeRebuiltAutomaticallyCreateA": "This proposal cannot be rebuilt automatically. Create a new proposal instead.",
     "yourSignatureWasAdded": "Your signature was added."
   },
@@ -89,7 +88,6 @@
   },
   "ComponentsUserReviewPanel": {
     "checkWhatSAboutToHappenThenSign": "Check what's about to happen, then sign in your wallet.",
-    "confirmingOnChainYourBalanceUpdatesAfterThe": "Confirming on-chain. Your balance updates after the next block.",
     "diagnosticReference": "Diagnostic reference",
     "fieldAdvancedOptions": "Advanced options",
     "fieldAssetsToLock": "Assets to add",
@@ -123,7 +121,7 @@
     "review": "Review",
     "somethingNeedsAttention": "Something needs attention",
     "toClearThis": "To clear this",
-    "transactionSubmitted": "Transaction submitted",
+    "transactionSubmitted": "Submitted. Waiting for confirmation.",
     "viewTransactionOnCardanoscan": "View transaction on Cardanoscan",
     "whatWillHappen": "What will happen",
     "transactionConfirmed": "Transaction confirmed",

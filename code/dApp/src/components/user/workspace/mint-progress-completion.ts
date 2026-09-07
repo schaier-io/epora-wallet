@@ -39,13 +39,9 @@ export function buildMintProgressCopy(
   const statusLabel =
     phase === "confirmed"
       ? i18n("liveOnChainSaveOrShareYourCard")
-      : phase === "refreshing"
-        ? i18n("checkingTheNetworkForYourNewWallet")
-        : phase === "delayed"
-          ? i18n("stillWaitingThisCanTakeAnotherBlock")
-          : phase === "submitting"
-            ? i18n("sendingToTheNetwork")
-            : i18n("waitingForTheNetworkToConfirm");
+      : phase === "submitting"
+        ? i18n("sendingToTheNetwork")
+        : i18n("submittedWaitingForConfirmation");
 
   const title =
     phase === "submitting"
