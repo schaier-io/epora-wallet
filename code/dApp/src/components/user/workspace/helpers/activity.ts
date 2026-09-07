@@ -247,18 +247,26 @@ export function buildWalletActivityEvents(
   }
 
   // Consuming and re-creating the wallet token UTxO means the wallet's state was
-  // rewritten. When nothing left for an address outside the wallet's own (pools,
-  // scripts, or the connected wallet's change), that rewrite IS the event: a rules,
-  // people, or proof-of-life update — not a funds movement. Checked before the
-  // movement branches, which would otherwise read the state UTxO's fee as a send.
-  const externalRecipients = (transaction.outputs ?? []).filter((utxo) => {
-    const outputAddress = utxo?.output?.address;
-    if (!outputAddress) return false;
-    if (outputAddress === address) return false;
-    if (options.activeAddress && outputAddress === options.activeAddress) return false;
-    return !isLikelyScriptAddress(outputAddress);
-  });
-  if (sttInputCount > 0 && sttOutputCount > 0 && externalRecipients.length === 0) {
+  // rewritten. A payment address can belong to another co-signer, so comparing it
+  // only with the current viewer misreads that signer's fee change as a recipient.
+  // A real recipient gains value across the transaction; a fee-change address loses
+  // value. Checked before the movement branches, which would otherwise read the state
+  // UTxO's fee as a send.
+  const externalOutputAddresses = new Set(
+    outputUtxos
+      .map((utxo) => utxo.output.address)
+      .filter(
+        (outputAddress) =>
+          outputAddress !== address && !isLikelyScriptAddress(outputAddress)
+      )
+  );
+  const hasExternalRecipient = [...externalOutputAddresses].some((outputAddress) =>
+    calculateAssetDelta(
+      collectAddressAssets(inputs, outputAddress),
+      collectAddressAssets(outputUtxos, outputAddress)
+    ).some((asset) => BigInt(asset.quantity) > 0n)
+  );
+  if (sttInputCount > 0 && sttOutputCount > 0 && !hasExternalRecipient) {
     return [
       createEvent("settings-updated", {
         label: i18n("settings"),
