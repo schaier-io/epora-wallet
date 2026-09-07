@@ -133,6 +133,20 @@ it("represents a mint whose transaction hash is not known yet with null", async 
   }
 });
 
+it("passes the expected wallet unit into mint confirmation", async () => {
+  const createdWalletUnit = `${"aa".repeat(28)}01`;
+  const mintPreview = {
+    ...preview,
+    createdWalletUnit,
+    preview: { action: "mint", summary: "Create wallet" }
+  } as BuildResult;
+  const deps = makeDeps({ selectedAction: "mint", preview: mintPreview });
+
+  await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(mintPreview);
+
+  expect(deps.watchMintCreationConfirmation).toHaveBeenCalledWith(TX_HASH, createdWalletUnit);
+});
+
 it("signs a warned transaction only after explicit approval", async () => {
   const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
   const warnedPreview = {

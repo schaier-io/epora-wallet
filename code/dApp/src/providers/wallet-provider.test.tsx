@@ -31,6 +31,7 @@ vi.mock("@/providers/wallet-payment-key-hash", () => ({
 // test below run a path no browser takes.
 vi.mock("@/lib/wallet/injection", () => ({
   waitForCardanoInjection: async () => undefined,
+  waitForCardanoWalletInjection: async () => undefined,
   hasCardanoInjection: () => typeof (window as { cardano?: unknown }).cardano !== "undefined"
 }));
 
@@ -440,7 +441,7 @@ it("marks the wallet it reconnected on its own until the person connects one the
   // The toast bridge stays quiet for this mark alone; reading localStorage instead
   // swallowed the first click on the remembered wallet when no restore had run.
   persistLastConnectedWalletName("lace");
-  inject({ lace: { isEnabled: async () => true } });
+  inject({ lace: { isEnabled: async () => true, enable: mocks.enable } });
   mocks.enable.mockResolvedValue(fakeWallet());
   renderProvider();
 
@@ -458,7 +459,8 @@ it("keeps the wallet session loading until silent reconnect settles", async () =
   let answerIsEnabled!: (value: boolean) => void;
   inject({
     lace: {
-      isEnabled: () => new Promise<boolean>((resolve) => (answerIsEnabled = resolve))
+      isEnabled: () => new Promise<boolean>((resolve) => (answerIsEnabled = resolve)),
+      enable: mocks.enable
     }
   });
   mocks.enable.mockResolvedValue(fakeWallet());
@@ -474,13 +476,34 @@ it("keeps the wallet session loading until silent reconnect settles", async () =
   expect(screen.getByTestId("session-loading").textContent).toBe("false");
 });
 
+it("restores the saved wallet before wallet enumeration settles", async () => {
+  persistLastConnectedWalletName("lace");
+  inject({ lace: { isEnabled: async () => true, enable: mocks.enable } });
+  mocks.enable.mockResolvedValue(fakeWallet());
+  let finishEnumeration!: (wallets: Array<{ id: string; name: string; icon: string; version: string }>) => void;
+  mocks.getAvailableWallets.mockReturnValue(
+    new Promise((resolve) => { finishEnumeration = resolve; })
+  );
+  renderProvider();
+
+  await waitFor(() => expect(screen.getByTestId("wallet").textContent).toBe("lace"));
+  expect(latest.current?.walletsLoaded).toBe(false);
+
+  await act(async () => {
+    finishEnumeration([{ id: "lace", name: "Lace", icon: "", version: "1" }]);
+  });
+});
+
 it("lets a click made during the restore check win over the restore", async () => {
   // The restore starts only after `isEnabled()` answers; a wallet clicked in that
   // window is the person's choice and must not be superseded and silenced.
   persistLastConnectedWalletName("lace");
   let answerIsEnabled: (value: boolean) => void = () => undefined;
   inject({
-    lace: { isEnabled: () => new Promise<boolean>((resolve) => (answerIsEnabled = resolve)) },
+    lace: {
+      isEnabled: () => new Promise<boolean>((resolve) => (answerIsEnabled = resolve)),
+      enable: mocks.enable
+    },
     eternl: {}
   });
   mocks.enable.mockResolvedValue(fakeWallet());

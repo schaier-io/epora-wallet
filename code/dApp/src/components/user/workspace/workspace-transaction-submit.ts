@@ -253,7 +253,9 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
     runPostSubmitTask("wallet-balance", refreshWalletBalance);
     runPostSubmitTask("locked-utxos", () => refreshLockedContractUtxos(lockingContract.address));
     if (selectedAction === "mint") {
-      runPostSubmitTask("mint-confirmation", () => watchMintCreationConfirmation(txHash));
+      runPostSubmitTask("mint-confirmation", () =>
+        watchMintCreationConfirmation(txHash, transactionPreview.createdWalletUnit)
+      );
     } else {
       runPostSubmitTask("wallet-summaries", refreshPermissionWalletSummaries);
       // The immediate refresh above runs before the tx confirms; re-poll over

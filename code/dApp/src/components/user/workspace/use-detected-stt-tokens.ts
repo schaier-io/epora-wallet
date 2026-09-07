@@ -225,7 +225,10 @@ export function useDetectedSttTokens({
     };
   }, [enabled, detectedSttTokens, i18n, setPermissionWalletSummaries, setPermissionWalletSummariesLoading]);
 
-  async function refreshDetectedTokens({ keepSelection = false } = {}) {
+  async function refreshDetectedTokens({
+    keepSelection = false,
+    knownUnit
+  }: { keepSelection?: boolean; knownUnit?: string } = {}) {
     const session = store.get(workspaceSessionAtom);
     const generation = (refreshGenerationRef.current += 1);
     const isLatest = () => refreshGenerationRef.current === generation && store.get(workspaceSessionAtom) === session;
@@ -233,12 +236,16 @@ export function useDetectedSttTokens({
     setDetectedSttTokensError(null);
 
     try {
-      const knownUnit = keepSelection ? selectedDetectedTokenUnit || undefined : undefined;
-      const detected = await detectSttInfo(knownUnit);
+      const requestedUnit = knownUnit || (keepSelection ? selectedDetectedTokenUnit || undefined : undefined);
+      const detected = await detectSttInfo(requestedUnit);
       if (!isLatest()) {
         return null;
       }
-      const preservedToken = detected.tokens.find((token) => token.unit === selectedDetectedTokenUnit);
+      const currentTokens = store.get(detectedSttTokensAtom);
+      const nextTokens = requestedUnit
+        ? [...currentTokens.filter((token) => token.unit !== requestedUnit), ...detected.tokens]
+        : detected.tokens;
+      const preservedToken = nextTokens.find((token) => token.unit === selectedDetectedTokenUnit);
 
       // During a post-submit re-detect (keepSelection), the selected State may be
       // briefly absent: its old UTxO is spent and the new one isn't indexed yet.
@@ -248,9 +255,6 @@ export function useDetectedSttTokens({
         return null;
       }
 
-      const nextTokens = knownUnit
-        ? [...store.get(detectedSttTokensAtom).filter((token) => token.unit !== knownUnit), ...detected.tokens]
-        : detected.tokens;
       setDetectedSttTokens(nextTokens);
 
       if (!preservedToken) {
