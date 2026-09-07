@@ -60,6 +60,7 @@ function Probe() {
       <span data-testid="payment-key">{context.activePaymentKeyHash ?? "none"}</span>
       <span data-testid="error">{context.connectError ?? ""}</span>
       <span data-testid="connecting">{String(context.isConnecting)}</span>
+      <span data-testid="session-loading">{String(context.walletSessionLoading)}</span>
       <span data-testid="book">{JSON.stringify(addressBook)}</span>
     </>
   );
@@ -450,6 +451,27 @@ it("marks the wallet it reconnected on its own until the person connects one the
     await latest.current!.connectWallet("lace");
   });
   expect(latest.current!.restoredWalletName).toBeNull();
+});
+
+it("keeps the wallet session loading until silent reconnect settles", async () => {
+  persistLastConnectedWalletName("lace");
+  let answerIsEnabled!: (value: boolean) => void;
+  inject({
+    lace: {
+      isEnabled: () => new Promise<boolean>((resolve) => (answerIsEnabled = resolve))
+    }
+  });
+  mocks.enable.mockResolvedValue(fakeWallet());
+  renderProvider();
+
+  await waitFor(() => expect(latest.current?.installedWallets.length).toBeGreaterThan(0));
+  expect(screen.getByTestId("wallet").textContent).toBe("none");
+  expect(screen.getByTestId("session-loading").textContent).toBe("true");
+
+  await act(async () => answerIsEnabled(true));
+
+  await waitFor(() => expect(screen.getByTestId("wallet").textContent).toBe("lace"));
+  expect(screen.getByTestId("session-loading").textContent).toBe("false");
 });
 
 it("lets a click made during the restore check win over the restore", async () => {

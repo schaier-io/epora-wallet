@@ -13,6 +13,7 @@ import {
 } from "./workspace-flow-handlers";
 import { OwnedMessageError } from "./helpers/build-errors";
 import { resetAllFlowAtom, resetFlowAtom, mintConfirmationRunAtom } from "./atoms/transaction-flow.atoms";
+import { resolveWalletSpendAddress } from "@/lib/contracts/blueprint";
 
 // 64 hex chars: the ref shape a stale-inputs failure reports.
 const HASH = "cd".repeat(32);
@@ -39,6 +40,7 @@ function makeCtx(overrides: Partial<Record<string, unknown>> = {}) {
     refreshDetectedTokens: record("refreshDetectedTokens"),
     refreshLockedContractUtxos: record("refreshLockedContractUtxos"),
     refreshPermissionWalletSummaries: record("refreshPermissionWalletSummaries"),
+    runWalletTransactionsRefresh: record("runWalletTransactionsRefresh"),
     refreshWalletBalance: record("refreshWalletBalance"),
     setActiveBuild: record("setActiveBuild"),
     setBuildError: record("setBuildError"),
@@ -233,6 +235,51 @@ test("an invalidated final mint scan settles as delayed", async () => {
   assert.equal(
     (confirmations.at(-1)?.[0] as { phase?: string } | undefined)?.phase,
     "delayed"
+  );
+});
+
+test("a confirmed mint refreshes the created wallet activity before completion", async () => {
+  const originalWindow = globalThis.window;
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: { setTimeout: (callback: () => void) => (callback(), 0) }
+  });
+  const createdToken = {
+    policyId: "aa".repeat(28),
+    assetNameHex: "01",
+    unit: `${"aa".repeat(28)}01`,
+    scriptAddress: "addr_test1stt",
+    utxo: {
+      input: { txHash: HASH, outputIndex: 0 },
+      output: { address: "addr_test1stt", amount: [] }
+    },
+    datum: null
+  };
+  const { ctx, calls } = makeCtx({
+    refreshDetectedTokens: async () => ({ tokens: [createdToken] })
+  });
+
+  try {
+    await createWorkspaceFlowHandlers(ctx).watchMintCreationConfirmation(HASH);
+  } finally {
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: originalWindow
+    });
+  }
+
+  assert.deepEqual(calls.runWalletTransactionsRefresh, [[{
+    walletAddress: resolveWalletSpendAddress({
+      sttPolicyId: createdToken.policyId,
+      sttAssetNameHex: createdToken.assetNameHex
+    }),
+    sttScriptAddress: createdToken.scriptAddress,
+    sttUnit: createdToken.unit,
+    anchorTxHashes: [HASH]
+  }]]);
+  assert.equal(
+    (calls.setMintConfirmation?.at(-1)?.[0] as { phase?: string } | undefined)?.phase,
+    "confirmed"
   );
 });
 
