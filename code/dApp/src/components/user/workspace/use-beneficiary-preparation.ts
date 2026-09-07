@@ -48,6 +48,6 @@ export function useBeneficiaryPreparation() {
     },
     addFunds: () => openWorkspaceIntent("add-funds", "lock-funds"),
     distribute: () => openWorkspaceIntent("send", "distribute-beneficiaries"),
-    finish: () => openWorkspaceIntent("send", "exit-beneficiary")
+    finish: () => openWorkspaceIntent("send", "use-beneficiary")
   };
 }

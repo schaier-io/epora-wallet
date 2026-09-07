@@ -46,20 +46,36 @@ function transfer(address: string, lovelace: string) {
   };
 }
 
-test("permanent exit review states the loss of recovery rights", () => {
-  const ctx = { ...sendCtx([transfer(ADDRESS_ONE, "5000000")]), selectedAction: "exit-beneficiary" as const };
-  const receipt = computeReviewReceipt(ctx);
-  assert.equal(receipt.title, "Permanent withdrawal");
+test("earlier beneficiary review warns about lost access and unused share", () => {
+  const state = createDefaultStateForm();
+  state.beneficiaries = Array.from({ length: 2 }, () => ({
+    id: "0", wallets: [], payoutAddress: ADDRESS_ONE, unlockAfterMode: "none" as const,
+    unlockAfter: "", weight: "1"
+  }));
+  const receipt = computeReviewReceipt({
+    ...sendCtx([transfer(ADDRESS_ONE, "5000000")]), selectedAction: "use-beneficiary",
+    sttBaselineStateForm: state
+  });
   const access = receipt.items.find((item) => item.label === "Recovery access");
+  assert.equal(access?.value, "Removed after withdrawal");
+  assert.match(access?.detail ?? "", /unused share.*remaining funds.*later deposits/);
   assert.equal(access?.tone, "warning");
-  assert.equal(access?.value, "Permanently removed");
-  assert.match(access?.detail ?? "", /unused share.*future deposits/);
 });
 
-test("legacy beneficiary review is not labeled as an unconditional permanent exit", () => {
-  const ctx = { ...sendCtx([transfer(ADDRESS_ONE, "5000000")]), selectedAction: "use-beneficiary" as const };
-  const receipt = computeReviewReceipt(ctx);
-  assert.equal(receipt.items.some((item) => item.label === "Recovery access"), false);
+test("final beneficiary review shows retained access", () => {
+  const state = createDefaultStateForm();
+  state.beneficiaries = [{
+    id: "0", wallets: [], payoutAddress: ADDRESS_ONE, unlockAfterMode: "none",
+    unlockAfter: "", weight: "1"
+  }];
+  const receipt = computeReviewReceipt({
+    ...sendCtx([transfer(ADDRESS_ONE, "5000000")]), selectedAction: "use-beneficiary",
+    sttBaselineStateForm: state
+  });
+  const access = receipt.items.find((item) => item.label === "Recovery access");
+  assert.equal(access?.value, "Retained after withdrawal");
+  assert.match(access?.detail ?? "", /remaining funds.*later deposits/);
+  assert.equal(access?.tone, "success");
 });
 
 /**

@@ -229,7 +229,7 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
     if (
       selectedAction === "use" ||
       selectedAction === "use-allowance" ||
-      (selectedAction === "use-beneficiary" || selectedAction === "exit-beneficiary")
+      selectedAction === "use-beneficiary"
     ) {
       runPostSubmitTask("recent-recipients", () =>
         rememberRecipients(sttExtraTransfers.map((transfer) => transfer.address))

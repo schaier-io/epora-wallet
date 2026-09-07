@@ -447,7 +447,7 @@
       "post": {
         "operationId": "buildSttSpendTx",
         "summary": "Spend the state token",
-        "description": "Run one of the twelve State transitions: `use`, `renew-proof-of-life`, `update-state`, `manage-streaming-payments`, `use-allowance`, `use-beneficiary`, `exit-beneficiary`, `stop-beneficiary-stream`, `distribute-beneficiaries`, `payout-streaming-payment`, `cancel-streaming-payment` and `remove-access-index`. `action` selects which.",
+        "description": "Run one of the eleven State transitions: `use`, `renew-proof-of-life`, `update-state`, `manage-streaming-payments`, `use-allowance`, `use-beneficiary`, `stop-beneficiary-stream`, `distribute-beneficiaries`, `payout-streaming-payment`, `cancel-streaming-payment` and `remove-access-index`. `action` selects which.",
         "tags": [
           "Transactions"
         ],
@@ -1915,103 +1915,7 @@
               "action",
               "beneficiarySignerKeyHash"
             ],
-            "description": "Claim a beneficiary share after the recovery deadline has passed. The forwarded State is derived from the consumed one."
-          },
-          {
-            "type": "object",
-            "properties": {
-              "address": {
-                "$ref": "#/components/schemas/CardanoAddress"
-              },
-              "config": {
-                "$ref": "#/components/schemas/ContractConfig"
-              },
-              "sttInputTxHash": {
-                "description": "Transaction that produced the STT State UTxO to consume.",
-                "$ref": "#/components/schemas/TxHash"
-              },
-              "sttInputOutputIndex": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 9007199254740991,
-                "description": "Index of an output within its transaction.",
-                "example": 0
-              },
-              "outputDatum": {
-                "description": "Ignored for this action: the forwarded State is derived from the consumed one.",
-                "$ref": "#/components/schemas/ConstrData"
-              },
-              "outputAssets": {
-                "description": "Ignored for this action: the State's value is preserved as it stands.",
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/Asset"
-                }
-              },
-              "authorityPath": {
-                "description": "Which access path authorises the action. Defaults to `admin`.",
-                "example": "admin",
-                "type": "string",
-                "enum": [
-                  "admin",
-                  "multisig",
-                  "user",
-                  "beneficiary",
-                  "rule-driven"
-                ]
-              },
-              "requiredSignerKeyHashes": {
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/CredentialHash"
-                },
-                "description": "Payment key hashes the transaction lists as required signers in addition to the connected wallet. The ledger transaction-size limit decides how many fit."
-              },
-              "validityWindowReferenceTimeMs": {
-                "description": "Reference time for the transaction's validity window, in Unix milliseconds. Defaults to the server's clock. Set it to build against a specific point in time.",
-                "example": 1756641600000,
-                "type": "integer",
-                "minimum": -9007199254740991,
-                "maximum": 9007199254740991
-              },
-              "walletInputs": {
-                "description": "Wallet-script UTxOs to spend alongside the State.",
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/WalletInputRef"
-                }
-              },
-              "walletOutputs": {
-                "description": "Continuing wallet outputs to produce.",
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/WalletScriptOutput"
-                }
-              },
-              "extraTransfers": {
-                "description": "Additional recipients paid by this transaction.",
-                "type": "array",
-                "items": {
-                  "$ref": "#/components/schemas/PayoutTransfer"
-                }
-              },
-              "action": {
-                "type": "string",
-                "const": "exit-beneficiary"
-              },
-              "beneficiarySignerKeyHash": {
-                "description": "Payment key hash of the beneficiary claiming their share. They must sign the result.",
-                "$ref": "#/components/schemas/CredentialHash"
-              }
-            },
-            "required": [
-              "address",
-              "config",
-              "sttInputTxHash",
-              "action",
-              "beneficiarySignerKeyHash"
-            ],
-            "description": "Permanently claim and give up beneficiary rights, including the final beneficiary. The final exit requires an empty stream list and the non-admin recovery cooldown. Omitted funds and later deposits are excluded from this claim."
+            "description": "Claim a beneficiary share after the recovery deadline has passed. Earlier beneficiaries are removed after one withdrawal and forfeit any unused share. The final beneficiary remains registered for withdrawals from remaining funds and later deposits. The forwarded State is derived from the consumed one."
           },
           {
             "type": "object",
@@ -3649,6 +3553,14 @@
           },
           "executionUnits": {
             "$ref": "#/components/schemas/ExecutionUnits"
+          },
+          "beneficiaryAccess": {
+            "description": "Recovery rights after a beneficiary withdrawal, derived from the consumed State. Earlier beneficiaries are removed; the final beneficiary remains registered.",
+            "type": "string",
+            "enum": [
+              "removed",
+              "retained"
+            ]
           },
           "warnings": {
             "description": "Advisories about the resulting state that do not block the build, such as a lapsed wake-up timer. The transaction is still valid on-chain.",

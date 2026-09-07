@@ -241,7 +241,7 @@ export const allocatedLockedContractAssetsAtom = atom((get) =>
 
 export const transferSourceAssetsAtom = atom((get) => {
   const action = get(effectiveSttActionAtom);
-  return action === "use" || action === "use-allowance" || (action === "use-beneficiary" || action === "exit-beneficiary")
+  return action === "use" || action === "use-allowance" || action === "use-beneficiary"
     ? get(totalLockedContractAssetsAtom)
     : get(selectedLockedContractAssetsAtom);
 });

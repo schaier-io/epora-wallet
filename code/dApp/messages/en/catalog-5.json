@@ -157,14 +157,14 @@
   },
   "LibMeshTransactionsSttSpend": {
     "adaPayoutTopUp": "ADA payout top-up: {payoutTopUpAda} ADA extra goes to {payoutAddress}. Final output: {finalOutputAda} ADA. Scheduled settlement: {settlementAda} ADA. Review before signing.",
-    "beneficiaryExitExternalFees": "The connected wallet funds the transaction fee externally.",
-    "beneficiaryExitPartialExternalFees": "At least {amount} ADA of the transaction fee comes from external funds.",
-    "beneficiaryExitFeeSourceUnknown": "The fee source could not be established. Review the funding before signing.",
     "beneficiaryStreamStopDetails": "Stream {id}: end changes from {oldEnd} to {cutoff}. Already paid: {paid} {unit}. Retained debt through cutoff: {debt} {unit}. Settle this debt separately. The connected wallet funds fees.",
     "beneficiaryStreamStopRawTimestamp": "{milliseconds} ms (Unix)",
     "beneficiaryDistributionNotice": "This transaction pays exact shares to all {count} recovery contacts. All contacts keep their recovery rights. Your connected wallet funds fees and extra ADA for minimum output values.",
     "beneficiaryDistributionSummary": "Distribute one fund pool to {count} recovery contacts.",
-    "beneficiaryDistributionAdaTopUp": "Your connected wallet adds {payoutTopUpAda} ADA to the payout at {payoutAddress}. Exact share: {settlementAda} ADA. Final output: {finalOutputAda} ADA."
+    "beneficiaryDistributionAdaTopUp": "Your connected wallet adds {payoutTopUpAda} ADA to the payout at {payoutAddress}. Exact share: {settlementAda} ADA. Final output: {finalOutputAda} ADA.",
+    "beneficiaryPreparationExternalFees": "The connected wallet funds the transaction fee externally.",
+    "beneficiaryAccessRemoved": "This withdrawal removes your recovery access. You cannot return through this recovery entry to claim remaining funds or later deposits.",
+    "beneficiaryUnusedShare": "Any unused share is forfeited after this withdrawal."
   },
   "LibProductFaq": {
     "costAnswer": "Epora itself is free. There is no service fee, no subscription and no token to buy. You pay only the ordinary Cardano network fee for each transaction you sign. That fee goes to the network, not to us. On Preprod you pay it in test ADA, so it costs nothing real.",
@@ -340,7 +340,7 @@
     "stakingRewards": "Staking rewards",
     "theRecipientGetsPaidAndTheRemainingAllowance": "The recipient gets paid and the remaining allowance is updated.",
     "theRecipientReceivesTheAssetsYouChoosePeople_d262cc": "The recipient receives the assets you choose. People, scheduled payments, and the proof of life stay the same.",
-    "theRecoveryContactReceivesFundsUpToThe": "The recovery contact receives funds up to the configured limits. The wallet rules stay unchanged.",
+    "theRecoveryContactReceivesFundsUpToThe": "Earlier recovery contacts withdraw once and are removed. The final recovery contact keeps access to remaining funds and later deposits.",
     "theWalletSStakeAddressIsSetExisting": "The wallet's stake address is set; existing funds are then moved to the new staking address and can be delegated.",
     "tidyWalletFunds": "Tidy wallet funds",
     "tidy": "Tidy",
@@ -373,14 +373,6 @@
     "withdrawStartingPoint": "Open the wallet, then enter the staking address and reward amount.",
     "withdrawWhenToUse": "Use this when this wallet should claim available staking rewards.",
     "walletSettings": "Wallet settings",
-    "permanentExitRouteExplanation": "Withdraw through your recovery access and then give up that access.",
-    "permanentExitLabel": "Withdraw and leave recovery",
-    "permanentExitShortLabel": "Permanent withdrawal",
-    "permanentExitDescription": "Withdraw your share and permanently remove your recovery access.",
-    "permanentExitOutcome": "Your recovery access ends after this withdrawal.",
-    "permanentExitWhenToUse": "Use this when you are ready to give up rights to remaining funds and future deposits.",
-    "permanentExitWhatChanges": "The transaction removes your recovery contact entry, including when you are the final contact.",
-    "permanentExitStartingPoint": "Choose the funds and payout amounts before reviewing the permanent exit.",
     "beneficiaryStopRouteExplanation": "Use an unlocked recovery contact to stop one scheduled payment. Earned funds remain owed.",
     "beneficiaryStopLabel": "Stop a scheduled payment",
     "beneficiaryStopShortLabel": "Stop payment",
@@ -497,11 +489,10 @@
     "theTransactionDetailsAreStaleContinueAgainTo_34b074": "The transaction details are stale. Continue again to refresh them.",
     "thisActionWasAlreadyCompletedChangeSomethingBefore": "This action was already completed. Change something before trying again.",
     "value1Value2": "{value1}{value2}",
-    "exitDiscoveryAddressRequired": "Load the wallet address before reviewing a permanent withdrawal.",
-    "exitRightsWarning": "This withdrawal permanently removes your recovery access. You give up rights to remaining funds and future deposits.",
-    "exitUnusedShareWarning": "Any part of your share that you leave unwithdrawn is forfeited when you exit.",
-    "exitOmittedFundsWarning": "This transaction omits {count} discovered wallet UTxOs. You cannot return through this recovery entry to claim them.",
-    "exitAllDiscoveredSelectedWarning": "All discovered UTxOs are selected. Discovery cannot prove that no other funds or future deposits exist."
+    "withdrawalDiscoveryAddressRequired": "Load the wallet address before reviewing this withdrawal.",
+    "withdrawalAccessUnknown": "Recovery access after this withdrawal could not be determined. Build the transaction again.",
+    "withdrawalOmittedFundsWarning": "This transaction omits {count} discovered wallet UTxOs. You cannot return through this recovery entry to claim them.",
+    "withdrawalAllDiscoveredSelectedWarning": "All discovered UTxOs are selected. Discovery cannot prove that no other funds or later deposits exist."
   },
   "ComponentsUserWorkspaceBeneficiaryStreamStopView": {
     "title": "Stop scheduled payments",
@@ -570,7 +561,7 @@
     "refresh": "Refresh funds and costs",
     "loading": "Reading current transaction costs.",
     "distribute": "Distribute a prepared pool",
-    "finish": "Finish with permanent withdrawal"
+    "finish": "Continue to withdrawal"
   },
   "ComponentsUserWorkspaceBeneficiaryPreparationModel": {
     "connect": "Connect a recovery contact wallet.",
@@ -583,7 +574,7 @@
   },
   "ComponentsUserWorkspaceRecoveryFallbackView": {
     "title": "This withdrawal exceeds transaction capacity.",
-    "description": "Prepare smaller fund pools, then distribute them one at a time. Finish with a permanent withdrawal when ready.",
+    "description": "Prepare smaller fund pools, then distribute them one at a time. You can also withdraw selected funds through recovery access.",
     "prepare": "Prepare smaller fund pools",
     "distribute": "Distribute one fund pool"
   },
@@ -600,14 +591,14 @@
     "reviewAndConfirm": "Review and confirm",
     "scrollToReviewAndConfirm": "Scroll to review and confirm",
     "staleChainStateNotice": "The selected fund pool is no longer spendable: the chain moved on since this transaction was prepared. Refresh the chain state to reload the fund pools, then choose pools that are still unspent. Nothing you entered was discarded, and nothing was sent.",
-    "previewPermanentExit": "Preview permanent withdrawal",
-    "confirmPermanentExit": "Confirm permanent withdrawal",
     "previewStreamStop": "Preview stop",
     "confirmStreamStop": "Confirm stop",
     "previewDistribution": "Preview distribution",
     "confirmDistribution": "Confirm distribution",
     "previewPreparation": "Preview preparation",
     "confirmPreparation": "Confirm preparation",
-    "directActionInFlight": "Wait for the transaction in progress to finish. Then this can be saved for the other signers."
+    "directActionInFlight": "Wait for the transaction in progress to finish. Then this can be saved for the other signers.",
+    "previewBeneficiaryWithdrawal": "Preview withdrawal",
+    "confirmBeneficiaryWithdrawal": "Confirm withdrawal"
   }
 }

@@ -14,7 +14,7 @@ import {
   WalletScriptOutputSchema
 } from "./tx-primitives";
 
-// The twelve STT-spend actions. They share one builder and one STT input, and
+// The eleven STT-spend actions. They share one builder and one STT input, and
 // differ in what they must be told about the signer or the target, so this is a
 // discriminated union on `action` rather than one schema with action-specific
 // fields. Each `.min(1)` and required field below mirrors a throw in
@@ -59,7 +59,7 @@ const SttSpendBase = TxRequestBaseSchema.extend({
 });
 
 /**
- * Six actions derive the forwarded State from the consumed one and never read
+ * Five actions derive the forwarded State from the consumed one and never read
  * the caller's copy: `stt-spend.ts` skips its `assertValidConstrData` for them.
  * Requiring the fields anyway would reject a request that followed the
  * descriptions above and omitted what the builder ignores.
@@ -107,14 +107,7 @@ const beneficiarySchema = SttSpendDerivedBase.extend({
   })
 }).meta({
   description:
-    "Claim a beneficiary share after the recovery deadline has passed. The forwarded State is derived from the consumed one."
-});
-
-const beneficiaryExitSchema = beneficiarySchema.extend({
-  action: z.literal("exit-beneficiary")
-}).meta({
-  description:
-    "Permanently claim and give up beneficiary rights, including the final beneficiary. The final exit requires an empty stream list and the non-admin recovery cooldown. Omitted funds and later deposits are excluded from this claim."
+    "Claim a beneficiary share after the recovery deadline has passed. Earlier beneficiaries are removed after one withdrawal and forfeit any unused share. The final beneficiary remains registered for withdrawals from remaining funds and later deposits. The forwarded State is derived from the consumed one."
 });
 
 const beneficiaryStreamStopSchema = SttSpendDerivedBase.extend({
@@ -195,7 +188,6 @@ export const SttSpendTxRequestSchema = z
     manageStreamingPaymentsSchema,
     allowanceSchema,
     beneficiarySchema,
-    beneficiaryExitSchema,
     beneficiaryStreamStopSchema,
     beneficiaryDistributionSchema,
     payoutSchema,

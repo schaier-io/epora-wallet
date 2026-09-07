@@ -153,7 +153,7 @@ export function buildAvailableWizardActions(
 
   if (capabilityMap.hasBeneficiaryMatch) {
     actions.push({
-      kind: "exit-beneficiary",
+      kind: "use-beneficiary",
       pathLabels: [i18n("recoveryContact")],
       note: i18n("useRecoveryContactAccess")
     });

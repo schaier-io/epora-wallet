@@ -89,8 +89,9 @@
   "youAreSendingAmountFromFunding": "You are sending {amount} from {funding}.",
   "youAreSendingAmountToRecipientFromFunding": "You are sending {amount} to {recipient} from {funding}.",
   "needsSetup": "Needs setup",
-  "permanentExitReceipt": "Permanent withdrawal",
   "recoveryAccess": "Recovery access",
-  "permanentlyRemoved": "Permanently removed",
-  "permanentExitRights": "You give up any unused share and rights to remaining funds and future deposits."
+  "beneficiaryAccessRetained": "Retained after withdrawal",
+  "beneficiaryAccessRemoved": "Removed after withdrawal",
+  "beneficiaryRetainedDetail": "As the final recovery contact, you keep access to remaining funds and later deposits.",
+  "beneficiaryRemovedDetail": "This withdrawal removes your recovery access. You forfeit any unused share and rights to remaining funds and later deposits."
 }

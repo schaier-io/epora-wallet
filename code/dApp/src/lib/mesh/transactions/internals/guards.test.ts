@@ -207,13 +207,12 @@ test("forwarded State validation accepts six fields and rejects every other read
 });
 
 
-test("only permanent exit accepts a structurally valid terminal forwarded State", () => {
+test("forwarded State must retain a reachable access path", () => {
   const terminal = stateFormToDatum({ ...createDefaultStateForm(), users: [], beneficiaries: [] });
-  assert.doesNotThrow(() => validateForwardedStateDatum(terminal, { kind: "beneficiary-exit", beneficiaryId: 0 }, "test", "Invalid State."));
   for (const action of [
     { kind: "beneficiary-withdrawal" as const, beneficiaryId: 0 },
     { kind: "operator" as const, operatorPath: "admin" as const, operatorIntent: "update-state" as const }
   ]) assert.throws(() => validateForwardedStateDatum(terminal, action, "test", "Invalid State."));
   const malformed = { ...terminal, fields: terminal.fields.slice(0, 5) };
-  assert.throws(() => validateForwardedStateDatum(malformed, { kind: "beneficiary-exit", beneficiaryId: 0 }, "test", "Invalid State."), /exactly six fields/);
+  assert.throws(() => validateForwardedStateDatum(malformed, { kind: "beneficiary-withdrawal", beneficiaryId: 0 }, "test", "Invalid State."), /exactly six fields/);
 });

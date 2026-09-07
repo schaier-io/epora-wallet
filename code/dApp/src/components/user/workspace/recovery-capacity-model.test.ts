@@ -12,21 +12,21 @@ import { buildErrorWriteAtom, clearMessagesAtom, resetFlowAtom } from "./atoms/t
 const SIZE = new Error("Serialized transaction uses 17000 bytes. The protocol limit is 16384.");
 function fixture() {
   const store = createStore();
-  store.set(routeStateAtom, parseWorkspaceRouteState(new URLSearchParams("mode=existing-wallet&action=exit-beneficiary")));
+  store.set(routeStateAtom, parseWorkspaceRouteState(new URLSearchParams("mode=existing-wallet&action=use-beneficiary")));
   const ref = { txHash: "aa".repeat(32), outputIndex: 0 };
   store.set(sttWalletInputsAtom, [ref]);
   store.set(lockedContractUtxosAtom, [{ input: ref, output: { address: "wallet", amount: [{ unit: "lovelace", quantity: "6000000" }] } }]);
   return store;
 }
-test("only actual Exit capacity failures enable recovery", () => {
+test("only actual beneficiary withdrawal capacity failures enable recovery", () => {
   for (const [action, error, expected] of [
-    ["exit-beneficiary", SIZE, "bytes"],
-    ["exit-beneficiary", new Error("Transaction uses 15000000 memory units. The protocol limit is 14000000."), "execution"],
+    ["use-beneficiary", SIZE, "bytes"],
+    ["use-beneficiary", new Error("Transaction uses 15000000 memory units. The protocol limit is 14000000."), "execution"],
     ["use", SIZE, null],
-    ["exit-beneficiary", new Error("Missing required signer"), null],
-    ["exit-beneficiary", new Error("Insufficient funds"), null],
-    ["exit-beneficiary", new Error("No wallet UTxO can cover script collateral"), null],
-    ["exit-beneficiary", new Error("Validator evaluation failed"), null]
+    ["use-beneficiary", new Error("Missing required signer"), null],
+    ["use-beneficiary", new Error("Insufficient funds"), null],
+    ["use-beneficiary", new Error("No wallet UTxO can cover script collateral"), null],
+    ["use-beneficiary", new Error("Validator evaluation failed"), null]
   ] as const) {
     const store = fixture();
     recordRecoveryCapacityFailure(store, action, error, store.get(recoveryCapacitySignatureAtom));
@@ -43,12 +43,12 @@ test("changed State, selected actual values, signer or wallet invalidates capaci
   ];
   for (const change of changes) {
     const store = fixture(); const signature = store.get(recoveryCapacitySignatureAtom);
-    recordRecoveryCapacityFailure(store, "exit-beneficiary", SIZE, signature);
+    recordRecoveryCapacityFailure(store, "use-beneficiary", SIZE, signature);
     assert.ok(store.get(currentRecoveryCapacityFailureAtom));
     change(store);
     assert.equal(store.get(currentRecoveryCapacityFailureAtom), null);
     store.set(recoveryCapacityFailureAtom, null);
-    recordRecoveryCapacityFailure(store, "exit-beneficiary", SIZE, signature);
+    recordRecoveryCapacityFailure(store, "use-beneficiary", SIZE, signature);
     assert.equal(store.get(recoveryCapacityFailureAtom), null);
   }
 });
@@ -59,7 +59,7 @@ test("ordinary error writes, clear and wallet flow reset remove capacity recover
     (store: ReturnType<typeof createStore>) => store.set(resetFlowAtom)
   ]) {
     const store = fixture();
-    recordRecoveryCapacityFailure(store, "exit-beneficiary", SIZE, store.get(recoveryCapacitySignatureAtom));
+    recordRecoveryCapacityFailure(store, "use-beneficiary", SIZE, store.get(recoveryCapacitySignatureAtom));
     clear(store);
     assert.equal(store.get(recoveryCapacityFailureAtom), null);
   }

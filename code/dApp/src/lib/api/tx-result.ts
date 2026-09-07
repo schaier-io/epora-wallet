@@ -80,6 +80,9 @@ export const BuildResultSchema = z
       example: "424778"
     }),
     executionUnits: ExecutionUnitsSchema.optional(),
+    beneficiaryAccess: z.enum(["removed", "retained"]).optional().meta({
+      description: "Recovery rights after a beneficiary withdrawal, derived from the consumed State. Earlier beneficiaries are removed; the final beneficiary remains registered."
+    }),
     warnings: z
       .array(z.string())
       .optional()

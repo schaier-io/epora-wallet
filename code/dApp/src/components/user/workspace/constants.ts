@@ -78,10 +78,6 @@ export const BENEFICIARY_WITHDRAWAL_ACTION = buildStateActionData({
   kind: "beneficiary-withdrawal"
 });
 
-export const BENEFICIARY_EXIT_ACTION = buildStateActionData({
-  kind: "beneficiary-exit"
-});
-
 export const STREAMING_PAYMENT_PAYOUT_ACTION = buildStateActionData({
   kind: "streaming-payment-payout"
 });

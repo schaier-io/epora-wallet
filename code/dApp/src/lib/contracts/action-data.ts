@@ -20,7 +20,6 @@ export type StructuredSttAction =
   | "manage-streaming-payments"
   | "use-allowance"
   | "use-beneficiary"
-  | "exit-beneficiary"
   | "stop-beneficiary-stream"
   | "distribute-beneficiaries"
   | "payout-streaming-payment"
@@ -49,10 +48,6 @@ export type OnChainStructuredAction =
     }
   | {
       kind: "beneficiary-withdrawal";
-      beneficiaryId?: OnChainInteger;
-    }
-  | {
-      kind: "beneficiary-exit";
       beneficiaryId?: OnChainInteger;
     }
   | {
@@ -196,7 +191,7 @@ function buildStakeCredentialOptionData(
 //   alt 4 PayStreamingPayment(AssetEntries)          // payout_delta triples
 //   alt 5 Consolidate(ConsolidatePath)
 //   alt 6 CancelStreamingPayment(Int)                // streaming-payment id
-//   alt 7 ExitBeneficiary(Int)                         // permanent beneficiary exit
+//   alt 7 ReservedBeneficiaryExit(Int)                 // rejected on-chain
 //   alt 8 StopBeneficiaryStream(Int, Int)                // beneficiary id, stream id
 function buildSttActionData(
   action: "mint" | OnChainStructuredAction
@@ -239,14 +234,6 @@ function buildSttActionData(
       return {
         alternative: 3,
         fields: [normalizeStateInteger(action.beneficiaryId, "UseBeneficiary beneficiary id")]
-      };
-    case "beneficiary-exit":
-      if (action.beneficiaryId === undefined) {
-        throw new Error("ExitBeneficiary requires a beneficiary id before redeemer encoding.");
-      }
-      return {
-        alternative: 7,
-        fields: [normalizeStateInteger(action.beneficiaryId, "ExitBeneficiary beneficiary id")]
       };
     case "distribute-beneficiaries":
       if (action.beneficiaryId === undefined) {
@@ -343,6 +330,8 @@ function buildSttActionData(
           }
         ]
       };
+    default:
+      throw new Error("Unsupported State action kind.");
   }
 }
 
@@ -433,10 +422,6 @@ export function resolveStructuredOnChainAction(
     return { kind: "stop-beneficiary-stream" };
   }
 
-  if (action === "exit-beneficiary") {
-    return { kind: "beneficiary-exit" };
-  }
-
   if (action === "use-beneficiary") {
     return { kind: "beneficiary-withdrawal" };
   }
@@ -447,6 +432,10 @@ export function resolveStructuredOnChainAction(
 
   if (action === "cancel-streaming-payment") {
     return { kind: "streaming-payment-cancellation" };
+  }
+
+  if (action !== "consolidate-utxo") {
+    throw new Error(`Unsupported State action: ${action}`);
   }
 
   return {

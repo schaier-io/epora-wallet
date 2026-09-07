@@ -15,14 +15,16 @@ export function omittedDiscoveredInputCount(
   return new Set(discovered.map(referenceKey).filter((key) => !consumed.has(key))).size;
 }
 
-/** Refresh discovery before building, then compare against the actual transaction inputs. */
-export async function buildReviewedBeneficiaryExit(
+/** Review omitted pools only when the consumed State says this withdrawal removes access. */
+export async function buildReviewedBeneficiaryWithdrawal(
   address: string | null,
   build: () => Promise<BuildResult>
 ): Promise<BuildResult> {
-  if (!address) throw new Error(i18n("exitDiscoveryAddressRequired"));
-  const discovered = await fetchScriptUtxos(address);
   const result = await build();
+  if (result.beneficiaryAccess === "retained") return result;
+  if (result.beneficiaryAccess !== "removed") throw new Error(i18n("withdrawalAccessUnknown"));
+  if (!address) throw new Error(i18n("withdrawalDiscoveryAddressRequired"));
+  const discovered = await fetchScriptUtxos(address);
   const effect = decodeEffect(result.txHex);
   if (effect.decodeError) throw new Error(effect.decodeError);
   const omitted = omittedDiscoveredInputCount(discovered.map((utxo) => utxo.input), effect.inputs);
@@ -30,11 +32,9 @@ export async function buildReviewedBeneficiaryExit(
     ...result,
     warnings: [
       ...(result.warnings ?? []),
-      i18n("exitRightsWarning"),
-      i18n("exitUnusedShareWarning"),
       omitted > 0
-        ? i18n("exitOmittedFundsWarning", { count: omitted })
-        : i18n("exitAllDiscoveredSelectedWarning")
+        ? i18n("withdrawalOmittedFundsWarning", { count: omitted })
+        : i18n("withdrawalAllDiscoveredSelectedWarning")
     ]
   };
 }
