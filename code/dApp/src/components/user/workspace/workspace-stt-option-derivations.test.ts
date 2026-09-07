@@ -12,6 +12,7 @@ function capabilities(
     hasDirectAdminSigner: false,
     hasMultisigPath: false,
     hasDirectUserMatch: false,
+    hasDirectAllowance: false,
     hasDirectProofOfLifeRenewalMatch: false,
     hasBeneficiaryMatch: false,
     hasStreamingPayments: false,

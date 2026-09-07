@@ -371,7 +371,11 @@ export function SttSpendConfigView() {
                   />
                 </div>
               ) : null}
-              {availableLockedTransferAssets.length > 0 ? (
+              {lockingContract.address && lockedContractUtxosLoading ? (
+                <p className="text-xs text-muted-foreground">
+                  {i18n("checkingThisWalletSFunds")}
+                </p>
+              ) : availableLockedTransferAssets.length > 0 ? (
                 <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)_auto]">
                   <div className="space-y-1">
                     <Label htmlFor="walletTransferAmount">
@@ -454,10 +458,6 @@ export function SttSpendConfigView() {
                      money in it. `lockingContract.error` carries the real reason. */
                   <p className="text-xs text-muted-foreground">
                     {lockingContract.error ?? i18n("thisWalletIsNotOpenYet")}
-                  </p>
-                ) : lockedContractUtxosLoading ? (
-                  <p className="text-xs text-muted-foreground">
-                    {i18n("checkingThisWalletSFunds")}
                   </p>
                 ) : lockedContractUtxosError ? (
                   /* A failed read leaves the pool list empty too, so without this branch a

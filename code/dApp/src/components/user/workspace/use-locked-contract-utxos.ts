@@ -11,6 +11,18 @@ import {
   lockedContractUtxosErrorAtom,
   lockedContractUtxosLoadingAtom
 } from "@/components/user/workspace/atoms/workspace-data.atoms";
+import {
+  SEND_FUNDS_REFRESH_MAX_ATTEMPTS,
+  SEND_FUNDS_REFRESH_RETRY_MS
+} from "@/components/user/workspace/constants";
+
+interface LockedContractUtxoRefreshOptions {
+  retryEmpty?: boolean;
+}
+
+function waitForRetry(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, SEND_FUNDS_REFRESH_RETRY_MS));
+}
 
 /**
  * Owns the fetch for the UTxOs sitting at the selected wallet's locking-contract address and
@@ -30,7 +42,10 @@ export function useLockedContractUtxos() {
   useEffect(() => () => { requestIdRef.current += 1; }, []);
 
   const refreshLockedContractUtxos = useCallback(
-    async (lockingContractAddress: string | null) => {
+    async (
+      lockingContractAddress: string | null,
+      options: LockedContractUtxoRefreshOptions = {}
+    ) => {
       const session = store.get(workspaceSessionAtom);
       const requestId = requestIdRef.current + 1;
       requestIdRef.current = requestId;
@@ -46,11 +61,18 @@ export function useLockedContractUtxos() {
       setLockedContractUtxosError(null);
 
       try {
-        const utxos = await fetchScriptUtxos(lockingContractAddress);
-        if (requestIdRef.current !== requestId || store.get(workspaceSessionAtom) !== session) {
-          return;
+        const maxAttempts = options.retryEmpty ? SEND_FUNDS_REFRESH_MAX_ATTEMPTS : 1;
+        for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+          const utxos = await fetchScriptUtxos(lockingContractAddress);
+          if (requestIdRef.current !== requestId || store.get(workspaceSessionAtom) !== session) {
+            return;
+          }
+          if (utxos.length > 0 || attempt === maxAttempts) {
+            setLockedContractUtxos(utxos);
+            return;
+          }
+          await waitForRetry();
         }
-        setLockedContractUtxos(utxos);
       } catch {
         if (requestIdRef.current !== requestId || store.get(workspaceSessionAtom) !== session) {
           return;

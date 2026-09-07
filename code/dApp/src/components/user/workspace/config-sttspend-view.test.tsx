@@ -184,6 +184,17 @@ describe("send form, nothing available to send", () => {
     expect(screen.queryByText(/nothing to send yet/)).not.toBeInTheDocument();
   });
 
+  it("keeps the checking state visible while cached funds refresh", () => {
+    renderView({
+      address: "addr_test1wallet",
+      loading: true,
+      view: { availableLockedTransferAssets: [{ unit: "lovelace", quantity: "1000000" }] }
+    });
+
+    expect(screen.getByText("Checking this wallet's funds…")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Payout amount (ADA)")).not.toBeInTheDocument();
+  });
+
   it("does not report a failed read as an empty wallet", () => {
     renderView({ address: "addr_test1wallet", utxoError: "Could not reach the network." });
 

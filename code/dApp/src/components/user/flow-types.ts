@@ -144,6 +144,7 @@ export type TokenCapabilityMap = {
   hasDirectAdminSigner: boolean;
   hasMultisigPath: boolean;
   hasDirectUserMatch: boolean;
+  hasDirectAllowance: boolean;
   hasDirectProofOfLifeRenewalMatch: boolean;
   hasBeneficiaryMatch: boolean;
   hasStreamingPayments: boolean;
