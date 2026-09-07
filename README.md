@@ -34,6 +34,10 @@ By using this software you acknowledge and accept these risks. See the [LICENSE]
 
 ## Documentation
 
+### Wallet UI walkthrough ([MP4 source](docs/assets/wallet-ui.mp4?raw=1))
+
+https://github.com/user-attachments/assets/0b5dd0e9-7e10-4ad4-982e-8d14b23ad96f
+
 - [Contract state diagrams and action cycles](docs/smart-contract-state-diagram.md): permissions, state transitions, and separate examples traced from executable contract code.
 - [Whitepaper (PDF)](whitepaper/whitepaper.pdf) — the canonical design document. Its LaTeX source lives in [whitepaper/](whitepaper/README.md), and CI rebuilds the committed PDF whenever the source changes.
 - [Smart contract](code/smart-contract/README.md) — validator roles, the transition map, trust boundaries, test layout, and the local Aiken workflow.
