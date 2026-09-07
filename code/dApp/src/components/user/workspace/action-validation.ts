@@ -5,7 +5,8 @@ import { deriveBeneficiaryStreamStopPreview } from "./beneficiary-stream-stop-mo
 import { type FieldErrors, type UserActionKind } from "@/components/user/flow-types";
 import { MINT_PERFORMED_ACTION, NON_NEGATIVE_INTEGER_SCHEMA, OPTIONAL_NON_NEGATIVE_INTEGER_SCHEMA, RENEW_PROOF_OF_LIFE_ACTION, REQUIRED_TEXT_SCHEMA } from "@/components/user/workspace/constants";
 import { appendValidationErrors, cloneStateForm, hasPositiveAssetAmount, pushFieldError, resolveConsolidateActionAlternative, resolveManageStreamingPaymentsActionAlternative, resolveOperatorActionAlternative, resolveUpdateStateActionAlternative, resolveUseActionAlternative, resolveProofOfLifeOverrideTimestamp, resolveWalletWrapperSttInputRef, serializeWalletOutputs, validateAssetRows, validateField, validateWalletInputRefs, validateWalletScriptOutputs, walletNameAlreadyExists } from "@/components/user/workspace/helpers";
-import { type TransferFormState, type WalletScriptOutputFormState } from "@/components/user/workspace/types";
+import { type TransferFormState, type WalletBalanceSummary, type WalletScriptOutputFormState } from "@/components/user/workspace/types";
+import { validateStreamingAssetProofDraft } from "./streaming-asset-proof-validation";
 import { type ProofOfLifeOverrideMode, type StateFormState, applyProofOfLifeOverrideToStateForm, countAdminUsersInStateForm, stateFormToDatum } from "@/lib/contracts/state-form";
 import { validateStateDatum } from "@/lib/contracts/state-validation";
 import { validateMintStateDatum } from "@/lib/contracts/state-validation-streaming";
@@ -34,6 +35,7 @@ export type ActionFieldErrorsInput = {
   lockedContractUtxos?: UTxO[];
   lockedContractUtxosLoading?: boolean;
   lockedContractUtxosError?: string | null;
+  walletBalanceSummary?: WalletBalanceSummary;
   consolidateAuthorityPath: ConsolidateAuthorityPath;
   consolidateSttAssets: Asset[];
   consolidateSttInputHash: string;
@@ -197,6 +199,10 @@ export function computeActionFieldErrors(
         "Wallet rules",
         validateMintStateDatum(mintDatum, undefined, getSttMintPolicyId())
       );
+      appendValidationErrors(mintErrors, "Wallet rules", validateStreamingAssetProofDraft(
+        mintDatum,
+        input.walletBalanceSummary ? [input.walletBalanceSummary] : []
+      ));
     } catch (error) {
       pushFieldError(
         mintErrors,
