@@ -1,11 +1,11 @@
 {
   "scenario": "capped-list-and-scalar-near-transaction-limit-partial-streaming-payout",
-  "transactionBytes": 16048,
-  "nativeAssetCount": 145,
-  "walletValueCborBytes": 473,
-  "walletValueCborSha256": "257d4b76ca030ad8d7118feec1ce074e859b1337657ada2a7c53844c9bbb564f",
+  "transactionBytes": 16003,
+  "nativeAssetCount": 130,
+  "walletValueCborBytes": 428,
+  "walletValueCborSha256": "345ab483c65390702e0b795ae2f51c2e8c3831d2a6cbda63b5ad7b2410b0c39e",
   "stateDatumCborBytes": 5470,
-  "stateDatumCborSha256": "3a8b6dcc1591feb9362877aa78b71c9e52679f28529971f53b5193af1df82b26",
+  "stateDatumCborSha256": "013763499de136833c3f9702fa82024c2b039d26a77e2261a217ce88c2bfb818",
   "stateShape": {
     "users": 10,
     "userWallets": 15,
@@ -21,7 +21,7 @@
       14
     ],
     "targetStreamingPaymentIndex": 14,
-    "targetNativeAssetIndex": 144,
+    "targetNativeAssetIndex": 129,
     "payoutQuantity": "1"
   },
   "walletParameters": {
