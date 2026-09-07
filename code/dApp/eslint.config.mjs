@@ -86,6 +86,8 @@ export default defineConfig([
     "out/**",
     "node_modules/**",
     "src/lib/contracts/plutus.json",
-    "src/generated/**"
+    "src/generated/**",
+    // swagger-ui assets mirrored from swagger-ui-dist on install
+    "public/api-docs/**"
   ])
 ]);

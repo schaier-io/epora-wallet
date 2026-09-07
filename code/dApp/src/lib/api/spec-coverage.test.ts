@@ -46,7 +46,8 @@ const DELIBERATELY_UNDOCUMENTED = new Map([
   ["/api/proposals/auth", "Multi-signature coordination, session-gated."],
   ["/api/proposals/auth/nonce", "Multi-signature coordination, session-gated."],
   // The document describes itself; describing that entry would be circular.
-  ["/api/v1/openapi.json", "Serves this document."]
+  ["/api/v1/openapi.json", "Serves this document."],
+  ["/api/v1/docs", "Interactive HTML viewer over the document, not an API operation."]
 ]);
 
 function emittedPatterns(schema: unknown): string[] {

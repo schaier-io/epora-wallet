@@ -33,3 +33,6 @@ next-env.d.ts
 /prisma/*.db-journal
 # generated prisma client (built on install / build)
 /src/generated
+
+# swagger-ui assets mirrored from swagger-ui-dist (scripts/sync-swagger-ui.mjs)
+/public/api-docs

@@ -43,7 +43,7 @@ https://github.com/user-attachments/assets/0b5dd0e9-7e10-4ad4-982e-8d14b23ad96f
 - [Smart contract](code/smart-contract/README.md) — validator roles, the transition map, trust boundaries, test layout, and the local Aiken workflow.
 - [dApp](code/dApp/README.md) — running the reference interface locally: setup, environment, and the flows it covers.
 - [Development tasks](tasks/README.md) — the per-milestone task breakdown, with the Catalyst acceptance criteria each milestone is measured against.
-- [Public API](docs/api/README.md) — the developer guide to the versioned HTTP API: reads, the ten transaction-build routes, errors and rate limits. Its machine-readable contract is the [OpenAPI 3.1 document](docs/api/openapi.json), also served live at `/api/v1/openapi.json`.
+- [Public API](docs/api/README.md) — the developer guide to the versioned HTTP API: reads, the ten transaction-build routes, errors and rate limits. Its machine-readable contract is the [OpenAPI 3.1 document](docs/api/openapi.json), also served live at `/api/v1/openapi.json`, with an interactive reference at `/api/v1/docs`.
 
 The API builds unsigned transactions and returns them. It never holds a key and never signs. It targets Preprod, and its compatibility promise starts at the mainnet beta (see the roadmap below).
 
