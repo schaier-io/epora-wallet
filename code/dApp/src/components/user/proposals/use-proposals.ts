@@ -3,7 +3,7 @@ import { useTranslations } from "next-intl";
 
 import { useCallback, useMemo, useRef } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
-import { invalidateProposalQueries, proposalListQueryOptions } from "@/lib/proposals/query";
+import { proposalListQueryOptions } from "@/lib/proposals/query";
 import { queryPolicy } from "@/lib/query/keys";
 import type { ProposalListItemDto } from "@/lib/proposals/types";
 import { getUserFacingErrorMessage } from "@/lib/utils/errors";
@@ -46,11 +46,11 @@ export function useProposals(
         pages: current.pages.slice(0, 1),
         pageParams: current.pageParams.slice(0, 1)
       } : undefined);
-      await invalidateProposalQueries(client, signerKeyHash);
+      await client.invalidateQueries({ queryKey: options.queryKey, exact: true });
     } finally {
       refreshing.current = false;
     }
-  }, [canLoad, client, options.queryKey, signerKeyHash]);
+  }, [canLoad, client, options.queryKey]);
 
   const loadMore = useCallback(async () => {
     if (!canLoad || !hasNextPage || isFetching || refreshing.current || loadingMoreRequest.current) return;

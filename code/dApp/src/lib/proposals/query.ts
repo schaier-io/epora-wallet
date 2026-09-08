@@ -80,3 +80,19 @@ export async function invalidateProposalQueries(client: QueryClient, signer: str
     client.invalidateQueries({ queryKey: proposalKeys.backgrounds(signer) })
   ]);
 }
+
+
+export async function refreshProposalBackgroundQueries(
+  client: QueryClient,
+  signer: string,
+  refreshedProposalId?: string
+): Promise<void> {
+  // The selected detail has already refreshed. Mark other details stale before
+  // the background verifier reads them, without starting duplicate detail reads.
+  await client.invalidateQueries({
+    queryKey: proposalKeys.details(signer),
+    predicate: (query) => query.queryKey[4] !== refreshedProposalId,
+    refetchType: "none"
+  });
+  await client.invalidateQueries({ queryKey: proposalKeys.backgrounds(signer) });
+}
