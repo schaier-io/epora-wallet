@@ -35,7 +35,7 @@ export const walletBalanceSummaryAtom = atom<WalletBalanceSummary>(get => {
   const result = get(signerUtxosQueryAtom);
   return {
     assets: mergeAmountLists((result.data ?? []).map(utxo => utxo.output.amount.filter(isAsset))),
-    loading: result.isFetching,
+    loading: result.isPending || result.isFetching,
     error: result.error ? getUserFacingErrorMessage(result.error, i18n("couldnTRefreshTheConnectedWalletBalanceCheck")) : null
   };
 });

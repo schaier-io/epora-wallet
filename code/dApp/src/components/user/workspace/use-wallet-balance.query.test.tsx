@@ -1,3 +1,4 @@
+import { onlineManager } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { useAtomValue } from "jotai";
 import { afterEach, expect, it, vi } from "vitest";
@@ -48,4 +49,17 @@ it("keeps the last good balance when refresh fails", async () => {
   await act(() => view.result.current.refreshWalletBalance());
   await waitFor(() => expect(view.result.current.summary.error).toBeTruthy());
   expect(view.result.current.summary.assets[0]?.quantity).toBe("111");
+});
+
+it("does not report an empty wallet while the first read is paused offline", async () => {
+  onlineManager.setOnline(false);
+  try {
+    const getUtxos = vi.fn().mockResolvedValue(utxos("111"));
+    const context = setup(getUtxos);
+    const view = renderHook(context.hook, { wrapper: context.wrapper });
+    expect(view.result.current.summary.loading).toBe(true);
+    expect(getUtxos).not.toHaveBeenCalled();
+    act(() => onlineManager.setOnline(true));
+    await waitFor(() => expect(view.result.current.summary.assets[0]?.quantity).toBe("111"));
+  } finally { onlineManager.setOnline(true); }
 });
