@@ -45,6 +45,18 @@ test("maps BabbageOutputTooSmallUTxO to the min-lovelace guidance", () => {
   assert.match(message, /holds less ADA than the network allows/);
 });
 
+test("treats the managed-payment stop floor as a recoverable validation result", () => {
+  const error = parse(
+    new Error(
+      "Existing scheduled payment 0 must stop at or after Sep 7, 2026, 6:30 PM UTC. Stop as soon as possible again, or choose a later stop time."
+    )
+  );
+
+  assert.equal(error.expected, true);
+  assert.equal(error.diagnosticId, null);
+  assert.match(error.message, /Stop as soon as possible again/);
+});
+
 test("maps an EvaluationFailure with an empty ScriptFailures map to the rejection guidance", () => {
   // Doubly JSON-escaped shape the comment in the source describes.
   const { message } = parse(

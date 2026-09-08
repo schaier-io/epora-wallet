@@ -10,11 +10,12 @@ import { lockFundsAssetsAtom } from "@/components/user/workspace/atoms/forms/loc
 import { mintStarterAssetsAtom, mintStateFormAtom, mintZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/mint-form.atoms";
 import { voteJsonAtom, voteSttAssetsAtom, voteSttInputHashAtom, voteSttInputIndexAtom, voteSttStateFormAtom, voteZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/vote-form.atoms";
 import { publishCertificateJsonAtom, publishSttAssetsAtom, publishSttInputHashAtom, publishSttInputIndexAtom, publishSttStateFormAtom, publishZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/publish-form.atoms";
-import { beneficiaryStreamStopIdAtom, consolidateAuthorityPathAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputOutputIndexAtom, sttInputTxHashAtom, sttOutputAssetsAtom, sttProofOfLifeOverrideModeAtom, sttProofOfLifeSpecificDateTimeAtom, sttStateFormAtom, sttWalletInputsAtom, sttWalletOutputsAtom, sttZeroAdminConfirmedAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import { beneficiaryStreamStopIdAtom, consolidateAuthorityPathAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputOutputIndexAtom, sttInputTxHashAtom, sttOutputAssetsAtom, sttProofOfLifeOverrideModeAtom, sttProofOfLifeSpecificDateTimeAtom, sttStateFormAtom, sttWalletInputsAtom, sttWalletOutputsAtom, sttZeroAdminConfirmedAtom, updateStateFormAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { withdrawAmountAtom, withdrawSttAssetsAtom, withdrawSttInputHashAtom, withdrawSttInputIndexAtom, withdrawSttStateFormAtom, withdrawZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/withdraw-form.atoms";
 import { effectiveWithdrawRewardAddressAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import { computeActionFieldErrors } from "@/components/user/workspace/action-validation";
 import type { FieldErrors, UserActionKind } from "@/components/user/flow-types";
+import { withBeneficiarySigningAddressesDerived } from "@/components/user/workspace/helpers/form-state";
 
 /**
  * Per-action field-validation map. Extracted from the controller: it self-sources the ~44 form
@@ -75,6 +76,9 @@ export function useWorkspaceActionFieldErrors(ctx: WorkspaceActionFieldErrorsCtx
   const sttProofOfLifeOverrideMode = useAtomValue(sttProofOfLifeOverrideModeAtom);
   const sttProofOfLifeSpecificDateTime = useAtomValue(sttProofOfLifeSpecificDateTimeAtom);
   const sttStateForm = useAtomValue(sttStateFormAtom);
+  const updateStateFormDraft = useAtomValue(updateStateFormAtom);
+  const updateStateForm = updateStateFormDraft ??
+    withBeneficiarySigningAddressesDerived(sttStateForm);
   const sttWalletInputs = useAtomValue(sttWalletInputsAtom);
   const sttWalletOutputs = useAtomValue(sttWalletOutputsAtom);
   const sttZeroAdminConfirmed = useAtomValue(sttZeroAdminConfirmedAtom);
@@ -133,6 +137,7 @@ export function useWorkspaceActionFieldErrors(ctx: WorkspaceActionFieldErrorsCtx
         sttProofOfLifeOverrideMode,
         sttProofOfLifeSpecificDateTime,
         sttStateForm,
+        updateStateForm,
         sttWalletInputs,
         sttWalletOutputs,
         sttZeroAdminConfirmed,
@@ -186,6 +191,7 @@ export function useWorkspaceActionFieldErrors(ctx: WorkspaceActionFieldErrorsCtx
     sttProofOfLifeOverrideMode,
     sttProofOfLifeSpecificDateTime,
     sttStateForm,
+    updateStateForm,
     sttWalletInputs,
     sttWalletOutputs,
     sttZeroAdminConfirmed,

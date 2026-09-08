@@ -5,8 +5,9 @@ import { createRef } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { activeBuildAtom, activeSubmitAtom, buildErrorAtom, buildErrorStaleInputsAtom, previewAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
-import { sttStateFormAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import { sttStateFormAtom, updateStateFormAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { routeStateAtom } from "@/components/user/workspace/atoms/workspace-route.atoms";
+import { beginWalletStateUpdateAtom } from "@/components/user/workspace/atoms/wallet-state-update.atoms";
 import { activeAddressAtom } from "@/providers/wallet.atoms";
 import { WorkspaceActionsProvider } from "@/components/user/workspace/workspace-actions-context";
 import { parseWorkspaceRouteState } from "@/components/user/workspace-controller";
@@ -135,6 +136,24 @@ function renderRail(options: {
     </Provider>
   );
 }
+
+it("shows and disables wallet-state refresh across action navigation", () => {
+  renderRail({
+    selectedAction: "wallet-vote",
+    previewMatchesSelectedAction: false,
+    buildSelectedActionTx: vi.fn(),
+    handleSaveProposalFromBuild: vi.fn(),
+    seedStore: (store) => store.set(beginWalletStateUpdateAtom, {
+      walletUnit: "policyasset",
+      submittedTxHash: "aa".repeat(32),
+      spentRef: { txHash: "bb".repeat(32), outputIndex: 0 }
+    })
+  });
+
+  expect(reviewPanelProps.latest.primaryActionLabel).toBe("Updating wallet state…");
+  expect(reviewPanelProps.latest.primaryActionDisabled).toBe(true);
+  expect(reviewPanelProps.latest.secondaryActionDisabled).toBe(true);
+});
 
 it("builds a beneficiary withdrawal for review without opening the signing wallet", () => {
   const build = vi.fn();
@@ -414,6 +433,10 @@ describe("context-aware signing actions", () => {
       selectedAction: "update-state",
       seedStore: (store) => {
         store.set(sttStateFormAtom, {
+          ...store.get(sttStateFormAtom),
+          walletName: "Current wallet"
+        });
+        store.set(updateStateFormAtom, {
           ...store.get(sttStateFormAtom),
           walletName: "Renamed wallet"
         });

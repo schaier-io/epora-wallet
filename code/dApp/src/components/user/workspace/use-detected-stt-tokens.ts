@@ -5,6 +5,7 @@ import { detectedSttTokensAtom, detectedSttTokensErrorAtom, detectedSttTokensLoa
 import { configAtom } from "@/components/user/workspace/atoms/workspace-config.atoms";
 
 import { workspaceSessionAtom } from "./atoms/transaction-flow.atoms";
+import { pendingWalletStateUpdateAtom } from "./atoms/wallet-state-update.atoms";
 import { useEffect, useRef } from "react";
 import { useAtom, useSetAtom, useStore } from "jotai";
 import { detectSttInfo } from "@/lib/mesh/detection";
@@ -227,8 +228,12 @@ export function useDetectedSttTokens({
 
   async function refreshDetectedTokens({
     keepSelection = false,
-    knownUnit
-  }: { keepSelection?: boolean; knownUnit?: string } = {}) {
+    knownUnit,
+    exactStateRefresh = false
+  }: { keepSelection?: boolean; knownUnit?: string; exactStateRefresh?: boolean } = {}) {
+    if (store.get(pendingWalletStateUpdateAtom) && !exactStateRefresh) {
+      return null;
+    }
     const session = store.get(workspaceSessionAtom);
     const generation = (refreshGenerationRef.current += 1);
     const isLatest = () => refreshGenerationRef.current === generation && store.get(workspaceSessionAtom) === session;
@@ -238,7 +243,7 @@ export function useDetectedSttTokens({
     try {
       const requestedUnit = knownUnit || (keepSelection ? selectedDetectedTokenUnit || undefined : undefined);
       const detected = await detectSttInfo(requestedUnit);
-      if (!isLatest()) {
+      if (!isLatest() || (store.get(pendingWalletStateUpdateAtom) && !exactStateRefresh)) {
         return null;
       }
       const currentTokens = store.get(detectedSttTokensAtom);

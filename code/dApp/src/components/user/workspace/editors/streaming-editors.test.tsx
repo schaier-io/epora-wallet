@@ -23,7 +23,6 @@ describe("streaming payment edit boundaries", () => {
         index={0}
         onChange={() => {}}
         onRemove={() => {}}
-        existing={false}
       />
     );
 
@@ -62,7 +61,7 @@ describe("streaming payment edit boundaries", () => {
         onSelectTask={() => {}}
         fieldErrors={{}}
         canPayDue={false}
-        existingStreamingPaymentIds={new Set(["7"])}
+        existingStreamingPayments={[payment]}
       />
     );
 
@@ -99,7 +98,7 @@ describe("streaming payment edit boundaries", () => {
         onSelectTask={() => {}}
         fieldErrors={{}}
         canPayDue={false}
-        existingStreamingPaymentIds={new Set(["7"])}
+        existingStreamingPayments={value.streamingPayments}
       />
     );
 
@@ -190,7 +189,6 @@ describe("scheduled payment destination addresses", () => {
         index={0}
         onChange={() => {}}
         onRemove={() => {}}
-        existing={false}
       />
     );
     return screen.getByRole("textbox", { name: "Pays to" });
@@ -278,7 +276,6 @@ describe("where the money goes", () => {
         index={0}
         onChange={() => {}}
         onRemove={() => {}}
-        existing={false}
       />
     );
 

@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { pubKeyAddress, scriptAddress, serializeAddressObj } from "@meshsdk/core";
+import { CARDANO_NETWORK } from "@/lib/cardano-network";
 
 import { DEFAULT_SAFETY_TIMER_MS } from "@/components/user/workspace/constants";
 import {
@@ -15,6 +17,8 @@ import {
   reachableApprovalPower,
   scheduledPaymentRateForPeriod,
   withApprovalPowerEnabled,
+  withBeneficiaryPayoutAndSigningAddress,
+  withBeneficiarySigningAddressesDerived,
   withCoSignerAdded,
   withMultisigDerivedFromCoSigners,
   withProofOfLifeIncrement,
@@ -28,6 +32,39 @@ import {
 } from "./form-state";
 
 const NOW_MS = 1_750_000_000_000;
+const NETWORK_ID = CARDANO_NETWORK === "mainnet" ? 1 : 0;
+
+test("one beneficiary address becomes the full payout route and sole signing key", () => {
+  const paymentKey = "11".repeat(28);
+  const stakeKey = "22".repeat(28);
+  const address = serializeAddressObj(pubKeyAddress(paymentKey, stakeKey, false), NETWORK_ID);
+  const beneficiary = {
+    ...createDefaultBeneficiaryFormState("1"),
+    wallets: ["33".repeat(28), "44".repeat(28)]
+  };
+
+  assert.deepEqual(withBeneficiaryPayoutAndSigningAddress(beneficiary, address), {
+    ...beneficiary,
+    payoutAddress: address,
+    wallets: [paymentKey]
+  });
+});
+
+test("update-state beneficiary migration blocks script payout addresses", () => {
+  const form = createDefaultStateForm();
+  form.beneficiaries = [{
+    ...createDefaultBeneficiaryFormState("1"),
+    payoutAddress: serializeAddressObj(
+      scriptAddress("55".repeat(28), undefined, undefined),
+      NETWORK_ID
+    ),
+    wallets: ["66".repeat(28)]
+  }];
+
+  const migrated = withBeneficiarySigningAddressesDerived(form);
+  assert.deepEqual(migrated.beneficiaries[0]?.wallets, []);
+  assert.deepEqual(form.beneficiaries[0]?.wallets, ["66".repeat(28)]);
+});
 
 test("withUserAdded creates the requested role with the next id and an optional wallet", () => {
   const form = createDefaultStateForm();

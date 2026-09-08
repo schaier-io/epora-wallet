@@ -7,7 +7,6 @@ import { getValidityWindow } from "@/lib/mesh/transactions";
 import {
   buildStreamingPaymentPayoutTransfer,
   computeStreamingPaymentDueAmount,
-  computeStreamingPaymentRemainingObligation,
   computeStreamingReserveAssets,
   requestedTransferAssets,
   streamingPaymentNeedsZeroDeltaCleanup,
@@ -16,14 +15,20 @@ import {
 } from "@/lib/user-flow/guided-helpers";
 import { lovelaceToAdaNumber } from "@/lib/units/lovelace";
 import { type PayoutTransfer } from "@/lib/types/contracts";
+import {
+  stateFormFromDatum,
+  type StreamingPaymentFormState
+} from "@/lib/contracts/state-form";
 import { type WalletActivityEvent } from "@/components/user/workspace/types";
 import {
   buildAssetSelectionOptions,
   getAssetQuantityByUnit,
   isAsset,
   mergeAmountLists,
-  subtractAmountLists
+  subtractAmountLists,
+  utxoContainsAsset
 } from "@/components/user/workspace/helpers";
+import { decodeDatumFromUtxo } from "@/lib/mesh/datum";
 import { lockedContractUtxosAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import {
   streamingPaymentPayoutAmountsAtom,
@@ -42,6 +47,7 @@ import {
   lockingContractAtom,
   totalLockedContractAssetsAtom
 } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
+import { selectedDetectedTokenAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 
 /**
  * Transfer / locked-asset / wealth-chart / streaming-payout derivations as derived atoms over the
@@ -145,7 +151,7 @@ export const wealthSeriesAtom = atom<WealthSeriesPoint[]>((get) => {
  * Walk the wallet's activity once for `unit` and return the running-balance series in
  * display units. `adjustRunning` sees the raw base-unit running total before conversion
  * and returns what the point should actually record; the available-balance series uses
- * it to carve out what streaming payments still owe. Because that obligation accrues
+ * it to carve out accrued unpaid scheduled payments. Because that amount accrues
  * with time, the held point at render time is recomputed through `adjustRunning` too —
  * repeating the last event's value would freeze the available line until the next
  * transaction moved the wallet.
@@ -155,12 +161,18 @@ export function buildAssetWealthSeries(
   walletAddress: string,
   renderNowMs: number,
   unit: string,
-  adjustRunning?: (running: bigint, timestampMs: number) => bigint
+  adjustRunning?: (
+    running: bigint,
+    timestampMs: number,
+    event: WalletActivityEvent | null
+  ) => bigint
 ): WealthSeriesPoint[] {
   const isAda = unit === "lovelace";
-  const sorted = [...oneEventPerTransaction(events)].sort(
-    (a, b) => (a.transaction.blockTime ?? 0) - (b.transaction.blockTime ?? 0)
-  );
+  const sorted = [...oneEventPerTransaction(events)].sort((a, b) => {
+    const blockTimeDifference =
+      (a.transaction.blockTime ?? 0) - (b.transaction.blockTime ?? 0);
+    return blockTimeDifference || (a.transaction.index ?? 0) - (b.transaction.index ?? 0);
+  });
   let running = 0n;
   const series: WealthSeriesPoint[] = [];
   for (const event of sorted) {
@@ -172,12 +184,12 @@ export function buildAssetWealthSeries(
       .reduce((acc, u) => acc + BigInt(getAssetQuantityByUnit(u.output?.amount ?? [], unit) ?? "0"), 0n);
     running += outputSum - inputSum;
     const ts = seriesPointTimestampMs(event.transaction, renderNowMs);
-    const recorded = adjustRunning ? adjustRunning(running, ts) : running;
+    const recorded = adjustRunning ? adjustRunning(running, ts, event) : running;
     series.push({ timestamp: ts, value: isAda ? lovelaceToAdaNumber(recorded) : Number(recorded) });
   }
   return withCurrentBalanceHeld(series, renderNowMs, adjustRunning
     ? () => {
-        const recorded = adjustRunning(running, renderNowMs);
+        const recorded = adjustRunning(running, renderNowMs, null);
         return isAda ? lovelaceToAdaNumber(recorded) : Number(recorded);
       }
     : undefined);
@@ -194,29 +206,97 @@ export const wealthSeriesForAssetAtom = atom<(unit: string) => WealthSeriesPoint
 });
 
 /**
- * The same series with streaming-payment obligations carved out: a wallet that backs a
- * stream cannot spend the funds the stream still owes, so the "available" line is the
- * raw balance minus each matching stream's remaining obligation at every point. Only
- * streams paying the charted asset are subtracted -- an ADA stream says nothing about
- * how many tokens are available.
+ * Subtract the accrued unpaid amount for streams that pay `unit` at this chart point.
+ */
+export function subtractAccruedScheduledPayments(
+  running: bigint,
+  streams: readonly StreamingPaymentFormState[],
+  unit: string,
+  timestampMs: number
+): bigint {
+  return streams.reduce(
+    (available, stream) =>
+      streamingPaymentUnit(stream) === unit
+        ? available - BigInt(computeStreamingPaymentDueAmount(stream, timestampMs))
+        : available,
+    running
+  );
+}
+
+/** Read the streaming State written by this transaction's continuing STT output. */
+export function streamingPaymentsFromContinuingState(
+  event: WalletActivityEvent,
+  sttUnit: string
+): StreamingPaymentFormState[] | null {
+  const continuingOutput = event.outputUtxos.find((utxo) =>
+    utxoContainsAsset(utxo, sttUnit)
+  );
+  if (!continuingOutput) return null;
+  const datum = decodeDatumFromUtxo(continuingOutput);
+  if (!datum) return null;
+  try {
+    return stateFormFromDatum(datum).streamingPayments;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Build the available series from the State that existed at each transaction.
+ * Non-state events carry the last decoded State forward. Before the first decoded
+ * State, zero is the conservative available value because no historical rules are
+ * known. The held-now point alone uses the current selected State.
+ */
+export function buildAvailableAssetWealthSeries(
+  events: WalletActivityEvent[],
+  walletAddress: string,
+  renderNowMs: number,
+  unit: string,
+  sttUnit: string,
+  currentStreams: readonly StreamingPaymentFormState[]
+): WealthSeriesPoint[] {
+  let historicalStreams: StreamingPaymentFormState[] | null = null;
+  return buildAssetWealthSeries(
+    events,
+    walletAddress,
+    renderNowMs,
+    unit,
+    (running, timestampMs, event) => {
+      if (!event) {
+        return subtractAccruedScheduledPayments(running, currentStreams, unit, timestampMs);
+      }
+      if (event.outputUtxos.some((utxo) => utxoContainsAsset(utxo, sttUnit))) {
+        historicalStreams = streamingPaymentsFromContinuingState(event, sttUnit);
+      }
+      if (!historicalStreams) {
+        return running < 0n ? running : 0n;
+      }
+      return subtractAccruedScheduledPayments(running, historicalStreams, unit, timestampMs);
+    }
+  );
+}
+
+/**
+ * The same series with accrued unpaid scheduled payments carved out at each point.
+ * Future scheduled amounts are not included. Streams paying another asset do not
+ * change this asset's line.
  */
 export const availableWealthSeriesForAssetAtom = atom<(unit: string) => WealthSeriesPoint[]>((get) => {
   const walletAddress = get(lockingContractAtom).address;
   const events = get(recentWalletActivityEventsAtom);
   const renderNowMs = get(renderNowMsAtom);
   const streams = get(activeInferredSttStateFormAtom).streamingPayments;
+  const sttUnit = get(selectedDetectedTokenAtom)?.unit ?? null;
   return (unit: string) => {
-    if (!walletAddress || events.length === 0) return [];
-    const encumberingStreams = streams.filter(
-      (stream) => streamingPaymentUnit(stream) === unit
+    if (!walletAddress || events.length === 0 || !sttUnit) return [];
+    return buildAvailableAssetWealthSeries(
+      events,
+      walletAddress,
+      renderNowMs,
+      unit,
+      sttUnit,
+      streams
     );
-    return buildAssetWealthSeries(events, walletAddress, renderNowMs, unit, (running, ts) => {
-      return encumberingStreams.reduce(
-        (acc, stream) =>
-          acc - BigInt(computeStreamingPaymentRemainingObligation(stream, ts)),
-        running
-      );
-    });
   };
 });
 

@@ -144,6 +144,23 @@ export function describeAddressProblem(value: string): string | null {
   return describeAddressProblemForNetwork(CARDANO_NETWORK, value);
 }
 
+/**
+ * Return the payment verification-key hash carried by a valid address on this app's
+ * network. Script payment credentials intentionally return null because no wallet key
+ * can sign for them.
+ */
+export function paymentKeyHashFromAddress(value: string): string | null {
+  if (describeAddressProblem(value)) {
+    return null;
+  }
+
+  try {
+    return deserializeAddress(value.trim()).pubKeyHash || null;
+  } catch {
+    return null;
+  }
+}
+
 export function encodePayoutAddressToData(
   value: string,
   label = i18n("payoutAddress")

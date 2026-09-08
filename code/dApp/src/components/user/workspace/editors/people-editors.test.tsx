@@ -21,7 +21,6 @@ function renderContact(
         beneficiary={beneficiary}
         index={0}
         totalWeight={totalWeight}
-        canAddWallet
         onChange={onChange}
         onRemove={vi.fn()}
       />
@@ -105,21 +104,6 @@ describe("the extra wait", () => {
   });
 });
 
-describe("the wallets", () => {
-  it("says what the list is for and what an empty one costs", () => {
-    renderContact();
-
-    expect(screen.getByText("Wallets this person signs with")).toBeInTheDocument();
-    expect(
-      screen.getByText("This person can only claim their share from a Cardano wallet listed here.")
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("No wallet added yet, so this person could not claim anything.")
-    ).toBeInTheDocument();
-    expect(screen.queryByText("Recovery contact wallets")).not.toBeInTheDocument();
-  });
-});
-
 describe("the empty-state copy stays visible", () => {
   /**
    * `TaskEmptyState` folds a description longer than `LONG_DESCRIPTION_LIMIT` into an
@@ -135,19 +119,25 @@ describe("the empty-state copy stays visible", () => {
 
 
 describe("the configured payout address", () => {
-  it("starts blank and records an explicit destination independently of signing keys", () => {
+  const address = "addr_test1qqg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyfzyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3qwzdgzn";
+
+  it("uses one address for the payout route and signing key", () => {
     const { onChange } = renderContact();
-    const input = screen.getByLabelText("Exact-distribution payout address");
+    const input = screen.getByLabelText("Payout and signing wallet");
     expect(input).toHaveValue("");
-    fireEvent.change(input, { target: { value: "addr_test_destination" } });
+    fireEvent.change(input, { target: { value: address } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
-      payoutAddress: "addr_test_destination", wallets: []
+      payoutAddress: address, wallets: ["11".repeat(28)]
     }));
-    expect(screen.getByText(/script must accept our existing payout datum/i)).toBeInTheDocument();
+    expect(screen.queryByText("Wallets this person signs with")).not.toBeInTheDocument();
+    expect(screen.getByText(/payment key also signs for this recovery contact/i)).toBeInTheDocument();
   });
 
-  it("shows an invalid destination before submission", () => {
-    renderContact({ payoutAddress: "addr_test_invalid" });
-    expect(screen.getByLabelText("Exact-distribution payout address")).toHaveAttribute("aria-invalid", "true");
+  it("blocks a script payout address because it cannot sign", () => {
+    renderContact({
+      payoutAddress: "addr_test1xqenxvenxvenxvenxvenxvenxvenxvenxvenxvenxvenxv6yg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zqq7lpaj"
+    });
+    expect(screen.getByLabelText("Payout and signing wallet")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByText(/script address cannot sign for recovery/i)).toBeInTheDocument();
   });
 });

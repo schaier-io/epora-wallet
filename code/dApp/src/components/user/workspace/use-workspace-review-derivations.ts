@@ -8,7 +8,7 @@ import { lockFundsAssetsAtom } from "@/components/user/workspace/atoms/forms/loc
 import { mintStarterAssetsAtom, mintStateFormAtom, mintZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/mint-form.atoms";
 import { voteJsonAtom, voteSttInputHashAtom, voteSttInputIndexAtom } from "@/components/user/workspace/atoms/forms/vote-form.atoms";
 import { publishCertificateJsonAtom, publishSttInputHashAtom, publishSttInputIndexAtom } from "@/components/user/workspace/atoms/forms/publish-form.atoms";
-import { consolidateAuthorityPathAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputTxHashAtom, sttStateFormAtom, sttWalletInputsAtom, sttWalletOutputsAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import { activeSttStateFormAtom, consolidateAuthorityPathAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputTxHashAtom, sttWalletInputsAtom, sttWalletOutputsAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { withdrawAmountAtom, withdrawSttInputHashAtom, withdrawSttInputIndexAtom } from "@/components/user/workspace/atoms/forms/withdraw-form.atoms";
 import { effectiveWithdrawRewardAddressAtom, isWalletStakingEnabledAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 
@@ -105,7 +105,7 @@ export function useWorkspaceReviewDerivations(inputs: WorkspaceReviewDerivations
   const sttAuthorityPath = useAtomValue(sttAuthorityPathAtom);
   const sttExtraTransfers = useAtomValue(sttExtraTransfersAtom);
   const sttInputTxHash = useAtomValue(sttInputTxHashAtom);
-  const sttStateForm = useAtomValue(sttStateFormAtom);
+  const sttStateForm = useAtomValue(activeSttStateFormAtom);
   const sttWalletInputs = useAtomValue(sttWalletInputsAtom);
   const sttWalletOutputs = useAtomValue(sttWalletOutputsAtom);
   const walletOperatorPath = useAtomValue(walletOperatorPathAtom);

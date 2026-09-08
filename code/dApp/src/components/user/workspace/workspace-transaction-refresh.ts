@@ -1,4 +1,5 @@
 import { workspaceSessionAtom } from "./atoms/transaction-flow.atoms";
+import { pendingWalletStateUpdateAtom } from "./atoms/wallet-state-update.atoms";
 import type { WorkspaceTransactionsCtx } from "@/components/user/workspace/workspace-transactions-types";
 
 // A just-submitted tx isn't confirmed yet when the immediate post-submit refresh
@@ -32,7 +33,7 @@ export function schedulePostSubmitRefresh(deps: PostSubmitRefreshDeps): void {
         ),
         Promise.resolve().then(() => isCurrent() ? deps.refreshWalletBalance() : undefined),
         Promise.resolve().then(async () => {
-          if (!isCurrent()) return;
+          if (!isCurrent() || deps.jotaiStore.get(pendingWalletStateUpdateAtom)) return;
           const detected = await deps.refreshDetectedTokens({ keepSelection: true });
           if (detected && isCurrent()) {
             await deps.refreshPermissionWalletSummaries(detected.tokens);

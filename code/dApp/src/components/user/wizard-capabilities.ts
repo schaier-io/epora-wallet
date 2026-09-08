@@ -11,6 +11,7 @@ import type {
 import { filterGuidedUserActions } from "@/lib/user-flow/guided-helpers";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWizardCapabilities.json";
+import { userHasPositiveAllowance } from "@/components/user/workspace/wallet-access-summary";
 
 const i18n = createDefaultTranslator("ComponentsUserWizardCapabilities", defaultMessages);
 
@@ -49,6 +50,12 @@ export function resolveTokenCapabilityMap({
     );
   const hasDirectUserMatch = state.users.some((user) =>
     walletsContain(user.wallets, paymentKeyHash)
+  );
+  const hasDirectAllowance = Boolean(
+    paymentKeyHash &&
+      state.users.some(
+        (user) => user.wallets.includes(paymentKeyHash) && userHasPositiveAllowance(user)
+      )
   );
   const hasDirectProofOfLifeRenewalMatch = state.users.some(
     (user) =>
@@ -94,6 +101,7 @@ export function resolveTokenCapabilityMap({
     hasDirectAdminSigner,
     hasMultisigPath,
     hasDirectUserMatch,
+    hasDirectAllowance,
     hasDirectProofOfLifeRenewalMatch,
     hasBeneficiaryMatch,
     hasStreamingPayments,
@@ -143,7 +151,7 @@ export function buildAvailableWizardActions(
     });
   }
 
-  if (capabilityMap.hasDirectUserMatch) {
+  if (capabilityMap.hasDirectAllowance) {
     actions.push({
       kind: "use-allowance",
       pathLabels: [i18n("spender")],

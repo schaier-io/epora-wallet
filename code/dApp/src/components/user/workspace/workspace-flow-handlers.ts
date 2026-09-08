@@ -17,6 +17,7 @@ import { type useWorkspaceWalletDerivations } from "@/components/user/workspace/
 import { type useStore } from "jotai";
 import { buildRunAtom, workspaceSessionAtom, buildDiagnosticIdAtom, mintConfirmationRunAtom
 } from "@/components/user/workspace/atoms/transaction-flow.atoms";
+import { walletStateUpdatingAtom } from "@/components/user/workspace/atoms/wallet-state-update.atoms";
 import { MINT_CONFIRMATION_INITIAL_DELAY_MS, MINT_CONFIRMATION_MAX_ATTEMPTS, MINT_CONFIRMATION_POLL_MS } from "@/components/user/workspace/constants";
 import { fetchTransactionsByHash, formatBuildError, isUserActionKind, normalizeTransactionHash, waitFor } from "@/components/user/workspace/helpers";
 import { type useDetectedSttTokens } from "@/components/user/workspace/use-detected-stt-tokens";
@@ -99,6 +100,12 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
     jotaiStore.set(buildDiagnosticIdAtom, null);
     jotaiStore.set(recoveryCapacityFailureAtom, null);
     const recoverySignature = jotaiStore.get(recoveryCapacitySignatureAtom);
+
+    if (jotaiStore.get(walletStateUpdatingAtom)) {
+      setBuildError(i18n("updatingWalletState"));
+      setBuildErrorExpected(true);
+      return null;
+    }
 
     if (!activeWallet) {
       setBuildError(i18n("connectABrowserWalletBeforeContinuing"));

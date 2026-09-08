@@ -14,6 +14,7 @@ import {
 import { OwnedMessageError } from "./helpers/build-errors";
 import { resetAllFlowAtom, resetFlowAtom, mintConfirmationRunAtom } from "./atoms/transaction-flow.atoms";
 import { resolveWalletSpendAddress } from "@/lib/contracts/blueprint";
+import { beginWalletStateUpdateAtom } from "./atoms/wallet-state-update.atoms";
 
 // 64 hex chars: the ref shape a stale-inputs failure reports.
 const HASH = "cd".repeat(32);
@@ -54,6 +55,26 @@ function makeCtx(overrides: Partial<Record<string, unknown>> = {}) {
   } as unknown as WorkspaceFlowHandlersCtx;
   return { ctx, calls };
 }
+
+test("the central guard blocks every build while wallet State is updating", async () => {
+  const { ctx, calls } = makeCtx();
+  ctx.jotaiStore.set(beginWalletStateUpdateAtom, {
+    walletUnit: "wallet-unit",
+    submittedTxHash: "aa".repeat(32),
+    spentRef: { txHash: "bb".repeat(32), outputIndex: 0 }
+  });
+  let ran = false;
+
+  const result = await createWorkspaceFlowHandlers(ctx).withBuildGuard("mint", async () => {
+    ran = true;
+    return fakePreview;
+  });
+
+  assert.equal(result, null);
+  assert.equal(ran, false);
+  assert.deepEqual(calls.setBuildError?.at(-1), ["Updating wallet state…"]);
+  assert.deepEqual(calls.setBuildErrorExpected?.at(-1), [true]);
+});
 
 test("stale fund-pool build failure arms the recovery flag and keeps the draft state", async () => {
   const { ctx, calls } = makeCtx();

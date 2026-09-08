@@ -4,10 +4,11 @@ import { lockFundsAssetsAtom } from "@/components/user/workspace/atoms/forms/loc
 import { mintReferenceAtom, mintStarterAssetsAtom, mintStateFormAtom } from "@/components/user/workspace/atoms/forms/mint-form.atoms";
 import { voteJsonAtom, voteSttAssetsAtom, voteSttInputHashAtom, voteSttInputIndexAtom, voteSttStateFormAtom } from "@/components/user/workspace/atoms/forms/vote-form.atoms";
 import { publishCertificateJsonAtom, publishSttAssetsAtom, publishSttInputHashAtom, publishSttInputIndexAtom, publishSttStateFormAtom } from "@/components/user/workspace/atoms/forms/publish-form.atoms";
-import { consolidateAuthorityPathAtom, beneficiaryStreamStopIdAtom, streamingPaymentPayoutAmountsAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputOutputIndexAtom, sttInputTxHashAtom, sttOutputAssetsAtom, sttProofOfLifeOverrideModeAtom, sttProofOfLifeSpecificDateTimeAtom, sttStateFormAtom, sttWalletInputsAtom, sttWalletOutputsAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import { consolidateAuthorityPathAtom, beneficiaryStreamStopIdAtom, streamingPaymentPayoutAmountsAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputOutputIndexAtom, sttInputTxHashAtom, sttOutputAssetsAtom, sttProofOfLifeOverrideModeAtom, sttProofOfLifeSpecificDateTimeAtom, sttStateFormAtom, sttWalletInputsAtom, sttWalletOutputsAtom, updateStateFormAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { withdrawAmountAtom, withdrawSttAssetsAtom, withdrawSttInputHashAtom, withdrawSttInputIndexAtom, withdrawSttStateFormAtom } from "@/components/user/workspace/atoms/forms/withdraw-form.atoms";
 import { effectiveWithdrawRewardAddressAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import type { WorkspaceTransactionsCtx } from "@/components/user/workspace/workspace-transactions-types";
+import { withBeneficiarySigningAddressesDerived } from "@/components/user/workspace/helpers/form-state";
 
 // Snapshots every form atom the transaction builders read, in one place, so the
 // factory separates "gather the current form inputs" from "build the tx". Read
@@ -49,6 +50,9 @@ export function resolveWorkspaceTransactionInputs(
     sttProofOfLifeOverrideMode: jotaiStore.get(sttProofOfLifeOverrideModeAtom),
     sttProofOfLifeSpecificDateTime: jotaiStore.get(sttProofOfLifeSpecificDateTimeAtom),
     sttStateForm: jotaiStore.get(sttStateFormAtom),
+    updateStateForm:
+      jotaiStore.get(updateStateFormAtom) ??
+      withBeneficiarySigningAddressesDerived(jotaiStore.get(sttStateFormAtom)),
     sttWalletInputs: jotaiStore.get(sttWalletInputsAtom),
     sttWalletOutputs: jotaiStore.get(sttWalletOutputsAtom),
     walletOperatorPath: jotaiStore.get(walletOperatorPathAtom),

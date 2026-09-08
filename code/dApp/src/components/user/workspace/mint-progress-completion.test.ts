@@ -79,5 +79,15 @@ test("a missing confirmation still produces waiting copy rather than throwing", 
   const copy = buildMintProgressCopy(null, "Family wallet");
 
   assert.equal(copy.title, "Confirming Family wallet…");
+  assert.equal(copy.statusLabel, "Submitted. Waiting for confirmation.");
   assert.equal(copy.progress, 30);
+});
+
+test("every post-submit mint phase uses the shared pending copy", () => {
+  for (const phase of ["waiting", "refreshing", "delayed"] as const) {
+    assert.equal(
+      buildMintProgressCopy(confirmation(phase), "Family wallet").statusLabel,
+      "Submitted. Waiting for confirmation."
+    );
+  }
 });

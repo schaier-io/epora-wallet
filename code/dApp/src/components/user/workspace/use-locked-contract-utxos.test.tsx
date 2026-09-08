@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import type { PropsWithChildren } from "react";
-import { expect, it, vi } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
 import { activeAddressAtom } from "@/providers/wallet.atoms";
 import { lockedContractUtxosAtom, lockedContractUtxosLoadingAtom, lockedContractUtxosErrorAtom } from "./atoms/workspace-data.atoms";
 import { resetAllFlowAtom } from "./atoms/transaction-flow.atoms";
@@ -9,6 +9,65 @@ import { resetAllFlowAtom } from "./atoms/transaction-flow.atoms";
 const mocks = vi.hoisted(() => ({ fetchScriptUtxos: vi.fn() }));
 vi.mock("@/components/user/workspace/helpers", () => ({ fetchScriptUtxos: mocks.fetchScriptUtxos }));
 import { useLockedContractUtxos } from "./use-locked-contract-utxos";
+
+beforeEach(() => {
+  mocks.fetchScriptUtxos.mockReset();
+});
+
+it("keeps checking briefly when a Send refresh finds no funds", async () => {
+  vi.useFakeTimers();
+  try {
+    const store = createStore();
+    const wrapper = ({ children }: PropsWithChildren) => <Provider store={store}>{children}</Provider>;
+    const fundedUtxo = { input: { txHash: "funded" } };
+    mocks.fetchScriptUtxos
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([fundedUtxo]);
+    const { result } = renderHook(useLockedContractUtxos, { wrapper });
+
+    let pending!: Promise<void>;
+    await act(async () => {
+      pending = result.current.refreshLockedContractUtxos("wallet-a", { retryEmpty: true });
+      await Promise.resolve();
+    });
+    expect(store.get(lockedContractUtxosLoadingAtom)).toBe(true);
+    expect(mocks.fetchScriptUtxos).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.runAllTimersAsync();
+      await pending;
+    });
+    expect(mocks.fetchScriptUtxos).toHaveBeenCalledTimes(3);
+    expect(store.get(lockedContractUtxosAtom)).toEqual([fundedUtxo]);
+    expect(store.get(lockedContractUtxosLoadingAtom)).toBe(false);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it("settles after the bounded empty-result retries", async () => {
+  vi.useFakeTimers();
+  try {
+    const store = createStore();
+    const wrapper = ({ children }: PropsWithChildren) => <Provider store={store}>{children}</Provider>;
+    mocks.fetchScriptUtxos.mockResolvedValue([]);
+    const { result } = renderHook(useLockedContractUtxos, { wrapper });
+
+    let pending!: Promise<void>;
+    await act(async () => {
+      pending = result.current.refreshLockedContractUtxos("wallet-a", { retryEmpty: true });
+      await vi.runAllTimersAsync();
+      await pending;
+    });
+
+    expect(mocks.fetchScriptUtxos).toHaveBeenCalledTimes(4);
+    expect(store.get(lockedContractUtxosAtom)).toEqual([]);
+    expect(store.get(lockedContractUtxosLoadingAtom)).toBe(false);
+  } finally {
+    vi.useRealTimers();
+  }
+});
 
 for (const transition of ["disconnect", "unmount"] as const) {
   for (const outcome of ["success", "failure"] as const) {
