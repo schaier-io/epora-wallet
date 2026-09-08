@@ -1,5 +1,7 @@
-import { renderHook, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { invalidateChainQueries } from "@/lib/query/invalidation";
+import { createQueryTestWrapper } from "@/test/query-client";
+import { act, renderHook as baseRenderHook, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const holder = vi.hoisted(() => ({ fetchAccountInfo: vi.fn() }));
 
@@ -106,4 +108,36 @@ describe("useStakingRewards", () => {
     await waitFor(() => expect(setAmount).toHaveBeenCalledWith("2500000"));
     expect(holder.fetchAccountInfo).toHaveBeenCalledTimes(1);
   });
+});
+
+const clients: ReturnType<typeof createQueryTestWrapper>["queryClient"][] = [];
+afterEach(() => clients.splice(0).forEach(client => client.clear()));
+const renderHook: typeof baseRenderHook = (callback, options) => {
+  const context = createQueryTestWrapper();
+  clients.push(context.queryClient);
+  return baseRenderHook(callback, { wrapper: context.wrapper, ...options });
+};
+
+it("updates the claim draft when a confirmed transaction invalidates rewards", async () => {
+  const context = createQueryTestWrapper();
+  clients.push(context.queryClient);
+  holder.fetchAccountInfo.mockResolvedValueOnce(account).mockResolvedValue({ ...account, rewards: "0" });
+  const setAmount = vi.fn();
+  const clearAddress = vi.fn();
+  const view = baseRenderHook(() => useStakingRewards("stake_test1derived", true, "2500000", setAmount, clearAddress), { wrapper: context.wrapper });
+  await waitFor(() => expect(view.result.current.rewardsLovelace).toBe("2500000"));
+  await act(() => invalidateChainQueries(context.queryClient));
+  await waitFor(() => expect(view.result.current.rewardsLovelace).toBe("0"));
+  expect(setAmount).toHaveBeenLastCalledWith("");
+});
+it("preserves the displayed balance after failure but disables the claim draft", async () => {
+  holder.fetchAccountInfo.mockResolvedValueOnce(account).mockRejectedValue(new Error("offline"));
+  const setAmount = vi.fn();
+  const clearAddress = vi.fn();
+  const view = renderHook(() => useStakingRewards("stake_test1derived", true, "2500000", setAmount, clearAddress));
+  await waitFor(() => expect(view.result.current.rewardsLovelace).toBe("2500000"));
+  act(() => view.result.current.refresh());
+  await waitFor(() => expect(view.result.current.error).toBe(true));
+  expect(view.result.current.rewardsLovelace).toBe("2500000");
+  expect(setAmount).toHaveBeenLastCalledWith("");
 });

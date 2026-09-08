@@ -1,0 +1,4 @@
+{
+  "couldnTCheckTheChainForSmartWallets": "Could not check the chain for smart wallets. Refresh the list and try again.",
+  "couldnTLoadThisSmartWalletSBalance": "Could not load this smart wallet’s balance. Refresh and try again."
+}

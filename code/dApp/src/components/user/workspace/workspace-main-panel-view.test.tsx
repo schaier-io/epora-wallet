@@ -1,7 +1,9 @@
+import "@/test/mock-workspace-queries";
+import { detectedSttTokensErrorAtom } from "@/test/workspace-query-fixtures";
 import { render, screen } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import { describe, expect, it, vi } from "vitest";
-import { detectedSttTokensErrorAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
+
 import { routeStateAtom } from "@/components/user/workspace/atoms/workspace-route.atoms";
 import { parseWorkspaceRouteState } from "@/components/user/workspace-controller";
 

@@ -354,8 +354,10 @@ const SilkWaves: React.FC<SilkWavesProps> = ({
     let isDocumentVisible = !document.hidden;
     let isElementVisible = true;
     let isDisposed = false;
+    let isContextLost = false;
 
     const renderFrame = () => {
+      if (isContextLost) return;
       const elapsedTime = (performance.now() - clockStart) / 1000;
       uniforms.uTime.value = elapsedTime + timeSeedRef.current;
       renderer.render(scene, camera);
@@ -363,7 +365,7 @@ const SilkWaves: React.FC<SilkWavesProps> = ({
     renderFrameRef.current = renderFrame;
 
     const canAnimate = () =>
-      shouldAnimate && isDocumentVisible && isElementVisible && !isDisposed;
+      shouldAnimate && isDocumentVisible && isElementVisible && !isDisposed && !isContextLost;
 
     const stopAnimation = () => {
       if (animationFrameRef.current !== null) {
@@ -398,8 +400,14 @@ const SilkWaves: React.FC<SilkWavesProps> = ({
       animationFrameRef.current = requestAnimationFrame(animate);
     };
 
-    renderFrame();
-    startAnimation();
+    // Shared by every resume path (visibility, intersection, context restore): paint one
+    // frame immediately (the loop may be gated off, e.g. reduced motion), then run.
+    const resumeAnimation = () => {
+      renderFrame();
+      startAnimation();
+    };
+
+    resumeAnimation();
 
     const handleResize = () => {
       const newWidth = Math.max(1, container.clientWidth);
@@ -417,8 +425,7 @@ const SilkWaves: React.FC<SilkWavesProps> = ({
       isDocumentVisible = !document.hidden;
 
       if (isDocumentVisible) {
-        renderFrame();
-        startAnimation();
+        resumeAnimation();
       } else {
         stopAnimation();
       }
@@ -426,14 +433,29 @@ const SilkWaves: React.FC<SilkWavesProps> = ({
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
+    // Chrome evicts WebGL contexts under a global cap. three.js handles the context itself
+    // (render() no-ops while it is lost, and three re-inits GL on restore); these handlers
+    // exist to stop the rAF loop during that window instead of burning a wakeup per frame
+    // on no-op renders, and to repaint once the context is back.
+    const handleContextLost = (event: Event) => {
+      event.preventDefault();
+      isContextLost = true;
+      stopAnimation();
+    };
+    const handleContextRestored = () => {
+      isContextLost = false;
+      resumeAnimation();
+    };
+    renderer.domElement.addEventListener("webglcontextlost", handleContextLost);
+    renderer.domElement.addEventListener("webglcontextrestored", handleContextRestored);
+
     const intersectionObserver =
       pauseWhenOffscreen && typeof IntersectionObserver !== "undefined"
         ? new IntersectionObserver(([entry]) => {
             isElementVisible = Boolean(entry?.isIntersecting);
 
             if (isElementVisible) {
-              renderFrame();
-              startAnimation();
+              resumeAnimation();
             } else {
               stopAnimation();
             }
@@ -448,6 +470,9 @@ const SilkWaves: React.FC<SilkWavesProps> = ({
       resizeObserver.disconnect();
       intersectionObserver?.disconnect();
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      // Before forceContextLoss(), so the teardown's own loss event has no handler to run.
+      renderer.domElement.removeEventListener("webglcontextlost", handleContextLost);
+      renderer.domElement.removeEventListener("webglcontextrestored", handleContextRestored);
 
       renderer.dispose();
       renderer.forceContextLoss();

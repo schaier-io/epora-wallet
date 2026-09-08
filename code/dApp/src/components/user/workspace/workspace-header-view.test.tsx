@@ -1,13 +1,18 @@
+import "@/test/mock-workspace-queries";
+import type { PrimitiveAtom } from "jotai";
+import type { WalletBalanceSummary } from "./types";
+// Render-only fixtures; query ownership is covered by use-wallet-balance.query.test.tsx.
+vi.mock("@/components/user/workspace/queries/signer-balance", async () => {
+  const { atom } = await import("jotai");
+  return { walletBalanceSummaryAtom: atom({ assets: [], loading: false, error: null }) };
+});
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { BrowserWallet } from "@meshsdk/core";
 import { activeWalletAtom, networkIdAtom } from "@/providers/wallet.atoms";
-import {
-  detectedSttTokensErrorAtom,
-  detectedSttTokensLoadingAtom,
-  walletBalanceSummaryAtom
-} from "@/components/user/workspace/atoms/workspace-data.atoms";
+import { detectedSttTokensAtom, detectedSttTokensErrorAtom, detectedSttTokensLoadingAtom } from "@/test/workspace-query-fixtures";
+import { walletBalanceSummaryAtom } from "./atoms/workspace-data.atoms";
 import { routeStateAtom } from "@/components/user/workspace/atoms/workspace-route.atoms";
 import { parseWorkspaceRouteState } from "@/components/user/workspace-controller";
 
@@ -15,6 +20,11 @@ const actions = vi.hoisted(() => ({
   refreshDetectedTokens: vi.fn(),
   refreshPermissionWalletSummaries: vi.fn(),
   refreshWorkspaceSummary: vi.fn()
+}));
+
+vi.mock("@/lib/contracts/blueprint", () => ({
+  getSttMintPolicyId: () => "aa".repeat(28),
+  resolveWalletContinuingOutputAddressFromState: () => "addr_test1wallet"
 }));
 
 vi.mock("@/components/user/workspace/workspace-actions-context", () => ({
@@ -39,12 +49,18 @@ const { WorkspaceHeaderView } = await import(
 function renderWith(
   summary: { assets: unknown[]; loading: boolean; error: string | null },
   smartWalletsLoading = false,
-  smartWalletsError: string | null = null
+  smartWalletsError: string | null = null,
+  cachedWallet = false
 ) {
   const store = createStore();
+  if (cachedWallet) store.set(detectedSttTokensAtom, [{
+    unit: "requested-wallet", policyId: "aa".repeat(28), assetNameHex: "01",
+    scriptAddress: "addr_test1state", datum: null,
+    utxo: { input: { txHash: "11".repeat(32), outputIndex: 0 }, output: { address: "addr_test1state", amount: [] } }
+  }]);
   store.set(activeWalletAtom, {} as BrowserWallet);
   store.set(networkIdAtom, 0);
-  store.set(walletBalanceSummaryAtom, summary as never);
+  store.set(walletBalanceSummaryAtom as PrimitiveAtom<WalletBalanceSummary>, summary as never);
   store.set(detectedSttTokensLoadingAtom, smartWalletsLoading);
   store.set(detectedSttTokensErrorAtom, smartWalletsError);
   store.set(
@@ -63,6 +79,11 @@ describe("workspace header", () => {
     actions.refreshDetectedTokens.mockReset();
     actions.refreshPermissionWalletSummaries.mockReset();
     actions.refreshWorkspaceSummary.mockReset();
+  });
+
+  it("shows scan errors while a cached wallet remains open", () => {
+    renderWith({ assets: [], loading: false, error: null }, false, "Inventory refresh failed.", true);
+    expect(screen.getByText("Inventory refresh failed.")).toBeInTheDocument();
   });
 
   it("says the wallet is empty instead of checking forever", () => {

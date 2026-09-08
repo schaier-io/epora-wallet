@@ -87,3 +87,15 @@ describe("orphan utxo notice", () => {
     expect(onConsolidate).not.toHaveBeenCalled();
   });
 });
+
+it("keeps re-check available while stale recovery actions are disabled", () => {
+  const onConsolidate = vi.fn();
+  const onRecover = vi.fn();
+  const onRefresh = vi.fn();
+  render(<OrphanUtxoNotice orphans={orphans(1)} orphanLovelace={1n} actionsDisabled
+    onConsolidate={onConsolidate} onRecover={onRecover} onRefresh={onRefresh} />);
+  expect(screen.getByRole("button", { name: "Move it back" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Recover funds" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "Re-check" }));
+  expect(onRefresh).toHaveBeenCalledOnce();
+});

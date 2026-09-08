@@ -54,3 +54,22 @@ it("hides provider detail when transaction builds require the helper", async () 
   const { requireSharedSttReferenceServer: requireReference } = await import("./shared-stt-reference-server");
   await expect(requireReference()).rejects.toThrow(/^SHARED_HELPER_UNAVAILABLE$/);
 });
+
+it("times out a hung discovery and retries without accepting its late result", async () => {
+  let finishFirst!: (value: typeof ready) => void;
+  mocks.inspect.mockReturnValueOnce(new Promise((resolve) => { finishFirst = resolve; }));
+  const { resolveSharedSttReferenceServer: resolve } = await import("./shared-stt-reference-server");
+  let failure: unknown;
+  void resolve().catch((error: unknown) => { failure = error; });
+  await vi.advanceTimersByTimeAsync(15_001);
+  expect(failure).toBeInstanceOf(Error);
+  expect((failure as Error).message).toContain("timed out");
+
+  await vi.advanceTimersByTimeAsync(5_001);
+  mocks.inspect.mockResolvedValue({ ...ready, matchingReferences: [{ reference: "new#0" }] });
+  expect((await resolve()).activeReference).toBe("new#0");
+  finishFirst(ready);
+  await vi.advanceTimersByTimeAsync(0);
+  expect((await resolve()).activeReference).toBe("new#0");
+  expect(mocks.inspect).toHaveBeenCalledTimes(2);
+});

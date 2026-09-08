@@ -1,4 +1,8 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
+import type { RenderOptions } from "@testing-library/react";
+import { createQueryTestWrapper } from "@/test/query-client";
+import { act, render as queryRender, screen, waitFor } from "@testing-library/react";
+const render = (callback: ReactNode, options?: RenderOptions) => queryRender(callback, { wrapper: createQueryTestWrapper().wrapper, ...options });
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProposalListItemDto } from "@/lib/proposals/types";
 
@@ -138,7 +142,7 @@ describe("the background validity pass", () => {
     render(<ProposalsWorkspace />);
 
     await waitFor(() => expect(client.fetch).toHaveBeenCalledTimes(1));
-    expect(client.fetch).toHaveBeenCalledWith("p0");
+    expect(client.fetch).toHaveBeenCalledWith("p0", { signal: expect.any(AbortSignal) as AbortSignal });
   });
 
   it("uses the background input budget", async () => {
@@ -151,7 +155,7 @@ describe("the background validity pass", () => {
     await waitFor(() =>
       expect(verify.proposal).toHaveBeenCalledWith(
         { id: "p0" },
-        { maxInputLookups: 8 }
+        { maxInputLookups: 8, signal: expect.any(AbortSignal) as AbortSignal }
       )
     );
   });
@@ -164,7 +168,7 @@ describe("the background validity pass", () => {
 
       render(<ProposalsWorkspace />);
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(BACKGROUND_PROPOSAL_VERIFICATION_TIMEOUT_MS);
+        await vi.advanceTimersByTimeAsync(BACKGROUND_PROPOSAL_VERIFICATION_TIMEOUT_MS + 1);
       });
 
       const settled = JSON.parse(screen.getByTestId("report").textContent ?? "{}") as Record<
@@ -205,7 +209,7 @@ describe("the background validity pass", () => {
     });
 
     await waitFor(() => expect(client.fetch).toHaveBeenCalledTimes(2));
-    expect(client.fetch).toHaveBeenLastCalledWith("p1");
+    expect(client.fetch).toHaveBeenLastCalledWith("p1", { signal: expect.any(AbortSignal) as AbortSignal });
     await waitFor(async () => expect((await report()).p1?.validity).toBe("valid"));
   });
 });

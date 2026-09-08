@@ -1,15 +1,15 @@
 "use client";
 import { useTranslations } from "next-intl";
 
-// Orchestration for the proposal detail view: owns the fetch + verify effect and the
+// Orchestration for the proposal detail view: observes shared queries and owns the
 // sign / submit / rebuild / cancel handlers so proposal-detail.tsx stays a thin view.
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   normalizeWitnessSetHex
 } from "@/lib/proposals/assemble";
 import {
   cancelProposal,
-  fetchProposal,
   getProposalErrorMessage,
   markProposalSubmitted,
   parseProposalBuildContext,
@@ -19,11 +19,15 @@ import {
 } from "@/lib/proposals/client";
 import { RebuildUnsupportedError, isAutoRebuildable, rebuildProposalTx } from "@/lib/proposals/rebuild";
 import type { ProposalDetailDto, ProposalSummary, ProposalVerification } from "@/lib/proposals/types";
-import { verifyProposal } from "@/lib/proposals/verify";
+import { proposalDetailQueryOptions, proposalKeys, refreshProposalBackgroundQueries } from "@/lib/proposals/query";
+import { queryPolicy } from "@/lib/query/keys";
+import { invalidateChainQueries } from "@/lib/query/invalidation";
+import { useProposalVerification } from "./use-proposal-verification";
 import { useWalletContext } from "@/providers/wallet-provider";
 
 type ProposalOrchestrationArgs = {
   proposalId: string;
+  refreshRevision?: number;
   sessionKeyHash: string;
   onChanged: () => void;
 };
@@ -55,122 +59,113 @@ export type ProposalOrchestration = {
 
 export function useProposalOrchestration({
   proposalId,
+  refreshRevision = 0,
   sessionKeyHash,
   onChanged
 }: ProposalOrchestrationArgs): ProposalOrchestration {
   const i18n = useTranslations("ComponentsUserProposalsProposalDetail");
   const { activeWallet, isDemoWallet } = useWalletContext();
-  const [stateProposalId, setStateProposalId] = useState(proposalId);
-  const [detail, setDetail] = useState<ProposalDetailDto | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [verification, setVerification] = useState<ProposalVerification | null>(null);
-  const [verifying, setVerifying] = useState(false);
+  const queryClient = useQueryClient();
+  const lifecycleKey = `${sessionKeyHash}:${proposalId}`;
+  const [stateLifecycleKey, setStateLifecycleKey] = useState(lifecycleKey);
   const [busy, setBusy] = useState<null | "sign" | "submit" | "rebuild" | "cancel">(null);
+  const [settledRefreshRevision, setSettledRefreshRevision] = useState(refreshRevision);
+  const awaitingRefresh = busy === null && settledRefreshRevision !== refreshRevision;
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionInfo, setActionInfo] = useState<string | null>(null);
-  const verifyTokenRef = useRef(0);
   const lifecycleTokenRef = useRef(0);
   const proposalIdRef = useRef(proposalId);
+  const actionInFlight = useRef<number | null>(null);
+  const detailQuery = useQuery({
+    ...proposalDetailQueryOptions(sessionKeyHash, proposalId),
+    enabled: Boolean(sessionKeyHash && proposalId),
+    refetchInterval: (query) => query.state.data?.status === "OPEN" || query.state.data?.status === "SUBMITTING"
+      ? queryPolicy.activePollMs : false
+  });
+  const detail = sessionKeyHash && !detailQuery.isError ? detailQuery.data ?? null : null;
+  const { verification, verifying } = useProposalVerification(sessionKeyHash, awaitingRefresh ? null : detail);
+  const signMutation = useMutation({ mutationFn: ({ id, witnessSetHex, txBodyHash }: {
+    id: string; witnessSetHex: string; txBodyHash: string;
+  }) => signProposal(id, { witnessSetHex, txBodyHash }), retry: false, networkMode: "always" });
+  const submitMutation = useMutation({ mutationFn: ({ id, bodyHash }: { id: string; bodyHash: string }) =>
+    markProposalSubmitted(id, bodyHash), retry: false, networkMode: "always" });
+  const rebuildMutation = useMutation({ mutationFn: ({ id, payload }: {
+    id: string; payload: Parameters<typeof rebuildProposal>[1];
+  }) => rebuildProposal(id, payload), retry: false, networkMode: "always" });
+  const cancelMutation = useMutation({ mutationFn: (id: string) => cancelProposal(id), retry: false, networkMode: "always" });
 
   useLayoutEffect(() => {
     proposalIdRef.current = proposalId;
-  }, [proposalId]);
+    lifecycleTokenRef.current += 1;
+    return () => { lifecycleTokenRef.current += 1; };
+  }, [proposalId, sessionKeyHash, activeWallet]);
 
   const isCurrentLifecycle = useCallback(
     (expectedProposalId: string, token: number) =>
-      proposalIdRef.current === expectedProposalId &&
-      lifecycleTokenRef.current === token,
+      proposalIdRef.current === expectedProposalId && lifecycleTokenRef.current === token,
     []
   );
 
-  const runVerify = useCallback(async (record: ProposalDetailDto) => {
-    const token = (verifyTokenRef.current += 1);
-    setVerification(null);
-    // Only still-open requests get checked. A sent request's inputs were consumed
-    // by its own success, so the liveness pass would flag them "already spent" —
-    // noise on the exact screen that says the request went through.
-    if (record.status !== "OPEN") {
-      setVerifying(false);
-      return;
-    }
-    setVerifying(true);
-    try {
-      const result = await verifyProposal(record);
-      if (verifyTokenRef.current === token) {
-        setVerification(result);
-      }
-    } catch {
-      if (verifyTokenRef.current === token) {
-        setVerification(null);
-      }
-    } finally {
-      if (verifyTokenRef.current === token) {
-        setVerifying(false);
-      }
-    }
-  }, []);
-
   useEffect(() => {
-    // Legitimate data-fetch effect (loads the proposal + verifies it on open).
+    // Clear local action feedback when the proposal identity changes.
     /* eslint-disable react-hooks/set-state-in-effect */
-    let cancelled = false;
-    const lifecycleToken = (lifecycleTokenRef.current += 1);
-    setStateProposalId(proposalId);
-    setDetail(null);
-    setLoading(true);
-    setLoadError(null);
-    setVerification(null);
-    setVerifying(false);
+    setStateLifecycleKey(lifecycleKey);
     setActionError(null);
     setActionInfo(null);
     setBusy(null);
     /* eslint-enable react-hooks/set-state-in-effect */
-    fetchProposal(proposalId)
-      .then((record) => {
-        if (cancelled || !isCurrentLifecycle(proposalId, lifecycleToken)) {
-          return;
+  }, [lifecycleKey]);
+
+  useEffect(() => {
+    // A manual refresh waits for the command to finish. Remote data stays in Query;
+    // the revision only records which user refresh has finished for this view.
+    if (!awaitingRefresh || !sessionKeyHash) return;
+    const token = lifecycleTokenRef.current;
+    const options = proposalDetailQueryOptions(sessionKeyHash, proposalId);
+    let cancelled = false;
+    void (async () => {
+      await queryClient.cancelQueries({ queryKey: options.queryKey, exact: true });
+      if (cancelled || !isCurrentLifecycle(proposalId, token)) return;
+      let refreshed = false;
+      try {
+        await queryClient.fetchQuery({ ...options, staleTime: 0 });
+        refreshed = true;
+      } catch {
+        // The detail query owns the error. Do not expose its previous data on failure.
+      } finally {
+        if (!cancelled && isCurrentLifecycle(proposalId, token)) {
+          setSettledRefreshRevision(refreshRevision);
+          void refreshProposalBackgroundQueries(queryClient, sessionKeyHash, refreshed ? proposalId : undefined);
         }
-        setDetail(record);
-        void runVerify(record);
-      })
-      .catch((caught) => {
-        if (!cancelled && isCurrentLifecycle(proposalId, lifecycleToken)) {
-          setLoadError(getProposalErrorMessage(caught, i18n("couldNotLoadThisApprovalRequest")));
-        }
-      })
-      .finally(() => {
-        if (!cancelled && isCurrentLifecycle(proposalId, lifecycleToken)) {
-          setLoading(false);
-        }
-      });
+      }
+    })();
     return () => {
       cancelled = true;
-      verifyTokenRef.current += 1;
-      lifecycleTokenRef.current += 1;
+      void queryClient.cancelQueries({ queryKey: options.queryKey, exact: true });
     };
-  }, [i18n, isCurrentLifecycle, proposalId, runVerify]);
+  }, [activeWallet, awaitingRefresh, isCurrentLifecycle, proposalId, queryClient, refreshRevision, sessionKeyHash]);
 
   const apply = useCallback(
-    (record: ProposalDetailDto, expectedProposalId: string, token: number) => {
+    async (record: ProposalDetailDto, expectedProposalId: string, token: number) => {
       const isCurrent = isCurrentLifecycle(expectedProposalId, token);
-      onChanged();
-      if (!isCurrent) {
-        return false;
+      if (isCurrent) {
+        // Cancel a pre-mutation read before publishing the server's new record.
+        await queryClient.cancelQueries({ queryKey: proposalKeys.detail(sessionKeyHash, expectedProposalId), exact: true });
+        if (isCurrentLifecycle(expectedProposalId, token)) {
+          queryClient.setQueryData(proposalKeys.detail(sessionKeyHash, expectedProposalId), record);
+        }
       }
-      setDetail(record);
-      void runVerify(record);
-      return true;
+      void queryClient.invalidateQueries({ queryKey: proposalKeys.lists(sessionKeyHash) });
+      void queryClient.invalidateQueries({ queryKey: proposalKeys.backgrounds(sessionKeyHash) });
+      onChanged();
+      return isCurrentLifecycle(expectedProposalId, token);
     },
-    [isCurrentLifecycle, onChanged, runVerify]
+    [isCurrentLifecycle, onChanged, queryClient, sessionKeyHash]
   );
 
-  const hasCurrentLifecycleState = stateProposalId === proposalId;
-  const currentDetail =
-    hasCurrentLifecycleState && detail?.id === proposalId ? detail : null;
+  const hasCurrentLifecycleState = stateLifecycleKey === lifecycleKey;
+  const currentDetail = awaitingRefresh ? null : detail;
   const currentVerification = currentDetail ? verification : null;
-  const isSwitchingProposal =
-    !hasCurrentLifecycleState || (detail !== null && currentDetail === null);
   const summary = currentDetail ? parseProposalSummary(currentDetail) : null;
   const isCreator = currentDetail?.createdByKeyHash === sessionKeyHash;
   const alreadySigned = Boolean(
@@ -179,9 +174,9 @@ export function useProposalOrchestration({
     )
   );
   const isOpen = currentDetail?.status === "OPEN";
-  const isInvalid = currentVerification?.validity === "invalid";
+  const isInvalid = !verifying && currentVerification?.validity === "invalid";
   const isVerifiedValid = Boolean(
-    currentVerification?.validity === "valid" && currentVerification.signers &&
+    !verifying && currentVerification?.validity === "valid" && currentVerification.signers &&
     currentVerification.stateTransition?.txBodyHash === currentDetail?.txBodyHash
   );
   const canSign = Boolean(isOpen && isVerifiedValid && !alreadySigned);
@@ -216,7 +211,7 @@ export function useProposalOrchestration({
     if (
       !detail ||
       detail.id !== proposalId ||
-      busy !== null ||
+      busy !== null || actionInFlight.current === lifecycleTokenRef.current ||
       !canSign ||
       !guardWallet() ||
       !activeWallet
@@ -225,19 +220,22 @@ export function useProposalOrchestration({
     }
     const actionProposalId = detail.id;
     const lifecycleToken = lifecycleTokenRef.current;
+    actionInFlight.current = lifecycleToken;
     setBusy("sign");
     setActionError(null);
     setActionInfo(null);
     let phase: "wallet" | "upload" = "wallet";
     try {
       const signed = await activeWallet.signTx(detail.unsignedTxHex, true);
+      if (!isCurrentLifecycle(actionProposalId, lifecycleToken)) return;
       const witnessSetHex = normalizeWitnessSetHex(signed);
       phase = "upload";
-      const updated = await signProposal(actionProposalId, {
+      const updated = await signMutation.mutateAsync({
+        id: actionProposalId,
         witnessSetHex,
         txBodyHash: detail.txBodyHash
       });
-      if (apply(updated, actionProposalId, lifecycleToken)) {
+      if (await apply(updated, actionProposalId, lifecycleToken)) {
         setActionInfo(i18n("yourSignatureWasAdded"));
       }
     } catch (caught) {
@@ -250,6 +248,7 @@ export function useProposalOrchestration({
         );
       }
     } finally {
+      if (actionInFlight.current === lifecycleToken) actionInFlight.current = null;
       if (isCurrentLifecycle(actionProposalId, lifecycleToken)) {
         setBusy(null);
       }
@@ -257,22 +256,25 @@ export function useProposalOrchestration({
   }
 
   async function handleSubmit() {
-    if (!detail || detail.id !== proposalId || busy !== null || !canSubmit) {
+    if (!detail || detail.id !== proposalId || busy !== null || actionInFlight.current === lifecycleTokenRef.current || !canSubmit) {
       return;
     }
     const actionProposalId = detail.id;
     const lifecycleToken = lifecycleTokenRef.current;
+    actionInFlight.current = lifecycleToken;
     setBusy("submit");
     setActionError(null);
     setActionInfo(null);
     try {
-      const submitted = await markProposalSubmitted(actionProposalId, detail.txBodyHash);
-      apply(submitted, actionProposalId, lifecycleToken);
+      const submitted = await submitMutation.mutateAsync({ id: actionProposalId, bodyHash: detail.txBodyHash });
+      void invalidateChainQueries(queryClient);
+      await apply(submitted, actionProposalId, lifecycleToken);
     } catch (caught) {
       if (isCurrentLifecycle(actionProposalId, lifecycleToken)) {
         setActionError(getProposalErrorMessage(caught, i18n("submissionFailed")));
       }
     } finally {
+      if (actionInFlight.current === lifecycleToken) actionInFlight.current = null;
       if (isCurrentLifecycle(actionProposalId, lifecycleToken)) {
         setBusy(null);
       }
@@ -283,7 +285,7 @@ export function useProposalOrchestration({
     if (
       !detail ||
       detail.id !== proposalId ||
-      busy !== null ||
+      busy !== null || actionInFlight.current === lifecycleTokenRef.current ||
       !canRebuild ||
       !guardWallet() ||
       !activeWallet
@@ -292,18 +294,20 @@ export function useProposalOrchestration({
     }
     const actionProposalId = detail.id;
     const lifecycleToken = lifecycleTokenRef.current;
+    actionInFlight.current = lifecycleToken;
     setBusy("rebuild");
     setActionError(null);
     setActionInfo(null);
     try {
       const result = await rebuildProposalTx(detail, parseProposalBuildContext(detail), activeWallet);
-      const rebuilt = await rebuildProposal(actionProposalId, {
+      if (!isCurrentLifecycle(actionProposalId, lifecycleToken)) return;
+      const rebuilt = await rebuildMutation.mutateAsync({ id: actionProposalId, payload: {
         unsignedTxHex: result.txHex,
         txBodyHash: result.txBodyHash,
         expectedBodyHash: detail.txBodyHash,
         buildContext: result.buildContext
-      });
-      if (apply(rebuilt, actionProposalId, lifecycleToken)) {
+      } });
+      if (await apply(rebuilt, actionProposalId, lifecycleToken)) {
         setActionInfo(i18n("rebuiltAgainstLiveChainStateExistingSignaturesWere"));
       }
     } catch (caught) {
@@ -315,6 +319,7 @@ export function useProposalOrchestration({
         );
       }
     } finally {
+      if (actionInFlight.current === lifecycleToken) actionInFlight.current = null;
       if (isCurrentLifecycle(actionProposalId, lifecycleToken)) {
         setBusy(null);
       }
@@ -322,22 +327,29 @@ export function useProposalOrchestration({
   }
 
   async function handleCancel() {
-    if (!detail || detail.id !== proposalId || busy !== null || !isCreator || !isOpen) {
+    if (!detail || detail.id !== proposalId || busy !== null || actionInFlight.current === lifecycleTokenRef.current || !isCreator || !isOpen) {
       return;
     }
     const actionProposalId = detail.id;
     const lifecycleToken = lifecycleTokenRef.current;
+    actionInFlight.current = lifecycleToken;
     setBusy("cancel");
     setActionError(null);
     try {
-      await cancelProposal(actionProposalId);
-      const cancelled = await fetchProposal(actionProposalId);
-      apply(cancelled, actionProposalId, lifecycleToken);
+      await cancelMutation.mutateAsync(actionProposalId);
+      void queryClient.invalidateQueries({ queryKey: proposalKeys.lists(sessionKeyHash) });
+      if (!isCurrentLifecycle(actionProposalId, lifecycleToken)) { onChanged(); return; }
+      const options = proposalDetailQueryOptions(sessionKeyHash, actionProposalId);
+      await queryClient.cancelQueries({ queryKey: options.queryKey, exact: true });
+      if (!isCurrentLifecycle(actionProposalId, lifecycleToken)) { onChanged(); return; }
+      const cancelled = await queryClient.fetchQuery({ ...options, staleTime: 0 });
+      await apply(cancelled, actionProposalId, lifecycleToken);
     } catch (caught) {
       if (isCurrentLifecycle(actionProposalId, lifecycleToken)) {
         setActionError(getProposalErrorMessage(caught, i18n("couldNotCancel")));
       }
     } finally {
+      if (actionInFlight.current === lifecycleToken) actionInFlight.current = null;
       if (isCurrentLifecycle(actionProposalId, lifecycleToken)) {
         setBusy(null);
       }
@@ -346,10 +358,10 @@ export function useProposalOrchestration({
 
   return {
     detail: currentDetail,
-    loading: loading || isSwitchingProposal,
-    loadError: hasCurrentLifecycleState ? loadError : null,
+    loading: Boolean(sessionKeyHash) && (detailQuery.isPending || awaitingRefresh),
+    loadError: !awaitingRefresh && detailQuery.error ? getProposalErrorMessage(detailQuery.error, i18n("couldNotLoadThisApprovalRequest")) : null,
     verification: currentVerification,
-    verifying: hasCurrentLifecycleState && verifying,
+    verifying: hasCurrentLifecycleState && !awaitingRefresh && verifying,
     busy: hasCurrentLifecycleState ? busy : null,
     actionError: hasCurrentLifecycleState ? actionError : null,
     actionInfo: hasCurrentLifecycleState ? actionInfo : null,

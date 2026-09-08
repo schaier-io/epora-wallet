@@ -1,5 +1,5 @@
 "use client";
-import { lockedContractUtxosAtom } from "./atoms/workspace-data.atoms";
+import { spendableWalletUtxosAtom } from "./atoms/workspace-spendable-utxos.atoms";
 import { useAtomValue } from "jotai";
 import type { UserActionKind } from "@/components/user/flow-types";
 import { computeActionSignature } from "@/components/user/workspace/workspace-action-signature";
@@ -39,7 +39,7 @@ export function useWorkspaceActionSignature(ctx: WorkspaceActionSignatureCtx) {
   } = ctx;
   const config = useAtomValue(configAtom);
   const activeInferredSttStateForm = useAtomValue(activeInferredSttStateFormAtom);
-  const lockedContractUtxos = useAtomValue(lockedContractUtxosAtom);
+  const lockedContractUtxos = useAtomValue(spendableWalletUtxosAtom);
   const mintForm = useMintForm();
   const sttForm = useSttSpendForm();
   const withdrawForm = useWithdrawForm();

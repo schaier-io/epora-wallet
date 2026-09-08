@@ -10,6 +10,7 @@ type OrphanUtxoNoticeProps = {
   orphans: DiscoveredUtxo[];
   orphanLovelace: bigint;
   busy?: boolean;
+  actionsDisabled?: boolean;
   onConsolidate: (orphans: DiscoveredUtxo[]) => void;
   onRecover?: (orphans: DiscoveredUtxo[]) => void;
   onDismiss?: () => void;
@@ -25,6 +26,7 @@ export function OrphanUtxoNotice({
   orphans,
   orphanLovelace,
   busy = false,
+  actionsDisabled = false,
   onConsolidate,
   onRecover,
   onDismiss,
@@ -69,7 +71,7 @@ export function OrphanUtxoNotice({
           <Button
             type="button"
             size="sm"
-            disabled={busy}
+            disabled={busy || actionsDisabled}
             onClick={() => onRecover(orphans)}
           >
             {i18n("recoverFunds")}
@@ -79,7 +81,7 @@ export function OrphanUtxoNotice({
           type="button"
           size="sm"
           variant={onRecover ? "outline" : undefined}
-          disabled={busy}
+          disabled={busy || actionsDisabled}
           onClick={() => onConsolidate(orphans)}
         >
           {busy ? i18n("moving") : i18n("moveItBack")}

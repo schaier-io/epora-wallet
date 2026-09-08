@@ -1,5 +1,6 @@
 "use client";
 import { connectStepPinnedAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
+import { detectedSttTokensLoadingAtom } from "./atoms/workspace-data.atoms";
 import { useAtomValue } from "jotai";
 
 import { useEffect } from "react";
@@ -10,7 +11,7 @@ import type {
   UserWizardStep
 } from "@/components/user/flow-types";
 
-import { type useWorkspaceController } from "@/components/user/use-workspace-controller";
+import { useWorkspaceRouteState, type useWorkspaceController } from "@/components/user/use-workspace-controller";
 
 import { type useWorkspaceDetectedTokenDerivations } from "@/components/user/workspace/use-workspace-detected-token-derivations";
 
@@ -49,8 +50,11 @@ export function useWorkspaceWizardEffects(ctx: WorkspaceWizardEffectsCtx): void 
     wizardStep
   } = ctx;
   const connectStepPinned = useAtomValue(connectStepPinnedAtom);
+  const { isRouteStateCurrent } = useWorkspaceRouteState();
+  const detectedTokensLoading = useAtomValue(detectedSttTokensLoadingAtom);
 
   useEffect(() => {
+    if (!isRouteStateCurrent || (walletReady && detectedTokensLoading)) return;
     if (!walletReady) {
       if (wizardStep !== "connect") {
         setWizardStep("connect");
@@ -79,6 +83,8 @@ export function useWorkspaceWizardEffects(ctx: WorkspaceWizardEffectsCtx): void 
       return;
     }
   }, [
+    detectedTokensLoading,
+    isRouteStateCurrent,
     selectedDetectedToken,
     connectStepPinned,
     setWizardStep,
@@ -89,6 +95,7 @@ export function useWorkspaceWizardEffects(ctx: WorkspaceWizardEffectsCtx): void 
   ]);
 
   useEffect(() => {
+    if (!isRouteStateCurrent || detectedTokensLoading) return;
     // Never clamp against a set that has not loaded. `selectableWizardActionKinds` derives
     // from the selected token's capabilities, so on a cold load it is briefly empty while
     // the chain data resolves. Clamping in that window deleted `?action=` from every deep
@@ -108,6 +115,8 @@ export function useWorkspaceWizardEffects(ctx: WorkspaceWizardEffectsCtx): void 
       clearBuildMessages();
     }
   }, [
+    detectedTokensLoading,
+    isRouteStateCurrent,
     selectedDetectedToken,
     selectableWizardActionKinds,
     setWizardSelectedAction,

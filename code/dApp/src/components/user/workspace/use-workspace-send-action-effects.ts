@@ -50,7 +50,7 @@ export function useWorkspaceSendActionEffects(ctx: WorkspaceSendActionEffectsCtx
       isSendAction(wizardSelectedAction) &&
       lockingContractAddress
     ) {
-      void refreshLockedContractUtxos(lockingContractAddress, { retryEmpty: true });
+      void refreshLockedContractUtxos(lockingContractAddress, { retryEmpty: true, preserveRecovery: true });
     }
   }, [lockingContractAddress, refreshLockedContractUtxos, wizardSelectedAction]);
 

@@ -3,9 +3,9 @@ import { beneficiaryPreparationActiveAtom } from "./atoms/forms/consolidate-form
 import { useTranslations } from "next-intl";
 
 import { useAtomValue } from "jotai";
+import { useQueryClient } from "@tanstack/react-query";
 import { activeSttAuthorityOptionsAtom, walletOperatorOptionsAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
 import { setupStateAtom } from "@/components/user/workspace/atoms/workspace-setup-state.atoms";
-import { activityAnchorTxHashesAtom } from "@/components/user/workspace/atoms/workspace-activity.atoms";
 
 import { useEffect, useMemo } from "react";
 
@@ -33,8 +33,10 @@ import { useWalletActivity } from "@/components/user/workspace/use-wallet-activi
 import { useWorkspaceActionSignature } from "@/components/user/workspace/use-workspace-action-signature";
 import { useWorkspaceActionFieldErrors } from "@/components/user/workspace/use-workspace-action-field-errors";
 import { prepareStreamingPaymentPayout } from "@/components/user/workspace/workspace-payout-preparation";
+import { refreshWorkspaceSummary as refreshWorkspaceSummaryData } from "./workspace-funds-refresh";
 
 export function usePermissionWalletWorkspaceState() {
+  const queryClient = useQueryClient();
   const i18n = useTranslations("ComponentsUserWorkspaceUsePermissionWalletWorkspaceState");
   const {
     activeAddress,
@@ -48,7 +50,6 @@ export function usePermissionWalletWorkspaceState() {
     rememberRecipient,
     rememberRecipients,
     copyTextToClipboard,
-    smartWalletDisplay,
     mintForm,
     mintStateForm,
     previousAutoMintStateRef,
@@ -127,13 +128,10 @@ export function usePermissionWalletWorkspaceState() {
     autoOpenDetectedWalletUnit,
     defaultDetectedWalletUnit,
     knownPermissionWalletCount,
-    selectedPermissionWalletCard,
-    smartWalletDisplayPublish,
-    smartWalletDisplayReset
+    selectedPermissionWalletCard
   } = useWorkspacePermissionWalletCards({
     activePaymentKeyHash,
-    selectedDetectedTokenUnit,
-    smartWalletDisplay
+    selectedDetectedTokenUnit
   });
 
   const activeSttAuthorityOptions = useAtomValue(activeSttAuthorityOptionsAtom);
@@ -164,17 +162,14 @@ export function usePermissionWalletWorkspaceState() {
     const units = totalLockedContractAssets
       .map((asset) => asset.unit)
       .filter((unit) => unit !== "lovelace");
-    if (units.length > 0) prefetchAssetIcons(units);
-  }, [totalLockedContractAssets]);
+    if (units.length > 0) void prefetchAssetIcons(queryClient, units);
+  }, [queryClient, totalLockedContractAssets]);
   const {
     setActivityPageIndex,
     runWalletTransactionsRefresh,
     refreshWalletTransactions,
     prependSubmittedTransaction
   } = useWalletActivity();
-  // Activity feed values are derived atoms (workspace-activity.atoms.ts); the transfer/guided
-  // derivations self-source them. The controller only needs the anchor hashes for the tx builders.
-  const activityAnchorTxHashes = useAtomValue(activityAnchorTxHashesAtom);
 
   const {
     availableLockedTransferAssets,
@@ -184,9 +179,6 @@ export function usePermissionWalletWorkspaceState() {
     suggestedLockedInputs
   } = useWorkspaceTransferDerivations();
 
-  useEffect(() => {
-    void refreshLockedContractUtxos(lockingContract.address);
-  }, [lockingContract.address, refreshLockedContractUtxos]);
 
   const setupState = useAtomValue(setupStateAtom);
   const streamingPaymentPayout = useMemo(
@@ -297,16 +289,13 @@ export function usePermissionWalletWorkspaceState() {
   });
 
   async function refreshWorkspaceSummary(includeWalletTransactions: boolean) {
-    await refreshLockedContractUtxos(lockingContract.address);
-    await refreshPermissionWalletSummaries();
-    if (includeWalletTransactions && lockingContract.address) {
-      await runWalletTransactionsRefresh({
-        walletAddress: lockingContract.address,
-        sttScriptAddress: selectedDetectedToken?.scriptAddress ?? null,
-        sttUnit: selectedDetectedToken?.unit ?? null,
-        anchorTxHashes: activityAnchorTxHashes
-      });
-    }
+    await refreshWorkspaceSummaryData({
+      jotaiStore,
+      walletAddress: lockingContract.address,
+      refreshLockedContractUtxos,
+      refreshPermissionWalletSummaries,
+      refreshWalletTransactions
+    }, includeWalletTransactions);
   }
 
   const {
@@ -544,7 +533,6 @@ export function usePermissionWalletWorkspaceState() {
     mintStateForm,
     mintedWalletName,
     networkId,
-    permissionWalletCards,
     postSubmitRefreshTimersRef,
     previousAutoMintStateRef,
     refreshLockedContractUtxos,
@@ -554,7 +542,6 @@ export function usePermissionWalletWorkspaceState() {
     selectedAction,
     selectedDetectedToken,
     selectedDetectedTokenUnit,
-    selectedPermissionWalletCard,
     setBuildError,
     setBuildErrorExpected,
     setLastActionLabel,
@@ -567,8 +554,6 @@ export function usePermissionWalletWorkspaceState() {
     setSubmitHash,
     setWizardSelectedAction,
     setWizardStep,
-    smartWalletDisplayPublish,
-    smartWalletDisplayReset,
     streamingPaymentPayoutRows,
     sttExtraTransfers,
     sttWalletInputs,

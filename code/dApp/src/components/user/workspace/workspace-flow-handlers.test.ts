@@ -2,7 +2,12 @@ import { parseWorkspaceRouteState } from "@/components/user/workspace-controller
 import { routeStateAtom } from "./atoms/workspace-route.atoms";
 import { currentRecoveryCapacityFailureAtom } from "./atoms/recovery-capacity.atoms";
 import { sttWalletInputsAtom } from "./atoms/forms/stt-spend-form.atoms";
-import { test } from "node:test";
+import { afterEach, test } from "node:test";
+import { QueryObserver } from "@tanstack/react-query";
+import { queryClientAtom } from "jotai-tanstack-query";
+import { createAppQueryClient } from "@/lib/query/client";
+import { queryKeys } from "@/lib/query/keys";
+import { activeAddressAtom } from "@/providers/wallet.atoms";
 import assert from "node:assert/strict";
 import { createStore } from "jotai";
 import { type BuildResult } from "@/lib/types/contracts";
@@ -13,8 +18,9 @@ import {
 } from "./workspace-flow-handlers";
 import { OwnedMessageError } from "./helpers/build-errors";
 import { resetAllFlowAtom, resetFlowAtom, mintConfirmationRunAtom } from "./atoms/transaction-flow.atoms";
-import { resolveWalletSpendAddress } from "@/lib/contracts/blueprint";
 import { beginWalletStateUpdateAtom } from "./atoms/wallet-state-update.atoms";
+import { resolveWalletSpendAddress, resolveWalletStakeScriptCredentialData, resolveWalletContinuingOutputAddressFromState } from "@/lib/contracts/blueprint";
+import { createDefaultStateForm, stateFormToDatum } from "@/lib/contracts/state-form";
 
 // 64 hex chars: the ref shape a stale-inputs failure reports.
 const HASH = "cd".repeat(32);
@@ -23,6 +29,9 @@ const fakePreview = { txHex: "deadbeef" } as unknown as BuildResult;
 // Every setter is a recorder. The guard under test owns no draft state itself; it
 // preserves the draft precisely by never touching anything result-shaped on failure,
 // so the recorded calls are the assertion surface.
+const clients: ReturnType<typeof createAppQueryClient>[] = [];
+afterEach(() => clients.splice(0).forEach(client => client.clear()));
+
 function makeCtx(overrides: Partial<Record<string, unknown>> = {}) {
   const calls: Record<string, unknown[][]> = {};
   const record = (name: string) => (...args: unknown[]) => {
@@ -53,7 +62,12 @@ function makeCtx(overrides: Partial<Record<string, unknown>> = {}) {
     setSubmitHash: record("setSubmitHash"),
     ...overrides
   } as unknown as WorkspaceFlowHandlersCtx;
-  return { ctx, calls };
+  const client = createAppQueryClient();
+  client.setDefaultOptions({ queries: { retry: false, staleTime: Infinity, gcTime: Infinity } });
+  client.setQueryData(queryKeys.txInfo(HASH), { hash: HASH });
+  clients.push(client);
+  ctx.jotaiStore.set(queryClientAtom, client);
+  return { ctx, calls, client };
 }
 
 test("the central guard blocks every build while wallet State is updating", async () => {
@@ -259,7 +273,10 @@ test("an invalidated final mint scan settles as delayed", async () => {
   );
 });
 
-test("a confirmed mint refreshes the created wallet activity before completion", async () => {
+test("a confirmed mint refreshes each shared balance once and uses the canonical staking address", async (t) => {
+  t.mock.method(globalThis, "fetch", async () => new Response(JSON.stringify({ result: { hash: HASH } })));
+  const form = createDefaultStateForm();
+  form.intendedStakeCredential = resolveWalletStakeScriptCredentialData({ sttPolicyId: "aa".repeat(28), sttAssetNameHex: "01" });
   const originalWindow = globalThis.window;
   Object.defineProperty(globalThis, "window", {
     configurable: true,
@@ -274,31 +291,50 @@ test("a confirmed mint refreshes the created wallet activity before completion",
       input: { txHash: HASH, outputIndex: 0 },
       output: { address: "addr_test1stt", amount: [] }
     },
-    datum: null
+    datum: stateFormToDatum(form)
   };
   let requestedUnit: string | undefined;
-  const { ctx, calls } = makeCtx({
+  const { ctx, calls, client } = makeCtx({
     refreshDetectedTokens: async (options?: { knownUnit?: string }) => {
       requestedUnit = options?.knownUnit;
       return { tokens: [createdToken] };
     }
   });
 
+  const balanceKey = queryKeys.signerUtxos(0, "lace", "account-a");
+  client.setQueryData(balanceKey, "before");
+  let balanceReads = 0;
+  let legacyRefreshes = 0;
+  const observer = new QueryObserver(client, { queryKey: balanceKey,
+    queryFn: async () => { balanceReads += 1; return "after"; } });
+  const stop = observer.subscribe(() => {});
+  ctx.refreshWalletBalance = async () => {
+    legacyRefreshes += 1;
+    await client.invalidateQueries({ queryKey: balanceKey, exact: true });
+  };
   try {
     await createWorkspaceFlowHandlers(ctx).watchMintCreationConfirmation(HASH, createdToken.unit);
   } finally {
+    stop();
     Object.defineProperty(globalThis, "window", {
       configurable: true,
       value: originalWindow
     });
   }
 
-  const createdWalletAddress = resolveWalletSpendAddress({
+  const createdWalletAddress = resolveWalletContinuingOutputAddressFromState({
     sttPolicyId: createdToken.policyId,
-    sttAssetNameHex: createdToken.assetNameHex
+    sttAssetNameHex: createdToken.assetNameHex,
+    stateDatum: createdToken.datum
   });
+  assert.notEqual(createdWalletAddress, resolveWalletSpendAddress({
+    sttPolicyId: createdToken.policyId, sttAssetNameHex: createdToken.assetNameHex
+  }));
+  assert.equal(balanceReads, 1);
+  assert.equal(legacyRefreshes, 0);
   assert.equal(requestedUnit, createdToken.unit);
-  assert.deepEqual(calls.refreshLockedContractUtxos, [[createdWalletAddress]]);
+  assert.equal(calls.refreshLockedContractUtxos, undefined);
+  assert.equal(calls.refreshPermissionWalletSummaries, undefined);
   assert.deepEqual(calls.runWalletTransactionsRefresh, [[{
     walletAddress: createdWalletAddress,
     sttScriptAddress: createdToken.scriptAddress,
@@ -408,4 +444,24 @@ test("builds in separate workspace stores do not invalidate each other", async (
   resolve(fakePreview);
   assert.equal(await pending, fakePreview);
   assert.deepEqual(first.calls.setPreview, [[fakePreview]]);
+});
+
+
+test("activity reads reuse a fresh transaction from the shared cache", async () => {
+  const { ctx, calls, client } = makeCtx();
+  const transaction = { hash: HASH, block: "block" };
+  client.setQueryData(queryKeys.txInfo(HASH), transaction);
+  await createWorkspaceFlowHandlers(ctx).addSubmittedTransactionToActivity(HASH);
+  assert.deepEqual(calls.prependSubmittedTransaction, [[transaction]]);
+});
+
+test("a pending activity read cannot publish into another signer session", async (t) => {
+  const { ctx, calls, client } = makeCtx();
+  let resolve!: (value: { hash: string }) => void;
+  t.mock.method(client, "fetchQuery", () => new Promise(done => { resolve = done; }));
+  const pending = createWorkspaceFlowHandlers(ctx).addSubmittedTransactionToActivity(HASH);
+  ctx.jotaiStore.set(activeAddressAtom, "new-account");
+  resolve({ hash: HASH });
+  await pending;
+  assert.equal(calls.prependSubmittedTransaction, undefined);
 });

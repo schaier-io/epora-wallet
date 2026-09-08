@@ -131,3 +131,23 @@ test("fetchAddressTxs still surfaces provider failures", async () => {
     /"status":429/
   );
 });
+
+for (const method of ["fetchAddressUTxOs", "fetchAssetAddresses", "fetchCollectionAssets"] as const) {
+  test(`${method} does not turn an upstream failure into cached empty data`, async () => {
+    const provider = {
+      get: async () => { throw JSON.stringify({ status: 429, headers: {}, data: {} }); },
+      fetchAddressUTxOs: async () => [],
+      fetchAssetAddresses: async () => [],
+      fetchCollectionAssets: async () => ({ assets: [], next: null })
+    } as unknown as BlockfrostProvider;
+    await assert.rejects(executeMeshMethod(provider, method, ["a".repeat(56)]), /"status":429/);
+  });
+}
+
+test("collection cursors must be bounded positive integers", async () => {
+  const calls: string[] = [];
+  for (const cursor of [0, -1, 1.5, Infinity, "", "2.5", 21_474_837]) {
+    await assert.rejects(executeMeshMethod(stubProvider(calls), "fetchCollectionAssets", ["a".repeat(56), cursor]), /page number/);
+  }
+  assert.deepEqual(calls, []);
+});

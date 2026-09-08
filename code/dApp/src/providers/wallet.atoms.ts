@@ -1,6 +1,6 @@
 "use client";
 
-import { atom } from "jotai";
+import { atom, type PrimitiveAtom } from "jotai";
 import type { BrowserWallet } from "@meshsdk/core";
 
 /**
@@ -11,12 +11,28 @@ import type { BrowserWallet } from "@meshsdk/core";
  */
 export const DEMO_WALLET_ID = "__permission_wallet_demo__";
 
-export const activeWalletAtom = atom<BrowserWallet | null>(null);
-export const activeWalletNameAtom = atom<string | null>(null);
-export const activeAddressAtom = atom<string | null>(null);
+const accountRevisionAtom = atom(0);
+/** Returning to an account starts a new SDK read, even while its old cache is fresh. */
+export const walletAccountRevisionAtom = atom(get => get(accountRevisionAtom));
+
+function accountIdentityAtom<Value>(initialValue: Value): PrimitiveAtom<Value> {
+  const valueAtom = atom(initialValue);
+  return atom(get => get(valueAtom), (get, set, next: Value | ((previous: Value) => Value)) => {
+    const previous = get(valueAtom);
+    const value = typeof next === "function" ? (next as (previous: Value) => Value)(previous) : next;
+    if (Object.is(previous, value)) return;
+    set(valueAtom, value);
+    set(accountRevisionAtom, revision => revision + 1);
+  });
+}
+
+export const activeWalletAtom = accountIdentityAtom<BrowserWallet | null>(null);
+export const activeWalletNameAtom = accountIdentityAtom<string | null>(null);
+export const activeAddressAtom = accountIdentityAtom<string | null>(null);
 export const activeRewardAddressAtom = atom<string | null>(null);
 export const activePaymentKeyHashAtom = atom<string | null>(null);
-export const networkIdAtom = atom<number | null>(null);
+export const isConnectingAtom = atom(false);
+export const networkIdAtom = accountIdentityAtom<number | null>(null);
 
 /** Derived: the active wallet is the read-only demo wallet. */
 export const isDemoWalletAtom = atom((get) => get(activeWalletNameAtom) === DEMO_WALLET_ID);
@@ -24,3 +40,6 @@ export const isDemoWalletAtom = atom((get) => get(activeWalletNameAtom) === DEMO
 export const walletReadyAtom = atom(
   (get) => Boolean(get(activeWalletAtom) && get(networkIdAtom) === 0)
 );
+
+/** Public chain discovery starts while a connection is in progress. */
+export const chainReadsEnabledAtom = atom(get => get(isConnectingAtom) || get(walletReadyAtom));

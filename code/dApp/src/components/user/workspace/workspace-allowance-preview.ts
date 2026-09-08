@@ -30,6 +30,7 @@ import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspace
 const i18n = createDefaultTranslator("ComponentsUserWorkspaceWorkspaceAllowancePreview", defaultMessages);
 
 export interface AllowancePreviewParams {
+  nowMs?: number;
   effectiveSttAction: SttSpendActionMode;
   activePaymentKeyHash: string | null;
   selectedDetectedToken: DetectedSttToken | null;
@@ -109,7 +110,7 @@ export function computeAllowancePreview(params: AllowancePreviewParams): Allowan
         return resolved.output.amount;
       });
 
-      const validityWindow = getValidityWindow();
+      const validityWindow = getValidityWindow(params.nowMs);
 
       const computation = deriveAllowanceWithdrawalStateDatum({
         stateDatum: sourceDatum,

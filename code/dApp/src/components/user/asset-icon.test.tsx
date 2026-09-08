@@ -1,30 +1,65 @@
-import { fireEvent, render, waitFor } from "@testing-library/react";
+import { fireEvent, render as renderUI, waitFor } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
+import type { ReactElement } from "react";
 import { Coins } from "lucide-react";
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { createQueryTestWrapper } from "@/test/query-client";
+import { queryKeys, queryPolicy } from "@/lib/query/keys";
 
-const mocks = vi.hoisted(() => ({ fetchAssetMetadata: vi.fn() }));
-
+const mocks = vi.hoisted(() => ({ fetchAssetMetadata: vi.fn(), signals: [] as AbortSignal[] }));
 vi.mock("@/lib/mesh/server-fetcher", () => ({
   ServerFetcher: class {
+    constructor(options?: { signal?: AbortSignal }) {
+      if (options?.signal) mocks.signals.push(options.signal);
+    }
     fetchAssetMetadata = mocks.fetchAssetMetadata;
   }
 }));
 
 import { AssetIcon, prefetchAssetIcons } from "./asset-icon";
+let context: ReturnType<typeof createQueryTestWrapper>;
+const render = (ui: ReactElement) => renderUI(ui, { wrapper: context.wrapper });
 
 beforeEach(() => {
+  context = createQueryTestWrapper();
   mocks.fetchAssetMetadata.mockReset();
+  mocks.signals.length = 0;
   window.sessionStorage.clear();
+});
+afterEach(() => {
+  context.queryClient.clear();
+  vi.restoreAllMocks();
+  vi.useRealTimers();
+});
+
+it("evicts the oldest inactive icons once the Query cache passes its byte budget", async () => {
+  const units = Array.from({ length: 17 }, (_, index) => `${"ba".repeat(28)}${index.toString(16).padStart(6, "0")}`);
+  mocks.fetchAssetMetadata.mockResolvedValue({ logo: "A".repeat(500 * 1024) });
+  await prefetchAssetIcons(context.queryClient, units);
+  expect(mocks.fetchAssetMetadata).toHaveBeenCalledTimes(17);
+  expect(context.queryClient.getQueryData(queryKeys.assetIcon(units[0]))).toBeUndefined();
+  await prefetchAssetIcons(context.queryClient, [units[0]]);
+  expect(mocks.fetchAssetMetadata).toHaveBeenCalledTimes(18);
+  await prefetchAssetIcons(context.queryClient, [units[16]]);
+  expect(mocks.fetchAssetMetadata).toHaveBeenCalledTimes(18);
+});
+
+it("keeps mounted icons while releasing overflow when they unmount", async () => {
+  const units = Array.from({ length: 17 }, (_, index) => `${"bb".repeat(28)}${index.toString(16).padStart(6, "0")}`);
+  mocks.fetchAssetMetadata.mockResolvedValue({ logo: "A".repeat(500 * 1024) });
+  const view = render(<>{units.map(unit => <AssetIcon key={unit} kind="token" unit={unit} Icon={Coins} />)}</>);
+  await waitFor(() => expect(view.container.querySelectorAll("img")).toHaveLength(17));
+  expect(mocks.fetchAssetMetadata).toHaveBeenCalledTimes(17);
+  view.unmount();
+  expect(context.queryClient.getQueryData(queryKeys.assetIcon(units[0]))).toBeUndefined();
+  expect(mocks.fetchAssetMetadata).toHaveBeenCalledTimes(17);
 });
 
 it("looks a logo up again after a failed lookup instead of remembering the failure", async () => {
-  // A rate limit or a dropped connection was cached as "no logo" for the whole session.
   const unit = `${"cc".repeat(28)}aabb01`;
   mocks.fetchAssetMetadata.mockRejectedValue(new Error("429"));
-  const first = render(<AssetIcon kind="stable" unit={unit} Icon={Coins} />);
-  await waitFor(() => expect(mocks.fetchAssetMetadata).toHaveBeenCalledTimes(1));
-  first.unmount();
+  await prefetchAssetIcons(context.queryClient, [unit]);
+  expect(context.queryClient.getQueryData(queryKeys.assetIcon(unit))).toBeUndefined();
 
   render(<AssetIcon kind="stable" unit={unit} Icon={Coins} />);
   await waitFor(() => expect(mocks.fetchAssetMetadata).toHaveBeenCalledTimes(2));
@@ -38,7 +73,7 @@ it.each([
   mocks.fetchAssetMetadata.mockResolvedValue(metadata);
   const { container } = render(<AssetIcon kind="stable" unit={unit} Icon={Coins} />);
 
-  await waitFor(() => expect(mocks.fetchAssetMetadata).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(context.queryClient.getQueryData(queryKeys.assetIcon(unit))).toBeNull());
   expect(container.querySelector("img")).toBeNull();
   expect(container.querySelector("svg")).not.toBeNull();
 });
@@ -52,9 +87,7 @@ it("falls back to the badge icon when an embedded logo fails to load", async () 
     expect(found).not.toBeNull();
     return found!;
   });
-
   fireEvent.error(image);
-
   expect(container.querySelector("img")).toBeNull();
   expect(container.querySelector("svg")).not.toBeNull();
 });
@@ -69,18 +102,12 @@ it.each([
   ["non-raster image", { image: "data:image/svg+xml;base64,PHN2Zy8+" }],
   ["non-raster logo", { logo: "data:image/svg+xml;base64,PHN2Zy8+" }]
 ])("rejects %s before prefetch caches metadata", async (_kind, metadata) => {
-  vi.resetModules();
-  const { AssetIcon: FreshAssetIcon, prefetchAssetIcons: prefetch } = await import("./asset-icon");
   const unit = `${"ab".repeat(28)}01`;
   mocks.fetchAssetMetadata.mockResolvedValue(metadata);
+  await prefetchAssetIcons(context.queryClient, [unit]);
 
-  prefetch([unit]);
-
-  await waitFor(() => {
-    const snapshot = JSON.parse(window.sessionStorage.getItem(STORAGE_KEY) ?? "{}") as Record<string, { url: string }>;
-    expect(snapshot[unit]?.url === "__none__").toBe(true);
-  });
-  const { container } = render(<FreshAssetIcon kind="token" unit={unit} Icon={Coins} />);
+  expect(context.queryClient.getQueryData(queryKeys.assetIcon(unit))).toBeNull();
+  const { container } = render(<AssetIcon kind="token" unit={unit} Icon={Coins} />);
   expect(container.querySelector("img")).toBeNull();
   expect(container.querySelector("svg")).not.toBeNull();
   expect(mocks.fetchAssetMetadata).toHaveBeenCalledTimes(1);
@@ -96,92 +123,79 @@ it.each([
 ])("caches and displays an accepted %s", async (_kind, metadata, expectedUrl, suffix) => {
   const unit = `${"ac".repeat(28)}${suffix}`;
   mocks.fetchAssetMetadata.mockResolvedValue(metadata);
-  prefetchAssetIcons([unit]);
+  await prefetchAssetIcons(context.queryClient, [unit]);
 
-  await waitFor(() => {
-    const snapshot = JSON.parse(window.sessionStorage.getItem(STORAGE_KEY) ?? "{}") as Record<string, { url: string }>;
-    expect(snapshot[unit]?.url === expectedUrl).toBe(true);
-  });
+  expect(context.queryClient.getQueryData(queryKeys.assetIcon(unit)) === expectedUrl).toBe(true);
   const { container } = render(<AssetIcon kind="token" unit={unit} Icon={Coins} />);
   expect(container.querySelector("img")?.getAttribute("src") === expectedUrl).toBe(true);
   expect(mocks.fetchAssetMetadata).toHaveBeenCalledTimes(1);
 });
 
-/**
- * The logo cache is hydrated from `sessionStorage`, which the server cannot see, and the
- * hook used to read it straight from the render body. For any asset an earlier visit had
- * cached, the server drew the Lucide fallback and the very first client render drew the
- * logo. React treats that as a hydration mismatch and throws the subtree away.
- *
- * `renderToStaticMarkup` stands in for the server render. It must not depend on what is in
- * `sessionStorage`.
- */
-const STORAGE_KEY = "smart-wallet:asset-icon-cache:v1";
-const SEEDED_UNIT = `${"ee".repeat(28)}aabb03`;
-const SEEDED_LOGO = "data:image/png;base64,c2VlZGVk";
-
-async function loadAssetIcon(seeded: boolean) {
-  window.sessionStorage.clear();
-  if (seeded) {
-    window.sessionStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ [SEEDED_UNIT]: { url: SEEDED_LOGO, fetchedAt: Date.now() } })
-    );
-  }
-  // The hydration flag and the memory cache are module state, so each case needs its own
-  // copy of the module.
-  vi.resetModules();
-  const reloaded = await import("./asset-icon");
-  return reloaded.AssetIcon;
-}
-
-it("renders the same server markup whether or not the session cache holds the logo", async () => {
-  mocks.fetchAssetMetadata.mockResolvedValue({});
-
-  const Seeded = await loadAssetIcon(true);
-  const seededMarkup = renderToStaticMarkup(
-    <Seeded kind="stable" unit={SEEDED_UNIT} Icon={Coins} />
-  );
-
-  const Empty = await loadAssetIcon(false);
-  const emptyMarkup = renderToStaticMarkup(
-    <Empty kind="stable" unit={SEEDED_UNIT} Icon={Coins} />
-  );
-
+it("ignores the obsolete session cache during server rendering and browser lookup", async () => {
+  const unit = `${"ee".repeat(28)}aabb03`;
+  const { wrapper: Wrapper } = context;
+  const emptyMarkup = renderToStaticMarkup(<Wrapper><AssetIcon kind="stable" unit={unit} Icon={Coins} /></Wrapper>);
+  const oldLogo = "data:image/png;base64,c2VlZGVk";
+  window.sessionStorage.setItem("smart-wallet:asset-icon-cache:v1", JSON.stringify({
+    [unit]: { url: oldLogo, fetchedAt: Date.now() }
+  }));
+  const seededMarkup = renderToStaticMarkup(<Wrapper><AssetIcon kind="stable" unit={unit} Icon={Coins} /></Wrapper>);
   expect(seededMarkup).toBe(emptyMarkup);
-  expect(seededMarkup).not.toContain(SEEDED_LOGO);
-});
-
-it("still paints a cached logo without a second lookup once the client takes over", async () => {
-  // Guards the test above from passing for the wrong reason: the seed has to be a cache the
-  // client can actually read.
+  expect(seededMarkup).not.toContain(oldLogo);
   mocks.fetchAssetMetadata.mockResolvedValue({});
-  const Seeded = await loadAssetIcon(true);
-
-  const { container } = render(<Seeded kind="stable" unit={SEEDED_UNIT} Icon={Coins} />);
-
-  expect(container.querySelector("img")).toHaveAttribute("src", SEEDED_LOGO);
-  expect(mocks.fetchAssetMetadata).not.toHaveBeenCalled();
+  const { container } = render(<AssetIcon kind="stable" unit={unit} Icon={Coins} />);
+  await waitFor(() => expect(mocks.fetchAssetMetadata).toHaveBeenCalledTimes(1));
+  expect(container.querySelector("img")).toBeNull();
 });
 
 it("rejects a protocol-relative icon at the final image sink", () => {
   const unit = `${"ff".repeat(28)}aabb05`;
   const identity = {
-    symbol: "TRACK",
-    name: "Tracker",
-    decodedAssetName: "TRACK",
-    knownMeta: {
-      symbol: "TRACK",
-      name: "Tracker",
-      accent: "nft" as const,
-      icon: "//example.test/tracker.png"
-    }
+    symbol: "TRACK", name: "Tracker", decodedAssetName: "TRACK",
+    knownMeta: { symbol: "TRACK", name: "Tracker", accent: "nft" as const, icon: "//example.test/tracker.png" }
   };
-  const { container } = render(
-    <AssetIcon kind="nft" unit={unit} identity={identity} Icon={Coins} />
-  );
-
+  const { container } = render(<AssetIcon kind="nft" unit={unit} identity={identity} Icon={Coins} />);
   expect(container.querySelector("img")).toBeNull();
   expect(container.querySelector("svg")).not.toBeNull();
   expect(mocks.fetchAssetMetadata).not.toHaveBeenCalled();
+});
+
+it("deduplicates prefetches with mounted badges", async () => {
+  const unit = `${"ab".repeat(28)}02`;
+  let resolve!: (metadata: unknown) => void;
+  mocks.fetchAssetMetadata.mockImplementation(() => new Promise(done => { resolve = done; }));
+  const prefetched = prefetchAssetIcons(context.queryClient, [unit, unit, "lovelace"]);
+  const { container } = render(<><AssetIcon kind="token" unit={unit} Icon={Coins} /><AssetIcon kind="token" unit={unit} Icon={Coins} /></>);
+  expect(mocks.fetchAssetMetadata).toHaveBeenCalledTimes(1);
+  resolve({ logo: "aW1hZ2U=" });
+  await prefetched;
+  await waitFor(() => expect(container.querySelectorAll("img")).toHaveLength(2));
+});
+
+it("refreshes a missing logo after one minute while retaining fresh successful logos", async () => {
+  const missing = `${"ab".repeat(28)}03`;
+  const found = `${"ab".repeat(28)}04`;
+  const now = Date.now();
+  vi.spyOn(Date, "now").mockReturnValue(now);
+  mocks.fetchAssetMetadata.mockResolvedValueOnce({}).mockResolvedValue({ logo: "aW1hZ2U=" });
+  await prefetchAssetIcons(context.queryClient, [missing, found]);
+  await prefetchAssetIcons(context.queryClient, [missing, found]);
+  expect(mocks.fetchAssetMetadata).toHaveBeenCalledTimes(2);
+  vi.spyOn(Date, "now").mockReturnValue(now + queryPolicy.missingMetadataStaleMs + 1);
+  await prefetchAssetIcons(context.queryClient, [missing, found]);
+  expect(mocks.fetchAssetMetadata).toHaveBeenCalledTimes(3);
+  expect(context.queryClient.getQueryData(queryKeys.assetIcon(missing))).toBe(PNG_DATA_URI_PREFIX + "aW1hZ2U=");
+});
+
+it("aborts an unused request and does not show a previous unit's logo", async () => {
+  const first = `${"ab".repeat(28)}05`;
+  const second = `${"ab".repeat(28)}06`;
+  mocks.fetchAssetMetadata.mockResolvedValueOnce({ logo: "aW1hZ2U=" }).mockImplementation(() => new Promise(() => {}));
+  const rendered = render(<AssetIcon kind="token" unit={first} Icon={Coins} />);
+  await waitFor(() => expect(rendered.container.querySelector("img")).not.toBeNull());
+  rendered.rerender(<AssetIcon kind="token" unit={second} Icon={Coins} />);
+  expect(rendered.container.querySelector("img")).toBeNull();
+  await waitFor(() => expect(mocks.signals).toHaveLength(2));
+  rendered.unmount();
+  expect(mocks.signals[1].aborted).toBe(true);
 });

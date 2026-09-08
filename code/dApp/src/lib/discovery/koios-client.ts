@@ -1,3 +1,4 @@
+import { parseRetryAfterMs } from "@/lib/http/retry-after";
 // Koios client for the orphan / "Franken" UTxO check. Koios's public API does
 // NOT send an `access-control-allow-origin` header, so the browser cannot call
 // it cross-origin (every fetch fails with "Failed to fetch"), unlike Blockfrost,
@@ -44,10 +45,12 @@ export function mapKoiosCredentialUtxos(rows: KoiosUtxo[]): DiscoveredUtxo[] {
 /// ("Franken") variants that an address-based Blockfrost query would miss.
 export async function fetchCredentialUtxos(
   paymentCredentialHex: string,
-  network = "preprod"
+  network = "preprod",
+  signal?: AbortSignal
 ): Promise<DiscoveredUtxo[]> {
   const response = await fetch(CREDENTIAL_UTXOS_PROXY, {
     method: "POST",
+    signal,
     headers: {
       "content-type": "application/json",
       accept: "application/json"
@@ -60,9 +63,9 @@ export async function fetchCredentialUtxos(
 
   if (!response.ok) {
     const body = await response.text().catch(() => "");
-    throw new Error(
+    throw Object.assign(new Error(
       `Koios credential_utxos failed (${response.status}): ${body.slice(0, 200)}`
-    );
+    ), { status: response.status, retryAfterMs: parseRetryAfterMs(response.headers.get("Retry-After")) });
   }
 
   return mapKoiosCredentialUtxos((await response.json()) as KoiosUtxo[]);

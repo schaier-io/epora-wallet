@@ -3,7 +3,8 @@ import { useTranslations } from "next-intl";
 import { resolveAssetIdentity } from "@/lib/cardano-assets";
 import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAtomValue, useSetAtom } from "jotai";
 import { CircleSlash, HandCoins, Loader2, RefreshCw, Wallet } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +17,7 @@ import {
   CardTitle
 } from "@/components/ui/card";
 import { CopyButton } from "@/components/ui/copy-button";
-import { detectSttInfo, type DetectedSttToken } from "@/lib/mesh/detection";
+import { type DetectedSttToken } from "@/lib/mesh/detection";
 import { buildSttSpendTx, getValidityWindow, signAndSubmitTx } from "@/lib/mesh/transactions";
 import {
   NON_ADMIN_STREAMING_ACTION_COOLDOWN_MS,
@@ -39,6 +40,15 @@ import {
   describeEmptyScan,
   describeIncompleteScan
 } from "@/components/payee/payee-scan-messages";
+import {
+  beginPayeeInputActionAtom,
+  markPayeeInputSubmittedAtom,
+  payeePendingInputKey,
+  pendingPayeeInputActionsAtom,
+  releasePayeeInputActionAtom
+} from "@/components/payee/payee-pending-inputs.atoms";
+
+import { usePayeeInventory } from "./use-payee-inventory";
 
 type RowActionState =
   | { status: "idle" }
@@ -46,10 +56,8 @@ type RowActionState =
   | { status: "done"; txHash: string }
   | { status: "error"; message: string };
 
-type StateInputActionPhase = "building" | "submitted";
-
 function streamKey(payment: PayeeStreamingPayment): string {
-  return `${payment.sttInputTxHash}#${payment.sttInputOutputIndex}:${payment.streamingPaymentId}`;
+  return `${payment.sttPolicyId}:${stateInputKey(payment)}:${payment.streamingPaymentId}`;
 }
 
 function stateInputKey(payment: PayeeStreamingPayment): string {
@@ -123,100 +131,16 @@ export function PayeeView() {
   const { activeWallet, activeAddress, activePaymentKeyHash, isDemoWallet, networkId } =
     useWalletContext();
 
-  const [tokens, setTokens] = useState<DetectedSttToken[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const { tokens, loading, error: inventoryError, refresh: loadTokens } = usePayeeInventory();
+  const loadError = inventoryError ? i18n("unableToLoadScheduledPayments") : null;
   const [shortenStates, setShortenStates] = useState<Record<string, RowActionState>>({});
   const [collectStates, setCollectStates] = useState<Record<string, RowActionState>>({});
   const [actionAnnouncement, setActionAnnouncement] = useState("");
-  const stateInputActionsRef = useRef(new Map<string, StateInputActionPhase>());
-  const [pendingStateInputs, setPendingStateInputs] = useState<ReadonlySet<string>>(
-    () => new Set()
-  );
+  const pendingStateInputs = useAtomValue(pendingPayeeInputActionsAtom);
+  const beginStateInputAction = useSetAtom(beginPayeeInputActionAtom);
+  const markStateInputSubmitted = useSetAtom(markPayeeInputSubmittedAtom);
+  const endStateInputAction = useSetAtom(releasePayeeInputActionAtom);
   const [renderNowMs, setRenderNowMs] = useState(() => Date.now());
-
-  const beginStateInputAction = useCallback((key: string): boolean => {
-    if (stateInputActionsRef.current.has(key)) {
-      return false;
-    }
-    stateInputActionsRef.current.set(key, "building");
-    setPendingStateInputs((current) => new Set(current).add(key));
-    return true;
-  }, []);
-
-  const markStateInputSubmitted = useCallback((key: string) => {
-    if (stateInputActionsRef.current.has(key)) {
-      stateInputActionsRef.current.set(key, "submitted");
-    }
-  }, []);
-
-  const endStateInputAction = useCallback((key: string) => {
-    stateInputActionsRef.current.delete(key);
-    setPendingStateInputs((current) => {
-      const next = new Set(current);
-      next.delete(key);
-      return next;
-    });
-  }, []);
-
-  // One ticket per load. Two rows held in different wallets can be acted on together,
-  // because the list stays on screen while the first transaction is still being signed,
-  // so the reload each action ends with can overlap the other. Without the ticket the
-  // slower read wins whenever it lands last: it can put back older chain data, raise a
-  // load error over a newer clean read, or clear the spinner of a load still running.
-  const loadRequestRef = useRef(0);
-
-  const loadTokens = useCallback(async () => {
-    const request = (loadRequestRef.current += 1);
-    const isCurrent = () => request === loadRequestRef.current;
-    setLoading(true);
-    setLoadError(null);
-    try {
-      const detected = await detectSttInfo();
-      if (!isCurrent()) {
-        return;
-      }
-      // The lock and the list have to come from the same read. A lock is cleared exactly when
-      // the snapshot the view adopts stops showing the state input, which is the same moment
-      // the row it belongs to leaves the list, so the two can never disagree.
-      //
-      // Clearing it from a superseded read instead splits them apart, in both directions. The
-      // row stays on screen from the newest read with its buttons live again over an input its
-      // own transaction already spends. And removing the row to compensate hides a payment
-      // that is still there: a collect respends the state input into a successor, which the
-      // superseded read holds and the newest read does not, so the payment vanishes from the
-      // list until the reader presses Refresh.
-      //
-      // The cost is a row that stays disabled when a superseded read saw the spend and the
-      // newest read did not. That reads correctly: the freshest data still shows the input, so
-      // this transaction is not visible on chain yet, and the row must not be acted on again.
-      // The next read clears it.
-      const detectedInputKeys = new Set(detected.tokens.map(detectedStateInputKey));
-      for (const [key, phase] of stateInputActionsRef.current) {
-        if (phase === "submitted" && !detectedInputKeys.has(key)) {
-          endStateInputAction(key);
-        }
-      }
-      setTokens(detected.tokens);
-    } catch (error) {
-      if (!isCurrent()) {
-        return;
-      }
-      console.error("[payee:load]", error);
-      setTokens([]);
-      setLoadError(i18n("unableToLoadScheduledPayments"));
-    } finally {
-      if (isCurrent()) {
-        setLoading(false);
-      }
-    }
-  }, [endStateInputAction, i18n]);
-
-  useEffect(() => {
-    // Legitimate data-fetch effect (loads detected scheduled payments from chain).
-    void loadTokens();
-  }, [loadTokens]);
-
   useEffect(() => {
     const timer = window.setInterval(() => setRenderNowMs(Date.now()), 30_000);
     return () => window.clearInterval(timer);
@@ -239,8 +163,13 @@ export function PayeeView() {
         return;
       }
       const key = streamKey(payment);
-      const inputKey = stateInputKey(payment);
-      if (!beginStateInputAction(inputKey)) {
+      const inputKey = payeePendingInputKey(payment.sttPolicyId, stateInputKey(payment));
+      if (!beginStateInputAction({
+        policyId: payment.sttPolicyId,
+        stateInput: stateInputKey(payment),
+        streamKey: key,
+        action: "collect"
+      })) {
         return;
       }
       let submitted = false;
@@ -271,7 +200,7 @@ export function PayeeView() {
             )
         });
         submitted = true;
-        markStateInputSubmitted(inputKey);
+        markStateInputSubmitted({ key: inputKey, txHash });
         setCollectStates((prev) => ({ ...prev, [key]: { status: "done", txHash } }));
         setActionAnnouncement(i18n("sentTheListUpdatesAfterTheNextRefresh"));
         // Re-read the advanced paid-out total and the shared cooldown stamp.
@@ -312,8 +241,13 @@ export function PayeeView() {
         return;
       }
       const key = streamKey(payment);
-      const inputKey = stateInputKey(payment);
-      if (!beginStateInputAction(inputKey)) {
+      const inputKey = payeePendingInputKey(payment.sttPolicyId, stateInputKey(payment));
+      if (!beginStateInputAction({
+        policyId: payment.sttPolicyId,
+        stateInput: stateInputKey(payment),
+        streamKey: key,
+        action: "shorten"
+      })) {
         return;
       }
       let submitted = false;
@@ -339,7 +273,7 @@ export function PayeeView() {
         });
         const txHash = await signAndSubmitTx(activeWallet, build.txHex);
         submitted = true;
-        markStateInputSubmitted(inputKey);
+        markStateInputSubmitted({ key: inputKey, txHash });
         setShortenStates((prev) => ({ ...prev, [key]: { status: "done", txHash } }));
         setActionAnnouncement(i18n("sentTheListUpdatesAfterTheNextRefresh"));
         // Re-read the shortened end date and shared cooldown stamp.
@@ -457,8 +391,17 @@ export function PayeeView() {
             <ul className="space-y-3">
               {myPayments.map((payment) => {
                 const key = streamKey(payment);
-                const stateInputPending = pendingStateInputs.has(stateInputKey(payment));
-                const shortenState = shortenStates[key] ?? { status: "idle" };
+                const pending = pendingStateInputs[
+                  payeePendingInputKey(payment.sttPolicyId, stateInputKey(payment))
+                ];
+                const stateInputPending = Boolean(pending);
+                const pendingRowState: RowActionState | null = pending?.streamKey !== key
+                  ? null
+                  : pending.phase === "building"
+                    ? { status: "submitting" }
+                    : { status: "done", txHash: pending.txHash };
+                const shortenState = (pending?.action === "shorten" ? pendingRowState : null)
+                  ?? shortenStates[key] ?? { status: "idle" };
                 const alreadyEnded = BigInt(payment.endDate) <= BigInt(renderNowMs);
                 const stateDatum = tokens.find(
                   (token) => detectedStateInputKey(token) === stateInputKey(payment)
@@ -485,7 +428,8 @@ export function PayeeView() {
                 const cannotShorten = earliestSafeCutoff >= BigInt(payment.endDate);
                 const shortening = shortenState.status === "submitting";
                 const shortened = shortenState.status === "done";
-                const collectState = collectStates[key] ?? { status: "idle" };
+                const collectState = (pending?.action === "collect" ? pendingRowState : null)
+                  ?? collectStates[key] ?? { status: "idle" };
                 const collecting = collectState.status === "submitting";
                 const collected = collectState.status === "done";
                 const nothingOwed =

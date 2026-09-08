@@ -1,191 +1,89 @@
 import { createStore } from "jotai";
+import { QueryObserver } from "@tanstack/react-query";
+import { queryClientAtom } from "jotai-tanstack-query";
+import { createAppQueryClient } from "@/lib/query/client";
+import { queryKeys } from "@/lib/query/keys";
 import { routeStateAtom } from "./atoms/workspace-route.atoms";
 import { parseWorkspaceRouteState } from "../workspace-controller";
 import { resetAllFlowAtom, resetFlowAtom } from "./atoms/transaction-flow.atoms";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { schedulePostSubmitRefresh } from "./workspace-transaction-refresh";
-import { beginWalletStateUpdateAtom } from "./atoms/wallet-state-update.atoms";
 
-test("settles every timer refresh batch before discarding its result", async () => {
+function fixture() {
   const callbacks: Array<() => void> = [];
+  const delays: number[] = [];
   const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
-  const originalAllSettled = Object.getOwnPropertyDescriptor(Promise, "allSettled")!;
-  const settle = Promise.allSettled.bind(Promise);
-  let allSettledCalls = 0;
-  Object.defineProperty(globalThis, "window", {
-    configurable: true,
-    value: {
-      clearTimeout: () => undefined,
-      setTimeout: (callback: () => void) => {
-        callbacks.push(callback);
-        return callbacks.length;
-      }
-    }
-  });
-  Object.defineProperty(Promise, "allSettled", {
-    configurable: true,
-    value: (values: Iterable<unknown>) => {
-      allSettledCalls += 1;
-      return settle(values);
-    }
-  });
-
-  const refresh = async () => undefined;
-  const deps = {
-    postSubmitRefreshTimersRef: { current: [] },
-    jotaiStore: createStore(),
-    refreshLockedContractUtxos: refresh,
-    refreshWalletBalance: refresh,
-    refreshPermissionWalletSummaries: refresh,
-    refreshDetectedTokens: refresh,
-    lockingContract: { address: "addr_test1lock" }
-  } as unknown as Parameters<typeof schedulePostSubmitRefresh>[0];
-
-  try {
-    schedulePostSubmitRefresh(deps);
-    callbacks.forEach((callback) => callback());
-    await Promise.resolve();
-    assert.equal(allSettledCalls, 4);
-  } finally {
-    Object.defineProperty(Promise, "allSettled", originalAllSettled);
-    if (originalWindow) {
-      Object.defineProperty(globalThis, "window", originalWindow);
-    } else {
-      Reflect.deleteProperty(globalThis, "window");
-    }
-  }
-});
-
-test("refreshes summaries from the token scan that triggered them", async () => {
-  const callbacks: Array<() => void> = [];
-  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
-  Object.defineProperty(globalThis, "window", {
-    configurable: true,
-    value: {
-      clearTimeout: () => undefined,
-      setTimeout: (callback: () => void) => {
-        callbacks.push(callback);
-        return callbacks.length;
-      }
-    }
-  });
-
-  const tokens = [{ unit: "new-wallet" }];
-  let resolveDetected!: (value: { tokens: typeof tokens }) => void;
-  const summaryInputs: unknown[] = [];
-  const refresh = async () => undefined;
-  const deps = {
-    postSubmitRefreshTimersRef: { current: [] },
-    jotaiStore: createStore(),
-    refreshLockedContractUtxos: refresh,
-    refreshWalletBalance: refresh,
-    refreshPermissionWalletSummaries: async (nextTokens: unknown) => {
-      summaryInputs.push(nextTokens);
-    },
-    refreshDetectedTokens: () =>
-      new Promise<{ tokens: typeof tokens }>((resolve) => {
-        resolveDetected = resolve;
-      }),
-    lockingContract: { address: "addr_test1lock" }
-  } as unknown as Parameters<typeof schedulePostSubmitRefresh>[0];
-
-  try {
-    schedulePostSubmitRefresh(deps);
-    callbacks[0]?.();
-    await Promise.resolve();
-    assert.deepEqual(summaryInputs, []);
-
-    resolveDetected({ tokens });
-    await new Promise((resolve) => setImmediate(resolve));
-    assert.deepEqual(summaryInputs, [tokens]);
-  } finally {
-    if (originalWindow) {
-      Object.defineProperty(globalThis, "window", originalWindow);
-    } else {
-      Reflect.deleteProperty(globalThis, "window");
-    }
-  }
-});
-
-test("scheduled refreshes do not start a generic State scan while an exact refresh is pending", async () => {
-  const callbacks: Array<() => void> = [];
-  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
-  Object.defineProperty(globalThis, "window", {
-    configurable: true,
-    value: {
-      clearTimeout: () => undefined,
-      setTimeout: (callback: () => void) => {
-        callbacks.push(callback);
-        return callbacks.length;
-      }
-    }
-  });
+  Object.defineProperty(globalThis, "window", { configurable: true, value: {
+    clearTimeout() {},
+    setTimeout(callback: () => void, delay: number) { callbacks.push(callback); delays.push(delay); return callbacks.length; }
+  }});
   const store = createStore();
-  store.set(beginWalletStateUpdateAtom, {
-    walletUnit: "policy01",
-    submittedTxHash: "ab".repeat(32),
-    spentRef: { txHash: "cd".repeat(32), outputIndex: 0 }
-  });
-  const refreshDetectedTokens = async () => {
-    assert.fail("generic State scan must stay idle");
-  };
-  let otherRefreshes = 0;
-  const refresh = async () => {
-    otherRefreshes += 1;
-  };
-  const deps = {
-    postSubmitRefreshTimersRef: { current: [] },
-    jotaiStore: store,
-    refreshLockedContractUtxos: refresh,
-    refreshWalletBalance: refresh,
-    refreshPermissionWalletSummaries: refresh,
-    refreshDetectedTokens,
-    lockingContract: { address: "addr_test1lock" }
-  } as unknown as Parameters<typeof schedulePostSubmitRefresh>[0];
-
-  try {
-    schedulePostSubmitRefresh(deps);
-    callbacks[0]?.();
-    await new Promise((resolve) => setImmediate(resolve));
-    assert.equal(otherRefreshes, 2);
-  } finally {
-    if (originalWindow) {
-      Object.defineProperty(globalThis, "window", originalWindow);
-    } else {
-      Reflect.deleteProperty(globalThis, "window");
-    }
-  }
-});
-
-for (const transition of ["selection", "unmount", "action navigation"] as const) {
-  test(`refresh callbacks respect ${transition}`, async () => {
-    const callbacks: Array<() => void> = [];
-    const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
-    Object.defineProperty(globalThis, "window", { configurable: true, value: {
-      clearTimeout() {}, setTimeout(callback: () => void) { callbacks.push(callback); return callbacks.length; }
-    }});
-    const store = createStore();
-    let calls = 0;
-    const refresh = async () => { calls += 1; };
-    const deps = { jotaiStore: store, postSubmitRefreshTimersRef: { current: [] },
-      lockingContract: { address: "wallet-a" }, refreshLockedContractUtxos: refresh,
-      refreshWalletBalance: refresh, refreshPermissionWalletSummaries: refresh,
-      refreshDetectedTokens: refresh } as unknown as Parameters<typeof schedulePostSubmitRefresh>[0];
-    try {
-      schedulePostSubmitRefresh(deps);
-      if (transition === "selection") store.set(routeStateAtom, parseWorkspaceRouteState(new URLSearchParams("wallet=wallet-b")));
-      else if (transition === "unmount") store.set(resetAllFlowAtom);
-      else {
-        store.set(routeStateAtom, { ...store.get(routeStateAtom), selectedAction: "mint" });
-        store.set(resetFlowAtom);
-      }
-      callbacks.forEach(callback => callback());
-      await new Promise(resolve => setImmediate(resolve));
-      assert.equal(calls, transition === "action navigation" ? 12 : 0);
-    } finally {
+  const client = createAppQueryClient();
+  client.setDefaultOptions({ queries: { retry: false, gcTime: Infinity, staleTime: Infinity } });
+  store.set(queryClientAtom, client);
+  return {
+    callbacks, delays, store, client,
+    deps: { jotaiStore: store, postSubmitRefreshTimersRef: { current: [] as number[] } },
+    cleanup() {
+      client.clear();
       if (originalWindow) Object.defineProperty(globalThis, "window", originalWindow);
       else Reflect.deleteProperty(globalThis, "window");
     }
+  };
+}
+
+test("each scheduled refresh invalidates inactive chain data and private verification", () => {
+  const context = fixture();
+  const keys = [queryKeys.addressUtxos("wallet-a"), queryKeys.sttWallet("policy", "unit"),
+    queryKeys.accountInfo("rewards"), [...queryKeys.chain, "wallet-activity", "wallet-a"],
+    ["proposals", "preprod", "signer", "verification", "request"]];
+  context.client.setQueryDefaults(keys[4], { meta: { chainDependent: true } });
+  try {
+    schedulePostSubmitRefresh(context.deps);
+    assert.deepEqual(context.delays, [12_000, 30_000, 50_000, 75_000]);
+    for (const callback of context.callbacks) {
+      keys.forEach(key => context.client.setQueryData(key, "before"));
+      callback();
+      keys.forEach(key => assert.equal(context.client.getQueryState(key)?.isInvalidated, true));
+    }
+  } finally { context.cleanup(); }
+});
+
+test("a timer refresh shares one request between two observers", async () => {
+  const context = fixture();
+  const key = queryKeys.addressUtxos("wallet-a");
+  context.client.setQueryData(key, "before");
+  let reads = 0;
+  const options = { queryKey: key, queryFn: async () => { reads += 1; return "after"; } };
+  const first = new QueryObserver(context.client, options);
+  const second = new QueryObserver(context.client, options);
+  const unsubscribe = [first.subscribe(() => {}), second.subscribe(() => {})];
+  try {
+    schedulePostSubmitRefresh(context.deps);
+    context.callbacks[0]();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(reads, 1);
+    assert.equal(first.getCurrentResult().data, "after");
+    assert.equal(second.getCurrentResult().data, "after");
+  } finally { unsubscribe.forEach(stop => stop()); context.cleanup(); }
+});
+
+for (const transition of ["selection", "unmount", "action navigation"] as const) {
+  test(`refresh callbacks respect ${transition}`, () => {
+    const context = fixture();
+    const key = queryKeys.addressUtxos("wallet-a");
+    context.client.setQueryData(key, "before");
+    try {
+      schedulePostSubmitRefresh(context.deps);
+      if (transition === "selection") context.store.set(routeStateAtom, parseWorkspaceRouteState(new URLSearchParams("wallet=wallet-b")));
+      else if (transition === "unmount") context.store.set(resetAllFlowAtom);
+      else {
+        context.store.set(routeStateAtom, { ...context.store.get(routeStateAtom), selectedAction: "mint" });
+        context.store.set(resetFlowAtom);
+      }
+      context.callbacks.forEach(callback => callback());
+      assert.equal(context.client.getQueryState(key)?.isInvalidated, transition === "action navigation");
+    } finally { context.cleanup(); }
   });
 }

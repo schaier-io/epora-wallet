@@ -33,6 +33,7 @@ import { useProposalOrchestration } from "./use-proposal-orchestration";
 
 type ProposalDetailProps = {
   proposalId: string;
+  refreshRevision?: number;
   sessionKeyHash: string;
   onChanged: () => void;
   onBack: () => void;
@@ -40,6 +41,7 @@ type ProposalDetailProps = {
 
 export function ProposalDetail({
   proposalId,
+  refreshRevision,
   sessionKeyHash,
   onChanged,
   onBack
@@ -69,7 +71,7 @@ export function ProposalDetail({
     summary,
     verification,
     verifying
-  } = useProposalOrchestration({ proposalId, sessionKeyHash, onChanged });
+  } = useProposalOrchestration({ proposalId, sessionKeyHash, onChanged, refreshRevision });
 
   // Why the buttons below are in the state they are in. Sign and Submit are each gated on
   // three separate conditions, and a disabled button is not focusable, so a co-signer used

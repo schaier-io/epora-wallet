@@ -1,12 +1,20 @@
+import "@/test/mock-workspace-queries";
+import { detectedSttTokensAtom, detectedSttTokensErrorAtom, detectedSttTokensLoadingAtom } from "@/test/workspace-query-fixtures";
 import { render, screen } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import { describe, expect, it, vi } from "vitest";
-import {
-  detectedSttTokensErrorAtom,
-  detectedSttTokensLoadingAtom
-} from "@/components/user/workspace/atoms/workspace-data.atoms";
+
 import { routeStateAtom } from "@/components/user/workspace/atoms/workspace-route.atoms";
 import { parseWorkspaceRouteState } from "@/components/user/workspace-controller";
+
+vi.mock("@/lib/contracts/blueprint", () => ({
+  getSttMintPolicyId: () => "aa".repeat(28),
+  resolveWalletContinuingOutputAddressFromState: () => "addr_test1wallet"
+}));
+
+vi.mock("@/components/user/stake-address-discovery-panel", () => ({
+  StakeAddressDiscoveryPanel: () => null
+}));
 
 vi.mock("@/components/user/workspace/workspace-actions-context", () => ({
   useWorkspaceActions: () => ({
@@ -38,8 +46,13 @@ const { WorkspaceSidebarView } = await import(
  * called when a wallet IS open, for a different destination.
  */
 describe("workspace sidebar, no wallet open", () => {
-  function renderSidebar(loading = false, error: string | null = null) {
+  function renderSidebar(loading = false, error: string | null = null, cachedWallet = false) {
     const store = createStore();
+    if (cachedWallet) store.set(detectedSttTokensAtom, [{
+      unit: "requested-wallet", policyId: "aa".repeat(28), assetNameHex: "01",
+      scriptAddress: "addr_test1state", datum: null,
+      utxo: { input: { txHash: "11".repeat(32), outputIndex: 0 }, output: { address: "addr_test1state", amount: [] } }
+    }]);
     store.set(detectedSttTokensLoadingAtom, loading);
     store.set(detectedSttTokensErrorAtom, error);
     store.set(
@@ -52,6 +65,12 @@ describe("workspace sidebar, no wallet open", () => {
       </Provider>
     );
   }
+
+  it("shows scan errors while a cached wallet remains open", () => {
+    renderSidebar(false, "Inventory refresh failed.", true);
+    expect(screen.getByText("Inventory refresh failed.")).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Wallet navigation" })).toBeInTheDocument();
+  });
 
   it("names the state instead of calling it setup", () => {
     renderSidebar();

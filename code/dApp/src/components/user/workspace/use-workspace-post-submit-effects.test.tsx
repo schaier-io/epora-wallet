@@ -15,39 +15,13 @@ import {
 } from "./use-workspace-post-submit-effects";
 import { schedulePostSubmitRefresh } from "./workspace-transaction-refresh";
 import type { StateFormState } from "@/lib/contracts/state-form";
-import type { DetectedSttInfo } from "@/lib/mesh/detection";
-
-const EMPTY_DETECTION: DetectedSttInfo = {
-  policyId: "",
-  assetNameHex: "",
-  scriptAddress: "",
-  sttUtxos: [],
-  tokens: []
-};
+import { createQueryTestWrapper } from "@/test/query-client";
+import { queryKeys } from "@/lib/query/keys";
 
 const WALLET_A = "addr_test_wallet_a";
 const WALLET_B = "addr_test_wallet_b";
 
-function createRefreshSpies() {
-  return {
-    refreshLockedContractUtxos: vi.fn(() => Promise.resolve()),
-    refreshWalletBalance: vi.fn(() => Promise.resolve()),
-    refreshPermissionWalletSummaries: vi.fn(() => Promise.resolve()),
-    refreshDetectedTokens: vi.fn(() => Promise.resolve(EMPTY_DETECTION))
-  };
-}
-
-type RefreshSpies = ReturnType<typeof createRefreshSpies>;
-
-function Harness({
-  lockingContractAddress,
-  spies,
-  store
-}: {
-  lockingContractAddress: string;
-  spies: RefreshSpies;
-  store: ReturnType<typeof createStore>;
-}) {
+function Harness({ store }: { store: ReturnType<typeof createStore> }) {
   const postSubmitRefreshTimersRef = useRef<number[]>([]);
   const mintCelebrationRef = useRef<string | null>(null);
   const scheduledRef = useRef(false);
@@ -66,11 +40,9 @@ function Harness({
     scheduledRef.current = true;
     schedulePostSubmitRefresh({
       jotaiStore: store,
-      postSubmitRefreshTimersRef,
-      lockingContract: { address: lockingContractAddress, error: null },
-      ...spies
+      postSubmitRefreshTimersRef
     });
-  }, [lockingContractAddress, spies, store]);
+  }, [store]);
 
   return null;
 }
@@ -84,28 +56,26 @@ describe("useWorkspacePostSubmitEffects", () => {
     vi.useRealTimers();
   });
 
-  function renderHarness(spies: RefreshSpies) {
-    const store = createStore();
-    const view = render(
-      <Provider store={store}>
-        <Harness lockingContractAddress={WALLET_A} spies={spies} store={store} />
-      </Provider>
-    );
-    return { store, ...view };
+  const clients: ReturnType<typeof createQueryTestWrapper>["queryClient"][] = [];
+  afterEach(() => clients.splice(0).forEach(client => client.clear()));
+  function renderHarness() {
+    const { store, queryClient, wrapper } = createQueryTestWrapper();
+    clients.push(queryClient);
+    queryClient.setQueryData(queryKeys.addressUtxos(WALLET_A), []);
+    const view = render(<Harness store={store} />, { wrapper });
+    return { store, queryClient, ...view };
   }
 
   it("polls the wallet the transaction was submitted from", async () => {
-    const spies = createRefreshSpies();
-    renderHarness(spies);
+    const { queryClient } = renderHarness();
 
     await vi.advanceTimersByTimeAsync(80_000);
 
-    expect(spies.refreshLockedContractUtxos).toHaveBeenCalledWith(WALLET_A);
+    expect(queryClient.getQueryState(queryKeys.addressUtxos(WALLET_A))?.isInvalidated).toBe(true);
   });
 
   it("drops the pending poll when the workspace opens another wallet", async () => {
-    const spies = createRefreshSpies();
-    const { store } = renderHarness(spies);
+    const { store, queryClient } = renderHarness();
 
     act(() => {
       store.set(routeStateAtom, {
@@ -115,17 +85,16 @@ describe("useWorkspacePostSubmitEffects", () => {
     });
     await vi.advanceTimersByTimeAsync(80_000);
 
-    expect(spies.refreshLockedContractUtxos).not.toHaveBeenCalledWith(WALLET_A);
+    expect(queryClient.getQueryState(queryKeys.addressUtxos(WALLET_A))?.isInvalidated).toBe(false);
   });
 
   it("clears the pending poll on unmount", async () => {
-    const spies = createRefreshSpies();
-    const { unmount } = renderHarness(spies);
+    const { unmount, queryClient } = renderHarness();
 
     unmount();
     await vi.advanceTimersByTimeAsync(80_000);
 
-    expect(spies.refreshLockedContractUtxos).not.toHaveBeenCalled();
+    expect(queryClient.getQueryState(queryKeys.addressUtxos(WALLET_A))?.isInvalidated).toBe(false);
   });
 
   it("retires pending work on wallet selection changes but preserves action navigation", () => {

@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
+import { useAtomValue } from "jotai";
+import { routeStateAtom } from "@/components/user/workspace/atoms/workspace-route.atoms";
 import {
   buildWorkspaceSearchParams,
   parseWorkspaceRouteState,
@@ -33,6 +35,11 @@ export function useWorkspaceRouteState({ syncUrl = true }: { syncUrl?: boolean }
   const currentCanonicalSearch = useMemo(
     () => buildWorkspaceSearchParams(routeState).toString(),
     [routeState]
+  );
+  const mirroredRouteState = useAtomValue(routeStateAtom);
+  const isRouteStateCurrent = useMemo(
+    () => buildWorkspaceSearchParams(mirroredRouteState).toString() === currentCanonicalSearch,
+    [mirroredRouteState, currentCanonicalSearch]
   );
   const routeStateRef = useRef(routeState);
   const canonicalSearchRef = useRef(currentCanonicalSearch);
@@ -103,7 +110,7 @@ export function useWorkspaceRouteState({ syncUrl = true }: { syncUrl?: boolean }
     [commitRouteState]
   );
 
-  return { routeState, dispatch, commitRouteState };
+  return { routeState, dispatch, commitRouteState, isRouteStateCurrent };
 }
 
 export function useWorkspaceController({

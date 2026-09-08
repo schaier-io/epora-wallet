@@ -1,9 +1,11 @@
+import "@/test/mock-workspace-queries";
+import { detectedSttTokensAtom } from "@/test/workspace-query-fixtures";
 import { renderHook } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import type { PropsWithChildren } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import { detectedSttTokensAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
+
 import { useWorkspacePermissionWalletCards } from "@/components/user/workspace/use-workspace-permission-wallet-cards";
 import { createDefaultStateForm, stateFormToDatum } from "@/lib/contracts/state-form";
 import type { DetectedSttToken } from "@/lib/mesh/detection";
@@ -55,8 +57,7 @@ function renderCards(tokens: DetectedSttToken[], paymentKeyHash: string | null) 
     () =>
       useWorkspacePermissionWalletCards({
         activePaymentKeyHash: paymentKeyHash,
-        selectedDetectedTokenUnit: "",
-        smartWalletDisplay: { publish: vi.fn(), reset: vi.fn() } as never
+        selectedDetectedTokenUnit: ""
       }),
     {
       wrapper: ({ children }: PropsWithChildren) => (

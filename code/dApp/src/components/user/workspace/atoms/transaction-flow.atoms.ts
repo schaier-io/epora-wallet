@@ -1,3 +1,4 @@
+import { selectedOrphanInputsAtom } from "./forms/orphan-inputs.atoms";
 import { activeWalletAtom, activeWalletNameAtom, activeAddressAtom, networkIdAtom } from "@/providers/wallet.atoms";
 import { routeStateAtom } from "./workspace-route.atoms";
 import { recoveryCapacityFailureAtom } from "./recovery-capacity.atoms";
@@ -197,6 +198,7 @@ export const clearMessagesAtom = atom(null, (_get, set) => {
  */
 export const resetAllFlowAtom = atom(null, (get, set) => {
   set(workspaceResetGenerationAtom, get(workspaceResetGenerationAtom) + 1);
+  set(selectedOrphanInputsAtom, null);
   set(invalidateBuildAtom);
   set(activeBuildAtom, null);
   set(activeSubmitAtom, false);

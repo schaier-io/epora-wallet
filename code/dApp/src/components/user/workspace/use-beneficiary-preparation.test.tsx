@@ -1,5 +1,6 @@
+import { createQueryTestWrapper } from "@/test/query-client";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { Provider, createStore, type WritableAtom } from "jotai";
+import { createStore, type WritableAtom } from "jotai";
 import type { PropsWithChildren } from "react";
 import { expect, it, vi, beforeEach } from "vitest";
 import { DEFAULT_PROTOCOL_PARAMETERS, type Protocol } from "@meshsdk/common";
@@ -22,21 +23,20 @@ beforeEach(() => {
 });
 function fixture() {
   const store = createStore(); store.set(beneficiaryPreparationActiveAtom, true);
-  const wrapper = ({ children }: PropsWithChildren) => <Provider store={store}><WorkspaceActionsProvider value={{ refreshLockedContractUtxos: vi.fn(), openWorkspaceIntent: vi.fn() } as unknown as PermissionWalletWorkspaceState}>{children}</WorkspaceActionsProvider></Provider>;
+  const { wrapper: QueryWrapper } = createQueryTestWrapper({ jotaiStore: store });
+  const wrapper = ({ children }: PropsWithChildren) => <QueryWrapper><WorkspaceActionsProvider value={{ refreshLockedContractUtxos: vi.fn(), openWorkspaceIntent: vi.fn() } as unknown as PermissionWalletWorkspaceState}>{children}</WorkspaceActionsProvider></QueryWrapper>;
   return { store, ...renderHook(useBeneficiaryPreparation, { wrapper }) };
 }
-it("ignores an old protocol response after the wallet changes", async () => {
-  let first!: (value: Protocol) => void; let second!: (value: Protocol) => void;
-  mocks.fetch.mockImplementationOnce(() => new Promise(resolve => { first = resolve; })).mockImplementationOnce(() => new Promise(resolve => { second = resolve; }));
+it("shares network protocol parameters when the selected wallet changes", async () => {
+  let resolve!: (value: Protocol) => void;
+  mocks.fetch.mockImplementationOnce(() => new Promise(done => { resolve = done; }));
   const { store } = fixture();
-  // The mocked atom is writable; the production address is derived from wallet State.
   const writable = lockingContractAtom as unknown as WritableAtom<{ address: string }, [{ address: string }], void>;
   act(() => store.set(writable, { address: "wallet-b" }));
-  await act(async () => first(DEFAULT_PROTOCOL_PARAMETERS));
-  expect(store.get(beneficiaryPreparationProtocolAtom)).toBeNull();
-  await act(async () => second(DEFAULT_PROTOCOL_PARAMETERS));
+  await act(async () => resolve(DEFAULT_PROTOCOL_PARAMETERS));
+  await waitFor(() => expect(store.get(beneficiaryPreparationProtocolAtom)?.params).toBe(DEFAULT_PROTOCOL_PARAMETERS));
   expect(store.get(beneficiaryPreparationProtocolAtom)?.address).toBe("wallet-b");
-  expect(mocks.fetch).toHaveBeenCalledTimes(2);
+  expect(mocks.fetch).toHaveBeenCalledTimes(1);
 });
 it("applies the planner's valid ADA correction without changing native quantities", async () => {
   mocks.fetch.mockResolvedValue(DEFAULT_PROTOCOL_PARAMETERS);

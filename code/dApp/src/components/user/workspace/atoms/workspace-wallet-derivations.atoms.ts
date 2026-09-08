@@ -1,7 +1,7 @@
 "use client";
 
-import { getUserFacingErrorMessage } from "@/lib/utils/errors";
 import { atom } from "jotai";
+import { allowanceNowMsAtom } from "./allowance-clock.atoms";
 import { stateFormToDatum } from "@/lib/contracts/state-form";
 import {
   resolveWalletContinuingOutputAddress,
@@ -23,10 +23,8 @@ import { configAtom } from "@/components/user/workspace/atoms/workspace-config.a
 import { networkIdAtom } from "@/providers/wallet.atoms";
 import { withdrawRewardAddressAtom } from "@/components/user/workspace/atoms/forms/withdraw-form.atoms";
 import { serializeRewardAddress } from "@meshsdk/core";
-import { consolidateStateFormAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
 import {
   sttExtraTransfersAtom,
-  sttStateFormAtom,
   sttWalletInputsAtom,
   sttWalletOutputsAtom
 } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
@@ -34,13 +32,10 @@ import { activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
 import { effectiveSttActionAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
 import {
   effectiveWalletAssetNameHexAtom,
-  selectedDetectedTokenAtom,
-  selectedDetectedTokenStateFormAtom
+  selectedDetectedTokenAtom
 } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
-import { createDefaultTranslator } from "@/i18n/default-translator";
-import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceAtomsWorkspaceWalletDerivationsAtoms.json";
-
-const i18n = createDefaultTranslator("ComponentsUserWorkspaceAtomsWorkspaceWalletDerivationsAtoms", defaultMessages);
+import { activeInferredSttStateFormAtom, lockingContractAtom } from "../queries/wallet-identity.atoms";
+export { activeInferredSttStateFormAtom, lockingContractAtom } from "../queries/wallet-identity.atoms";
 
 /**
  * Wallet-level derivations (the inferred STT state, allowance preview, locking-contract / receive /
@@ -48,18 +43,9 @@ const i18n = createDefaultTranslator("ComponentsUserWorkspaceAtomsWorkspaceWalle
  * consolidate forms, config, and locked utxos, converted from the memo-only
  * useWorkspaceWalletDerivations. Every input is an atom, so these compute once in the atom graph.
  */
-export const activeInferredSttStateFormAtom = atom((get) => {
-  const selectedForm = get(selectedDetectedTokenStateFormAtom);
-  if (selectedForm) return cloneStateForm(selectedForm);
-  return cloneStateForm(
-    get(effectiveSttActionAtom) === "consolidate-utxo"
-      ? get(consolidateStateFormAtom)
-      : get(sttStateFormAtom)
-  );
-});
-
 export const useAllowancePreviewAtom = atom((get) =>
   computeAllowancePreview({
+    nowMs: get(effectiveSttActionAtom) === "use-allowance" ? get(allowanceNowMsAtom) : undefined,
     effectiveSttAction: get(effectiveSttActionAtom),
     activePaymentKeyHash: get(activePaymentKeyHashAtom),
     selectedDetectedToken: get(selectedDetectedTokenAtom),
@@ -87,35 +73,6 @@ export const sttProofOfLifeIncrementAtom = atom((get) =>
 );
 export const sttProofOfLifeUnlockTimeAtom = atom((get) =>
   readProofOfLifeOption(get(sttOutputDatumAtom), 3)
-);
-
-export const lockingContractAtom = atom((get) => {
-    const walletPolicyId = get(configAtom).walletPolicyId?.trim() ?? "";
-    const walletAssetNameHex = get(effectiveWalletAssetNameHexAtom);
-    if (!walletPolicyId || !walletAssetNameHex) {
-      return {
-        address: null,
-        error:
-          i18n("chooseASmartWalletFirstItsAddressComes")
-      };
-    }
-    try {
-      // Canonical wallet address = payment credential + the State's `intended_stake_credential`.
-      return {
-        address: resolveWalletContinuingOutputAddress({
-          sttPolicyId: walletPolicyId,
-          sttAssetNameHex: walletAssetNameHex,
-          intendedStakeCredential: get(activeInferredSttStateFormAtom).intendedStakeCredential
-        }),
-        error: null
-      };
-    } catch (error) {
-      return {
-        address: null,
-        error: getUserFacingErrorMessage(error, i18n("couldNotWorkOutThisSmartWalletS"))
-      };
-    }
-  }
 );
 
 // The address shown for receiving funds: the spend-script payment credential combined with the
