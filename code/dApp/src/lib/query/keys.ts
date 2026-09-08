@@ -29,6 +29,9 @@ export const queryKeys = {
   sttWallet: (policyId: string, unit: string) => [...chain, "stt-wallet", policyId, unit] as const,
   sharedReference: (policyId: string) => [...chain, "shared-reference", policyId] as const,
   protocolParameters: (epoch?: number) => [...chain, "protocol", epoch ?? "latest"] as const,
+  assetIcon: (unit: string) => [...chain, "asset-metadata", unit, "icon"] as const,
+  pool: (id: string) => [...chain, "pool", id] as const,
+  sttCount: (policyId: string, network: string) => [...chain, "stt-count", network.toLowerCase(), policyId] as const,
   assetMetadata: (unit: string) => [...chain, "asset-metadata", unit] as const,
   signerUtxos: (network: number | null, walletName: string | null, address: string | null) =>
     [...signer, CHAIN_NETWORK, network, walletName, address] as const

@@ -1,3 +1,6 @@
+import { queryClientAtom } from "jotai-tanstack-query";
+import { txInfoQueryOptions } from "@/lib/query/chain";
+import { invalidateChainQueries } from "@/lib/query/invalidation";
 import { beneficiaryPreparationActiveAtom, consolidateWalletInputsAtom } from "./atoms/forms/consolidate-form.atoms";
 import { recoveryCapacityFailureAtom, recoveryCapacitySignatureAtom } from "./atoms/recovery-capacity.atoms";
 import { recordRecoveryCapacityFailure } from "./recovery-capacity-model";
@@ -20,7 +23,7 @@ import {
   SUBMIT_CONFIRMATION_MAX_ATTEMPTS,
   SUBMIT_CONFIRMATION_POLL_MS
 } from "@/components/user/workspace/constants";
-import { fetchTransactionsByHash, formatBuildError, waitFor } from "@/components/user/workspace/helpers";
+import { formatBuildError, waitFor } from "@/components/user/workspace/helpers";
 import type { resolveWorkspaceTransactionInputs } from "@/components/user/workspace/workspace-transaction-inputs";
 import { schedulePostSubmitRefresh } from "@/components/user/workspace/workspace-transaction-refresh";
 import type { WorkspaceTransactionsCtx } from "@/components/user/workspace/workspace-transactions-types";
@@ -106,11 +109,7 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
     setMintedWalletName,
     addSubmittedTransactionToActivity,
     rememberRecipients,
-    refreshLockedContractUtxos,
     refreshDetectedTokens,
-    refreshPermissionWalletSummaries,
-    refreshWalletBalance,
-    lockingContract,
     watchMintCreationConfirmation,
     mintStateForm,
     sttExtraTransfers
@@ -274,14 +273,12 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
       // after the 10 ₳ had already been locked.
       runPostSubmitTask("clear-lock-funds", () => jotaiStore.set(resetLockFundsFormAtom));
     }
-    runPostSubmitTask("wallet-balance", refreshWalletBalance);
-    runPostSubmitTask("locked-utxos", () => refreshLockedContractUtxos(lockingContract.address));
+    runPostSubmitTask("chain-cache", () => invalidateChainQueries(jotaiStore.get(queryClientAtom)));
     if (selectedAction === "mint") {
       runPostSubmitTask("mint-confirmation", () =>
         watchMintCreationConfirmation(txHash, transactionPreview.createdWalletUnit)
       );
     } else {
-      runPostSubmitTask("wallet-summaries", refreshPermissionWalletSummaries);
       // The immediate refresh above runs before the tx confirms; re-poll over
       // the next ~75s so the wallet updates itself once the tx lands.
       runPostSubmitTask("refresh-poll", () => schedulePostSubmitRefresh(deps));
@@ -295,6 +292,9 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
    * then flip the banner to confirmed and pull the balance once more.
    */
   async function watchTransactionConfirmation(txHash: string) {
+    const session = jotaiStore.get(workspaceSessionAtom);
+    const isCurrent = () => jotaiStore.get(workspaceSessionAtom) === session && jotaiStore.get(submitHashAtom) === txHash;
+    const client = jotaiStore.get(queryClientAtom);
     for (let attempt = 1; attempt <= SUBMIT_CONFIRMATION_MAX_ATTEMPTS; attempt += 1) {
       await waitFor(
         attempt === 1 ? SUBMIT_CONFIRMATION_INITIAL_DELAY_MS : SUBMIT_CONFIRMATION_POLL_MS
@@ -302,18 +302,21 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
 
       // A newer build/submit (or a flow reset) replaced the hash: this run is stale.
       const pending = jotaiStore.get(pendingWalletStateUpdateAtom);
-      if (jotaiStore.get(submitHashAtom) !== txHash && pending?.submittedTxHash !== txHash) {
+      if (jotaiStore.get(workspaceSessionAtom) !== session ||
+        (jotaiStore.get(submitHashAtom) !== txHash && pending?.submittedTxHash !== txHash)) {
         return;
       }
 
-      const [confirmed] = await fetchTransactionsByHash([txHash]);
+      const confirmed = await client.fetchQuery({
+        ...txInfoQueryOptions(txHash), staleTime: 0, retry: false
+      }).catch(() => null);
       if (!confirmed) {
         continue;
       }
 
-      if (jotaiStore.get(submitHashAtom) === txHash) {
+      if (isCurrent()) {
         jotaiStore.set(submitConfirmedAtom, true);
-        void refreshWalletBalance();
+        await invalidateChainQueries(client);
       }
       if (pending?.submittedTxHash === txHash) {
         await refreshContinuingWalletState(pending);
@@ -349,8 +352,7 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
           replacementRef: replacement.utxo.input
         });
         if (completed) {
-          void refreshPermissionWalletSummaries(detected.tokens);
-          void refreshLockedContractUtxos(lockingContract.address);
+          void invalidateChainQueries(jotaiStore.get(queryClientAtom));
         }
         return;
       } catch {

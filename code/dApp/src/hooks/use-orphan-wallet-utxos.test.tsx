@@ -1,5 +1,6 @@
-import { act, renderHook } from "@testing-library/react";
-import { beforeEach, expect, it, vi } from "vitest";
+import { createQueryTestWrapper } from "@/test/query-client";
+import { act, waitFor, renderHook as baseRenderHook } from "@testing-library/react";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { DiscoveredUtxo } from "@/lib/discovery/types";
 
 const mocks = vi.hoisted(() => ({ fetchCredentialUtxos: vi.fn() }));
@@ -47,7 +48,7 @@ it("ignores a slow response that belongs to the previously selected wallet", asy
   await act(async () => pending[1]!.resolve([utxo("b")]));
   await act(async () => pending[0]!.resolve([utxo("a")]));
 
-  expect(result.current.orphans).toEqual([utxo("b")]);
+  await waitFor(() => expect(result.current.orphans).toEqual([utxo("b")]));
   expect(result.current.loading).toBe(false);
 });
 
@@ -62,7 +63,7 @@ it("drops the previous wallet's orphans as soon as the checked wallet changes", 
     { initialProps: "addr_a" }
   );
   await act(async () => pending[0]!.resolve([utxo("a")]));
-  expect(result.current.orphans).toEqual([utxo("a")]);
+  await waitFor(() => expect(result.current.orphans).toEqual([utxo("a")]));
 
   rerender("addr_b");
 
@@ -72,7 +73,7 @@ it("drops the previous wallet's orphans as soon as the checked wallet changes", 
   expect(result.current.loading).toBe(true);
 
   await act(async () => pending[1]!.resolve([utxo("b")]));
-  expect(result.current.orphans).toEqual([utxo("b")]);
+  await waitFor(() => expect(result.current.orphans).toEqual([utxo("b")]));
 });
 
 it("clears the orphans synchronously when the wallet stops being checkable", async () => {
@@ -88,7 +89,7 @@ it("clears the orphans synchronously when the wallet stops being checkable", asy
     { initialProps: { address: "addr_a", enabled: true } }
   );
   await act(async () => pending[0]!.resolve([utxo("a")]));
-  expect(result.current.orphans).toEqual([utxo("a")]);
+  await waitFor(() => expect(result.current.orphans).toEqual([utxo("a")]));
 
   rerender({ address: "addr_a", enabled: false });
 
@@ -113,5 +114,13 @@ it("shows only the latest refetch when an earlier one finishes last", async () =
   await act(async () => pending[1]!.resolve([utxo("first")]));
   await Promise.all([first, second]);
 
-  expect(result.current.orphans).toEqual([utxo("second")]);
+  await waitFor(() => expect(result.current.orphans).toEqual([utxo("second")]));
 });
+
+const clients: ReturnType<typeof createQueryTestWrapper>["queryClient"][] = [];
+afterEach(() => clients.splice(0).forEach(client => client.clear()));
+const renderHook: typeof baseRenderHook = (callback, options) => {
+  const context = createQueryTestWrapper();
+  clients.push(context.queryClient);
+  return baseRenderHook(callback, { wrapper: context.wrapper, ...options });
+};

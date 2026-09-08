@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-
-import { ServerFetcher } from "@/lib/mesh/server-fetcher";
+import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { accountInfoQueryOptions } from "@/lib/query/chain";
+import { queryPolicy } from "@/lib/query/keys";
 
 export type StakingRewardsState = {
   loading: boolean;
@@ -13,12 +14,6 @@ export type StakingRewardsState = {
   refresh: () => void;
 };
 
-const EMPTY_REWARDS = {
-  rewardsLovelace: "0",
-  poolId: null,
-  active: false
-};
-
 export function useStakingRewards(
   rewardAddress: string | null,
   enabled: boolean,
@@ -27,64 +22,28 @@ export function useStakingRewards(
   setWithdrawRewardAddress: (address: string) => void
 ): StakingRewardsState {
   const canLoad = enabled && Boolean(rewardAddress);
-  const [refreshCount, setRefreshCount] = useState(0);
-  const [state, setState] = useState<Omit<StakingRewardsState, "refresh">>({
-    ...EMPTY_REWARDS,
-    loading: canLoad,
-    error: false
+  const query = useQuery({
+    ...accountInfoQueryOptions(rewardAddress ?? ""),
+    enabled: canLoad,
+    refetchInterval: queryPolicy.activePollMs
   });
-  const refresh = useCallback(() => setRefreshCount((count) => count + 1), []);
+  const account = canLoad ? query.data : undefined;
+  const invalidRewards = account !== undefined && !/^\d+$/.test(account.rewards);
+  const state = {
+    rewardsLovelace: account && !invalidRewards ? account.rewards : "0",
+    poolId: account?.poolId ?? null,
+    active: account?.active ?? false,
+    loading: canLoad && (query.isPending || query.isFetching),
+    error: canLoad && (query.isError || invalidRewards)
+  };
 
+  useEffect(() => { setWithdrawRewardAddress(""); }, [rewardAddress, enabled, setWithdrawRewardAddress]);
   useEffect(() => {
-    setWithdrawRewardAddress("");
-    if (!canLoad || !rewardAddress) {
-      // This data-fetch effect must clear rewards when its chain key becomes unavailable.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setState({ ...EMPTY_REWARDS, loading: false, error: false });
-      return;
-    }
-
-    let cancelled = false;
-    // Clear the previous wallet's rewards before the new chain read resolves.
-    setState({ ...EMPTY_REWARDS, loading: true, error: false });
-
-    void new ServerFetcher()
-      .fetchAccountInfo(rewardAddress)
-      .then((account) => {
-        if (cancelled) return;
-        if (!/^\d+$/.test(account.rewards)) {
-          throw new Error("The chain returned an invalid staking reward balance.");
-        }
-
-        setState({
-          rewardsLovelace: account.rewards,
-          poolId: account.poolId ?? null,
-          active: account.active,
-          loading: false,
-          error: false
-        });
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setState({ ...EMPTY_REWARDS, loading: false, error: true });
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [canLoad, refreshCount, rewardAddress, setWithdrawRewardAddress]);
-
-  useEffect(() => {
-    const desiredAmount = !state.loading
-      && !state.error
-      && /^\d+$/.test(state.rewardsLovelace)
-      && BigInt(state.rewardsLovelace) > 0n
-      ? state.rewardsLovelace
-      : "";
-    if (withdrawAmount !== desiredAmount) {
-      setWithdrawAmount(desiredAmount);
-    }
+    // The draft is local intent. A failed or unfinished read cannot authorize a claim.
+    const amount = !state.loading && !state.error && BigInt(state.rewardsLovelace) > 0n
+      ? state.rewardsLovelace : "";
+    if (withdrawAmount !== amount) setWithdrawAmount(amount);
   }, [setWithdrawAmount, state.error, state.loading, state.rewardsLovelace, withdrawAmount]);
 
-  return { ...state, refresh };
+  return { ...state, refresh: () => { if (canLoad) void query.refetch(); } };
 }

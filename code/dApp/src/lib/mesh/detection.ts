@@ -6,7 +6,7 @@ import {
   resolveScriptAddress
 } from "@/lib/contracts/blueprint";
 import { decodeDatumFromUtxo } from "@/lib/mesh/datum";
-import { ServerFetcher } from "@/lib/mesh/server-fetcher";
+import { MeshRpcError, parseRetryAfterMs, ServerFetcher } from "@/lib/mesh/server-fetcher";
 import type { ConstrData } from "@/lib/types/contracts";
 
 const POLICY_ID_LENGTH = 56;
@@ -153,7 +153,10 @@ const SharedHelperResponseSchema = z.object({
 /** The server owns discovery. The browser only receives the verified locator. */
 export async function detectSharedSttReferenceStore(signal?: AbortSignal): Promise<SharedSttReferenceStoreInfo> {
   const response = await fetch("/api/shared-helper", { cache: "no-store", signal });
-  if (!response.ok) throw new Error("Wallet service is temporarily unavailable.");
+  if (!response.ok) {
+    throw new MeshRpcError("Wallet service is temporarily unavailable.", response.status,
+      parseRetryAfterMs(response.headers.get("Retry-After")));
+  }
   const parsed = SharedHelperResponseSchema.safeParse(await response.json());
   if (!parsed.success || (parsed.data.result.status === "ready" && !parsed.data.result.activeReference)) {
     throw new Error("Wallet service returned an invalid setup response.");

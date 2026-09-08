@@ -1,5 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import type { ReactElement } from "react";
+import { createQueryTestWrapper } from "@/test/query-client";
+import { queryPolicy } from "@/lib/query/keys";
+import { queryRetryDelay } from "@/lib/query/client";
+import { poolQueryOptions } from "@/lib/query/pools";
+import { fireEvent, render as renderUI, screen, waitFor } from "@testing-library/react";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
 import { PoolFinder, type StakePool } from "@/components/user/pool-finder";
 
@@ -20,7 +25,12 @@ const BASE_POOL: StakePool = {
   retiring: false
 };
 
+let context: ReturnType<typeof createQueryTestWrapper>;
+const render = (ui: ReactElement) => renderUI(ui, { wrapper: context.wrapper });
+afterEach(() => context.queryClient.clear());
+
 beforeEach(() => {
+  context = createQueryTestWrapper();
   vi.unstubAllGlobals();
 });
 
@@ -31,7 +41,7 @@ beforeEach(() => {
 async function lookUp(pool: StakePool, onSelect = vi.fn()) {
   vi.stubGlobal(
     "fetch",
-    vi.fn(async () => ({ ok: true, json: async () => ({ pool }) }))
+    vi.fn(async () => new Response(JSON.stringify({ pool })))
   );
   const result = render(<PoolFinder selectedPool={null} onSelect={onSelect} />);
   fireEvent.change(screen.getByLabelText("Find your pool"), {
@@ -166,4 +176,62 @@ describe("a lookup already running", () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
   });
+});
+
+it("reuses a fresh lookup and refreshes it after the chain freshness window", async () => {
+  const now = Date.now();
+  const date = vi.spyOn(Date, "now").mockReturnValue(now);
+  const fetchMock = vi.fn(async () => new Response(JSON.stringify({ pool: BASE_POOL })));
+  vi.stubGlobal("fetch", fetchMock);
+  render(<PoolFinder selectedPool={null} onSelect={vi.fn()} />);
+  fireEvent.change(screen.getByLabelText("Find your pool"), { target: { value: BASE_POOL.poolId } });
+  fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
+  await waitFor(() => expect(screen.getByText(shownTitle(BASE_POOL))).toBeInTheDocument());
+  fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  date.mockReturnValue(now + queryPolicy.chainStaleMs + 1);
+  fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
+  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+  date.mockRestore();
+});
+
+it("retains the selected pool while a failed lookup reports the server error", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ error: "Pool not found" }), { status: 404 })));
+  render(<PoolFinder selectedPool={BASE_POOL} onSelect={vi.fn()} />);
+  fireEvent.change(screen.getByLabelText("Find your pool"), { target: { value: "pool1missing" } });
+  fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
+  await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Pool not found"));
+  expect(screen.getByText("Picked")).toBeInTheDocument();
+});
+
+it("rejects a partial response instead of caching a malformed pool", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ pool: { poolId: BASE_POOL.poolId } }))));
+  render(<PoolFinder selectedPool={null} onSelect={vi.fn()} />);
+  fireEvent.change(screen.getByLabelText("Find your pool"), { target: { value: BASE_POOL.poolId } });
+  fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
+  await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Pool lookup failed."));
+  expect(screen.queryByRole("button", { name: "Pick this pool" })).not.toBeInTheDocument();
+});
+
+it("aborts a lookup when its last observer unmounts", async () => {
+  let signal: AbortSignal | undefined;
+  vi.stubGlobal("fetch", vi.fn((_url: string, options: RequestInit) => {
+    signal = options.signal ?? undefined;
+    return new Promise(() => {});
+  }));
+  const view = render(<PoolFinder selectedPool={null} onSelect={vi.fn()} />);
+  fireEvent.change(screen.getByLabelText("Find your pool"), { target: { value: BASE_POOL.poolId } });
+  fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
+  await waitFor(() => expect(signal).toBeDefined());
+  view.unmount();
+  expect(signal?.aborted).toBe(true);
+});
+
+it("retains Retry-After when a rate-limited pool response contains HTML", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => new Response("<html>Rate limited</html>", {
+    status: 429, headers: { "Retry-After": "60" }
+  })));
+  const error: unknown = await context.queryClient.fetchQuery(poolQueryOptions(BASE_POOL.poolId)).catch((caught: unknown) => caught);
+  expect(error).toMatchObject({ status: 429, retryAfterMs: 60_000 });
+  expect(queryRetryDelay(0, error)).toBe(60_000);
 });

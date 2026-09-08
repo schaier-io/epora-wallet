@@ -3,6 +3,7 @@ import { beneficiaryPreparationActiveAtom } from "./atoms/forms/consolidate-form
 import { useTranslations } from "next-intl";
 
 import { useAtomValue } from "jotai";
+import { useQueryClient } from "@tanstack/react-query";
 import { activeSttAuthorityOptionsAtom, walletOperatorOptionsAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
 import { setupStateAtom } from "@/components/user/workspace/atoms/workspace-setup-state.atoms";
 import { activityAnchorTxHashesAtom } from "@/components/user/workspace/atoms/workspace-activity.atoms";
@@ -35,6 +36,7 @@ import { useWorkspaceActionFieldErrors } from "@/components/user/workspace/use-w
 import { prepareStreamingPaymentPayout } from "@/components/user/workspace/workspace-payout-preparation";
 
 export function usePermissionWalletWorkspaceState() {
+  const queryClient = useQueryClient();
   const i18n = useTranslations("ComponentsUserWorkspaceUsePermissionWalletWorkspaceState");
   const {
     activeAddress,
@@ -164,8 +166,8 @@ export function usePermissionWalletWorkspaceState() {
     const units = totalLockedContractAssets
       .map((asset) => asset.unit)
       .filter((unit) => unit !== "lovelace");
-    if (units.length > 0) prefetchAssetIcons(units);
-  }, [totalLockedContractAssets]);
+    if (units.length > 0) void prefetchAssetIcons(queryClient, units);
+  }, [queryClient, totalLockedContractAssets]);
   const {
     setActivityPageIndex,
     runWalletTransactionsRefresh,

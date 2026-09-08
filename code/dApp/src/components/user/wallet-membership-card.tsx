@@ -4,10 +4,11 @@ import { useTranslations } from "next-intl";
 
 import { Download, Loader2, Share2 } from "lucide-react";
 import Image from "next/image";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import ProfileCard from "@/components/ProfileCard";
 import { Button } from "@/components/ui/button";
-import { countSttTokens } from "@/lib/mesh/detection";
+import { sttCountQueryOptions } from "@/lib/query/stt-count";
 import { useToast } from "@/providers/toast-provider";
 import { cn } from "@/lib/utils/cn";
 import { POLICY_ID_LENGTH, hexToAscii } from "@/lib/cardano-assets";
@@ -295,33 +296,12 @@ export function WalletMembershipCard({
 }: WalletMembershipCardProps) {
   const i18n = useTranslations("ComponentsUserWalletMembershipCard");
   const toast = useToast();
-  const [walletNumber, setWalletNumber] = useState<number | null>(null);
+  const count = useQuery({ ...sttCountQueryOptions(policyId ?? "", network), enabled: !!policyId });
+  const walletNumber = count.data != null && Number.isFinite(count.data) && count.data > 0 ? count.data : null;
   const [isSaving, setIsSaving] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
 
   const displayName = walletName.trim() || "Smart wallet";
-
-  // Wallet "number" = count of assets under the STT policy at mint time. Loaded
-  // asynchronously so it never blocks the success screen; a failure degrades to a plain
-  // "Member" rather than surfacing an error.
-  useEffect(() => {
-    if (!policyId) {
-      return;
-    }
-    let cancelled = false;
-    void countSttTokens(policyId)
-      .then((count) => {
-        if (!cancelled && Number.isFinite(count) && count > 0) {
-          setWalletNumber(count);
-        }
-      })
-      .catch(() => {
-        // Silent: the card renders without a number.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [policyId, sttUnit]);
 
   // Not "Founding member": that is a claim about being inside the first thousand, and this
   // branch is exactly the case where the count is unknown. It is also the branch every card

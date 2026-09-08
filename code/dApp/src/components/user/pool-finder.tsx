@@ -3,29 +3,15 @@ import { useTranslations } from "next-intl";
 
 
 import { CheckCircle2, ExternalLink, Loader2, Search } from "lucide-react";
-import { useCallback, useState, useRef } from "react";
+import { usePoolLookup } from "@/lib/query/pools";
+import type { PoolsResponseDto } from "@/lib/api/pools";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatLovelaceAsAda } from "@/lib/user-flow/guided-helpers";
 import { cn } from "@/lib/utils/cn";
 
-export type StakePool = {
-  poolId: string;
-  ticker: string | null;
-  name: string | null;
-  homepage: string | null;
-  description: string | null;
-  saturation: number | null;
-  liveStakeLovelace: string | null;
-  activeStakeLovelace: string | null;
-  declaredPledgeLovelace: string | null;
-  livePledgeLovelace: string | null;
-  marginPct: number | null;
-  fixedCostLovelace: string | null;
-  blocksMinted: number | null;
-  retiring: boolean;
-};
+export type StakePool = PoolsResponseDto["pool"];
 
 function pct(value: number | null, notReported: string): string {
   return value == null ? notReported : `${(value * 100).toFixed(1)}%`;
@@ -56,41 +42,11 @@ export function PoolFinder({
 }) {
   const i18n = useTranslations("ComponentsUserPoolFinder");
   const notReported = i18n("unknown");
-  const [query, setQuery] = useState("");
-  const [result, setResult] = useState<StakePool | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // Enter and the button both call this; a ref blocks the second call before
-  // React has re-rendered the button as disabled.
-  const inFlightRef = useRef(false);
-
-  const lookup = useCallback(async () => {
-    if (inFlightRef.current) return;
-    const id = query.trim();
-    if (!id) {
-      setError(i18n("pasteAPoolIdPool1ToLookIt"));
-      return;
-    }
-    inFlightRef.current = true;
-    setLoading(true);
-    setError(null);
-    setResult(null);
-    try {
-      const response = await fetch(`/api/v1/pools?id=${encodeURIComponent(id)}`);
-      const data = (await response.json()) as { pool?: StakePool; error?: string };
-      if (!response.ok || !data.pool) {
-        setError(data.error ?? i18n("poolLookupFailed"));
-        return;
-      }
-      setResult(data.pool);
-    } catch {
-      setError(i18n("couldnTReachThePoolLookupTryAgain_fb9241"));
-    } finally {
-      inFlightRef.current = false;
-      setLoading(false);
-    }
-  }, [query, i18n]);
+  const { query, setQuery, result, loading, failure, lookup } = usePoolLookup();
+  const error = failure?.kind === "empty" ? i18n("pasteAPoolIdPool1ToLookIt")
+    : failure?.kind === "response" ? failure.message ?? i18n("poolLookupFailed")
+    : failure?.kind === "network" ? i18n("couldnTReachThePoolLookupTryAgain_fb9241")
+    : null;
 
   const shown = result ?? selectedPool;
   const isSelected = shown != null && selectedPool?.poolId === shown.poolId;

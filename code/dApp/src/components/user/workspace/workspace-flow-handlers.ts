@@ -1,5 +1,9 @@
 "use client";
 
+import { queryClientAtom } from "jotai-tanstack-query";
+import { txInfoQueryOptions } from "@/lib/query/chain";
+import { invalidateChainQueries } from "@/lib/query/invalidation";
+
 import { recoveryCapacityFailureAtom, recoveryCapacitySignatureAtom } from "./atoms/recovery-capacity.atoms";
 import { recordRecoveryCapacityFailure } from "./recovery-capacity-model";
 import { type ProposalCapture } from "@/components/user/proposals/stash";
@@ -19,14 +23,14 @@ import { buildRunAtom, workspaceSessionAtom, buildDiagnosticIdAtom, mintConfirma
 } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { walletStateUpdatingAtom } from "@/components/user/workspace/atoms/wallet-state-update.atoms";
 import { MINT_CONFIRMATION_INITIAL_DELAY_MS, MINT_CONFIRMATION_MAX_ATTEMPTS, MINT_CONFIRMATION_POLL_MS } from "@/components/user/workspace/constants";
-import { fetchTransactionsByHash, formatBuildError, isUserActionKind, normalizeTransactionHash, waitFor } from "@/components/user/workspace/helpers";
+import { formatBuildError, isUserActionKind, normalizeTransactionHash, waitFor } from "@/components/user/workspace/helpers";
 import { type useDetectedSttTokens } from "@/components/user/workspace/use-detected-stt-tokens";
 import { type useLockedContractUtxos } from "@/components/user/workspace/use-locked-contract-utxos";
 import { type useWalletBalance } from "@/components/user/workspace/use-wallet-balance";
 import { type useWalletActivity } from "@/components/user/workspace/use-wallet-activity";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceWorkspaceFlowHandlers.json";
-import { resolveWalletSpendAddress } from "@/lib/contracts/blueprint";
+import { resolveWalletContinuingOutputAddressFromState } from "@/lib/contracts/blueprint";
 
 const i18n = createDefaultTranslator("ComponentsUserWorkspaceWorkspaceFlowHandlers", defaultMessages);
 
@@ -71,14 +75,10 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
     networkId,
     buildActionSignature,
     jotaiStore,
-    lockingContract,
     prependSubmittedTransaction,
     proposalCaptureRef,
     refreshDetectedTokens,
-    refreshLockedContractUtxos,
-    refreshPermissionWalletSummaries,
     runWalletTransactionsRefresh,
-    refreshWalletBalance,
     setActiveBuild,
     setBuildError,
     setBuildErrorExpected,
@@ -182,8 +182,9 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
       return;
     }
 
-    const [submittedTransaction] = await fetchTransactionsByHash([normalizedTxHash]);
-    if (!submittedTransaction) {
+    const session = jotaiStore.get(workspaceSessionAtom);
+    const submittedTransaction = await jotaiStore.get(queryClientAtom).fetchQuery(txInfoQueryOptions(normalizedTxHash)).catch(() => null);
+    if (!submittedTransaction || jotaiStore.get(workspaceSessionAtom) !== session) {
       return;
     }
 
@@ -242,42 +243,33 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
         const createdWallet = createdToken
           ? {
               token: createdToken,
-              address: resolveWalletSpendAddress({
+              address: resolveWalletContinuingOutputAddressFromState({
                 sttPolicyId: createdToken.policyId,
-                sttAssetNameHex: createdToken.assetNameHex
+                sttAssetNameHex: createdToken.assetNameHex,
+                stateDatum: createdToken.datum
               })
             }
           : null;
 
-        await Promise.allSettled([
-          addSubmittedTransactionToActivity(txHash),
-          refreshWalletBalance(),
-          refreshLockedContractUtxos(createdWallet?.address ?? lockingContract.address),
-          refreshPermissionWalletSummaries(detected.tokens),
-          ...(createdWallet
-            ? [
-                runWalletTransactionsRefresh({
-                  walletAddress: createdWallet.address,
-                  sttScriptAddress: createdWallet.token.scriptAddress,
-                  sttUnit: createdWallet.token.unit,
-                  anchorTxHashes: [txHash]
-                })
-              ]
-            : [])
-        ]);
-
-        if (jotaiStore.get(mintConfirmationRunAtom) !== runId) {
-          return;
-        }
-
-        if (createdToken) {
+        if (createdWallet) {
+          await Promise.allSettled([
+            invalidateChainQueries(jotaiStore.get(queryClientAtom)),
+            addSubmittedTransactionToActivity(txHash),
+            runWalletTransactionsRefresh({
+              walletAddress: createdWallet.address,
+              sttScriptAddress: createdWallet.token.scriptAddress,
+              sttUnit: createdWallet.token.unit,
+              anchorTxHashes: [txHash]
+            })
+          ]);
+          if (jotaiStore.get(mintConfirmationRunAtom) !== runId) return;
           setMintConfirmation({
             txHash,
             phase: "confirmed",
             attempts: attempt,
             maxAttempts,
             updatedAt: Date.now(),
-            createdWalletUnit: createdToken.unit
+            createdWalletUnit: createdWallet.token.unit
           });
           return;
         }

@@ -1,5 +1,7 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import type { ReactNode } from "react";
+import { createQueryTestWrapper } from "@/test/query-client";
+import { fireEvent, render as baseRender, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { LockedAssetsOverviewPanel } from "@/components/user/locked-assets-panel";
 
 /**
@@ -92,3 +94,11 @@ describe("locked assets panel", () => {
     expect(screen.getByText("1 asset in this wallet.")).toBeTruthy();
   });
 });
+
+const clients: ReturnType<typeof createQueryTestWrapper>["queryClient"][] = [];
+afterEach(() => clients.splice(0).forEach(client => client.clear()));
+const render = (ui: ReactNode) => {
+  const context = createQueryTestWrapper();
+  clients.push(context.queryClient);
+  return baseRender(ui, { wrapper: context.wrapper });
+};

@@ -1,6 +1,7 @@
 "use client";
 
 import { atom } from "jotai";
+import { allowanceNowMsAtom } from "./allowance-clock.atoms";
 import { stateFormToDatum } from "@/lib/contracts/state-form";
 import {
   resolveWalletContinuingOutputAddress,
@@ -44,6 +45,7 @@ export { activeInferredSttStateFormAtom, lockingContractAtom } from "../queries/
  */
 export const useAllowancePreviewAtom = atom((get) =>
   computeAllowancePreview({
+    nowMs: get(effectiveSttActionAtom) === "use-allowance" ? get(allowanceNowMsAtom) : undefined,
     effectiveSttAction: get(effectiveSttActionAtom),
     activePaymentKeyHash: get(activePaymentKeyHashAtom),
     selectedDetectedToken: get(selectedDetectedTokenAtom),
