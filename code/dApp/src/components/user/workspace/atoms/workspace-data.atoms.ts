@@ -18,8 +18,10 @@ export const lockedContractUtxosAtom = atom<UTxO[]>([]);
 export const lockedContractUtxosLoadingAtom = atom(false);
 export const lockedContractUtxosErrorAtom = atom<string | null>(null);
 
+const EMPTY_WALLET_BALANCE: WalletBalanceSummary = { assets: [], loading: false, error: null };
+
 /** The CONNECTED browser wallet's own balance (not the smart wallet's). */
-export const walletBalanceSummaryAtom = atom<WalletBalanceSummary>({ assets: [], loading: false, error: null });
+export const walletBalanceSummaryAtom = atom<WalletBalanceSummary>(EMPTY_WALLET_BALANCE);
 
 /** Detected minted STT tokens (the user's smart wallets) + their loading/error + per-wallet summaries. */
 export const detectedSttTokensAtom = atom<DetectedSttToken[]>([]);
@@ -36,3 +38,30 @@ export const sharedReferencePreviewAtom = atom<BuildResult | null>(null);
 export const sharedReferenceBuildErrorAtom = atom<string | null>(null);
 export const sharedReferenceSubmitHashAtom = atom<string | null>(null);
 export const sharedReferenceBusyAtom = atom<"build" | "submit" | null>(null);
+
+/**
+ * Reset every fetched-data atom to its initial value. Dispatched when the wallet session
+ * ends (disconnect), NOT on workspace unmount: while a wallet stays connected the snapshot
+ * is a deliberate warm start across route trips (the setup checkpoint and the create-wallet
+ * guard read it on remount). The atoms are module-global (no jotai Provider anywhere), so
+ * without this the last wallet's full chain snapshot (UTxOs with datums, balances, detected
+ * tokens) would stay resident after the session ends.
+ */
+export const resetWorkspaceDataAtom = atom(null, (_get, set) => {
+  set(lockedContractUtxosAtom, []);
+  set(lockedContractUtxosLoadingAtom, false);
+  set(lockedContractUtxosErrorAtom, null);
+  set(walletBalanceSummaryAtom, EMPTY_WALLET_BALANCE);
+  set(detectedSttTokensAtom, []);
+  set(detectedSttTokensLoadingAtom, true);
+  set(detectedSttTokensErrorAtom, null);
+  set(permissionWalletSummariesAtom, {});
+  set(permissionWalletSummariesLoadingAtom, false);
+  set(sharedSttReferenceStoreAtom, null);
+  set(sharedSttReferenceStoreLoadingAtom, false);
+  set(sharedSttReferenceStoreErrorAtom, null);
+  set(sharedReferencePreviewAtom, null);
+  set(sharedReferenceBuildErrorAtom, null);
+  set(sharedReferenceSubmitHashAtom, null);
+  set(sharedReferenceBusyAtom, null);
+});

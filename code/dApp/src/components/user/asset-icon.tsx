@@ -30,7 +30,13 @@ const ASSET_BADGE_STYLES: Record<AssetKind, string> = {
 
 const STORAGE_KEY = "smart-wallet:asset-icon-cache:v1";
 const STORAGE_NOT_FOUND = "__none__";
-const MAX_CACHE_ENTRIES = 200;
+// The real cost is bytes (entries hold data URIs up to 512 KB), so the binding cap is the
+// byte budget; the entry cap only bounds the tiny negative-result entries. Both caps sit
+// far above what one wallet view subscribes to at once: evicting an entry whose badge is
+// still mounted makes that badge refetch, and a cap below the subscribed set would turn
+// that into a permanent evict-refetch loop.
+const MAX_CACHE_ENTRIES = 2000;
+const MAX_CACHE_BYTES = 8 * 1024 * 1024;
 const MAX_EMBEDDED_ICON_DATA_URI_LENGTH = 512 * 1024;
 const PNG_DATA_URI_PREFIX = "data:image/png;base64,";
 
@@ -40,6 +46,7 @@ type AssetIconCacheEntry = {
 };
 
 const memoryCache = new Map<string, AssetIconCacheEntry>();
+let memoryCacheBytes = 0;
 const inflight = new Map<string, Promise<string | null>>();
 let storageHydrated = false;
 
@@ -68,17 +75,35 @@ function readStorage(): Record<string, AssetIconCacheEntry> {
 function writeStorage(snapshot: Record<string, AssetIconCacheEntry>) {
   if (typeof window === "undefined") return;
   try {
-    const entries = Object.entries(snapshot);
-    if (entries.length > MAX_CACHE_ENTRIES) {
-      entries.sort(([, a], [, b]) => a.fetchedAt - b.fetchedAt);
-      const trimmed = Object.fromEntries(entries.slice(-MAX_CACHE_ENTRIES));
-      window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
-      return;
-    }
     window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
   } catch {
     /* storage may be disabled (private mode, quota); fall back to in-memory */
   }
+}
+
+// The caps have to bind the Map itself, not just the sessionStorage copy: the Map lives
+// for the whole tab. Delete-before-set keeps Map insertion order tracking recency, so
+// eviction drops the least recently written entry in O(1) with no sort.
+function setCacheEntry(unit: string, entry: AssetIconCacheEntry) {
+  const previous = memoryCache.get(unit);
+  if (previous) {
+    memoryCacheBytes -= previous.url.length;
+    memoryCache.delete(unit);
+  }
+  memoryCache.set(unit, entry);
+  memoryCacheBytes += entry.url.length;
+}
+
+function evictOverflow(): boolean {
+  let evicted = false;
+  while (memoryCache.size > MAX_CACHE_ENTRIES || memoryCacheBytes > MAX_CACHE_BYTES) {
+    const oldest = memoryCache.entries().next().value;
+    if (!oldest) break;
+    memoryCacheBytes -= oldest[1].url.length;
+    memoryCache.delete(oldest[0]);
+    evicted = true;
+  }
+  return evicted;
 }
 
 function hydrateOnce() {
@@ -86,7 +111,12 @@ function hydrateOnce() {
   storageHydrated = true;
   const snapshot = readStorage();
   for (const [unit, entry] of Object.entries(snapshot)) {
-    memoryCache.set(unit, entry);
+    setCacheEntry(unit, entry);
+  }
+  if (evictOverflow()) {
+    // Keep storage agreeing with memory, or the evicted units would sit in storage
+    // unreadable until the next write discards them anyway.
+    schedulePersist();
   }
 }
 
@@ -94,6 +124,18 @@ function persist() {
   const snapshot: Record<string, AssetIconCacheEntry> = {};
   for (const [unit, entry] of memoryCache) snapshot[unit] = entry;
   writeStorage(snapshot);
+}
+
+// One serialization per burst, not per icon: a prefetch of N assets used to stringify the
+// whole growing cache N times.
+let persistScheduled = false;
+function schedulePersist() {
+  if (persistScheduled) return;
+  persistScheduled = true;
+  queueMicrotask(() => {
+    persistScheduled = false;
+    persist();
+  });
 }
 
 /** Read AssetIcon URL from cache. Returns `null` if not cached. */
@@ -105,11 +147,12 @@ function readCache(unit: string): string | null | undefined {
 }
 
 function writeCache(unit: string, url: string | null) {
-  memoryCache.set(unit, {
+  setCacheEntry(unit, {
     url: url ?? STORAGE_NOT_FOUND,
     fetchedAt: Date.now()
   });
-  persist();
+  evictOverflow();
+  schedulePersist();
   for (const listener of cacheListeners) listener();
 }
 

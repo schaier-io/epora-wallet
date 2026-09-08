@@ -1,5 +1,6 @@
 "use client";
-import { lockedContractUtxosAtom, lockedContractUtxosLoadingAtom, sharedSttReferenceStoreAtom, sharedSttReferenceStoreLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
+import { lockedContractUtxosAtom, lockedContractUtxosLoadingAtom, resetWorkspaceDataAtom, sharedSttReferenceStoreAtom, sharedSttReferenceStoreLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
+import { resetWorkspaceActivityAtom } from "@/components/user/workspace/atoms/workspace-activity.atoms";
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef } from "react";
@@ -153,6 +154,8 @@ export function useWorkspaceFoundation() {
   const resetWorkspaceUi = useSetAtom(resetWorkspaceUiAtom);
   const resetAllForms = useSetAtom(resetAllFormsAtom);
   const resetConfig = useSetAtom(resetConfigAtom);
+  const resetWorkspaceData = useSetAtom(resetWorkspaceDataAtom);
+  const resetWorkspaceActivity = useSetAtom(resetWorkspaceActivityAtom);
   // Flow + UI + form atoms are module-global; reset them on unmount so each fresh mount
   // starts clean (mirrors component-local useState's per-mount reset).
   useEffect(() => {
@@ -163,6 +166,25 @@ export function useWorkspaceFoundation() {
       resetConfig();
     };
   }, [resetWorkspaceFlow, resetWorkspaceUi, resetAllForms, resetConfig]);
+
+  // The fetched-data atoms are NOT in the unmount reset above: while a wallet stays
+  // connected they are a warm start across route trips, and the setup checkpoint plus the
+  // create-wallet guard read them on remount. They must not outlive the wallet session,
+  // though, so drop the snapshot once no connection is live or being attempted. This also
+  // clears a previous session's data when the workspace mounts signed out. The config
+  // reset is load-bearing, not tidiness: it nulls the derived locking-contract address, so
+  // every fetch hook takes its no-address short circuit instead of refilling the atoms
+  // this effect just cleared (the data hooks key their fetches on the config, and chain
+  // reads are public, so they would otherwise still succeed with no wallet connected).
+  useEffect(() => {
+    if (chainReadsEnabled) {
+      return;
+    }
+
+    resetWorkspaceData();
+    resetWorkspaceActivity();
+    resetConfig();
+  }, [chainReadsEnabled, resetWorkspaceData, resetWorkspaceActivity, resetConfig]);
 
   // The one build-error writer the whole workspace shares. The write atom pairs the
   // message with the stale-inputs recovery flag (default false), so a plain error can

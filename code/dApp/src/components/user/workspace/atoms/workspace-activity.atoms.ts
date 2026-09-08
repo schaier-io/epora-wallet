@@ -29,14 +29,27 @@ const i18n = createDefaultTranslator("ComponentsUserWorkspaceAtomsWorkspaceActiv
  * outputs of useWalletActivity so views and the transfer/guided derivations read them directly.
  */
 
-/** State: fetched wallet+STT transactions (written by useWalletActivity's fetch). */
-export const walletTransactionsAtom = atom<WalletTransactionSummary>({
+export const EMPTY_WALLET_TRANSACTIONS: WalletTransactionSummary = {
   items: [],
   loading: false,
   error: null
-});
+};
+
+/** State: fetched wallet+STT transactions (written by useWalletActivity's fetch). */
+export const walletTransactionsAtom = atom<WalletTransactionSummary>(EMPTY_WALLET_TRANSACTIONS);
 /** State: the current activity page index. */
 export const activityPageIndexAtom = atom(0);
+
+/**
+ * Reset the fetched-activity state atoms. Dispatched when the wallet session ends
+ * (disconnect), not on workspace unmount; see resetWorkspaceDataAtom. Module-global like
+ * the data atoms: up to 8 pages of transactions with full input/output IO would otherwise
+ * outlive the session.
+ */
+export const resetWorkspaceActivityAtom = atom(null, (_get, set) => {
+  set(walletTransactionsAtom, EMPTY_WALLET_TRANSACTIONS);
+  set(activityPageIndexAtom, 0);
+});
 
 export const activityAnchorTxHashesAtom = atom((get) =>
   uniqueTransactionHashes([

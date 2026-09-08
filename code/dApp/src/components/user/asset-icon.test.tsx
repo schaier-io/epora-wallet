@@ -107,6 +107,36 @@ it.each([
   expect(mocks.fetchAssetMetadata).toHaveBeenCalledTimes(1);
 });
 
+it("evicts the oldest entries once the cache passes its byte budget", async () => {
+  // The cap used to trim only the sessionStorage snapshot; the module-level Map grew for
+  // the life of the tab, one entry (up to 512 KB) per distinct asset ever rendered. The
+  // eviction is observed through the Map itself: an evicted unit must be looked up again,
+  // a retained one must not.
+  vi.resetModules();
+  const { prefetchAssetIcons: prefetch } = await import("./asset-icon");
+  // ~0.5 MB per entry after the data-URI prefix; 17 entries exceed the 8 MB budget.
+  const logo = "A".repeat(500 * 1024);
+  const unitCount = 17;
+  const units = Array.from(
+    { length: unitCount },
+    (_, index) => `${"ba".repeat(28)}${index.toString(16).padStart(6, "0")}`
+  );
+  mocks.fetchAssetMetadata.mockResolvedValue({ logo });
+
+  prefetch(units);
+  await waitFor(() => expect(mocks.fetchAssetMetadata).toHaveBeenCalledTimes(unitCount));
+
+  // The oldest unit was evicted, so asking for it again refetches...
+  await waitFor(() => {
+    prefetch([units[0]]);
+    expect(mocks.fetchAssetMetadata.mock.calls.length).toBeGreaterThan(unitCount);
+  });
+  // ...while the newest is still cached and adds no further lookups.
+  const callsAfterEvictedRefetch = mocks.fetchAssetMetadata.mock.calls.length;
+  prefetch([units[unitCount - 1]]);
+  expect(mocks.fetchAssetMetadata.mock.calls.length).toBe(callsAfterEvictedRefetch);
+});
+
 /**
  * The logo cache is hydrated from `sessionStorage`, which the server cannot see, and the
  * hook used to read it straight from the render body. For any asset an earlier visit had
