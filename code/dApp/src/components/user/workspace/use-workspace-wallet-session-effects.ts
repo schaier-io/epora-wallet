@@ -77,7 +77,7 @@ export function useWorkspaceWalletSessionEffects(ctx: WorkspaceWalletSessionEffe
   const detectedSttTokens = useAtomValue(detectedSttTokensAtom);
   const detectedSttTokensLoading = useAtomValue(detectedSttTokensLoadingAtom);
   const detectedSttTokensError = useAtomValue(detectedSttTokensErrorAtom);
-  const { routeState, commitRouteState, dispatch: dispatchWorkspaceAction } = useWorkspaceRouteState();
+  const { routeState, commitRouteState, dispatch: dispatchWorkspaceAction, isRouteStateCurrent } = useWorkspaceRouteState();
   const activePaymentKeyHash = useAtomValue(activePaymentKeyHashAtom);
   const selectedDetectedToken = useAtomValue(selectedDetectedTokenAtom);
   const selectedTokenCapabilityMap = useAtomValue(selectedTokenCapabilityMapAtom);
@@ -111,7 +111,7 @@ export function useWorkspaceWalletSessionEffects(ctx: WorkspaceWalletSessionEffe
     // `carriesWallet` links rebuilt `?wallet=<unit>` on every trip to Smart wallet and
     // Approvals, a reload re-opened it, and the address-keyed locked-UTxO and activity
     // fetches kept reading it.
-    if (!walletReady || !selectedWalletIsForeign) {
+    if (!isRouteStateCurrent || !walletReady || !selectedWalletIsForeign) {
       return;
     }
 
@@ -123,12 +123,13 @@ export function useWorkspaceWalletSessionEffects(ctx: WorkspaceWalletSessionEffe
       sttAssetNameHex: "",
       walletAssetNameHex: ""
     }));
-  }, [dispatchWorkspaceAction, jotaiStore, selectedWalletIsForeign, walletReady]);
+  }, [dispatchWorkspaceAction, isRouteStateCurrent, jotaiStore, selectedWalletIsForeign, walletReady]);
 
   useEffect(() => {
     // Selection side-effect: when a default wallet resolves, seed every editor
     // form through one store write and commit the matching route state.
     if (
+      !isRouteStateCurrent ||
       !walletReady ||
       userFlowBranch === "new-wallet" ||
       // The effect above is clearing this selection. Both effects run in the same commit and
@@ -190,6 +191,7 @@ export function useWorkspaceWalletSessionEffects(ctx: WorkspaceWalletSessionEffe
     setMintConfirmation(null);
     jotaiStore.set(mintConfirmationRunAtom, jotaiStore.get(mintConfirmationRunAtom) + 1);
   }, [
+    isRouteStateCurrent,
     activeAddress,
     defaultDetectedWalletUnit,
     commitRouteState,
@@ -213,7 +215,7 @@ export function useWorkspaceWalletSessionEffects(ctx: WorkspaceWalletSessionEffe
   ]);
 
   useEffect(() => {
-    if (!walletReady) {
+    if (!isRouteStateCurrent || !walletReady) {
       return;
     }
 
@@ -241,6 +243,7 @@ export function useWorkspaceWalletSessionEffects(ctx: WorkspaceWalletSessionEffe
     // landing state to return to.
     dispatchWorkspaceAction({ type: "start-create-wallet" }, { history: "replace" });
   }, [
+    isRouteStateCurrent,
     detectedSttTokens.length,
     detectedSttTokensError,
     detectedSttTokensLoading,
