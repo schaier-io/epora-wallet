@@ -1,5 +1,9 @@
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { createQueryTestWrapper } from "@/test/query-client";
+import { act, renderHook as queryRenderhook, waitFor } from "@testing-library/react";
+const renderHook: typeof queryRenderhook = (callback, options) => queryRenderhook(callback, { wrapper: createQueryTestWrapper().wrapper, ...options });
 import { useLayoutEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { proposalKeys } from "@/lib/proposals/query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
@@ -404,6 +408,7 @@ describe("proposal lifecycle Model", () => {
     });
     expect(result.current.canSign).toBe(false);
 
+    await waitFor(() => expect(result.current.canSubmit).toBe(true));
     await act(async () => result.current.handleSubmit());
 
     expect(dependencies.markProposalSubmitted).toHaveBeenCalledWith(
@@ -548,7 +553,7 @@ describe("proposal lifecycle Model", () => {
       rebuiltVerification.resolve(verification("valid"));
       await rebuiltVerification.promise;
     });
-    expect(result.current.verifying).toBe(false);
+    await waitFor(() => expect(result.current.verifying).toBe(false));
   });
 
   it("ignores an action result after the selected proposal changes", async () => {
@@ -632,4 +637,85 @@ describe("proposal lifecycle Model", () => {
     expect(dependencies.cancelProposal).not.toHaveBeenCalled();
     expect(onChanged).not.toHaveBeenCalled();
   });
+});
+
+
+it("refreshes an open detail after another signer adds the final witness", async () => {
+  const record = proposal("proposal-1");
+  dependencies.fetchProposal.mockResolvedValue(record);
+  const { result } = renderHook(() => ({
+    client: useQueryClient(),
+    model: useProposalOrchestration({ proposalId: record.id, sessionKeyHash: SIGNER_KEY_HASH, onChanged: vi.fn() })
+  }));
+  await waitFor(() => expect(result.current.model.canSign).toBe(true));
+  dependencies.fetchProposal.mockResolvedValue({ ...record, signatureCount: 1, updatedAt: "2026-09-08T12:00:00Z" });
+  dependencies.verifyProposal.mockResolvedValue(verification("valid", true));
+  await act(async () => {
+    await result.current.client.invalidateQueries({ queryKey: proposalKeys.details(SIGNER_KEY_HASH) });
+  });
+  await waitFor(() => expect(result.current.model.canSubmit).toBe(true));
+  expect(result.current.model.detail?.signatureCount).toBe(1);
+});
+
+it("expires a valid cached proposal while it stays open", async () => {
+  vi.useFakeTimers();
+  try {
+    const validUntilMs = Date.now() + 1_000;
+    dependencies.verifyProposal.mockResolvedValue({ ...verification("valid", true),
+      effect: { inputs: [], outputs: [], feeLovelace: "200000", validUntilMs } });
+    const { result } = renderHook(() => useProposalOrchestration({
+      proposalId: "proposal-1", sessionKeyHash: SIGNER_KEY_HASH, onChanged: vi.fn()
+    }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(10); });
+    expect(result.current.canSubmit).toBe(true);
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_000); });
+    expect(result.current.canSubmit).toBe(false);
+    expect(result.current.verification?.expired).toBe(true);
+  } finally { vi.useRealTimers(); }
+});
+
+it("never uses a capped verification result to authorize full detail signing", async () => {
+  const record = proposal("proposal-1");
+  dependencies.fetchProposal.mockResolvedValue(record);
+  const { result } = renderHook(() => ({
+    client: useQueryClient(),
+    model: useProposalOrchestration({ proposalId: record.id, sessionKeyHash: SIGNER_KEY_HASH, onChanged: vi.fn() })
+  }));
+  await waitFor(() => expect(result.current.model.verifying).toBe(false));
+  act(() => result.current.client.setQueryData(proposalKeys.verification(SIGNER_KEY_HASH, record, "background"), verification("valid", true)));
+  expect(result.current.model.canSubmit).toBe(false);
+});
+
+
+it("rechecks changed witnesses even when the body and timestamp stay the same", async () => {
+  const record = proposal("proposal-1", { signatures: [{ signerKeyHash: SIGNER_KEY_HASH, current: true,
+    createdAt: "2026-09-08T12:00:00Z", witnessSetHex: "old" }] });
+  dependencies.fetchProposal.mockResolvedValue(record);
+  const { result } = renderHook(() => ({ client: useQueryClient(),
+    model: useProposalOrchestration({ proposalId: record.id, sessionKeyHash: SIGNER_KEY_HASH, onChanged: vi.fn() }) }));
+  await waitFor(() => expect(result.current.model.verification?.validity).toBe("valid"));
+  dependencies.verifyProposal.mockResolvedValue(verification("invalid"));
+  act(() => result.current.client.setQueryData(proposalKeys.detail(SIGNER_KEY_HASH, record.id), {
+    ...record, signatures: record.signatures.map((signature) => ({ ...signature, witnessSetHex: "changed" }))
+  }));
+  await waitFor(() => expect(result.current.model.verification?.validity).toBe("invalid"));
+  expect(dependencies.verifyProposal).toHaveBeenCalledTimes(2);
+});
+
+
+it("does not start a detail read after cancellation outlives its lifecycle", async () => {
+  const cancellation = deferred<void>();
+  dependencies.cancelProposal.mockReturnValue(cancellation.promise);
+  dependencies.fetchProposal.mockImplementation((id: string) => Promise.resolve(proposal(id, { createdByKeyHash: SIGNER_KEY_HASH })));
+  const { result, rerender } = renderHook(({ id }) => useProposalOrchestration({
+    proposalId: id, sessionKeyHash: SIGNER_KEY_HASH, onChanged: vi.fn()
+  }), { initialProps: { id: "proposal-1" } });
+  await waitFor(() => expect(result.current.detail?.id).toBe("proposal-1"));
+  let pending!: Promise<void>;
+  act(() => { pending = result.current.handleCancel(); });
+  rerender({ id: "proposal-2" });
+  await waitFor(() => expect(result.current.detail?.id).toBe("proposal-2"));
+  await act(async () => { cancellation.resolve(); await pending; });
+  expect(dependencies.fetchProposal).toHaveBeenCalledTimes(2);
+  expect(result.current.detail?.id).toBe("proposal-2");
 });

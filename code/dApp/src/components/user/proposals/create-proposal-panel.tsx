@@ -1,7 +1,8 @@
 "use client";
 import { useTranslations } from "next-intl";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ArrowLeft, Loader2, Save } from "lucide-react";
@@ -11,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { createProposal, getProposalErrorMessage } from "@/lib/proposals/client";
+import { proposalKeys } from "@/lib/proposals/query";
 import { buildProposalTx } from "@/lib/proposals/rebuild";
 import { resolveProposalBodyHash } from "@/lib/proposals/serialization";
 import { useWalletContext } from "@/providers/wallet-provider";
@@ -35,6 +37,9 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
   const [description, setDescription] = useState("");
   const [coSigners, setCoSigners] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const queryClient = useQueryClient();
+  const saveInFlight = useRef(false);
+  const createMutation = useMutation({ mutationFn: (body: Parameters<typeof createProposal>[0]) => createProposal(body), retry: false, networkMode: "always" });
   const [error, setError] = useState<string | null>(null);
   // Older drafts carry no state; they save as before, listing the proposer alone.
   const choice = useMemo(
@@ -72,9 +77,10 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
   const effectiveTitle = title.trim() || actionKindLabel(draft.actionKind);
 
   async function handleSave() {
-    if (!draft) {
+    if (!draft || saveInFlight.current) {
       return;
     }
+    saveInFlight.current = true;
     setBusy(true);
     setError(null);
     try {
@@ -95,7 +101,7 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
         buildContext = applyCoSigners(draft.buildContext, coSigners);
         unsignedTxHex = (await buildProposalTx(activeWallet, buildContext)).txHex;
       }
-      const proposal = await createProposal({
+      const proposal = await createMutation.mutateAsync({
         walletUnit: draft.walletUnit,
         walletPolicyId: draft.walletPolicyId,
         title: effectiveTitle,
@@ -108,11 +114,17 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
         txBodyHash: resolveProposalBodyHash(unsignedTxHex),
         summary: draft.summary
       });
+      const signer = proposal.createdByKeyHash;
+      if (signer) {
+        queryClient.setQueryData(proposalKeys.detail(signer, proposal.id), proposal);
+        void queryClient.invalidateQueries({ queryKey: proposalKeys.lists(signer) });
+      }
       clearProposalDraft();
       onCreated(proposal.id);
     } catch (caught) {
       setError(getProposalErrorMessage(caught, i18n("couldNotSaveTheApprovalRequest")));
     } finally {
+      saveInFlight.current = false;
       setBusy(false);
     }
   }

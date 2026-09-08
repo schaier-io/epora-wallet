@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  fetchProposal,
+  fetchProposalSession,
+  listProposals,
   getProposalErrorMessage,
   ProposalRequestError,
   signOutProposals
@@ -37,6 +40,31 @@ test("sign-out rejects when the server does not clear the session", async () => 
         error instanceof ProposalRequestError &&
         error.message === "Could not sign out. Try again."
     );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+
+test("proposal reads forward cancellation and retain HTTP error status", async () => {
+  const originalFetch = globalThis.fetch;
+  const controller = new AbortController();
+  const signals: Array<AbortSignal | null | undefined> = [];
+  globalThis.fetch = async (_input, init) => {
+    signals.push(init?.signal);
+    return new Response(JSON.stringify({ error: "Session expired." }), {
+      status: 401, headers: { "content-type": "application/json" }
+    });
+  };
+  try {
+    assert.equal(await fetchProposalSession({ signal: controller.signal }), null);
+    for (const read of [
+      () => listProposals({}, { signal: controller.signal }),
+      () => fetchProposal("proposal-1", { signal: controller.signal })
+    ]) {
+      await assert.rejects(read, (error) => error instanceof ProposalRequestError && error.status === 401);
+    }
+    assert.deepEqual(signals, [controller.signal, controller.signal, controller.signal]);
   } finally {
     globalThis.fetch = originalFetch;
   }

@@ -1,8 +1,10 @@
 "use client";
 import { useTranslations } from "next-intl";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { listProposals } from "@/lib/proposals/client";
+import { useCallback, useMemo, useRef } from "react";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
+import { invalidateProposalQueries, proposalListQueryOptions } from "@/lib/proposals/query";
+import { queryPolicy } from "@/lib/query/keys";
 import type { ProposalListItemDto } from "@/lib/proposals/types";
 import { getUserFacingErrorMessage } from "@/lib/utils/errors";
 
@@ -16,84 +18,58 @@ export type ProposalsController = {
   loadMore: () => Promise<void>;
 };
 
-// Fetches the proposal list once signed in. No external data library is used in
-// this codebase, so request generations prevent stale async responses from
-// overwriting a newer refresh.
-export function useProposals(enabled: boolean, walletUnit?: string): ProposalsController {
+export function useProposals(
+  enabled: boolean,
+  signerKeyHash: string,
+  walletUnit?: string
+): ProposalsController {
   const i18n = useTranslations("ComponentsUserProposalsUseProposals");
-  const [proposals, setProposals] = useState<ProposalListItemDto[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const requestGeneration = useRef(0);
+  const client = useQueryClient();
+  const options = useMemo(() => proposalListQueryOptions(signerKeyHash, walletUnit), [signerKeyHash, walletUnit]);
+  const canLoad = enabled && Boolean(signerKeyHash);
+  const query = useInfiniteQuery({
+    ...options,
+    enabled: canLoad,
+    refetchInterval: canLoad ? queryPolicy.activePollMs : false
+  });
   const refreshing = useRef(false);
   const loadingMoreRequest = useRef(false);
+  const { fetchNextPage, hasNextPage, isFetching } = query;
 
   const refresh = useCallback(async () => {
-    const generation = ++requestGeneration.current;
-    refreshing.current = enabled;
+    if (!canLoad) return;
+    refreshing.current = true;
     loadingMoreRequest.current = false;
-    setLoadingMore(false);
-    if (!enabled) {
-      setProposals([]);
-      setNextCursor(null);
-      setLoading(false);
-      setError(null);
-      return;
-    }
-    setLoading(true);
-    setError(null);
     try {
-      const page = await listProposals({ walletUnit });
-      if (generation !== requestGeneration.current) return;
-      setProposals(page.proposals);
-      setNextCursor(page.nextCursor);
-    } catch (caught) {
-      if (generation !== requestGeneration.current) return;
-      setError(getUserFacingErrorMessage(caught, i18n("couldnTLoadProposals")));
+      await client.cancelQueries({ queryKey: options.queryKey, exact: true });
+      client.setQueryData(options.queryKey, (current) => current ? {
+        pages: current.pages.slice(0, 1),
+        pageParams: current.pageParams.slice(0, 1)
+      } : undefined);
+      await invalidateProposalQueries(client, signerKeyHash);
     } finally {
-      if (generation === requestGeneration.current) {
-        refreshing.current = false;
-        setLoading(false);
-      }
+      refreshing.current = false;
     }
-  }, [enabled, i18n, walletUnit]);
+  }, [canLoad, client, options.queryKey, signerKeyHash]);
 
   const loadMore = useCallback(async () => {
-    if (!enabled || !nextCursor || refreshing.current || loadingMoreRequest.current) return;
-    const generation = requestGeneration.current;
+    if (!canLoad || !hasNextPage || isFetching || refreshing.current || loadingMoreRequest.current) return;
     loadingMoreRequest.current = true;
-    setLoadingMore(true);
-    setError(null);
     try {
-      const page = await listProposals({ walletUnit, cursor: nextCursor });
-      if (generation !== requestGeneration.current) return;
-      setProposals((current) => [...current, ...page.proposals]);
-      setNextCursor(page.nextCursor);
-    } catch (caught) {
-      if (generation !== requestGeneration.current) return;
-      setError(getUserFacingErrorMessage(caught, i18n("couldnTLoadMoreProposals")));
+      await fetchNextPage({ cancelRefetch: false });
     } finally {
-      if (generation === requestGeneration.current) {
-        loadingMoreRequest.current = false;
-        setLoadingMore(false);
-      }
+      loadingMoreRequest.current = false;
     }
-  }, [enabled, i18n, nextCursor, walletUnit]);
-
-  useEffect(() => {
-    // Legitimate data-fetch effect (loads proposals once signed in).
-    /* eslint-disable-next-line react-hooks/set-state-in-effect */
-    void refresh();
-  }, [refresh]);
+  }, [canLoad, fetchNextPage, hasNextPage, isFetching]);
 
   return {
-    proposals,
-    loading,
-    loadingMore,
-    hasMore: nextCursor !== null,
-    error,
+    proposals: canLoad ? query.data?.pages.flatMap((page) => page.proposals) ?? [] : [],
+    loading: canLoad && (query.isPending || (query.isFetching && !query.isFetchingNextPage)),
+    loadingMore: canLoad && query.isFetchingNextPage,
+    hasMore: canLoad && query.hasNextPage,
+    error: canLoad && query.error
+      ? getUserFacingErrorMessage(query.error, i18n("couldnTLoadProposals"))
+      : null,
     refresh,
     loadMore
   };
