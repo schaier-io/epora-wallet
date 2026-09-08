@@ -73,12 +73,18 @@ function compareLovelaceAscending(left: UTxO, right: UTxO) {
 // output above its own min-UTxO floor. Reference-script UTxOs stay out: they
 // are reserved for their scripts.
 function isCollateralCandidate(utxo: UTxO, protocolParams?: Protocol) {
-  return (
-    !hasReferenceScript(utxo) &&
-    getUtxoLovelace(utxo) >=
-      BigInt(MIN_COLLATERAL_LOVELACE) +
-        calculateCollateralReturnMinimumLovelace(utxo, protocolParams)
-  );
+  const lovelace = getUtxoLovelace(utxo);
+  if (hasReferenceScript(utxo)) return false;
+  // A UTxO holding exactly MIN_COLLATERAL_LOVELACE qualifies as collateral with
+  // no return output — the ledger consumes the full amount and nothing is
+  // returned. CIP-40 permits this: the collateral input must satisfy the
+  // transaction's collateral requirement, but a zero-balance remainder does not
+  // need to meet a minimum.
+  if (lovelace === BigInt(MIN_COLLATERAL_LOVELACE)) return true;
+  // Otherwise the UTxO must cover the collateral AND leave a return output
+  // above its own min-UTxO floor.
+  return lovelace >= BigInt(MIN_COLLATERAL_LOVELACE) +
+    calculateCollateralReturnMinimumLovelace(utxo, protocolParams);
 }
 
 
