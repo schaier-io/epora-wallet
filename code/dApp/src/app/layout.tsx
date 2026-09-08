@@ -15,7 +15,6 @@ import "@/components/ProfileCard.css";
 import { QueryProvider } from "@/providers/query-provider";
 import { WalletProvider } from "@/providers/wallet-provider";
 import { WalletConnectProvider } from "@/providers/walletconnect-provider";
-import { SmartWalletDisplayProvider } from "@/providers/smart-wallet-display";
 import { ToastProvider } from "@/providers/toast-provider";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { WalletConnectErrorBridge } from "@/components/layout/wallet-connect-error-bridge";
@@ -195,7 +194,6 @@ export default async function RootLayout({
             <QueryProvider>
             <WalletProvider>
               <WalletConnectProvider>
-              <SmartWalletDisplayProvider>
               <WalletConnectErrorBridge />
               <KeyboardShortcutsHelp />
               {/* The one visible string in the app that was still hard-coded English. The
@@ -223,7 +221,6 @@ export default async function RootLayout({
                 </ErrorBoundary>
                 <SiteFooter />
               </div>
-              </SmartWalletDisplayProvider>
               </WalletConnectProvider>
             </WalletProvider>
             </QueryProvider>

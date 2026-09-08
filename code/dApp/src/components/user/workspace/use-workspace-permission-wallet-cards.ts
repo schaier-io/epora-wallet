@@ -9,7 +9,6 @@ import {
   holdsAnyRole,
   resolveTokenCapabilityMap
 } from "@/components/user/wizard-capabilities";
-import { type useSmartWalletDisplay } from "@/providers/smart-wallet-display";
 
 import {
   countAdminUsersInStateForm,
@@ -27,14 +26,12 @@ import { getDetectedTokenWarningMessage } from "@/components/user/workspace/help
 export interface WorkspacePermissionWalletCardsInputs {
   activePaymentKeyHash: string | null;
   selectedDetectedTokenUnit: string;
-  smartWalletDisplay: ReturnType<typeof useSmartWalletDisplay>;
 }
 
 export function useWorkspacePermissionWalletCards(inputs: WorkspacePermissionWalletCardsInputs) {
   const {
     activePaymentKeyHash,
-    selectedDetectedTokenUnit,
-    smartWalletDisplay
+    selectedDetectedTokenUnit
   } = inputs;
   const detectedSttTokens = useAtomValue(detectedSttTokensAtom);
   const permissionWalletSummaries = useAtomValue(permissionWalletSummariesAtom);
@@ -143,19 +140,12 @@ export function useWorkspacePermissionWalletCards(inputs: WorkspacePermissionWal
     [permissionWalletCards, selectedDetectedTokenUnit]
   );
 
-  // Publish the active smart wallet name + a switch handler so chrome outside
-  // the workspace (top nav, etc.) can show it and open the picker.
-  const smartWalletDisplayPublish = smartWalletDisplay.publish;
-  const smartWalletDisplayReset = smartWalletDisplay.reset;
-
   return {
     permissionWalletCards,
     filteredPermissionWalletCards,
     autoOpenDetectedWalletUnit,
     defaultDetectedWalletUnit,
     knownPermissionWalletCount,
-    selectedPermissionWalletCard,
-    smartWalletDisplayPublish,
-    smartWalletDisplayReset
+    selectedPermissionWalletCard
   };
 }

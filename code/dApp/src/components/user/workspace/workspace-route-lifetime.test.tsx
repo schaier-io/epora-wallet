@@ -56,7 +56,6 @@ vi.mock("@/providers/wallet-provider", () => ({
     networkId: 0
   })
 }));
-vi.mock("@/providers/smart-wallet-display", () => ({ useSmartWalletDisplay: () => ({ publish: vi.fn(), reset: vi.fn() }) }));
 vi.mock("@/providers/toast-provider", () => ({ useToast: () => ({ success: vi.fn(), error: vi.fn() }) }));
 vi.mock("@/components/user/workspace/use-shared-stt-reference", () => ({
   useSharedSttReference: () => ({ refreshSharedSttReferenceStore: mocks.refresh, resetSharedReferencePreview: mocks.reset })

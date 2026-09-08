@@ -50,7 +50,6 @@ export function usePermissionWalletWorkspaceState() {
     rememberRecipient,
     rememberRecipients,
     copyTextToClipboard,
-    smartWalletDisplay,
     mintForm,
     mintStateForm,
     previousAutoMintStateRef,
@@ -129,13 +128,10 @@ export function usePermissionWalletWorkspaceState() {
     autoOpenDetectedWalletUnit,
     defaultDetectedWalletUnit,
     knownPermissionWalletCount,
-    selectedPermissionWalletCard,
-    smartWalletDisplayPublish,
-    smartWalletDisplayReset
+    selectedPermissionWalletCard
   } = useWorkspacePermissionWalletCards({
     activePaymentKeyHash,
-    selectedDetectedTokenUnit,
-    smartWalletDisplay
+    selectedDetectedTokenUnit
   });
 
   const activeSttAuthorityOptions = useAtomValue(activeSttAuthorityOptionsAtom);
@@ -537,7 +533,6 @@ export function usePermissionWalletWorkspaceState() {
     mintStateForm,
     mintedWalletName,
     networkId,
-    permissionWalletCards,
     postSubmitRefreshTimersRef,
     previousAutoMintStateRef,
     refreshLockedContractUtxos,
@@ -547,7 +542,6 @@ export function usePermissionWalletWorkspaceState() {
     selectedAction,
     selectedDetectedToken,
     selectedDetectedTokenUnit,
-    selectedPermissionWalletCard,
     setBuildError,
     setBuildErrorExpected,
     setLastActionLabel,
@@ -560,8 +554,6 @@ export function usePermissionWalletWorkspaceState() {
     setSubmitHash,
     setWizardSelectedAction,
     setWizardStep,
-    smartWalletDisplayPublish,
-    smartWalletDisplayReset,
     streamingPaymentPayoutRows,
     sttExtraTransfers,
     sttWalletInputs,

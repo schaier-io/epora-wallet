@@ -13,7 +13,6 @@ import type {
 
 import { useWorkspaceController } from "@/components/user/use-workspace-controller";
 
-import { useSmartWalletDisplay } from "@/providers/smart-wallet-display";
 
 import { useWalletContext } from "@/providers/wallet-provider";
 import { chainReadsEnabledAtom } from "@/providers/wallet.atoms";
@@ -91,7 +90,6 @@ export function useWorkspaceFoundation() {
   const sharedSttReferenceStoreLoading = useAtomValue(sharedSttReferenceStoreLoadingAtom);
   const { rememberRecipient, rememberRecipients } = useRecentRecipients();
   const { copyTextToClipboard } = useCopyFeedback();
-  const smartWalletDisplay = useSmartWalletDisplay();
   const guidedOverviewSection = useAtomValue(guidedOverviewSectionAtom);
   const mintForm = useMintForm();
   const {
@@ -356,7 +354,6 @@ export function useWorkspaceFoundation() {
     rememberRecipient,
     rememberRecipients,
     copyTextToClipboard,
-    smartWalletDisplay,
     guidedOverviewSection,
     mintForm,
     mintStateForm,
