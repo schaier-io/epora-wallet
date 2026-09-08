@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
+import { Provider, createStore } from "jotai";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   PayeeScanResult,
@@ -7,6 +8,7 @@ import type {
 import type { ConstrData } from "@/lib/types/contracts";
 
 const NOW = 1_760_000_000_000;
+let payeeStore: ReturnType<typeof createStore>;
 
 const wallet = vi.hoisted(() => ({
   value: {
@@ -28,7 +30,12 @@ const actions = vi.hoisted(() => ({
 vi.mock("@/lib/utils/clipboard", () => ({ copyTextToClipboard: actions.copy }));
 
 vi.mock("@/providers/wallet-provider", () => ({ useWalletContext: () => wallet.value }));
-vi.mock("@/lib/mesh/detection", () => ({ detectSttInfo: chain.detect }));
+vi.mock("@/lib/mesh/detection", () => ({
+  detectSttInfo: async () => {
+    const detected = await chain.detect() as { tokens: unknown[]; policyId?: string };
+    return { policyId: "aa".repeat(28), ...detected };
+  }
+}));
 vi.mock("@/lib/mesh/transactions", () => ({
   buildSttSpendTx: actions.build,
   signAndSubmitTx: actions.submit,
@@ -168,6 +175,7 @@ function deferred<T>() {
 }
 
 beforeEach(() => {
+  payeeStore = createStore();
   vi.useFakeTimers();
   vi.setSystemTime(NOW);
   wallet.value = {
@@ -194,7 +202,7 @@ beforeEach(() => {
 });
 
 async function renderView() {
-  const result = render(<PayeeView />);
+  const result = render(<Provider store={payeeStore}><PayeeView /></Provider>);
   await vi.runOnlyPendingTimersAsync();
   return result;
 }
@@ -401,6 +409,99 @@ describe("a row", () => {
     expect(actions.collect).toHaveBeenCalledTimes(1);
     expect(collectButtons[1]).toBeDisabled();
     await act(async () => pending.resolve("ab".repeat(32)));
+  });
+
+  it("keeps a collect pending when the page remounts before signing finishes", async () => {
+    const current = payment();
+    const pending = deferred<string>();
+    chain.scan.mockReturnValue(scanOf([current]));
+    chain.detect.mockResolvedValue({ tokens: [detectedTokenFor(current)] });
+    actions.collect.mockReturnValue(pending.promise);
+    const firstVisit = await renderView();
+
+    fireEvent.click(screen.getByRole("button", { name: "Collect payment" }));
+    firstVisit.unmount();
+    await renderView();
+
+    expect(screen.getByRole("button", { name: /Collecting/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Shorten payment" })).toBeDisabled();
+    expect(actions.collect).toHaveBeenCalledTimes(1);
+
+    await act(async () => pending.resolve("ab".repeat(32)));
+    expect(screen.getByRole("button", { name: "Collected" })).toBeDisabled();
+    expect(screen.getByTitle("ab".repeat(32))).toBeInTheDocument();
+    expect(chain.detect).toHaveBeenCalledTimes(2);
+  });
+
+  it("releases a failed collect after its page unmounts", async () => {
+    const current = payment();
+    const pending = deferred<string>();
+    chain.scan.mockReturnValue(scanOf([current]));
+    chain.detect.mockResolvedValue({ tokens: [detectedTokenFor(current)] });
+    actions.collect.mockReturnValue(pending.promise);
+    const firstVisit = await renderView();
+
+    fireEvent.click(screen.getByRole("button", { name: "Collect payment" }));
+    firstVisit.unmount();
+    await renderView();
+    expect(screen.getByRole("button", { name: "Shorten payment" })).toBeDisabled();
+
+    await act(async () => pending.reject(new Error("user declined sign tx")));
+    expect(screen.getByRole("button", { name: "Collect payment" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Shorten payment" })).toBeEnabled();
+    expect(chain.detect).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps a shorten pending across an account change and page remount", async () => {
+    const current = payment();
+    const pending = deferred<string>();
+    chain.scan.mockReturnValue(scanOf([current]));
+    chain.detect.mockResolvedValue({ tokens: [detectedTokenFor(current)] });
+    actions.submit.mockReturnValue(pending.promise);
+    const firstVisit = await renderView();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Shorten payment" }));
+    });
+    firstVisit.unmount();
+    wallet.value = { ...wallet.value, activeWallet: {}, activePaymentKeyHash: "bb".repeat(28) };
+    await renderView();
+    expect(screen.getByRole("button", { name: /Shortening/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Collect payment" })).toBeDisabled();
+
+    await act(async () => pending.resolve("cd".repeat(32)));
+    expect(screen.getByRole("button", { name: "Shortened" })).toBeDisabled();
+    expect(screen.getByTitle("cd".repeat(32))).toBeInTheDocument();
+  });
+
+  it("ignores an unmounted scan and releases a submitted input only from the current scan", async () => {
+    const current = payment();
+    const token = detectedTokenFor(current);
+    const staleScan = deferred<{ tokens: ReturnType<typeof detectedTokenFor>[] }>();
+    chain.scan.mockReturnValue(scanOf([current]));
+    chain.detect
+      .mockResolvedValueOnce({ tokens: [token] })
+      .mockReturnValueOnce(staleScan.promise)
+      .mockResolvedValue({ tokens: [token] });
+    const firstVisit = await renderView();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Collect payment" }));
+    });
+
+    firstVisit.unmount();
+    await renderView();
+    expect(screen.getByRole("button", { name: "Collected" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Shorten payment" })).toBeDisabled();
+
+    await act(async () => staleScan.resolve({ tokens: [] }));
+    expect(screen.getByRole("button", { name: "Shorten payment" })).toBeDisabled();
+
+    chain.detect.mockResolvedValueOnce({ tokens: [] });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    });
+    expect(screen.getByRole("button", { name: "Collect payment" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Shorten payment" })).toBeEnabled();
   });
 
   it("blocks Shorten while Collect spends the same State UTxO", async () => {
@@ -796,7 +897,7 @@ describe("a row", () => {
 describe("the page heading", () => {
   it("names the page once, at the top level", () => {
     chain.scan.mockReturnValue({ payments: [], errors: [] });
-    render(<PayeeView />);
+    render(<Provider store={payeeStore}><PayeeView /></Provider>);
 
     const named = screen.getAllByRole("heading", { name: "Scheduled payments to you" });
     expect(named).toHaveLength(1);
