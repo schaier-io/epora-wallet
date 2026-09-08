@@ -1,14 +1,14 @@
 "use client";
 import { useTranslations } from "next-intl";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FileSignature, Loader2, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CopyButton } from "@/components/ui/copy-button";
-import { proposalKeys } from "@/lib/proposals/query";
+import { proposalKeys, refreshProposalBackgroundQueries } from "@/lib/proposals/query";
 import { useProposalBackgroundVerification } from "./use-proposal-background-verification";
 export { BACKGROUND_PROPOSAL_VERIFICATION_TIMEOUT_MS } from "./use-proposal-background-verification";
 import { CreateProposalPanel } from "./create-proposal-panel";
@@ -33,6 +33,7 @@ export function ProposalsWorkspace() {
   const selectedId = searchParams.get("proposal");
 
   const session = useProposalSession();
+  const [detailRefreshRevision, setDetailRefreshRevision] = useState(0);
   // The address comes off the session controller (which already reads the wallet context), so
   // the identity line renders from the same source the sign-in used.
   const { activeAddress } = session;
@@ -162,7 +163,12 @@ export function ProposalsWorkspace() {
               hasMore={hasMore}
               error={error}
               onSelect={handleSelect}
-              onRefresh={() => void refresh()}
+              onRefresh={() => {
+                setDetailRefreshRevision((revision) => revision + 1);
+                void refresh().then(() => {
+                  if (!selectedId) void refreshProposalBackgroundQueries(queryClient, session.session?.paymentKeyHash ?? "");
+                });
+              }}
               onLoadMore={() => void loadMore()}
             />
           </div>
@@ -170,6 +176,7 @@ export function ProposalsWorkspace() {
             {selectedId ? (
               <ProposalDetail
                 proposalId={selectedId}
+                refreshRevision={detailRefreshRevision}
                 sessionKeyHash={session.session?.paymentKeyHash ?? ""}
                 onChanged={handleChanged}
                 onBack={handleBackToList}

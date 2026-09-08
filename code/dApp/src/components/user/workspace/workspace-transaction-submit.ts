@@ -15,6 +15,7 @@ import {
 } from "@/components/user/workspace/atoms/wallet-state-update.atoms";
 import { resetLockFundsFormAtom } from "@/components/user/workspace/atoms/forms/lock-funds-form.atoms";
 import { sttExtraTransfersAtom, sttWalletInputsAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import { selectedOrphanInputsAtom } from "./atoms/forms/orphan-inputs.atoms";
 import {
   MINT_CONFIRMATION_MAX_ATTEMPTS,
   STT_STATE_REFRESH_MAX_ATTEMPTS,
@@ -200,6 +201,7 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
 
     const isCurrent = () => jotaiStore.get(workspaceSessionAtom) === session;
     const spentSttRef = resolveSpentSttRef(jotaiStore, selectedAction, selectedDetectedToken);
+    const submittedOrphanDraft = jotaiStore.get(selectedOrphanInputsAtom);
     let txHash: string;
     try {
       txHash = await signAndSubmitTx(activeWallet, transactionPreview.txHex);
@@ -234,6 +236,9 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
     }
 
     if (!isCurrent()) return;
+    if (selectedAction === "use-beneficiary" && jotaiStore.get(selectedOrphanInputsAtom) === submittedOrphanDraft) {
+      jotaiStore.set(selectedOrphanInputsAtom, null);
+    }
     const pendingStateUpdate = spentSttRef && selectedDetectedToken
       ? {
           walletUnit: selectedDetectedToken.unit,

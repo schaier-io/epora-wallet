@@ -7,6 +7,7 @@ import { activeAddressAtom, activeWalletAtom, activeWalletNameAtom, networkIdAto
 import { createQueryTestWrapper } from "@/test/query-client";
 import { walletBalanceSummaryAtom } from "./atoms/workspace-data.atoms";
 import { useWalletBalance } from "./use-wallet-balance";
+import { routeStateAtom } from "./atoms/workspace-route.atoms";
 
 const clients: ReturnType<typeof createQueryTestWrapper>["queryClient"][] = [];
 afterEach(() => clients.splice(0).forEach(client => client.clear()));
@@ -62,4 +63,56 @@ it("does not report an empty wallet while the first read is paused offline", asy
     act(() => onlineManager.setOnline(true));
     await waitFor(() => expect(view.result.current.summary.assets[0]?.quantity).toBe("111"));
   } finally { onlineManager.setOnline(true); }
+});
+
+it("hides the previous connection's funds before its replacement finishes reading", async () => {
+  const context = setup(vi.fn().mockResolvedValue(utxos("111")));
+  const view = renderHook(context.hook, { wrapper: context.wrapper });
+  await waitFor(() => expect(view.result.current.summary.assets[0]?.quantity).toBe("111"));
+  let finish!: (value: ReturnType<typeof utxos>) => void;
+  const getUtxos = vi.fn(() => new Promise<ReturnType<typeof utxos>>(resolve => { finish = resolve; }));
+
+  act(() => context.store.set(activeWalletAtom, { getUtxos } as unknown as BrowserWallet));
+
+  expect(view.result.current.summary).toEqual({ assets: [], loading: true, error: null });
+  await waitFor(() => expect(getUtxos).toHaveBeenCalled());
+  await act(async () => finish(utxos("222")));
+  await waitFor(() => expect(view.result.current.summary.assets[0]?.quantity).toBe("222"));
+});
+
+it("requires a new balance when returning to an account within the cache freshness window", async () => {
+  const getUtxos = vi.fn().mockResolvedValueOnce(utxos("111"))
+    .mockResolvedValue(utxos("222"));
+  const context = setup(getUtxos);
+  const view = renderHook(context.hook, { wrapper: context.wrapper });
+  await waitFor(() => expect(view.result.current.summary.assets[0]?.quantity).toBe("111"));
+  act(() => context.store.set(activeAddressAtom, "account-two"));
+  await waitFor(() => expect(view.result.current.summary.assets[0]?.quantity).toBe("222"));
+  let finish!: (value: ReturnType<typeof utxos>) => void;
+  getUtxos.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+
+  act(() => context.store.set(activeAddressAtom, "account-one"));
+
+  expect(view.result.current.summary).toEqual({ assets: [], loading: true, error: null });
+  await waitFor(() => expect(getUtxos.mock.calls.length).toBeGreaterThanOrEqual(3));
+  await act(async () => finish(utxos("333")));
+  await waitFor(() => expect(view.result.current.summary.assets[0]?.quantity).toBe("333"));
+});
+
+it("keeps the same account cache across identity rechecks and smart-wallet navigation", async () => {
+  const getUtxos = vi.fn().mockResolvedValue(utxos("111"));
+  const context = setup(getUtxos);
+  const view = renderHook(context.hook, { wrapper: context.wrapper });
+  await waitFor(() => expect(view.result.current.summary.assets[0]?.quantity).toBe("111"));
+
+  act(() => {
+    context.store.set(activeWalletAtom, wallet => wallet);
+    context.store.set(activeWalletNameAtom, "lace");
+    context.store.set(activeAddressAtom, "account-one");
+    context.store.set(networkIdAtom, 0);
+    context.store.set(routeStateAtom, { ...context.store.get(routeStateAtom), selectedWalletUnit: "another-smart-wallet" });
+  });
+
+  expect(view.result.current.summary).toEqual({ assets: [{ unit: "lovelace", quantity: "111" }], loading: false, error: null });
+  expect(getUtxos).toHaveBeenCalledTimes(1);
 });

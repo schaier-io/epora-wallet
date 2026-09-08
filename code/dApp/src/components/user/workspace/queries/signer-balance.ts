@@ -1,6 +1,6 @@
 import { atom } from "jotai";
 import { atomWithQuery } from "jotai-tanstack-query";
-import { activeAddressAtom, activeWalletAtom, activeWalletNameAtom, networkIdAtom, walletReadyAtom } from "@/providers/wallet.atoms";
+import { activeAddressAtom, activeWalletAtom, activeWalletNameAtom, networkIdAtom, walletAccountRevisionAtom, walletReadyAtom } from "@/providers/wallet.atoms";
 import { queryKeys, queryPolicy } from "@/lib/query/keys";
 import { getUserFacingErrorMessage } from "@/lib/utils/errors";
 import { createDefaultTranslator } from "@/i18n/default-translator";
@@ -11,7 +11,7 @@ import type { WalletBalanceSummary } from "../types";
 
 const i18n = createDefaultTranslator("ComponentsUserWorkspaceUseWalletBalance", defaultMessages);
 export const signerUtxosKeyAtom = atom(get => queryKeys.signerUtxos(
-  get(networkIdAtom), get(activeWalletNameAtom), get(activeAddressAtom)
+  get(networkIdAtom), get(activeWalletNameAtom), get(activeAddressAtom), get(walletAccountRevisionAtom)
 ));
 export const signerUtxosQueryAtom = atomWithQuery(get => {
   const wallet = get(activeWalletAtom);

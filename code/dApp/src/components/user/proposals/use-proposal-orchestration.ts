@@ -19,7 +19,7 @@ import {
 } from "@/lib/proposals/client";
 import { RebuildUnsupportedError, isAutoRebuildable, rebuildProposalTx } from "@/lib/proposals/rebuild";
 import type { ProposalDetailDto, ProposalSummary, ProposalVerification } from "@/lib/proposals/types";
-import { proposalDetailQueryOptions, proposalKeys } from "@/lib/proposals/query";
+import { proposalDetailQueryOptions, proposalKeys, refreshProposalBackgroundQueries } from "@/lib/proposals/query";
 import { queryPolicy } from "@/lib/query/keys";
 import { invalidateChainQueries } from "@/lib/query/invalidation";
 import { useProposalVerification } from "./use-proposal-verification";
@@ -27,6 +27,7 @@ import { useWalletContext } from "@/providers/wallet-provider";
 
 type ProposalOrchestrationArgs = {
   proposalId: string;
+  refreshRevision?: number;
   sessionKeyHash: string;
   onChanged: () => void;
 };
@@ -58,6 +59,7 @@ export type ProposalOrchestration = {
 
 export function useProposalOrchestration({
   proposalId,
+  refreshRevision = 0,
   sessionKeyHash,
   onChanged
 }: ProposalOrchestrationArgs): ProposalOrchestration {
@@ -67,6 +69,8 @@ export function useProposalOrchestration({
   const lifecycleKey = `${sessionKeyHash}:${proposalId}`;
   const [stateLifecycleKey, setStateLifecycleKey] = useState(lifecycleKey);
   const [busy, setBusy] = useState<null | "sign" | "submit" | "rebuild" | "cancel">(null);
+  const [settledRefreshRevision, setSettledRefreshRevision] = useState(refreshRevision);
+  const awaitingRefresh = busy === null && settledRefreshRevision !== refreshRevision;
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionInfo, setActionInfo] = useState<string | null>(null);
   const lifecycleTokenRef = useRef(0);
@@ -78,8 +82,8 @@ export function useProposalOrchestration({
     refetchInterval: (query) => query.state.data?.status === "OPEN" || query.state.data?.status === "SUBMITTING"
       ? queryPolicy.activePollMs : false
   });
-  const detail = sessionKeyHash ? detailQuery.data ?? null : null;
-  const { verification, verifying } = useProposalVerification(sessionKeyHash, detail);
+  const detail = sessionKeyHash && !detailQuery.isError ? detailQuery.data ?? null : null;
+  const { verification, verifying } = useProposalVerification(sessionKeyHash, awaitingRefresh ? null : detail);
   const signMutation = useMutation({ mutationFn: ({ id, witnessSetHex, txBodyHash }: {
     id: string; witnessSetHex: string; txBodyHash: string;
   }) => signProposal(id, { witnessSetHex, txBodyHash }), retry: false, networkMode: "always" });
@@ -112,6 +116,35 @@ export function useProposalOrchestration({
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [lifecycleKey]);
 
+  useEffect(() => {
+    // A manual refresh waits for the command to finish. Remote data stays in Query;
+    // the revision only records which user refresh has finished for this view.
+    if (!awaitingRefresh || !sessionKeyHash) return;
+    const token = lifecycleTokenRef.current;
+    const options = proposalDetailQueryOptions(sessionKeyHash, proposalId);
+    let cancelled = false;
+    void (async () => {
+      await queryClient.cancelQueries({ queryKey: options.queryKey, exact: true });
+      if (cancelled || !isCurrentLifecycle(proposalId, token)) return;
+      let refreshed = false;
+      try {
+        await queryClient.fetchQuery({ ...options, staleTime: 0 });
+        refreshed = true;
+      } catch {
+        // The detail query owns the error. Do not expose its previous data on failure.
+      } finally {
+        if (!cancelled && isCurrentLifecycle(proposalId, token)) {
+          setSettledRefreshRevision(refreshRevision);
+          void refreshProposalBackgroundQueries(queryClient, sessionKeyHash, refreshed ? proposalId : undefined);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      void queryClient.cancelQueries({ queryKey: options.queryKey, exact: true });
+    };
+  }, [activeWallet, awaitingRefresh, isCurrentLifecycle, proposalId, queryClient, refreshRevision, sessionKeyHash]);
+
   const apply = useCallback(
     async (record: ProposalDetailDto, expectedProposalId: string, token: number) => {
       const isCurrent = isCurrentLifecycle(expectedProposalId, token);
@@ -131,8 +164,8 @@ export function useProposalOrchestration({
   );
 
   const hasCurrentLifecycleState = stateLifecycleKey === lifecycleKey;
-  const currentDetail = detail;
-  const currentVerification = verification;
+  const currentDetail = awaitingRefresh ? null : detail;
+  const currentVerification = currentDetail ? verification : null;
   const summary = currentDetail ? parseProposalSummary(currentDetail) : null;
   const isCreator = currentDetail?.createdByKeyHash === sessionKeyHash;
   const alreadySigned = Boolean(
@@ -325,10 +358,10 @@ export function useProposalOrchestration({
 
   return {
     detail: currentDetail,
-    loading: Boolean(sessionKeyHash) && detailQuery.isPending,
-    loadError: detailQuery.error ? getProposalErrorMessage(detailQuery.error, i18n("couldNotLoadThisApprovalRequest")) : null,
+    loading: Boolean(sessionKeyHash) && (detailQuery.isPending || awaitingRefresh),
+    loadError: !awaitingRefresh && detailQuery.error ? getProposalErrorMessage(detailQuery.error, i18n("couldNotLoadThisApprovalRequest")) : null,
     verification: currentVerification,
-    verifying: hasCurrentLifecycleState && verifying,
+    verifying: hasCurrentLifecycleState && !awaitingRefresh && verifying,
     busy: hasCurrentLifecycleState ? busy : null,
     actionError: hasCurrentLifecycleState ? actionError : null,
     actionInfo: hasCurrentLifecycleState ? actionInfo : null,
