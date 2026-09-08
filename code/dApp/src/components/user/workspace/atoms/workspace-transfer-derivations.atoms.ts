@@ -1,4 +1,5 @@
 "use client";
+import { spendableWalletUtxosAtom } from "./workspace-spendable-utxos.atoms";
 
 import { atom } from "jotai";
 import type { UTxO } from "@meshsdk/core";
@@ -29,7 +30,6 @@ import {
   utxoContainsAsset
 } from "@/components/user/workspace/helpers";
 import { decodeDatumFromUtxo } from "@/lib/mesh/datum";
-import { lockedContractUtxosAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import {
   streamingPaymentPayoutAmountsAtom,
   sttExtraTransfersAtom,
@@ -301,7 +301,7 @@ export const availableWealthSeriesForAssetAtom = atom<(unit: string) => WealthSe
 });
 
 export const selectedLockedContractAssetsAtom = atom((get) => {
-  const lockedContractUtxos = get(lockedContractUtxosAtom);
+  const lockedContractUtxos = get(spendableWalletUtxosAtom);
   const selectedUtxos = get(sttWalletInputsAtom)
     .map((ref) =>
       lockedContractUtxos.find(
@@ -321,7 +321,10 @@ export const allocatedLockedContractAssetsAtom = atom((get) =>
 
 export const transferSourceAssetsAtom = atom((get) => {
   const action = get(effectiveSttActionAtom);
-  return action === "use" || action === "use-allowance" || action === "use-beneficiary"
+  if (action === "use-beneficiary") {
+    return mergeAmountLists(get(spendableWalletUtxosAtom).map((utxo) => utxo.output.amount.filter(isAsset)));
+  }
+  return action === "use" || action === "use-allowance"
     ? get(totalLockedContractAssetsAtom)
     : get(selectedLockedContractAssetsAtom);
 });
@@ -416,7 +419,7 @@ export const suggestedLockedInputsAtom = atom((get) => {
       );
 
   return suggestLockedInputsForSpend(
-    get(lockedContractUtxosAtom),
+    get(spendableWalletUtxosAtom),
     get(requestedLockedAssetTotalsAtom),
     streamingReserve,
     get(lockingContractAtom).address ?? undefined

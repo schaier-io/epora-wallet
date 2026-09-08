@@ -1,19 +1,21 @@
 "use client";
 
 import { atom } from "jotai";
+import { queryClientAtom } from "jotai-tanstack-query";
+import { queryKeys } from "@/lib/query/keys";
+import { activityAnchorTxHashesAtom } from "../queries/activity-inputs.atoms";
+import { walletTransactionsAtom } from "../queries/activity-query.atoms";
+export { activityAnchorTxHashesAtom } from "../queries/activity-inputs.atoms";
+export { walletTransactionsAtom } from "../queries/activity-query.atoms";
 import {
-  RECENT_WALLET_ACTIVITY_ANCHOR_LIMIT,
   RECENT_WALLET_TRANSACTION_VISIBLE_LIMIT,
   WALLET_ACTIVITY_PAGE_SIZE
 } from "@/components/user/workspace/constants";
 import {
   buildWalletActivityEvents,
-  selectVisibleWalletTransactions,
-  uniqueTransactionHashes
+  selectVisibleWalletTransactions
 } from "@/components/user/workspace/helpers";
-import { type WalletTransactionSummary } from "@/components/user/workspace/types";
 import { lockedContractUtxosAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
-import { submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { activeAddressAtom, activeWalletNameAtom } from "@/providers/wallet.atoms";
 import { selectedDetectedTokenAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { lockingContractAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
@@ -29,35 +31,16 @@ const i18n = createDefaultTranslator("ComponentsUserWorkspaceAtomsWorkspaceActiv
  * outputs of useWalletActivity so views and the transfer/guided derivations read them directly.
  */
 
-export const EMPTY_WALLET_TRANSACTIONS: WalletTransactionSummary = {
-  items: [],
-  loading: false,
-  error: null
-};
-
-/** State: fetched wallet+STT transactions (written by useWalletActivity's fetch). */
-export const walletTransactionsAtom = atom<WalletTransactionSummary>(EMPTY_WALLET_TRANSACTIONS);
 /** State: the current activity page index. */
 export const activityPageIndexAtom = atom(0);
 
-/**
- * Reset the fetched-activity state atoms. Dispatched when the wallet session ends
- * (disconnect), not on workspace unmount; see resetWorkspaceDataAtom. Module-global like
- * the data atoms: up to 8 pages of transactions with full input/output IO would otherwise
- * outlive the session.
- */
-export const resetWorkspaceActivityAtom = atom(null, (_get, set) => {
-  set(walletTransactionsAtom, EMPTY_WALLET_TRANSACTIONS);
+/** Release full transaction payloads when the wallet session ends. */
+export const resetWorkspaceActivityAtom = atom(null, (get, set) => {
+  const client = get(queryClientAtom);
+  client.removeQueries({ queryKey: [...queryKeys.chain, "wallet-activity"] });
+  client.removeQueries({ queryKey: [...queryKeys.chain, "transaction"] });
   set(activityPageIndexAtom, 0);
 });
-
-export const activityAnchorTxHashesAtom = atom((get) =>
-  uniqueTransactionHashes([
-    get(selectedDetectedTokenAtom)?.utxo.input.txHash,
-    get(submitHashAtom),
-    ...get(lockedContractUtxosAtom).map((utxo) => utxo.input.txHash)
-  ]).slice(0, RECENT_WALLET_ACTIVITY_ANCHOR_LIMIT)
-);
 
 export const recentWalletTransactionsAtom = atom((get) =>
   selectVisibleWalletTransactions(
@@ -70,12 +53,8 @@ export const recentWalletTransactionsAtom = atom((get) =>
 export const recentWalletActivityEventsAtom = atom((get) => {
   const walletAddress = get(lockingContractAtom).address;
   if (!walletAddress) return [];
-  const selectedDetectedToken = get(selectedDetectedTokenAtom);
-  const sttUnit = selectedDetectedToken?.unit ?? null;
-  const currentWalletUtxos = [
-    ...get(lockedContractUtxosAtom),
-    ...(selectedDetectedToken ? [selectedDetectedToken.utxo] : [])
-  ];
+  const sttUnit = get(selectedDetectedTokenAtom)?.unit ?? null;
+  const currentWalletUtxos = get(lockedContractUtxosAtom);
   const activeAddress = get(activeAddressAtom);
   const activeWalletName = get(activeWalletNameAtom);
   return get(recentWalletTransactionsAtom).flatMap((transaction) =>

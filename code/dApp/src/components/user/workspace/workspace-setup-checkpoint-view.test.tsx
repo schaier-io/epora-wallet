@@ -1,7 +1,9 @@
+import "@/test/mock-workspace-queries";
+import { lockedContractUtxosLoadingAtom, sharedSttReferenceStoreLoadingAtom } from "@/test/workspace-query-fixtures";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import { describe, expect, it, vi } from "vitest";
-import { lockedContractUtxosLoadingAtom, sharedSttReferenceStoreLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
+
 import type { SetupCheckpoint } from "@/components/user/flow-types";
 
 const refreshHelper = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));

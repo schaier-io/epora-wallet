@@ -1,10 +1,12 @@
+import "@/test/mock-workspace-queries";
+import { lockedContractUtxosAtom, lockedContractUtxosLoadingAtom } from "@/test/workspace-query-fixtures";
 import { act, renderHook } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import { expect, it, vi } from "vitest";
 import type { PropsWithChildren } from "react";
 import { activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
 import { sttStateFormAtom, sttWalletInputsAtom } from "./atoms/forms/stt-spend-form.atoms";
-import { lockedContractUtxosAtom, lockedContractUtxosLoadingAtom } from "./atoms/workspace-data.atoms";
+
 import { WorkspaceActionsProvider } from "./workspace-actions-context";
 import type { PermissionWalletWorkspaceState } from "./use-permission-wallet-workspace-state";
 import { useBeneficiaryDistribution } from "./use-beneficiary-distribution";

@@ -1,3 +1,4 @@
+import "@/test/mock-workspace-queries";
 import type { PrimitiveAtom } from "jotai";
 import type { WalletBalanceSummary } from "./types";
 // Render-only fixtures; query ownership is covered by use-wallet-balance.query.test.tsx.
@@ -10,11 +11,8 @@ import { Provider, createStore } from "jotai";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { BrowserWallet } from "@meshsdk/core";
 import { activeWalletAtom, networkIdAtom } from "@/providers/wallet.atoms";
-import {
-  detectedSttTokensErrorAtom,
-  detectedSttTokensLoadingAtom,
-  walletBalanceSummaryAtom
-} from "@/components/user/workspace/atoms/workspace-data.atoms";
+import { detectedSttTokensErrorAtom, detectedSttTokensLoadingAtom } from "@/test/workspace-query-fixtures";
+import { walletBalanceSummaryAtom } from "./atoms/workspace-data.atoms";
 import { routeStateAtom } from "@/components/user/workspace/atoms/workspace-route.atoms";
 import { parseWorkspaceRouteState } from "@/components/user/workspace-controller";
 

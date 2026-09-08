@@ -42,8 +42,8 @@ export type SharedSttReferenceStoreInfo = {
 };
 
 
-export async function detectSttInfo(knownUnit?: string): Promise<DetectedSttInfo> {
-  const fetcher = new ServerFetcher();
+export async function detectSttInfo(knownUnit?: string, signal?: AbortSignal): Promise<DetectedSttInfo> {
+  const fetcher = new ServerFetcher({ signal });
   const policyId = getSttMintPolicyId();
   const script = getSttSpendScript();
   const scriptAddress = resolveScriptAddress(script);
@@ -121,8 +121,8 @@ export async function detectSttInfo(knownUnit?: string): Promise<DetectedSttInfo
  * assets on each page, because the datums are not needed here. The policy id itself
  * can appear as a pseudo-asset in some providers, so it is excluded.
  */
-export async function countSttTokens(policyId: string): Promise<number> {
-  const fetcher = new ServerFetcher();
+export async function countSttTokens(policyId: string, signal?: AbortSignal): Promise<number> {
+  const fetcher = new ServerFetcher({ signal });
   let total = 0;
   let cursor: number | string | null | undefined;
 
@@ -151,8 +151,8 @@ const SharedHelperResponseSchema = z.object({
 });
 
 /** The server owns discovery. The browser only receives the verified locator. */
-export async function detectSharedSttReferenceStore(): Promise<SharedSttReferenceStoreInfo> {
-  const response = await fetch("/api/shared-helper", { cache: "no-store" });
+export async function detectSharedSttReferenceStore(signal?: AbortSignal): Promise<SharedSttReferenceStoreInfo> {
+  const response = await fetch("/api/shared-helper", { cache: "no-store", signal });
   if (!response.ok) throw new Error("Wallet service is temporarily unavailable.");
   const parsed = SharedHelperResponseSchema.safeParse(await response.json());
   if (!parsed.success || (parsed.data.result.status === "ready" && !parsed.data.result.activeReference)) {

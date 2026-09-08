@@ -1,7 +1,9 @@
+import "@/test/mock-workspace-queries";
 import { render, screen } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import { describe, expect, it, vi } from "vitest";
-import { sharedSttReferenceStoreLoadingAtom, sharedSttReferenceStoreErrorAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
+import { sharedSttReferenceStoreLoadingAtom, sharedSttReferenceStoreErrorAtom } from "@/test/workspace-query-fixtures";
+
 
 import { activeWalletAtom, networkIdAtom } from "@/providers/wallet.atoms";
 const createHelper = vi.hoisted(() => vi.fn());

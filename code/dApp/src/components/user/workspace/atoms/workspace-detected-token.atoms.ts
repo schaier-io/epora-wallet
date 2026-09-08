@@ -1,6 +1,10 @@
 "use client";
 
 import { atom } from "jotai";
+import { selectedDetectedTokenStateFormAtom } from "../queries/token-identity.atoms";
+export { effectiveWalletAssetNameHexAtom, selectedDetectedTokenAtom, selectedDetectedTokenAssetsAtom,
+  selectedDetectedTokenLabelAtom, selectedDetectedTokenStateFormAtom, orphanDiscoveryPolicyIdAtom,
+  orphanDiscoveryAssetNameHexAtom, orphanDiscoveryWalletAddressAtom } from "../queries/token-identity.atoms";
 import type {
   AvailableActionDescriptor,
   TokenCapabilityMap,
@@ -11,24 +15,12 @@ import {
   buildAvailableWizardActions,
   resolveTokenCapabilityMap
 } from "@/components/user/wizard-capabilities";
-import { stateFormFromDatum } from "@/lib/contracts/state-form";
 import {
-  resolveWalletSpendAddress
-} from "@/lib/contracts/blueprint";
-import {
-  formatDetectedTokenLabel,
-  isAsset,
-  resolveEffectiveAssetNameHex
-} from "@/components/user/workspace/helpers";
-import {
-  detectedSttTokensAtom,
   lockedContractUtxosAtom,
   lockedContractUtxosLoadingAtom
 } from "@/components/user/workspace/atoms/workspace-data.atoms";
-import { configAtom } from "@/components/user/workspace/atoms/workspace-config.atoms";
 import { activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
 import {
-  selectedDetectedTokenUnitAtom,
   wizardSelectedActionAtom
 } from "@/components/user/workspace/atoms/workspace-selection.atoms";
 
@@ -39,47 +31,6 @@ import {
  * `useWorkspaceDetectedTokenDerivations` hook so views and the downstream derivation atoms read
  * them directly instead of through the controller barrel.
  */
-export const effectiveWalletAssetNameHexAtom = atom((get) =>
-  resolveEffectiveAssetNameHex(get(configAtom))
-);
-
-export const selectedDetectedTokenAtom = atom((get) => {
-  const unit = get(selectedDetectedTokenUnitAtom);
-  return get(detectedSttTokensAtom).find((token) => token.unit === unit) ?? null;
-});
-
-export const selectedDetectedTokenAssetsAtom = atom((get) => {
-  const token = get(selectedDetectedTokenAtom);
-  return token?.utxo.output.amount.filter(isAsset) ?? [];
-});
-
-export const selectedDetectedTokenLabelAtom = atom((get) => {
-  const token = get(selectedDetectedTokenAtom);
-  return token ? formatDetectedTokenLabel(token) : null;
-});
-
-export const selectedDetectedTokenStateFormAtom = atom((get) => {
-  const token = get(selectedDetectedTokenAtom);
-  return token ? stateFormFromDatum(token.datum) : null;
-});
-
-// Identity for the client-side orphan / Franken-address discovery: the unit is
-// `policyId (28 bytes) + assetNameHex`, and the canonical wallet address is the
-// enterprise/base address built from that policy + asset name.
-export const orphanDiscoveryPolicyIdAtom = atom((get) =>
-  get(selectedDetectedTokenUnitAtom).slice(0, 56)
-);
-export const orphanDiscoveryAssetNameHexAtom = atom((get) =>
-  get(selectedDetectedTokenUnitAtom).slice(56)
-);
-export const orphanDiscoveryWalletAddressAtom = atom((get) => {
-  const sttPolicyId = get(orphanDiscoveryPolicyIdAtom);
-  const sttAssetNameHex = get(orphanDiscoveryAssetNameHexAtom);
-  return sttPolicyId && sttAssetNameHex
-    ? resolveWalletSpendAddress({ sttPolicyId, sttAssetNameHex })
-    : "";
-});
-
 export const selectedTokenCapabilityMapAtom = atom<TokenCapabilityMap | null>((get) => {
   const state = get(selectedDetectedTokenStateFormAtom);
   if (!state) return null;

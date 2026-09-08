@@ -1,5 +1,6 @@
+import "@/test/mock-workspace-queries";
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 import { createStore } from "jotai";
 import { parseWorkspaceRouteState } from "@/components/user/workspace-controller";
 import { activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
@@ -7,7 +8,7 @@ import { recordRecoveryCapacityFailure } from "./recovery-capacity-model";
 import { recoveryCapacityFailureAtom, recoveryCapacitySignatureAtom, currentRecoveryCapacityFailureAtom } from "./atoms/recovery-capacity.atoms";
 import { routeStateAtom } from "./atoms/workspace-route.atoms";
 import { sttWalletInputsAtom, sttStateFormAtom } from "./atoms/forms/stt-spend-form.atoms";
-import { lockedContractUtxosAtom } from "./atoms/workspace-data.atoms";
+import { lockedContractUtxosAtom } from "@/test/workspace-query-fixtures";
 import { buildErrorWriteAtom, clearMessagesAtom, resetFlowAtom } from "./atoms/transaction-flow.atoms";
 const SIZE = new Error("Serialized transaction uses 17000 bytes. The protocol limit is 16384.");
 function fixture() {

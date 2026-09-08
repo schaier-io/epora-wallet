@@ -1,10 +1,11 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { Provider, createStore } from "jotai";
-import type { PropsWithChildren } from "react";
+import { createQueryTestWrapper } from "@/test/query-client";
+import { isConnectingAtom } from "@/providers/wallet.atoms";
 import { beforeEach, expect, it, vi } from "vitest";
 
 const server = vi.hoisted(() => ({ detectSharedSttReferenceStore: vi.fn() }));
 vi.mock("@/lib/mesh/detection", () => server);
+vi.mock("@/lib/contracts/blueprint", () => ({ getSttMintPolicyId: () => "policy" }));
 
 import {
   sharedSttReferenceStoreAtom,
@@ -22,17 +23,17 @@ beforeEach(() => {
 });
 
 function setup(enabled = true) {
-  const store = createStore();
+  const { store, wrapper } = createQueryTestWrapper();
+  store.set(isConnectingAtom, enabled);
   store.set(configAtom, { ...store.get(configAtom), sttSpendReference: "old-browser-reference" });
-  const wrapper = ({ children }: PropsWithChildren) => <Provider store={store}>{children}</Provider>;
-  const hook = renderHook(() => useSharedSttReference({ enabled }), { wrapper });
+  const hook = renderHook(() => useSharedSttReference(), { wrapper });
   return { store, ...hook };
 }
 
 it("loads the server reference without using the old browser reference", async () => {
   const { store } = setup();
   await waitFor(() => expect(store.get(sharedSttReferenceStoreLoadingAtom)).toBe(false));
-  expect(server.detectSharedSttReferenceStore).toHaveBeenCalledWith();
+  expect(server.detectSharedSttReferenceStore).toHaveBeenCalledWith(expect.any(AbortSignal));
   expect(server.detectSharedSttReferenceStore).toHaveBeenCalledTimes(1);
   expect(store.get(configAtom).sttSpendReference).toBe(REFERENCE);
 });
@@ -57,6 +58,16 @@ it("reports lookup failure and lets a read-only retry recover", async () => {
   expect(store.get(sharedSttReferenceStoreErrorAtom)).not.toBe(null);
   expect(store.get(configAtom).sttSpendReference).toBe("");
   await act(async () => { await result.current.refreshSharedSttReferenceStore(); });
-  expect(store.get(configAtom).sttSpendReference).toBe(REFERENCE);
+  await waitFor(() => expect(store.get(configAtom).sttSpendReference).toBe(REFERENCE));
   expect(store.get(sharedSttReferenceStoreErrorAtom)).toBe(null);
+});
+
+it("keeps the configured reference consistent with retained ready data after a transient error", async () => {
+  const { store, result } = setup();
+  await waitFor(() => expect(store.get(configAtom).sttSpendReference).toBe(REFERENCE));
+  server.detectSharedSttReferenceStore.mockRejectedValueOnce(new Error("temporarily unavailable"));
+  await act(async () => { await expect(result.current.refreshSharedSttReferenceStore()).rejects.toThrow(); });
+  await waitFor(() => expect(store.get(sharedSttReferenceStoreErrorAtom)).not.toBeNull());
+  expect(store.get(sharedSttReferenceStoreAtom)?.status).toBe("ready");
+  expect(store.get(configAtom).sttSpendReference).toBe(REFERENCE);
 });

@@ -1,11 +1,12 @@
 "use client";
+import { spendableWalletUtxosAtom } from "./atoms/workspace-spendable-utxos.atoms";
 import { useTranslations } from "next-intl";
 
 import { availableLockedTransferAssetsAtom } from "@/components/user/workspace/atoms/workspace-transfer-derivations.atoms";
 import { selectedActionAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
 import { activeSttActionTabAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
 import { lockingContractAtom, sttProofOfLifeIncrementAtom, sttProofOfLifeUnlockTimeAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
-import { lockedContractUtxosAtom, lockedContractUtxosErrorAtom, lockedContractUtxosLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
+import { lockedContractUtxosErrorAtom, lockedContractUtxosLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { useAtomValue } from "jotai";
 
 import {
@@ -42,7 +43,7 @@ export function SttSpendEditorsView() {
   const selectedAction = useAtomValue(selectedActionAtom);
   const sttProofOfLifeIncrement = useAtomValue(sttProofOfLifeIncrementAtom);
   const sttProofOfLifeUnlockTime = useAtomValue(sttProofOfLifeUnlockTimeAtom);
-  const lockedContractUtxos = useAtomValue(lockedContractUtxosAtom);
+  const lockedContractUtxos = useAtomValue(spendableWalletUtxosAtom);
   const lockedContractUtxosLoading = useAtomValue(lockedContractUtxosLoadingAtom);
   const lockedContractUtxosError = useAtomValue(lockedContractUtxosErrorAtom);
   const {

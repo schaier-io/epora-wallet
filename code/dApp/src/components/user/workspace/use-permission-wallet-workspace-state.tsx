@@ -184,9 +184,6 @@ export function usePermissionWalletWorkspaceState() {
     suggestedLockedInputs
   } = useWorkspaceTransferDerivations();
 
-  useEffect(() => {
-    void refreshLockedContractUtxos(lockingContract.address);
-  }, [lockingContract.address, refreshLockedContractUtxos]);
 
   const setupState = useAtomValue(setupStateAtom);
   const streamingPaymentPayout = useMemo(

@@ -1,7 +1,8 @@
 "use client";
+import { spendableWalletUtxosAtom } from "./atoms/workspace-spendable-utxos.atoms";
 import { beneficiaryPreparationActiveAtom } from "./atoms/forms/consolidate-form.atoms";
 import { beneficiaryPreparationPreviewAtom } from "./atoms/beneficiary-preparation.atoms";
-import { lockedContractUtxosAtom, lockedContractUtxosLoadingAtom, lockedContractUtxosErrorAtom, walletBalanceSummaryAtom } from "./atoms/workspace-data.atoms";
+import { lockedContractUtxosLoadingAtom, lockedContractUtxosErrorAtom, walletBalanceSummaryAtom } from "./atoms/workspace-data.atoms";
 import { renderNowMsAtom } from "./atoms/workspace-ui.atoms";
 import { useMemo } from "react";
 import { useAtomValue } from "jotai";
@@ -40,7 +41,7 @@ export function useWorkspaceActionFieldErrors(ctx: WorkspaceActionFieldErrorsCtx
   } = ctx;
   const preparationActive = useAtomValue(beneficiaryPreparationActiveAtom);
   const preparation = useAtomValue(beneficiaryPreparationPreviewAtom);
-  const lockedContractUtxos = useAtomValue(lockedContractUtxosAtom);
+  const lockedContractUtxos = useAtomValue(spendableWalletUtxosAtom);
   const lockedContractUtxosLoading = useAtomValue(lockedContractUtxosLoadingAtom);
   const lockedContractUtxosError = useAtomValue(lockedContractUtxosErrorAtom);
   const walletBalanceSummary = useAtomValue(walletBalanceSummaryAtom);

@@ -1,3 +1,5 @@
+import "@/test/mock-workspace-queries";
+import {  } from "@/test/workspace-query-fixtures";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import { describe, expect, it, vi } from "vitest";
@@ -97,7 +99,7 @@ const { sttStateFormAtom } = await import(
   "@/components/user/workspace/atoms/forms/stt-spend-form.atoms"
 );
 const { lockedContractUtxosLoadingAtom } = await import(
-  "@/components/user/workspace/atoms/workspace-data.atoms"
+  "@/test/workspace-query-fixtures"
 );
 const { renderNowMsAtom } = await import(
   "@/components/user/workspace/atoms/workspace-ui.atoms"

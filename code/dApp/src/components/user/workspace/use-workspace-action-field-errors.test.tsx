@@ -1,3 +1,4 @@
+import "@/test/mock-workspace-queries";
 import type { PrimitiveAtom } from "jotai";
 // Render-only fixtures; query ownership is covered by use-wallet-balance.query.test.tsx.
 vi.mock("@/components/user/workspace/queries/signer-balance", async () => {
@@ -35,7 +36,8 @@ vi.mock("@/lib/contracts/payout-address", async (importOriginal) => ({
 
 import { mintStateFormAtom } from "@/components/user/workspace/atoms/forms/mint-form.atoms";
 import { sttInputOutputIndexAtom, sttInputTxHashAtom, sttStateFormAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
-import { lockedContractUtxosAtom, lockedContractUtxosErrorAtom, lockedContractUtxosLoadingAtom, walletBalanceSummaryAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
+import { lockedContractUtxosAtom, lockedContractUtxosErrorAtom, lockedContractUtxosLoadingAtom } from "@/test/workspace-query-fixtures";
+import { walletBalanceSummaryAtom } from "./atoms/workspace-data.atoms";
 import { hasFieldErrors } from "@/components/user/workspace/helpers";
 import { useWorkspaceActionFieldErrors } from "@/components/user/workspace/use-workspace-action-field-errors";
 import {
