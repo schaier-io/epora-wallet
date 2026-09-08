@@ -58,7 +58,8 @@ export const detectedSttTokensAtom = atom((get) => {
   const inventory = get(sttInventoryQueryAtom);
   const selected = get(selectedSttQueryAtom);
   const tokens = inventory.data?.tokens ?? EMPTY_TOKENS;
-  if (!selected.data || selected.dataUpdatedAt < inventory.dataUpdatedAt) return tokens;
+  // A slow policy scan may finish after a newer selected State lookup.
+  if (!selected.data) return tokens;
   const units = new Set(selected.data.tokens.map((token) => token.unit));
   return [...tokens.filter((token) => !units.has(token.unit)), ...selected.data.tokens];
 });

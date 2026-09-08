@@ -35,15 +35,25 @@ export function useDetectedSttTokens({ selectedDetectedTokenUnit, setSelectedDet
     const requestedUnit = knownUnit || (keepSelection ? selectedDetectedTokenUnit || undefined : undefined);
     const options = requestedUnit ? sttWalletQueryOptions(getSttMintPolicyId(), requestedUnit, client)
       : sttInventoryQueryOptions(getSttMintPolicyId());
-    await client.invalidateQueries({ queryKey: options.queryKey, exact: true, refetchType: "none" });
-    if (store.get(workspaceSessionAtom) !== session) return null;
-    const detected = requestedUnit
-      ? await client.fetchQuery(sttWalletQueryOptions(getSttMintPolicyId(), requestedUnit, client))
-      : await client.fetchQuery(sttInventoryQueryOptions(getSttMintPolicyId()));
+    const queries = [options];
+    if (!requestedUnit && selectedDetectedTokenUnit) {
+      queries.push(sttWalletQueryOptions(getSttMintPolicyId(), selectedDetectedTokenUnit, client));
+    }
+    await Promise.all(queries.map(query => client.invalidateQueries({ queryKey: query.queryKey, exact: true, refetchType: "none" })));
     if (store.get(workspaceSessionAtom) !== session || (store.get(pendingWalletStateUpdateAtom) && !exactStateRefresh)) return null;
+    const [detected, selectedDetected] = await Promise.all([
+      requestedUnit
+        ? client.fetchQuery(sttWalletQueryOptions(getSttMintPolicyId(), requestedUnit, client))
+        : client.fetchQuery(sttInventoryQueryOptions(getSttMintPolicyId())),
+      !requestedUnit && selectedDetectedTokenUnit
+        ? client.fetchQuery(sttWalletQueryOptions(getSttMintPolicyId(), selectedDetectedTokenUnit, client))
+        : undefined
+    ]);
+    if (store.get(workspaceSessionAtom) !== session || (store.get(pendingWalletStateUpdateAtom) && !exactStateRefresh)) return null;
+    const selectedUnits = new Set(selectedDetected?.tokens.map(token => token.unit));
     const tokens = requestedUnit
       ? [...store.get(detectedSttTokensAtom).filter((token) => token.unit !== requestedUnit), ...detected.tokens]
-      : detected.tokens;
+      : [...detected.tokens.filter(token => !selectedUnits.has(token.unit)), ...(selectedDetected?.tokens ?? [])];
     if (keepSelection && selectedDetectedTokenUnit && !tokens.some((token) => token.unit === selectedDetectedTokenUnit)) return null;
     if (!tokens.some((token) => token.unit === selectedDetectedTokenUnit)) {
       if (selectedDetectedTokenUnit) setSelectedDetectedTokenUnit("");

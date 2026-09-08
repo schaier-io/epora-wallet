@@ -83,7 +83,7 @@ it("keeps the previous State and inventory when a detail refresh fails or misses
 it("manual refresh discovers other wallets while a wallet is selected", async () => {
   const test = setup(a.unit, [a]);
   await act(async () => { await test.result.current.refreshDetectedTokens(); });
-  await waitFor(() => expect(test.result.current.tokens).toEqual([a, b]));
+  await waitFor(() => expect(test.result.current.tokens).toEqual([b, a]));
   expect(chain.detectSttInfo).toHaveBeenCalledWith(undefined, expect.any(AbortSignal));
 });
 it("deduplicates concurrent inventory reads", async () => {
@@ -170,4 +170,32 @@ it("keeps an uncached selected wallet loading when a fresh inventory has no matc
   act(() => test.store.set(routeStateAtom, { ...test.store.get(routeStateAtom), selectedWalletUnit: a.unit }));
   expect(test.result.current.tokens).toEqual([]);
   expect(test.result.current.loading).toBe(true);
+});
+
+it("keeps newer selected State when a slow inventory returns an older State", async () => {
+  const next = { ...a, utxo: { ...a.utxo, input: { ...a.utxo.input, txHash: "new-state" } } };
+  let finishInventory!: (data: DetectedSttInfo) => void;
+  chain.detectSttInfo.mockImplementation((unit) => unit
+    ? Promise.resolve(info([next]))
+    : new Promise(resolve => { finishInventory = resolve; }));
+  const test = setup(a.unit);
+  await waitFor(() => expect(test.result.current.tokens).toEqual([next]));
+  await act(async () => { finishInventory(info([a, b])); });
+  await waitFor(() => expect(test.result.current.tokens).toEqual([b, next]));
+  expect(chain.detectSttInfo).toHaveBeenCalledTimes(2);
+});
+
+it("refreshes selected State and full inventory through shared concurrent requests", async () => {
+  const test = setup(a.unit, [a]);
+  const next = { ...a, utxo: { ...a.utxo, input: { ...a.utxo.input, txHash: "new-state" } } };
+  chain.detectSttInfo.mockImplementation((unit) => Promise.resolve(info(unit ? [next] : [a, b])));
+  let refreshed: Awaited<ReturnType<typeof test.result.current.refreshDetectedTokens>>[] = [];
+  await act(async () => {
+    refreshed = await Promise.all([test.result.current.refreshDetectedTokens(), test.result.current.refreshDetectedTokens()]);
+  });
+  expect(chain.detectSttInfo).toHaveBeenCalledWith(a.unit, expect.any(AbortSignal));
+  expect(chain.detectSttInfo).toHaveBeenCalledWith(undefined, expect.any(AbortSignal));
+  expect(chain.detectSttInfo).toHaveBeenCalledTimes(2);
+  await waitFor(() => expect(test.result.current.tokens).toEqual([b, next]));
+  refreshed.forEach(result => expect(result?.tokens).toEqual([b, next]));
 });
