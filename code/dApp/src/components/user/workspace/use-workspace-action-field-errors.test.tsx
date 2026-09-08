@@ -1,3 +1,9 @@
+import type { PrimitiveAtom } from "jotai";
+// Render-only fixtures; query ownership is covered by use-wallet-balance.query.test.tsx.
+vi.mock("@/components/user/workspace/queries/signer-balance", async () => {
+  const { atom } = await import("jotai");
+  return { walletBalanceSummaryAtom: atom({ assets: [], loading: false, error: null }) };
+});
 import { act, renderHook } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import type { PropsWithChildren } from "react";
@@ -90,7 +96,7 @@ function renderStreamValidation({
   store.set(sttStateFormAtom, output);
   store.set(sttInputTxHashAtom, requestedTxHash);
   store.set(sttInputOutputIndexAtom, requestedOutputIndex);
-  store.set(walletBalanceSummaryAtom, balance);
+  store.set(walletBalanceSummaryAtom as PrimitiveAtom<WalletBalanceSummary>, balance);
   store.set(lockedContractUtxosAtom, locked);
   const wrapper = ({ children }: PropsWithChildren) => <Provider store={store}>{children}</Provider>;
   const hook = renderHook(() => useWorkspaceActionFieldErrors({
@@ -126,7 +132,7 @@ it("groups mint asset-proof errors under the translated wallet-rules field", () 
 it("refreshing to one exact token clears both draft guards", () => {
   const { result, store } = renderStreamValidation();
   expect(assetProofErrors(result.current.mint)).toHaveLength(1);
-  act(() => store.set(walletBalanceSummaryAtom, { assets: [{ unit: STREAM_UNIT, quantity: "1" }], loading: false, error: null }));
+  act(() => store.set(walletBalanceSummaryAtom as PrimitiveAtom<WalletBalanceSummary>, { assets: [{ unit: STREAM_UNIT, quantity: "1" }], loading: false, error: null }));
   expect(assetProofErrors(result.current.mint)).toEqual([]);
   expect(assetProofErrors(result.current["manage-streaming-payments"])).toEqual([]);
 });

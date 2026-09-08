@@ -25,11 +25,12 @@ function isRpcEnvelope(value: unknown): value is RpcEnvelope {
   return typeof value === "object" && value !== null;
 }
 
-async function rpc<T>(method: ChainMethod, args: unknown[]): Promise<T> {
+async function rpc<T>(method: ChainMethod, args: unknown[], signal?: AbortSignal): Promise<T> {
   const payload: ChainRpcRequest = { method, args };
 
   const response = await fetch("/api/mesh", {
     method: "POST",
+    signal,
     headers: {
       "Content-Type": "application/json"
     },
@@ -62,61 +63,67 @@ async function rpc<T>(method: ChainMethod, args: unknown[]): Promise<T> {
 }
 
 export class ServerFetcher implements IFetcher, IEvaluator {
+  constructor(private readonly options: { signal?: AbortSignal } = {}) {}
+
+  private rpc<T>(method: ChainMethod, args: unknown[]): Promise<T> {
+    return rpc(method, args, this.options.signal);
+  }
+
   fetchAccountInfo(address: string): Promise<AccountInfo> {
-    return rpc("fetchAccountInfo", [address]);
+    return this.rpc("fetchAccountInfo", [address]);
   }
 
   fetchAddressUTxOs(address: string, asset?: string): Promise<UTxO[]> {
-    return rpc("fetchAddressUTxOs", [address, asset]);
+    return this.rpc("fetchAddressUTxOs", [address, asset]);
   }
 
   fetchAddressTxs(
     address: string,
     options?: IFetcherOptions | undefined
   ): Promise<TransactionInfo[]> {
-    return rpc("fetchAddressTxs", [address, options]);
+    return this.rpc("fetchAddressTxs", [address, options]);
   }
 
   fetchAssetAddresses(asset: string): Promise<{ address: string; quantity: string }[]> {
-    return rpc("fetchAssetAddresses", [asset]);
+    return this.rpc("fetchAssetAddresses", [asset]);
   }
 
   fetchAssetMetadata(asset: string): Promise<AssetMetadata> {
-    return rpc("fetchAssetMetadata", [asset]);
+    return this.rpc("fetchAssetMetadata", [asset]);
   }
 
   fetchBlockInfo(hash: string): Promise<BlockInfo> {
-    return rpc("fetchBlockInfo", [hash]);
+    return this.rpc("fetchBlockInfo", [hash]);
   }
 
   fetchCollectionAssets(
     policyId: string,
     cursor?: number | string | undefined
   ): Promise<{ assets: Asset[]; next?: string | number | null | undefined }> {
-    return rpc("fetchCollectionAssets", [policyId, cursor]);
+    return this.rpc("fetchCollectionAssets", [policyId, cursor]);
   }
 
   fetchProtocolParameters(epoch?: number): Promise<Protocol> {
-    return rpc("fetchProtocolParameters", [epoch]);
+    return this.rpc("fetchProtocolParameters", [epoch]);
   }
 
   fetchCostModels(epoch?: number): Promise<number[][]> {
-    return rpc("fetchCostModels", [epoch]);
+    return this.rpc("fetchCostModels", [epoch]);
   }
 
   fetchTxInfo(hash: string): Promise<TransactionInfo> {
-    return rpc("fetchTxInfo", [hash]);
+    return this.rpc("fetchTxInfo", [hash]);
   }
 
   fetchUTxOs(hash: string, index?: number | undefined): Promise<UTxO[]> {
-    return rpc("fetchUTxOs", [hash, index]);
+    return this.rpc("fetchUTxOs", [hash, index]);
   }
 
   fetchGovernanceProposal(
     txHash: string,
     certIndex: number
   ): Promise<GovernanceProposalInfo> {
-    return rpc("fetchGovernanceProposal", [txHash, certIndex]);
+    return this.rpc("fetchGovernanceProposal", [txHash, certIndex]);
   }
 
   evaluateTx(
@@ -124,14 +131,14 @@ export class ServerFetcher implements IFetcher, IEvaluator {
     additionalUtxos?: UTxO[],
     additionalTxs?: string[]
   ): Promise<Omit<Action, "data">[]> {
-    return rpc("evaluateTx", [tx, additionalUtxos, additionalTxs]);
+    return this.rpc("evaluateTx", [tx, additionalUtxos, additionalTxs]);
   }
 
   get(url: string): Promise<unknown> {
-    return rpc("get", [url]);
+    return this.rpc("get", [url]);
   }
 
   submitTx(tx: string): Promise<string> {
-    return rpc("submitTx", [tx]);
+    return this.rpc("submitTx", [tx]);
   }
 }

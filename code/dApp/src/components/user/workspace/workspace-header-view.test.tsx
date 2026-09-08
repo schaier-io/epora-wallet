@@ -1,3 +1,10 @@
+import type { PrimitiveAtom } from "jotai";
+import type { WalletBalanceSummary } from "./types";
+// Render-only fixtures; query ownership is covered by use-wallet-balance.query.test.tsx.
+vi.mock("@/components/user/workspace/queries/signer-balance", async () => {
+  const { atom } = await import("jotai");
+  return { walletBalanceSummaryAtom: atom({ assets: [], loading: false, error: null }) };
+});
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -44,7 +51,7 @@ function renderWith(
   const store = createStore();
   store.set(activeWalletAtom, {} as BrowserWallet);
   store.set(networkIdAtom, 0);
-  store.set(walletBalanceSummaryAtom, summary as never);
+  store.set(walletBalanceSummaryAtom as PrimitiveAtom<WalletBalanceSummary>, summary as never);
   store.set(detectedSttTokensLoadingAtom, smartWalletsLoading);
   store.set(detectedSttTokensErrorAtom, smartWalletsError);
   store.set(

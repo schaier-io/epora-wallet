@@ -1,6 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createStore } from "jotai";
+import { queryClientAtom } from "jotai-tanstack-query";
+import { createAppQueryClient } from "@/lib/query/client";
+import { queryKeys } from "@/lib/query/keys";
 import type { UTxO } from "@meshsdk/core";
 
 import {
@@ -33,12 +36,11 @@ const utxo = {
 
 test("resetWorkspaceDataAtom restores the fetched-data atoms to their initial values", () => {
   const store = createStore();
+  const client = createAppQueryClient();
+  store.set(queryClientAtom, client);
+  const balanceKey = queryKeys.signerUtxos(0, "test-wallet", "test-address");
   store.set(lockedContractUtxosAtom, [utxo]);
-  store.set(walletBalanceSummaryAtom, {
-    assets: [{ unit: "lovelace", quantity: "5" }],
-    loading: true,
-    error: "boom"
-  });
+  client.setQueryData(balanceKey, [utxo]);
   store.set(detectedSttTokensAtom, [{ unit: "bb".repeat(32) } as DetectedSttToken]);
   store.set(detectedSttTokensLoadingAtom, false);
   store.set(permissionWalletSummariesAtom, { wallet: { locked: true } as never });
@@ -47,9 +49,11 @@ test("resetWorkspaceDataAtom restores the fetched-data atoms to their initial va
 
   assert.deepEqual(store.get(lockedContractUtxosAtom), []);
   assert.deepEqual(store.get(walletBalanceSummaryAtom), { assets: [], loading: false, error: null });
+  assert.equal(client.getQueryData(balanceKey), undefined);
   assert.deepEqual(store.get(detectedSttTokensAtom), []);
   assert.equal(store.get(detectedSttTokensLoadingAtom), true);
   assert.deepEqual(store.get(permissionWalletSummariesAtom), {});
+  client.clear();
 });
 
 test("resetWorkspaceActivityAtom clears the fetched transactions and page index", () => {

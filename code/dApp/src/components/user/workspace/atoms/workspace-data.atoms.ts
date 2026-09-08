@@ -1,6 +1,8 @@
 import { atom } from "jotai";
+import { queryClientAtom } from "jotai-tanstack-query";
+import { queryKeys } from "@/lib/query/keys";
 import type { UTxO } from "@meshsdk/core";
-import type { WalletBalanceSummary, PermissionWalletLockedSummary } from "@/components/user/workspace/types";
+import type { PermissionWalletLockedSummary } from "@/components/user/workspace/types";
 import type { DetectedSttToken, SharedSttReferenceStoreInfo } from "@/lib/mesh/detection";
 import type { BuildResult } from "@/lib/types/contracts";
 
@@ -18,10 +20,8 @@ export const lockedContractUtxosAtom = atom<UTxO[]>([]);
 export const lockedContractUtxosLoadingAtom = atom(false);
 export const lockedContractUtxosErrorAtom = atom<string | null>(null);
 
-const EMPTY_WALLET_BALANCE: WalletBalanceSummary = { assets: [], loading: false, error: null };
-
 /** The CONNECTED browser wallet's own balance (not the smart wallet's). */
-export const walletBalanceSummaryAtom = atom<WalletBalanceSummary>(EMPTY_WALLET_BALANCE);
+export { walletBalanceSummaryAtom } from "../queries/signer-balance";
 
 /** Detected minted STT tokens (the user's smart wallets) + their loading/error + per-wallet summaries. */
 export const detectedSttTokensAtom = atom<DetectedSttToken[]>([]);
@@ -47,11 +47,11 @@ export const sharedReferenceBusyAtom = atom<"build" | "submit" | null>(null);
  * without this the last wallet's full chain snapshot (UTxOs with datums, balances, detected
  * tokens) would stay resident after the session ends.
  */
-export const resetWorkspaceDataAtom = atom(null, (_get, set) => {
+export const resetWorkspaceDataAtom = atom(null, (get, set) => {
   set(lockedContractUtxosAtom, []);
   set(lockedContractUtxosLoadingAtom, false);
   set(lockedContractUtxosErrorAtom, null);
-  set(walletBalanceSummaryAtom, EMPTY_WALLET_BALANCE);
+  get(queryClientAtom).removeQueries({ queryKey: queryKeys.signer });
   set(detectedSttTokensAtom, []);
   set(detectedSttTokensLoadingAtom, true);
   set(detectedSttTokensErrorAtom, null);

@@ -224,10 +224,7 @@ export function useWorkspaceFoundation() {
   // rapid double-click can pass the disabled check before the re-render.
   // The ref flips synchronously and blocks the second invocation.
   const submitInFlightRef = useRef<ExtractAtomValue<typeof workspaceSessionAtom> | null>(null);
-  const { refreshWalletBalance } = useWalletBalance(
-    activeWallet,
-    walletReady
-  );
+  const { refreshWalletBalance } = useWalletBalance();
 
   const {
     routeState,

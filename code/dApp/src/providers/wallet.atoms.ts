@@ -16,6 +16,7 @@ export const activeWalletNameAtom = atom<string | null>(null);
 export const activeAddressAtom = atom<string | null>(null);
 export const activeRewardAddressAtom = atom<string | null>(null);
 export const activePaymentKeyHashAtom = atom<string | null>(null);
+export const isConnectingAtom = atom(false);
 export const networkIdAtom = atom<number | null>(null);
 
 /** Derived: the active wallet is the read-only demo wallet. */
@@ -24,3 +25,6 @@ export const isDemoWalletAtom = atom((get) => get(activeWalletNameAtom) === DEMO
 export const walletReadyAtom = atom(
   (get) => Boolean(get(activeWalletAtom) && get(networkIdAtom) === 0)
 );
+
+/** Public chain discovery starts while a connection is in progress. */
+export const chainReadsEnabledAtom = atom(get => get(isConnectingAtom) || get(walletReadyAtom));
