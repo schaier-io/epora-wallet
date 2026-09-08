@@ -1,5 +1,6 @@
 import { atom } from "jotai";
-import type { Protocol } from "@meshsdk/common";
+import { atomWithQuery } from "jotai-tanstack-query";
+import { protocolParametersQueryOptions } from "@/lib/query/chain";
 import { activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
 import { activeInferredSttStateFormAtom, lockingContractAtom } from "./workspace-wallet-derivations.atoms";
 import { lockedContractUtxosAtom, lockedContractUtxosLoadingAtom, lockedContractUtxosErrorAtom } from "./workspace-data.atoms";
@@ -7,7 +8,17 @@ import { renderNowMsAtom } from "./workspace-ui.atoms";
 import { beneficiaryPreparationActiveAtom, beneficiaryPreparationPoolAssetsAtom, consolidateWalletInputsAtom } from "./forms/consolidate-form.atoms";
 import { deriveBeneficiaryPreparationPreview } from "../beneficiary-preparation-model";
 
-export const beneficiaryPreparationProtocolAtom = atom<{ address: string; params: Protocol | null; error: boolean } | null>(null);
+const preparationProtocolQueryAtom = atomWithQuery(get => ({
+  ...protocolParametersQueryOptions(),
+  enabled: get(beneficiaryPreparationActiveAtom)
+}));
+export const beneficiaryPreparationProtocolAtom = atom(get => {
+  if (!get(beneficiaryPreparationActiveAtom)) return null;
+  const address = get(lockingContractAtom).address ?? "";
+  if (!address) return null;
+  const query = get(preparationProtocolQueryAtom);
+  return { address, params: query.data ?? null, error: query.isError, loading: query.isPending || query.isFetching };
+});
 export const beneficiaryPreparationPreviewAtom = atom((get) => {
   if (!get(beneficiaryPreparationActiveAtom)) return { plan: null, selectedAmount: [], error: null };
   const address = get(lockingContractAtom).address ?? "";

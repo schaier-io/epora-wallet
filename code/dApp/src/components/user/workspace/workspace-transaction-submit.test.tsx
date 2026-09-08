@@ -1,11 +1,17 @@
-import { resetAllFlowAtom, resetFlowAtom } from "./atoms/transaction-flow.atoms";
+import { waitFor } from "@testing-library/react";
+import { queryClientAtom } from "jotai-tanstack-query";
+import { QueryObserver } from "@tanstack/react-query";
+import { createAppQueryClient } from "@/lib/query/client";
+import { queryKeys } from "@/lib/query/keys";
+import { activeAddressAtom } from "@/providers/wallet.atoms";
+import { resetAllFlowAtom, resetFlowAtom, submitHashAtom, submitConfirmedAtom } from "./atoms/transaction-flow.atoms";
 import { schedulePostSubmitRefresh } from "./workspace-transaction-refresh";
 import { parseWorkspaceRouteState } from "@/components/user/workspace-controller";
 import { routeStateAtom } from "./atoms/workspace-route.atoms";
 import { currentRecoveryCapacityFailureAtom } from "./atoms/recovery-capacity.atoms";
 import { beneficiaryPreparationActiveAtom, consolidateWalletInputsAtom } from "./atoms/forms/consolidate-form.atoms";
 import { createStore } from "jotai";
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
   sttInputOutputIndexAtom,
   sttInputTxHashAtom,
@@ -14,13 +20,9 @@ import {
 import { pendingWalletStateUpdateAtom } from "./atoms/wallet-state-update.atoms";
 import type { BuildResult } from "@/lib/types/contracts";
 
-const mocks = vi.hoisted(() => ({ signAndSubmitTx: vi.fn(), fetchTransactionsByHash: vi.fn() }));
+const mocks = vi.hoisted(() => ({ signAndSubmitTx: vi.fn() }));
 
 vi.mock("@/lib/mesh/transactions", () => ({ signAndSubmitTx: mocks.signAndSubmitTx }));
-vi.mock("@/components/user/workspace/helpers", async (importOriginal) => ({
-  ...(await importOriginal<Record<string, unknown>>()),
-  fetchTransactionsByHash: mocks.fetchTransactionsByHash
-}));
 vi.mock("@/components/user/workspace/workspace-transaction-refresh", () => ({
   schedulePostSubmitRefresh: vi.fn()
 }));
@@ -34,7 +36,13 @@ const preview = {
   preview: { action: "use", summary: "Send funds" }
 } as unknown as BuildResult;
 
+const clients: ReturnType<typeof createAppQueryClient>[] = [];
+afterEach(() => { clients.splice(0).forEach(client => client.clear()); vi.useRealTimers(); vi.unstubAllGlobals(); });
+
 function makeDeps(overrides: Record<string, unknown> = {}) {
+  const client = createAppQueryClient();
+  client.setDefaultOptions({ queries: { retry: false, gcTime: Infinity, staleTime: Infinity } });
+  clients.push(client);
   const deps = {
     activeWallet: {},
     activeWalletName: "Lace",
@@ -65,12 +73,12 @@ function makeDeps(overrides: Record<string, unknown> = {}) {
     sttExtraTransfers: [{ address: "addr_test1recipient", amount: [] }],
     ...overrides
   } as unknown as Parameters<typeof createWorkspaceTransactionSubmit>[0];
+  deps.jotaiStore.set(queryClientAtom, client);
   return deps;
 }
 
 beforeEach(() => {
   mocks.signAndSubmitTx.mockReset().mockResolvedValue(TX_HASH);
-  mocks.fetchTransactionsByHash.mockReset().mockResolvedValue([]);
 });
 
 it("keeps confirmation alive across action navigation and swaps the spent State ref", async () => {
@@ -88,7 +96,7 @@ it("keeps confirmation alive across action navigation and swaps the spent State 
   const deps = makeDeps({ selectedDetectedToken: token(spent), refreshDetectedTokens });
   deps.jotaiStore.set(sttInputTxHashAtom, spent.txHash);
   deps.jotaiStore.set(sttInputOutputIndexAtom, String(spent.outputIndex));
-  mocks.fetchTransactionsByHash.mockResolvedValue([{}]);
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ result: { hash: TX_HASH } }))));
 
   try {
     await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
@@ -147,9 +155,8 @@ it("keeps a submitted transaction successful when recipient bookkeeping throws",
 it("handles a rejected follow-up read separately from transaction submission", async () => {
   const readError = new Error("Indexer unavailable");
   const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
-  const deps = makeDeps({
-    refreshPermissionWalletSummaries: vi.fn().mockRejectedValue(readError)
-  });
+  const deps = makeDeps();
+  vi.spyOn(deps.jotaiStore.get(queryClientAtom), "invalidateQueries").mockRejectedValueOnce(readError);
 
   try {
     await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
@@ -157,7 +164,7 @@ it("handles a rejected follow-up read separately from transaction submission", a
 
     expect(deps.setSubmitHash).toHaveBeenCalledWith(TX_HASH);
     expect(deps.setBuildError).toHaveBeenCalledTimes(1);
-    expect(consoleError).toHaveBeenCalledWith("[post-submit:wallet-summaries]", readError);
+    await waitFor(() => expect(consoleError).toHaveBeenCalledWith("[post-submit:chain-cache]", readError));
   } finally {
     consoleError.mockRestore();
   }
@@ -345,3 +352,56 @@ for (const firstToSettle of ["old wallet", "new wallet"] as const) {
     });
   }
 }
+
+
+it("refreshes all transaction-dependent data when confirmation arrives at 85 seconds", async () => {
+  vi.useFakeTimers();
+  const started = Date.now();
+  vi.stubGlobal("fetch", vi.fn(async () => Date.now() - started < 85_000
+    ? new Response(JSON.stringify({ error: "not indexed" }), { status: 404 })
+    : new Response(JSON.stringify({ result: { hash: TX_HASH } }))));
+  const deps = makeDeps();
+  deps.setSubmitHash = vi.fn(hash => deps.jotaiStore.set(submitHashAtom, hash));
+  const client = deps.jotaiStore.get(queryClientAtom);
+  const keys = [queryKeys.addressUtxos("wallet-a"), queryKeys.sttWallet("policy", "unit"),
+    queryKeys.accountInfo("rewards"), [...queryKeys.chain, "wallet-activity", "wallet-a"],
+    ["proposals", "preprod", "signer", "verification", "request"]];
+  const reads = keys.map(() => vi.fn(async () => Date.now()));
+  const observers = keys.map((key, index) => {
+    client.setQueryData(key, started);
+    const observer = new QueryObserver(client, { queryKey: key, queryFn: reads[index],
+      ...(index === 4 ? { meta: { chainDependent: true } } : {}) });
+    return { observer, stop: observer.subscribe(() => {}) };
+  });
+  const realRefresh = await vi.importActual<{ schedulePostSubmitRefresh: typeof schedulePostSubmitRefresh }>("./workspace-transaction-refresh");
+  try {
+    await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
+    realRefresh.schedulePostSubmitRefresh(deps);
+    await vi.advanceTimersByTimeAsync(75_000);
+    expect(deps.jotaiStore.get(submitConfirmedAtom)).toBe(false);
+    reads.forEach(read => { expect(read).toHaveBeenCalledTimes(5); read.mockClear(); });
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(deps.jotaiStore.get(submitConfirmedAtom)).toBe(true);
+    reads.forEach(read => expect(read).toHaveBeenCalledTimes(1));
+    observers.forEach(({ observer }) => expect(observer.getCurrentResult().data).toBe(started + 85_000));
+  } finally { observers.forEach(({ stop }) => stop()); }
+});
+
+it("cannot publish confirmation after the signer changes during its pending read", async () => {
+  vi.useFakeTimers();
+  let resolveRead!: (response: Response) => void;
+  const fetchRead = vi.fn(() => new Promise<Response>(resolve => { resolveRead = resolve; }));
+  vi.stubGlobal("fetch", fetchRead);
+  const deps = makeDeps();
+  deps.setSubmitHash = vi.fn(hash => deps.jotaiStore.set(submitHashAtom, hash));
+  await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
+  await vi.advanceTimersByTimeAsync(10_000);
+  expect(fetchRead).toHaveBeenCalledOnce();
+  const client = deps.jotaiStore.get(queryClientAtom);
+  const invalidate = vi.spyOn(client, "invalidateQueries");
+  deps.jotaiStore.set(activeAddressAtom, "account-b");
+  resolveRead(new Response(JSON.stringify({ result: { hash: TX_HASH } })));
+  await vi.advanceTimersByTimeAsync(1);
+  expect(deps.jotaiStore.get(submitConfirmedAtom)).toBe(false);
+  expect(invalidate).not.toHaveBeenCalled();
+});

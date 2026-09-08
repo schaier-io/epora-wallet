@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { detectSharedSttReferenceStore, detectSttInfo } from "./detection";
 import { getSttMintPolicyId, getSttSpendScript, resolveScriptAddress } from "@/lib/contracts/blueprint";
+import { MeshRpcError } from "./server-fetcher";
+import { queryRetryDelay, retryQuery } from "@/lib/query/client";
 
 type MeshCall = { method: string; args: unknown[] };
 
@@ -120,5 +122,33 @@ test("shared helper detection reports server failure instead of creating a helpe
   globalThis.fetch = (async () => new Response(JSON.stringify({ error: "SHARED_HELPER_UNAVAILABLE" }), { status: 503 })) as typeof fetch;
   try {
     await assert.rejects(detectSharedSttReferenceStore(), /Wallet service is temporarily unavailable/);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test("shared helper rate limits retain the server retry delay", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response("{}", { status: 429, headers: { "Retry-After": "60" } });
+  try {
+    await assert.rejects(detectSharedSttReferenceStore(), (error: unknown) => {
+      assert.ok(error instanceof MeshRpcError);
+      assert.equal(error.message, "Wallet service is temporarily unavailable.");
+      assert.equal(error.status, 429);
+      assert.equal(queryRetryDelay(0, error), 60_000);
+      assert.equal(retryQuery(0, error), true);
+      return true;
+    });
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test("shared helper authorization failures do not trigger Query retries", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response("{}", { status: 401 });
+  try {
+    await assert.rejects(detectSharedSttReferenceStore(), (error: unknown) => {
+      assert.ok(error instanceof MeshRpcError);
+      assert.equal(error.status, 401);
+      assert.equal(retryQuery(0, error), false);
+      return true;
+    });
   } finally { globalThis.fetch = originalFetch; }
 });

@@ -32,33 +32,32 @@ export function StakeAddressDiscoveryPanel({
   onRecover
 }: StakeAddressDiscoveryPanelProps) {
   const i18n = useTranslations("ComponentsUserStakeAddressDiscoveryPanel");
-  const { orphans, orphanLovelace, error, refetch } = useOrphanWalletUtxos({
+  const { orphans, orphanLovelace, loading, canCheck, error, refetch } = useOrphanWalletUtxos({
     sttPolicyId,
     sttAssetNameHex,
     walletScriptAddress,
     enabled
   });
 
-  if (orphans.length > 0) {
-    return (
-      <OrphanUtxoNotice
-        orphans={orphans}
-        orphanLovelace={orphanLovelace}
-        busy={busy}
-        onConsolidate={onConsolidate}
-        onRecover={onRecover}
-        onRefresh={() => void refetch()}
-      />
-    );
-  }
-
-  if (error) {
-    return (
-      <p role="alert" className="rounded-lg border border-border/40 bg-background/20 px-3 py-2 text-xs text-muted-foreground">
-        {i18n("couldNotCheckWhereThisWalletSFunds")}
-      </p>
-    );
-  }
-
-  return null;
+  if (!error && orphans.length === 0) return null;
+  return (
+    <>
+      {error ? (
+        <p role="alert" className="rounded-lg border border-border/40 bg-background/20 px-3 py-2 text-xs text-muted-foreground">
+          {i18n("couldNotCheckWhereThisWalletSFunds")}
+        </p>
+      ) : null}
+      {orphans.length > 0 ? (
+        <OrphanUtxoNotice
+          orphans={orphans}
+          orphanLovelace={orphanLovelace}
+          busy={busy}
+          actionsDisabled={loading || Boolean(error) || !canCheck}
+          onConsolidate={onConsolidate}
+          onRecover={onRecover}
+          onRefresh={() => void refetch()}
+        />
+      ) : null}
+    </>
+  );
 }

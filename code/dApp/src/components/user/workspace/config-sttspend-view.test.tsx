@@ -1,11 +1,10 @@
+import "@/test/mock-workspace-queries";
+import { lockedContractUtxosErrorAtom, lockedContractUtxosLoadingAtom } from "@/test/workspace-query-fixtures";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import type { PropsWithChildren } from "react";
 import { describe, expect, it, vi } from "vitest";
-import {
-  lockedContractUtxosErrorAtom,
-  lockedContractUtxosLoadingAtom
-} from "@/components/user/workspace/atoms/workspace-data.atoms";
+
 
 const state = vi.hoisted(() => ({ value: {} as Record<string, unknown> }));
 const lockingContract = vi.hoisted(() => ({

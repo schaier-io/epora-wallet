@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { executeMeshMethod, getBlockfrostProvider, METHOD_VALUES } from "@/lib/mesh/blockfrost-server";
+import { executeMeshMethod, getBlockfrostProvider, METHOD_VALUES, MeshRpcInputError } from "@/lib/mesh/blockfrost-server";
+import { meshHttpRetryAfter, meshHttpStatus } from "@/lib/mesh/http-error";
 import { clientKey, rateLimit } from "@/lib/http/rate-limit";
-import { readBoundedJson, RequestBodyTooLargeError } from "@/lib/http/request-body";
+import { InvalidJsonError, readBoundedJson, RequestBodyTooDeepError, RequestBodyTooLargeError } from "@/lib/http/request-body";
 import { logger, serializeError, serializeErrorDetail } from "@/lib/observability/logger";
 import { getTranslations } from "next-intl/server";
 
@@ -71,6 +72,11 @@ export async function POST(request: Request) {
     if (error instanceof RequestBodyTooLargeError) {
       return NextResponse.json({ error: error.message }, { status: 413 });
     }
+    if (error instanceof z.ZodError || error instanceof MeshRpcInputError || error instanceof InvalidJsonError || error instanceof RequestBodyTooDeepError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    const upstreamStatus = meshHttpStatus(error);
+    const retryAfter = meshHttpRetryAfter(error);
     logger.error("api.mesh_request_failed", { err: serializeError(error) });
     // The build client's error mapper (workspace build-errors.ts) classifies
     // ledger failures — PPViewHashesDontMatch, BabbageOutputTooSmallUTxO, an
@@ -83,7 +89,7 @@ export async function POST(request: Request) {
     // stack's server file paths must not leave the server.
     return NextResponse.json(
       { error: i18n("meshRequestFailed"), details: serializeErrorDetail(error) },
-      { status: 500 }
+      { status: upstreamStatus ?? 500, ...(retryAfter ? { headers: { "Retry-After": retryAfter } } : {}) }
     );
   }
 }

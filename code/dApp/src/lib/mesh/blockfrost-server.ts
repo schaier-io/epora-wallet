@@ -3,6 +3,7 @@ import type { IFetcherOptions, UTxO } from "@meshsdk/common";
 import type { ChainMethod } from "@/lib/types/contracts";
 import { requireServerEnv } from "@/lib/env/server-env";
 import { meshHttpStatus } from "@/lib/mesh/http-error";
+import { fetchAddressUtxosStrict, fetchAssetAddressesStrict, fetchCollectionAssetsStrict } from "./blockfrost-reads";
 
 export const METHOD_VALUES = [
   "fetchAccountInfo",
@@ -26,11 +27,14 @@ export function getBlockfrostProvider() {
   return new BlockfrostProvider(requireServerEnv("BLOCKFROST_PREPROD_PROJECT_ID"));
 }
 
+export class MeshRpcInputError extends Error {}
+
 const MAX_STANDARD_ARG_LENGTH = 2_048;
 const MAX_TRANSACTION_HEX_LENGTH = 128 * 1_024;
 const MAX_ADDITIONAL_UTXOS = 64;
 const MAX_ADDITIONAL_TXS = 16;
 const MAX_ADDRESS_TX_PAGES = 8;
+const MAX_BLOCKFROST_PAGE = 21_474_836;
 
 function getStringArg(
   args: unknown[],
@@ -41,7 +45,7 @@ function getStringArg(
   const value = args[index];
 
   if (typeof value !== "string" || value.length === 0 || value.length > maxLength) {
-    throw new Error(
+    throw new MeshRpcInputError(
       `Argument '${label}' at index ${index} must be a non-empty string up to ${maxLength} characters.`
     );
   }
@@ -62,7 +66,7 @@ function getRelativePathArg(args: unknown[], index: number, label: string) {
   const value = getStringArg(args, index, label);
 
   const reject = () => {
-    throw new Error(`Argument '${label}' at index ${index} must be a relative Blockfrost path.`);
+    throw new MeshRpcInputError(`Argument '${label}' at index ${index} must be a relative Blockfrost path.`);
   };
 
   // Peel percent-encoding until it stops changing (cap the passes to avoid a
@@ -102,7 +106,7 @@ function getOptionalStringArg(args: unknown[], index: number, label: string) {
   }
 
   if (typeof value !== "string") {
-    throw new Error(`Argument '${label}' at index ${index} must be a string.`);
+    throw new MeshRpcInputError(`Argument '${label}' at index ${index} must be a string.`);
   }
 
   return value;
@@ -112,7 +116,7 @@ function getNumberArg(args: unknown[], index: number, label: string) {
   const value = args[index];
 
   if (typeof value !== "number" || Number.isNaN(value)) {
-    throw new Error(`Argument '${label}' at index ${index} must be a number.`);
+    throw new MeshRpcInputError(`Argument '${label}' at index ${index} must be a number.`);
   }
 
   return value;
@@ -126,7 +130,7 @@ function getOptionalNumberArg(args: unknown[], index: number, label: string) {
   }
 
   if (typeof value !== "number" || Number.isNaN(value)) {
-    throw new Error(`Argument '${label}' at index ${index} must be a number.`);
+    throw new MeshRpcInputError(`Argument '${label}' at index ${index} must be a number.`);
   }
 
   return value;
@@ -139,18 +143,12 @@ function getOptionalCursorArg(args: unknown[], index: number, label: string) {
     return undefined;
   }
 
-  if (typeof value === "number" && !Number.isNaN(value)) {
-    return value;
+  const parsed = typeof value === "string" ? Number(value) : value;
+  if (typeof parsed === "number" && Number.isSafeInteger(parsed) && parsed >= 1 && parsed <= MAX_BLOCKFROST_PAGE) {
+    return parsed;
   }
 
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    if (!Number.isNaN(parsed)) {
-      return parsed;
-    }
-  }
-
-  throw new Error(`Argument '${label}' at index ${index} must be a numeric string or number.`);
+  throw new MeshRpcInputError(`Argument '${label}' at index ${index} must be a page number between 1 and ${MAX_BLOCKFROST_PAGE}.`);
 }
 
 function getAddressTxOptionsArg(args: unknown[], index: number, label: string): IFetcherOptions {
@@ -161,7 +159,7 @@ function getAddressTxOptionsArg(args: unknown[], index: number, label: string): 
   }
 
   if (typeof value !== "object" || Array.isArray(value)) {
-    throw new Error(`Argument '${label}' at index ${index} must be an object.`);
+    throw new MeshRpcInputError(`Argument '${label}' at index ${index} must be an object.`);
   }
 
   const options = value as Record<string, unknown>;
@@ -174,12 +172,12 @@ function getAddressTxOptionsArg(args: unknown[], index: number, label: string): 
     maxPage < 1 ||
     maxPage > MAX_ADDRESS_TX_PAGES
   ) {
-    throw new Error(
+    throw new MeshRpcInputError(
       `Argument '${label}.maxPage' at index ${index} must be an integer between 1 and ${MAX_ADDRESS_TX_PAGES}.`
     );
   }
   if (order !== "asc" && order !== "desc") {
-    throw new Error(`Argument '${label}.order' at index ${index} must be 'asc' or 'desc'.`);
+    throw new MeshRpcInputError(`Argument '${label}.order' at index ${index} must be 'asc' or 'desc'.`);
   }
 
   // Bound the Blockfrost work caused by one public RPC request.
@@ -194,7 +192,7 @@ function getOptionalUtxosArg(args: unknown[], index: number, label: string) {
   }
 
   if (!Array.isArray(value) || value.length > MAX_ADDITIONAL_UTXOS) {
-    throw new Error(
+    throw new MeshRpcInputError(
       `Argument '${label}' at index ${index} must be an array with at most ${MAX_ADDITIONAL_UTXOS} entries.`
     );
   }
@@ -216,7 +214,7 @@ function getOptionalStringArrayArg(args: unknown[], index: number, label: string
       (entry) => typeof entry !== "string" || entry.length > MAX_TRANSACTION_HEX_LENGTH
     )
   ) {
-    throw new Error(
+    throw new MeshRpcInputError(
       `Argument '${label}' at index ${index} must contain at most ${MAX_ADDITIONAL_TXS} bounded transaction strings.`
     );
   }
@@ -239,7 +237,7 @@ export async function executeMeshMethod(
     }
     case "fetchAddressUTxOs": {
       return toUnknown(
-        provider.fetchAddressUTxOs(
+        fetchAddressUtxosStrict(provider,
           getStringArg(args, 0, "address"),
           getOptionalStringArg(args, 1, "asset")
         )
@@ -259,7 +257,7 @@ export async function executeMeshMethod(
       }
     }
     case "fetchAssetAddresses": {
-      return toUnknown(provider.fetchAssetAddresses(getStringArg(args, 0, "asset")));
+      return toUnknown(fetchAssetAddressesStrict(provider, getStringArg(args, 0, "asset")));
     }
     case "fetchAssetMetadata": {
       return toUnknown(provider.fetchAssetMetadata(getStringArg(args, 0, "asset")));
@@ -269,7 +267,7 @@ export async function executeMeshMethod(
     }
     case "fetchCollectionAssets": {
       return toUnknown(
-        provider.fetchCollectionAssets(
+        fetchCollectionAssetsStrict(provider,
           getStringArg(args, 0, "policyId"),
           getOptionalCursorArg(args, 1, "cursor")
         )
@@ -320,7 +318,7 @@ export async function executeMeshMethod(
       return toUnknown(provider.get(getRelativePathArg(args, 0, "url")));
     }
     default: {
-      throw new Error(`Unsupported method: ${method as string}`);
+      throw new MeshRpcInputError(`Unsupported method: ${method as string}`);
     }
   }
 }

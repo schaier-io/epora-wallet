@@ -13,6 +13,7 @@ const holder = vi.hoisted(() => ({
     refetch: vi.fn(async () => {})
   },
   noticeProps: null as null | {
+    actionsDisabled?: boolean;
     onRecover?: (orphans: DiscoveredUtxo[]) => void;
   }
 }));
@@ -122,4 +123,11 @@ describe("orphans", () => {
 
     expect(holder.noticeProps?.onRecover).toBe(onRecover);
   });
+});
+
+it("shows a failed refresh and disables actions on retained outputs", () => {
+  renderPanel({ error: "offline", orphans: [{ txHash: "aa", outputIndex: 0 } as DiscoveredUtxo], orphanLovelace: 5_000_000n });
+  expect(screen.getByRole("alert")).toHaveTextContent("Could not check");
+  expect(holder.noticeProps?.actionsDisabled).toBe(true);
+  expect(screen.getByTestId("orphan-notice")).toBeInTheDocument();
 });

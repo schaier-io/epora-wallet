@@ -1,129 +1,59 @@
-import { resetAllFlowAtom } from "./atoms/transaction-flow.atoms";
-import type { PropsWithChildren } from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { Provider, createStore } from "jotai";
-import { describe, expect, it } from "vitest";
-
-import { walletBalanceSummaryAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
-import { useWalletBalance } from "@/components/user/workspace/use-wallet-balance";
+import { useAtomValue } from "jotai";
+import { afterEach, expect, it, vi } from "vitest";
 import type { BrowserWallet } from "@meshsdk/core";
+import { activeAddressAtom, activeWalletAtom, activeWalletNameAtom, networkIdAtom } from "@/providers/wallet.atoms";
+import { createQueryTestWrapper } from "@/test/query-client";
+import { walletBalanceSummaryAtom } from "./atoms/workspace-data.atoms";
+import { useWalletBalance } from "./use-wallet-balance";
 
-function lovelace(quantity: string) {
-  return [
-    {
-      output: { amount: [{ unit: "lovelace", quantity }] }
-    }
-  ];
+const clients: ReturnType<typeof createQueryTestWrapper>["queryClient"][] = [];
+afterEach(() => clients.splice(0).forEach(client => client.clear()));
+function utxos(quantity: string) {
+  return [{ output: { amount: [{ unit: "lovelace", quantity }] } }] as Awaited<ReturnType<BrowserWallet["getUtxos"]>>;
 }
-
-/** A wallet whose `getUtxos` only settles when the test says so. */
-function deferredWallet(quantity: string) {
-  let release: () => void = () => {};
-  const settled = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  const wallet = {
-    getUtxos: async () => {
-      await settled;
-      return lovelace(quantity);
-    }
-  } as unknown as BrowserWallet;
-  return { wallet, release: () => release() };
+function setup(getUtxos: BrowserWallet["getUtxos"]) {
+  const context = createQueryTestWrapper();
+  clients.push(context.queryClient);
+  context.store.set(activeWalletAtom, { getUtxos } as BrowserWallet);
+  context.store.set(activeWalletNameAtom, "lace");
+  context.store.set(networkIdAtom, 0);
+  context.store.set(activeAddressAtom, "first");
+  const view = renderHook(() => ({ ...useWalletBalance(), summary: useAtomValue(walletBalanceSummaryAtom) }), { wrapper: context.wrapper });
+  return { ...context, ...view };
 }
-
-function immediateWallet(quantity: string) {
-  return { getUtxos: async () => lovelace(quantity) } as unknown as BrowserWallet;
-}
-
-/**
- * The auto-sync effect guarded its write with a `cancelled` flag. `refreshWalletBalance`
- * guarded nothing, and neither could see the other. A refresh started before a wallet
- * switch still wrote the old wallet's UTxOs when it landed, so the balance on screen
- * belonged to a wallet that was no longer connected.
- */
-describe("wallet balance reads", () => {
-  function renderWithWallet(wallet: BrowserWallet) {
-    const store = createStore();
-    const wrapper = ({ children }: PropsWithChildren) => (
-      <Provider store={store}>{children}</Provider>
-    );
-    const view = renderHook(
-      ({ activeWallet }: { activeWallet: BrowserWallet }) =>
-        useWalletBalance(activeWallet, true),
-      { wrapper, initialProps: { activeWallet: wallet } }
-    );
-    return { store, ...view };
-  }
-
-  it("drops a refresh that lands after the wallet has changed", async () => {
-    const stale = deferredWallet("111");
-    const { store, result, rerender } = renderWithWallet(stale.wallet);
-
-    // A refresh against the first wallet. It cannot settle until the test releases it.
-    let refreshing!: Promise<void>;
-    await act(async () => {
-      refreshing = result.current.refreshWalletBalance();
-    });
-
-    rerender({ activeWallet: immediateWallet("222") });
-    await waitFor(() =>
-      expect(store.get(walletBalanceSummaryAtom).assets[0]?.quantity).toBe("222")
-    );
-
-    // The first wallet answers last. Its answer must not win.
-    await act(async () => {
-      stale.release();
-      await refreshing;
-    });
-
-    expect(store.get(walletBalanceSummaryAtom).assets[0]?.quantity).toBe("222");
-  });
-
-  it("drops a same-wallet read that answers after a newer read", async () => {
-    const reads: Array<(value: ReturnType<typeof lovelace>) => void> = [];
-    const wallet = {
-      getUtxos: () => new Promise<ReturnType<typeof lovelace>>((resolve) => reads.push(resolve))
-    } as unknown as BrowserWallet;
-    const { store, result } = renderWithWallet(wallet);
-    let refreshing!: Promise<void>;
-    await act(async () => {
-      refreshing = result.current.refreshWalletBalance();
-    });
-    expect(reads).toHaveLength(2);
-    await act(async () => {
-      reads[1](lovelace("222"));
-      await refreshing;
-    });
-    await act(async () => reads[0](lovelace("111")));
-    expect(store.get(walletBalanceSummaryAtom).assets[0]?.quantity).toBe("222");
-  });
-
-  it("still reports the balance of the wallet that is connected", async () => {
-    const { store } = renderWithWallet(immediateWallet("333"));
-
-    await waitFor(() =>
-      expect(store.get(walletBalanceSummaryAtom).assets[0]?.quantity).toBe("333")
-    );
-    expect(store.get(walletBalanceSummaryAtom).loading).toBe(false);
-    expect(store.get(walletBalanceSummaryAtom).error).toBeNull();
-  });
+it("retires a pending old-account read", async () => {
+  let resolve!: (value: ReturnType<typeof utxos>) => void;
+  const getUtxos = vi.fn().mockImplementationOnce(() => new Promise(done => { resolve = done; })).mockResolvedValue(utxos("222"));
+  const view = setup(getUtxos);
+  act(() => view.store.set(activeAddressAtom, "second"));
+  await waitFor(() => expect(view.result.current.summary.assets[0]?.quantity).toBe("222"));
+  await act(async () => resolve(utxos("111")));
+  expect(view.result.current.summary.assets[0]?.quantity).toBe("222");
 });
-
-it("retires an imperative balance read after the workspace unmounts", async () => {
-  const store = createStore();
-  const wallet = immediateWallet("111");
-  const wrapper = ({ children }: PropsWithChildren) => <Provider store={store}>{children}</Provider>;
-  const { result } = renderHook(() => useWalletBalance(wallet, true), { wrapper });
-  await waitFor(() => expect(store.get(walletBalanceSummaryAtom).assets[0]?.quantity).toBe("111"));
-  let resolve!: (value: Awaited<ReturnType<BrowserWallet["getUtxos"]>>) => void;
-  wallet.getUtxos = () => new Promise(done => { resolve = done; }) as ReturnType<BrowserWallet["getUtxos"]>;
-  let pending!: Promise<void>;
-  await act(async () => { pending = result.current.refreshWalletBalance(); });
-  await act(async () => {
-    store.set(resetAllFlowAtom);
-    resolve(lovelace("222") as Awaited<ReturnType<BrowserWallet["getUtxos"]>>);
-    await pending;
-  });
-  expect(store.get(walletBalanceSummaryAtom).assets[0]?.quantity).toBe("111");
-  expect(store.get(walletBalanceSummaryAtom).loading).toBe(false);
+it("hides account data immediately on disconnect", async () => {
+  const view = setup(vi.fn().mockResolvedValue(utxos("111")));
+  await waitFor(() => expect(view.result.current.summary.assets[0]?.quantity).toBe("111"));
+  act(() => view.store.set(activeWalletAtom, null));
+  expect(view.result.current.summary).toEqual({ assets: [], loading: false, error: null });
+});
+it("retires a pending read when the final observer unmounts", async () => {
+  let resolve!: (value: ReturnType<typeof utxos>) => void;
+  const view = setup(() => new Promise(done => { resolve = done; }));
+  view.unmount();
+  await act(async () => resolve(utxos("111")));
+  expect(view.queryClient.getQueriesData({ queryKey: ["signer-utxos"] }).every(([, data]) => data === undefined)).toBe(true);
+});
+it("cancels an older background read when refresh starts", async () => {
+  let resolve!: (value: ReturnType<typeof utxos>) => void;
+  const getUtxos = vi.fn().mockResolvedValueOnce(utxos("111"))
+    .mockImplementationOnce(() => new Promise(done => { resolve = done; })).mockResolvedValue(utxos("333"));
+  const view = setup(getUtxos);
+  await waitFor(() => expect(view.result.current.summary.assets[0]?.quantity).toBe("111"));
+  let first!: Promise<void>;
+  act(() => { first = view.result.current.refreshWalletBalance(); });
+  await act(() => view.result.current.refreshWalletBalance());
+  await waitFor(() => expect(view.result.current.summary.assets[0]?.quantity).toBe("333"));
+  await act(async () => { resolve(utxos("222")); await first; });
+  expect(view.result.current.summary.assets[0]?.quantity).toBe("333");
 });

@@ -1,12 +1,10 @@
+import "@/test/mock-workspace-queries";
+import { lockedContractUtxosAtom, lockedContractUtxosErrorAtom, lockedContractUtxosLoadingAtom } from "@/test/workspace-query-fixtures";
 import { beneficiaryPreparationActiveAtom } from "./atoms/forms/consolidate-form.atoms";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import { describe, expect, it, vi } from "vitest";
-import {
-  lockedContractUtxosAtom,
-  lockedContractUtxosErrorAtom,
-  lockedContractUtxosLoadingAtom
-} from "@/components/user/workspace/atoms/workspace-data.atoms";
+
 
 const holder = vi.hoisted(() => ({
   selectedAction: "use" as string,

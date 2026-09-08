@@ -1,9 +1,10 @@
+import { spendableWalletUtxosAtom } from "./workspace-spendable-utxos.atoms";
 import { atom } from "jotai";
 import { activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
 import { configAtom } from "./workspace-config.atoms";
 import { selectedActionAtom, selectedDetectedTokenUnitAtom } from "./workspace-selection.atoms";
 import { selectedDetectedTokenStateFormAtom } from "./workspace-detected-token.atoms";
-import { lockedContractUtxosAtom, lockedContractUtxosLoadingAtom, lockedContractUtxosErrorAtom } from "./workspace-data.atoms";
+import { lockedContractUtxosLoadingAtom, lockedContractUtxosErrorAtom } from "./workspace-data.atoms";
 import { sttStateFormAtom, sttInputTxHashAtom, sttInputOutputIndexAtom, sttWalletInputsAtom, sttExtraTransfersAtom, sttAuthorityPathAtom } from "./forms/stt-spend-form.atoms";
 import { safeStringify } from "../helpers/guards";
 
@@ -17,7 +18,7 @@ export const recoveryCapacitySignatureAtom = atom((get) => {
     config: get(configAtom), actor: get(activePaymentKeyHashAtom),
     state: get(selectedDetectedTokenStateFormAtom) ?? get(sttStateFormAtom),
     sttInput: { txHash: get(sttInputTxHashAtom), outputIndex: get(sttInputOutputIndexAtom) },
-    refs, amounts: get(lockedContractUtxosAtom).filter(utxo => refs.some(ref => ref.txHash === utxo.input.txHash && ref.outputIndex === utxo.input.outputIndex)),
+    refs, amounts: get(spendableWalletUtxosAtom).filter(utxo => refs.some(ref => ref.txHash === utxo.input.txHash && ref.outputIndex === utxo.input.outputIndex)),
     loading: get(lockedContractUtxosLoadingAtom), discoveryError: get(lockedContractUtxosErrorAtom),
     transfers: get(sttExtraTransfersAtom), authority: get(sttAuthorityPathAtom)
   });

@@ -1,4 +1,8 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
+import type { RenderOptions } from "@testing-library/react";
+import { createQueryTestWrapper } from "@/test/query-client";
+import { fireEvent, render as queryRender, screen, waitFor } from "@testing-library/react";
+const render = (callback: ReactNode, options?: RenderOptions) => queryRender(callback, { wrapper: createQueryTestWrapper().wrapper, ...options });
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { StashedProposalDraft } from "./stash";
 
@@ -34,6 +38,7 @@ vi.mock("@/providers/wallet-provider", () => ({
 import { createDefaultStateForm, type UserFormState } from "@/lib/contracts/state-form";
 import type { CreateProposalRequest, ProposalBuildContext } from "@/lib/proposals/types";
 import { CreateProposalPanel } from "./create-proposal-panel";
+import { proposalKeys } from "@/lib/proposals/query";
 
 const PROPOSER = "aa".repeat(28);
 const OTHER = "bb".repeat(28);
@@ -253,4 +258,17 @@ describe("choosing who signs", () => {
     );
     expect(client.create).not.toHaveBeenCalled();
   });
+});
+
+
+it("caches a created proposal under its authenticated creator", async () => {
+  const context = createQueryTestWrapper();
+  const record = { id: "proposal-1", createdByKeyHash: OTHER };
+  client.create.mockResolvedValue(record);
+  const onCreated = vi.fn();
+  render(<CreateProposalPanel onCreated={onCreated} onCancel={vi.fn()} />, { wrapper: context.wrapper });
+  fireEvent.click(screen.getByRole("button", { name: /save request/i }));
+  await waitFor(() => expect(onCreated).toHaveBeenCalledWith(record.id));
+  expect(context.queryClient.getQueryData(proposalKeys.detail(OTHER, record.id))).toEqual(record);
+  expect(context.queryClient.getQueryData(proposalKeys.detail(PROPOSER, record.id))).toBeUndefined();
 });

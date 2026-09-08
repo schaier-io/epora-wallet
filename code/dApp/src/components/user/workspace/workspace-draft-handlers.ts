@@ -1,4 +1,5 @@
 "use client";
+import { selectedOrphanInputsAtom } from "./atoms/forms/orphan-inputs.atoms";
 import { useSetAtom } from "jotai";
 import { beneficiaryPreparationActiveAtom, beneficiaryPreparationPoolAssetsAtom, consolidateStateFormAtom, consolidateSttAssetsAtom, consolidateSttInputHashAtom, consolidateSttInputIndexAtom, consolidateWalletInputsAtom, consolidateWalletOutputsAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
 import { lockFundsAssetsAtom } from "@/components/user/workspace/atoms/forms/lock-funds-form.atoms";
@@ -104,8 +105,10 @@ export function useWorkspaceDraftHandlers(ctx: WorkspaceDraftHandlersCtx) {
   const setWithdrawSttInputIndex = useSetAtom(withdrawSttInputIndexAtom);
   const setWithdrawSttStateForm = useSetAtom(withdrawSttStateFormAtom);
   const setWithdrawZeroAdminConfirmed = useSetAtom(withdrawZeroAdminConfirmedAtom);
+  const setSelectedOrphanInputs = useSetAtom(selectedOrphanInputsAtom);
 
   function resetActionDraft(action: UserActionKind) {
+    setSelectedOrphanInputs(null);
     if (action === "mint") {
       setMintReference("");
       setMintStarterAssets(cloneAssets(DEFAULT_MINT_STARTER_ASSETS));

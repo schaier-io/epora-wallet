@@ -1,4 +1,6 @@
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { createQueryTestWrapper } from "@/test/query-client";
+import { act, renderHook as queryRenderhook, waitFor } from "@testing-library/react";
+const renderHook: typeof queryRenderhook = (callback, options) => queryRenderhook(callback, { wrapper: createQueryTestWrapper().wrapper, ...options });
 import { beforeEach, expect, it, vi } from "vitest";
 
 type ProposalErrorMessage = (error: unknown, fallback: string) => string;
@@ -38,6 +40,7 @@ vi.mock("@/providers/wallet-provider", () => ({
 
 import { useProposalSession } from "./use-proposal-session";
 import { ProposalRequestError } from "@/lib/proposals/client";
+import { proposalKeys } from "@/lib/proposals/query";
 
 const SESSION = {
   paymentKeyHash: "cc".repeat(28),
@@ -110,4 +113,22 @@ it("keeps the session and reports safe feedback when sign-out fails", async () =
   expect(result.current.session).toEqual(SESSION);
   expect(result.current.error).toBe("Could not sign out. Try again.");
   expect(result.current.error).not.toContain("database details");
+});
+
+
+it("clears private cached proposals and ignores an old auth response after sign-out", async () => {
+  const { wrapper, queryClient } = createQueryTestWrapper();
+  queryClient.setQueryData(proposalKeys.session, SESSION);
+  queryClient.setQueryData(proposalKeys.detail(SESSION.paymentKeyHash, "private"), { id: "private" });
+  let resolveRead!: (value: typeof SESSION) => void;
+  dependencies.fetchProposalSession.mockReturnValue(new Promise<typeof SESSION>((resolve) => { resolveRead = resolve; }));
+  dependencies.signOutProposals.mockResolvedValue(undefined);
+  const { result } = renderHook(() => useProposalSession(), { wrapper });
+  act(() => { void queryClient.invalidateQueries({ queryKey: proposalKeys.session }); });
+  await act(async () => result.current.signOut());
+  await waitFor(() => expect(result.current.session).toBeNull());
+  expect(queryClient.getQueriesData({ queryKey: proposalKeys.all })).toEqual([]);
+  await act(async () => { resolveRead(SESSION); });
+  expect(result.current.session).toBeNull();
+  expect(queryClient.getQueryData(proposalKeys.session)).toBeNull();
 });

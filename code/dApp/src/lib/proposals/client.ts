@@ -1,3 +1,4 @@
+import { parseRetryAfterMs } from "@/lib/http/retry-after";
 import { parseJsonSafe, serializeJsonSafe } from "./serialization";
 import { proposalCopy } from "./copy";
 import type {
@@ -13,7 +14,14 @@ import type {
 
 export type ProposalSessionInfo = { paymentKeyHash: string; address: string };
 
-export class ProposalRequestError extends Error {}
+export class ProposalRequestError extends Error {
+  constructor(message: string, readonly status?: number, readonly retryAfterMs?: number) {
+    super(message);
+    this.name = "ProposalRequestError";
+  }
+}
+
+export type ProposalReadOptions = { signal?: AbortSignal };
 
 export function getProposalErrorMessage(error: unknown, fallback: string): string {
   return error instanceof ProposalRequestError ? error.message : fallback;
@@ -31,10 +39,10 @@ async function readError(response: Response): Promise<string> {
   return proposalCopy.requestFailed(response.status);
 }
 
-async function getJson<T>(url: string): Promise<T> {
-  const response = await fetch(url, { credentials: "same-origin" });
+async function getJson<T>(url: string, options: ProposalReadOptions = {}): Promise<T> {
+  const response = await fetch(url, { credentials: "same-origin", signal: options.signal });
   if (!response.ok) {
-    throw new ProposalRequestError(await readError(response));
+    throw new ProposalRequestError(await readError(response), response.status, parseRetryAfterMs(response.headers.get("Retry-After")));
   }
   return response.json() as Promise<T>;
 }
@@ -47,20 +55,20 @@ async function sendJson<T>(url: string, method: string, body: unknown): Promise<
     body: serializeJsonSafe(body)
   });
   if (!response.ok) {
-    throw new ProposalRequestError(await readError(response));
+    throw new ProposalRequestError(await readError(response), response.status, parseRetryAfterMs(response.headers.get("Retry-After")));
   }
   return response.json() as Promise<T>;
 }
 
 // ---- auth ----------------------------------------------------------------
 
-export async function fetchProposalSession(): Promise<ProposalSessionInfo | null> {
-  const response = await fetch("/api/proposals/auth", { credentials: "same-origin" });
+export async function fetchProposalSession(options: ProposalReadOptions = {}): Promise<ProposalSessionInfo | null> {
+  const response = await fetch("/api/proposals/auth", { credentials: "same-origin", signal: options.signal });
   if (response.status === 401) {
     return null;
   }
   if (!response.ok) {
-    throw new ProposalRequestError(await readError(response));
+    throw new ProposalRequestError(await readError(response), response.status, parseRetryAfterMs(response.headers.get("Retry-After")));
   }
   return response.json() as Promise<ProposalSessionInfo>;
 }
@@ -87,7 +95,7 @@ export async function signOutProposals(): Promise<void> {
     credentials: "same-origin"
   });
   if (!response.ok) {
-    throw new ProposalRequestError(await readError(response));
+    throw new ProposalRequestError(await readError(response), response.status, parseRetryAfterMs(response.headers.get("Retry-After")));
   }
 }
 
@@ -102,17 +110,17 @@ export async function listProposals(options?: {
   walletUnit?: string;
   cursor?: string;
   limit?: number;
-}): Promise<ProposalListPage> {
+}, request: ProposalReadOptions = {}): Promise<ProposalListPage> {
   const query = new URLSearchParams();
   if (options?.walletUnit) query.set("walletUnit", options.walletUnit);
   if (options?.cursor) query.set("cursor", options.cursor);
   if (options?.limit) query.set("limit", String(options.limit));
   const suffix = query.size > 0 ? `?${query.toString()}` : "";
-  return getJson<ProposalListPage>(`/api/proposals${suffix}`);
+  return getJson<ProposalListPage>(`/api/proposals${suffix}`, request);
 }
 
-export async function fetchProposal(id: string): Promise<ProposalDetailDto> {
-  const { proposal } = await getJson<{ proposal: ProposalDetailDto }>(proposalPath(id));
+export async function fetchProposal(id: string, options: ProposalReadOptions = {}): Promise<ProposalDetailDto> {
+  const { proposal } = await getJson<{ proposal: ProposalDetailDto }>(proposalPath(id), options);
   return proposal;
 }
 
@@ -172,7 +180,7 @@ export async function cancelProposal(id: string): Promise<void> {
     credentials: "same-origin"
   });
   if (!response.ok) {
-    throw new ProposalRequestError(await readError(response));
+    throw new ProposalRequestError(await readError(response), response.status, parseRetryAfterMs(response.headers.get("Retry-After")));
   }
 }
 

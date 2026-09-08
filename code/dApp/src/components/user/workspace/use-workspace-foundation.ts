@@ -16,6 +16,7 @@ import { useWorkspaceController } from "@/components/user/use-workspace-controll
 import { useSmartWalletDisplay } from "@/providers/smart-wallet-display";
 
 import { useWalletContext } from "@/providers/wallet-provider";
+import { chainReadsEnabledAtom } from "@/providers/wallet.atoms";
 import { useAtom, useSetAtom, useStore, useAtomValue, type ExtractAtomValue } from "jotai";
 import {
   activeBuildAtom, activeSubmitAtom, buildDiagnosticIdAtom, buildErrorAtom, buildErrorExpectedAtom,
@@ -69,14 +70,11 @@ export function useWorkspaceFoundation() {
     activeWallet,
     activeWalletName,
     activePaymentKeyHash,
-    isConnecting,
     isDemoWallet,
     networkId
   } = useWalletContext();
   const walletReady = Boolean(activeWallet && networkId === 0);
-  // Begin public chain reads during a real connection attempt. This removes
-  // signed-out reload traffic without extending the post-connect loading state.
-  const chainReadsEnabled = isConnecting || walletReady;
+  const chainReadsEnabled = useAtomValue(chainReadsEnabledAtom);
 
   // Subscribe to config (not the value, just the setter) so the controller re-renders on
   // config change, which keeps the transaction builders' render-time config snapshot current.
@@ -88,9 +86,7 @@ export function useWorkspaceFoundation() {
     setRenderNowMs(Date.now());
   }, [setRenderNowMs]);
   const setConnectStepPinned = useSetAtom(connectStepPinnedAtom);
-  const { refreshSharedSttReferenceStore, resetSharedReferencePreview } = useSharedSttReference({
-    enabled: chainReadsEnabled
-  });
+  const { refreshSharedSttReferenceStore, resetSharedReferencePreview } = useSharedSttReference();
   const sharedSttReferenceStore = useAtomValue(sharedSttReferenceStoreAtom);
   const sharedSttReferenceStoreLoading = useAtomValue(sharedSttReferenceStoreLoadingAtom);
   const { rememberRecipient, rememberRecipients } = useRecentRecipients();
@@ -224,10 +220,7 @@ export function useWorkspaceFoundation() {
   // rapid double-click can pass the disabled check before the re-render.
   // The ref flips synchronously and blocks the second invocation.
   const submitInFlightRef = useRef<ExtractAtomValue<typeof workspaceSessionAtom> | null>(null);
-  const { refreshWalletBalance } = useWalletBalance(
-    activeWallet,
-    walletReady
-  );
+  const { refreshWalletBalance } = useWalletBalance();
 
   const {
     routeState,
@@ -302,7 +295,6 @@ export function useWorkspaceFoundation() {
     refreshDetectedTokens,
     refreshPermissionWalletSummaries
   } = useDetectedSttTokens({
-    enabled: chainReadsEnabled,
     selectedDetectedTokenUnit,
     setSelectedDetectedTokenUnit
   });

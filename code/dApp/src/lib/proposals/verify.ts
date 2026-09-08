@@ -38,6 +38,7 @@ const MAX_CONCURRENT_INPUT_LOOKUPS = 8;
 export const MAX_BACKGROUND_PROPOSAL_INPUT_LOOKUPS = 8;
 
 type VerifyProposalOptions = {
+  signal?: AbortSignal;
   /**
    * Background list checks must not let one stored transaction consume an
    * unbounded number of provider requests. Omit this for the selected detail,
@@ -435,7 +436,8 @@ export async function verifyProposal(
   proposal: ProposalDetailDto,
   options: VerifyProposalOptions = {}
 ): Promise<ProposalVerification> {
-  const fetcher = new ServerFetcher();
+  options.signal?.throwIfAborted();
+  const fetcher = new ServerFetcher({ signal: options.signal });
   const buildContext = parseProposalBuildContext(proposal);
   const effect = decodeEffect(proposal.unsignedTxHex);
   const reasons: string[] = [];
@@ -524,6 +526,7 @@ export async function verifyProposal(
     reasons.push(proposalCopy.noInputsVerified());
   }
 
+  options.signal?.throwIfAborted();
   const currentSignatures = proposal.signatures.filter((signature) => signature.current);
   const signedKeyHashes: string[] = [];
   let signaturesValid = true;
@@ -549,6 +552,7 @@ export async function verifyProposal(
         decodeRequiredSigners(proposal.unsignedTxHex)
       )
     : { signers: null, walletAssetBound: false, reachable: false, stateTransition: null };
+  options.signal?.throwIfAborted();
   if (!signerResolution.walletAssetBound) {
     stateInputBound = false;
     reasons.push(proposalCopy.stateTokenMissing());

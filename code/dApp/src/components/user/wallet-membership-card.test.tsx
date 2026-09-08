@@ -1,7 +1,17 @@
-import { render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import type { ReactElement } from "react";
+import { createQueryTestWrapper } from "@/test/query-client";
+import { render as renderUI, screen, waitFor } from "@testing-library/react";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
-const countSttTokens = vi.fn(async () => 6);
+let context: ReturnType<typeof createQueryTestWrapper>;
+const render = (ui: ReactElement) => renderUI(ui, { wrapper: context.wrapper });
+beforeEach(() => {
+  context = createQueryTestWrapper();
+  countSttTokens.mockReset().mockResolvedValue(6);
+});
+afterEach(() => context.queryClient.clear());
+
+const countSttTokens = vi.fn<(policyId: string, signal?: AbortSignal) => Promise<number>>(async () => 6);
 vi.mock("@/lib/mesh/detection", () => ({ countSttTokens }));
 vi.mock("@/providers/toast-provider", () => ({
   useToast: () => ({ success: vi.fn(), error: vi.fn(), info: vi.fn() })
@@ -57,4 +67,29 @@ describe("wallet membership card asset name", () => {
 
     expect(screen.getByText("Smart wallet")).toBeTruthy();
   });
+});
+
+it("clears the prior policy's number while the next policy is loading", async () => {
+  countSttTokens.mockResolvedValueOnce(6).mockImplementation(() => new Promise(() => {}));
+  const view = render(<WalletMembershipCard walletName="W" policyId="policy-a" />);
+  await waitFor(() => expect(screen.getByText("Founding member · No. 6")).toBeInTheDocument());
+  view.rerender(<WalletMembershipCard walletName="W" policyId="policy-b" />);
+  expect(screen.queryByText("Founding member · No. 6")).not.toBeInTheDocument();
+  expect(screen.getByText("Member")).toBeInTheDocument();
+  view.rerender(<WalletMembershipCard walletName="W" policyId={null} />);
+  expect(countSttTokens.mock.calls[1][1]?.aborted).toBe(true);
+});
+
+it("shares counts for one policy and isolates a different network", async () => {
+  const view = render(<>
+    <WalletMembershipCard walletName="A" policyId="policy" network="Preprod" />
+    <WalletMembershipCard walletName="B" policyId="policy" network="preprod" />
+  </>);
+  await waitFor(() => expect(screen.getAllByText("Founding member · No. 6")).toHaveLength(2));
+  expect(countSttTokens).toHaveBeenCalledTimes(1);
+  countSttTokens.mockResolvedValueOnce(7);
+  view.rerender(<WalletMembershipCard walletName="W" policyId="policy" network="Preview" />);
+  expect(screen.queryByText("Founding member · No. 6")).not.toBeInTheDocument();
+  await waitFor(() => expect(screen.getByText("Founding member · No. 7")).toBeInTheDocument());
+  expect(countSttTokens).toHaveBeenCalledTimes(2);
 });

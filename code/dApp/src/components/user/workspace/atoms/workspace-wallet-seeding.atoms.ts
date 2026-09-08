@@ -1,3 +1,4 @@
+import { selectedOrphanInputsAtom } from "./forms/orphan-inputs.atoms";
 import { atom } from "jotai";
 
 import {
@@ -79,6 +80,7 @@ export const seedWorkspaceWalletAtom = atom(
     set(updateStateFormAtom, withBeneficiarySigningAddressesDerived(cloneStateForm(stateForm)));
     set(sttOutputAssetsAtom, []);
     set(sttWalletInputsAtom, []);
+    set(selectedOrphanInputsAtom, null);
     set(sttWalletOutputsAtom, []);
     set(sttExtraTransfersAtom, []);
     set(sttProofOfLifeOverrideModeAtom, "auto");

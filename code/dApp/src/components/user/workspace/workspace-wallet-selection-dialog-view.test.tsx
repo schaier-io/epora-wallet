@@ -1,12 +1,11 @@
+import "@/test/mock-workspace-queries";
+import { detectedSttTokensLoadingAtom, permissionWalletSummariesLoadingAtom } from "@/test/workspace-query-fixtures";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import type { BrowserWallet } from "@meshsdk/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { activeWalletAtom, networkIdAtom } from "@/providers/wallet.atoms";
-import {
-  detectedSttTokensLoadingAtom,
-  permissionWalletSummariesLoadingAtom
-} from "@/components/user/workspace/atoms/workspace-data.atoms";
+
 
 // Only the fields the view reads. `token.unit` is the key and the selection id.
 const cards: Array<{

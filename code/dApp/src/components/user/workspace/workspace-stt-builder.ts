@@ -1,5 +1,5 @@
 "use client";
-import { lockedContractUtxosAtom } from "./atoms/workspace-data.atoms";
+import { spendableWalletUtxosAtom } from "./atoms/workspace-spendable-utxos.atoms";
 import { renderNowMsAtom } from "./atoms/workspace-ui.atoms";
 import { resolveWorkspaceTransactionInputs } from "./workspace-transaction-inputs";
 import type { createProposalCaptureWriter } from "./workspace-proposal-capture";
@@ -126,7 +126,7 @@ export function createWorkspaceSttBuilder(
           effectiveExtraTransfers.length > 0
         ) {
           const coverage = checkSelectedFundPoolCoverage({
-            lockedUtxos: jotaiStore.get(lockedContractUtxosAtom),
+            lockedUtxos: jotaiStore.get(spendableWalletUtxosAtom),
             selectedRefs: effectiveWalletInputs,
             transfers: effectiveExtraTransfers,
             streamingPayments: activeInferredSttStateForm.streamingPayments,

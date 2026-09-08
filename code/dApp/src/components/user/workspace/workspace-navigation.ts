@@ -1,8 +1,10 @@
 "use client";
-import { detectedSttTokensAtom, lockedContractUtxosAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
+import { detectedSttTokensAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { useWorkspaceRouteState } from "@/components/user/use-workspace-controller";
 import { connectStepPinnedAtom, renderNowMsAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
 import { configAtom } from "@/components/user/workspace/atoms/workspace-config.atoms";
+import { selectedOrphanInputsAtom } from "./atoms/forms/orphan-inputs.atoms";
+import { activeAddressAtom } from "@/providers/wallet.atoms";
 import { type WalletInputRef } from "@/lib/types/contracts";
 import { useSetAtom, useAtomValue } from "jotai";
 import { consolidateSttInputHashAtom, consolidateSttInputIndexAtom, consolidateWalletInputsAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
@@ -30,7 +32,7 @@ import {
   chooseDefaultConsolidatePath,
   chooseDefaultOperatorPath
 } from "@/components/user/wizard-capabilities";
-import { mergeDiscoveredWalletUtxos, orphanUtxosToWalletInputRefs } from "@/lib/discovery/orphan-utxos";
+import { orphanUtxosToWalletInputRefs } from "@/lib/discovery/orphan-utxos";
 import type { DiscoveredUtxo } from "@/lib/discovery/types";
 
 import {
@@ -288,9 +290,11 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
     }
     const refs = orphanUtxosToWalletInputRefs(orphans);
     openWorkspaceIntent("send", "use-beneficiary");
-    jotaiStore.set(lockedContractUtxosAtom, (loaded) =>
-      mergeDiscoveredWalletUtxos(loaded, orphans)
-    );
+    jotaiStore.set(selectedOrphanInputsAtom, {
+      walletUnit: selectedDetectedToken?.unit ?? "",
+      signerAddress: jotaiStore.get(activeAddressAtom),
+      outputs: orphans
+    });
     jotaiStore.set(sttWalletInputsAtom, refs);
   }
 

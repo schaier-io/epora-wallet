@@ -1,7 +1,7 @@
 "use client";
 import { useAtomValue, useSetAtom, useAtom } from "jotai";
-import { useEffect, useState } from "react";
-import { ServerFetcher } from "@/lib/mesh/server-fetcher";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query/keys";
 import { beneficiaryPreparationPreviewAtom, beneficiaryPreparationProtocolAtom } from "./atoms/beneficiary-preparation.atoms";
 import { beneficiaryPreparationPoolAssetsAtom, consolidateWalletInputsAtom } from "./atoms/forms/consolidate-form.atoms";
 import { lockedContractUtxosAtom, lockedContractUtxosLoadingAtom, lockedContractUtxosErrorAtom } from "./atoms/workspace-data.atoms";
@@ -11,7 +11,8 @@ import { useWorkspaceActions } from "./workspace-actions-context";
 
 export function useBeneficiaryPreparation() {
   const preview = useAtomValue(beneficiaryPreparationPreviewAtom);
-  const [protocol, setProtocol] = useAtom(beneficiaryPreparationProtocolAtom);
+  const protocol = useAtomValue(beneficiaryPreparationProtocolAtom);
+  const client = useQueryClient();
   const [poolAssets, setPoolAssets] = useAtom(beneficiaryPreparationPoolAssetsAtom);
   const [selectedRefs, setSelectedRefs] = useAtom(consolidateWalletInputsAtom);
   const utxos = useAtomValue(lockedContractUtxosAtom);
@@ -19,26 +20,13 @@ export function useBeneficiaryPreparation() {
   const discoveryError = useAtomValue(lockedContractUtxosErrorAtom);
   const walletAddress = useAtomValue(lockingContractAtom).address ?? "";
   const setNow = useSetAtom(renderNowMsAtom);
-  const [refreshVersion, setRefreshVersion] = useState(0);
   const { refreshLockedContractUtxos, openWorkspaceIntent } = useWorkspaceActions();
-  useEffect(() => {
-    let current = true;
-    setProtocol(null);
-    if (walletAddress) {
-      void new ServerFetcher().fetchProtocolParameters().then(params => {
-        if (current) setProtocol({ address: walletAddress, params, error: false });
-      }, () => {
-        if (current) setProtocol({ address: walletAddress, params: null, error: true });
-      });
-    }
-    return () => { current = false; };
-  }, [walletAddress, refreshVersion, setProtocol]);
   return { ...preview, poolAssets, setPoolAssets, selectedRefs, setSelectedRefs, utxos,
-    loading: loading || !protocol || protocol.address !== walletAddress,
+    loading: loading || protocol?.loading || !protocol,
     discoveryError, walletAddress,
     refresh: () => {
       setNow(Date.now());
-      setRefreshVersion(value => value + 1);
+      void client.invalidateQueries({ queryKey: queryKeys.protocolParameters(), exact: true });
       if (walletAddress) void refreshLockedContractUtxos(walletAddress);
     },
     correctAda: () => {

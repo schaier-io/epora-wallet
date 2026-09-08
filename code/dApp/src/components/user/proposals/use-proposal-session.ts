@@ -1,16 +1,17 @@
 "use client";
 import { useTranslations } from "next-intl";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   completeSignIn,
-  fetchProposalSession,
   getProposalErrorMessage,
   requestSignInNonce,
   signOutProposals,
   type ProposalSessionInfo
 } from "@/lib/proposals/client";
 import { useWalletContext } from "@/providers/wallet-provider";
+import { clearProposalQueries, proposalKeys, proposalSessionQueryOptions } from "@/lib/proposals/query";
 
 export type ProposalSessionController = {
   session: ProposalSessionInfo | null;
@@ -39,40 +40,45 @@ export type ProposalSessionController = {
 export function useProposalSession(): ProposalSessionController {
   const i18n = useTranslations("ComponentsUserProposalsUseProposalSession");
   const { activeWallet, activeAddress, activePaymentKeyHash, isDemoWallet } = useWalletContext();
-  const [session, setSession] = useState<ProposalSessionInfo | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [signingIn, setSigningIn] = useState(false);
+  const queryClient = useQueryClient();
+  const sessionQuery = useQuery(proposalSessionQueryOptions());
+  const session = sessionQuery.data ?? null;
   const [error, setError] = useState<string | null>(null);
+  const previousSigner = useRef<string | undefined>(undefined);
+  const authInFlight = useRef(false);
 
   useEffect(() => {
-    let cancelled = false;
-    fetchProposalSession()
-      .then((value) => {
-        if (!cancelled) {
-          setSession(value);
-        }
-      })
-      .catch((caught) => {
-        if (!cancelled) {
-          setError(
-            getProposalErrorMessage(
-              caught,
-              i18n("couldnTLoadProposalSessionTryAgain")
-            )
-          );
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [i18n]);
+    if (sessionQuery.isPending) return;
+    const signer = session?.paymentKeyHash;
+    if (previousSigner.current && previousSigner.current !== signer) {
+      clearProposalQueries(queryClient, previousSigner.current);
+    }
+    previousSigner.current = signer;
+  }, [queryClient, session?.paymentKeyHash, sessionQuery.isPending]);
 
-  const signIn = useCallback(async () => {
+  const signInMutation = useMutation({
+    mutationFn: async () => {
+      if (!activeWallet || !activeAddress) throw new Error("Wallet unavailable");
+      const nonce = await requestSignInNonce(activeAddress);
+      const dataSignature = await activeWallet.signData(nonce, activeAddress);
+      return completeSignIn({
+        address: activeAddress,
+        nonce,
+        signature: dataSignature.signature,
+        key: dataSignature.key
+      });
+    },
+    retry: false,
+    networkMode: "always"
+  });
+  const signOutMutation = useMutation({
+    mutationFn: () => signOutProposals(),
+    retry: false,
+    networkMode: "always"
+  });
+
+  async function signIn() {
+    if (authInFlight.current) return;
     if (!activeWallet || !activeAddress) {
       setError(i18n("connectABrowserWalletBeforeSigningIn"));
       return;
@@ -81,35 +87,37 @@ export function useProposalSession(): ProposalSessionController {
       setError(i18n("theDemoWalletIsReadOnlyAndCannot"));
       return;
     }
-
-    setSigningIn(true);
+    authInFlight.current = true;
     setError(null);
     try {
-      const nonce = await requestSignInNonce(activeAddress);
-      const dataSignature = await activeWallet.signData(nonce, activeAddress);
-      const result = await completeSignIn({
-        address: activeAddress,
-        nonce,
-        signature: dataSignature.signature,
-        key: dataSignature.key
-      });
-      setSession(result);
+      await queryClient.cancelQueries({ queryKey: proposalKeys.session });
+      const result = await signInMutation.mutateAsync();
+      await queryClient.cancelQueries({ queryKey: proposalKeys.session });
+      clearProposalQueries(queryClient);
+      queryClient.setQueryData(proposalKeys.session, result);
     } catch (caught) {
       setError(getProposalErrorMessage(caught, i18n("couldnTSignInTryAgain")));
     } finally {
-      setSigningIn(false);
+      authInFlight.current = false;
     }
-  }, [activeAddress, activeWallet, i18n, isDemoWallet]);
+  }
 
-  const signOut = useCallback(async () => {
+  async function signOut() {
+    if (authInFlight.current) return;
+    authInFlight.current = true;
     setError(null);
     try {
-      await signOutProposals();
-      setSession(null);
+      await queryClient.cancelQueries({ queryKey: proposalKeys.session });
+      await signOutMutation.mutateAsync();
+      await queryClient.cancelQueries({ queryKey: proposalKeys.session });
+      clearProposalQueries(queryClient);
+      queryClient.setQueryData(proposalKeys.session, null);
     } catch {
       setError(i18n("couldnTSignOutTryAgain"));
+    } finally {
+      authInFlight.current = false;
     }
-  }, [i18n]);
+  }
 
   // A MISSING key is deliberately not a mismatch. The wallet layer reconnects after the first
   // paint, so reading that gap as "a different wallet" would flash the sign-in gate on every
@@ -118,5 +126,16 @@ export function useProposalSession(): ProposalSessionController {
     session && activePaymentKeyHash && activePaymentKeyHash !== session.paymentKeyHash
   );
 
-  return { session, connectedWalletMismatch, activeAddress, loading, signingIn, error, signIn, signOut };
+  return {
+    session,
+    connectedWalletMismatch,
+    activeAddress,
+    loading: sessionQuery.isPending,
+    signingIn: signInMutation.isPending,
+    error: error ?? (sessionQuery.error
+      ? getProposalErrorMessage(sessionQuery.error, i18n("couldnTLoadProposalSessionTryAgain"))
+      : null),
+    signIn,
+    signOut
+  };
 }

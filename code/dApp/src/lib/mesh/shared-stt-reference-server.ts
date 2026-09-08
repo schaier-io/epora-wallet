@@ -10,6 +10,7 @@ import { inspectSharedSttReferenceStore } from "./transactions/internals/referen
 
 const READY_CACHE_MS = 60_000;
 const RETRY_CACHE_MS = 5_000;
+const DISCOVERY_TIMEOUT_MS = 15_000;
 let cached: Promise<SharedSttReferenceStoreInfo> | undefined;
 let expiresAt = 0;
 
@@ -35,11 +36,25 @@ async function inspect(): Promise<SharedSttReferenceStoreInfo> {
   };
 }
 
+async function inspectWithTimeout(): Promise<SharedSttReferenceStoreInfo> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      inspect(),
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => reject(new Error("Shared STT reference discovery timed out.")), DISCOVERY_TIMEOUT_MS);
+      })
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** Shares discovery across callers. Builders still verify the returned output before use. */
 export function resolveSharedSttReferenceServer(): Promise<SharedSttReferenceStoreInfo> {
   if (!cached || Date.now() >= expiresAt) {
     expiresAt = Infinity;
-    cached = inspect().then(
+    cached = inspectWithTimeout().then(
       (result) => {
         expiresAt = Date.now() + (result.status === "ready" ? READY_CACHE_MS : RETRY_CACHE_MS);
         return result;

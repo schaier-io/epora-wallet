@@ -1,6 +1,9 @@
 import { StrictMode, type PropsWithChildren } from "react";
-import { fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
+import { createQueryTestWrapper } from "@/test/query-client";
+import { isConnectingAtom } from "@/providers/wallet.atoms";
+import { queryKeys } from "@/lib/query/keys";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { DetectedSttToken } from "@/lib/mesh/detection";
 
@@ -22,7 +25,7 @@ vi.mock("@/lib/mesh/detection", () => ({
 
 vi.mock("@/lib/contracts/blueprint", () => ({
   getSttMintPolicyId: () => "aa".repeat(28),
-  resolveWalletSpendAddress: () => "addr_test1smartwallet"
+  resolveWalletContinuingOutputAddressFromState: () => "addr_test1smartwallet"
 }));
 
 vi.mock("@/components/user/workspace/helpers", () => ({
@@ -49,7 +52,6 @@ vi.mock("@/components/user/product-faq-list", () => ({
 }));
 
 import {
-  detectedSttTokensAtom,
   detectedSttTokensLoadingAtom,
   sharedSttReferenceStoreLoadingAtom
 } from "@/components/user/workspace/atoms/workspace-data.atoms";
@@ -91,13 +93,8 @@ const STALE_TOKEN = {
 } satisfies DetectedSttToken;
 
 function strictStoreWrapper(store: ReturnType<typeof createStore>) {
-  return function StrictStoreWrapper({ children }: PropsWithChildren) {
-    return (
-      <StrictMode>
-        <Provider store={store}>{children}</Provider>
-      </StrictMode>
-    );
-  };
+  const context = createQueryTestWrapper({ jotaiStore: store });
+  return { ...context, wrapper: ({ children }: PropsWithChildren) => <StrictMode><context.wrapper>{children}</context.wrapper></StrictMode> };
 }
 
 beforeEach(() => {
@@ -110,17 +107,16 @@ beforeEach(() => {
 describe("workspace chain-read gating", () => {
   it("does no token detection or stale-token summary reads before connection starts", async () => {
     const store = createStore();
-    store.set(detectedSttTokensAtom, [STALE_TOKEN]);
-    const { rerender } = renderHook(
-      ({ enabled }) =>
+    const context = strictStoreWrapper(store);
+    context.queryClient.setQueryData(queryKeys.sttInventory("aa".repeat(28)), { ...EMPTY_DETECTION, tokens: [STALE_TOKEN] }, { updatedAt: 1 });
+    renderHook(
+      () =>
         useDetectedSttTokens({
-          enabled,
           selectedDetectedTokenUnit: "",
           setSelectedDetectedTokenUnit: vi.fn()
         }),
       {
-        initialProps: { enabled: false },
-        wrapper: strictStoreWrapper(store)
+        wrapper: context.wrapper
       }
     );
 
@@ -128,32 +124,29 @@ describe("workspace chain-read gating", () => {
     expect(chain.fetchScriptUtxos).not.toHaveBeenCalled();
     expect(store.get(detectedSttTokensLoadingAtom)).toBe(true);
 
-    rerender({ enabled: true });
+    act(() => store.set(isConnectingAtom, true));
 
-    await waitFor(() => expect(chain.detectSttInfo).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(chain.detectSttInfo.mock.calls.filter(([, signal]) => !(signal as AbortSignal).aborted)).toHaveLength(1));
     await waitFor(() => expect(store.get(detectedSttTokensLoadingAtom)).toBe(false));
     expect(chain.fetchScriptUtxos).not.toHaveBeenCalled();
   });
 
   it("does not inspect the shared reference store until connection starts", async () => {
     const store = createStore();
-    const { rerender } = renderHook(
-      ({ enabled }) =>
-        useSharedSttReference({
-          enabled
-        }),
+    renderHook(
+      () =>
+        useSharedSttReference(),
       {
-        initialProps: { enabled: false },
-        wrapper: strictStoreWrapper(store)
+        wrapper: strictStoreWrapper(store).wrapper
       }
     );
 
     expect(chain.detectSharedSttReferenceStore).not.toHaveBeenCalled();
     expect(store.get(sharedSttReferenceStoreLoadingAtom)).toBe(true);
 
-    rerender({ enabled: true });
+    act(() => store.set(isConnectingAtom, true));
 
-    await waitFor(() => expect(chain.detectSharedSttReferenceStore).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(chain.detectSharedSttReferenceStore.mock.calls.filter(([signal]) => !(signal as AbortSignal).aborted)).toHaveLength(1));
     await waitFor(() => expect(store.get(sharedSttReferenceStoreLoadingAtom)).toBe(false));
   });
 

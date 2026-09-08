@@ -1,4 +1,5 @@
 "use client";
+import { isConnectingAtom } from "./wallet.atoms";
 import { useTranslations } from "next-intl";
 
 
@@ -163,7 +164,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
   const [activeAddress, setActiveAddress] = useAtom(activeAddressAtom);
   const [activeRewardAddress, setActiveRewardAddress] = useAtom(activeRewardAddressAtom);
   const [activePaymentKeyHash, setActivePaymentKeyHash] = useAtom(activePaymentKeyHashAtom);
-  const [isConnecting, setIsConnecting] = useState(false);
+  const [isConnecting, setIsConnecting] = useAtom(isConnectingAtom);
   const [walletSessionLoading, setWalletSessionLoading] = useState(true);
   const [networkId, setNetworkId] = useAtom(networkIdAtom);
   const [connectError, setConnectError] = useState<string | null>(null);
@@ -394,7 +395,8 @@ export function WalletProvider({ children }: PropsWithChildren) {
     setActiveAddress,
     setActiveRewardAddress,
     setActivePaymentKeyHash,
-    setNetworkId
+    setNetworkId,
+    setIsConnecting
   ]);
   const connectWallet = useCallback((walletName: string) => connect(walletName, false), [connect]);
 
@@ -420,7 +422,8 @@ export function WalletProvider({ children }: PropsWithChildren) {
     setActiveAddress,
     setActiveRewardAddress,
     setActivePaymentKeyHash,
-    setNetworkId
+    setNetworkId,
+    setIsConnecting
   ]);
 
   const cancelConnect = useCallback(() => {
@@ -431,7 +434,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
     setConnectingWalletName(null);
     setConnectError(null);
     setWalletSessionLoading(false);
-  }, []);
+  }, [setIsConnecting]);
 
   useEffect(() => {
     // Load available wallets once on mount. Focus and injection events refresh the list below.

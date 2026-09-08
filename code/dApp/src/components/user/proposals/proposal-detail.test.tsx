@@ -1,4 +1,8 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
+import type { RenderOptions } from "@testing-library/react";
+import { createQueryTestWrapper } from "@/test/query-client";
+import { fireEvent, render as queryRender, screen, waitFor } from "@testing-library/react";
+const render = (callback: ReactNode, options?: RenderOptions) => queryRender(callback, { wrapper: createQueryTestWrapper().wrapper, ...options });
 import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProposalDetailDto } from "@/lib/proposals/types";

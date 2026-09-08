@@ -6,7 +6,7 @@ import { recentWalletActivityEventsAtom, walletTransactionsAtom } from "@/compon
 import { selectedDetectedTokenAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
 import { activeInferredSttStateFormAtom, lockingContractAtom, totalLockedContractAssetsAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
-import { lockedContractUtxosAtom, lockedContractUtxosErrorAtom, lockedContractUtxosLoadingAtom, walletBalanceSummaryAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
+import { lockedContractUtxosAtom, lockedContractUtxosErrorAtom, lockedContractUtxosLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 
 import {
   AlarmClock,
@@ -148,7 +148,6 @@ export function WorkspaceWalletDashboardView() {
   const lockingContract = useAtomValue(lockingContractAtom);
   const selectedDetectedToken = useAtomValue(selectedDetectedTokenAtom);
   const totalLockedContractAssets = useAtomValue(totalLockedContractAssetsAtom);
-  const walletBalanceSummary = useAtomValue(walletBalanceSummaryAtom);
   const lockedContractUtxos = useAtomValue(lockedContractUtxosAtom);
   const lockedContractUtxosLoading = useAtomValue(lockedContractUtxosLoadingAtom);
   const lockedContractUtxosError = useAtomValue(lockedContractUtxosErrorAtom);
@@ -206,7 +205,7 @@ export function WorkspaceWalletDashboardView() {
                         )}
                         assetTypeCount={totalLockedContractAssets.length}
                         fundingSourceCount={lockedContractUtxos.length}
-                        loading={walletBalanceSummary.loading}
+                        loading={lockedContractUtxosLoading}
                         onCopyAddress={() => {
                           if (lockingContract.address) {
                             void copyTextToClipboard(

@@ -12,6 +12,7 @@ import "@/app/globals.css";
 import "@/app/globals/animations.css";
 import { MotionConfig } from "motion/react";
 import "@/components/ProfileCard.css";
+import { QueryProvider } from "@/providers/query-provider";
 import { WalletProvider } from "@/providers/wallet-provider";
 import { WalletConnectProvider } from "@/providers/walletconnect-provider";
 import { SmartWalletDisplayProvider } from "@/providers/smart-wallet-display";
@@ -191,6 +192,7 @@ export default async function RootLayout({
           <GlobalBackground />
           <RiskDisclaimerGate />
           <ToastProvider>
+            <QueryProvider>
             <WalletProvider>
               <WalletConnectProvider>
               <SmartWalletDisplayProvider>
@@ -224,6 +226,7 @@ export default async function RootLayout({
               </SmartWalletDisplayProvider>
               </WalletConnectProvider>
             </WalletProvider>
+            </QueryProvider>
           </ToastProvider>
           </MotionConfig>
         </NextIntlClientProvider>
