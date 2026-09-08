@@ -60,7 +60,7 @@ export function WorkspaceSidebarView() {
   const detectedSttTokensLoading = useAtomValue(detectedSttTokensLoadingAtom);
   const walletIsResolving =
     !selectedDetectedToken && detectedSttTokensLoading && !detectedSttTokensError;
-  const walletLookupFailed = !selectedDetectedToken && Boolean(detectedSttTokensError);
+  const walletLookupFailed = Boolean(detectedSttTokensError);
   const {
     dispatchWorkspaceAction,
     handleConsolidateOrphans,

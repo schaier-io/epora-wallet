@@ -1,9 +1,10 @@
 import { atom } from "jotai";
 import { atomWithQuery, queryClientAtom } from "jotai-tanstack-query";
-import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import { getSttMintPolicyId } from "@/lib/contracts/blueprint";
-import { detectSttInfo, type DetectedSttInfo, type DetectedSttToken } from "@/lib/mesh/detection";
-import { queryKeys, queryPolicy } from "@/lib/query/keys";
+import { type DetectedSttToken } from "@/lib/mesh/detection";
+import { queryPolicy } from "@/lib/query/keys";
+import { sttInventoryQueryOptions, sttWalletQueryOptions } from "@/lib/query/stt-inventory";
+export { sttInventoryQueryOptions, sttWalletQueryOptions } from "@/lib/query/stt-inventory";
 import { chainReadsEnabledAtom } from "@/providers/wallet.atoms";
 import { selectedDetectedTokenUnitAtom } from "../atoms/workspace-selection.atoms";
 import { pendingWalletStateUpdateAtom } from "../atoms/wallet-state-update.atoms";
@@ -13,30 +14,6 @@ import { getUserFacingErrorMessage } from "@/lib/utils/errors";
 
 const i18n = createDefaultTranslator("ComponentsUserWorkspaceUseDetectedSttTokens", defaultMessages);
 const EMPTY_TOKENS: DetectedSttToken[] = [];
-
-export function sttInventoryQueryOptions(policyId: string) {
-  return queryOptions({
-    queryKey: queryKeys.sttInventory(policyId),
-    queryFn: ({ signal }) => detectSttInfo(undefined, signal),
-    staleTime: queryPolicy.chainStaleMs,
-    gcTime: queryPolicy.chainGcMs
-  });
-}
-
-export function sttWalletQueryOptions(policyId: string, unit: string, client: QueryClient) {
-  return queryOptions({
-    queryKey: queryKeys.sttWallet(policyId, unit),
-    queryFn: async ({ signal }) => {
-      const previous = client.getQueryData<DetectedSttInfo>(queryKeys.sttWallet(policyId, unit));
-      const next = await detectSttInfo(unit, signal);
-      // A spent State may disappear briefly before its successor reaches the indexer.
-      if (previous?.tokens.length && !next.tokens.length) throw new Error("State token not indexed yet");
-      return next;
-    },
-    staleTime: queryPolicy.chainStaleMs,
-    gcTime: queryPolicy.chainGcMs
-  });
-}
 
 export const sttInventoryQueryAtom = atomWithQuery((get) => ({
   ...sttInventoryQueryOptions(getSttMintPolicyId()),
@@ -60,8 +37,8 @@ export const detectedSttTokensAtom = atom((get) => {
   const tokens = inventory.data?.tokens ?? EMPTY_TOKENS;
   // A slow policy scan may finish after a newer selected State lookup.
   if (!selected.data) return tokens;
-  const units = new Set(selected.data.tokens.map((token) => token.unit));
-  return [...tokens.filter((token) => !units.has(token.unit)), ...selected.data.tokens];
+  const units = new Set(tokens.map((token) => token.unit));
+  return [...tokens, ...selected.data.tokens.filter((token) => !units.has(token.unit))];
 });
 
 export const detectedSttTokensLoadingAtom = atom((get) => {

@@ -32,7 +32,7 @@ test("reserves an input across actions and sibling streams, independently for ea
 test("a scan cannot release an input while its transaction is still building or signing", () => {
   const store = createStore();
   store.set(beginPayeeInputActionAtom, DETAILS);
-  store.set(reconcilePayeeInputsAtom, { policyId: DETAILS.policyId, inputKeys: new Set<string>() });
+  store.set(reconcilePayeeInputsAtom, { policyId: DETAILS.policyId, inputKeys: new Set<string>(), fullReadRevision: 1 });
   assert.equal(store.get(pendingPayeeInputActionsAtom)[KEY]?.phase, "building");
 });
 
@@ -40,13 +40,13 @@ test("reconciles submitted inputs only against the scanned policy", () => {
   const store = createStore();
   store.set(beginPayeeInputActionAtom, DETAILS);
   store.set(markPayeeInputSubmittedAtom, { key: KEY, txHash: "submitted-tx" });
-  store.set(reconcilePayeeInputsAtom, { policyId: "bb".repeat(28), inputKeys: new Set<string>() });
+  store.set(reconcilePayeeInputsAtom, { policyId: "bb".repeat(28), inputKeys: new Set<string>(), fullReadRevision: 1 });
   assert.equal(store.get(pendingPayeeInputActionsAtom)[KEY]?.phase, "submitted");
   store.set(reconcilePayeeInputsAtom, {
-    policyId: DETAILS.policyId, inputKeys: new Set([DETAILS.stateInput])
+    policyId: DETAILS.policyId, inputKeys: new Set([DETAILS.stateInput]), fullReadRevision: 1
   });
   assert.equal(store.get(pendingPayeeInputActionsAtom)[KEY]?.phase, "submitted");
-  store.set(reconcilePayeeInputsAtom, { policyId: DETAILS.policyId, inputKeys: new Set<string>() });
+  store.set(reconcilePayeeInputsAtom, { policyId: DETAILS.policyId, inputKeys: new Set<string>(), fullReadRevision: 1 });
   assert.deepEqual(store.get(pendingPayeeInputActionsAtom), {});
 });
 

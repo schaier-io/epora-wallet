@@ -1,4 +1,6 @@
 import { atom } from "jotai";
+import { queryClientAtom } from "jotai-tanstack-query";
+import { getSttInventoryReadRevision } from "@/lib/query/stt-inventory";
 
 type PendingInputDetails = {
   policyId: string;
@@ -9,7 +11,7 @@ type PendingInputDetails = {
 
 type PendingInputAction = PendingInputDetails & (
   | { phase: "building" }
-  | { phase: "submitted"; txHash: string }
+  | { phase: "submitted"; txHash: string; submittedAfterRevision: number }
 );
 
 export function payeePendingInputKey(policyId: string, stateInput: string): string {
@@ -37,7 +39,7 @@ export const markPayeeInputSubmittedAtom = atom(
     if (!current[key]) return;
     set(pendingPayeeInputActionsAtom, {
       ...current,
-      [key]: { ...current[key], phase: "submitted", txHash }
+      [key]: { ...current[key], phase: "submitted", txHash, submittedAfterRevision: getSttInventoryReadRevision(get(queryClientAtom)) }
     });
   }
 );
@@ -53,12 +55,13 @@ export const releasePayeeInputActionAtom = atom(null, (get, set, key: string) =>
 /** Only call after adopting a successful full scan of this policy. */
 export const reconcilePayeeInputsAtom = atom(
   null,
-  (get, set, { policyId, inputKeys }: { policyId: string; inputKeys: ReadonlySet<string> }) => {
+  (get, set, { policyId, inputKeys, fullReadRevision }: { policyId: string; inputKeys: ReadonlySet<string>; fullReadRevision: number }) => {
     const current = get(pendingPayeeInputActionsAtom);
     const next = { ...current };
     let changed = false;
     for (const [key, pending] of Object.entries(current)) {
       if (pending.policyId === policyId && pending.phase === "submitted" &&
+          fullReadRevision > pending.submittedAfterRevision &&
           !inputKeys.has(pending.stateInput)) {
         delete next[key];
         changed = true;

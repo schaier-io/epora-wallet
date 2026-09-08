@@ -15,22 +15,22 @@ import { pendingWalletStateUpdateAtom } from "./atoms/wallet-state-update.atoms"
 const chain = vi.hoisted(() => ({ detectSttInfo: vi.fn(), fetchAddressUTxOs: vi.fn(), resolveAddress: vi.fn() }));
 vi.mock("@/lib/mesh/detection", () => ({ detectSttInfo: chain.detectSttInfo }));
 vi.mock("@/lib/mesh/server-fetcher", () => ({ ServerFetcher: class { fetchAddressUTxOs = chain.fetchAddressUTxOs; } }));
-vi.mock("@/lib/contracts/blueprint", () => ({ getSttMintPolicyId: () => "policy", resolveWalletContinuingOutputAddressFromState: chain.resolveAddress }));
+vi.mock("@/lib/contracts/blueprint", () => ({ getSttMintPolicyId: () => "aa".repeat(28), resolveWalletContinuingOutputAddressFromState: chain.resolveAddress }));
 import { detectedSttTokensAtom, detectedSttTokensLoadingAtom, detectedSttTokensErrorAtom, sttInventoryQueryOptions } from "./queries/stt-queries.atoms";
 import { permissionWalletSummariesAtom } from "./queries/summary-queries.atoms";
 import { useDetectedSttTokens } from "./use-detected-stt-tokens";
 
-const token = (name: string): DetectedSttToken => ({ unit: `policy${name}`, policyId: "policy", assetNameHex: name, scriptAddress: "state-address", datum: null,
+const token = (name: string): DetectedSttToken => ({ unit: `${"aa".repeat(28)}${name}`, policyId: "aa".repeat(28), assetNameHex: name, scriptAddress: "state-address", datum: null,
   utxo: { input: { txHash: name, outputIndex: 0 }, output: { address: "state-address", amount: [] } } });
-const info = (tokens: DetectedSttToken[]): DetectedSttInfo => ({ policyId: "policy", assetNameHex: "", scriptAddress: "state-address", sttUtxos: tokens.map(t => t.utxo), tokens });
+const info = (tokens: DetectedSttToken[]): DetectedSttInfo => ({ policyId: "aa".repeat(28), assetNameHex: "", scriptAddress: "state-address", sttUtxos: tokens.map(t => t.utxo), tokens });
 const a = token("aa"), b = token("bb");
 function setup(selectedUnit = "", cached?: DetectedSttToken[]) {
   const context = createQueryTestWrapper();
   context.store.set(isConnectingAtom, true);
   context.store.set(routeStateAtom, { ...context.store.get(routeStateAtom), selectedWalletUnit: selectedUnit || null });
   if (cached) {
-    context.queryClient.setQueryData(queryKeys.sttInventory("policy"), info(cached));
-    if (selectedUnit) context.queryClient.setQueryData(queryKeys.sttWallet("policy", selectedUnit), info(cached.filter(t => t.unit === selectedUnit)));
+    context.queryClient.setQueryData(queryKeys.sttInventory("aa".repeat(28)), info(cached));
+    if (selectedUnit) context.queryClient.setQueryData(queryKeys.sttWallet("aa".repeat(28), selectedUnit), info(cached.filter(t => t.unit === selectedUnit)));
   }
   const setSelection = vi.fn((unit: string) => context.store.set(routeStateAtom, { ...context.store.get(routeStateAtom), selectedWalletUnit: unit || null }));
   const hook = renderHook(() => {
@@ -64,17 +64,16 @@ it("reserves State refreshes for the exact confirmation flow while a State updat
 it("loads full inventory from a direct wallet route and keeps it on overview navigation", async () => {
   const test = setup(a.unit);
   await waitFor(() => expect(test.result.current.tokens).toHaveLength(2));
-  expect(chain.detectSttInfo).toHaveBeenCalledWith(a.unit, expect.any(AbortSignal));
   expect(chain.detectSttInfo).toHaveBeenCalledWith(undefined, expect.any(AbortSignal));
   act(() => test.store.set(routeStateAtom, { ...test.store.get(routeStateAtom), selectedWalletUnit: null }));
   expect(test.result.current.tokens).toEqual([a, b]);
-  expect(chain.detectSttInfo).toHaveBeenCalledTimes(2);
+  expect(chain.detectSttInfo).toHaveBeenCalledTimes(1);
 });
 it("keeps the previous State and inventory when a detail refresh fails or misses a successor", async () => {
   const test = setup(a.unit, [a, b]);
   chain.detectSttInfo.mockRejectedValueOnce(new Error("indexer lag"));
   await act(async () => { await expect(test.result.current.refreshDetectedTokens({ keepSelection: true })).rejects.toThrow("indexer lag"); });
-  expect(test.result.current.tokens).toEqual([b, a]);
+  expect(test.result.current.tokens).toEqual([a, b]);
   chain.detectSttInfo.mockResolvedValueOnce(info([]));
   await act(async () => { await expect(test.result.current.refreshDetectedTokens({ keepSelection: true })).rejects.toThrow("State token not indexed yet"); });
   expect(test.result.current.tokens).toContainEqual(a);
@@ -83,12 +82,12 @@ it("keeps the previous State and inventory when a detail refresh fails or misses
 it("manual refresh discovers other wallets while a wallet is selected", async () => {
   const test = setup(a.unit, [a]);
   await act(async () => { await test.result.current.refreshDetectedTokens(); });
-  await waitFor(() => expect(test.result.current.tokens).toEqual([b, a]));
+  await waitFor(() => expect(test.result.current.tokens).toEqual([a, b]));
   expect(chain.detectSttInfo).toHaveBeenCalledWith(undefined, expect.any(AbortSignal));
 });
 it("deduplicates concurrent inventory reads", async () => {
   const { queryClient } = createQueryTestWrapper();
-  await Promise.all([queryClient.fetchQuery(sttInventoryQueryOptions("policy")), queryClient.fetchQuery(sttInventoryQueryOptions("policy"))]);
+  await Promise.all([queryClient.fetchQuery(sttInventoryQueryOptions("aa".repeat(28))), queryClient.fetchQuery(sttInventoryQueryOptions("aa".repeat(28)))]);
   expect(chain.detectSttInfo).toHaveBeenCalledTimes(1);
 });
 it("preserves current wallets when querying a newly minted wallet by unit", async () => {
@@ -98,7 +97,7 @@ it("preserves current wallets when querying a newly minted wallet by unit", asyn
   await act(async () => { result = await test.result.current.refreshDetectedTokens({ knownUnit: b.unit }); });
   expect(result).toMatchObject({ tokens: [a, b] });
   expect(test.result.current.tokens).toContainEqual(a);
-  expect(test.queryClient.getQueryData(queryKeys.sttWallet("policy", b.unit))).toEqual(info([b]));
+  expect(test.queryClient.getQueryData(queryKeys.sttWallet("aa".repeat(28), b.unit))).toEqual(info([b]));
   expect(test.setSelection).not.toHaveBeenCalled();
 });
 it("hides cached inventory after disconnect and prevents stale session form updates", async () => {
@@ -154,7 +153,7 @@ it("filters summary reads by the signer's roles before requesting balances", asy
   const owned = { ...a, datum: stateFormToDatum(state) };
   context.store.set(activePaymentKeyHashAtom, signer);
   context.store.set(isConnectingAtom, true);
-  context.queryClient.setQueryData(queryKeys.sttInventory("policy"), info([owned, b]));
+  context.queryClient.setQueryData(queryKeys.sttInventory("aa".repeat(28)), info([owned, b]));
   renderHook(() => useAtomValue(permissionWalletSummariesAtom), { wrapper: context.wrapper });
   await waitFor(() => expect(chain.fetchAddressUTxOs).toHaveBeenCalledWith("base-aa"));
   expect(chain.fetchAddressUTxOs).not.toHaveBeenCalledWith("base-bb");
@@ -179,23 +178,23 @@ it("keeps newer selected State when a slow inventory returns an older State", as
     ? Promise.resolve(info([next]))
     : new Promise(resolve => { finishInventory = resolve; }));
   const test = setup(a.unit);
+  await act(async () => { await test.result.current.refreshDetectedTokens({ keepSelection: true }); });
   await waitFor(() => expect(test.result.current.tokens).toEqual([next]));
   await act(async () => { finishInventory(info([a, b])); });
-  await waitFor(() => expect(test.result.current.tokens).toEqual([b, next]));
+  await waitFor(() => expect(test.result.current.tokens).toEqual([next]));
   expect(chain.detectSttInfo).toHaveBeenCalledTimes(2);
 });
 
-it("refreshes selected State and full inventory through shared concurrent requests", async () => {
+it("refreshes selected State and full inventory through one shared full request", async () => {
   const test = setup(a.unit, [a]);
   const next = { ...a, utxo: { ...a.utxo, input: { ...a.utxo.input, txHash: "new-state" } } };
-  chain.detectSttInfo.mockImplementation((unit) => Promise.resolve(info(unit ? [next] : [a, b])));
+  chain.detectSttInfo.mockImplementation((unit) => Promise.resolve(info(unit ? [next] : [next, b])));
   let refreshed: Awaited<ReturnType<typeof test.result.current.refreshDetectedTokens>>[] = [];
   await act(async () => {
     refreshed = await Promise.all([test.result.current.refreshDetectedTokens(), test.result.current.refreshDetectedTokens()]);
   });
-  expect(chain.detectSttInfo).toHaveBeenCalledWith(a.unit, expect.any(AbortSignal));
   expect(chain.detectSttInfo).toHaveBeenCalledWith(undefined, expect.any(AbortSignal));
-  expect(chain.detectSttInfo).toHaveBeenCalledTimes(2);
-  await waitFor(() => expect(test.result.current.tokens).toEqual([b, next]));
-  refreshed.forEach(result => expect(result?.tokens).toEqual([b, next]));
+  expect(chain.detectSttInfo).toHaveBeenCalledTimes(1);
+  await waitFor(() => expect(test.result.current.tokens).toEqual([next, b]));
+  refreshed.forEach(result => expect(result?.tokens).toEqual([next, b]));
 });

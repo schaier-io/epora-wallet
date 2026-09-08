@@ -1,6 +1,9 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { Provider, createStore } from "jotai";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createStore } from "jotai";
+import { notifyManager } from "@tanstack/react-query";
+import { createQueryTestWrapper } from "@/test/query-client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type * as Blueprint from "@/lib/contracts/blueprint";
 import type {
   PayeeScanResult,
   PayeeStreamingPayment
@@ -9,6 +12,7 @@ import type { ConstrData } from "@/lib/types/contracts";
 
 const NOW = 1_760_000_000_000;
 let payeeStore: ReturnType<typeof createStore>;
+let queryTest: ReturnType<typeof createQueryTestWrapper>;
 
 const wallet = vi.hoisted(() => ({
   value: {
@@ -30,6 +34,10 @@ const actions = vi.hoisted(() => ({
 vi.mock("@/lib/utils/clipboard", () => ({ copyTextToClipboard: actions.copy }));
 
 vi.mock("@/providers/wallet-provider", () => ({ useWalletContext: () => wallet.value }));
+vi.mock("@/lib/contracts/blueprint", async (importOriginal) => ({
+  ...await importOriginal<typeof Blueprint>(),
+  getSttMintPolicyId: () => "aa".repeat(28)
+}));
 vi.mock("@/lib/mesh/detection", () => ({
   detectSttInfo: async () => {
     const detected = await chain.detect() as { tokens: unknown[]; policyId?: string };
@@ -175,7 +183,9 @@ function deferred<T>() {
 }
 
 beforeEach(() => {
+  notifyManager.setScheduler(queueMicrotask);
   payeeStore = createStore();
+  queryTest = createQueryTestWrapper({ jotaiStore: payeeStore });
   vi.useFakeTimers();
   vi.setSystemTime(NOW);
   wallet.value = {
@@ -201,9 +211,11 @@ beforeEach(() => {
   actions.copy.mockResolvedValue(true);
 });
 
+afterEach(() => { notifyManager.setScheduler((callback) => setTimeout(callback, 0)); });
+
 async function renderView() {
-  const result = render(<Provider store={payeeStore}><PayeeView /></Provider>);
-  await vi.runOnlyPendingTimersAsync();
+  const result = render(<PayeeView />, { wrapper: queryTest.wrapper });
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
   return result;
 }
 
@@ -430,7 +442,7 @@ describe("a row", () => {
     await act(async () => pending.resolve("ab".repeat(32)));
     expect(screen.getByRole("button", { name: "Collected" })).toBeDisabled();
     expect(screen.getByTitle("ab".repeat(32))).toBeInTheDocument();
-    expect(chain.detect).toHaveBeenCalledTimes(2);
+    expect(chain.detect).toHaveBeenCalledTimes(1);
   });
 
   it("releases a failed collect after its page unmounts", async () => {
@@ -449,7 +461,7 @@ describe("a row", () => {
     await act(async () => pending.reject(new Error("user declined sign tx")));
     expect(screen.getByRole("button", { name: "Collect payment" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Shorten payment" })).toBeEnabled();
-    expect(chain.detect).toHaveBeenCalledTimes(2);
+    expect(chain.detect).toHaveBeenCalledTimes(1);
   });
 
   it("keeps a shorten pending across an account change and page remount", async () => {
@@ -474,7 +486,7 @@ describe("a row", () => {
     expect(screen.getByTitle("cd".repeat(32))).toBeInTheDocument();
   });
 
-  it("ignores an unmounted scan and releases a submitted input only from the current scan", async () => {
+  it("ignores a cancelled scan after remount and releases only from the current scan", async () => {
     const current = payment();
     const token = detectedTokenFor(current);
     const staleScan = deferred<{ tokens: ReturnType<typeof detectedTokenFor>[] }>();
@@ -489,6 +501,7 @@ describe("a row", () => {
     });
 
     firstVisit.unmount();
+    await act(async () => { await queryTest.queryClient.cancelQueries({ queryKey: ["chain", "preprod", "stt-inventory"] }); });
     await renderView();
     expect(screen.getByRole("button", { name: "Collected" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Shorten payment" })).toBeDisabled();
@@ -897,7 +910,7 @@ describe("a row", () => {
 describe("the page heading", () => {
   it("names the page once, at the top level", () => {
     chain.scan.mockReturnValue({ payments: [], errors: [] });
-    render(<Provider store={payeeStore}><PayeeView /></Provider>);
+    render(<PayeeView />, { wrapper: queryTest.wrapper });
 
     const named = screen.getAllByRole("heading", { name: "Scheduled payments to you" });
     expect(named).toHaveLength(1);

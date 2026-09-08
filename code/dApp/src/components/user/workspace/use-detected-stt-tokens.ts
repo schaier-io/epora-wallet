@@ -33,22 +33,18 @@ export function useDetectedSttTokens({ selectedDetectedTokenUnit, setSelectedDet
     if (store.get(pendingWalletStateUpdateAtom) && !exactStateRefresh) return null;
     const session = store.get(workspaceSessionAtom);
     const requestedUnit = knownUnit || (keepSelection ? selectedDetectedTokenUnit || undefined : undefined);
-    const options = requestedUnit ? sttWalletQueryOptions(getSttMintPolicyId(), requestedUnit, client)
+    const options = requestedUnit ? sttWalletQueryOptions(getSttMintPolicyId(), requestedUnit, client, true)
       : sttInventoryQueryOptions(getSttMintPolicyId());
-    const queries = [options];
-    if (!requestedUnit && selectedDetectedTokenUnit) {
-      queries.push(sttWalletQueryOptions(getSttMintPolicyId(), selectedDetectedTokenUnit, client));
-    }
-    await Promise.all(queries.map(query => client.invalidateQueries({ queryKey: query.queryKey, exact: true, refetchType: "none" })));
+    if (requestedUnit) await client.cancelQueries({ queryKey: options.queryKey, exact: true });
+    await client.invalidateQueries({ queryKey: options.queryKey, exact: true, refetchType: "none" });
     if (store.get(workspaceSessionAtom) !== session || (store.get(pendingWalletStateUpdateAtom) && !exactStateRefresh)) return null;
-    const [detected, selectedDetected] = await Promise.all([
-      requestedUnit
-        ? client.fetchQuery(sttWalletQueryOptions(getSttMintPolicyId(), requestedUnit, client))
-        : client.fetchQuery(sttInventoryQueryOptions(getSttMintPolicyId())),
-      !requestedUnit && selectedDetectedTokenUnit
-        ? client.fetchQuery(sttWalletQueryOptions(getSttMintPolicyId(), selectedDetectedTokenUnit, client))
-        : undefined
-    ]);
+    const detected = requestedUnit
+      ? await client.fetchQuery(sttWalletQueryOptions(getSttMintPolicyId(), requestedUnit, client, true))
+      : await client.fetchQuery(sttInventoryQueryOptions(getSttMintPolicyId()));
+    const selectedDetected = !requestedUnit && selectedDetectedTokenUnit &&
+      !detected.tokens.some((token) => token.unit === selectedDetectedTokenUnit)
+      ? await client.fetchQuery(sttWalletQueryOptions(getSttMintPolicyId(), selectedDetectedTokenUnit, client, true))
+      : undefined;
     if (store.get(workspaceSessionAtom) !== session || (store.get(pendingWalletStateUpdateAtom) && !exactStateRefresh)) return null;
     const selectedUnits = new Set(selectedDetected?.tokens.map(token => token.unit));
     const tokens = requestedUnit

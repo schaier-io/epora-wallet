@@ -56,7 +56,6 @@ export function WorkspaceHeaderView() {
   const walletLookupFailed =
     walletReady &&
     routeState.workspaceMode === "existing-wallet" &&
-    !selectedDetectedToken &&
     Boolean(detectedSttTokensError);
   const walletIsResolving =
     walletReady &&

@@ -3,7 +3,7 @@ import { useTranslations } from "next-intl";
 import { resolveAssetIdentity } from "@/lib/cardano-assets";
 import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAtomValue, useSetAtom } from "jotai";
 import { CircleSlash, HandCoins, Loader2, RefreshCw, Wallet } from "lucide-react";
 
@@ -17,7 +17,7 @@ import {
   CardTitle
 } from "@/components/ui/card";
 import { CopyButton } from "@/components/ui/copy-button";
-import { detectSttInfo, type DetectedSttToken } from "@/lib/mesh/detection";
+import { type DetectedSttToken } from "@/lib/mesh/detection";
 import { buildSttSpendTx, getValidityWindow, signAndSubmitTx } from "@/lib/mesh/transactions";
 import {
   NON_ADMIN_STREAMING_ACTION_COOLDOWN_MS,
@@ -45,9 +45,10 @@ import {
   markPayeeInputSubmittedAtom,
   payeePendingInputKey,
   pendingPayeeInputActionsAtom,
-  reconcilePayeeInputsAtom,
   releasePayeeInputActionAtom
 } from "@/components/payee/payee-pending-inputs.atoms";
+
+import { usePayeeInventory } from "./use-payee-inventory";
 
 type RowActionState =
   | { status: "idle" }
@@ -130,9 +131,8 @@ export function PayeeView() {
   const { activeWallet, activeAddress, activePaymentKeyHash, isDemoWallet, networkId } =
     useWalletContext();
 
-  const [tokens, setTokens] = useState<DetectedSttToken[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const { tokens, loading, error: inventoryError, refresh: loadTokens } = usePayeeInventory();
+  const loadError = inventoryError ? i18n("unableToLoadScheduledPayments") : null;
   const [shortenStates, setShortenStates] = useState<Record<string, RowActionState>>({});
   const [collectStates, setCollectStates] = useState<Record<string, RowActionState>>({});
   const [actionAnnouncement, setActionAnnouncement] = useState("");
@@ -140,70 +140,7 @@ export function PayeeView() {
   const beginStateInputAction = useSetAtom(beginPayeeInputActionAtom);
   const markStateInputSubmitted = useSetAtom(markPayeeInputSubmittedAtom);
   const endStateInputAction = useSetAtom(releasePayeeInputActionAtom);
-  const reconcileStateInputs = useSetAtom(reconcilePayeeInputsAtom);
   const [renderNowMs, setRenderNowMs] = useState(() => Date.now());
-  const mountedRef = useRef(true);
-
-  // One ticket per load. Two rows held in different wallets can be acted on together,
-  // because the list stays on screen while the first transaction is still being signed,
-  // so the reload each action ends with can overlap the other. Without the ticket the
-  // slower read wins whenever it lands last: it can put back older chain data, raise a
-  // load error over a newer clean read, or clear the spinner of a load still running.
-  const loadRequestRef = useRef(0);
-
-  const loadTokens = useCallback(async () => {
-    if (!mountedRef.current) return;
-    const request = (loadRequestRef.current += 1);
-    const isCurrent = () => mountedRef.current && request === loadRequestRef.current;
-    setLoading(true);
-    setLoadError(null);
-    try {
-      const detected = await detectSttInfo();
-      if (!isCurrent()) {
-        return;
-      }
-      // The lock and the list have to come from the same read. A lock is cleared exactly when
-      // the snapshot the view adopts stops showing the state input, which is the same moment
-      // the row it belongs to leaves the list, so the two can never disagree.
-      //
-      // Clearing it from a superseded read instead splits them apart, in both directions. The
-      // row stays on screen from the newest read with its buttons live again over an input its
-      // own transaction already spends. And removing the row to compensate hides a payment
-      // that is still there: a collect respends the state input into a successor, which the
-      // superseded read holds and the newest read does not, so the payment vanishes from the
-      // list until the reader presses Refresh.
-      //
-      // The cost is a row that stays disabled when a superseded read saw the spend and the
-      // newest read did not. That reads correctly: the freshest data still shows the input, so
-      // this transaction is not visible on chain yet, and the row must not be acted on again.
-      // The next read clears it.
-      const detectedInputKeys = new Set(detected.tokens.map(detectedStateInputKey));
-      reconcileStateInputs({ policyId: detected.policyId, inputKeys: detectedInputKeys });
-      setTokens(detected.tokens);
-    } catch (error) {
-      if (!isCurrent()) {
-        return;
-      }
-      console.error("[payee:load]", error);
-      setTokens([]);
-      setLoadError(i18n("unableToLoadScheduledPayments"));
-    } finally {
-      if (isCurrent()) {
-        setLoading(false);
-      }
-    }
-  }, [reconcileStateInputs, i18n]);
-
-  useEffect(() => {
-    // Legitimate data-fetch effect (loads detected scheduled payments from chain).
-    mountedRef.current = true;
-    void loadTokens();
-    return () => {
-      mountedRef.current = false;
-      loadRequestRef.current += 1;
-    };
-  }, [loadTokens]);
-
   useEffect(() => {
     const timer = window.setInterval(() => setRenderNowMs(Date.now()), 30_000);
     return () => window.clearInterval(timer);
