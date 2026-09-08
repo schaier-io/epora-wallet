@@ -69,3 +69,15 @@ test("proposal reads forward cancellation and retain HTTP error status", async (
     globalThis.fetch = originalFetch;
   }
 });
+
+test("proposal reads preserve server retry delays", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => new Response(JSON.stringify({ error: "Slow down" }), {
+    status: 429, headers: { "Retry-After": "60", "Content-Type": "application/json" }
+  });
+  try {
+    for (const read of [() => listProposals(), () => fetchProposalSession()]) {
+      await assert.rejects(read, error => error instanceof ProposalRequestError && error.retryAfterMs === 60_000);
+    }
+  } finally { globalThis.fetch = originalFetch; }
+});

@@ -1,3 +1,4 @@
+import { parseRetryAfterMs } from "@/lib/http/retry-after";
 import { parseJsonSafe, serializeJsonSafe } from "./serialization";
 import { proposalCopy } from "./copy";
 import type {
@@ -14,7 +15,7 @@ import type {
 export type ProposalSessionInfo = { paymentKeyHash: string; address: string };
 
 export class ProposalRequestError extends Error {
-  constructor(message: string, readonly status?: number) {
+  constructor(message: string, readonly status?: number, readonly retryAfterMs?: number) {
     super(message);
     this.name = "ProposalRequestError";
   }
@@ -41,7 +42,7 @@ async function readError(response: Response): Promise<string> {
 async function getJson<T>(url: string, options: ProposalReadOptions = {}): Promise<T> {
   const response = await fetch(url, { credentials: "same-origin", signal: options.signal });
   if (!response.ok) {
-    throw new ProposalRequestError(await readError(response), response.status);
+    throw new ProposalRequestError(await readError(response), response.status, parseRetryAfterMs(response.headers.get("Retry-After")));
   }
   return response.json() as Promise<T>;
 }
@@ -54,7 +55,7 @@ async function sendJson<T>(url: string, method: string, body: unknown): Promise<
     body: serializeJsonSafe(body)
   });
   if (!response.ok) {
-    throw new ProposalRequestError(await readError(response), response.status);
+    throw new ProposalRequestError(await readError(response), response.status, parseRetryAfterMs(response.headers.get("Retry-After")));
   }
   return response.json() as Promise<T>;
 }
@@ -67,7 +68,7 @@ export async function fetchProposalSession(options: ProposalReadOptions = {}): P
     return null;
   }
   if (!response.ok) {
-    throw new ProposalRequestError(await readError(response), response.status);
+    throw new ProposalRequestError(await readError(response), response.status, parseRetryAfterMs(response.headers.get("Retry-After")));
   }
   return response.json() as Promise<ProposalSessionInfo>;
 }
@@ -94,7 +95,7 @@ export async function signOutProposals(): Promise<void> {
     credentials: "same-origin"
   });
   if (!response.ok) {
-    throw new ProposalRequestError(await readError(response), response.status);
+    throw new ProposalRequestError(await readError(response), response.status, parseRetryAfterMs(response.headers.get("Retry-After")));
   }
 }
 
@@ -179,7 +180,7 @@ export async function cancelProposal(id: string): Promise<void> {
     credentials: "same-origin"
   });
   if (!response.ok) {
-    throw new ProposalRequestError(await readError(response), response.status);
+    throw new ProposalRequestError(await readError(response), response.status, parseRetryAfterMs(response.headers.get("Retry-After")));
   }
 }
 
