@@ -59,7 +59,7 @@ describe("useWorkspaceSendActionEffects", () => {
     "refreshes funds when %s opens",
     (selectedAction) => {
       const { refreshLockedContractUtxos } = run({ selectedAction });
-      expect(refreshLockedContractUtxos).toHaveBeenCalledWith("wallet-a", { retryEmpty: true });
+      expect(refreshLockedContractUtxos).toHaveBeenCalledWith("wallet-a", { retryEmpty: true, preserveRecovery: true });
     }
   );
 

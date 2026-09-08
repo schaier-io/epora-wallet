@@ -6,7 +6,6 @@ import { useAtomValue } from "jotai";
 import { useQueryClient } from "@tanstack/react-query";
 import { activeSttAuthorityOptionsAtom, walletOperatorOptionsAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
 import { setupStateAtom } from "@/components/user/workspace/atoms/workspace-setup-state.atoms";
-import { activityAnchorTxHashesAtom } from "@/components/user/workspace/atoms/workspace-activity.atoms";
 
 import { useEffect, useMemo } from "react";
 
@@ -34,6 +33,7 @@ import { useWalletActivity } from "@/components/user/workspace/use-wallet-activi
 import { useWorkspaceActionSignature } from "@/components/user/workspace/use-workspace-action-signature";
 import { useWorkspaceActionFieldErrors } from "@/components/user/workspace/use-workspace-action-field-errors";
 import { prepareStreamingPaymentPayout } from "@/components/user/workspace/workspace-payout-preparation";
+import { refreshWorkspaceSummary as refreshWorkspaceSummaryData } from "./workspace-funds-refresh";
 
 export function usePermissionWalletWorkspaceState() {
   const queryClient = useQueryClient();
@@ -174,9 +174,6 @@ export function usePermissionWalletWorkspaceState() {
     refreshWalletTransactions,
     prependSubmittedTransaction
   } = useWalletActivity();
-  // Activity feed values are derived atoms (workspace-activity.atoms.ts); the transfer/guided
-  // derivations self-source them. The controller only needs the anchor hashes for the tx builders.
-  const activityAnchorTxHashes = useAtomValue(activityAnchorTxHashesAtom);
 
   const {
     availableLockedTransferAssets,
@@ -296,16 +293,13 @@ export function usePermissionWalletWorkspaceState() {
   });
 
   async function refreshWorkspaceSummary(includeWalletTransactions: boolean) {
-    await refreshLockedContractUtxos(lockingContract.address);
-    await refreshPermissionWalletSummaries();
-    if (includeWalletTransactions && lockingContract.address) {
-      await runWalletTransactionsRefresh({
-        walletAddress: lockingContract.address,
-        sttScriptAddress: selectedDetectedToken?.scriptAddress ?? null,
-        sttUnit: selectedDetectedToken?.unit ?? null,
-        anchorTxHashes: activityAnchorTxHashes
-      });
-    }
+    await refreshWorkspaceSummaryData({
+      jotaiStore,
+      walletAddress: lockingContract.address,
+      refreshLockedContractUtxos,
+      refreshPermissionWalletSummaries,
+      refreshWalletTransactions
+    }, includeWalletTransactions);
   }
 
   const {

@@ -18,6 +18,7 @@ import {
   sttWalletInputsAtom
 } from "./atoms/forms/stt-spend-form.atoms";
 import { pendingWalletStateUpdateAtom } from "./atoms/wallet-state-update.atoms";
+import { selectedOrphanInputsAtom } from "./atoms/forms/orphan-inputs.atoms";
 import type { BuildResult } from "@/lib/types/contracts";
 
 const mocks = vi.hoisted(() => ({ signAndSubmitTx: vi.fn() }));
@@ -79,6 +80,42 @@ function makeDeps(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   mocks.signAndSubmitTx.mockReset().mockResolvedValue(TX_HASH);
+});
+
+const recoveryDraft = {
+  walletUnit: "selected-wallet", signerAddress: "signer",
+  outputs: [{ txHash: "orphan", outputIndex: 0, address: "other-stake", lovelace: "1000000", assets: [] }]
+};
+
+it("retires the selected recovery outputs after successful submission", async () => {
+  vi.useFakeTimers();
+  const deps = makeDeps({ selectedAction: "use-beneficiary" });
+  deps.jotaiStore.set(selectedOrphanInputsAtom, recoveryDraft);
+  await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
+  expect(mocks.signAndSubmitTx).toHaveBeenCalledTimes(1);
+  expect(deps.jotaiStore.get(selectedOrphanInputsAtom)).toBeNull();
+});
+
+it("keeps recovery outputs when the wallet rejects submission", async () => {
+  const deps = makeDeps({ selectedAction: "use-beneficiary" });
+  deps.jotaiStore.set(selectedOrphanInputsAtom, recoveryDraft);
+  mocks.signAndSubmitTx.mockRejectedValueOnce(new Error("User declined signing"));
+  await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
+  expect(deps.jotaiStore.get(selectedOrphanInputsAtom)).toBe(recoveryDraft);
+});
+
+it("does not clear a recovery draft replaced during signing", async () => {
+  vi.useFakeTimers();
+  const deps = makeDeps({ selectedAction: "use-beneficiary" });
+  deps.jotaiStore.set(selectedOrphanInputsAtom, recoveryDraft);
+  let finish!: (hash: string) => void;
+  mocks.signAndSubmitTx.mockImplementationOnce(() => new Promise<string>(resolve => { finish = resolve; }));
+  const pending = createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
+  const replacement = { ...recoveryDraft, outputs: [] };
+  deps.jotaiStore.set(selectedOrphanInputsAtom, replacement);
+  finish(TX_HASH);
+  await pending;
+  expect(deps.jotaiStore.get(selectedOrphanInputsAtom)).toBe(replacement);
 });
 
 it("keeps confirmation alive across action navigation and swaps the spent State ref", async () => {

@@ -17,6 +17,8 @@ import { lockedContractUtxosAtom, lockedContractUtxosLoadingAtom, lockedContract
 import { useLockedContractUtxos } from "./use-locked-contract-utxos";
 import { resetWorkspaceDataAtom } from "./atoms/workspace-data.atoms";
 import { resetAllFlowAtom } from "./atoms/transaction-flow.atoms";
+import { selectedOrphanInputsAtom } from "./atoms/forms/orphan-inputs.atoms";
+import { useWorkspaceSendActionEffects } from "./use-workspace-send-action-effects";
 
 const funds = (hash: string): UTxO[] => [{ input: { txHash: hash, outputIndex: 0 }, output: { address: "wallet", amount: [{ unit: "lovelace", quantity: "5000000" }] } }];
 function setup(cached?: UTxO[]) {
@@ -112,4 +114,46 @@ it("reuses a fresh address response after remount and retries an explicit refres
   expect(test.queryClient.getQueryData(queryKeys.addressUtxos("wallet-a"))).toEqual(funds("a"));
   await act(async () => next.result.current.refreshLockedContractUtxos("wallet-a"));
   expect(chain.fetchAddressUTxOs).toHaveBeenCalledTimes(3);
+});
+
+const recoveryDraft = {
+  walletUnit: "selected-wallet", signerAddress: "wallet-a",
+  outputs: [{ txHash: "orphan", outputIndex: 0, address: "other-stake", lovelace: "1000000", assets: [] }]
+};
+
+it("preserves recovery inputs during background reads and clears them on explicit refresh", async () => {
+  const test = setup(funds("a"));
+  test.store.set(selectedOrphanInputsAtom, recoveryDraft);
+  await act(async () => test.queryClient.invalidateQueries({ queryKey: queryKeys.addressUtxos("wallet-a") }));
+  expect(test.store.get(selectedOrphanInputsAtom)).toBe(recoveryDraft);
+  await act(async () => test.result.current.refreshLockedContractUtxos("wallet-a"));
+  expect(test.store.get(selectedOrphanInputsAtom)).toBeNull();
+  test.unmount(); test.queryClient.clear();
+});
+
+it("ignores a captured refresh after the account session changes", async () => {
+  const test = setup(funds("a"));
+  test.queryClient.setQueryData(queryKeys.addressUtxos("wallet-b"), funds("b"));
+  const captured = test.result.current.refreshLockedContractUtxos;
+  act(() => test.store.set(activeAddressAtom, "wallet-b"));
+  test.store.set(selectedOrphanInputsAtom, recoveryDraft);
+  chain.fetchAddressUTxOs.mockClear();
+  await act(async () => captured("wallet-a"));
+  expect(chain.fetchAddressUTxOs).not.toHaveBeenCalled();
+  expect(test.store.get(selectedOrphanInputsAtom)).toBe(recoveryDraft);
+  test.unmount(); test.queryClient.clear();
+});
+
+it("keeps selected orphan values when the recovery Send flow opens", async () => {
+  const test = setup(funds("a"));
+  test.store.set(selectedOrphanInputsAtom, recoveryDraft);
+  const send = renderHook(() => useWorkspaceSendActionEffects({
+    lockingContractAddress: "wallet-a",
+    refreshLockedContractUtxos: test.result.current.refreshLockedContractUtxos,
+    selectedAction: "use-beneficiary", wizardSelectedAction: "use-beneficiary",
+    sttExtraTransfers: [], sttWalletInputs: [], setSttWalletInputs: vi.fn(), suggestedLockedInputs: []
+  }));
+  await waitFor(() => expect(chain.fetchAddressUTxOs).toHaveBeenCalledTimes(1));
+  expect(test.store.get(selectedOrphanInputsAtom)).toBe(recoveryDraft);
+  send.unmount(); test.unmount(); test.queryClient.clear();
 });
