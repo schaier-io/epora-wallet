@@ -1,15 +1,15 @@
 // Utility: sweep stray UTxOs from the example key back into one output — resets
 // wallet_1 between experiment runs. Does not touch script-locked funds.
 // Prereqs: generate-credentials.mjs. RUN ORDER: anytime, standalone.
-import { KoiosProvider, MeshWallet, Transaction } from "@meshsdk/core";
+import { MeshWallet, Transaction } from "@meshsdk/core";
 import fs from "node:fs";
 import "dotenv/config";
+import { resolveProvider } from "./lib/network.mjs";
 
-const network = "preprod";
-const blockchainProvider = new KoiosProvider(network);
+const { provider: blockchainProvider, network, networkId } = resolveProvider();
 
 const wallet = new MeshWallet({
-  networkId: 0,
+  networkId,
   fetcher: blockchainProvider,
   submitter: blockchainProvider,
   key: {
