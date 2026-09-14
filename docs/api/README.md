@@ -426,7 +426,7 @@ land at the enterprise address.
 
 #### Spend the state token
 
-One route, nine actions. `action` picks the transition:
+One route, eleven actions. `action` picks the transition:
 
 | `action` | Does | Also needs |
 |---|---|---|
@@ -436,11 +436,17 @@ One route, nine actions. `action` picks the transition:
 | `manage-streaming-payments` | Create or change streaming payment schedules. Settlement removes completed schedules. | |
 | `use-allowance` | Draw on a user's daily allowance. | `allowanceSignerKeyHash` |
 | `use-beneficiary` | Claim a share after the recovery deadline. | `beneficiarySignerKeyHash` |
+| `stop-beneficiary-stream` | Shorten a stream after beneficiary recovery unlocks. | `beneficiarySignerKeyHash`, `beneficiaryStreamStopId`; no wallet inputs, outputs, or transfers. |
+| `distribute-beneficiaries` | Distribute one wallet input to every beneficiary address. | `beneficiarySignerKeyHash`, exactly one `walletInputs` entry; all beneficiaries unlocked and no streams. |
 | `payout-streaming-payment` | Pay out what a stream has accrued. | `crankSignerKeyHash` |
 | `cancel-streaming-payment` | Stop a stream, as its payee. | `streamingPaymentCancelId` |
 | `remove-access-index` | Remove one user or beneficiary. | `removeAccessTarget` |
 
-Every action names the State UTxO to consume, and the State to forward:
+Every action names the State UTxO to consume. Some actions derive the next State
+and ignore `outputDatum` and `outputAssets`. `distribute-beneficiaries` rejects
+those fields and `authorityPath`. See the request schemas in the [spec](openapi.json).
+
+An action that accepts a caller-supplied State uses this shape:
 
 ```json
 {

@@ -15,3 +15,15 @@ This is a rough breakdown, not a contract. We work scrum-style, so tasks get add
 Each file lists the work, then the Catalyst acceptance criteria and evidence it's measured against at the bottom. Open dev tasks are broken into inline subtasks; each subtask links to its own file in [subtasks/](subtasks/) with where the code stands today, the concrete steps, and what done means. Completed dev tasks link to retrospective subtasks: what landed, where it lives, which tests back it.
 
 Checked boxes were last re-verified against the code on 2026-06-12: every claim traced to its implementing source and tests, `aiken check` green on the pinned compiler (21 test files — unit, attack-regression, fuzz), frontend unit suite 94/94.
+
+## Public status update (2026-09-14)
+
+VERIFIED: the repository contains the [API guide](../docs/api/README.md),
+[specification](../docs/api/openapi.json), and [wallet UI video](../docs/assets/wallet-ui.mp4?raw=1).
+The earlier public checklist grouped these published files with unfinished validation.
+The [public status](../README.md#current-public-status) now separates them.
+
+The [Milestone 3](milestone-3-ui-development.md) records still require an outside
+guide review, a signed and confirmed API transaction, and a full feature walkthrough.
+This update verifies repository artifacts, not deployment readiness or mainnet readiness.
+The June test results above are historical and were not rerun for this documentation update.
