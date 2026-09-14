@@ -15,3 +15,9 @@ This is a rough breakdown, not a contract. We work scrum-style, so tasks get add
 Each file lists the work, then the Catalyst acceptance criteria and evidence it's measured against at the bottom. Open dev tasks are broken into inline subtasks; each subtask links to its own file in [subtasks/](subtasks/) with where the code stands today, the concrete steps, and what done means. Completed dev tasks link to retrospective subtasks: what landed, where it lives, which tests back it.
 
 Checked boxes were last re-verified against the code on 2026-06-12: every claim traced to its implementing source and tests, `aiken check` green on the pinned compiler (21 test files — unit, attack-regression, fuzz), frontend unit suite 94/94.
+
+## Preprod feedback launch (2026-09-14)
+
+REPORTED: Sandro confirmed the [Preprod feedback launch at epora.io](https://epora.io).
+The public launch is complete. This corrects the earlier unchecked public status.
+The detailed [Milestone 4](milestone-4-testnet-feedback.md) checks retain their own status.

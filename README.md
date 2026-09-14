@@ -68,7 +68,7 @@ This repository is under active development, and milestones are tracked within t
 
 Development tasks — completed and open, grouped per milestone — are tracked in the [tasks/](./tasks) folder.
 
-Current focus: **UI and off-chain developer surface**. The smart-contract work is substantially implemented; testnet launch, mainnet beta, external API documentation, and demo/feedback work are still pending. See the task files for the current milestone breakdown.
+Current focus: **UI and off-chain developer surface**. The smart-contract work is substantially implemented; the Preprod feedback site is available at [epora.io](https://epora.io). Mainnet beta, external API validation, and the full feature walkthrough remain open. See the task files for the current milestone breakdown.
 
 ### Current public status
 
@@ -78,7 +78,7 @@ Current focus: **UI and off-chain developer surface**. The smart-contract work i
 - [x] Detailed development tasks
 - [ ] Public, versioned API/spec for outside developers — published and documented ([guide](docs/api/README.md), [spec](docs/api/openapi.json)), with the rate-limit tier and the spec-conformance tests in place; still open are the outside-reader pass on the guide and one signed, submitted transaction built through the API
 - [ ] Demo video and full manual feature walkthrough
-- [ ] Testnet feedback launch
+- [x] [Testnet feedback launch](https://epora.io) (Preprod)
 - [ ] Mainnet beta
 
 ## Contributing
