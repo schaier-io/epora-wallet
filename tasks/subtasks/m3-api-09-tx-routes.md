@@ -1,10 +1,19 @@
-# API: the ten transaction-build routes
+# API: transaction-build routes and validation
 
 Public API task · [Milestone 3](../milestone-3-ui-development.md) · after [the server wallet source](m3-api-08-server-wallet-source.md) and [shared schemas](m3-api-01-shared-schemas.md)
 
 This is what makes "interact with the smart contract" true of the HTTP surface
 and not only of the client library. The caller posts a described action and gets
 back an unsigned transaction. The server never holds a key and never signs.
+
+## Current status (2026-09-14)
+
+VERIFIED: [the schema](../../code/dApp/src/lib/api/tx-stt-spend.ts) defines eleven `stt-spend` actions.
+[The OpenAPI source](../../code/dApp/src/lib/api/openapi.ts) lists nine active build routes.
+[The retired wallet-spend handler](../../code/dApp/src/app/api/v1/tx/wallet-spend/route.ts) returns `410`.
+The earlier count of ten build routes and eighteen operations is outdated.
+The current surface has nineteen build operations across nine routes.
+The dated probes below remain historical records, not current validation of every operation.
 
 ## The paths
 
@@ -13,10 +22,10 @@ second structure to keep in sync:
 
 | Path | Builder |
 | --- | --- |
-| `POST /api/v1/tx/stt-spend` | `buildSttSpendTx`, nine actions behind a discriminator |
+| `POST /api/v1/tx/stt-spend` | `buildSttSpendTx`, eleven actions behind a discriminator |
 | `POST /api/v1/tx/mint` | `buildMintStateTokenTx` |
 | `POST /api/v1/tx/lock-funds` | `buildLockFundsTx` |
-| `POST /api/v1/tx/wallet-spend` | `buildWalletSpendTx` |
+| `POST /api/v1/tx/wallet-spend` | Retired (`410`); use `stt-spend` with action `use`. |
 | `POST /api/v1/tx/wallet-withdraw` | `buildWalletWithdrawTx` |
 | `POST /api/v1/tx/consolidate` | `buildConsolidateUtxosTx` |
 | `POST /api/v1/tx/set-stake-credential` | `buildSetIntendedStakeCredentialTx` |
@@ -24,10 +33,10 @@ second structure to keep in sync:
 | `POST /api/v1/tx/publish` | `buildWalletPublishTx` |
 | `POST /api/v1/tx/deploy-reference` | `buildDeploySharedSttReferenceTx` |
 
-The nine `stt-spend` actions are `use`, `renew-proof-of-life`, `update-state`,
+The eleven `stt-spend` actions are `use`, `renew-proof-of-life`, `update-state`,
 `manage-streaming-payments`, `use-allowance`, `use-beneficiary`,
-`payout-streaming-payment`, `cancel-streaming-payment` and
-`remove-access-index`. That is the eighteen operations of decision 7.
+`payout-streaming-payment`, `cancel-streaming-payment`,
+`remove-access-index`, `stop-beneficiary-stream` and `distribute-beneficiaries`.
 
 ## The response
 
@@ -220,16 +229,17 @@ pre-rename `/api/pools`.
 
 ## Done when
 
-- [~] All ten paths build a real unsigned transaction on preprod from an
-      address. Seven do, across the two sweeps above. The other three are
-      blocked on chain state a signed transaction has to create, not on the
-      routes; see the note under the second table.
+- [ ] Validate all nine active routes and eleven `stt-spend` actions on Preprod.
+      Record new evidence against the current revision. The old seven-of-ten
+      result includes a different route and action set.
 - [ ] At least one transaction built through the API is signed by a wallet,
       submitted and confirmed on preprod. Record the transaction hash. It
       belongs in the Catalyst proof of achievement. **Needs a human to sign**,
       so it cannot be closed from here.
-- [ ] Every path appears in the served spec with an example. Belongs to
-      [the OpenAPI task](m3-api-04-openapi.md); every schema already carries the
-      `.meta()` it needs.
+- [x] Publish the transaction paths in the committed specification. VERIFIED:
+      [`docs/api/openapi.json`](../../docs/api/openapi.json) includes the active
+      routes and the retired route. [The OpenAPI task](m3-api-04-openapi.md) records publication.
+- [ ] Recheck that each active path has an example in the deployed specification.
+      This documentation update inspected the committed specification only.
 - [x] Builder errors arrive as documented status codes, not as `500`. VERIFIED
       across all ten paths, above.

@@ -4,6 +4,12 @@ Feature walkthrough task · [Milestone 3](../milestone-3-ui-development.md) · w
 
 One pass on preprod proving each whitepaper claim works through the guided UI. The same table is the script for the M3 demo video. Flow ids from [flow-config.tsx](../../code/dApp/src/components/user/flow-config.tsx); sections from the current [whitepaper](../../whitepaper/whitepaper.pdf).
 
+## Current evidence
+
+VERIFIED: [the wallet UI video](../../docs/assets/wallet-ui.mp4?raw=1) is committed and linked from the repository README.
+The earlier combined video/walkthrough TODO did not distinguish publication from full feature validation.
+Publication is complete. Completion of the rows below is not determined from that file alone.
+
 ## The script
 
 | # | Feature (whitepaper) | Flow |

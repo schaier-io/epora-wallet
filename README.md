@@ -43,7 +43,7 @@ https://github.com/user-attachments/assets/0b5dd0e9-7e10-4ad4-982e-8d14b23ad96f
 - [Smart contract](code/smart-contract/README.md) — validator roles, the transition map, trust boundaries, test layout, and the local Aiken workflow.
 - [dApp](code/dApp/README.md) — running the reference interface locally: setup, environment, and the flows it covers.
 - [Development tasks](tasks/README.md) — the per-milestone task breakdown, with the Catalyst acceptance criteria each milestone is measured against.
-- [Public API](docs/api/README.md) — the developer guide to the versioned HTTP API: reads, the ten transaction-build routes, errors and rate limits. Its machine-readable contract is the [OpenAPI 3.1 document](docs/api/openapi.json), also served live at `/api/v1/openapi.json`, with an interactive reference at `/api/v1/docs`.
+- [Public API](docs/api/README.md): the developer guide covers reads, nine active transaction-build routes, errors, and rate limits. The [OpenAPI 3.1 document](docs/api/openapi.json) is served at `/api/v1/openapi.json`. The interactive reference is at `/api/v1/docs`.
 
 The API builds unsigned transactions and returns them. It never holds a key and never signs. It targets Preprod, and its compatibility promise starts at the mainnet beta (see the roadmap below).
 
@@ -68,7 +68,7 @@ This repository is under active development, and milestones are tracked within t
 
 Development tasks — completed and open, grouped per milestone — are tracked in the [tasks/](./tasks) folder.
 
-Current focus: **UI and off-chain developer surface**. The smart-contract work is substantially implemented; testnet launch, mainnet beta, external API documentation, and demo/feedback work are still pending. See the task files for the current milestone breakdown.
+Current focus: **Preprod validation and testnet feedback preparation**. The API guide, specification, and UI video are published in this repository. External API validation and the full feature walkthrough remain open in the task records, alongside the testnet feedback launch and mainnet beta.
 
 ### Current public status
 
@@ -76,8 +76,10 @@ Current focus: **UI and off-chain developer surface**. The smart-contract work i
 - [x] Core smart-contract validators and tests
 - [x] Reference frontend for Preprod flows
 - [x] Detailed development tasks
-- [ ] Public, versioned API/spec for outside developers — published and documented ([guide](docs/api/README.md), [spec](docs/api/openapi.json)), with the rate-limit tier and the spec-conformance tests in place; still open are the outside-reader pass on the guide and one signed, submitted transaction built through the API
-- [ ] Demo video and full manual feature walkthrough
+- [x] Public, versioned API and specification published ([guide](docs/api/README.md), [spec](docs/api/openapi.json)); rate limits and spec-conformance tests are implemented.
+- [x] [Wallet UI video](docs/assets/wallet-ui.mp4?raw=1) published.
+- [ ] External API validation: [outside-reader guide review](tasks/subtasks/m3-api-06-dev-docs.md) and [signed, submitted API transaction](tasks/subtasks/m3-api-09-tx-routes.md).
+- [ ] [Full manual feature walkthrough](tasks/subtasks/m3-walk-02-run.md), with transaction evidence.
 - [ ] Testnet feedback launch
 - [ ] Mainnet beta
 

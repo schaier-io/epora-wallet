@@ -3,8 +3,9 @@
 Public API task · [Milestone 3](../milestone-3-ui-development.md) · after [shared schemas](m3-api-01-shared-schemas.md) and [v1 routes](m3-api-02-v1-routes.md)
 
 Catalyst Milestone 3 asks for "an API + specification for external developers".
-There is no spec file in the repo today (VERIFIED: zero matches for `openapi`
-under `src`).
+Correction (2026-09-14): the earlier statement that no spec existed described the pre-implementation state.
+VERIFIED: [`docs/api/openapi.json`](../../docs/api/openapi.json) now exists, with
+[the route](../../code/dApp/src/app/api/v1/openapi.json/route.ts) that serves it.
 
 The document is generated from the zod schemas by `zod-openapi`, committed to the
 repo, served by the app, and checked for staleness in CI (decisions 2 and 10).
