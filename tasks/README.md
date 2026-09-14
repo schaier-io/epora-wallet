@@ -16,6 +16,18 @@ Each file lists the work, then the Catalyst acceptance criteria and evidence it'
 
 Checked boxes were last re-verified against the code on 2026-06-12: every claim traced to its implementing source and tests, `aiken check` green on the pinned compiler (21 test files — unit, attack-regression, fuzz), frontend unit suite 94/94.
 
+## Public status update (2026-09-14)
+
+VERIFIED: the repository contains the [API guide](../docs/api/README.md),
+[specification](../docs/api/openapi.json), and [wallet UI video](../docs/assets/wallet-ui.mp4?raw=1).
+The earlier public checklist grouped these published files with unfinished validation.
+The [public status](../README.md#current-public-status) lists the demo video once and groups the public API under the feedback launch.
+
+The [Milestone 3](milestone-3-ui-development.md) records still require an outside
+guide review, a signed and confirmed API transaction, and a full feature walkthrough.
+This update verifies repository artifacts, not deployment readiness or mainnet readiness.
+The June test results above are historical and were not rerun for this documentation update.
+
 ## Preprod feedback launch (2026-09-14)
 
 REPORTED: Sandro confirmed the [Preprod feedback launch at epora.io](https://epora.io).
