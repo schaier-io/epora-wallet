@@ -5,12 +5,14 @@ import { type RuntimeTxBuilder } from "@/lib/mesh/transactions/internals/budget-
 import { MIN_COLLATERAL_LOVELACE } from "@/lib/mesh/transactions/internals/constants";
 import {
   addWalletInput,
+  applyManualCollateral,
   assertValidConsolidationLayout,
   compareInputRefs,
   createInputRefKey,
   dedupeUtxos,
   ensureUniqueWalletInputRefs,
   findUtxo,
+  isReturnFreeCollateral,
   MAX_CONCURRENT_EXACT_INPUT_LOOKUPS,
   resolveManualCollateralCandidate,
   resolveExactWalletInputUtxos,
@@ -319,22 +321,61 @@ test("ensureUniqueWalletInputRefs passes distinct refs and rejects duplicates", 
   );
 });
 
-// Manual collateral selection: the deposit is 5 ADA, and the UTxO must also
-// leave the collateral return output above its own min-UTxO floor, so a UTxO
-// holding exactly 5 ADA does not qualify. Preference: pure ADA first, then the
-// smallest. Getting this wrong fails script transactions.
+// Manual collateral selection: the deposit is 5 ADA, and a UTxO above the
+// deposit must also leave the collateral return output above its own min-UTxO
+// floor. Preference: pure ADA first, then the smallest. Getting this wrong
+// fails script transactions.
 test("resolveManualCollateralCandidate picks the smallest qualifying pure-ADA UTxO", () => {
   const result = resolveManualCollateralCandidate(
     [
       utxo(HASH_A, 0, String(MIN_COLLATERAL_LOVELACE + 5_000_000)), // qualifies (larger)
       utxo(HASH_B, 1, String(MIN_COLLATERAL_LOVELACE + 2_000_000)), // qualifies (smallest) -> chosen
-      utxo("cc".repeat(32), 2, String(MIN_COLLATERAL_LOVELACE)) // no room for the return output
+      utxo("cc".repeat(32), 2, String(MIN_COLLATERAL_LOVELACE - 1)) // under the deposit
     ],
     new Set()
   );
 
   assert.equal(result.collateral?.input.txHash, HASH_B);
   assert.equal(result.source, "manual.unreserved-wallet-utxo");
+});
+
+// CIP-40 keeps the pre-Babbage rule when no collateral output is specified,
+// which it allows only when no tokens sit in the collateral input. A pure-ADA
+// UTxO holding exactly the deposit is therefore valid collateral, consumed
+// whole with no return output.
+test("resolveManualCollateralCandidate accepts a pure-ADA UTxO holding exactly the deposit", () => {
+  const result = resolveManualCollateralCandidate(
+    [utxo(HASH_A, 0, String(MIN_COLLATERAL_LOVELACE))],
+    new Set()
+  );
+
+  assert.equal(result.collateral?.input.txHash, HASH_A);
+  assert.equal(result.source, "manual.unreserved-wallet-utxo");
+});
+
+// The same UTxO carrying a token cannot go return-free: its tokens would be
+// burned. It needs a return output, and it has no lovelace left to fund one.
+test("resolveManualCollateralCandidate rejects a token-bearing UTxO holding exactly the deposit", () => {
+  const result = resolveManualCollateralCandidate(
+    [sttUtxo(HASH_A, 0, STT_UNIT, String(MIN_COLLATERAL_LOVELACE))],
+    new Set()
+  );
+
+  assert.equal(result.collateral, null);
+  assert.equal(result.source, "manual.wallet-utxos-unavailable");
+});
+
+// The builder keys the return-free path off this predicate: it must skip
+// setTotalCollateral for exactly these UTxOs, or Mesh emits a 0-lovelace
+// collateral return output that the ledger rejects.
+test("isReturnFreeCollateral holds only for pure ADA at exactly the deposit", () => {
+  assert.equal(isReturnFreeCollateral(utxo(HASH_A, 0, String(MIN_COLLATERAL_LOVELACE))), true);
+  assert.equal(isReturnFreeCollateral(utxo(HASH_A, 0, String(MIN_COLLATERAL_LOVELACE + 1))), false);
+  assert.equal(isReturnFreeCollateral(utxo(HASH_A, 0, String(MIN_COLLATERAL_LOVELACE - 1))), false);
+  assert.equal(
+    isReturnFreeCollateral(sttUtxo(HASH_A, 0, STT_UNIT, String(MIN_COLLATERAL_LOVELACE))),
+    false
+  );
 });
 
 // Babbage returns everything above the deposit, native tokens included, so a
@@ -374,13 +415,81 @@ test("resolveManualCollateralCandidate falls back to a reserved UTxO when it is 
 
 test("resolveManualCollateralCandidate returns null when nothing meets the collateral minimum", () => {
   const result = resolveManualCollateralCandidate(
-    [utxo(HASH_A, 0, String(MIN_COLLATERAL_LOVELACE))],
+    [utxo(HASH_A, 0, String(MIN_COLLATERAL_LOVELACE - 1))],
     new Set()
   );
 
   assert.equal(result.collateral, null);
   assert.equal(result.source, "manual.wallet-utxos-unavailable");
 });
+
+// The builder wiring is where the return-free decision has to land: Mesh emits
+// the collateral return output for any truthy `totalCollateral`, and its value
+// is `sum(collateral) - totalCollateral`. Declaring the total for a UTxO that
+// holds exactly the deposit produces a 0-lovelace output the ledger rejects.
+function collateralBuilderStub() {
+  const calls: Array<[string, unknown[]]> = [];
+  const builder = {
+    txInCollateral: (...args: unknown[]) => {
+      calls.push(["txInCollateral", args]);
+      return builder;
+    },
+    setTotalCollateral: (...args: unknown[]) => {
+      calls.push(["setTotalCollateral", args]);
+      return builder;
+    },
+    setCollateralReturnAddress: (...args: unknown[]) => {
+      calls.push(["setCollateralReturnAddress", args]);
+      return builder;
+    }
+  } as unknown as RuntimeTxBuilder;
+
+  return { builder, calls };
+}
+
+test("applyManualCollateral declares no total for a pure-ADA UTxO at exactly the deposit", () => {
+  const { builder, calls } = collateralBuilderStub();
+  const collateral = utxo(HASH_A, 0, String(MIN_COLLATERAL_LOVELACE));
+
+  assert.equal(applyManualCollateral(builder, collateral, TEST_ADDRESS), true);
+  assert.deepEqual(
+    calls.map(([name]) => name),
+    ["txInCollateral"]
+  );
+  assert.deepEqual(calls[0]?.[1], [
+    HASH_A,
+    0,
+    collateral.output.amount,
+    TEST_ADDRESS
+  ]);
+});
+
+test("applyManualCollateral declares the total and return address for a larger UTxO", () => {
+  const { builder, calls } = collateralBuilderStub();
+  const collateral = utxo(HASH_A, 0, String(MIN_COLLATERAL_LOVELACE + 3_000_000));
+
+  assert.equal(applyManualCollateral(builder, collateral, TEST_ADDRESS), false);
+  assert.deepEqual(
+    calls.map(([name]) => name),
+    ["txInCollateral", "setTotalCollateral", "setCollateralReturnAddress"]
+  );
+  assert.deepEqual(calls[1]?.[1], [String(MIN_COLLATERAL_LOVELACE)]);
+  assert.deepEqual(calls[2]?.[1], [TEST_ADDRESS]);
+});
+
+test("applyManualCollateral requires a builder that supports collateral", () => {
+  assert.throws(
+    () =>
+      applyManualCollateral(
+        {} as unknown as RuntimeTxBuilder,
+        utxo(HASH_A, 0, String(MIN_COLLATERAL_LOVELACE)),
+        TEST_ADDRESS
+      ),
+    /cannot set manual collateral inputs/
+  );
+});
+
+
 
 test("addWalletInput forwards the UTxO to txIn with the script-ref byte size and requires txIn()", () => {
   const calls: unknown[][] = [];

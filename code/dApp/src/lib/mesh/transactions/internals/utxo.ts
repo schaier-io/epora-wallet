@@ -66,18 +66,38 @@ function compareLovelaceAscending(left: UTxO, right: UTxO) {
 
 
 
+// A pure-ADA UTxO holding exactly MIN_COLLATERAL_LOVELACE is consumed whole.
+// The builder declares no `totalCollateral` for it, so the transaction carries
+// no collateral return output and there is no min-UTxO floor to clear. CIP-40
+// allows the return-free form only when the collateral input holds no tokens:
+// "If no collateral output is specified (and therefore no tokens are in the
+// collateral input), then we keep the old definition". Callers that build the
+// collateral fields must skip `setTotalCollateral` for these UTxOs. Declaring
+// it makes the builder emit a 0-lovelace return output, which the ledger
+// rejects.
+export function isReturnFreeCollateral(utxo: UTxO) {
+  return (
+    isPureLovelaceUtxo(utxo) &&
+    getUtxoLovelace(utxo) === BigInt(MIN_COLLATERAL_LOVELACE)
+  );
+}
+
+
+
 // Collateral does NOT need a token-free UTxO. Since Babbage the transaction
 // declares `totalCollateral` and the ledger hands the remainder back in a
 // collateral return output, native tokens included, so any wallet UTxO
 // qualifies as long as its lovelace covers the deposit AND leaves that return
-// output above its own min-UTxO floor. Reference-script UTxOs stay out: they
-// are reserved for their scripts.
+// output above its own min-UTxO floor. The return-free case above is the one
+// exception. Reference-script UTxOs stay out: they are reserved for their
+// scripts.
 function isCollateralCandidate(utxo: UTxO, protocolParams?: Protocol) {
+  if (hasReferenceScript(utxo)) return false;
+  if (isReturnFreeCollateral(utxo)) return true;
   return (
-    !hasReferenceScript(utxo) &&
     getUtxoLovelace(utxo) >=
-      BigInt(MIN_COLLATERAL_LOVELACE) +
-        calculateCollateralReturnMinimumLovelace(utxo, protocolParams)
+    BigInt(MIN_COLLATERAL_LOVELACE) +
+      calculateCollateralReturnMinimumLovelace(utxo, protocolParams)
   );
 }
 
@@ -293,6 +313,40 @@ export async function resolveChangeAddress(
     new Error("Unable to resolve change address from wallet."),
     diagnostics
   );
+}
+
+
+
+// Wires one resolved collateral UTxO into the builder and reports whether it
+// went return-free. Declaring `totalCollateral` is what makes Mesh emit the
+// collateral return output, so the return-free case must leave both the total
+// and the return address unset.
+export function applyManualCollateral(
+  txBuilder: RuntimeTxBuilder,
+  collateral: UTxO,
+  changeAddress: string
+) {
+  if (
+    typeof txBuilder.txInCollateral !== "function" ||
+    typeof txBuilder.setTotalCollateral !== "function"
+  ) {
+    throw new Error("Mesh transaction builder cannot set manual collateral inputs.");
+  }
+
+  txBuilder.txInCollateral(
+    collateral.input.txHash,
+    collateral.input.outputIndex,
+    collateral.output.amount,
+    collateral.output.address
+  );
+
+  const returnFree = isReturnFreeCollateral(collateral);
+  if (!returnFree) {
+    txBuilder.setTotalCollateral(MIN_COLLATERAL_LOVELACE.toString());
+    txBuilder.setCollateralReturnAddress?.(changeAddress);
+  }
+
+  return returnFree;
 }
 
 

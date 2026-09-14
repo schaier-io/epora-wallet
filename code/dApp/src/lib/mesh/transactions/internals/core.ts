@@ -8,7 +8,7 @@ import {
 } from "./constants";
 import { createStageError, withStage } from "./errors";
 import { excludeReservedUtxos, hasReferenceScript } from "./reference-scripts";
-import { createInputRefKey, resolveChangeAddress, resolveManualCollateralCandidate, resolveWalletUtxos } from "./utxo";
+import { applyManualCollateral, createInputRefKey, resolveChangeAddress, resolveManualCollateralCandidate, resolveWalletUtxos } from "./utxo";
 import { ServerFetcher } from "@/lib/mesh/server-fetcher";
 import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
 import { type ContractConfig } from "@/lib/types/contracts";
@@ -122,7 +122,7 @@ export async function setupTransaction(
         throw createStageError(
           "setup:manualCollateral",
           new Error(
-            "No wallet UTxO can cover script collateral. Collateral needs one UTxO whose lovelace covers the 5 ADA deposit plus the min-UTxO of its collateral return output; native tokens in that UTxO are returned, so they do not disqualify it."
+            "No wallet UTxO can cover script collateral. Collateral needs either a pure-ADA UTxO holding exactly the 5 ADA deposit, or one UTxO whose lovelace covers the deposit plus the min-UTxO of its collateral return output. Native tokens in that second UTxO are returned, so they do not disqualify it."
           ),
           {
             ...setupDiagnostics,
@@ -137,29 +137,29 @@ export async function setupTransaction(
         );
       }
 
-      if (
-        typeof txBuilder.txInCollateral !== "function" ||
-        typeof txBuilder.setTotalCollateral !== "function"
-      ) {
-        throw createStageError(
-          "setup:manualCollateral",
-          new Error("Mesh transaction builder cannot set manual collateral inputs."),
-          { ...setupDiagnostics, collateralMode: "manual-builder-input" }
-        );
-      }
-
       // Babbage collateral: declaring `totalCollateral` makes the builder add a
       // collateral return output for everything above the deposit, native
       // tokens included, so the collateral UTxO does not have to be ADA-only.
-      txBuilder
-        .txInCollateral(
-          collateralResolution.collateral.input.txHash,
-          collateralResolution.collateral.input.outputIndex,
-          collateralResolution.collateral.output.amount,
-          collateralResolution.collateral.output.address
-        )
-        .setTotalCollateral(MIN_COLLATERAL_LOVELACE.toString());
-      txBuilder.setCollateralReturnAddress?.(changeAddress);
+      //
+      // The exception is a pure-ADA UTxO holding exactly the deposit. Mesh adds
+      // the return output for any truthy `totalCollateral`, and its value is
+      // `sum(collateral) - totalCollateral`, which is 0 here. A 0-lovelace
+      // output fails the ledger's min-UTxO check, so applyManualCollateral
+      // declares no total at all and lets the ledger consume the whole input.
+      let returnFreeCollateral: boolean;
+      try {
+        returnFreeCollateral = applyManualCollateral(
+          txBuilder,
+          collateralResolution.collateral,
+          changeAddress
+        );
+      } catch (error) {
+        throw createStageError("setup:manualCollateral", error, {
+          ...setupDiagnostics,
+          collateralMode: "manual-builder-input"
+        });
+      }
+
       options?.excludedSelectionInputRefs?.add(
         createInputRefKey(
           collateralResolution.collateral.input.txHash,
@@ -175,8 +175,9 @@ export async function setupTransaction(
           collateralResolution.collateral.input.outputIndex
         ),
         amount: collateralResolution.collateral.output.amount,
-        totalCollateral: MIN_COLLATERAL_LOVELACE.toString(),
-        returnAddress: changeAddress
+        totalCollateral: returnFreeCollateral ? null : MIN_COLLATERAL_LOVELACE.toString(),
+        returnAddress: returnFreeCollateral ? null : changeAddress,
+        returnFreeCollateral
       };
     }
 
