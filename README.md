@@ -68,7 +68,7 @@ This repository is under active development, and milestones are tracked within t
 
 Development tasks — completed and open, grouped per milestone — are tracked in the [tasks/](./tasks) folder.
 
-Current focus: **Preprod validation and testnet feedback preparation**. The API guide, specification, and UI video are published in this repository. External API validation and the full feature walkthrough remain open in the task records, alongside the testnet feedback launch and mainnet beta.
+Current focus: **Preprod validation and testnet feedback**. The public site is available at [epora.io](https://epora.io). The full feature walkthrough and mainnet beta remain open. See the task files for detailed validation work.
 
 ### Current public status
 
@@ -76,11 +76,9 @@ Current focus: **Preprod validation and testnet feedback preparation**. The API 
 - [x] Core smart-contract validators and tests
 - [x] Reference frontend for Preprod flows
 - [x] Detailed development tasks
-- [x] Public, versioned API and specification published ([guide](docs/api/README.md), [spec](docs/api/openapi.json)); rate limits and spec-conformance tests are implemented.
-- [x] [Wallet UI video](docs/assets/wallet-ui.mp4?raw=1) published.
-- [ ] External API validation: [outside-reader guide review](tasks/subtasks/m3-api-06-dev-docs.md) and [signed, submitted API transaction](tasks/subtasks/m3-api-09-tx-routes.md).
+- [x] [Demo video](docs/assets/wallet-ui.mp4?raw=1)
+- [x] [Testnet feedback launch](https://epora.io) (Preprod, including the public API)
 - [ ] [Full manual feature walkthrough](tasks/subtasks/m3-walk-02-run.md), with transaction evidence.
-- [ ] Testnet feedback launch
 - [ ] Mainnet beta
 
 ## Contributing

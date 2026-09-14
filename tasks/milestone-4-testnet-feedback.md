@@ -2,6 +2,14 @@
 
 Get it onto a public testnet, put it in front of people, fix what they hit.
 
+## Public launch
+
+- [x] [Testnet feedback launch at epora.io](https://epora.io) (Preprod).
+
+REPORTED: Sandro confirmed the Preprod launch on 2026-09-14.
+This corrects the earlier unchecked public-launch status. The operational
+checks and feedback tasks below still need their own completion evidence.
+
 ## Development tasks
 
 - [ ] **Deploy to testnet** — the app already targets preprod; this is hosting it publicly and writing down what got deployed.
@@ -33,6 +41,6 @@ Get it onto a public testnet, put it in front of people, fix what they hit.
 
 ## Evidence
 
-- Link to the prototype
+- [Preprod prototype](https://epora.io)
 - Link to the categorized feedback
 - Link to the fixes per category (issues, PRs, closed tickets)

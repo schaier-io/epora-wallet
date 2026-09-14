@@ -21,9 +21,15 @@ Checked boxes were last re-verified against the code on 2026-06-12: every claim 
 VERIFIED: the repository contains the [API guide](../docs/api/README.md),
 [specification](../docs/api/openapi.json), and [wallet UI video](../docs/assets/wallet-ui.mp4?raw=1).
 The earlier public checklist grouped these published files with unfinished validation.
-The [public status](../README.md#current-public-status) now separates them.
+The [public status](../README.md#current-public-status) lists the demo video once and groups the public API under the feedback launch.
 
 The [Milestone 3](milestone-3-ui-development.md) records still require an outside
 guide review, a signed and confirmed API transaction, and a full feature walkthrough.
 This update verifies repository artifacts, not deployment readiness or mainnet readiness.
 The June test results above are historical and were not rerun for this documentation update.
+
+## Preprod feedback launch (2026-09-14)
+
+REPORTED: Sandro confirmed the [Preprod feedback launch at epora.io](https://epora.io).
+The public launch is complete. This corrects the earlier unchecked public status.
+The detailed [Milestone 4](milestone-4-testnet-feedback.md) checks retain their own status.
