@@ -15,18 +15,7 @@ import {
 } from "lucide-react";
 import { useEffect } from "react";
 
-import {
-  AnimatedContent,
-  FadeContent
-} from "@/components/react-bits/primitives";
 import { WalletConnectionDialog } from "@/components/layout/wallet-panel";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle
-} from "@/components/ui/card";
 
 import { MintCelebrationOverlay, WalletCreationFullscreenProgress } from "@/components/user/workspace/editors";
 
@@ -185,28 +174,14 @@ export function WorkspaceView() {
         {!walletReady ? (
           <WorkspaceOnboardingView />
         ) : routeState.workspaceMode === "landing" && detectedSttTokensLoading ? (
-          <div className="flex min-h-0 flex-1 items-center justify-center">
-            <AnimatedContent className="w-full max-w-md" distance={24}>
-              <Card className="user-surface w-full">
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden="true" />
-                    {i18n("detectingWallets")}
-                  </CardTitle>
-                  <CardDescription>
-                    {i18n("lookingUpSmartWalletsForThisSignerOn")}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <FadeContent
-                    blur
-                    className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4 text-sm text-muted-foreground"
-                  >
-                    {i18n("thisUsuallyTakesAFewSecondsTheSetup")}
-                  </FadeContent>
-                </CardContent>
-              </Card>
-            </AnimatedContent>
+          <div className="flex min-h-0 flex-1 items-center justify-center p-6">
+            <div role="status" aria-live="polite" className="flex max-w-sm items-center gap-3 rounded-xl border border-border/60 bg-card/60 px-5 py-4">
+              <Loader2 className="h-5 w-5 shrink-0 motion-safe:animate-spin text-primary" aria-hidden="true" />
+              <div>
+                <p className="text-sm font-medium text-foreground">{i18n("detectingWallets")}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{i18n("lookingUpSmartWalletsForThisSignerOn")}</p>
+              </div>
+            </div>
           </div>
         ) : shouldForwardToWalletSelection({
             workspaceMode: routeState.workspaceMode,

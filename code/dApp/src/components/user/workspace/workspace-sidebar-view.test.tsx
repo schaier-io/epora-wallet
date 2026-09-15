@@ -98,6 +98,7 @@ describe("workspace sidebar, no wallet open", () => {
     renderSidebar(true);
 
     expect(screen.getByRole("status", { name: "Loading your wallet…" })).toBeTruthy();
+    expect(screen.getByText("Loading your wallet…")).not.toHaveClass("sr-only");
     expect(screen.queryByText("No wallet open")).toBeNull();
     expect(screen.queryByRole("button", { name: "Choose a wallet" })).toBeNull();
   });

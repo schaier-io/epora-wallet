@@ -59,11 +59,12 @@ test("detectSttInfo fetches the script address once for every wallet, not once p
   }
 });
 
-test("detectSttInfo skips the address lookup when the policy has no assets", async () => {
+test("detectSttInfo returns no wallets when the policy has no assets", async () => {
   const stub = stubMeshRpc(({ method }) => {
     if (method === "fetchCollectionAssets") {
       return { assets: [], next: null };
     }
+    if (method === "fetchAddressUTxOs") return [];
     throw new Error(`unexpected mesh method ${method}`);
   });
 
@@ -71,7 +72,7 @@ test("detectSttInfo skips the address lookup when the policy has no assets", asy
     const detected = await detectSttInfo();
 
     assert.deepEqual(detected.tokens, []);
-    assert.equal(stub.calls.length, 1);
+    assert.equal(stub.calls.length, 2);
   } finally {
     stub.restore();
   }
@@ -150,5 +151,87 @@ test("shared helper authorization failures do not trigger Query retries", async 
       assert.equal(retryQuery(0, error), false);
       return true;
     });
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+
+test("inventory starts the address lookup before policy discovery finishes", async () => {
+  const originalFetch = globalThis.fetch;
+  const controller = new AbortController();
+  const methods: string[] = [];
+  let finishPolicy!: () => void;
+  const policyPending = new Promise<void>((resolve) => { finishPolicy = resolve; });
+  const unit = `${getSttMintPolicyId()}01`;
+  globalThis.fetch = async (_url, init) => {
+    assert.equal(init?.signal, controller.signal);
+    const { method } = JSON.parse(String(init?.body)) as MeshCall;
+    methods.push(method);
+    if (method === "fetchCollectionAssets") {
+      await policyPending;
+      return Response.json({ result: { assets: [{ unit, quantity: "1" }], next: null } });
+    }
+    return Response.json({ result: [scriptUtxo(unit, 0)] });
+  };
+  const pending = detectSttInfo(undefined, controller.signal);
+  try {
+    assert.deepEqual(methods, ["fetchCollectionAssets", "fetchAddressUTxOs"]);
+    finishPolicy();
+    assert.deepEqual((await pending).tokens.map((token) => token.unit), [unit]);
+  } finally {
+    finishPolicy();
+    await pending.catch(() => {});
+    globalThis.fetch = originalFetch;
+  }
+});
+
+for (const addressState of ["failed", "pending"] as const) {
+  test(`empty policy discovery ignores a ${addressState} address lookup`, async () => {
+    const originalFetch = globalThis.fetch;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    globalThis.fetch = async (_url, init) => {
+      const { method } = JSON.parse(String(init?.body)) as MeshCall;
+      if (method === "fetchCollectionAssets") return Response.json({ result: { assets: [], next: null } });
+      if (addressState === "failed") throw new Error("Address service unavailable");
+      return new Promise<Response>(() => {});
+    };
+    try {
+      const detected = await Promise.race([
+        detectSttInfo(),
+        new Promise<never>((_, reject) => { timeout = setTimeout(() => reject(new Error("Detection waited for unnecessary address lookup")), 1000); })
+      ]);
+      assert.deepEqual(detected.tokens, []);
+    } finally {
+      clearTimeout(timeout);
+      globalThis.fetch = originalFetch;
+    }
+  });
+}
+
+test("nonempty policy discovery propagates address lookup failures", async () => {
+  const originalFetch = globalThis.fetch;
+  const unit = `${getSttMintPolicyId()}01`;
+  globalThis.fetch = async (_url, init) => {
+    const { method } = JSON.parse(String(init?.body)) as MeshCall;
+    if (method === "fetchCollectionAssets") return Response.json({ result: { assets: [{ unit, quantity: "1" }], next: null } });
+    throw new Error("Address service unavailable");
+  };
+  try {
+    await assert.rejects(detectSttInfo(), /Address service unavailable/);
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test("empty policy discovery still rejects cancellation", async () => {
+  const originalFetch = globalThis.fetch;
+  const controller = new AbortController();
+  globalThis.fetch = async (_url, init) => {
+    const { method } = JSON.parse(String(init?.body)) as MeshCall;
+    if (method === "fetchCollectionAssets") {
+      controller.abort();
+      return Response.json({ result: { assets: [], next: null } });
+    }
+    return new Promise<Response>(() => {});
+  };
+  try {
+    await assert.rejects(detectSttInfo(undefined, controller.signal), { name: "AbortError" });
   } finally { globalThis.fetch = originalFetch; }
 });
