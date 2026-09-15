@@ -138,8 +138,7 @@ export function WorkspaceReviewRailView() {
     }
   }
 
-  // This always rebuilds with the co-signer path. A direct-path preview cannot be reused because
-  // the authority redeemer is part of the transaction body.
+  // Request the co-signer path. The shared build record reuses only the same authority.
   async function saveAsApprovalRequest() {
     if (preparingProposal || transactionInFlight) {
       return;

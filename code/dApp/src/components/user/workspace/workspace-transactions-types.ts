@@ -1,3 +1,4 @@
+import type { TxFetcher, WalletSource } from "@/lib/mesh/tx-context";
 import { type ProposalCapture } from "@/components/user/proposals/stash";
 import type { UserActionKind } from "@/components/user/flow-types";
 import { type BuildResult } from "@/lib/types/contracts";
@@ -33,6 +34,8 @@ type WalletIdentityFields = {
   jotaiStore: ReturnType<typeof useStore>;
 };
 
+export type WorkspaceBuildResources = { wallet: WalletSource; fetcher?: TxFetcher };
+
 // Build/submit lifecycle: the in-flight flags, the current preview, the error
 // setters, the submit hash, and the guard that wraps every build.
 type BuildStatusFields = {
@@ -46,7 +49,7 @@ type BuildStatusFields = {
   submitInFlightRef: MutableRefObject<ExtractAtomValue<typeof workspaceSessionAtom> | null>;
   setBuildError: SetBuildError;
   setBuildErrorExpected: Dispatch<SetStateAction<boolean>>;
-  withBuildGuard: (label: string, run: () => Promise<BuildResult>, context?: Record<string, unknown>) => Promise<BuildResult | null>;
+  withBuildGuard: (label: string, run: (resources: WorkspaceBuildResources) => Promise<BuildResult>, context?: Record<string, unknown>) => Promise<BuildResult | null>;
 };
 
 // Which action is selected and its current validation/readiness state.

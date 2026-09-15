@@ -1,4 +1,9 @@
 "use client";
+import { isWorkspaceBuildResultExpired, runWorkspaceBuild, workspaceBuildIdentityAtom } from "./workspace-build-cache";
+import { createAbortableWalletSource } from "@/lib/mesh/build-cancellation";
+import { ServerFetcher } from "@/lib/mesh/server-fetcher";
+import type { WorkspaceBuildResources } from "./workspace-transactions-types";
+import { safeStringify } from "./helpers";
 
 import { queryClientAtom } from "jotai-tanstack-query";
 import { txInfoQueryOptions } from "@/lib/query/chain";
@@ -93,11 +98,17 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
     setSubmitHash
   } = ctx;
 
+  const inputIdentityAtCreation = jotaiStore.get(workspaceBuildIdentityAtom);
+  const sessionAtCreation = jotaiStore.get(workspaceSessionAtom);
+
   async function withBuildGuard(
     label: string,
-    run: () => Promise<BuildResult>,
+    run: (resources: WorkspaceBuildResources) => Promise<BuildResult>,
     context?: Record<string, unknown>
   ): Promise<BuildResult | null> {
+    if (jotaiStore.get(workspaceBuildIdentityAtom) !== inputIdentityAtCreation ||
+        jotaiStore.get(workspaceSessionAtom) !== sessionAtCreation) return null;
+
     // The diagnostic reference belongs to the failure the reader currently sees.
     // Clearing it before every guard return keeps a stale id from outliving the
     // unexpected failure it explained (e.g. under a later preflight error).
@@ -131,69 +142,70 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
       return null;
     }
 
-    setActiveBuild(label);
-    setBuildError(null);
-    setBuildErrorExpected(false);
-    setSubmitHash(null);
-    setMintConfirmation(null);
-    jotaiStore.set(mintConfirmationRunAtom, jotaiStore.get(mintConfirmationRunAtom) + 1);
-    // Reset before each build; supported actions re-capture below.
-    proposalCaptureRef.current = null;
-    const runToken = jotaiStore.get(buildRunAtom) + 1;
-    jotaiStore.set(buildRunAtom, runToken);
-    const session = jotaiStore.get(workspaceSessionAtom);
-    const snapshot = jotaiStore.get(workspaceTransactionSnapshotAtom);
-    // Subscribe during the build so an edit followed by an undo still retires it.
-    let inputsChanged = false;
-    const unsubscribe = jotaiStore.sub(workspaceTransactionSnapshotAtom, () => { inputsChanged = true; });
-    const isCurrent = () => !inputsChanged && jotaiStore.get(buildRunAtom) === runToken &&
-      jotaiStore.get(workspaceSessionAtom) === session &&
-      jotaiStore.get(workspaceTransactionSnapshotAtom) === snapshot && !jotaiStore.get(walletStateUpdatingAtom);
+    const signature = isUserActionKind(label) ? buildActionSignature(label) : null;
+    const key = safeStringify({ label, signature, context });
+    return runWorkspaceBuild(jotaiStore, key, async signal => {
+      setActiveBuild(label);
+      setBuildError(null);
+      setBuildErrorExpected(false);
+      setSubmitHash(null);
+      setMintConfirmation(null);
+      jotaiStore.set(mintConfirmationRunAtom, jotaiStore.get(mintConfirmationRunAtom) + 1);
+      // Reset before each build; supported actions re-capture below.
+      proposalCaptureRef.current = null;
+      const runToken = jotaiStore.get(buildRunAtom);
+      const session = jotaiStore.get(workspaceSessionAtom);
+      const snapshot = jotaiStore.get(workspaceTransactionSnapshotAtom);
+      const isCurrent = () => !signal.aborted && jotaiStore.get(buildRunAtom) === runToken &&
+        jotaiStore.get(workspaceSessionAtom) === session &&
+        jotaiStore.get(workspaceTransactionSnapshotAtom) === snapshot && !jotaiStore.get(walletStateUpdatingAtom);
 
-    try {
-      const pending = run();
-      const proposalCapture = proposalCaptureRef.current;
-      const result = await pending;
-      if (!isCurrent()) {
-        return null;
-      }
-      jotaiStore.set(buildDiagnosticIdAtom, null);
-      jotaiStore.set(preparedWorkspaceTransactionAtom, {
-        result, snapshot, session, builtAt: Date.now(), buildRun: runToken,
-        proposalCapture
-      });
-      setPreview(result);
-      setLastActionLabel(label);
-      setPreviewSignature(isUserActionKind(label) ? buildActionSignature(label) : null);
-      return result;
-    } catch (error) {
-      if (isCurrent()) {
-        const spent = getSpentSttInput(error);
-        const walletUnit = jotaiStore.get(routeStateAtom).selectedWalletUnit;
-        if (spent && walletUnit) jotaiStore.set(beginWalletStateUpdateAtom, { walletUnit, ...spent });
-        const parsed = formatBuildError(error, {
-          action: label,
-          wallet: activeWalletName,
-          networkId,
-          context
+      try {
+        const pending = run({
+          wallet: createAbortableWalletSource(activeWallet, signal),
+          fetcher: new ServerFetcher({ signal })
         });
-        setBuildError(parsed.message, parsed.staleInputs);
-        setBuildErrorExpected(parsed.expected);
-        jotaiStore.set(buildDiagnosticIdAtom, parsed.diagnosticId);
-        recordRecoveryCapacityFailure(jotaiStore, label, error, recoverySignature);
-        // Recognised outcomes (a declined signature, a named ledger rule) are shown to the
-        // reader and stay out of the console; only the genuinely unexpected get logged.
-        if (!parsed.expected) {
-          console.error(`[build:${label}]`, parsed.diagnosticId, parsed.details);
+        const proposalCapture = proposalCaptureRef.current;
+        const result = await pending;
+        if (!isCurrent() || isWorkspaceBuildResultExpired(result)) {
+          return null;
+        }
+        jotaiStore.set(buildDiagnosticIdAtom, null);
+        jotaiStore.set(preparedWorkspaceTransactionAtom, {
+          result, snapshot, session, builtAt: Date.now(), buildRun: runToken, proposalCapture
+        });
+        setPreview(result);
+        setLastActionLabel(label);
+        setPreviewSignature(signature);
+        return result;
+      } catch (error) {
+        if (isCurrent()) {
+          const spent = getSpentSttInput(error);
+          const walletUnit = jotaiStore.get(routeStateAtom).selectedWalletUnit;
+          if (spent && walletUnit) jotaiStore.set(beginWalletStateUpdateAtom, { walletUnit, ...spent });
+          const parsed = formatBuildError(error, {
+            action: label,
+            wallet: activeWalletName,
+            networkId,
+            context
+          });
+          setBuildError(parsed.message, parsed.staleInputs);
+          setBuildErrorExpected(parsed.expected);
+          jotaiStore.set(buildDiagnosticIdAtom, parsed.diagnosticId);
+          recordRecoveryCapacityFailure(jotaiStore, label, error, recoverySignature);
+          // Recognised outcomes (a declined signature, a named ledger rule) are shown to the
+          // reader and stay out of the console; only the genuinely unexpected get logged.
+          if (!parsed.expected) {
+            console.error(`[build:${label}]`, parsed.diagnosticId, parsed.details);
+          }
+        }
+        return null;
+      } finally {
+        if (isCurrent()) {
+          setActiveBuild(null);
         }
       }
-      return null;
-    } finally {
-      unsubscribe();
-      if (jotaiStore.get(buildRunAtom) === runToken && jotaiStore.get(workspaceSessionAtom) === session) {
-        setActiveBuild(null);
-      }
-    }
+    });
   }
 
   async function addSubmittedTransactionToActivity(txHash: string) {

@@ -25,6 +25,7 @@ export type WalletSource = Pick<
 // Promise<unknown> is what ServerFetcher returns and what the callers assume.
 export type TxFetcher = Omit<IFetcher, "fetchProtocolParameters" | "get"> &
   IEvaluator & {
+    readonly signal?: AbortSignal;
     fetchProtocolParameters(epoch?: number): Promise<Protocol>;
     get(url: string): Promise<unknown>;
   };
