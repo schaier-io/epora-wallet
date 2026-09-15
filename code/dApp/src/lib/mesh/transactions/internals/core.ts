@@ -10,6 +10,7 @@ import { createStageError, withStage } from "./errors";
 import { excludeReservedUtxos, hasReferenceScript } from "./reference-scripts";
 import { applyManualCollateral, createInputRefKey, resolveChangeAddress, resolveManualCollateralCandidate, resolveWalletUtxos } from "./utxo";
 import { ServerFetcher } from "@/lib/mesh/server-fetcher";
+import { deserializeTx } from "@/lib/mesh/cst";
 import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
 import { type ContractConfig } from "@/lib/types/contracts";
 import { type IInitiator } from "@meshsdk/common";
@@ -103,7 +104,12 @@ export async function setupTransaction(
   const tx = new Transaction({
     initiator: safeInitiator,
     fetcher,
-    evaluator: fetcher,
+    evaluator: {
+      evaluateTx: (txHex, additionalUtxos, additionalTxs) =>
+        (deserializeTx(txHex).witnessSet().redeemers()?.size() ?? 0) === 0
+          ? Promise.resolve([])
+          : fetcher.evaluateTx(txHex, additionalUtxos, additionalTxs)
+    },
     selector: options?.selector
   });
   const txBuilder = tx.txBuilder as RuntimeTxBuilder;

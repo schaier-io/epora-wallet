@@ -465,3 +465,32 @@ test("a pending activity read cannot publish into another signer session", async
   await pending;
   assert.equal(calls.prependSubmittedTransaction, undefined);
 });
+
+for (const outcome of ["success", "failure"] as const) {
+  test(`an edited draft retires build ${outcome} before another build starts`, async () => {
+    const { ctx, calls } = makeCtx();
+    let finish!: () => void;
+    const pending = createWorkspaceFlowHandlers(ctx).withBuildGuard("use", async () => {
+      await new Promise<void>(resolve => { finish = resolve; });
+      if (outcome === "failure") throw new Error("old build failed");
+      return fakePreview;
+    });
+    ctx.jotaiStore.set(sttWalletInputsAtom, [{ txHash: HASH, outputIndex: 4 }]);
+    finish();
+    assert.equal(await pending, null);
+    assert.equal(calls.setPreview, undefined);
+    assert.deepEqual(calls.setBuildError, [[null]]);
+  });
+}
+
+test("editing and undoing during a build still retires its result", async () => {
+  const { ctx, calls } = makeCtx();
+  const original = ctx.jotaiStore.get(sttWalletInputsAtom);
+  const pending = createWorkspaceFlowHandlers(ctx).withBuildGuard("use", async () => {
+    ctx.jotaiStore.set(sttWalletInputsAtom, [{ txHash: HASH, outputIndex: 3 }]);
+    ctx.jotaiStore.set(sttWalletInputsAtom, original);
+    return fakePreview;
+  });
+  assert.equal(await pending, null);
+  assert.equal(calls.setPreview, undefined);
+});

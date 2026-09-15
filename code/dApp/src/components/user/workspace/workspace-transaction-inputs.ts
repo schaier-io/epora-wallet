@@ -14,7 +14,7 @@ import { withBeneficiarySigningAddressesDerived } from "@/components/user/worksp
 // factory separates "gather the current form inputs" from "build the tx". Read
 // at call time, exactly as before, with no behavior change.
 export function resolveWorkspaceTransactionInputs(
-  jotaiStore: WorkspaceTransactionsCtx["jotaiStore"]
+  jotaiStore: Pick<WorkspaceTransactionsCtx["jotaiStore"], "get">
 ) {
   return {
     config: jotaiStore.get(configAtom),

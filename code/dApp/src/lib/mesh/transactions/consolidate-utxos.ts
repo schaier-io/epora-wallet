@@ -73,8 +73,8 @@ export async function buildConsolidateUtxosTx(
   const prepared = await buildTransactionWithReestimatedLimits(
     "consolidate-utxo:tx.draft-build",
     "consolidate-utxo:tx.build",
-    async (overrides) => {
-      const { tx, fetcher, signerAddress, changeAddress, setupDiagnostics } = await setupTransaction(wallet, referenceTime, txFetcher);
+    async (overrides, buildFetcher) => {
+      const { tx, fetcher, signerAddress, changeAddress, setupDiagnostics } = await setupTransaction(wallet, referenceTime, buildFetcher);
       addExtraRequiredSigners(tx, signerAddress, input.requiredSignerKeyHashes);
       const spendValidatorsByRef = new Map<string, string>();
       let walletOutputCount = 0;
