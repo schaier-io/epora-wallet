@@ -84,6 +84,7 @@ export interface CstTransactionBody {
   fee(): CstStringable;
   /** `invalid_hereafter` slot (exclusive upper validity bound), when the body sets one. */
   ttl(): bigint | number | undefined;
+  validityStartInterval(): bigint | number | undefined;
   /** The body's `required_signers` set (payment key hashes), when it lists any. */
   requiredSigners(): unknown;
   certs(): { values(): readonly { toCbor(): string }[]; toCbor(): string } | undefined;

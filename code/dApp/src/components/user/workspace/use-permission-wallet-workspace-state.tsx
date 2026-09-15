@@ -4,7 +4,9 @@ import { useTranslations } from "next-intl";
 
 import { useAtomValue } from "jotai";
 import { useQueryClient } from "@tanstack/react-query";
-import { activeSttAuthorityOptionsAtom, walletOperatorOptionsAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
+import { useWorkspaceTransactionPrebuild } from "./use-workspace-transaction-prebuild";
+import { walletStateUpdatingAtom } from "./atoms/wallet-state-update.atoms";
+import { activeSttAuthorityOptionsAtom, walletOperatorOptionsAtom, selectedSigningActionAvailabilityAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
 import { setupStateAtom } from "@/components/user/workspace/atoms/workspace-setup-state.atoms";
 
 import { useEffect, useMemo } from "react";
@@ -346,6 +348,17 @@ export function usePermissionWalletWorkspaceState() {
     withBuildGuard,
     rememberRecipients,
     refreshWalletBalance
+  });
+  const signingActions = useAtomValue(selectedSigningActionAvailabilityAtom);
+  const walletStateUpdating = useAtomValue(walletStateUpdatingAtom);
+  useWorkspaceTransactionPrebuild({
+    enabled: Boolean(activeWallet) && !isDemoWallet && networkId === 0 && !walletStateUpdating &&
+      (routeState.workspaceMode === "new-wallet" || Boolean(wizardSelectedAction)) &&
+      !hasFieldErrors(activeFieldErrors) && !activeReadinessIssues.some(issue => issue.blocking) &&
+      (signingActions.canDirectSign || signingActions.canSaveApprovalRequest),
+    authorityPathOverride: signingActions.canDirectSign
+      ? signingActions.directAuthorityPath ?? undefined : "multisig",
+    buildSelectedActionTx
   });
   // These actions leave the workspace ready to run again: what they staged is cleared
   // at submit, so the button goes back to its own label and the readiness gate below holds
