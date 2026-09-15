@@ -1,25 +1,28 @@
+import { preparedWorkspaceTransactionAtom, preparedWorkspaceTransactionIsCurrent, workspaceTransactionSnapshotAtom, type WorkspaceSubmissionOwnership } from "./workspace-prepared-transaction";
+import { assertBeneficiaryWithdrawalReviewCurrent } from "./beneficiary-withdrawal-review";
+import { assertPreparedTransactionFresh } from "@/lib/mesh/transactions/prepared-transaction-freshness";
 import { queryClientAtom } from "jotai-tanstack-query";
+import { isWorkspaceBuildResultExpired } from "./workspace-build-cache";
+import { invalidateBuildAtom } from "./atoms/transaction-flow.atoms";
 import { txInfoQueryOptions } from "@/lib/query/chain";
 import { invalidateChainQueries } from "@/lib/query/invalidation";
 import { beneficiaryPreparationActiveAtom, consolidateWalletInputsAtom } from "./atoms/forms/consolidate-form.atoms";
 import { recoveryCapacityFailureAtom, recoveryCapacitySignatureAtom } from "./atoms/recovery-capacity.atoms";
 import { recordRecoveryCapacityFailure } from "./recovery-capacity-model";
-import { workspaceSessionAtom, buildDiagnosticIdAtom, mintConfirmationRunAtom, submitConfirmedAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
+import { workspaceSessionAtom, previewSignatureAtom, buildDiagnosticIdAtom, mintConfirmationRunAtom, submitConfirmedAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import {
   beginWalletStateUpdateAtom,
-  completeWalletStateUpdateAtom,
+  walletStateUpdatingAtom,
+  walletStateSubmissionsAtom,
   pendingWalletStateUpdateAtom,
+  pendingWalletStateUpdatesAtom,
   resolveSpentSttRef,
-  walletStateUpdateRunAtom,
-  type PendingWalletStateUpdate
 } from "@/components/user/workspace/atoms/wallet-state-update.atoms";
 import { resetLockFundsFormAtom } from "@/components/user/workspace/atoms/forms/lock-funds-form.atoms";
 import { sttExtraTransfersAtom, sttWalletInputsAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { selectedOrphanInputsAtom } from "./atoms/forms/orphan-inputs.atoms";
 import {
   MINT_CONFIRMATION_MAX_ATTEMPTS,
-  STT_STATE_REFRESH_MAX_ATTEMPTS,
-  STT_STATE_REFRESH_POLL_MS,
   SUBMIT_CONFIRMATION_INITIAL_DELAY_MS,
   SUBMIT_CONFIRMATION_MAX_ATTEMPTS,
   SUBMIT_CONFIRMATION_POLL_MS
@@ -110,23 +113,28 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
     setMintedWalletName,
     addSubmittedTransactionToActivity,
     rememberRecipients,
-    refreshDetectedTokens,
     watchMintCreationConfirmation,
     mintStateForm,
     sttExtraTransfers
   } = deps;
 
+  const sessionAtCreation = jotaiStore.get(workspaceSessionAtom);
+
   async function submitTransactionPreview(
     transactionPreview: BuildResult,
     options: { allowExistingSubmitHash?: boolean; requireCurrentPreview?: boolean } = {}
   ) {
+    if (jotaiStore.get(workspaceSessionAtom) !== sessionAtCreation) return;
+    const walletUnit = selectedDetectedToken?.unit;
+    if (walletUnit && (jotaiStore.get(pendingWalletStateUpdatesAtom)[walletUnit] ||
+      jotaiStore.get(walletStateSubmissionsAtom)[walletUnit])) return;
     const { allowExistingSubmitHash = false, requireCurrentPreview = true } = options;
     jotaiStore.set(recoveryCapacityFailureAtom, null);
     const recoverySignature = jotaiStore.get(recoveryCapacitySignatureAtom);
 
     const session = jotaiStore.get(workspaceSessionAtom);
     // Block duplicate calls in this session without blocking a new wallet.
-    if (submitInFlightRef.current === session) {
+    if (submitInFlightRef.current === session || jotaiStore.get(walletStateUpdatingAtom)) {
       return;
     }
 
@@ -180,6 +188,13 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
       return;
     }
 
+    if (isWorkspaceBuildResultExpired(transactionPreview)) {
+      jotaiStore.set(invalidateBuildAtom);
+      setBuildError(i18n("theTransactionDetailsAreStaleContinueAgainTo_34b074"));
+      setBuildErrorExpected(true);
+      return;
+    }
+
     submitInFlightRef.current = session;
     setActiveSubmit(true);
     setBuildError(null);
@@ -201,10 +216,60 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
 
     const isCurrent = () => jotaiStore.get(workspaceSessionAtom) === session;
     const spentSttRef = resolveSpentSttRef(jotaiStore, selectedAction, selectedDetectedToken);
+    const submissionUnit = selectedDetectedToken?.unit;
+    if (submissionUnit) jotaiStore.set(walletStateSubmissionsAtom, {
+      ...jotaiStore.get(walletStateSubmissionsAtom), [submissionUnit]: true
+    });
     const submittedOrphanDraft = jotaiStore.get(selectedOrphanInputsAtom);
     let txHash: string;
     try {
-      txHash = await signAndSubmitTx(activeWallet, transactionPreview.txHex);
+      const submissionOwner: WorkspaceSubmissionOwnership | undefined = submissionUnit
+        ? { walletUnit: submissionUnit, pending: null } : undefined;
+      const beforeBroadcast = spentSttRef && submissionOwner
+        ? (transaction: { txHash: string; invalidHereafter?: number }) => {
+            assertSnapshot();
+            const pending = { walletUnit: submissionOwner.walletUnit,
+              submittedTxHash: transaction.txHash, spentRef: spentSttRef,
+              invalidHereafter: transaction.invalidHereafter };
+            jotaiStore.set(beginWalletStateUpdateAtom, pending);
+            submissionOwner.pending = pending;
+          }
+        : undefined;
+      const prepared = jotaiStore.get(preparedWorkspaceTransactionAtom);
+      const snapshot = jotaiStore.get(workspaceTransactionSnapshotAtom);
+      const assertSnapshot = () => {
+        if (!isCurrent() || !prepared || prepared.result !== transactionPreview ||
+          jotaiStore.get(workspaceTransactionSnapshotAtom) !== snapshot ||
+          !preparedWorkspaceTransactionIsCurrent(jotaiStore, prepared, Date.now(), submissionOwner)) {
+          throw new Error(i18n("theTransactionDetailsAreStaleContinueAgainTo_34b074"));
+        }
+      };
+      txHash = await signAndSubmitTx(activeWallet, transactionPreview.txHex, {
+        assertCurrent: async () => {
+          try {
+            assertSnapshot();
+            await Promise.all([
+              assertPreparedTransactionFresh(transactionPreview.txHex),
+              selectedAction === "use-beneficiary"
+                ? assertBeneficiaryWithdrawalReviewCurrent(deps.lockingContract.address, transactionPreview)
+                : Promise.resolve()
+            ]);
+            assertSnapshot();
+          } catch (error) {
+            if (jotaiStore.get(preparedWorkspaceTransactionAtom) === prepared) {
+              jotaiStore.set(preparedWorkspaceTransactionAtom, null);
+              jotaiStore.set(previewSignatureAtom, null);
+            }
+            throw error;
+          }
+        },
+        ...(beforeBroadcast ? { beforeBroadcast } : {})
+      });
+      if (spentSttRef && submissionUnit && !jotaiStore.get(pendingWalletStateUpdatesAtom)[submissionUnit]) {
+        jotaiStore.set(beginWalletStateUpdateAtom, {
+          walletUnit: submissionUnit, submittedTxHash: txHash, spentRef: spentSttRef
+        });
+      }
     } catch (error) {
       if (!isCurrent()) return;
       const parsed = formatBuildError(error, {
@@ -231,6 +296,11 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
       }
       return;
     } finally {
+      if (submissionUnit) {
+        const submissions = { ...jotaiStore.get(walletStateSubmissionsAtom) };
+        delete submissions[submissionUnit];
+        jotaiStore.set(walletStateSubmissionsAtom, submissions);
+      }
       if (isCurrent()) setActiveSubmit(false);
       if (submitInFlightRef.current === session) submitInFlightRef.current = null;
     }
@@ -238,16 +308,6 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
     if (!isCurrent()) return;
     if (selectedAction === "use-beneficiary" && jotaiStore.get(selectedOrphanInputsAtom) === submittedOrphanDraft) {
       jotaiStore.set(selectedOrphanInputsAtom, null);
-    }
-    const pendingStateUpdate = spentSttRef && selectedDetectedToken
-      ? {
-          walletUnit: selectedDetectedToken.unit,
-          submittedTxHash: txHash,
-          spentRef: spentSttRef
-        }
-      : null;
-    if (pendingStateUpdate) {
-      jotaiStore.set(beginWalletStateUpdateAtom, pendingStateUpdate);
     }
     setSubmitHash(txHash);
     jotaiStore.set(submitConfirmedAtom, false);
@@ -323,46 +383,7 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
         jotaiStore.set(submitConfirmedAtom, true);
         await invalidateChainQueries(client);
       }
-      if (pending?.submittedTxHash === txHash) {
-        await refreshContinuingWalletState(pending);
-      }
       return;
-    }
-  }
-
-  async function refreshContinuingWalletState(pending: PendingWalletStateUpdate) {
-    const runId = jotaiStore.get(walletStateUpdateRunAtom);
-    for (let attempt = 1; attempt <= STT_STATE_REFRESH_MAX_ATTEMPTS; attempt += 1) {
-      if (attempt > 1) await waitFor(STT_STATE_REFRESH_POLL_MS);
-      if (
-        jotaiStore.get(walletStateUpdateRunAtom) !== runId ||
-        jotaiStore.get(pendingWalletStateUpdateAtom)?.submittedTxHash !== pending.submittedTxHash
-      ) return;
-
-      try {
-        const detected = await refreshDetectedTokens({
-          keepSelection: true,
-          knownUnit: pending.walletUnit,
-          exactStateRefresh: true
-        });
-        if (!detected) continue;
-        const replacement = detected?.tokens.find((token) =>
-          token.unit === pending.walletUnit &&
-          (token.utxo.input.txHash.toLowerCase() !== pending.spentRef.txHash.toLowerCase() ||
-            token.utxo.input.outputIndex !== pending.spentRef.outputIndex)
-        );
-        if (!replacement) continue;
-        const completed = jotaiStore.set(completeWalletStateUpdateAtom, {
-          pending,
-          replacementRef: replacement.utxo.input
-        });
-        if (completed) {
-          void invalidateChainQueries(jotaiStore.get(queryClientAtom));
-        }
-        return;
-      } catch {
-        // Indexer lag is expected here. The bounded next attempt repeats the exact-unit read.
-      }
     }
   }
 

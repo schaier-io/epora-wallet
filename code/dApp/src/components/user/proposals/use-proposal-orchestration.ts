@@ -1,8 +1,12 @@
 "use client";
 import { useTranslations } from "next-intl";
+import { deserializeTx } from "@/lib/mesh/cst";
+import { useAtomValue, useStore } from "jotai";
+import { beginWalletStateUpdateAtom, pendingWalletStateUpdatesAtom, walletStateSubmissionsAtom } from "../workspace/atoms/wallet-state-update.atoms";
 
 // Orchestration for the proposal detail view: observes shared queries and owns the
 // sign / submit / rebuild / cancel handlers so proposal-detail.tsx stays a thin view.
+import { useWalletStateUpdate } from "../workspace/use-wallet-state-update";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -66,6 +70,10 @@ export function useProposalOrchestration({
   const i18n = useTranslations("ComponentsUserProposalsProposalDetail");
   const { activeWallet, isDemoWallet } = useWalletContext();
   const queryClient = useQueryClient();
+  const store = useStore();
+  const pendingWalletUpdates = useAtomValue(pendingWalletStateUpdatesAtom);
+  const walletStateSubmissions = useAtomValue(walletStateSubmissionsAtom);
+  const flowI18n = useTranslations("ComponentsUserWorkspaceWorkspaceFlowHandlers");
   const lifecycleKey = `${sessionKeyHash}:${proposalId}`;
   const [stateLifecycleKey, setStateLifecycleKey] = useState(lifecycleKey);
   const [busy, setBusy] = useState<null | "sign" | "submit" | "rebuild" | "cancel">(null);
@@ -83,6 +91,7 @@ export function useProposalOrchestration({
       ? queryPolicy.activePollMs : false
   });
   const detail = sessionKeyHash && !detailQuery.isError ? detailQuery.data ?? null : null;
+  useWalletStateUpdate(detail?.walletUnit);
   const { verification, verifying } = useProposalVerification(sessionKeyHash, awaitingRefresh ? null : detail);
   const signMutation = useMutation({ mutationFn: ({ id, witnessSetHex, txBodyHash }: {
     id: string; witnessSetHex: string; txBodyHash: string;
@@ -179,9 +188,13 @@ export function useProposalOrchestration({
     !verifying && currentVerification?.validity === "valid" && currentVerification.signers &&
     currentVerification.stateTransition?.txBodyHash === currentDetail?.txBodyHash
   );
-  const canSign = Boolean(isOpen && isVerifiedValid && !alreadySigned);
+  const walletStateUpdating = Boolean(currentDetail && (pendingWalletUpdates[currentDetail.walletUnit] || walletStateSubmissions[currentDetail.walletUnit]));
+  const verifiedSttInputs = isVerifiedValid && currentVerification?.bodyHashMatches
+    ? currentVerification.effect.inputs.filter((input) => input.isSttState) : [];
+  const canSign = Boolean(isOpen && isVerifiedValid && !alreadySigned && !walletStateUpdating);
   const canSubmit = Boolean(
-    isOpen && isVerifiedValid && currentVerification?.signers?.satisfied
+    isOpen && isVerifiedValid && currentVerification?.signers?.satisfied &&
+    verifiedSttInputs.length === 1 && !walletStateUpdating
   );
   const buildContext = currentDetail
     ? parseProposalBuildContext(currentDetail)
@@ -196,7 +209,7 @@ export function useProposalOrchestration({
   // The server only lets the proposer rebuild (`evaluateProposalRebuildGuard`), so a
   // co-signer must not be offered a button that drives their wallet through a full
   // rebuild and then answers 403.
-  const canRebuild = isRebuildable && isCreator;
+  const canRebuild = isRebuildable && isCreator && !walletStateUpdating;
   const rebuildNeedsProposer = isRebuildable && !isCreator;
 
   const guardWallet = (): boolean => {
@@ -207,7 +220,16 @@ export function useProposalOrchestration({
     return true;
   };
 
+  const guardWalletState = (): boolean => {
+    if (detail && (store.get(pendingWalletStateUpdatesAtom)[detail.walletUnit] || store.get(walletStateSubmissionsAtom)[detail.walletUnit])) {
+      setActionError(flowI18n("updatingWalletState"));
+      return false;
+    }
+    return true;
+  };
+
   async function handleSign() {
+    if (!guardWalletState()) return;
     if (
       !detail ||
       detail.id !== proposalId ||
@@ -256,16 +278,29 @@ export function useProposalOrchestration({
   }
 
   async function handleSubmit() {
+    if (!guardWalletState()) return;
     if (!detail || detail.id !== proposalId || busy !== null || actionInFlight.current === lifecycleTokenRef.current || !canSubmit) {
       return;
     }
     const actionProposalId = detail.id;
     const lifecycleToken = lifecycleTokenRef.current;
     actionInFlight.current = lifecycleToken;
+    store.set(walletStateSubmissionsAtom, (current) => ({ ...current, [detail.walletUnit]: true }));
     setBusy("submit");
     setActionError(null);
     setActionInfo(null);
     try {
+      const ttl = deserializeTx(detail.unsignedTxHex).body().ttl();
+      const invalidHereafter = ttl === undefined ? undefined : Number(ttl);
+      const spentRef = verifiedSttInputs[0];
+      // Persist before POST: a reload or lost response cannot prove no broadcast occurred.
+      store.set(beginWalletStateUpdateAtom, {
+        walletUnit: detail.walletUnit,
+        submittedTxHash: detail.txBodyHash,
+        spentRef: { txHash: spentRef.txHash, outputIndex: spentRef.outputIndex },
+        ...(invalidHereafter !== undefined && Number.isSafeInteger(invalidHereafter) && invalidHereafter >= 0
+          ? { invalidHereafter } : {})
+      });
       const submitted = await submitMutation.mutateAsync({ id: actionProposalId, bodyHash: detail.txBodyHash });
       void invalidateChainQueries(queryClient);
       await apply(submitted, actionProposalId, lifecycleToken);
@@ -274,6 +309,11 @@ export function useProposalOrchestration({
         setActionError(getProposalErrorMessage(caught, i18n("submissionFailed")));
       }
     } finally {
+      store.set(walletStateSubmissionsAtom, (current) => {
+        const next = { ...current };
+        delete next[detail.walletUnit];
+        return next;
+      });
       if (actionInFlight.current === lifecycleToken) actionInFlight.current = null;
       if (isCurrentLifecycle(actionProposalId, lifecycleToken)) {
         setBusy(null);
@@ -282,6 +322,7 @@ export function useProposalOrchestration({
   }
 
   async function handleRebuild() {
+    if (!guardWalletState()) return;
     if (
       !detail ||
       detail.id !== proposalId ||
@@ -364,7 +405,7 @@ export function useProposalOrchestration({
     verifying: hasCurrentLifecycleState && !awaitingRefresh && verifying,
     busy: hasCurrentLifecycleState ? busy : null,
     actionError: hasCurrentLifecycleState ? actionError : null,
-    actionInfo: hasCurrentLifecycleState ? actionInfo : null,
+    actionInfo: walletStateUpdating ? flowI18n("updatingWalletState") : hasCurrentLifecycleState ? actionInfo : null,
     summary,
     isCreator,
     alreadySigned,

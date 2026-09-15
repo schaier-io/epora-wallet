@@ -14,6 +14,7 @@ import {
   type RedeemerBudgetOverrides,
   type RuntimeTxBuilder
 } from "./budget-runtime-builder";
+import { abortable } from "@/lib/mesh/build-cancellation";
 import { withStage } from "./errors";
 import {
   assertExecutionUnitsWithinTransactionLimits,
@@ -29,6 +30,7 @@ import {
 import { deserializeTx } from "@/lib/mesh/cst";
 import { ServerFetcher } from "@/lib/mesh/server-fetcher";
 import { type TxFetcher } from "@/lib/mesh/tx-context";
+import { createBuildParameterFetcher } from "./build-parameter-fetcher";
 
 export function assertTransactionShapeIsBounded(shape: {
   inputs: number;
@@ -111,7 +113,7 @@ export function hasExecutionValidators(
 export async function buildTransactionWithReestimatedLimits(
   draftStage: string,
   finalStage: string,
-  prepareTx: (overrides?: RedeemerBudgetOverrides) => Promise<PreparedTransaction>,
+  prepareTx: (overrides: RedeemerBudgetOverrides | undefined, fetcher: TxFetcher) => Promise<PreparedTransaction>,
   // Same injection as setupTransaction: the browser default is unchanged, and a
   // server build can pass a provider that does not go through /api/mesh.
   fetcher: TxFetcher = new ServerFetcher(),
@@ -119,19 +121,28 @@ export async function buildTransactionWithReestimatedLimits(
     overrides: RedeemerBudgetOverrides
   ) => RedeemerBudgetOverrides | undefined
 ) {
-  const draftPrepared = await prepareTx();
-  await withStage(draftStage, async () => draftPrepared.tx.build(), draftPrepared.diagnostics);
+  const stage = <T>(name: string, run: () => Promise<T>, details: Record<string, unknown>) =>
+    abortable(fetcher.signal, () => withStage(name, run, details));
+  fetcher.signal?.throwIfAborted();
+  const buildFetcher = createBuildParameterFetcher(fetcher);
+  const draftPrepared = await abortable(fetcher.signal, () => prepareTx(undefined, buildFetcher));
+  let preparedOutputCount = getPreparedOutputCount(draftPrepared.tx);
+  const draftHex = await stage(draftStage, async () => draftPrepared.tx.build(), draftPrepared.diagnostics);
   const draftExecution = extractExecutionSnapshot(
     draftPrepared.tx,
     draftPrepared.executionLabels
   );
 
-  const finalPrepared = await prepareTx(draftExecution.overrides);
-  const preparedOutputCount = getPreparedOutputCount(finalPrepared.tx);
-  await withStage(finalStage, async () => finalPrepared.tx.build(), {
-    ...finalPrepared.diagnostics,
-    draftExecutionUnits: draftExecution.summary
-  });
+  // Use the actual witnesses, not optional display labels, to select the path.
+  let finalPrepared = draftPrepared;
+  if (readTransactionShape(draftHex).redeemers > 0) {
+    finalPrepared = await abortable(fetcher.signal, () => prepareTx(draftExecution.overrides, buildFetcher));
+    preparedOutputCount = getPreparedOutputCount(finalPrepared.tx);
+    await stage(finalStage, async () => finalPrepared.tx.build(), {
+      ...finalPrepared.diagnostics,
+      draftExecutionUnits: draftExecution.summary
+    });
+  }
   const estimatedFinalExecution = extractExecutionSnapshot(
     finalPrepared.tx,
     finalPrepared.executionLabels
@@ -139,7 +150,7 @@ export async function buildTransactionWithReestimatedLimits(
   const appliedOverrides =
     finalizeOverrides?.(estimatedFinalExecution.overrides) ??
     estimatedFinalExecution.overrides;
-  const txHexWithDefaultScriptDataHash = await withStage(
+  const txHexWithDefaultScriptDataHash = await stage(
     `${finalStage}:apply-budget-overrides`,
     async () =>
       applyManualBudgetOverrides(
@@ -155,12 +166,12 @@ export async function buildTransactionWithReestimatedLimits(
       estimatedExecutionUnits: estimatedFinalExecution.summary
     }
   );
-  const scriptDataHashRefresh = await withStage(
+  const scriptDataHashRefresh = await stage(
     `${finalStage}:refresh-script-data-hash`,
     async () =>
       refreshScriptDataHashWithLiveCostModels(
         txHexWithDefaultScriptDataHash,
-        fetcher
+        buildFetcher
       ),
     {
       ...finalPrepared.diagnostics,
@@ -169,7 +180,7 @@ export async function buildTransactionWithReestimatedLimits(
     }
   );
   const txHex = scriptDataHashRefresh.txHex;
-  await withStage(
+  await stage(
     `${finalStage}:validate-transaction-bounds`,
     async () => {
       assertSerializedTransactionSizeIsBounded(txHex);
@@ -187,7 +198,7 @@ export async function buildTransactionWithReestimatedLimits(
     finalPrepared.tx,
     finalPrepared.executionLabels
   );
-  await withStage(
+  await stage(
     `${finalStage}:validate-execution-units`,
     async () =>
       assertExecutionUnitsWithinTransactionLimits(finalExecution.summary),

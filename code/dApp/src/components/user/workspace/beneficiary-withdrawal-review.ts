@@ -1,3 +1,4 @@
+import type { TxFetcher } from "@/lib/mesh/tx-context";
 import type { BuildResult, WalletInputRef } from "@/lib/types/contracts";
 import { decodeEffect } from "@/lib/proposals/verify";
 import { fetchScriptUtxos } from "./helpers/transactions";
@@ -15,26 +16,35 @@ export function omittedDiscoveredInputCount(
   return new Set(discovered.map(referenceKey).filter((key) => !consumed.has(key))).size;
 }
 
-/** Review omitted pools only when the consumed State says this withdrawal removes access. */
-export async function buildReviewedBeneficiaryWithdrawal(
-  address: string | null,
-  build: () => Promise<BuildResult>
-): Promise<BuildResult> {
-  const result = await build();
-  if (result.beneficiaryAccess === "retained") return result;
+async function beneficiaryDiscoveryWarning(address: string | null, result: BuildResult, fetcher?: TxFetcher) {
+  fetcher?.signal?.throwIfAborted();
+  if (result.beneficiaryAccess === "retained") return null;
   if (result.beneficiaryAccess !== "removed") throw new Error(i18n("withdrawalAccessUnknown"));
   if (!address) throw new Error(i18n("withdrawalDiscoveryAddressRequired"));
-  const discovered = await fetchScriptUtxos(address);
+  const discovered = await (fetcher ? fetcher.fetchAddressUTxOs(address) : fetchScriptUtxos(address));
+  fetcher?.signal?.throwIfAborted();
   const effect = decodeEffect(result.txHex);
   if (effect.decodeError) throw new Error(effect.decodeError);
   const omitted = omittedDiscoveredInputCount(discovered.map((utxo) => utxo.input), effect.inputs);
-  return {
-    ...result,
-    warnings: [
-      ...(result.warnings ?? []),
-      omitted > 0
-        ? i18n("withdrawalOmittedFundsWarning", { count: omitted })
-        : i18n("withdrawalAllDiscoveredSelectedWarning")
-    ]
-  };
+  return omitted > 0
+    ? i18n("withdrawalOmittedFundsWarning", { count: omitted })
+    : i18n("withdrawalAllDiscoveredSelectedWarning");
+}
+
+/** Review omitted pools only when the consumed State says this withdrawal removes access. */
+export async function buildReviewedBeneficiaryWithdrawal(
+  address: string | null,
+  build: () => Promise<BuildResult>,
+  fetcher?: TxFetcher
+): Promise<BuildResult> {
+  const result = await build();
+  const warning = await beneficiaryDiscoveryWarning(address, result, fetcher);
+  return warning === null ? result : { ...result, warnings: [...(result.warnings ?? []), warning] };
+}
+
+export async function assertBeneficiaryWithdrawalReviewCurrent(address: string | null, result: BuildResult) {
+  const warning = await beneficiaryDiscoveryWarning(address, result);
+  if (warning !== null && !result.warnings?.includes(warning)) {
+    throw new Error(i18n("theTransactionDetailsAreStaleContinueAgainTo_34b074"));
+  }
 }

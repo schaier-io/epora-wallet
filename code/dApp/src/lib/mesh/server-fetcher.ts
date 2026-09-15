@@ -35,6 +35,7 @@ function isRpcEnvelope(value: unknown): value is RpcEnvelope {
 }
 
 async function rpc<T>(method: ChainMethod, args: unknown[], signal?: AbortSignal): Promise<T> {
+  signal?.throwIfAborted();
   const payload: ChainRpcRequest = { method, args };
 
   const response = await fetch("/api/mesh", {
@@ -51,6 +52,7 @@ async function rpc<T>(method: ChainMethod, args: unknown[], signal?: AbortSignal
     signal?.throwIfAborted();
     return undefined;
   });
+  signal?.throwIfAborted();
   const retryDelay = parseRetryAfterMs(response.headers.get("Retry-After"));
 
   if (!isRpcEnvelope(raw)) {
@@ -79,6 +81,10 @@ async function rpc<T>(method: ChainMethod, args: unknown[], signal?: AbortSignal
 
 export class ServerFetcher implements IFetcher, IEvaluator {
   constructor(private readonly options: { signal?: AbortSignal } = {}) {}
+
+  get signal(): AbortSignal | undefined {
+    return this.options.signal;
+  }
 
   private rpc<T>(method: ChainMethod, args: unknown[]): Promise<T> {
     return rpc(method, args, this.options.signal);

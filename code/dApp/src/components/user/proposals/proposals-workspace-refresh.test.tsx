@@ -45,7 +45,7 @@ function verification(detail: ProposalDetailDto): ProposalVerification {
   return {
     validity: "valid", reasons: [], bodyHashMatches: true,
     stateTransition: { txBodyHash: detail.txBodyHash, outputIndex: 0, changes: [] },
-    effect: { inputs: [], outputs: [], feeLovelace: "200000", validUntilMs: null },
+    effect: { inputs: [{ txHash: "11".repeat(32), outputIndex: 0, live: true, isSttState: true }], outputs: [], feeLovelace: "200000", validUntilMs: null },
     signers: {
       authorityPath: "multisig", requiredSigners: [],
       signedKeyHashes: detail.signerKeyHashes,

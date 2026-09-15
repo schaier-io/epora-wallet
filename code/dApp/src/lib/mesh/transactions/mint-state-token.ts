@@ -55,8 +55,8 @@ export async function buildMintStateTokenTx(
   const prepared = await buildTransactionWithReestimatedLimits(
     "mint:tx.draft-build",
     "mint:tx.build",
-    async (overrides) => {
-      const setup = await setupTransaction(wallet, undefined, txFetcher);
+    async (overrides, buildFetcher) => {
+      const setup = await setupTransaction(wallet, undefined, buildFetcher);
       const {
         tx,
         signerAddress,

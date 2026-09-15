@@ -1,3 +1,5 @@
+import { previewAtom, resetFlowAtom } from "./atoms/transaction-flow.atoms";
+import { preparedWorkspaceTransactionAtom, PREPARED_TRANSACTION_MAX_AGE_MS } from "./workspace-prepared-transaction";
 import { beneficiaryPreparationActiveAtom, beneficiaryPreparationPoolAssetsAtom, consolidateSttInputHashAtom, consolidateSttInputIndexAtom, consolidateWalletInputsAtom, consolidateWalletOutputsAtom } from "./atoms/forms/consolidate-form.atoms";
 import { createStore } from "jotai";
 import { beforeEach, expect, it, vi } from "vitest";
@@ -16,8 +18,9 @@ import type { ConstrData } from "@/lib/types/contracts";
 import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
 import type { WorkspaceTransactionsCtx } from "@/components/user/workspace/workspace-transactions-types";
 
-const mocks = vi.hoisted(() => ({ signAndSubmitTx: vi.fn(), buildPreparation: vi.fn(), buildMint: vi.fn() }));
+const mocks = vi.hoisted(() => ({ freshness: vi.fn(), signAndSubmitTx: vi.fn(), buildPreparation: vi.fn(), buildMint: vi.fn() }));
 
+vi.mock("@/lib/mesh/transactions/prepared-transaction-freshness", () => ({ assertPreparedTransactionFresh: mocks.freshness }));
 vi.mock("@/lib/mesh/transactions", () => ({ signAndSubmitTx: mocks.signAndSubmitTx, buildBeneficiaryPreparationTx: mocks.buildPreparation, buildMintStateTokenTx: mocks.buildMint }));
 vi.mock("@/components/user/workspace/workspace-transaction-refresh", () => ({
   schedulePostSubmitRefresh: vi.fn()
@@ -65,6 +68,7 @@ function contextFor(store: ReturnType<typeof createStore>, editDuringBuild: (() 
 beforeEach(() => {
   mocks.signAndSubmitTx.mockReset().mockResolvedValue("ff".repeat(32));
   mocks.buildPreparation.mockReset();
+  mocks.freshness.mockReset().mockResolvedValue(undefined);
 });
 
 function detectedToken(datum: ConstrData | null): NonNullable<WorkspaceTransactionsCtx["selectedDetectedToken"]> {
@@ -83,11 +87,11 @@ it("uses the configured setup helper when creating a wallet", async () => {
   const reference = `${"aa".repeat(32)}#2`;
   store.set(configAtom, { ...store.get(configAtom), sttSpendReference: reference });
   const { ctx } = contextFor(store, null);
-  ctx.withBuildGuard = (_label, run) => run();
+  ctx.withBuildGuard = (_label, run) => run({ wallet: ctx.activeWallet! });
   await createWorkspaceTransactions(ctx).buildMintTx();
   expect(mocks.buildMint).toHaveBeenCalledWith(ctx.activeWallet, expect.objectContaining({
     sttSpendReference: reference
-  }));
+  }), undefined);
 });
 
 it("refuses to sign when the draft changed while the transaction was being built", async () => {
@@ -120,7 +124,7 @@ it("signs the freshly built transaction when the draft held still", async () => 
   const { ctx, setBuildError } = contextFor(createStore(), null);
   await createWorkspaceTransactions(ctx).buildAndSubmitSelectedActionTx();
 
-  expect(mocks.signAndSubmitTx).toHaveBeenCalledWith({}, "84a1");
+  expect(mocks.signAndSubmitTx).toHaveBeenCalledWith({}, "84a1", { assertCurrent: expect.any(Function) as unknown });
   expect(setBuildError).not.toHaveBeenCalledWith(expect.stringMatching(/stale/i));
 });
 
@@ -136,7 +140,7 @@ it("compares a draft that contains an exact bigint State field", async () => {
 
   await createWorkspaceTransactions(ctx).buildAndSubmitSelectedActionTx();
 
-  expect(mocks.signAndSubmitTx).toHaveBeenCalledWith({}, "84a1");
+  expect(mocks.signAndSubmitTx).toHaveBeenCalledWith({}, "84a1", { assertCurrent: expect.any(Function) as unknown });
   expect(setBuildError).not.toHaveBeenCalledWith(expect.stringMatching(/stale/i));
 });
 
@@ -202,13 +206,13 @@ it("preparation builds the derived beneficiary intent without stale output layou
   ctx.selectedAction = "consolidate-utxo"; ctx.effectiveSttAction = "consolidate-utxo";
   ctx.activePaymentKeyHash = "11".repeat(28); ctx.activeInferredSttStateForm = createDefaultStateForm();
   ctx.selectedDetectedToken = detectedToken(stateFormToDatum(ctx.activeInferredSttStateForm));
-  ctx.withBuildGuard = (_label, run) => run();
+  ctx.withBuildGuard = (_label, run) => run({ wallet: ctx.activeWallet! });
   mocks.buildPreparation.mockResolvedValueOnce({ txHex: "prepared" });
   await createWorkspaceTransactions(ctx).buildSelectedActionTx("admin");
   expect(mocks.buildPreparation).toHaveBeenCalledWith(ctx.activeWallet, expect.any(Object), {
     sttInputTxHash: "aa".repeat(32), sttInputOutputIndex: 1, walletInputs: refs,
     beneficiarySignerKeyHash: "11".repeat(28), poolAssets: [{ unit: "lovelace", quantity: "3000000" }], expectedStateDatum: stateFormToDatum(ctx.activeInferredSttStateForm)
-  });
+  }, undefined);
   expect(ctx.proposalCaptureRef.current).toBeNull();
 });
 
@@ -228,13 +232,13 @@ it("preparation uses the raw reviewed State even when its form normalizes admin 
   ctx.selectedDetectedToken = detectedToken(datum);
   ctx.activeInferredSttStateForm = stateFormFromDatum(datum);
   expect(stateFormToDatum(ctx.activeInferredSttStateForm)).not.toEqual(datum);
-  ctx.withBuildGuard = (_label, run) => run();
+  ctx.withBuildGuard = (_label, run) => run({ wallet: ctx.activeWallet! });
   mocks.buildPreparation.mockResolvedValueOnce({ txHex: "prepared" });
 
   await createWorkspaceTransactions(ctx).buildSelectedActionTx();
 
   expect(mocks.buildPreparation).toHaveBeenCalledWith(
-    ctx.activeWallet, expect.any(Object), expect.objectContaining({ expectedStateDatum: datum })
+    ctx.activeWallet, expect.any(Object), expect.objectContaining({ expectedStateDatum: datum }), undefined
   );
 });
 
@@ -246,8 +250,72 @@ it.each([null, detectedToken(null)])("preparation requires the reviewed raw datu
   ctx.effectiveSttAction = "consolidate-utxo";
   ctx.selectedDetectedToken = token;
   ctx.activeInferredSttStateForm = createDefaultStateForm();
-  ctx.withBuildGuard = (_label, run) => run();
+  ctx.withBuildGuard = (_label, run) => run({ wallet: ctx.activeWallet! });
 
   await expect(createWorkspaceTransactions(ctx).buildSelectedActionTx()).rejects.toThrow(/stale.*refresh/i);
   expect(mocks.buildPreparation).not.toHaveBeenCalled();
+});
+
+function cachingContext() {
+  const store = createStore();
+  const { ctx } = contextFor(store, null);
+  let count = 0;
+  const build = vi.fn(async () => {
+    const txHex = `built-${++count}`;
+    const result = { txHex, preview: { action: "lock-funds", summary: "", cbor: txHex } };
+    store.set(previewAtom, result);
+    return result;
+  });
+  ctx.withBuildGuard = build;
+  return { store, ctx, build };
+}
+
+it("reuses the prepared transaction after a fresh chain check", async () => {
+  const { store, ctx, build } = cachingContext();
+  const first = await createWorkspaceTransactions(ctx).buildSelectedActionTx();
+  const second = await createWorkspaceTransactions(ctx).buildSelectedActionTx();
+  expect(second).toBe(first);
+  expect(build).toHaveBeenCalledTimes(1);
+  expect(mocks.freshness).toHaveBeenCalledWith(first!.txHex);
+  expect(store.get(preparedWorkspaceTransactionAtom)?.result).toBe(first);
+});
+
+it("rebuilds for a changed authority and restores only its proposal capture", async () => {
+  const { ctx, build } = cachingContext();
+  await createWorkspaceTransactions(ctx).buildSelectedActionTx("admin");
+  const next = await createWorkspaceTransactions(ctx).buildSelectedActionTx("multisig");
+  expect(next?.txHex).toBe("built-2");
+  expect(build).toHaveBeenCalledTimes(2);
+});
+
+it("does not reuse a changed draft or a flow reset", async () => {
+  const { store, ctx, build } = cachingContext();
+  await createWorkspaceTransactions(ctx).buildSelectedActionTx();
+  store.set(lockFundsAssetsAtom, [{ unit: "lovelace", quantity: "9000000" }]);
+  await createWorkspaceTransactions(ctx).buildSelectedActionTx();
+  store.set(resetFlowAtom);
+  await createWorkspaceTransactions(ctx).buildSelectedActionTx();
+  expect(build).toHaveBeenCalledTimes(3);
+});
+
+it("rebuilds expired preparation and preparation whose inputs were spent", async () => {
+  const { store, ctx, build } = cachingContext();
+  await createWorkspaceTransactions(ctx).buildSelectedActionTx();
+  const prepared = store.get(preparedWorkspaceTransactionAtom)!;
+  store.set(preparedWorkspaceTransactionAtom, { ...prepared, builtAt: Date.now() - PREPARED_TRANSACTION_MAX_AGE_MS });
+  await createWorkspaceTransactions(ctx).buildSelectedActionTx();
+  mocks.freshness.mockRejectedValueOnce(new Error("input spent"));
+  await createWorkspaceTransactions(ctx).buildSelectedActionTx();
+  expect(build).toHaveBeenCalledTimes(3);
+});
+
+it("discards a cached result if the draft changes during its chain check", async () => {
+  const { store, ctx, build } = cachingContext();
+  await createWorkspaceTransactions(ctx).buildSelectedActionTx();
+  mocks.freshness.mockImplementationOnce(async () => {
+    store.set(lockFundsAssetsAtom, [{ unit: "lovelace", quantity: "8000000" }]);
+  });
+  expect(await createWorkspaceTransactions(ctx).buildSelectedActionTx()).toBeNull();
+  expect(build).toHaveBeenCalledTimes(1);
+  expect(mocks.signAndSubmitTx).not.toHaveBeenCalled();
 });

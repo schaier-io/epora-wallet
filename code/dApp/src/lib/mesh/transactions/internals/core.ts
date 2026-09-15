@@ -1,3 +1,4 @@
+import { abortable, createAbortableWalletSource } from "@/lib/mesh/build-cancellation";
 import { readWalletAuthorityAddress } from "@/lib/wallet/authority-address";
 import { type RuntimeTxBuilder } from "./budget-runtime-builder";
 import {
@@ -10,6 +11,7 @@ import { createStageError, withStage } from "./errors";
 import { excludeReservedUtxos, hasReferenceScript } from "./reference-scripts";
 import { applyManualCollateral, createInputRefKey, resolveChangeAddress, resolveManualCollateralCandidate, resolveWalletUtxos } from "./utxo";
 import { ServerFetcher } from "@/lib/mesh/server-fetcher";
+import { deserializeTx } from "@/lib/mesh/cst";
 import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
 import { type ContractConfig } from "@/lib/types/contracts";
 import { type IInitiator } from "@meshsdk/common";
@@ -66,14 +68,17 @@ export async function setupTransaction(
     excludedSelectionInputRefs?: Set<string>;
   }
 ) {
+  const signal = fetcher.signal;
+  signal?.throwIfAborted();
+  if (signal) wallet = createAbortableWalletSource(wallet, signal);
   const { walletUtxos, source: utxosSource, addressCandidates, diagnostics } =
-    await resolveWalletUtxos(wallet, fetcher);
+    await abortable(signal, () => resolveWalletUtxos(wallet, fetcher));
   const {
     changeAddress,
     source: changeAddressSource,
     diagnostics: changeAddressDiagnostics
-  } = await resolveChangeAddress(wallet, walletUtxos, addressCandidates);
-  const signerAddress = await readWalletAuthorityAddress(wallet);
+  } = await abortable(signal, () => resolveChangeAddress(wallet, walletUtxos, addressCandidates));
+  const signerAddress = await abortable(signal, () => readWalletAuthorityAddress(wallet));
   if (!signerAddress) throw new Error("Connected wallet returned no authority address.");
   const spendableWalletUtxos = walletUtxos.filter((utxo) => !hasReferenceScript(utxo));
   const referenceScriptWalletUtxos = walletUtxos.filter((utxo) =>
@@ -103,7 +108,12 @@ export async function setupTransaction(
   const tx = new Transaction({
     initiator: safeInitiator,
     fetcher,
-    evaluator: fetcher,
+    evaluator: {
+      evaluateTx: (txHex, additionalUtxos, additionalTxs) =>
+        (deserializeTx(txHex).witnessSet().redeemers()?.size() ?? 0) === 0
+          ? Promise.resolve([])
+          : fetcher.evaluateTx(txHex, additionalUtxos, additionalTxs)
+    },
     selector: options?.selector
   });
   const txBuilder = tx.txBuilder as RuntimeTxBuilder;
@@ -111,6 +121,7 @@ export async function setupTransaction(
   let manualCollateralApplied = false;
 
   tx.build = async (balanced = true) => {
+    signal?.throwIfAborted();
     if (tx.isCollateralNeeded && !manualCollateralApplied) {
       const collateralResolution = resolveManualCollateralCandidate(
         spendableWalletUtxos,
@@ -182,7 +193,7 @@ export async function setupTransaction(
     }
 
     tx.isCollateralNeeded = false;
-    return originalBuild(balanced);
+    return abortable(signal, () => originalBuild(balanced));
   };
 
   if (walletUtxos.length === 0) {
@@ -206,7 +217,7 @@ export async function setupTransaction(
   await withStage(
     "setup:configureTx",
     async () => {
-      const protocolParams = await fetcher.fetchProtocolParameters();
+      const protocolParams = await abortable(signal, () => fetcher.fetchProtocolParameters());
 
       txBuilder.protocolParams?.(protocolParams);
       txBuilder.selectUtxosFrom?.(spendableWalletUtxos);
@@ -222,6 +233,7 @@ export async function setupTransaction(
     setupDiagnostics
   );
 
+  signal?.throwIfAborted();
   return {
     tx,
     fetcher,

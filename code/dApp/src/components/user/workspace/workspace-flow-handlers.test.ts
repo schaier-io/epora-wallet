@@ -1,5 +1,6 @@
 import { parseWorkspaceRouteState } from "@/components/user/workspace-controller";
 import { routeStateAtom } from "./atoms/workspace-route.atoms";
+import { preparedWorkspaceTransactionAtom, workspaceTransactionSnapshotAtom } from "./workspace-prepared-transaction";
 import { currentRecoveryCapacityFailureAtom } from "./atoms/recovery-capacity.atoms";
 import { sttWalletInputsAtom } from "./atoms/forms/stt-spend-form.atoms";
 import { afterEach, test } from "node:test";
@@ -17,8 +18,8 @@ import {
   type WorkspaceFlowHandlersCtx
 } from "./workspace-flow-handlers";
 import { OwnedMessageError } from "./helpers/build-errors";
-import { resetAllFlowAtom, resetFlowAtom, mintConfirmationRunAtom } from "./atoms/transaction-flow.atoms";
-import { beginWalletStateUpdateAtom } from "./atoms/wallet-state-update.atoms";
+import { activeSubmitAtom, resetAllFlowAtom, resetFlowAtom, mintConfirmationRunAtom } from "./atoms/transaction-flow.atoms";
+import { beginWalletStateUpdateAtom, pendingWalletStateUpdateAtom } from "./atoms/wallet-state-update.atoms";
 import { resolveWalletSpendAddress, resolveWalletStakeScriptCredentialData, resolveWalletContinuingOutputAddressFromState } from "@/lib/contracts/blueprint";
 import { createDefaultStateForm, stateFormToDatum } from "@/lib/contracts/state-form";
 
@@ -160,8 +161,8 @@ test("an older overlapping build cannot overwrite the newer run's state", async 
   const { ctx, calls } = makeCtx();
   const { withBuildGuard } = createWorkspaceFlowHandlers(ctx);
 
-  // Two builds start before either settles (the double-click / save-races-continue
-  // window React batching leaves open). The newer start wins the run token.
+  // Different authority paths cannot share a transaction. The newer request
+  // cancels the first build and owns the preview.
   let settleOlder!: (settle: { ok: boolean; value?: unknown }) => void;
   let settleNewer!: (settle: { ok: boolean; value?: unknown }) => void;
   const older = withBuildGuard(
@@ -170,7 +171,8 @@ test("an older overlapping build cannot overwrite the newer run's state", async 
   );
   const newer = withBuildGuard(
     "use",
-    () => new Promise((resolve, reject) => settleNewer = (s) => s.ok ? resolve(s.value as BuildResult) : reject(s.value))
+    () => new Promise((resolve, reject) => settleNewer = (s) => s.ok ? resolve(s.value as BuildResult) : reject(s.value)),
+    { authorityPath: "multisig" }
   );
 
   settleNewer({ ok: true, value: fakePreview });
@@ -206,7 +208,8 @@ test("an older overlapping build returns no preview after the newer run wins", a
   );
   const newer = withBuildGuard(
     "use",
-    () => new Promise((resolve) => { settleNewer = resolve; })
+    () => new Promise((resolve) => { settleNewer = resolve; }),
+    { authorityPath: "multisig" }
   );
 
   settleNewer(fakePreview);
@@ -218,19 +221,20 @@ test("an older overlapping build returns no preview after the newer run wins", a
 
 test("a re-render during a pending build cannot let the older run overwrite newer state", async () => {
   const { ctx, calls } = makeCtx();
-  const startPending = (factory: ReturnType<typeof createWorkspaceFlowHandlers>) => {
+  const startPending = (factory: ReturnType<typeof createWorkspaceFlowHandlers>, authorityPath: string) => {
     let settle!: (s: { ok: boolean; value?: unknown }) => void;
     const pending = factory.withBuildGuard(
       "use",
-      () => new Promise((resolve, reject) => settle = (s) => s.ok ? resolve(s.value as BuildResult) : reject(s.value))
+      () => new Promise((resolve, reject) => settle = (s) => s.ok ? resolve(s.value as BuildResult) : reject(s.value)),
+      { authorityPath }
     );
     return { pending, settle };
   };
 
   // Render 1 starts a build; the re-render recreates the handlers factory
   // (fresh closures, per-render call), and render 2 starts the newer build.
-  const first = startPending(createWorkspaceFlowHandlers(ctx));
-  const second = startPending(createWorkspaceFlowHandlers(ctx));
+  const first = startPending(createWorkspaceFlowHandlers(ctx), "admin");
+  const second = startPending(createWorkspaceFlowHandlers(ctx), "multisig");
 
   second.settle({ ok: true, value: fakePreview });
   assert.equal(await second.pending, fakePreview);
@@ -464,4 +468,99 @@ test("a pending activity read cannot publish into another signer session", async
   resolve({ hash: HASH });
   await pending;
   assert.equal(calls.prependSubmittedTransaction, undefined);
+});
+
+for (const outcome of ["success", "failure"] as const) {
+  test(`an edited draft retires build ${outcome} before another build starts`, async () => {
+    const { ctx, calls } = makeCtx();
+    let finish!: () => void;
+    const pending = createWorkspaceFlowHandlers(ctx).withBuildGuard("use", async () => {
+      await new Promise<void>(resolve => { finish = resolve; });
+      if (outcome === "failure") throw new Error("old build failed");
+      return fakePreview;
+    });
+    ctx.jotaiStore.set(sttWalletInputsAtom, [{ txHash: HASH, outputIndex: 4 }]);
+    finish();
+    assert.equal(await pending, null);
+    assert.equal(calls.setPreview, undefined);
+    assert.deepEqual(calls.setBuildError, [[null]]);
+  });
+}
+
+test("editing and undoing during a build still retires its result", async () => {
+  const { ctx, calls } = makeCtx();
+  const original = ctx.jotaiStore.get(sttWalletInputsAtom);
+  const pending = createWorkspaceFlowHandlers(ctx).withBuildGuard("use", async () => {
+    ctx.jotaiStore.set(sttWalletInputsAtom, [{ txHash: HASH, outputIndex: 3 }]);
+    ctx.jotaiStore.set(sttWalletInputsAtom, original);
+    return fakePreview;
+  });
+  assert.equal(await pending, null);
+  assert.equal(calls.setPreview, undefined);
+});
+
+
+test("identical guards join pending work and preserve its original prepared metadata", async () => {
+  const { ctx, calls } = makeCtx();
+  const originalCapture = { action: "use" } as unknown as NonNullable<typeof ctx.proposalCaptureRef.current>;
+  let finish!: (value: BuildResult) => void;
+  let builds = 0;
+  const first = createWorkspaceFlowHandlers(ctx).withBuildGuard("use", () => {
+    builds++;
+    ctx.proposalCaptureRef.current = originalCapture;
+    return new Promise(resolve => { finish = resolve; });
+  });
+  const second = createWorkspaceFlowHandlers(ctx).withBuildGuard("use", async () => {
+    builds++;
+    return fakePreview;
+  });
+  assert.equal(builds, 1);
+  finish(fakePreview);
+  assert.equal(await first, fakePreview);
+  assert.equal(await second, fakePreview);
+  const prepared = ctx.jotaiStore.get(preparedWorkspaceTransactionAtom);
+  assert.equal(prepared?.result, fakePreview);
+  assert.equal(prepared?.proposalCapture, originalCapture);
+  assert.equal(prepared?.snapshot, ctx.jotaiStore.get(workspaceTransactionSnapshotAtom));
+  assert.equal(calls.setPreview?.length, 1);
+});
+
+test("a stale guard factory cannot build with a previous account", async () => {
+  const { ctx } = makeCtx();
+  const handlers = createWorkspaceFlowHandlers(ctx);
+  ctx.jotaiStore.set(activeAddressAtom, "new-account");
+  assert.equal(await handlers.withBuildGuard("mint", async () => assert.fail("stale factory must not start")), null);
+});
+
+test("an expired completed build does not publish prepared metadata or a preview", async () => {
+  const { ctx, calls } = makeCtx();
+  const expired = { txHex: `84a40081825820${"aa".repeat(32)}00018182581d60${"bb".repeat(28)}1a004c4b40021a00030d400301a0f5f6` } as BuildResult;
+  assert.equal(await createWorkspaceFlowHandlers(ctx).withBuildGuard("mint", async () => expired), null);
+  assert.equal(ctx.jotaiStore.get(preparedWorkspaceTransactionAtom), null);
+  assert.equal(calls.setPreview, undefined);
+});
+
+// #433: the signing interval precedes the durable broadcast record.
+test("the central build guard blocks while a signature is in flight", async () => {
+  const { ctx } = makeCtx();
+  ctx.jotaiStore.set(activeSubmitAtom, true);
+  let builds = 0;
+  const result = await createWorkspaceFlowHandlers(ctx).withBuildGuard("use", async () => { builds++; return fakePreview; });
+  assert.equal(result, null);
+  assert.equal(builds, 0);
+});
+
+test("a spent STT error starts the same durable wait and blocks another build", async () => {
+  const { ctx } = makeCtx();
+  const walletUnit = "ab".repeat(28) + "01";
+  ctx.jotaiStore.set(routeStateAtom, { ...ctx.jotaiStore.get(routeStateAtom), selectedWalletUnit: walletUnit });
+  const handlers = createWorkspaceFlowHandlers(ctx);
+  const spentBy = "ef".repeat(32);
+  await handlers.withBuildGuard("use", async () => { throw new Error(`STT input ${HASH}#0 was already spent by ${spentBy}.`); });
+  assert.deepEqual(ctx.jotaiStore.get(pendingWalletStateUpdateAtom), {
+    walletUnit, submittedTxHash: spentBy, spentRef: { txHash: HASH, outputIndex: 0 }
+  });
+  let builds = 0;
+  await handlers.withBuildGuard("use", async () => { builds++; return fakePreview; });
+  assert.equal(builds, 0);
 });

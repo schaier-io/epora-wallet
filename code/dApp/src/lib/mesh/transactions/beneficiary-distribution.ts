@@ -50,8 +50,8 @@ export async function buildBeneficiaryDistributionTx(wallet: WalletSource, confi
   const walletScript = getWalletSpendScript(definition.params);
   const walletPaymentScriptHash = resolveWalletSpendScriptHash(definition.params);
   const referenceTime = input.validityWindowReferenceTimeMs ?? Date.now();
-  const prepared = await buildTransactionWithReestimatedLimits("beneficiary-distribution:draft-build", "beneficiary-distribution:build", async (overrides) => {
-    const { tx, fetcher, setupDiagnostics, signerAddress, changeAddress } = await setupTransaction(wallet, referenceTime, txFetcher);
+  const prepared = await buildTransactionWithReestimatedLimits("beneficiary-distribution:draft-build", "beneficiary-distribution:build", async (overrides, buildFetcher) => {
+    const { tx, fetcher, setupDiagnostics, signerAddress, changeAddress } = await setupTransaction(wallet, referenceTime, buildFetcher);
     const connectedSigner = deserializeAddress(signerAddress).pubKeyHash;
     if (connectedSigner !== input.beneficiarySignerKeyHash!.trim().toLowerCase()) {
       throw new Error("Exact distribution beneficiary signer must match the connected wallet.");
