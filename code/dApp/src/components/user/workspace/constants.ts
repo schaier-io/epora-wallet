@@ -58,7 +58,6 @@ export const SUBMIT_CONFIRMATION_POLL_MS = 15_000;
 
 // A confirmed transaction can reach the transaction index before its continuing
 // STT UTxO reaches address/asset lookup. Retry the exact wallet briefly.
-export const STT_STATE_REFRESH_MAX_ATTEMPTS = 10;
 export const STT_STATE_REFRESH_POLL_MS = 2_000;
 
 export const NON_NEGATIVE_INTEGER_SCHEMA = z

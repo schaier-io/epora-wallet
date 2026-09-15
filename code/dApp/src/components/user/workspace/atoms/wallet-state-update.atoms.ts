@@ -1,4 +1,6 @@
 import { atom } from "jotai";
+import { atomWithStorage, createJSONStorage, unstable_withStorageValidator as withStorageValidator } from "jotai/utils";
+import { routeStateAtom } from "./workspace-route.atoms";
 import type { createStore } from "jotai";
 
 import type { UserActionKind } from "@/components/user/flow-types";
@@ -30,11 +32,58 @@ export type PendingWalletStateUpdate = {
   walletUnit: string;
   submittedTxHash: string;
   spentRef: SttInputRef;
+  invalidHereafter?: number;
 };
 
-export const pendingWalletStateUpdateAtom = atom<PendingWalletStateUpdate | null>(null);
-export const walletStateUpdateRunAtom = atom(0);
-export const walletStateUpdatingAtom = atom((get) => get(pendingWalletStateUpdateAtom) !== null);
+export const WALLET_STATE_STORAGE_KEY = "epora:preprod:pending-wallet-state:v1";
+type PendingUpdates = Record<string, PendingWalletStateUpdate>;
+function validPendingUpdates(value: unknown): value is PendingUpdates {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  return Object.entries(value).every(([unit, entry]) => {
+    const pending = entry as PendingWalletStateUpdate | null;
+    return /^[0-9a-f]{58,120}$/i.test(unit) && unit.length % 2 === 0 &&
+      pending?.walletUnit === unit && /^[0-9a-f]{64}$/i.test(pending.submittedTxHash) &&
+      /^[0-9a-f]{64}$/i.test(pending.spentRef?.txHash) &&
+      (pending.invalidHereafter === undefined || (Number.isSafeInteger(pending.invalidHereafter) && pending.invalidHereafter >= 0)) &&
+      Number.isSafeInteger(pending.spentRef?.outputIndex) && pending.spentRef.outputIndex >= 0;
+  });
+}
+const jsonStorage = createJSONStorage<unknown>();
+const storage = withStorageValidator(validPendingUpdates)({
+  ...jsonStorage,
+  setItem: (key: string, value: unknown) => {
+    // A missing browser store must stop broadcast, not silently discard its guard.
+    if (typeof window !== "undefined") window.localStorage.setItem(key, JSON.stringify(value));
+  }
+});
+export const pendingWalletStateUpdatesAtom = atomWithStorage<PendingUpdates>(
+  WALLET_STATE_STORAGE_KEY, {}, storage, { getOnInit: true }
+);
+// Signing is guarded before a submitted hash exists. Confirmed submissions use durable records.
+export const walletStateSubmissionsAtom = atom<Record<string, boolean>>({});
+export const pendingWalletStateUpdateAtom = atom(
+  get => {
+    const updates = get(pendingWalletStateUpdatesAtom);
+    const unit = get(routeStateAtom).selectedWalletUnit;
+    return unit ? updates[unit] ?? null : Object.values(updates)[0] ?? null;
+  },
+  (get, set, pending: PendingWalletStateUpdate | null) => {
+    if (pending) set(pendingWalletStateUpdatesAtom, { ...get(pendingWalletStateUpdatesAtom), [pending.walletUnit]: pending });
+    else {
+      const current = get(pendingWalletStateUpdateAtom);
+      if (!current) return;
+      const remaining = { ...get(pendingWalletStateUpdatesAtom) };
+      delete remaining[current.walletUnit];
+      set(pendingWalletStateUpdatesAtom, remaining);
+    }
+  }
+);
+export const walletStateUpdatingAtom = atom((get) => {
+  const unit = get(routeStateAtom).selectedWalletUnit;
+  const submissions = get(walletStateSubmissionsAtom);
+  return get(pendingWalletStateUpdateAtom) !== null ||
+    (unit ? Boolean(submissions[unit]) : Object.values(submissions).some(Boolean));
+});
 
 const STT_CONSUMING_ACTIONS = new Set<UserActionKind>([
   "use",
@@ -93,16 +142,10 @@ export function resolveSpentSttRef(
 
 export const beginWalletStateUpdateAtom = atom(
   null,
-  (get, set, pending: PendingWalletStateUpdate) => {
-    set(walletStateUpdateRunAtom, get(walletStateUpdateRunAtom) + 1);
+  (_get, set, pending: PendingWalletStateUpdate) => {
     set(pendingWalletStateUpdateAtom, pending);
   }
 );
-
-export const retireWalletStateUpdateAtom = atom(null, (get, set) => {
-  set(walletStateUpdateRunAtom, get(walletStateUpdateRunAtom) + 1);
-  set(pendingWalletStateUpdateAtom, null);
-});
 
 const DRAFT_REF_PAIRS = [
   [sttInputTxHashAtom, sttInputOutputIndexAtom],
@@ -119,9 +162,10 @@ function sameRef(hash: string, index: string, ref: SttInputRef) {
 
 export const completeWalletStateUpdateAtom = atom(
   null,
-  (get, set, payload: { pending: PendingWalletStateUpdate; replacementRef: SttInputRef }) => {
-    const current = get(pendingWalletStateUpdateAtom);
+  (get, set, payload: { pending: PendingWalletStateUpdate; replacementRef: SttInputRef; expired?: boolean }) => {
+    const current = get(pendingWalletStateUpdatesAtom)[payload.pending.walletUnit];
     if (!current ||
+      (!payload.expired && sameRef(payload.replacementRef.txHash, String(payload.replacementRef.outputIndex), current.spentRef)) ||
       current.walletUnit !== payload.pending.walletUnit ||
       current.submittedTxHash !== payload.pending.submittedTxHash ||
       !sameRef(current.spentRef.txHash, String(current.spentRef.outputIndex), payload.pending.spentRef)) {
@@ -134,8 +178,9 @@ export const completeWalletStateUpdateAtom = atom(
         set(indexAtom, String(payload.replacementRef.outputIndex));
       }
     }
-    set(walletStateUpdateRunAtom, get(walletStateUpdateRunAtom) + 1);
-    set(pendingWalletStateUpdateAtom, null);
+    const remaining = { ...get(pendingWalletStateUpdatesAtom) };
+    delete remaining[current.walletUnit];
+    set(pendingWalletStateUpdatesAtom, remaining);
     return true;
   }
 );

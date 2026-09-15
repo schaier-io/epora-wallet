@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { formatBuildError, OwnedMessageError } from "./build-errors";
+import { formatBuildError, getSpentSttInput, OwnedMessageError } from "./build-errors";
 import { type ErrorContext } from "@/components/user/workspace/types";
 
 const BASE_CONTEXT: ErrorContext = {
@@ -13,6 +13,48 @@ const BASE_CONTEXT: ErrorContext = {
 function parse(error: unknown, context: ErrorContext = BASE_CONTEXT) {
   return formatBuildError(error, context);
 }
+
+const SPENT_STT_HASH = "98049c298005e7fa00b68034fd57530a2ead4aef145bd6b2bc5ae29fef509201";
+const SPENDING_TX_HASH = "e6ddeae843505fe707bd8c10ab0ee7867d4bf32cf8944cf30cf536e7b4d8e2cc";
+const SPENT_STT_MESSAGE = `STT input ${SPENT_STT_HASH}#0 was already spent by ${SPENDING_TX_HASH}.`;
+
+test("#433: an explicitly spent STT activates state refresh without error context", () => {
+  const result = parse(new Error(SPENT_STT_MESSAGE));
+  assert.equal(result.staleInputs, true);
+  assert.equal(result.expected, true);
+  assert.equal(result.diagnosticId, null);
+  assert.match(result.message, /This wallet has moved on since you opened this screen/);
+});
+
+test("#433: spent STT recovery reads nested provider errors", () => {
+  const error = new Error("Build failed", {
+    cause: { details: { sourceError: { info: `[resolve-state] ${SPENT_STT_MESSAGE}` } } }
+  });
+  const result = parse(error);
+  assert.equal(result.staleInputs, true);
+  assert.equal(result.expected, true);
+  assert.match(result.message, /This wallet has moved on since you opened this screen/);
+  assert.deepEqual(getSpentSttInput(error), {
+    spentRef: { txHash: SPENT_STT_HASH, outputIndex: 0 },
+    submittedTxHash: SPENDING_TX_HASH
+  });
+});
+
+test("spent STT extraction normalizes hashes and rejects unrelated or malformed references", () => {
+  assert.deepEqual(getSpentSttInput(new Error(SPENT_STT_MESSAGE.toUpperCase())), {
+    spentRef: { txHash: SPENT_STT_HASH, outputIndex: 0 },
+    submittedTxHash: SPENDING_TX_HASH
+  });
+  for (const message of [
+    SPENT_STT_MESSAGE.replace("STT input", "Wallet input"),
+    SPENT_STT_MESSAGE.replace("#0", "#9007199254740992"),
+    SPENT_STT_MESSAGE.replace("#0", "#-1"),
+    SPENT_STT_MESSAGE.replace(SPENDING_TX_HASH, `${SPENDING_TX_HASH}a`),
+    `UTxO not found: ${SPENT_STT_HASH}#0`
+  ]) {
+    assert.equal(getSpentSttInput(new Error(message)), null);
+  }
+});
 
 test("maps 'Maximum Input Count Exceeded' to variable transaction-size guidance", () => {
   const { message } = parse(new Error("Maximum Input Count Exceeded during build"));
