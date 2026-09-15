@@ -35,8 +35,8 @@ export async function buildDeploySharedSttReferenceTx(
   const prepared = await buildTransactionWithReestimatedLimits(
     "stt-reference-store:tx.draft-build",
     "stt-reference-store:tx.build",
-    async () => {
-      const { tx, fetcher, signerAddress, setupDiagnostics } = await setupTransaction(wallet, undefined, txFetcher);
+    async (_overrides, buildFetcher) => {
+      const { tx, fetcher, signerAddress, setupDiagnostics } = await setupTransaction(wallet, undefined, buildFetcher);
       const inspection = await inspectSharedSttReferenceStore(fetcher, {
         configuredReference: options?.sttSpendReference,
         script: sttScript,
