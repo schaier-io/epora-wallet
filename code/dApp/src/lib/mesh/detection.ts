@@ -48,27 +48,43 @@ export async function detectSttInfo(knownUnit?: string, signal?: AbortSignal): P
   const script = getSttSpendScript();
   const scriptAddress = resolveScriptAddress(script);
   const collectionAssets: Array<{ unit: string; quantity: string }> = [];
-  let cursor: number | string | null | undefined;
-
   if (knownUnit !== undefined) {
     if (!knownUnit.startsWith(policyId) || !/^[0-9a-f]+$/i.test(knownUnit) ||
         knownUnit.length <= POLICY_ID_LENGTH || knownUnit.length > POLICY_ID_LENGTH + 64 || knownUnit.length % 2 !== 0) {
       throw new Error("The requested wallet asset does not match the current STT policy.");
     }
     collectionAssets.push({ unit: knownUnit, quantity: "1" });
-  } else do {
-    const page = await fetcher.fetchCollectionAssets(policyId, cursor ?? undefined);
-    collectionAssets.push(
-      ...page.assets.filter((asset) => asset.unit.startsWith(policyId) && asset.unit !== policyId)
-    );
-    cursor = page.next;
-  } while (cursor);
+  }
 
+  // The policy index and script outputs are independent reads. Start both before
+  // waiting so discovery pays for the slower read, rather than their sum.
+  const collectionRead = (async () => {
+    if (knownUnit !== undefined) return;
+    let cursor: number | string | null | undefined;
+    do {
+      const page = await fetcher.fetchCollectionAssets(policyId, cursor ?? undefined);
+      collectionAssets.push(
+        ...page.assets.filter((asset) => asset.unit.startsWith(policyId) && asset.unit !== policyId)
+      );
+      cursor = page.next;
+    } while (cursor);
+  })();
+  // Attach both handlers immediately. An empty policy does not need the address
+  // result, even when that speculative request fails or remains pending.
+  const addressRead = fetcher.fetchAddressUTxOs(scriptAddress, knownUnit).then(
+    (utxos) => ({ ok: true as const, utxos }),
+    (error: unknown) => ({ ok: false as const, error })
+  );
+  await collectionRead;
+  signal?.throwIfAborted();
+  let scriptUtxos: UTxO[] = [];
+  if (collectionAssets.length > 0) {
+    const result = await addressRead;
+    signal?.throwIfAborted();
+    if (!result.ok) throw result.error;
+    scriptUtxos = result.utxos;
+  }
   const tokens: DetectedSttToken[] = [];
-  // Known wallets use the asset index. Unknown inventory still enumerates the
-  // shared address and remains subject to provider pagination and response limits.
-  const scriptUtxos =
-    collectionAssets.length > 0 ? await fetcher.fetchAddressUTxOs(scriptAddress, knownUnit) : [];
 
   for (const asset of collectionAssets) {
     const assetNameHex = asset.unit.slice(POLICY_ID_LENGTH);

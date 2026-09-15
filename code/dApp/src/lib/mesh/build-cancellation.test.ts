@@ -85,7 +85,7 @@ test("canceled provider starts no RPC, including through build parameter wrapper
 });
 
 
-test("canceling setup stops pending wallet work before protocol requests", async (t) => {
+test("canceling setup stops pending wallet work after the parallel protocol request starts", async (t) => {
   let providerCalls = 0;
   t.mock.method(globalThis, "fetch", async () => { providerCalls++; throw new Error("unexpected RPC"); });
   const controller = new AbortController();
@@ -105,5 +105,5 @@ test("canceling setup stops pending wallet work before protocol requests", async
   pending.resolve([]);
   await new Promise<void>((resolve) => setImmediate(resolve));
   assert.equal(laterWalletReads, 0);
-  assert.equal(providerCalls, 0);
+  assert.equal(providerCalls, 1);
 });

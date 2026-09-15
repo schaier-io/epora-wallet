@@ -1,4 +1,5 @@
 import { abortable, createAbortableWalletSource } from "@/lib/mesh/build-cancellation";
+import { resolveBuildWalletSource } from "./build-parameter-fetcher";
 import { readWalletAuthorityAddress } from "@/lib/wallet/authority-address";
 import { type RuntimeTxBuilder } from "./budget-runtime-builder";
 import {
@@ -70,7 +71,14 @@ export async function setupTransaction(
 ) {
   const signal = fetcher.signal;
   signal?.throwIfAborted();
+  wallet = resolveBuildWalletSource(fetcher, wallet);
   if (signal) wallet = createAbortableWalletSource(wallet, signal);
+  // Start independent provider work now. Consume rejection immediately, then
+  // report it at configureTx with the wallet diagnostics collected below.
+  const protocolParameters = abortable(signal, () => fetcher.fetchProtocolParameters()).then(
+    (value) => ({ ok: true as const, value }),
+    (error: unknown) => ({ ok: false as const, error })
+  );
   const { walletUtxos, source: utxosSource, addressCandidates, diagnostics } =
     await abortable(signal, () => resolveWalletUtxos(wallet, fetcher));
   const {
@@ -217,7 +225,9 @@ export async function setupTransaction(
   await withStage(
     "setup:configureTx",
     async () => {
-      const protocolParams = await abortable(signal, () => fetcher.fetchProtocolParameters());
+      const result = await protocolParameters;
+      if (!result.ok) throw result.error;
+      const protocolParams = result.value;
 
       txBuilder.protocolParams?.(protocolParams);
       txBuilder.selectUtxosFrom?.(spendableWalletUtxos);
