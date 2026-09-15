@@ -2,6 +2,8 @@ import { preparedWorkspaceTransactionAtom, preparedWorkspaceTransactionIsCurrent
 import { assertBeneficiaryWithdrawalReviewCurrent } from "./beneficiary-withdrawal-review";
 import { assertPreparedTransactionFresh } from "@/lib/mesh/transactions/prepared-transaction-freshness";
 import { queryClientAtom } from "jotai-tanstack-query";
+import { isWorkspaceBuildResultExpired } from "./workspace-build-cache";
+import { invalidateBuildAtom } from "./atoms/transaction-flow.atoms";
 import { txInfoQueryOptions } from "@/lib/query/chain";
 import { invalidateChainQueries } from "@/lib/query/invalidation";
 import { beneficiaryPreparationActiveAtom, consolidateWalletInputsAtom } from "./atoms/forms/consolidate-form.atoms";
@@ -180,6 +182,13 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
         })
       )
     ) {
+      return;
+    }
+
+    if (isWorkspaceBuildResultExpired(transactionPreview)) {
+      jotaiStore.set(invalidateBuildAtom);
+      setBuildError(i18n("theTransactionDetailsAreStaleContinueAgainTo_34b074"));
+      setBuildErrorExpected(true);
       return;
     }
 

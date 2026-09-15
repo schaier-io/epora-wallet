@@ -87,11 +87,11 @@ it("uses the configured setup helper when creating a wallet", async () => {
   const reference = `${"aa".repeat(32)}#2`;
   store.set(configAtom, { ...store.get(configAtom), sttSpendReference: reference });
   const { ctx } = contextFor(store, null);
-  ctx.withBuildGuard = (_label, run) => run();
+  ctx.withBuildGuard = (_label, run) => run({ wallet: ctx.activeWallet! });
   await createWorkspaceTransactions(ctx).buildMintTx();
   expect(mocks.buildMint).toHaveBeenCalledWith(ctx.activeWallet, expect.objectContaining({
     sttSpendReference: reference
-  }));
+  }), undefined);
 });
 
 it("refuses to sign when the draft changed while the transaction was being built", async () => {
@@ -206,13 +206,13 @@ it("preparation builds the derived beneficiary intent without stale output layou
   ctx.selectedAction = "consolidate-utxo"; ctx.effectiveSttAction = "consolidate-utxo";
   ctx.activePaymentKeyHash = "11".repeat(28); ctx.activeInferredSttStateForm = createDefaultStateForm();
   ctx.selectedDetectedToken = detectedToken(stateFormToDatum(ctx.activeInferredSttStateForm));
-  ctx.withBuildGuard = (_label, run) => run();
+  ctx.withBuildGuard = (_label, run) => run({ wallet: ctx.activeWallet! });
   mocks.buildPreparation.mockResolvedValueOnce({ txHex: "prepared" });
   await createWorkspaceTransactions(ctx).buildSelectedActionTx("admin");
   expect(mocks.buildPreparation).toHaveBeenCalledWith(ctx.activeWallet, expect.any(Object), {
     sttInputTxHash: "aa".repeat(32), sttInputOutputIndex: 1, walletInputs: refs,
     beneficiarySignerKeyHash: "11".repeat(28), poolAssets: [{ unit: "lovelace", quantity: "3000000" }], expectedStateDatum: stateFormToDatum(ctx.activeInferredSttStateForm)
-  });
+  }, undefined);
   expect(ctx.proposalCaptureRef.current).toBeNull();
 });
 
@@ -232,13 +232,13 @@ it("preparation uses the raw reviewed State even when its form normalizes admin 
   ctx.selectedDetectedToken = detectedToken(datum);
   ctx.activeInferredSttStateForm = stateFormFromDatum(datum);
   expect(stateFormToDatum(ctx.activeInferredSttStateForm)).not.toEqual(datum);
-  ctx.withBuildGuard = (_label, run) => run();
+  ctx.withBuildGuard = (_label, run) => run({ wallet: ctx.activeWallet! });
   mocks.buildPreparation.mockResolvedValueOnce({ txHex: "prepared" });
 
   await createWorkspaceTransactions(ctx).buildSelectedActionTx();
 
   expect(mocks.buildPreparation).toHaveBeenCalledWith(
-    ctx.activeWallet, expect.any(Object), expect.objectContaining({ expectedStateDatum: datum })
+    ctx.activeWallet, expect.any(Object), expect.objectContaining({ expectedStateDatum: datum }), undefined
   );
 });
 
@@ -250,7 +250,7 @@ it.each([null, detectedToken(null)])("preparation requires the reviewed raw datu
   ctx.effectiveSttAction = "consolidate-utxo";
   ctx.selectedDetectedToken = token;
   ctx.activeInferredSttStateForm = createDefaultStateForm();
-  ctx.withBuildGuard = (_label, run) => run();
+  ctx.withBuildGuard = (_label, run) => run({ wallet: ctx.activeWallet! });
 
   await expect(createWorkspaceTransactions(ctx).buildSelectedActionTx()).rejects.toThrow(/stale.*refresh/i);
   expect(mocks.buildPreparation).not.toHaveBeenCalled();

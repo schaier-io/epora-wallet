@@ -80,7 +80,6 @@ export function useWorkspaceTransactionPrebuild({
       ownedRun.current = null;
     };
     const onVisibilityChange = () => {
-      if (document.hidden) retireOwnedRun();
       setVisible(!document.hidden);
     };
     document.addEventListener("visibilitychange", onVisibilityChange);
@@ -89,14 +88,6 @@ export function useWorkspaceTransactionPrebuild({
       retireOwnedRun();
     };
   }, [store]);
-
-  useEffect(() => {
-    if (!enabled && ownedRun.current !== null && store.get(buildRunAtom) === ownedRun.current) {
-      store.set(invalidateBuildAtom);
-      ownedRun.current = null;
-      attempted.current = null;
-    }
-  }, [enabled, store]);
 
   useEffect(() => {
     const previous = attempted.current;

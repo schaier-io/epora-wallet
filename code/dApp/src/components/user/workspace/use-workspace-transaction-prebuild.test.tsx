@@ -175,7 +175,7 @@ describe("useWorkspaceTransactionPrebuild", () => {
     expect(store.get(activeBuildAtom)).toBe("use");
   });
 
-  it.each(["hidden", "unmount"])("retires its own pending build on %s", async reason => {
+  it("retires its own pending build on unmount", async () => {
     const { build, store, unmount } = setup();
     build.mockImplementationOnce(() => {
       store.set(buildRunAtom, 1);
@@ -183,10 +183,34 @@ describe("useWorkspaceTransactionPrebuild", () => {
       return new Promise(() => {});
     });
     await tick();
-    if (reason === "hidden") visibility(true);
-    else unmount();
+    unmount();
     expect(store.get(buildRunAtom)).toBe(2);
     expect(store.get(activeBuildAtom)).toBeNull();
+  });
+
+  it.each(["hidden", "disabled", "rerender"])("lets valid pending work finish when %s", async reason => {
+    const { build, store, rerender } = setup();
+    let finish!: () => void;
+    build.mockImplementationOnce(() => {
+      store.set(buildRunAtom, 1);
+      store.set(activeBuildAtom, "use");
+      return new Promise(resolve => {
+        finish = () => {
+          store.set(activeBuildAtom, null);
+          resolve(transaction);
+        };
+      });
+    });
+    await tick();
+    if (reason === "hidden") visibility(true);
+    else rerender({ enabled: reason !== "disabled" });
+    await tick();
+    expect(store.get(buildRunAtom)).toBe(1);
+    expect(store.get(activeBuildAtom)).toBe("use");
+    expect(build).toHaveBeenCalledTimes(1);
+    await act(async () => finish());
+    expect(store.get(activeBuildAtom)).toBeNull();
+    expect(store.get(buildRunAtom)).toBe(1);
   });
 
   it("uses the latest builder without restarting the debounce", async () => {

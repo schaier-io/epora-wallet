@@ -2,7 +2,7 @@ import { createStore } from "jotai";
 import { beforeEach, expect, it, vi } from "vitest";
 import { validateBeneficiaryDistributionInput } from "@/lib/mesh/transactions/beneficiary-distribution";
 import { createWorkspaceSttBuilder } from "./workspace-stt-builder";
-import type { WorkspaceTransactionsCtx } from "./workspace-transactions-types";
+import type { WorkspaceBuildResources, WorkspaceTransactionsCtx } from "./workspace-transactions-types";
 import { beneficiaryStreamStopIdAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputTxHashAtom, sttInputOutputIndexAtom, sttOutputAssetsAtom, sttStateFormAtom, sttWalletInputsAtom, updateStateFormAtom } from "./atoms/forms/stt-spend-form.atoms";
 import type { SttSpendFormInput } from "@/lib/types/contracts";
 import { createDefaultStateForm, stateFormFromDatum } from "@/lib/contracts/state-form";
@@ -16,11 +16,11 @@ function fixture() {
   const store = createStore();
   store.set(sttInputTxHashAtom, "a".repeat(64));
   store.set(sttInputOutputIndexAtom, "2");
-  const ctx = {
+  const ctx: WorkspaceTransactionsCtx = {
     jotaiStore: store, activeWallet: {}, activePaymentKeyHash: "11".repeat(28),
     activeInferredSttStateForm: createDefaultStateForm(), lockingContract: { address: "addr_test1wallet" },
     proposalCaptureRef: { current: null },
-    withBuildGuard: (_mode: string, run: () => Promise<unknown>) => run()
+    withBuildGuard: (_mode: string, run: (resources: WorkspaceBuildResources) => Promise<unknown>) => run({ wallet: ctx.activeWallet! })
   } as unknown as WorkspaceTransactionsCtx;
   const capture = vi.fn();
   const requiredSigners = vi.fn().mockReturnValue(["22".repeat(28)]);
@@ -37,7 +37,7 @@ it("builds a single stop with no stale withdrawal data or operator override", as
     sttInputTxHash: "a".repeat(64), sttInputOutputIndex: 2,
     beneficiaryStreamStopId: 18446744073709551615n,
     beneficiarySignerKeyHash: "11".repeat(28), authorityPath: "beneficiary"
-  });
+  }, undefined);
   expect(capture).not.toHaveBeenCalled();
   expect(requiredSigners).not.toHaveBeenCalled();
 });
@@ -52,7 +52,7 @@ it("builds exact distribution with no stale withdrawal data or operator override
     sttInputTxHash: "a".repeat(64), sttInputOutputIndex: 2,
     walletInputs: [{ txHash: "b".repeat(64), outputIndex: 0 }],
     beneficiarySignerKeyHash: "11".repeat(28)
-  });
+  }, undefined);
   expect(() => validateBeneficiaryDistributionInput(mocks.build.mock.calls[0]![3] as SttSpendFormInput)).not.toThrow();
   expect(capture).not.toHaveBeenCalled();
   expect(requiredSigners).not.toHaveBeenCalled();
@@ -70,7 +70,7 @@ it("keeps the extracted operator builder's approval capture and signer path", as
     authorityPath: "multisig",
     outputAssets,
     requiredSignerKeyHashes: ["22".repeat(28)]
-  }));
+  }), undefined);
 });
 
 it("keeps update-state and streaming-management State drafts separate", async () => {

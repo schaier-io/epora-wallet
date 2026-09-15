@@ -1,5 +1,6 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import type { BuildResult } from "@/lib/types/contracts";
+import type { TxFetcher } from "@/lib/mesh/tx-context";
 
 const mocks = vi.hoisted(() => ({ discover: vi.fn(), decode: vi.fn() }));
 vi.mock("./helpers/transactions", () => ({ fetchScriptUtxos: mocks.discover }));
@@ -20,6 +21,18 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.discover.mockResolvedValue([{ input: first }, { input: second }]);
   mocks.decode.mockReturnValue({ inputs: [first], decodeError: null });
+});
+
+it("cancellation after the build prevents beneficiary discovery", async () => {
+  const controller = new AbortController();
+  const discover = vi.fn();
+  const fetcher = { signal: controller.signal, fetchAddressUTxOs: discover } as unknown as TxFetcher;
+  await expect(buildReviewedBeneficiaryWithdrawal("wallet-address", async () => {
+    controller.abort();
+    return result;
+  }, fetcher)).rejects.toMatchObject({ name: "AbortError" });
+  expect(discover).not.toHaveBeenCalled();
+  expect(mocks.discover).not.toHaveBeenCalled();
 });
 
 it("reviews actual built inputs when an earlier beneficiary loses access", async () => {
