@@ -1,4 +1,18 @@
-import type { TxFetcher } from "@/lib/mesh/tx-context";
+import type { TxFetcher, WalletSource } from "@/lib/mesh/tx-context";
+import { createBuildWalletSource } from "./build-wallet-source";
+
+const buildWallets = new WeakMap<TxFetcher, WeakMap<WalletSource, WalletSource>>();
+
+export function resolveBuildWalletSource(fetcher: TxFetcher, wallet: WalletSource): WalletSource {
+  const wallets = buildWallets.get(fetcher);
+  if (!wallets) return wallet;
+  let source = wallets.get(wallet);
+  if (!source) {
+    source = createBuildWalletSource(wallet);
+    wallets.set(wallet, source);
+  }
+  return source;
+}
 
 function reuseLatest<T>(
   read: (epoch?: number) => Promise<T>,
@@ -23,8 +37,8 @@ function reuseLatest<T>(
   };
 }
 
-// One wrapper per build: only stable parameter reads are shared across passes.
-// Input freshness checks and evaluation always reach the original provider.
+// One wrapper per build shares parameter and wallet reads across passes.
+// Provider input checks and evaluation always reach the original provider.
 export function createBuildParameterFetcher(fetcher: TxFetcher): TxFetcher {
   const fetchProtocolParameters = reuseLatest(
     (epoch) => fetcher.fetchProtocolParameters(epoch)
@@ -35,7 +49,7 @@ export function createBuildParameterFetcher(fetcher: TxFetcher): TxFetcher {
     (value) => Array.isArray(value) && value.length > 0
   );
 
-  return new Proxy(fetcher, {
+  const scoped = new Proxy(fetcher, {
     get(target, property) {
       if (property === "fetchProtocolParameters") return fetchProtocolParameters;
       if (property === "fetchCostModels") return fetchCostModels;
@@ -45,4 +59,6 @@ export function createBuildParameterFetcher(fetcher: TxFetcher): TxFetcher {
         : value;
     }
   });
+  buildWallets.set(scoped, new WeakMap());
+  return scoped;
 }
