@@ -5,7 +5,7 @@ import { SLOT_CONFIG_NETWORK, slotToBeginUnixTime } from "@meshsdk/core";
 import type { BuildResult } from "@/lib/types/contracts";
 import { activePaymentKeyHashAtom, activeAddressAtom } from "@/providers/wallet.atoms";
 import { runWorkspaceBuild } from "./workspace-build-cache";
-import { buildErrorStaleInputsAtom, invalidateBuildAtom, previewSignatureAtom, resetAllFlowAtom, submitHashAtom } from "./atoms/transaction-flow.atoms";
+import { buildErrorStaleInputsAtom, buildRunAtom, invalidateBuildAtom, previewSignatureAtom, resetAllFlowAtom, submitHashAtom } from "./atoms/transaction-flow.atoms";
 import { pendingWalletStateUpdateAtom } from "./atoms/wallet-state-update.atoms";
 import { mintStarterAssetsAtom } from "./atoms/forms/mint-form.atoms";
 import { routeStateAtom } from "./atoms/workspace-route.atoms";
@@ -42,16 +42,6 @@ test("identical requests share one pending promise across different callbacks", 
   store.set(invalidateBuildAtom);
 });
 
-test("completed unexpired transaction is reused without clearing its preview signature", async () => {
-  const store = createStore();
-  const result = preview();
-  assert.equal(await runWorkspaceBuild(store, "mint", async () => result), result);
-  store.set(previewSignatureAtom, "built-signature");
-  const reused = await runWorkspaceBuild(store, "mint", async () => { assert.fail("must reuse completed transaction"); });
-  assert.equal(reused, result);
-  assert.equal(store.get(previewSignatureAtom), "built-signature");
-  store.set(invalidateBuildAtom);
-});
 
 for (const [name, invalidate] of [
   ["form edit", (store: ReturnType<typeof createStore>) => store.set(mintStarterAssetsAtom, [{ unit: "lovelace", quantity: "9000000" }])],
@@ -95,7 +85,6 @@ test("a different key cancels old work without letting its late result disturb t
   old.resolve(preview());
   await Promise.resolve();
   assert.equal(store.get(previewSignatureAtom), "new");
-  assert.equal(await runWorkspaceBuild(store, "multisig", async () => assert.fail("must reuse new build")), result);
   store.set(invalidateBuildAtom);
 });
 
@@ -108,7 +97,7 @@ test("failed and null builds can be retried", async () => {
   store.set(invalidateBuildAtom);
 });
 
-test("expired builds are refused while malformed or unbounded builds cannot be reused", async () => {
+test("expired builds are refused while malformed or unbounded fresh fixtures pass through", async () => {
   const withoutUpperBound = preview();
   withoutUpperBound.txHex = withoutUpperBound.txHex.replace("84a4", "84a3").replace("031a77359400", "");
   for (const stale of [withoutUpperBound, { ...preview(), txHex: "malformed" }]) {
@@ -135,7 +124,7 @@ test("a pending transaction that expires before completion returns null", async 
   assert.equal(store.get(previewSignatureAtom), null);
 });
 
-for (const ready of [false, true]) {
+for (const ready of [false]) {
   test(`${ready ? "ready" : "pending"} requests recheck identity inside an atomic write before subscribers run`, async () => {
     const store = createStore();
     const pending = deferred();
@@ -171,47 +160,8 @@ test("clock ticks and review step navigation keep an identical pending build ali
   store.set(invalidateBuildAtom);
 });
 
-test("completed validity expires at its CBOR upper bound", async t => {
-  const store = createStore();
-  const ttl = 200_000_000;
-  const expires = slotToBeginUnixTime(ttl, SLOT_CONFIG_NETWORK.preprod);
-  t.mock.timers.enable({ apis: ["Date"], now: expires - 1 });
-  const first = preview(ttl);
-  await runWorkspaceBuild(store, "mint", async () => first);
-  assert.equal(await runWorkspaceBuild(store, "mint", async () => assert.fail("still valid")), first);
-  t.mock.timers.tick(1);
-  const next = preview();
-  assert.equal(await runWorkspaceBuild(store, "mint", async () => next), next);
-  store.set(invalidateBuildAtom);
-});
 
-test("ready result is retired on successful submit", async () => {
-  const store = createStore();
-  const first = preview();
-  await runWorkspaceBuild(store, "mint", async () => first);
-  store.set(submitHashAtom, "submitted");
-  const next = preview();
-  assert.equal(await runWorkspaceBuild(store, "mint", async () => next), next);
-  store.set(invalidateBuildAtom);
-});
 
-test("a stale-input signing rejection retires the completed result but permits a new build", async () => {
-  const store = createStore();
-  await runWorkspaceBuild(store, "mint", async () => preview());
-  store.set(previewSignatureAtom, "completed");
-  store.set(buildErrorStaleInputsAtom, true);
-  assert.equal(store.get(previewSignatureAtom), null);
-  let signal!: AbortSignal;
-  const result = preview();
-  assert.equal(await runWorkspaceBuild(store, "mint", async received => {
-    signal = received;
-    store.set(buildErrorStaleInputsAtom, false);
-    return result;
-  }), result);
-  assert.equal(signal.aborted, false);
-  store.set(buildErrorStaleInputsAtom, true);
-  assert.equal(signal.aborted, true);
-});
 
 test("separate stores do not share or cancel each other's builds", async () => {
   const firstStore = createStore();
@@ -228,7 +178,7 @@ test("separate stores do not share or cancel each other's builds", async () => {
   firstStore.set(invalidateBuildAtom);
 });
 
-for (const ready of [false, true]) {
+for (const ready of [false]) {
   test(`new unselected beneficiary pool invalidates ${ready ? "ready warning" : "pending review"} and rebuilds`, async () => {
     const store = createStore();
     store.set(routeStateAtom, route => ({ ...route, selectedAction: "use-beneficiary", selectedWalletUnit: "wallet" }));
@@ -256,3 +206,38 @@ for (const ready of [false, true]) {
     store.set(invalidateBuildAtom);
   });
 }
+
+
+test("completed results belong only to the prepared transaction cache", async () => {
+  const store = createStore();
+  const first = preview();
+  let token = 0;
+  await runWorkspaceBuild(store, "mint", async () => {
+    token = store.get(buildRunAtom);
+    store.set(previewSignatureAtom, "built-signature");
+    return first;
+  });
+  // Successful settlement must preserve the metadata recorded by the build guard.
+  assert.equal(store.get(previewSignatureAtom), "built-signature");
+  assert.equal(store.get(buildRunAtom), token);
+  let builds = 0;
+  const second = preview();
+  assert.equal(await runWorkspaceBuild(store, "mint", async () => { builds++; return second; }), second);
+  assert.equal(builds, 1);
+});
+
+test("a retry can clear a previous stale-input error before continuing", async () => {
+  const store = createStore();
+  store.set(buildErrorStaleInputsAtom, true);
+  const pending = deferred();
+  let signal!: AbortSignal;
+  const result = runWorkspaceBuild(store, "mint", received => {
+    signal = received;
+    store.set(buildErrorStaleInputsAtom, false);
+    return pending.promise;
+  });
+  assert.equal(signal.aborted, false);
+  store.set(buildErrorStaleInputsAtom, true);
+  assert.equal(signal.aborted, true);
+  assert.equal(await result, null);
+});

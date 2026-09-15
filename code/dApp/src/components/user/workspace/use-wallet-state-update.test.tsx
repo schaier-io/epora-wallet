@@ -109,7 +109,7 @@ it("#433 follows a confirmed competing spender when our candidate never appears"
   mocks.detectSttInfo.mockResolvedValue(detected(winner));
   await expect(readUsableWalletReplacement(client(), PENDING, new AbortController().signal))
     .resolves.toEqual({ replacementRef: winner, expired: false });
-  expect(fetch.mock.calls.map(([, init]) => JSON.parse(String(init?.body)))).toEqual([
+  expect(fetch.mock.calls.map(([, init]): unknown => JSON.parse(String(init?.body)))).toEqual([
     { method: "fetchTxInfo", args: [PENDING.submittedTxHash] },
     { method: "get", args: [`txs/${SPENT.txHash}/utxos`] },
     { method: "fetchTxInfo", args: [winner.txHash] },
@@ -153,6 +153,20 @@ it("#433 releases an expired submission only at its chain slot with the original
 });
 
 function Reader() { useWalletStateUpdate(); return null; }
+
+it("#433 resumes a persisted wait on the landing screen without a selected wallet", async () => {
+  vi.useFakeTimers();
+  rpc();
+  localStorage.setItem(WALLET_STATE_STORAGE_KEY, JSON.stringify({ [UNIT]: PENDING }));
+  const store = createStore();
+  store.set(queryClientAtom, client());
+  store.set(routeStateAtom, parseWorkspaceRouteState(new URLSearchParams()));
+  render(<Provider store={store}><Reader /></Provider>);
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  expect(mocks.detectSttInfo).toHaveBeenCalledWith(UNIT, expect.any(AbortSignal));
+  expect(store.get(pendingWalletStateUpdatesAtom)).toEqual({});
+  expect(JSON.parse(localStorage.getItem(WALLET_STATE_STORAGE_KEY)!)).toEqual({});
+});
 
 it("#433 resumes persisted state for the selected wallet and waits beyond ten polls before unlocking", async () => {
   vi.useFakeTimers();

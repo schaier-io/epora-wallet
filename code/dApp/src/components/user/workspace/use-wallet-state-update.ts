@@ -65,7 +65,8 @@ export function useWalletStateUpdate(walletUnit?: string): void {
   const client = useAtomValue(queryClientAtom);
   const selectedUnit = useAtomValue(routeStateAtom).selectedWalletUnit;
   const updates = useAtomValue(pendingWalletStateUpdatesAtom);
-  const pending = updates[walletUnit ?? selectedUnit ?? ""];
+  const unit = walletUnit ?? selectedUnit;
+  const pending = unit === null ? Object.values(updates)[0] : updates[unit];
   useEffect(() => {
     if (!pending) return;
     const abort = new AbortController();

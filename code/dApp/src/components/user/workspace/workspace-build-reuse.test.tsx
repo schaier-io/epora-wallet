@@ -10,11 +10,12 @@ import { lockFundsAssetsAtom } from "./atoms/forms/lock-funds-form.atoms";
 import { activeAddressAtom } from "@/providers/wallet.atoms";
 import { configAtom } from "./atoms/workspace-config.atoms";
 
-const mocks = vi.hoisted(() => ({ build: vi.fn(), buildStt: vi.fn(), sign: vi.fn() }));
+const mocks = vi.hoisted(() => ({ build: vi.fn(), buildStt: vi.fn(), sign: vi.fn(), freshness: vi.fn() }));
 vi.mock("@/lib/mesh/transactions", () => ({
   buildLockFundsTx: mocks.build, buildSttSpendTx: mocks.buildStt, signAndSubmitTx: mocks.sign,
   getValidityWindow: () => ({ earliestTimeMs: 1750000000000, latestTimeMs: 1750000240000 })
 }));
+vi.mock("@/lib/mesh/transactions/prepared-transaction-freshness", () => ({ assertPreparedTransactionFresh: mocks.freshness }));
 vi.mock("./workspace-transaction-refresh", () => ({ schedulePostSubmitRefresh: vi.fn() }));
 
 // Empty unsigned transaction with an explicit future TTL. No ledger submission occurs.
@@ -26,6 +27,7 @@ const stores: ReturnType<typeof createStore>[] = [];
 
 beforeEach(() => {
   vi.useFakeTimers();
+  mocks.freshness.mockReset().mockResolvedValue(undefined);
   mocks.build.mockReset();
   mocks.buildStt.mockReset();
   // Keep signing pending so duplicate submit continuations meet the real re-entry guard.
@@ -178,10 +180,62 @@ it("reusing the completed multisig build retains its proposal capture", async ()
   const { store, render, base } = fixture();
   store.set(configAtom, { ...store.get(configAtom), walletPolicyId: "aa".repeat(28) });
   mocks.buildStt.mockResolvedValue(result);
-  await render().buildSttTx("use", "multisig");
+  base.selectedAction = "use";
+  Object.assign(base, { effectiveSttAction: "use" });
+  await render().buildSelectedActionTx("multisig");
   const capture = base.proposalCaptureRef.current;
   expect(capture).toEqual(expect.objectContaining({ authorityPath: "multisig" }));
-  expect(await render().buildSttTx("use", "multisig")).toBe(result);
+  expect(await render().buildSelectedActionTx("multisig")).toBe(result);
   expect(mocks.buildStt).toHaveBeenCalledTimes(1);
   expect(base.proposalCaptureRef.current).toBe(capture);
+});
+
+
+it("a failed prepared freshness check rebuilds and submits the new transaction", async () => {
+  const { render } = fixture();
+  const rebuilt = { ...result, txHex: "84a4008001800200031afffffffea0f5f6" };
+  mocks.build.mockResolvedValueOnce(result).mockResolvedValueOnce(rebuilt);
+  await render().buildSelectedActionTx();
+  mocks.freshness.mockRejectedValueOnce(new Error("prepared input was spent"));
+  void render().buildAndSubmitSelectedActionTx();
+  await vi.waitFor(() => expect(mocks.sign).toHaveBeenCalledTimes(1));
+  expect(mocks.build).toHaveBeenCalledTimes(2);
+  expect(mocks.sign.mock.calls[0]?.[1]).toBe(rebuilt.txHex);
+});
+
+it("an explicit default authority reuses the completed transaction and proposal capture", async () => {
+  const { store, render, base } = fixture();
+  base.selectedAction = "use";
+  Object.assign(base, { effectiveSttAction: "use" });
+  store.set(configAtom, { ...store.get(configAtom), walletPolicyId: "aa".repeat(28) });
+  mocks.buildStt.mockResolvedValue(result);
+  await render().buildSelectedActionTx();
+  const capture = base.proposalCaptureRef.current;
+  expect(await render().buildSelectedActionTx("admin")).toBe(result);
+  expect(mocks.buildStt).toHaveBeenCalledTimes(1);
+  expect(base.proposalCaptureRef.current).toBe(capture);
+});
+
+
+it.each(["resolve", "reject"])("an older freshness check cannot restart a newer authority build after %s", async outcome => {
+  const { render, base } = fixture();
+  base.selectedAction = "use";
+  Object.assign(base, { effectiveSttAction: "use" });
+  mocks.buildStt.mockResolvedValueOnce(result);
+  await render().buildSelectedActionTx("admin");
+  let finishCheck!: () => void;
+  mocks.freshness.mockImplementationOnce(() => new Promise<void>((resolve, reject) => {
+    finishCheck = () => outcome === "resolve" ? resolve() : reject(new Error("old input spent"));
+  }));
+  const older = render().buildSelectedActionTx("admin");
+  let finishBuild!: (value: BuildResult) => void;
+  mocks.buildStt.mockImplementationOnce(() => new Promise(resolve => { finishBuild = resolve; }));
+  const newer = render().buildSelectedActionTx("multisig");
+  const fetcher = mocks.buildStt.mock.calls[1]?.[4] as { signal: AbortSignal };
+  finishCheck();
+  expect(await older).toBeNull();
+  expect(fetcher.signal.aborted).toBe(false);
+  expect(mocks.buildStt).toHaveBeenCalledTimes(2);
+  finishBuild(result);
+  expect(await newer).toBe(result);
 });

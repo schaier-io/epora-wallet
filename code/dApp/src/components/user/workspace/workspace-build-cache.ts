@@ -3,13 +3,7 @@ import { SLOT_CONFIG_NETWORK, slotToBeginUnixTime } from "@meshsdk/core";
 import { deserializeTx } from "@/lib/mesh/cst";
 import { abortable } from "@/lib/mesh/build-cancellation";
 import type { BuildResult } from "@/lib/types/contracts";
-import { activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
-import { resolveWorkspaceTransactionInputs } from "./workspace-transaction-inputs";
-import { safeStringify } from "./helpers";
-import { activeInferredSttStateFormAtom } from "./queries/wallet-identity.atoms";
-import { selectedDetectedTokenAtom } from "./queries/token-identity.atoms";
-import { selectedActionAtom } from "./atoms/workspace-selection.atoms";
-import { spendableWalletUtxosAtom } from "./atoms/workspace-spendable-utxos.atoms";
+import { workspaceTransactionSnapshotAtom } from "./workspace-prepared-transaction";
 import { walletStateUpdatingAtom } from "./atoms/wallet-state-update.atoms";
 import { activeBuildAtom, buildErrorStaleInputsAtom, buildRunAtom, previewSignatureAtom, submitHashAtom, workspaceSessionAtom } from "./atoms/transaction-flow.atoms";
 
@@ -17,28 +11,12 @@ type Store = ReturnType<typeof createStore>;
 type BuildRecord = {
   key: string;
   promise: Promise<BuildResult | null>;
-  result?: BuildResult;
   isCurrent: () => boolean;
   cancel: () => void;
 };
 
 const buildRecordAtom = atom<BuildRecord | null>(null);
-export const workspaceBuildIdentityAtom = atom(get => {
-  const inputs = resolveWorkspaceTransactionInputs({ get });
-  const selectedToken = get(selectedDetectedTokenAtom);
-  const action = get(selectedActionAtom);
-  const selectedRefs = [...inputs.sttWalletInputs, ...inputs.consolidateWalletInputs];
-  return safeStringify({
-    inputs,
-    action,
-    paymentKeyHash: get(activePaymentKeyHashAtom),
-    state: get(activeInferredSttStateFormAtom),
-    token: selectedToken && { unit: selectedToken.unit, datum: selectedToken.datum, utxo: selectedToken.utxo },
-    // Removing beneficiary access reviews omitted pools as well as selected inputs.
-    fundPools: get(spendableWalletUtxosAtom).filter(utxo => action === "use-beneficiary" || selectedRefs.some(ref =>
-      ref.txHash === utxo.input.txHash && ref.outputIndex === utxo.input.outputIndex))
-  });
-});
+export const workspaceBuildIdentityAtom = workspaceTransactionSnapshotAtom;
 
 function validityEndTime(result: BuildResult): number | null {
   try {
@@ -56,15 +34,14 @@ export function isWorkspaceBuildResultExpired(result: BuildResult): boolean {
   return expires !== null && expires <= Date.now();
 }
 
-/** Share one build per store, and retire it as soon as its transaction inputs change. */
+/** Share one pending build per store, and cancel it as soon as its inputs change. */
 export function runWorkspaceBuild(
   store: Store,
   key: string,
   run: (signal: AbortSignal) => Promise<BuildResult | null>
 ): Promise<BuildResult | null> {
   const previous = store.get(buildRecordAtom);
-  if (previous?.key === key && previous.isCurrent() &&
-      (!previous.result || (validityEndTime(previous.result) ?? 0) > Date.now())) {
+  if (previous?.key === key && previous.isCurrent()) {
     return previous.promise;
   }
   previous?.cancel();
@@ -118,8 +95,11 @@ export function runWorkspaceBuild(
         record.cancel();
         return null;
       }
-      if (result) record.result = result;
-      else record.cancel();
+      if (result) {
+        // The prepared transaction atom owns completed results and their freshness checks.
+        release();
+        if (store.get(buildRecordAtom) === record) store.set(buildRecordAtom, null);
+      } else record.cancel();
       return result;
     }, error => {
       const canceled = controller.signal.aborted;
