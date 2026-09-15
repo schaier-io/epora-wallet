@@ -95,7 +95,8 @@ export function buildSetupReadinessIssues(setupState: SetupState): ReadinessIssu
           description: i18n("checkingWalletSetupNow"),
           recovery: i18n("recoveryWaitForCheck"),
           status: "warning",
-          blocking: true
+          blocking: true,
+          transient: true
         }
       : setupState.sharedSttReferenceStatus === "ready"
         ? {
@@ -145,7 +146,8 @@ export function buildSetupReadinessIssues(setupState: SetupState): ReadinessIssu
         description: i18n("refreshingWalletFundsNow"),
         recovery: i18n("recoveryWaitForCheck"),
         status: "warning",
-        blocking: true
+        blocking: true,
+        transient: true
       }
     : setupState.lockingContractAddress && setupState.lockedUtxoCount > 0
       ? {

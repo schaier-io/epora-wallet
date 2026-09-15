@@ -75,6 +75,11 @@ export type ReadinessIssue = {
   recovery?: string;
   status: "ready" | "warning" | "error";
   blocking: boolean;
+  /**
+   * A check that is still running, not a problem to act on. The review rail must not
+   * raise its "Something needs attention" alarm for one; the check resolves on its own.
+   */
+  transient?: boolean;
   key?: ReadinessKey;
 };
 
