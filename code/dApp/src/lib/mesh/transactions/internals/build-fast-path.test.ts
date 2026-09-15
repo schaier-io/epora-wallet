@@ -95,6 +95,7 @@ test("unlabelled Plutus mint still prepares twice and evaluates both builds", as
     return { tx, signerAddress, diagnostics: {}, executionLabels: createEmptyExecutionValidatorLabels() };
   }, fetcher);
   assert.equal(preparations, 2);
+  assert.equal(calls.utxos, 1);
   assert.equal(calls.evaluations, 2);
   assert.equal(calls.protocol, 1);
   assert.equal(calls.costModels, 1);

@@ -93,7 +93,7 @@ export function WorkspaceSidebarView() {
               <CardContent className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4">
                 {walletIsResolving ? (
                   <div role="status" aria-label={i18n("loadingYourWallet")} className="space-y-3">
-                    <span className="sr-only">{i18n("loadingYourWallet")}</span>
+                    <p className="text-sm text-muted-foreground">{i18n("loadingYourWallet")}</p>
                     <Skeleton className="h-4 w-24" aria-hidden="true" />
                     <Skeleton className="h-16 w-full rounded-lg" aria-hidden="true" />
                     <Skeleton className="h-16 w-full rounded-lg" aria-hidden="true" />

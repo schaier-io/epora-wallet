@@ -37,6 +37,7 @@ type ReviewTransactionPreviewProps = {
   /** Browser-wallet lovelace from the last funds refresh; null while loading or unavailable. */
   walletBalanceLovelace?: string | null;
   compact?: boolean;
+  autoSignPending?: boolean;
 };
 
 export function ReviewTransactionPreview({
@@ -46,14 +47,16 @@ export function ReviewTransactionPreview({
   lastActionLabel,
   signerAddress,
   walletBalanceLovelace,
+  autoSignPending = false,
   compact = false
 }: ReviewTransactionPreviewProps) {
   const i18n = useTranslations("ComponentsUserReviewPanelPreview");
   const validityMinutes = Math.round(VALIDITY_WINDOW_FUTURE_MS / 60_000);
 
   if (!preview) {
+    if (!autoSignPending) return null;
     return (
-      <FadeContent className="text-sm text-muted-foreground">
+      <FadeContent role="status" className="text-xs leading-relaxed text-muted-foreground">
         {i18n("yourWalletWillOpenAutomaticallyToSign")}
       </FadeContent>
     );
