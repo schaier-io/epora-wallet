@@ -1,17 +1,22 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ error: null as string | null, session: null as unknown }));
+const mocks = vi.hoisted(() => ({
+  error: null as string | null,
+  session: null as unknown,
+  status: "connected" as string,
+  connect: vi.fn()
+}));
 
 vi.mock("@/providers/walletconnect-provider", () => ({
   useWalletConnect: () => ({
-    status: "connected",
+    status: mocks.status,
     uri: null,
     session: mocks.session,
     error: mocks.error,
     network: "preprod",
     available: true,
-    connect: vi.fn(),
+    connect: mocks.connect,
     disconnect: vi.fn(),
     setNetwork: vi.fn()
   })
@@ -22,6 +27,8 @@ import { MobileWalletSection } from "./wallet-connect-section";
 beforeEach(() => {
   mocks.error = null;
   mocks.session = null;
+  mocks.status = "connected";
+  mocks.connect.mockClear();
 });
 
 it("renders a connected peer whose metadata URL is not a URL", () => {
@@ -45,4 +52,13 @@ it("announces a WalletConnect error", () => {
   render(<MobileWalletSection />);
 
   expect(screen.getByRole("alert")).toHaveTextContent(mocks.error);
+});
+
+it("announces the expiry and offers a new code", () => {
+  mocks.status = "expired";
+  render(<MobileWalletSection />);
+
+  expect(screen.getByRole("status")).toHaveTextContent("This pairing code has expired.");
+  screen.getByRole("button", { name: "Show new code" }).click();
+  expect(mocks.connect).toHaveBeenCalledOnce();
 });
