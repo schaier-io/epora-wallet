@@ -161,7 +161,7 @@ export async function buildSttSpendTx(
   const prepared = await buildTransactionWithReestimatedLimits(
     "stt-spend:tx.draft-build",
     "stt-spend:tx.build",
-    async (overrides) => {
+    async (overrides, buildFetcher) => {
       const payoutBuild = createStreamingPayoutBuild(
         streamingPayoutBatch ?? "empty",
         walletInputs.length > 0
@@ -169,7 +169,7 @@ export async function buildSttSpendTx(
       const setup = await setupTransaction(
         wallet,
         validityWindowReferenceTimeMs,
-        txFetcher,
+        buildFetcher,
         payoutBuild.setupOptions
       );
       const { tx, fetcher, setupDiagnostics, signerAddress } = setup;

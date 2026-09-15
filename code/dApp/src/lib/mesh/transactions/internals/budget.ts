@@ -29,6 +29,7 @@ import {
 import { deserializeTx } from "@/lib/mesh/cst";
 import { ServerFetcher } from "@/lib/mesh/server-fetcher";
 import { type TxFetcher } from "@/lib/mesh/tx-context";
+import { createBuildParameterFetcher } from "./build-parameter-fetcher";
 
 export function assertTransactionShapeIsBounded(shape: {
   inputs: number;
@@ -111,7 +112,7 @@ export function hasExecutionValidators(
 export async function buildTransactionWithReestimatedLimits(
   draftStage: string,
   finalStage: string,
-  prepareTx: (overrides?: RedeemerBudgetOverrides) => Promise<PreparedTransaction>,
+  prepareTx: (overrides: RedeemerBudgetOverrides | undefined, fetcher: TxFetcher) => Promise<PreparedTransaction>,
   // Same injection as setupTransaction: the browser default is unchanged, and a
   // server build can pass a provider that does not go through /api/mesh.
   fetcher: TxFetcher = new ServerFetcher(),
@@ -119,7 +120,8 @@ export async function buildTransactionWithReestimatedLimits(
     overrides: RedeemerBudgetOverrides
   ) => RedeemerBudgetOverrides | undefined
 ) {
-  const draftPrepared = await prepareTx();
+  const buildFetcher = createBuildParameterFetcher(fetcher);
+  const draftPrepared = await prepareTx(undefined, buildFetcher);
   let preparedOutputCount = getPreparedOutputCount(draftPrepared.tx);
   const draftHex = await withStage(draftStage, async () => draftPrepared.tx.build(), draftPrepared.diagnostics);
   const draftExecution = extractExecutionSnapshot(
@@ -130,7 +132,7 @@ export async function buildTransactionWithReestimatedLimits(
   // Use the actual witnesses, not optional display labels, to select the path.
   let finalPrepared = draftPrepared;
   if (readTransactionShape(draftHex).redeemers > 0) {
-    finalPrepared = await prepareTx(draftExecution.overrides);
+    finalPrepared = await prepareTx(draftExecution.overrides, buildFetcher);
     preparedOutputCount = getPreparedOutputCount(finalPrepared.tx);
     await withStage(finalStage, async () => finalPrepared.tx.build(), {
       ...finalPrepared.diagnostics,
@@ -165,7 +167,7 @@ export async function buildTransactionWithReestimatedLimits(
     async () =>
       refreshScriptDataHashWithLiveCostModels(
         txHexWithDefaultScriptDataHash,
-        fetcher
+        buildFetcher
       ),
     {
       ...finalPrepared.diagnostics,

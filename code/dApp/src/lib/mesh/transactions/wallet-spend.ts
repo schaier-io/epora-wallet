@@ -26,8 +26,8 @@ export async function buildWalletSpendTx(
   const prepared = await buildTransactionWithReestimatedLimits(
     "wallet-spend:tx.draft-build",
     "wallet-spend:tx.build",
-    async (overrides) => {
-      const { tx, fetcher, signerAddress, setupDiagnostics } = await setupTransaction(wallet, undefined, txFetcher);
+    async (overrides, buildFetcher) => {
+      const { tx, fetcher, signerAddress, setupDiagnostics } = await setupTransaction(wallet, undefined, buildFetcher);
       const spendValidatorsByRef = new Map<string, string>();
       const walletScriptUtxos = await withStage(
         "wallet-spend:fetchScriptUtxos",

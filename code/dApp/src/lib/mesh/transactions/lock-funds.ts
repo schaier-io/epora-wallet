@@ -33,8 +33,8 @@ export async function buildLockFundsTx(
   const prepared = await buildTransactionWithReestimatedLimits(
     "lock-funds:tx.draft-build",
     "lock-funds:tx.build",
-    async () => {
-      const { tx, signerAddress, setupDiagnostics } = await setupTransaction(wallet, undefined, txFetcher);
+    async (_overrides, buildFetcher) => {
+      const { tx, signerAddress, setupDiagnostics } = await setupTransaction(wallet, undefined, buildFetcher);
 
       tx.sendAssets(
         recipientWithOptionalInlineDatum(walletAddress, input.inlineDatum),
