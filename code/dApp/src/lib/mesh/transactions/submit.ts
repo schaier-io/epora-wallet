@@ -3,7 +3,11 @@ import { ServerFetcher } from "@/lib/mesh/server-fetcher";
 import { type BrowserWallet } from "@meshsdk/core";
 import { addVKeyWitnessSetToTransaction, deserializeTx } from "@/lib/mesh/cst";
 
-export async function signAndSubmitTx(wallet: BrowserWallet, txHex: string) {
+export async function signAndSubmitTx(
+  wallet: BrowserWallet,
+  txHex: string,
+  options: { assertCurrent?: () => void | Promise<void> } = {}
+) {
   const fetcher = new ServerFetcher();
   const scriptDataHashRefresh = await refreshScriptDataHashWithLiveCostModels(
     txHex,
@@ -31,6 +35,7 @@ export async function signAndSubmitTx(wallet: BrowserWallet, txHex: string) {
       );
     }
 
+    await options.assertCurrent?.();
     const signedPayload = await wallet.signTx(unsignedTxHex, true);
     const normalizedSignedPayload = signedPayload.trim();
     let signed = unsignedTxHex;
@@ -99,6 +104,7 @@ export async function signAndSubmitTx(wallet: BrowserWallet, txHex: string) {
       async () => assertSerializedTransactionSizeIsBounded(signed),
       diagnostics
     );
+    await options.assertCurrent?.();
     try {
       return await withStage(
         "submit:wallet.submitTx",
@@ -121,7 +127,10 @@ export async function signAndSubmitTx(wallet: BrowserWallet, txHex: string) {
 
       return withStage(
         "submit:blockfrost.submitTx",
-        async () => fetcher.submitTx(signed),
+        async () => {
+          await options.assertCurrent?.();
+          return fetcher.submitTx(signed);
+        },
         {
           ...diagnostics,
           walletSubmitError: normalizeError(error)
