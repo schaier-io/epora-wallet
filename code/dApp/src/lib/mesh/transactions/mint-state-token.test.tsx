@@ -8,7 +8,9 @@ import type { MintFormInput } from "@/lib/types/contracts";
 // (ex-units) and manual script collateral, so the mocked ServerFetcher returns a
 // mint budget from evaluateTx and there are two wallet UTxOs (mint reference +
 // collateral). Real MeshSDK still does the build; only chain I/O is mocked.
-const chain = vi.hoisted(() => ({ references: [] as UTxO[], evaluations: 0 }));
+const chain = vi.hoisted(() => ({
+  references: [] as UTxO[], evaluations: 0, protocolReads: 0, modelReads: 0, unspentReads: 0, rawParameterReads: 0
+}));
 vi.mock("@/lib/mesh/server-fetcher", async () => {
   const {
     DEFAULT_PROTOCOL_PARAMETERS,
@@ -18,9 +20,11 @@ vi.mock("@/lib/mesh/server-fetcher", async () => {
   } = await import("@meshsdk/common");
   class ServerFetcher {
     async fetchProtocolParameters() {
+      chain.protocolReads++;
       return DEFAULT_PROTOCOL_PARAMETERS;
     }
     async fetchCostModels() {
+      chain.modelReads++;
       return [DEFAULT_V1_COST_MODEL_LIST, DEFAULT_V2_COST_MODEL_LIST, DEFAULT_V3_COST_MODEL_LIST];
     }
     async fetchAddressUTxOs() {
@@ -32,12 +36,14 @@ vi.mock("@/lib/mesh/server-fetcher", async () => {
     }
     async get(url: string) {
       if (url.includes("/utxos")) {
+        chain.unspentReads++;
         return { outputs: chain.references.map((utxo) => ({
           output_index: utxo.input.outputIndex, consumed_by_tx: null
         })) };
       }
       // The script-data hash refresh reads live cost models from this endpoint.
       if (url.includes("epochs/latest/parameters")) {
+        chain.rawParameterReads++;
         return {
           cost_models_raw: {
             PlutusV1: DEFAULT_V1_COST_MODEL_LIST,
@@ -119,7 +125,14 @@ describe("buildMintStateTokenTx (integration: real MeshSDK build, mocked chain I
     } }];
     const input = { stateDatum, mintLovelace: "2000000", sttSpendReference: `${hash}#0` } as MintFormInput;
 
+    const before = { ...chain };
     const result = await buildMintStateTokenTx(wallet, input);
+
+    expect(chain.protocolReads - before.protocolReads).toBe(1);
+    expect(chain.modelReads - before.modelReads).toBe(1);
+    expect(chain.evaluations - before.evaluations).toBe(2);
+    expect(chain.unspentReads - before.unspentReads).toBe(2);
+    expect(chain.rawParameterReads - before.rawParameterReads).toBe(1);
 
     expect(result.txHex).toMatch(/^[0-9a-f]+$/i);
     expect(result.estimatedFeeLovelace).toBeDefined();

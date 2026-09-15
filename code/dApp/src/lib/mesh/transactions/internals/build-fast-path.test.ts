@@ -86,9 +86,9 @@ test("unlabelled Plutus mint still prepares twice and evaluates both builds", as
   const script = { code: "46010000200101", version: "V3" as const };
   const policy = resolveScriptHash(script.code, script.version);
   let preparations = 0;
-  const result = await buildTransactionWithReestimatedLimits("draft", "final", async overrides => {
+  const result = await buildTransactionWithReestimatedLimits("draft", "final", async (overrides, buildFetcher) => {
     preparations++;
-    const { tx, signerAddress } = await setupTransaction(wallet, undefined, fetcher);
+    const { tx, signerAddress } = await setupTransaction(wallet, undefined, buildFetcher);
     applyMintWitness(tx.txBuilder as RuntimeTxBuilder, policy, "01", script, null, overrides?.mintBudgets[0]);
     tx.isCollateralNeeded = true;
     tx.sendAssets(ADDRESS, [{ unit: `${policy}01`, quantity: "1" }]);
@@ -96,6 +96,8 @@ test("unlabelled Plutus mint still prepares twice and evaluates both builds", as
   }, fetcher);
   assert.equal(preparations, 2);
   assert.equal(calls.evaluations, 2);
+  assert.equal(calls.protocol, 1);
+  assert.equal(calls.costModels, 1);
   assert.equal(calls.rawParameters, 1);
   assert.equal(deserializeTx(result.txHex).witnessSet().redeemers()?.size(), 1);
   assert.equal(result.executionUnits.redeemers.length, 1);

@@ -47,9 +47,9 @@ async function buildWalletGovernanceTx(
   const prepared = await buildTransactionWithReestimatedLimits(
     `${input.action}:tx.draft-build`,
     `${input.action}:tx.build`,
-    async (overrides) => {
+    async (overrides, buildFetcher) => {
       const { tx, fetcher, signerAddress, changeAddress, setupDiagnostics, walletUtxos } =
-        await setupTransaction(wallet, undefined, txFetcher);
+        await setupTransaction(wallet, undefined, buildFetcher);
       addExtraRequiredSigners(tx, signerAddress, input.requiredSignerKeyHashes);
       const spendValidatorsByRef = new Map<string, string>();
       const changeAddressUtxos = await fetchChangeAddressReferenceUtxos(

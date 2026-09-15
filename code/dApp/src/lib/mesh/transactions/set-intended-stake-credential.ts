@@ -40,8 +40,8 @@ export async function buildSetIntendedStakeCredentialTx(
   const prepared = await buildTransactionWithReestimatedLimits(
     `${stage}:tx.draft-build`,
     `${stage}:tx.build`,
-    async (overrides) => {
-      const { tx, fetcher, signerAddress, setupDiagnostics } = await setupTransaction(wallet, undefined, txFetcher);
+    async (overrides, buildFetcher) => {
+      const { tx, fetcher, signerAddress, setupDiagnostics } = await setupTransaction(wallet, undefined, buildFetcher);
       addExtraRequiredSigners(tx, signerAddress, input.requiredSignerKeyHashes);
       const spendValidatorsByRef = new Map<string, string>();
       const forwarding = await runStateForwarding({
