@@ -3,7 +3,7 @@ import { beneficiaryPreparationActiveAtom } from "./atoms/forms/consolidate-form
 import { RecoveryFallbackView } from "./recovery-fallback-view";
 import { useTranslations } from "next-intl";
 
-import { activeBuildAtom, activeSubmitAtom, buildDiagnosticIdAtom, buildErrorAtom, buildErrorExpectedAtom, buildErrorStaleInputsAtom, previewAtom, submitConfirmedAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
+import { activeBuildAtom, activeSubmitAtom, buildDiagnosticIdAtom, buildErrorAtom, buildErrorExpectedAtom, buildErrorStaleInputsAtom, previewAtom, submitConfirmedAtom, submitHashAtom, workspaceSessionAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { activeSttStateFormAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { walletBalanceSummaryAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { activeInferredSttStateFormAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
@@ -36,6 +36,7 @@ export function WorkspaceReviewRailView() {
   const preparationEnabled = useAtomValue(beneficiaryPreparationActiveAtom);
   const activeBuild = useAtomValue(activeBuildAtom);
   const activeSubmit = useAtomValue(activeSubmitAtom);
+  const session = useAtomValue(workspaceSessionAtom);
   const buildError = useAtomValue(buildErrorAtom);
   const buildErrorExpected = useAtomValue(buildErrorExpectedAtom);
   const buildDiagnosticId = useAtomValue(buildDiagnosticIdAtom);
@@ -82,7 +83,33 @@ export function WorkspaceReviewRailView() {
     ? null
     : getAssetQuantityByUnit(walletBalanceSummary.assets, "lovelace");
   const [preparingProposal, setPreparingProposal] = useState(false);
-  const transactionInFlight = activeBuild !== null || activeSubmit || walletStateUpdating;
+  const [clickedAction, setClickedAction] = useState<{
+    action: typeof selectedAction; session: typeof session;
+  } | null>(null);
+  const directActionPending = clickedAction?.action === selectedAction && clickedAction.session === session;
+  const reviewBeforeSigning = preparationActive || selectedAction === "use-beneficiary" ||
+    selectedAction === "stop-beneficiary-stream" || selectedAction === "distribute-beneficiaries";
+
+  async function runDirectAction() {
+    if (directActionPending || preparingProposal || activeSubmit || walletStateUpdating || reviewPrimaryActionDisabled) return;
+    const click = { action: selectedAction, session };
+    setClickedAction(click);
+    try {
+      if (reviewBeforeSigning) {
+        if (previewMatchesSelectedAction && preview?.txHex) {
+          await submitTransactionPreview(preview);
+        } else {
+          await buildSelectedActionTx(signingActions.directAuthorityPath ?? undefined);
+        }
+      } else {
+        await buildAndSubmitSelectedActionTx(signingActions.directAuthorityPath ?? undefined);
+      }
+    } finally {
+      setClickedAction(current => current === click ? null : current);
+    }
+  }
+
+  const transactionInFlight = directActionPending || activeBuild !== null || activeSubmit || walletStateUpdating;
   const directActionInFlight = !preparingProposal && transactionInFlight;
   const proposalBlockingIssue = activeReadinessIssues.find((issue) => issue.blocking);
   // Both sentences were English literals here. The i18n migrator only reads JSX, so a
@@ -138,8 +165,7 @@ export function WorkspaceReviewRailView() {
     }
   }
 
-  // This always rebuilds with the co-signer path. A direct-path preview cannot be reused because
-  // the authority redeemer is part of the transaction body.
+  // Request the co-signer path. The shared build record reuses only the same authority.
   async function saveAsApprovalRequest() {
     if (preparingProposal || transactionInFlight) {
       return;
@@ -222,11 +248,13 @@ export function WorkspaceReviewRailView() {
                     submitHash={submitHash}
                     submitConfirmed={submitConfirmed}
                     lastActionLabel={lastActionDisplayLabel}
-                    isBuilding={approvalOnly ? preparingProposal : activeBuild === selectedAction}
+                    isBuilding={approvalOnly ? preparingProposal : directActionPending && !activeSubmit}
+                    autoSignPending={!approvalOnly && !reviewBeforeSigning && directActionPending}
                     isSubmitting={activeSubmit}
                     primaryActionLabel={
                       walletStateUpdating ? i18n("updatingWalletState")
                         : approvalOnly ? approvalActionLabel
+                        : directActionPending && !activeSubmit ? proposalI18n("preparing")
                         : preparationActive
                           ? previewMatchesSelectedAction && preview?.txHex
                             ? i18n("confirmPreparation") : i18n("previewPreparation")
@@ -247,24 +275,14 @@ export function WorkspaceReviewRailView() {
                         ? transactionInFlight ||
                           preparingProposal ||
                           Boolean(approvalBlockedReason)
-                        : walletStateUpdating || reviewPrimaryActionDisabled
+                        : directActionPending || preparingProposal || walletStateUpdating || reviewPrimaryActionDisabled
                     }
                     onPrimaryAction={() => {
                       if (approvalOnly) {
                         void saveAsApprovalRequest();
                         return;
                       }
-                      if (preparationActive || selectedAction === "use-beneficiary" || selectedAction === "stop-beneficiary-stream" || selectedAction === "distribute-beneficiaries") {
-                        if (previewMatchesSelectedAction && preview?.txHex) {
-                          void submitTransactionPreview(preview);
-                        } else {
-                          void buildSelectedActionTx(signingActions.directAuthorityPath ?? undefined);
-                        }
-                        return;
-                      }
-                      void buildAndSubmitSelectedActionTx(
-                        signingActions.directAuthorityPath ?? undefined
-                      );
+                      void runDirectAction();
                     }}
                     secondaryActionLabel={
                       showApprovalSecondary ? approvalActionLabel : null

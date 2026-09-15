@@ -19,7 +19,7 @@ export function createWorkspaceSttBuilder(
   captureProposal: ReturnType<typeof createProposalCaptureWriter>,
   requiredSignerKeyHashesFor: (authorityPath: AuthorityPath) => string[] | undefined
 ) {
-  const { activeInferredSttStateForm, activePaymentKeyHash, activeWallet, jotaiStore, lockingContract, streamingPaymentPayout, withBuildGuard } = ctx;
+  const { activeInferredSttStateForm, activePaymentKeyHash, jotaiStore, lockingContract, streamingPaymentPayout, withBuildGuard } = ctx;
   const { config, beneficiaryStreamStopId, sttAuthorityPath, sttExtraTransfers, sttInputOutputIndex, sttInputTxHash, sttOutputAssets, sttProofOfLifeOverrideMode, sttProofOfLifeSpecificDateTime, sttStateForm, sttWalletInputs, sttWalletOutputs, updateStateForm } = resolveWorkspaceTransactionInputs(jotaiStore);
   async function buildSttTx(
     mode:
@@ -37,30 +37,30 @@ export function createWorkspaceSttBuilder(
     if (mode === "distribute-beneficiaries") {
       // The core builder fixes recipients, amounts and datums from chain state.
       ctx.proposalCaptureRef.current = null;
-      return withBuildGuard(mode, () => buildSttSpendTx(activeWallet!, config, mode, {
+      return withBuildGuard(mode, ({ wallet, fetcher }) => buildSttSpendTx(wallet, config, mode, {
         sttInputTxHash,
         sttInputOutputIndex: sttInputOutputIndex ? Number(sttInputOutputIndex) : undefined,
         walletInputs: sttWalletInputs.map((ref) => ({ ...ref })),
         beneficiarySignerKeyHash: activePaymentKeyHash ?? undefined
-      }));
+      }, fetcher));
     }
     if (mode === "stop-beneficiary-stream") {
       // This action derives its State from the consumed STT. Withdrawal drafts
       // and operator-path overrides cannot become part of a stop transaction.
       ctx.proposalCaptureRef.current = null;
-      return withBuildGuard(mode, () => buildSttSpendTx(activeWallet!, config, mode, {
+      return withBuildGuard(mode, ({ wallet, fetcher }) => buildSttSpendTx(wallet, config, mode, {
         sttInputTxHash,
         sttInputOutputIndex: sttInputOutputIndex ? Number(sttInputOutputIndex) : undefined,
         beneficiaryStreamStopId: parseNonNegativeIntegerString(beneficiaryStreamStopId, "Scheduled payment ID"),
         beneficiarySignerKeyHash: activePaymentKeyHash ?? undefined,
         authorityPath: "beneficiary"
-      }));
+      }, fetcher));
     }
     const effectiveAuthorityPath = authorityPathOverride ?? sttAuthorityPath;
     const effectiveWalletInputs = resolveSttFundPoolInputs(mode, sttWalletInputs);
     return withBuildGuard(
       mode,
-      async () => {
+      async ({ wallet, fetcher }) => {
         // Build against a fresh validity window. The displayed payout quote was
         // computed from an earlier LOWER bound, so it is conservative as time
         // advances; the pure builder re-check below is the final exact cap.
@@ -184,12 +184,13 @@ export function createWorkspaceSttBuilder(
           });
         }
 
-        const build = () => buildSttSpendTx(activeWallet!, config, mode, payload);
+        const build = () => buildSttSpendTx(wallet, config, mode, payload, fetcher);
         return mode === "use-beneficiary"
-          ? buildReviewedBeneficiaryWithdrawal(lockingContract.address, build)
+          ? buildReviewedBeneficiaryWithdrawal(lockingContract.address, build, fetcher)
           : build();
       },
       {
+        authorityPath: effectiveAuthorityPath,
         sttInputTxHash,
         sttInputOutputIndex,
         walletInputRefs: effectiveWalletInputs.map((entry) => ({ ...entry })),

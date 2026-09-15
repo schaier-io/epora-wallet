@@ -25,13 +25,15 @@ vi.mock("./internals", () => ({
 }));
 vi.mock("@/lib/mesh/cst", () => ({
   addVKeyWitnessSetToTransaction: mocks.addVKeyWitnessSetToTransaction,
-  deserializeTx: vi.fn()
+  deserializeTx: vi.fn(() => ({ body: () => ({ ttl: () => 12345 }) }))
 }));
 vi.mock("@/lib/mesh/server-fetcher", () => ({
   ServerFetcher: class {
     submitTx = mocks.providerSubmitTx;
   }
 }));
+
+vi.mock("@meshsdk/core", () => ({ resolveTxHash: () => "ab".repeat(32) }));
 
 import { signAndSubmitTx } from "./submit";
 
@@ -67,6 +69,24 @@ it("does not submit a signed transaction that exceeds the size bound", async () 
   await expect(
     signAndSubmitTx(wallet as never, "unsigned-transaction")
   ).rejects.toThrow("signed transaction is too large");
+  expect(wallet.submitTx).not.toHaveBeenCalled();
+  expect(mocks.providerSubmitTx).not.toHaveBeenCalled();
+});
+
+it("records the signed body before any broadcast and stops if recording fails", async () => {
+  const order: string[] = [];
+  const wallet = {
+    signTx: vi.fn().mockResolvedValue("witness-set"),
+    submitTx: vi.fn(async () => { order.push("broadcast"); return "hash"; })
+  };
+  const record = vi.fn(() => { order.push("record"); });
+  await signAndSubmitTx(wallet as never, "unsigned-transaction", record);
+  expect(record).toHaveBeenCalledWith({ txHash: "ab".repeat(32), invalidHereafter: 12345 });
+  expect(order).toEqual(["record", "broadcast"]);
+  wallet.submitTx.mockClear();
+  await expect(signAndSubmitTx(wallet as never, "unsigned-transaction", () => {
+    throw new Error("Storage unavailable");
+  })).rejects.toThrow("Storage unavailable");
   expect(wallet.submitTx).not.toHaveBeenCalled();
   expect(mocks.providerSubmitTx).not.toHaveBeenCalled();
 });

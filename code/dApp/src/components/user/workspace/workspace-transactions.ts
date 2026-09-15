@@ -4,8 +4,9 @@ import { type SetStateAction } from "react";
 // Only the atoms WRITTEN here remain imported; the ~40 atoms the builders READ
 // are gathered by resolveWorkspaceTransactionInputs (see below).
 import { selectedSttActionAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
-import { buildDiagnosticIdAtom
+import { buildDiagnosticIdAtom, buildRunAtom, workspaceSessionAtom
 } from "@/components/user/workspace/atoms/transaction-flow.atoms";
+import { workspaceBuildIdentityAtom } from "./workspace-build-cache";
 import { resolveWorkspaceTransactionInputs } from "@/components/user/workspace/workspace-transaction-inputs";
 import { createWorkspaceTransactionSubmit } from "@/components/user/workspace/workspace-transaction-submit";
 import { createProposalCaptureWriter } from "@/components/user/workspace/workspace-proposal-capture";
@@ -50,7 +51,6 @@ const i18n = createDefaultTranslator("ComponentsUserWorkspaceWorkspaceTransactio
 
 export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
   const {
-    activeBuild,
     activeFieldErrors,
     activeInferredSttStateForm,
     activePaymentKeyHash,
@@ -169,7 +169,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
   async function buildMintTx() {
     return withBuildGuard(
       "mint",
-      async () => {
+      async ({ wallet, fetcher }) => {
         const mintState = cloneStateForm(mintStateForm);
         const stateDatum = stateFormToDatum(mintState, MINT_PERFORMED_ACTION);
         const selectedReference = (() => {
@@ -186,12 +186,12 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
           };
         })();
 
-        return buildMintStateTokenTx(activeWallet!, {
+        return buildMintStateTokenTx(wallet, {
           sttSpendReference: config.sttSpendReference,
           starterAssets: cloneAssets(mintStarterAssets),
           stateDatum,
           selectedReferenceUtxo: selectedReference
-        });
+        }, fetcher);
       },
       {
         starterFundingMode: "derived-wallet-address",
@@ -208,15 +208,15 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
   async function buildLockFunds() {
     return withBuildGuard(
       "lock-funds",
-      async () =>
-        buildLockFundsTx(activeWallet!, config, {
+      async ({ wallet, fetcher }) =>
+        buildLockFundsTx(wallet, config, {
           assets: cloneAssets(lockFundsAssets),
           inlineDatum: undefined,
           // Deposit to the wallet's canonical address: base address for a
           // staking wallet, enterprise (unchanged) otherwise.
           intendedStakeCredential:
             activeInferredSttStateForm.intendedStakeCredential as ConstrData
-        }),
+        }, fetcher),
       {
         walletPolicyId: config.walletPolicyId,
         walletAssetNameHex: config.walletAssetNameHex,
@@ -250,15 +250,16 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     };
     return withBuildGuard(
       "wallet-withdraw",
-      async () => {
+      async ({ wallet, fetcher }) => {
         captureProposal("wallet-withdraw", effectiveAuthorityPath, {
           builder: "wallet-withdraw",
           config: { ...config },
           input
         });
-        return buildWalletWithdrawTx(activeWallet!, config, input);
+        return buildWalletWithdrawTx(wallet, config, input, fetcher);
       },
       {
+        authorityPath: effectiveAuthorityPath,
         rewardAddress: withdrawRewardAddress,
         amountLovelace: withdrawAmount,
         sttInputTxHash: withdrawSttRef.txHash,
@@ -293,15 +294,16 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     };
     return withBuildGuard(
       "wallet-publish",
-      async () => {
+      async ({ wallet, fetcher }) => {
         captureProposal("wallet-publish", effectiveAuthorityPath, {
           builder: "wallet-publish",
           config: { ...config },
           input
         });
-        return buildWalletPublishTx(activeWallet!, config, input);
+        return buildWalletPublishTx(wallet, config, input, fetcher);
       },
       {
+        authorityPath: effectiveAuthorityPath,
         sttInputTxHash: publishSttRef.txHash,
         sttInputOutputIndex: publishSttRef.indexStr
       }
@@ -352,15 +354,16 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     };
     return withBuildGuard(
       "set-intended-stake-credential",
-      async () => {
+      async ({ wallet, fetcher }) => {
         captureProposal("set-intended-stake-credential", effectiveAuthorityPath, {
           builder: "set-intended-stake-credential",
           config: { ...config },
           input
         });
-        return buildSetIntendedStakeCredentialTx(activeWallet!, config, input);
+        return buildSetIntendedStakeCredentialTx(wallet, config, input, fetcher);
       },
       {
+        authorityPath: effectiveAuthorityPath,
         sttInputTxHash: setCredSttRef.txHash,
         sttInputOutputIndex: setCredSttRef.indexStr,
         stakeCredentialHash: walletScriptHash
@@ -394,15 +397,16 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     };
     return withBuildGuard(
       "wallet-vote",
-      async () => {
+      async ({ wallet, fetcher }) => {
         captureProposal("wallet-vote", effectiveAuthorityPath, {
           builder: "wallet-vote",
           config: { ...config },
           input
         });
-        return buildWalletVoteTx(activeWallet!, config, input);
+        return buildWalletVoteTx(wallet, config, input, fetcher);
       },
       {
+        authorityPath: effectiveAuthorityPath,
         sttInputTxHash: voteSttRef.txHash,
         sttInputOutputIndex: voteSttRef.indexStr
       }
@@ -412,26 +416,26 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
   async function buildConsolidateUtxos(authorityPathOverride?: ConsolidateAuthorityPath) {
     if (beneficiaryPreparationActive) {
       proposalCaptureRef.current = null;
-      return withBuildGuard("consolidate-utxo", () => {
+      return withBuildGuard("consolidate-utxo", ({ wallet, fetcher }) => {
         const expectedStateDatum = selectedDetectedToken?.datum;
         if (!expectedStateDatum) {
           throw new Error(i18n("theTransactionDetailsAreStaleContinueAgainTo_34b074"));
         }
         // Form conversion normalizes valid State fields, so freshness needs the raw datum.
-        return buildBeneficiaryPreparationTx(activeWallet!, config, {
+        return buildBeneficiaryPreparationTx(wallet, config, {
           sttInputTxHash: consolidateSttInputHash,
           sttInputOutputIndex: consolidateSttInputIndex ? Number(consolidateSttInputIndex) : undefined,
           walletInputs: consolidateWalletInputs.map(ref => ({ ...ref })),
           beneficiarySignerKeyHash: activePaymentKeyHash ?? "",
           poolAssets: cloneAssets(beneficiaryPreparationPoolAssets),
           expectedStateDatum
-        });
+        }, fetcher);
       });
     }
     const effectiveAuthorityPath = authorityPathOverride ?? consolidateAuthorityPath;
     return withBuildGuard(
       "consolidate-utxo",
-      async () => {
+      async ({ wallet, fetcher }) => {
         const effectiveForm = cloneStateForm(activeInferredSttStateForm);
         const payload: ConsolidateUtxosFormInput = {
           sttInputTxHash: consolidateSttInputHash,
@@ -456,9 +460,10 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
             input: payload
           });
         }
-        return buildConsolidateUtxosTx(activeWallet!, config, payload);
+        return buildConsolidateUtxosTx(wallet, config, payload, fetcher);
       },
       {
+        authorityPath: effectiveAuthorityPath,
         sttInputTxHash: consolidateSttInputHash,
         sttInputOutputIndex: consolidateSttInputIndex,
         walletInputRefs: consolidateWalletInputs.map((entry) => ({ ...entry })),
@@ -534,7 +539,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
   }
 
   async function buildAndSubmitSelectedActionTx(authorityPathOverride?: AuthorityPath) {
-    if (activeBuild === selectedAction || activeSubmit) {
+    if (activeSubmit) {
       return;
     }
 
@@ -542,13 +547,20 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     // Read the draft straight from the store on both sides so an edit made during the
     // build is refused instead of being signed under the old preview.
     const draftBeforeBuild = safeStringify(resolveWorkspaceTransactionInputs(jotaiStore));
-    const nextPreview = await buildSelectedActionTx(authorityPathOverride);
+    const sessionBeforeBuild = jotaiStore.get(workspaceSessionAtom);
+    const identityBeforeBuild = jotaiStore.get(workspaceBuildIdentityAtom);
+    const pending = buildSelectedActionTx(authorityPathOverride);
+    const runToken = jotaiStore.get(buildRunAtom);
+    const nextPreview = await pending;
 
     if (!nextPreview?.txHex) {
       return;
     }
 
-    if (safeStringify(resolveWorkspaceTransactionInputs(jotaiStore)) !== draftBeforeBuild) {
+    if (jotaiStore.get(workspaceSessionAtom) !== sessionBeforeBuild ||
+        jotaiStore.get(workspaceBuildIdentityAtom) !== identityBeforeBuild ||
+        jotaiStore.get(buildRunAtom) !== runToken ||
+        safeStringify(resolveWorkspaceTransactionInputs(jotaiStore)) !== draftBeforeBuild) {
       setBuildError(i18n("theTransactionDetailsAreStaleContinueAgainTo_34b074"));
       setBuildErrorExpected(true);
       return;

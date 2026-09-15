@@ -1,4 +1,5 @@
 import type { BuildResult, WalletInputRef } from "@/lib/types/contracts";
+import type { TxFetcher } from "@/lib/mesh/tx-context";
 import { decodeEffect } from "@/lib/proposals/verify";
 import { fetchScriptUtxos } from "./helpers/transactions";
 import { createDefaultTranslator } from "@/i18n/default-translator";
@@ -18,13 +19,16 @@ export function omittedDiscoveredInputCount(
 /** Review omitted pools only when the consumed State says this withdrawal removes access. */
 export async function buildReviewedBeneficiaryWithdrawal(
   address: string | null,
-  build: () => Promise<BuildResult>
+  build: () => Promise<BuildResult>,
+  fetcher?: TxFetcher
 ): Promise<BuildResult> {
   const result = await build();
+  fetcher?.signal?.throwIfAborted();
   if (result.beneficiaryAccess === "retained") return result;
   if (result.beneficiaryAccess !== "removed") throw new Error(i18n("withdrawalAccessUnknown"));
   if (!address) throw new Error(i18n("withdrawalDiscoveryAddressRequired"));
-  const discovered = await fetchScriptUtxos(address);
+  const discovered = await (fetcher ? fetcher.fetchAddressUTxOs(address) : fetchScriptUtxos(address));
+  fetcher?.signal?.throwIfAborted();
   const effect = decodeEffect(result.txHex);
   if (effect.decodeError) throw new Error(effect.decodeError);
   const omitted = omittedDiscoveredInputCount(discovered.map((utxo) => utxo.input), effect.inputs);

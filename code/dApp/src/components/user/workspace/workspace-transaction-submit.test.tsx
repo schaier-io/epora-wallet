@@ -118,42 +118,19 @@ it("does not clear a recovery draft replaced during signing", async () => {
   expect(deps.jotaiStore.get(selectedOrphanInputsAtom)).toBe(replacement);
 });
 
-it("keeps confirmation alive across action navigation and swaps the spent State ref", async () => {
+it("retains the submitted State ref across action navigation for the readiness watcher", async () => {
   vi.useFakeTimers();
   const spent = { txHash: "cd".repeat(32), outputIndex: 1 };
-  const replacement = { txHash: "ef".repeat(32), outputIndex: 2 };
   const walletUnit = `${"12".repeat(28)}01`;
-  const token = (input: typeof spent) => ({
-    unit: walletUnit,
-    utxo: { input, output: { address: "addr_test1state", amount: [] } }
-  });
-  const refreshDetectedTokens = vi.fn()
-    .mockResolvedValueOnce({ tokens: [token(spent)] })
-    .mockResolvedValueOnce({ tokens: [token(replacement)] });
-  const deps = makeDeps({ selectedDetectedToken: token(spent), refreshDetectedTokens });
+  const deps = makeDeps({ selectedDetectedToken: { unit: walletUnit, utxo: { input: spent } } });
   deps.jotaiStore.set(sttInputTxHashAtom, spent.txHash);
   deps.jotaiStore.set(sttInputOutputIndexAtom, String(spent.outputIndex));
-  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ result: { hash: TX_HASH } }))));
-
-  try {
-    await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
-    deps.jotaiStore.set(resetFlowAtom);
-    expect(deps.jotaiStore.get(pendingWalletStateUpdateAtom)?.spentRef).toEqual(spent);
-
-    await vi.advanceTimersByTimeAsync(12_000);
-
-    expect(refreshDetectedTokens).toHaveBeenCalledTimes(2);
-    expect(refreshDetectedTokens).toHaveBeenLastCalledWith({
-      keepSelection: true,
-      knownUnit: walletUnit,
-      exactStateRefresh: true
-    });
-    expect(deps.jotaiStore.get(sttInputTxHashAtom)).toBe(replacement.txHash);
-    expect(deps.jotaiStore.get(sttInputOutputIndexAtom)).toBe("2");
-    expect(deps.jotaiStore.get(pendingWalletStateUpdateAtom)).toBeNull();
-  } finally {
-    vi.useRealTimers();
-  }
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ result: { hash: TX_HASH } }))));
+  await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
+  deps.jotaiStore.set(resetFlowAtom);
+  await vi.advanceTimersByTimeAsync(12_000);
+  expect(deps.jotaiStore.get(pendingWalletStateUpdateAtom)?.spentRef).toEqual(spent);
+  expect(deps.jotaiStore.get(sttInputTxHashAtom)).toBe(spent.txHash);
 });
 
 it("ignores unavailable local storage when saving recent recipients", () => {
@@ -441,4 +418,26 @@ it("cannot publish confirmation after the signer changes during its pending read
   await vi.advanceTimersByTimeAsync(1);
   expect(deps.jotaiStore.get(submitConfirmedAtom)).toBe(false);
   expect(invalidate).not.toHaveBeenCalled();
+});
+
+// #433: a pending State update must block signing, including an old callback.
+it("does not sign another preview while the wallet State is pending", async () => {
+  const deps = makeDeps();
+  deps.jotaiStore.set(pendingWalletStateUpdateAtom, {
+    walletUnit: "ab".repeat(28) + "01", submittedTxHash: TX_HASH,
+    spentRef: { txHash: "cd".repeat(32), outputIndex: 0 }
+  });
+  await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
+  expect(mocks.signAndSubmitTx).not.toHaveBeenCalled();
+});
+
+it("an old wallet callback cannot bypass its wait after selecting another wallet", async () => {
+  const unit = "ab".repeat(28) + "01";
+  const deps = makeDeps({ selectedDetectedToken: { unit, utxo: { input: { txHash: TX_HASH, outputIndex: 0 } } } });
+  deps.jotaiStore.set(routeStateAtom, { ...deps.jotaiStore.get(routeStateAtom), selectedWalletUnit: unit });
+  const old = createWorkspaceTransactionSubmit(deps);
+  deps.jotaiStore.set(pendingWalletStateUpdateAtom, { walletUnit: unit, submittedTxHash: TX_HASH, spentRef: { txHash: "cd".repeat(32), outputIndex: 0 } });
+  deps.jotaiStore.set(routeStateAtom, { ...deps.jotaiStore.get(routeStateAtom), selectedWalletUnit: "other" });
+  await old.submitTransactionPreview(preview);
+  expect(mocks.signAndSubmitTx).not.toHaveBeenCalled();
 });

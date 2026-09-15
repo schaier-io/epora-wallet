@@ -86,6 +86,7 @@ type ReviewPanelProps = {
   submitConfirmed?: boolean;
   lastActionLabel: string;
   isBuilding: boolean;
+  autoSignPending?: boolean;
   isSubmitting: boolean;
   primaryActionLabel: string;
   primaryActionKind?: "direct" | "approval";
@@ -145,6 +146,7 @@ export function UserReviewPanel({
   submitConfirmed = false,
   lastActionLabel,
   isBuilding,
+  autoSignPending = false,
   isSubmitting,
   primaryActionLabel,
   primaryActionKind = "direct",
@@ -453,6 +455,7 @@ export function UserReviewPanel({
             type="button"
             onClick={onPrimaryAction}
             disabled={primaryActionDisabled}
+            aria-busy={primaryActionBusy}
             aria-describedby={
               primaryActionKind === "approval" && approvalActionNote
                 ? approvalActionNoteId
@@ -496,6 +499,7 @@ export function UserReviewPanel({
         {submitHash ? null : (
           <ReviewTransactionPreview
             compact={compact}
+            autoSignPending={autoSignPending}
             definition={definition}
             preview={preview}
             previewMatchesSelectedAction={previewMatchesSelectedAction}

@@ -1,5 +1,5 @@
 import { beneficiaryPreparationActiveAtom } from "./atoms/forms/consolidate-form.atoms";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import { createRef } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -143,11 +143,15 @@ it("shows and disables wallet-state refresh across action navigation", () => {
     previewMatchesSelectedAction: false,
     buildSelectedActionTx: vi.fn(),
     handleSaveProposalFromBuild: vi.fn(),
-    seedStore: (store) => store.set(beginWalletStateUpdateAtom, {
-      walletUnit: "policyasset",
+    seedStore: (store) => {
+      const walletUnit = "ab".repeat(28) + "01";
+      store.set(routeStateAtom, { ...store.get(routeStateAtom), selectedWalletUnit: walletUnit });
+      store.set(beginWalletStateUpdateAtom, {
+      walletUnit,
       submittedTxHash: "aa".repeat(32),
       spentRef: { txHash: "bb".repeat(32), outputIndex: 0 }
-    })
+      });
+    }
   });
 
   expect(reviewPanelProps.latest.primaryActionLabel).toBe("Updating wallet state…");
@@ -546,4 +550,69 @@ describe("approval saving during another transaction", () => {
     expect(buildSelectedActionTx).not.toHaveBeenCalled();
     expect(handleSaveProposalFromBuild).not.toHaveBeenCalled();
   });
+});
+
+
+it("keeps background builds quiet and starts progress only on the direct click", async () => {
+  let finish!: () => void;
+  const pending = new Promise<void>(resolve => { finish = resolve; });
+  const submit = vi.fn(() => pending);
+  renderRail({
+    previewMatchesSelectedAction: false,
+    buildSelectedActionTx: vi.fn(),
+    handleSaveProposalFromBuild: vi.fn(),
+    buildAndSubmitSelectedActionTx: submit,
+    seedStore: store => store.set(activeBuildAtom, "payout-streaming-payment")
+  });
+  expect(reviewPanelProps.latest.isBuilding).toBe(false);
+  expect(reviewPanelProps.latest.primaryActionLabel).toBe("Continue");
+  expect(reviewPanelProps.latest.primaryActionDisabled).toBe(false);
+  expect(reviewPanelProps.latest.autoSignPending).toBe(false);
+  act(() => { (reviewPanelProps.latest.onPrimaryAction as () => void)(); });
+  expect(submit).toHaveBeenCalledOnce();
+  expect(reviewPanelProps.latest.isBuilding).toBe(true);
+  expect(reviewPanelProps.latest.primaryActionDisabled).toBe(true);
+  expect(reviewPanelProps.latest.autoSignPending).toBe(true);
+  expect(reviewPanelProps.latest.primaryActionLabel).toBe("Preparing…");
+  act(() => { (reviewPanelProps.latest.onPrimaryAction as () => void)(); });
+  expect(submit).toHaveBeenCalledOnce();
+  await act(async () => { finish(); await pending; });
+  expect(reviewPanelProps.latest.isBuilding).toBe(false);
+  expect(reviewPanelProps.latest.primaryActionLabel).toBe("Continue");
+});
+
+
+it("does not promise automatic signing while a recovery preview builds", async () => {
+  let finish!: () => void;
+  const pending = new Promise<void>(resolve => { finish = resolve; });
+  renderRail({
+    selectedAction: "use-beneficiary",
+    previewMatchesSelectedAction: false,
+    buildSelectedActionTx: vi.fn(() => pending),
+    handleSaveProposalFromBuild: vi.fn()
+  });
+  act(() => { (reviewPanelProps.latest.onPrimaryAction as () => void)(); });
+  expect(reviewPanelProps.latest.isBuilding).toBe(true);
+  expect(reviewPanelProps.latest.autoSignPending).toBe(false);
+  await act(async () => { finish(); await pending; });
+  expect(reviewPanelProps.latest.isBuilding).toBe(false);
+});
+
+it("does not carry clicked progress into another wallet session", async () => {
+  let finish!: () => void;
+  const pending = new Promise<void>(resolve => { finish = resolve; });
+  let store!: ReturnType<typeof createStore>;
+  renderRail({
+    previewMatchesSelectedAction: false,
+    buildSelectedActionTx: vi.fn(),
+    handleSaveProposalFromBuild: vi.fn(),
+    buildAndSubmitSelectedActionTx: vi.fn(() => pending),
+    seedStore: value => { store = value; }
+  });
+  act(() => { (reviewPanelProps.latest.onPrimaryAction as () => void)(); });
+  expect(reviewPanelProps.latest.isBuilding).toBe(true);
+  act(() => { store.set(activeAddressAtom, "addr_test1anotherwallet"); });
+  expect(reviewPanelProps.latest.isBuilding).toBe(false);
+  expect(reviewPanelProps.latest.autoSignPending).toBe(false);
+  await act(async () => { finish(); await pending; });
 });

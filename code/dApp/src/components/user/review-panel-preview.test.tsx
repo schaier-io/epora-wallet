@@ -62,12 +62,12 @@ describe("ReviewTransactionPreview", () => {
     expect(screen.getByText("Change")).toBeInTheDocument();
   });
 
-  it("keeps the wallet-will-open note when nothing is built yet", () => {
+  it("keeps the idle review quiet before clicking", () => {
     render(<ReviewTransactionPreview {...BASE} preview={null} />);
 
     expect(
-      screen.getByText("Your wallet will open automatically to sign.")
-    ).toBeInTheDocument();
+      screen.queryByText("Your wallet will open automatically to sign.")
+    ).not.toBeInTheDocument();
     expect(screen.queryByText("Network fee")).not.toBeInTheDocument();
   });
 
@@ -97,4 +97,9 @@ describe("ReviewTransactionPreview", () => {
       screen.getByText("Proof-of-life deadline has already lapsed.")
     ).toBeInTheDocument();
   });
+});
+
+it("shows the signing note only while a click is waiting for automatic signing", () => {
+  render(<ReviewTransactionPreview {...BASE} preview={null} autoSignPending />);
+  expect(screen.getByText("Your wallet will open automatically to sign.")).toBeInTheDocument();
 });

@@ -364,9 +364,7 @@ export function usePermissionWalletWorkspaceState() {
       selectedAction === "lock-funds");
   const reviewPrimaryActionLabel =
     submitHash && !repeatableJustSubmitted
-    ? i18n("done")
-    : activeBuild === selectedAction
-      ? i18n("preparing")
+      ? i18n("done")
       : activeSubmit
         ? i18n("confirming")
         : activeActionDefinition.label;
@@ -390,7 +388,6 @@ export function usePermissionWalletWorkspaceState() {
   // The in-progress overlay runs only BEFORE confirmation; the celebration takes
   // over at 100%.
   const reviewPrimaryActionDisabled =
-    activeBuild === selectedAction ||
     activeSubmit ||
     (Boolean(submitHash) && !repeatableJustSubmitted) ||
     hasFieldErrors(activeFieldErrors) ||

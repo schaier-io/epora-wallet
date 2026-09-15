@@ -1,3 +1,4 @@
+import { beginWalletStateUpdateAtom, pendingWalletStateUpdatesAtom, walletStateSubmissionsAtom } from "../workspace/atoms/wallet-state-update.atoms";
 import { createQueryTestWrapper } from "@/test/query-client";
 import { act, renderHook as queryRenderhook, waitFor } from "@testing-library/react";
 const renderHook: typeof queryRenderhook = (callback, options) => queryRenderhook(callback, { wrapper: createQueryTestWrapper().wrapper, ...options });
@@ -21,6 +22,7 @@ const dependencies = vi.hoisted(() => {
   return {
     RebuildUnsupportedError,
     wallet,
+    deserializeTx: vi.fn(),
     walletContext: { activeWallet: wallet, isDemoWallet: false },
     normalizeWitnessSetHex: vi.fn(),
     cancelProposal: vi.fn(),
@@ -35,6 +37,10 @@ const dependencies = vi.hoisted(() => {
     verifyProposal: vi.fn()
   };
 });
+
+vi.mock("@/lib/mesh/cst", () => ({ deserializeTx: dependencies.deserializeTx }));
+
+vi.mock("../workspace/use-wallet-state-update", () => ({ useWalletStateUpdate: vi.fn() }));
 
 vi.mock("@/lib/proposals/assemble", () => ({
   normalizeWitnessSetHex: dependencies.normalizeWitnessSetHex
@@ -112,7 +118,7 @@ function verification(
     reasons: [],
     bodyHashMatches: true,
     stateTransition: { txBodyHash: TX_BODY_HASH, outputIndex: 0, changes: [] },
-    effect: { inputs: [], outputs: [], feeLovelace: "200000", validUntilMs: null },
+    effect: { inputs: [{ txHash: "11".repeat(32), outputIndex: 0, isSttState: true, live: true }], outputs: [], feeLovelace: "200000", validUntilMs: null },
     signers: {
       authorityPath: "multisig",
       requiredSigners: [],
@@ -162,6 +168,8 @@ function synchronousDeferred<T>() {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  localStorage.clear();
+  dependencies.deserializeTx.mockReturnValue({ body: () => ({ ttl: () => undefined }) });
   dependencies.walletContext.activeWallet = dependencies.wallet;
   dependencies.walletContext.isDemoWallet = false;
   dependencies.fetchProposal.mockImplementation(async (id: string) => proposal(id));
@@ -416,7 +424,7 @@ describe("proposal lifecycle Model", () => {
       initial.txBodyHash
     );
     expect(result.current.detail?.status).toBe("SUBMITTED");
-    expect(result.current.actionInfo).toBeNull();
+    expect(result.current.actionInfo).toBe("Updating wallet state…");
     expect(onChanged).toHaveBeenCalledTimes(2);
   });
 
@@ -662,7 +670,7 @@ it("expires a valid cached proposal while it stays open", async () => {
   try {
     const validUntilMs = Date.now() + 1_000;
     dependencies.verifyProposal.mockResolvedValue({ ...verification("valid", true),
-      effect: { inputs: [], outputs: [], feeLovelace: "200000", validUntilMs } });
+      effect: { ...verification().effect, validUntilMs } });
     const { result } = renderHook(() => useProposalOrchestration({
       proposalId: "proposal-1", sessionKeyHash: SIGNER_KEY_HASH, onChanged: vi.fn()
     }));
@@ -918,4 +926,115 @@ it("does not make cached detail actionable after a manual refresh fails", async 
   expect(result.current.verification).toBeNull();
   expect(result.current.canSign).toBe(false);
   expect(result.current.canSubmit).toBe(false);
+});
+
+// #433: a submitted State remains unavailable until its replacement is usable.
+describe("pending proposal State", () => {
+  it("blocks retained callbacks and another proposal while the same wallet updates", async () => {
+    dependencies.verifyProposal.mockResolvedValue(verification("valid", true));
+    const test = createQueryTestWrapper();
+    const { result } = renderHook(() => useProposalOrchestration({
+      proposalId: "proposal-1", sessionKeyHash: SIGNER_KEY_HASH, onChanged: vi.fn()
+    }), { wrapper: test.wrapper });
+    await waitFor(() => expect(result.current.canSubmit).toBe(true));
+    const staleSubmit = result.current.handleSubmit;
+    const staleSign = result.current.handleSign;
+    act(() => test.store.set(beginWalletStateUpdateAtom, {
+      walletUnit: proposal("proposal-1").walletUnit, submittedTxHash: "33".repeat(32),
+      spentRef: { txHash: "11".repeat(32), outputIndex: 0 }
+    }));
+    expect(result.current.canSubmit).toBe(false);
+    expect(result.current.canSign).toBe(false);
+    await act(async () => { await staleSubmit(); await staleSign(); });
+    expect(dependencies.markProposalSubmitted).not.toHaveBeenCalled();
+    expect(dependencies.wallet.signTx).not.toHaveBeenCalled();
+  });
+
+  it("records the verified spent State when submission finishes after unmount", async () => {
+    dependencies.verifyProposal.mockResolvedValue(verification("valid", true));
+    const submitting = deferred<ProposalDetailDto>();
+    dependencies.markProposalSubmitted.mockReturnValue(submitting.promise);
+    const test = createQueryTestWrapper();
+    const { result, unmount } = renderHook(() => useProposalOrchestration({
+      proposalId: "proposal-1", sessionKeyHash: SIGNER_KEY_HASH, onChanged: vi.fn()
+    }), { wrapper: test.wrapper });
+    await waitFor(() => expect(result.current.canSubmit).toBe(true));
+    let completion!: Promise<void>;
+    act(() => { completion = result.current.handleSubmit(); });
+    await waitFor(() => expect(dependencies.markProposalSubmitted).toHaveBeenCalledTimes(1));
+    expect(test.store.get(pendingWalletStateUpdatesAtom)[proposal("proposal-1").walletUnit]?.submittedTxHash).toBe(TX_BODY_HASH);
+    expect(test.store.get(walletStateSubmissionsAtom)[proposal("proposal-1").walletUnit]).toBe(true);
+    unmount();
+    await act(async () => {
+      submitting.resolve(proposal("proposal-1", { status: "SUBMITTED", submittedTxHash: TX_BODY_HASH }));
+      await completion;
+    });
+    expect(test.store.get(walletStateSubmissionsAtom)[proposal("proposal-1").walletUnit]).toBeUndefined();
+    expect(test.store.get(pendingWalletStateUpdatesAtom)[proposal("proposal-1").walletUnit]).toEqual({
+      walletUnit: proposal("proposal-1").walletUnit, submittedTxHash: TX_BODY_HASH,
+      spentRef: { txHash: "11".repeat(32), outputIndex: 0 }
+    });
+  });
+
+  it("refuses submission without one verified State input", async () => {
+    const review = verification("valid", true);
+    review.effect.inputs = [];
+    dependencies.verifyProposal.mockResolvedValue(review);
+    const { result } = renderHook(() => useProposalOrchestration({
+      proposalId: "proposal-1", sessionKeyHash: SIGNER_KEY_HASH, onChanged: vi.fn()
+    }));
+    await waitFor(() => expect(result.current.verification?.validity).toBe("valid"));
+    expect(result.current.canSubmit).toBe(false);
+    await act(async () => result.current.handleSubmit());
+    expect(dependencies.markProposalSubmitted).not.toHaveBeenCalled();
+  });
+});
+
+it("blocks a retained rebuild callback when a State submission starts", async () => {
+  dependencies.verifyProposal.mockResolvedValue(verification("invalid"));
+  dependencies.fetchProposal.mockResolvedValue(proposal("proposal-1", { createdByKeyHash: SIGNER_KEY_HASH }));
+  dependencies.parseProposalBuildContext.mockReturnValue({ builder: "stt-spend" });
+  dependencies.isAutoRebuildable.mockReturnValue(true);
+  const test = createQueryTestWrapper();
+  const { result } = renderHook(() => useProposalOrchestration({
+    proposalId: "proposal-1", sessionKeyHash: SIGNER_KEY_HASH, onChanged: vi.fn()
+  }), { wrapper: test.wrapper });
+  await waitFor(() => expect(result.current.canRebuild).toBe(true));
+  const staleRebuild = result.current.handleRebuild;
+  act(() => test.store.set(walletStateSubmissionsAtom, { [proposal("proposal-1").walletUnit]: true }));
+  expect(result.current.canRebuild).toBe(false);
+  await act(async () => staleRebuild());
+  expect(dependencies.rebuildProposalTx).not.toHaveBeenCalled();
+});
+
+it("allows a proposal for another wallet while a State update is pending", async () => {
+  dependencies.verifyProposal.mockResolvedValue(verification("valid", true));
+  const test = createQueryTestWrapper();
+  test.store.set(beginWalletStateUpdateAtom, {
+    walletUnit: `${"aa".repeat(28)}02`, submittedTxHash: "33".repeat(32),
+    spentRef: { txHash: "11".repeat(32), outputIndex: 0 }
+  });
+  const { result } = renderHook(() => useProposalOrchestration({
+    proposalId: "proposal-1", sessionKeyHash: SIGNER_KEY_HASH, onChanged: vi.fn()
+  }), { wrapper: test.wrapper });
+  await waitFor(() => expect(result.current.canSubmit).toBe(true));
+  expect(result.current.canSign).toBe(true);
+});
+
+it("keeps the broadcast candidate and actual body expiry after an uncertain POST failure", async () => {
+  dependencies.verifyProposal.mockResolvedValue(verification("valid", true));
+  dependencies.deserializeTx.mockReturnValue({ body: () => ({ ttl: () => 123456n }) });
+  dependencies.markProposalSubmitted.mockRejectedValue(new TypeError("Failed to fetch"));
+  const test = createQueryTestWrapper();
+  const { result } = renderHook(() => useProposalOrchestration({
+    proposalId: "proposal-1", sessionKeyHash: SIGNER_KEY_HASH, onChanged: vi.fn()
+  }), { wrapper: test.wrapper });
+  await waitFor(() => expect(result.current.canSubmit).toBe(true));
+  await act(async () => result.current.handleSubmit());
+  expect(test.store.get(pendingWalletStateUpdatesAtom)[proposal("proposal-1").walletUnit]).toEqual({
+    walletUnit: proposal("proposal-1").walletUnit, submittedTxHash: TX_BODY_HASH,
+    spentRef: { txHash: "11".repeat(32), outputIndex: 0 }, invalidHereafter: 123456
+  });
+  expect(result.current.canSubmit).toBe(false);
+  expect(test.store.get(walletStateSubmissionsAtom)[proposal("proposal-1").walletUnit]).toBeUndefined();
 });
