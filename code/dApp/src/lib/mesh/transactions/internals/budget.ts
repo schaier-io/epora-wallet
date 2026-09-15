@@ -120,18 +120,23 @@ export async function buildTransactionWithReestimatedLimits(
   ) => RedeemerBudgetOverrides | undefined
 ) {
   const draftPrepared = await prepareTx();
-  await withStage(draftStage, async () => draftPrepared.tx.build(), draftPrepared.diagnostics);
+  let preparedOutputCount = getPreparedOutputCount(draftPrepared.tx);
+  const draftHex = await withStage(draftStage, async () => draftPrepared.tx.build(), draftPrepared.diagnostics);
   const draftExecution = extractExecutionSnapshot(
     draftPrepared.tx,
     draftPrepared.executionLabels
   );
 
-  const finalPrepared = await prepareTx(draftExecution.overrides);
-  const preparedOutputCount = getPreparedOutputCount(finalPrepared.tx);
-  await withStage(finalStage, async () => finalPrepared.tx.build(), {
-    ...finalPrepared.diagnostics,
-    draftExecutionUnits: draftExecution.summary
-  });
+  // Use the actual witnesses, not optional display labels, to select the path.
+  let finalPrepared = draftPrepared;
+  if (readTransactionShape(draftHex).redeemers > 0) {
+    finalPrepared = await prepareTx(draftExecution.overrides);
+    preparedOutputCount = getPreparedOutputCount(finalPrepared.tx);
+    await withStage(finalStage, async () => finalPrepared.tx.build(), {
+      ...finalPrepared.diagnostics,
+      draftExecutionUnits: draftExecution.summary
+    });
+  }
   const estimatedFinalExecution = extractExecutionSnapshot(
     finalPrepared.tx,
     finalPrepared.executionLabels
