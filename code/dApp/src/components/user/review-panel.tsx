@@ -163,8 +163,13 @@ export function UserReviewPanel({
   const resolvedDescription = description ?? i18n("checkWhatSAboutToHappenThenSign");
   const ActionIcon = definition.icon;
   const showSurfaceSummary = !isImplicitLockedInputSurfaceLabel(definition.surfaceLabel);
+  // Checks that are still running (`transient`, set while the page loads) stay blocking
+  // in the readiness gate, so they keep the submit button and the drafts honest. They
+  // just must not headline the alarm box: "Something needs attention" over "Checking
+  // service availability" reads as a complaint about work that resolves on its own.
+  const attentionIssues = readinessIssues.filter((issue) => !issue.transient);
   const { primary: primaryBlockingIssue, additional: otherBlockingIssues, fieldErrors: flattenedErrors } =
-    summarizeBlockers(readinessIssues, fieldErrors);
+    summarizeBlockers(attentionIssues, fieldErrors);
   const issues = [
     ...(primaryBlockingIssue ? [primaryBlockingIssue, ...otherBlockingIssues] : []),
     ...flattenedErrors.map((entry, index) => ({

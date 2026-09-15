@@ -269,6 +269,64 @@ describe("review rail live regions", () => {
     expect(screen.queryByText("Payout address: This field is required.")).toBeNull();
   });
 
+  const LOADING_ISSUES: Pick<ComponentProps<typeof UserReviewPanel>, "readinessIssues"> = {
+    readinessIssues: [
+      {
+        id: "stt-reference",
+        key: "stt-reference",
+        label: "Setup helper",
+        description: "Checking service availability.",
+        recovery: "Wait a moment; this check finishes on its own.",
+        status: "warning",
+        blocking: true,
+        transient: true
+      },
+      {
+        id: "locked-utxos",
+        key: "locked-utxos",
+        label: "Wallet funds",
+        description: "Refreshing wallet funds now.",
+        recovery: "Wait a moment; this check finishes on its own.",
+        status: "warning",
+        blocking: true,
+        transient: true
+      }
+    ]
+  };
+
+  /**
+   * While the page loads, the readiness gate reports the checks still running (setup
+   * helper, wallet funds). Those resolve on their own, so the amber alarm must not
+   * fire for them; the rail would otherwise open on "Something needs attention"
+   * before the user can act on anything.
+   */
+  it("does not raise the alarm while setup checks are still running", () => {
+    render(<UserReviewPanel {...BASE} {...LOADING_ISSUES} />);
+
+    expect(screen.queryByText("Something needs attention")).toBeNull();
+    expect(screen.queryByText("Checking service availability.")).toBeNull();
+    expect(screen.queryByText("Refreshing wallet funds now.")).toBeNull();
+  });
+
+  /**
+   * A running check must not hide real problems, either: with the wallet still
+   * refreshing and a genuine blocker beside it, only the genuine blocker is listed.
+   */
+  it("still lists real issues beside a running check", () => {
+    render(
+      <UserReviewPanel
+        {...BASE}
+        readinessIssues={[...LOADING_ISSUES.readinessIssues, ...ISSUES.readinessIssues]}
+        fieldErrors={ISSUES.fieldErrors}
+      />
+    );
+
+    expect(screen.getByText("Something needs attention")).toBeInTheDocument();
+    expect(screen.getByText("Receive address:")).toBeInTheDocument();
+    expect(screen.getByText("Choose a smart wallet first.")).toBeInTheDocument();
+    expect(screen.queryByText("Checking service availability.")).toBeNull();
+  });
+
   it("shows the success copy without an ASCII receipt", () => {
     const { container } = render(
       <UserReviewPanel
