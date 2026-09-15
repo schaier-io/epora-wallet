@@ -1,5 +1,5 @@
 "use client";
-import { runWorkspaceBuild, workspaceBuildIdentityAtom } from "./workspace-build-cache";
+import { isWorkspaceBuildResultExpired, runWorkspaceBuild, workspaceBuildIdentityAtom } from "./workspace-build-cache";
 import { createAbortableWalletSource } from "@/lib/mesh/build-cancellation";
 import { ServerFetcher } from "@/lib/mesh/server-fetcher";
 import type { WorkspaceBuildResources } from "./workspace-transactions-types";
@@ -26,6 +26,7 @@ import { type useWorkspaceWalletDerivations } from "@/components/user/workspace/
 import { type useStore } from "jotai";
 import { activeSubmitAtom, buildRunAtom, workspaceSessionAtom, buildDiagnosticIdAtom, mintConfirmationRunAtom
 } from "@/components/user/workspace/atoms/transaction-flow.atoms";
+import { preparedWorkspaceTransactionAtom, workspaceTransactionSnapshotAtom } from "./workspace-prepared-transaction";
 import { beginWalletStateUpdateAtom, walletStateUpdatingAtom } from "@/components/user/workspace/atoms/wallet-state-update.atoms";
 import { MINT_CONFIRMATION_INITIAL_DELAY_MS, MINT_CONFIRMATION_MAX_ATTEMPTS, MINT_CONFIRMATION_POLL_MS } from "@/components/user/workspace/constants";
 import { formatBuildError, isUserActionKind, normalizeTransactionHash, waitFor } from "@/components/user/workspace/helpers";
@@ -154,17 +155,25 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
       proposalCaptureRef.current = null;
       const runToken = jotaiStore.get(buildRunAtom);
       const session = jotaiStore.get(workspaceSessionAtom);
-      const isCurrent = () => !signal.aborted && jotaiStore.get(buildRunAtom) === runToken && jotaiStore.get(workspaceSessionAtom) === session;
+      const snapshot = jotaiStore.get(workspaceTransactionSnapshotAtom);
+      const isCurrent = () => !signal.aborted && jotaiStore.get(buildRunAtom) === runToken &&
+        jotaiStore.get(workspaceSessionAtom) === session &&
+        jotaiStore.get(workspaceTransactionSnapshotAtom) === snapshot && !jotaiStore.get(walletStateUpdatingAtom);
 
       try {
-        const result = await run({
+        const pending = run({
           wallet: createAbortableWalletSource(activeWallet, signal),
           fetcher: new ServerFetcher({ signal })
         });
-        if (!isCurrent()) {
+        const proposalCapture = proposalCaptureRef.current;
+        const result = await pending;
+        if (!isCurrent() || isWorkspaceBuildResultExpired(result)) {
           return null;
         }
         jotaiStore.set(buildDiagnosticIdAtom, null);
+        jotaiStore.set(preparedWorkspaceTransactionAtom, {
+          result, snapshot, session, builtAt: Date.now(), buildRun: runToken, proposalCapture
+        });
         setPreview(result);
         setLastActionLabel(label);
         setPreviewSignature(signature);
@@ -172,9 +181,9 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
       } catch (error) {
         if (isCurrent()) {
           const spent = getSpentSttInput(error);
-        const walletUnit = jotaiStore.get(routeStateAtom).selectedWalletUnit;
-        if (spent && walletUnit) jotaiStore.set(beginWalletStateUpdateAtom, { walletUnit, ...spent });
-        const parsed = formatBuildError(error, {
+          const walletUnit = jotaiStore.get(routeStateAtom).selectedWalletUnit;
+          if (spent && walletUnit) jotaiStore.set(beginWalletStateUpdateAtom, { walletUnit, ...spent });
+          const parsed = formatBuildError(error, {
             action: label,
             wallet: activeWalletName,
             networkId,

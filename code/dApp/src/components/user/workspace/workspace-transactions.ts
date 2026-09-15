@@ -4,7 +4,9 @@ import { type SetStateAction } from "react";
 // Only the atoms WRITTEN here remain imported; the ~40 atoms the builders READ
 // are gathered by resolveWorkspaceTransactionInputs (see below).
 import { selectedSttActionAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
-import { buildDiagnosticIdAtom, buildRunAtom, workspaceSessionAtom
+import { preparedWorkspaceTransactionAtom, preparedWorkspaceTransactionIsCurrent, workspaceTransactionSnapshotAtom } from "./workspace-prepared-transaction";
+import { assertPreparedTransactionFresh } from "@/lib/mesh/transactions/prepared-transaction-freshness";
+import { buildRunAtom, workspaceSessionAtom, previewAtom, previewSignatureAtom, buildDiagnosticIdAtom
 } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { workspaceBuildIdentityAtom } from "./workspace-build-cache";
 import { resolveWorkspaceTransactionInputs } from "@/components/user/workspace/workspace-transaction-inputs";
@@ -486,7 +488,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     );
   }
 
-  async function buildSelectedActionTx(authorityPathOverride?: AuthorityPath) {
+  async function buildSelectedActionFresh(authorityPathOverride?: AuthorityPath) {
     // Both guarded exits below show a fresh expected error; the diagnostic id of
     // an earlier unexpected failure must not survive next to it.
     jotaiStore.set(buildDiagnosticIdAtom, null);
@@ -538,6 +540,64 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     return buildSelectedSttActionTx(authorityPathOverride);
   }
 
+  function effectiveBuildAuthority(authorityPathOverride?: AuthorityPath): AuthorityPath | undefined {
+    if (authorityPathOverride !== undefined) return authorityPathOverride;
+    if (selectedAction === "consolidate-utxo") return beneficiaryPreparationActive ? "beneficiary" : consolidateAuthorityPath;
+    if (selectedAction === "wallet-withdraw" || selectedAction === "wallet-publish" ||
+        selectedAction === "wallet-vote" || selectedAction === "set-intended-stake-credential") return walletOperatorPath;
+    if (selectedAction === "stop-beneficiary-stream") return "beneficiary";
+    if (selectedAction === "distribute-beneficiaries") return undefined;
+    return isSttFlowAction(selectedAction) ? resolveWorkspaceTransactionInputs(jotaiStore).sttAuthorityPath : undefined;
+  }
+
+  const factorySnapshot = jotaiStore.get(workspaceTransactionSnapshotAtom);
+  const factorySession = jotaiStore.get(workspaceSessionAtom);
+
+  async function buildSelectedActionTx(authorityPathOverride?: AuthorityPath) {
+    const stillCurrent = () => jotaiStore.get(workspaceTransactionSnapshotAtom) === factorySnapshot &&
+      jotaiStore.get(workspaceSessionAtom) === factorySession;
+    if (!stillCurrent()) return null;
+    if (hasFieldErrors(activeFieldErrors) || activeReadinessIssues.some(issue => issue.blocking)) {
+      return buildSelectedActionFresh(authorityPathOverride);
+    }
+    const authority = effectiveBuildAuthority(authorityPathOverride);
+    const prepared = jotaiStore.get(preparedWorkspaceTransactionAtom);
+    if (prepared && prepared.authorityPathOverride === authority &&
+      jotaiStore.get(previewAtom) === prepared.result && preparedWorkspaceTransactionIsCurrent(jotaiStore, prepared)) {
+      const checkedRun = jotaiStore.get(buildRunAtom);
+      try {
+        await assertPreparedTransactionFresh(prepared.result.txHex);
+        if (!stillCurrent() || jotaiStore.get(buildRunAtom) !== checkedRun) return null;
+        if (jotaiStore.get(preparedWorkspaceTransactionAtom) === prepared &&
+          preparedWorkspaceTransactionIsCurrent(jotaiStore, prepared)) {
+          proposalCaptureRef.current = prepared.proposalCapture;
+          return prepared.result;
+        }
+      } catch {
+        // A failed freshness check requires a new build. Signing checks again.
+      }
+      if (!stillCurrent() || jotaiStore.get(buildRunAtom) !== checkedRun) return null;
+      if (jotaiStore.get(preparedWorkspaceTransactionAtom) === prepared) {
+        jotaiStore.set(preparedWorkspaceTransactionAtom, null);
+        jotaiStore.set(previewSignatureAtom, null);
+      }
+    }
+    const pendingBuild = buildSelectedActionFresh(authorityPathOverride);
+    const buildRun = jotaiStore.get(buildRunAtom);
+    const result = await pendingBuild;
+    if (!stillCurrent() || jotaiStore.get(buildRunAtom) !== buildRun) return null;
+    if (result) {
+      const accepted = jotaiStore.get(preparedWorkspaceTransactionAtom);
+      jotaiStore.set(preparedWorkspaceTransactionAtom, {
+        result, snapshot: factorySnapshot, session: factorySession,
+        builtAt: accepted?.result === result ? accepted.builtAt : Date.now(),
+        buildRun, authorityPathOverride: authority,
+        proposalCapture: accepted?.result === result ? accepted.proposalCapture : proposalCaptureRef.current
+      });
+    }
+    return result;
+  }
+
   async function buildAndSubmitSelectedActionTx(authorityPathOverride?: AuthorityPath) {
     if (activeSubmit) {
       return;
@@ -550,21 +610,20 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     const sessionBeforeBuild = jotaiStore.get(workspaceSessionAtom);
     const identityBeforeBuild = jotaiStore.get(workspaceBuildIdentityAtom);
     const pending = buildSelectedActionTx(authorityPathOverride);
-    const runToken = jotaiStore.get(buildRunAtom);
     const nextPreview = await pending;
-
-    if (!nextPreview?.txHex) {
-      return;
-    }
+    const accepted = jotaiStore.get(preparedWorkspaceTransactionAtom);
 
     if (jotaiStore.get(workspaceSessionAtom) !== sessionBeforeBuild ||
         jotaiStore.get(workspaceBuildIdentityAtom) !== identityBeforeBuild ||
-        jotaiStore.get(buildRunAtom) !== runToken ||
+        (nextPreview && (!accepted || accepted.result !== nextPreview ||
+          !preparedWorkspaceTransactionIsCurrent(jotaiStore, accepted))) ||
         safeStringify(resolveWorkspaceTransactionInputs(jotaiStore)) !== draftBeforeBuild) {
       setBuildError(i18n("theTransactionDetailsAreStaleContinueAgainTo_34b074"));
       setBuildErrorExpected(true);
       return;
     }
+
+    if (!nextPreview?.txHex) return;
 
     // Recovery actions need a separate click after the built preview is visible.
     if ((selectedAction === "consolidate-utxo" && beneficiaryPreparationActive) || selectedAction === "use-beneficiary" || selectedAction === "stop-beneficiary-stream" || selectedAction === "distribute-beneficiaries") return;

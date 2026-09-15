@@ -1,3 +1,6 @@
+import { preparedWorkspaceTransactionAtom, preparedWorkspaceTransactionIsCurrent, workspaceTransactionSnapshotAtom, type WorkspaceSubmissionOwnership } from "./workspace-prepared-transaction";
+import { assertBeneficiaryWithdrawalReviewCurrent } from "./beneficiary-withdrawal-review";
+import { assertPreparedTransactionFresh } from "@/lib/mesh/transactions/prepared-transaction-freshness";
 import { queryClientAtom } from "jotai-tanstack-query";
 import { isWorkspaceBuildResultExpired } from "./workspace-build-cache";
 import { invalidateBuildAtom } from "./atoms/transaction-flow.atoms";
@@ -6,7 +9,7 @@ import { invalidateChainQueries } from "@/lib/query/invalidation";
 import { beneficiaryPreparationActiveAtom, consolidateWalletInputsAtom } from "./atoms/forms/consolidate-form.atoms";
 import { recoveryCapacityFailureAtom, recoveryCapacitySignatureAtom } from "./atoms/recovery-capacity.atoms";
 import { recordRecoveryCapacityFailure } from "./recovery-capacity-model";
-import { workspaceSessionAtom, buildDiagnosticIdAtom, mintConfirmationRunAtom, submitConfirmedAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
+import { workspaceSessionAtom, previewSignatureAtom, buildDiagnosticIdAtom, mintConfirmationRunAtom, submitConfirmedAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import {
   beginWalletStateUpdateAtom,
   walletStateUpdatingAtom,
@@ -220,19 +223,53 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
     const submittedOrphanDraft = jotaiStore.get(selectedOrphanInputsAtom);
     let txHash: string;
     try {
-      const beforeBroadcast = spentSttRef && submissionUnit
-        ? (transaction: { txHash: string; invalidHereafter?: number }) => jotaiStore.set(beginWalletStateUpdateAtom, {
-            walletUnit: submissionUnit, submittedTxHash: transaction.txHash, spentRef: spentSttRef,
-            invalidHereafter: transaction.invalidHereafter
-          })
+      const submissionOwner: WorkspaceSubmissionOwnership | undefined = submissionUnit
+        ? { walletUnit: submissionUnit, pending: null } : undefined;
+      const beforeBroadcast = spentSttRef && submissionOwner
+        ? (transaction: { txHash: string; invalidHereafter?: number }) => {
+            assertSnapshot();
+            const pending = { walletUnit: submissionOwner.walletUnit,
+              submittedTxHash: transaction.txHash, spentRef: spentSttRef,
+              invalidHereafter: transaction.invalidHereafter };
+            jotaiStore.set(beginWalletStateUpdateAtom, pending);
+            submissionOwner.pending = pending;
+          }
         : undefined;
-      txHash = beforeBroadcast
-        ? await signAndSubmitTx(activeWallet, transactionPreview.txHex, beforeBroadcast)
-        : await signAndSubmitTx(activeWallet, transactionPreview.txHex);
-      // Record accepted submissions even if the user navigated while signing.
-      if (spentSttRef && submissionUnit && !jotaiStore.get(pendingWalletStateUpdatesAtom)[submissionUnit]) jotaiStore.set(beginWalletStateUpdateAtom, {
-        walletUnit: submissionUnit, submittedTxHash: txHash, spentRef: spentSttRef
+      const prepared = jotaiStore.get(preparedWorkspaceTransactionAtom);
+      const snapshot = jotaiStore.get(workspaceTransactionSnapshotAtom);
+      const assertSnapshot = () => {
+        if (!isCurrent() || !prepared || prepared.result !== transactionPreview ||
+          jotaiStore.get(workspaceTransactionSnapshotAtom) !== snapshot ||
+          !preparedWorkspaceTransactionIsCurrent(jotaiStore, prepared, Date.now(), submissionOwner)) {
+          throw new Error(i18n("theTransactionDetailsAreStaleContinueAgainTo_34b074"));
+        }
+      };
+      txHash = await signAndSubmitTx(activeWallet, transactionPreview.txHex, {
+        assertCurrent: async () => {
+          try {
+            assertSnapshot();
+            await Promise.all([
+              assertPreparedTransactionFresh(transactionPreview.txHex),
+              selectedAction === "use-beneficiary"
+                ? assertBeneficiaryWithdrawalReviewCurrent(deps.lockingContract.address, transactionPreview)
+                : Promise.resolve()
+            ]);
+            assertSnapshot();
+          } catch (error) {
+            if (jotaiStore.get(preparedWorkspaceTransactionAtom) === prepared) {
+              jotaiStore.set(preparedWorkspaceTransactionAtom, null);
+              jotaiStore.set(previewSignatureAtom, null);
+            }
+            throw error;
+          }
+        },
+        ...(beforeBroadcast ? { beforeBroadcast } : {})
       });
+      if (spentSttRef && submissionUnit && !jotaiStore.get(pendingWalletStateUpdatesAtom)[submissionUnit]) {
+        jotaiStore.set(beginWalletStateUpdateAtom, {
+          walletUnit: submissionUnit, submittedTxHash: txHash, spentRef: spentSttRef
+        });
+      }
     } catch (error) {
       if (!isCurrent()) return;
       const parsed = formatBuildError(error, {

@@ -1,5 +1,6 @@
 import { parseWorkspaceRouteState } from "@/components/user/workspace-controller";
 import { routeStateAtom } from "./atoms/workspace-route.atoms";
+import { preparedWorkspaceTransactionAtom, workspaceTransactionSnapshotAtom } from "./workspace-prepared-transaction";
 import { currentRecoveryCapacityFailureAtom } from "./atoms/recovery-capacity.atoms";
 import { sttWalletInputsAtom } from "./atoms/forms/stt-spend-form.atoms";
 import { afterEach, test } from "node:test";
@@ -467,6 +468,76 @@ test("a pending activity read cannot publish into another signer session", async
   resolve({ hash: HASH });
   await pending;
   assert.equal(calls.prependSubmittedTransaction, undefined);
+});
+
+for (const outcome of ["success", "failure"] as const) {
+  test(`an edited draft retires build ${outcome} before another build starts`, async () => {
+    const { ctx, calls } = makeCtx();
+    let finish!: () => void;
+    const pending = createWorkspaceFlowHandlers(ctx).withBuildGuard("use", async () => {
+      await new Promise<void>(resolve => { finish = resolve; });
+      if (outcome === "failure") throw new Error("old build failed");
+      return fakePreview;
+    });
+    ctx.jotaiStore.set(sttWalletInputsAtom, [{ txHash: HASH, outputIndex: 4 }]);
+    finish();
+    assert.equal(await pending, null);
+    assert.equal(calls.setPreview, undefined);
+    assert.deepEqual(calls.setBuildError, [[null]]);
+  });
+}
+
+test("editing and undoing during a build still retires its result", async () => {
+  const { ctx, calls } = makeCtx();
+  const original = ctx.jotaiStore.get(sttWalletInputsAtom);
+  const pending = createWorkspaceFlowHandlers(ctx).withBuildGuard("use", async () => {
+    ctx.jotaiStore.set(sttWalletInputsAtom, [{ txHash: HASH, outputIndex: 3 }]);
+    ctx.jotaiStore.set(sttWalletInputsAtom, original);
+    return fakePreview;
+  });
+  assert.equal(await pending, null);
+  assert.equal(calls.setPreview, undefined);
+});
+
+
+test("identical guards join pending work and preserve its original prepared metadata", async () => {
+  const { ctx, calls } = makeCtx();
+  const originalCapture = { action: "use" } as unknown as NonNullable<typeof ctx.proposalCaptureRef.current>;
+  let finish!: (value: BuildResult) => void;
+  let builds = 0;
+  const first = createWorkspaceFlowHandlers(ctx).withBuildGuard("use", () => {
+    builds++;
+    ctx.proposalCaptureRef.current = originalCapture;
+    return new Promise(resolve => { finish = resolve; });
+  });
+  const second = createWorkspaceFlowHandlers(ctx).withBuildGuard("use", async () => {
+    builds++;
+    return fakePreview;
+  });
+  assert.equal(builds, 1);
+  finish(fakePreview);
+  assert.equal(await first, fakePreview);
+  assert.equal(await second, fakePreview);
+  const prepared = ctx.jotaiStore.get(preparedWorkspaceTransactionAtom);
+  assert.equal(prepared?.result, fakePreview);
+  assert.equal(prepared?.proposalCapture, originalCapture);
+  assert.equal(prepared?.snapshot, ctx.jotaiStore.get(workspaceTransactionSnapshotAtom));
+  assert.equal(calls.setPreview?.length, 1);
+});
+
+test("a stale guard factory cannot build with a previous account", async () => {
+  const { ctx } = makeCtx();
+  const handlers = createWorkspaceFlowHandlers(ctx);
+  ctx.jotaiStore.set(activeAddressAtom, "new-account");
+  assert.equal(await handlers.withBuildGuard("mint", async () => assert.fail("stale factory must not start")), null);
+});
+
+test("an expired completed build does not publish prepared metadata or a preview", async () => {
+  const { ctx, calls } = makeCtx();
+  const expired = { txHex: `84a40081825820${"aa".repeat(32)}00018182581d60${"bb".repeat(28)}1a004c4b40021a00030d400301a0f5f6` } as BuildResult;
+  assert.equal(await createWorkspaceFlowHandlers(ctx).withBuildGuard("mint", async () => expired), null);
+  assert.equal(ctx.jotaiStore.get(preparedWorkspaceTransactionAtom), null);
+  assert.equal(calls.setPreview, undefined);
 });
 
 // #433: the signing interval precedes the durable broadcast record.

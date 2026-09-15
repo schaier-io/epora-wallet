@@ -147,9 +147,9 @@ it("shows and disables wallet-state refresh across action navigation", () => {
       const walletUnit = "ab".repeat(28) + "01";
       store.set(routeStateAtom, { ...store.get(routeStateAtom), selectedWalletUnit: walletUnit });
       store.set(beginWalletStateUpdateAtom, {
-      walletUnit,
-      submittedTxHash: "aa".repeat(32),
-      spentRef: { txHash: "bb".repeat(32), outputIndex: 0 }
+        walletUnit,
+        submittedTxHash: "aa".repeat(32),
+        spentRef: { txHash: "bb".repeat(32), outputIndex: 0 }
       });
     }
   });

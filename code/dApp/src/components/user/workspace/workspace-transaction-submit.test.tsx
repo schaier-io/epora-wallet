@@ -1,3 +1,6 @@
+import { workspaceTransactionSnapshotAtom, preparedWorkspaceTransactionAtom } from "./workspace-prepared-transaction";
+import { workspaceSessionAtom, buildRunAtom, previewSignatureAtom } from "./atoms/transaction-flow.atoms";
+import { lockFundsAssetsAtom } from "./atoms/forms/lock-funds-form.atoms";
 import { waitFor } from "@testing-library/react";
 import { queryClientAtom } from "jotai-tanstack-query";
 import { QueryObserver } from "@tanstack/react-query";
@@ -17,12 +20,13 @@ import {
   sttInputTxHashAtom,
   sttWalletInputsAtom
 } from "./atoms/forms/stt-spend-form.atoms";
-import { pendingWalletStateUpdateAtom } from "./atoms/wallet-state-update.atoms";
+import { beginWalletStateUpdateAtom, pendingWalletStateUpdatesAtom, pendingWalletStateUpdateAtom } from "./atoms/wallet-state-update.atoms";
 import { selectedOrphanInputsAtom } from "./atoms/forms/orphan-inputs.atoms";
 import type { BuildResult } from "@/lib/types/contracts";
 
-const mocks = vi.hoisted(() => ({ signAndSubmitTx: vi.fn() }));
+const mocks = vi.hoisted(() => ({ freshness: vi.fn(), signAndSubmitTx: vi.fn() }));
 
+vi.mock("@/lib/mesh/transactions/prepared-transaction-freshness", () => ({ assertPreparedTransactionFresh: mocks.freshness }));
 vi.mock("@/lib/mesh/transactions", () => ({ signAndSubmitTx: mocks.signAndSubmitTx }));
 vi.mock("@/components/user/workspace/workspace-transaction-refresh", () => ({
   schedulePostSubmitRefresh: vi.fn()
@@ -79,7 +83,9 @@ function makeDeps(overrides: Record<string, unknown> = {}) {
 }
 
 beforeEach(() => {
+  localStorage.clear();
   mocks.signAndSubmitTx.mockReset().mockResolvedValue(TX_HASH);
+  mocks.freshness.mockReset().mockResolvedValue(undefined);
 });
 
 const recoveryDraft = {
@@ -242,7 +248,7 @@ it("signs a warned transaction only after explicit approval", async () => {
         "ADA payout top-up: extra sent to the payee 7 ADA.\n\n" +
         "Continue?"
     );
-    expect(mocks.signAndSubmitTx).toHaveBeenCalledWith({}, "84a1");
+    expect(mocks.signAndSubmitTx).toHaveBeenCalledWith({}, "84a1", { assertCurrent: expect.any(Function) as unknown });
   } finally {
     confirm.mockRestore();
   }
@@ -338,7 +344,7 @@ for (const firstToSettle of ["old wallet", "new wallet"] as const) {
       const newPending = newSubmit.submitTransactionPreview(preview);
       try {
         expect(mocks.signAndSubmitTx).toHaveBeenCalledTimes(2);
-        expect(mocks.signAndSubmitTx).toHaveBeenLastCalledWith(newDeps.activeWallet, preview.txHex);
+        expect(mocks.signAndSubmitTx).toHaveBeenLastCalledWith(newDeps.activeWallet, preview.txHex, { assertCurrent: expect.any(Function) as unknown });
         if (firstToSettle === "old wallet") {
           settleOld();
           await oldPending;
@@ -420,6 +426,78 @@ it("cannot publish confirmation after the signer changes during its pending read
   expect(invalidate).not.toHaveBeenCalled();
 });
 
+function bindPreview(deps: ReturnType<typeof makeDeps>) {
+  const store = deps.jotaiStore;
+  store.set(preparedWorkspaceTransactionAtom, {
+    result: preview, snapshot: store.get(workspaceTransactionSnapshotAtom),
+    session: store.get(workspaceSessionAtom), buildRun: store.get(buildRunAtom),
+    builtAt: Date.now(), proposalCapture: null
+  });
+  store.set(previewSignatureAtom, "current");
+}
+
+it("checks the live draft again after asynchronous chain validation", async () => {
+  const deps = makeDeps();
+  bindPreview(deps);
+  const sign = vi.fn();
+  mocks.freshness.mockImplementationOnce(async () => {
+    deps.jotaiStore.set(lockFundsAssetsAtom, [{ unit: "lovelace", quantity: "7" }]);
+  });
+  mocks.signAndSubmitTx.mockImplementationOnce(async (_wallet, _hex, options: { assertCurrent: () => Promise<void> }) => {
+    await options.assertCurrent();
+    sign();
+    return TX_HASH;
+  });
+  await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
+  expect(sign).not.toHaveBeenCalled();
+  expect(deps.setBuildError).toHaveBeenCalledWith(expect.stringMatching(/stale/i), expect.anything());
+  expect(deps.jotaiStore.get(preparedWorkspaceTransactionAtom)).toBeNull();
+});
+
+it("blocks submission if the user edits while the wallet prompt is open", async () => {
+  const deps = makeDeps();
+  bindPreview(deps);
+  const sign = vi.fn(), submit = vi.fn();
+  mocks.signAndSubmitTx.mockImplementationOnce(async (_wallet, _hex, options: { assertCurrent: () => Promise<void> }) => {
+    await options.assertCurrent();
+    sign();
+    deps.jotaiStore.set(lockFundsAssetsAtom, [{ unit: "lovelace", quantity: "8" }]);
+    await options.assertCurrent();
+    submit();
+    return TX_HASH;
+  });
+  await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
+  expect(sign).toHaveBeenCalledOnce();
+  expect(submit).not.toHaveBeenCalled();
+});
+
+it("fails closed if the preview has no preparation metadata", async () => {
+  const deps = makeDeps();
+  const sign = vi.fn();
+  mocks.signAndSubmitTx.mockImplementationOnce(async (_wallet, _hex, options: { assertCurrent: () => Promise<void> }) => {
+    await options.assertCurrent();
+    sign();
+    return TX_HASH;
+  });
+  await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
+  expect(sign).not.toHaveBeenCalled();
+  expect(mocks.freshness).not.toHaveBeenCalled();
+});
+
+it("invalidates the preview when a chain freshness check fails", async () => {
+  const deps = makeDeps();
+  bindPreview(deps);
+  mocks.freshness.mockRejectedValueOnce(new Error("input was already spent"));
+  mocks.signAndSubmitTx.mockImplementationOnce(async (_wallet, _hex, options: { assertCurrent: () => Promise<void> }) => {
+    await options.assertCurrent();
+    return TX_HASH;
+  });
+  await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
+  expect(deps.jotaiStore.get(preparedWorkspaceTransactionAtom)).toBeNull();
+  expect(deps.jotaiStore.get(previewSignatureAtom)).toBeNull();
+  expect(deps.setSubmitHash).not.toHaveBeenCalled();
+});
+
 // #433: a pending State update must block signing, including an old callback.
 it("does not sign another preview while the wallet State is pending", async () => {
   const deps = makeDeps();
@@ -440,4 +518,32 @@ it("an old wallet callback cannot bypass its wait after selecting another wallet
   deps.jotaiStore.set(routeStateAtom, { ...deps.jotaiStore.get(routeStateAtom), selectedWalletUnit: "other" });
   await old.submitTransactionPreview(preview);
   expect(mocks.signAndSubmitTx).not.toHaveBeenCalled();
+});
+
+it.each([false, true])("#433 validates its own submission without accepting a foreign pending record (%s)", async foreign => {
+  const walletUnit = `${"aa".repeat(28)}01`;
+  const spent = { txHash: "cd".repeat(32), outputIndex: 0 };
+  const deps = makeDeps({ selectedDetectedToken: { unit: walletUnit, utxo: { input: spent } } });
+  deps.jotaiStore.set(routeStateAtom, { ...deps.jotaiStore.get(routeStateAtom), selectedWalletUnit: walletUnit });
+  deps.jotaiStore.set(sttInputTxHashAtom, spent.txHash);
+  deps.jotaiStore.set(sttInputOutputIndexAtom, "0");
+  bindPreview(deps);
+  const broadcast = vi.fn();
+  mocks.signAndSubmitTx.mockImplementationOnce(async (_wallet, _hex, options: {
+    assertCurrent: () => Promise<void>;
+    beforeBroadcast: (transaction: { txHash: string; invalidHereafter: number }) => void;
+  }) => {
+    await options.assertCurrent();
+    options.beforeBroadcast({ txHash: TX_HASH, invalidHereafter: 123 });
+    expect(deps.jotaiStore.get(pendingWalletStateUpdatesAtom)[walletUnit]?.submittedTxHash).toBe(TX_HASH);
+    if (foreign) deps.jotaiStore.set(beginWalletStateUpdateAtom, {
+      walletUnit, submittedTxHash: "ef".repeat(32), spentRef: spent
+    });
+    await options.assertCurrent();
+    broadcast();
+    return TX_HASH;
+  });
+  await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
+  expect(broadcast).toHaveBeenCalledTimes(foreign ? 0 : 1);
+  expect(mocks.freshness).toHaveBeenCalledTimes(foreign ? 1 : 2);
 });

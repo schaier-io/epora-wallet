@@ -3,8 +3,13 @@ import { ServerFetcher } from "@/lib/mesh/server-fetcher";
 import { resolveTxHash, type BrowserWallet } from "@meshsdk/core";
 import { addVKeyWitnessSetToTransaction, deserializeTx } from "@/lib/mesh/cst";
 
-export async function signAndSubmitTx(wallet: BrowserWallet, txHex: string,
-  beforeBroadcast?: (transaction: { txHash: string; invalidHereafter?: number }) => void
+export async function signAndSubmitTx(
+  wallet: BrowserWallet,
+  txHex: string,
+  options: {
+    assertCurrent?: () => void | Promise<void>;
+    beforeBroadcast?: (transaction: { txHash: string; invalidHereafter?: number }) => void;
+  } = {}
 ) {
   const fetcher = new ServerFetcher();
   const scriptDataHashRefresh = await refreshScriptDataHashWithLiveCostModels(
@@ -33,6 +38,7 @@ export async function signAndSubmitTx(wallet: BrowserWallet, txHex: string,
       );
     }
 
+    await options.assertCurrent?.();
     const signedPayload = await wallet.signTx(unsignedTxHex, true);
     const normalizedSignedPayload = signedPayload.trim();
     let signed = unsignedTxHex;
@@ -101,10 +107,11 @@ export async function signAndSubmitTx(wallet: BrowserWallet, txHex: string,
       async () => assertSerializedTransactionSizeIsBounded(signed),
       diagnostics
     );
-    if (beforeBroadcast) {
+    await options.assertCurrent?.();
+    if (options.beforeBroadcast) {
       const ttl = deserializeTx(signed).body().ttl();
       const slot = ttl === undefined ? undefined : Number(ttl);
-      beforeBroadcast({ txHash: resolveTxHash(signed),
+      options.beforeBroadcast({ txHash: resolveTxHash(signed),
         ...(slot !== undefined && Number.isSafeInteger(slot) && slot >= 0 ? { invalidHereafter: slot } : {}) });
     }
     try {
@@ -129,7 +136,10 @@ export async function signAndSubmitTx(wallet: BrowserWallet, txHex: string,
 
       return withStage(
         "submit:blockfrost.submitTx",
-        async () => fetcher.submitTx(signed),
+        async () => {
+          await options.assertCurrent?.();
+          return fetcher.submitTx(signed);
+        },
         {
           ...diagnostics,
           walletSubmitError: normalizeError(error)
