@@ -143,11 +143,15 @@ it("shows and disables wallet-state refresh across action navigation", () => {
     previewMatchesSelectedAction: false,
     buildSelectedActionTx: vi.fn(),
     handleSaveProposalFromBuild: vi.fn(),
-    seedStore: (store) => store.set(beginWalletStateUpdateAtom, {
-      walletUnit: "policyasset",
-      submittedTxHash: "aa".repeat(32),
-      spentRef: { txHash: "bb".repeat(32), outputIndex: 0 }
-    })
+    seedStore: (store) => {
+      const walletUnit = "ab".repeat(28) + "01";
+      store.set(routeStateAtom, { ...store.get(routeStateAtom), selectedWalletUnit: walletUnit });
+      store.set(beginWalletStateUpdateAtom, {
+        walletUnit,
+        submittedTxHash: "aa".repeat(32),
+        spentRef: { txHash: "bb".repeat(32), outputIndex: 0 }
+      });
+    }
   });
 
   expect(reviewPanelProps.latest.primaryActionLabel).toBe("Updating wallet state…");

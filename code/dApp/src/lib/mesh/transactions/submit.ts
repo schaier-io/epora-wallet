@@ -1,12 +1,15 @@
 import { assertSerializedTransactionSizeIsBounded, createStageError, extractComputedScriptIntegrity, isLikelyTransactionCbor, normalizeError, readScriptDataHash, refreshScriptDataHashWithLiveCostModels, setScriptDataHash, withStage } from "./internals";
 import { ServerFetcher } from "@/lib/mesh/server-fetcher";
-import { type BrowserWallet } from "@meshsdk/core";
+import { resolveTxHash, type BrowserWallet } from "@meshsdk/core";
 import { addVKeyWitnessSetToTransaction, deserializeTx } from "@/lib/mesh/cst";
 
 export async function signAndSubmitTx(
   wallet: BrowserWallet,
   txHex: string,
-  options: { assertCurrent?: () => void | Promise<void> } = {}
+  options: {
+    assertCurrent?: () => void | Promise<void>;
+    beforeBroadcast?: (transaction: { txHash: string; invalidHereafter?: number }) => void;
+  } = {}
 ) {
   const fetcher = new ServerFetcher();
   const scriptDataHashRefresh = await refreshScriptDataHashWithLiveCostModels(
@@ -105,6 +108,12 @@ export async function signAndSubmitTx(
       diagnostics
     );
     await options.assertCurrent?.();
+    if (options.beforeBroadcast) {
+      const ttl = deserializeTx(signed).body().ttl();
+      const slot = ttl === undefined ? undefined : Number(ttl);
+      options.beforeBroadcast({ txHash: resolveTxHash(signed),
+        ...(slot !== undefined && Number.isSafeInteger(slot) && slot >= 0 ? { invalidHereafter: slot } : {}) });
+    }
     try {
       return await withStage(
         "submit:wallet.submitTx",

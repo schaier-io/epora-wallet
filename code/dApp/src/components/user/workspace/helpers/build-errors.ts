@@ -60,6 +60,25 @@ function collectBuildErrorMessages(
   return messages;
 }
 
+export function getSpentSttInput(error: unknown): {
+  spentRef: { txHash: string; outputIndex: number };
+  submittedTxHash: string;
+} | null {
+  for (const message of collectBuildErrorMessages(error)) {
+    const match = message.match(
+      /\bSTT input ([0-9a-f]{64})#(\d+) was already spent by ([0-9a-f]{64})(?:\.|$)/i
+    );
+    if (!match) continue;
+    const outputIndex = Number(match[2]);
+    if (!Number.isSafeInteger(outputIndex)) continue;
+    return {
+      spentRef: { txHash: match[1]!.toLowerCase(), outputIndex },
+      submittedTxHash: match[3]!.toLowerCase()
+    };
+  }
+  return null;
+}
+
 /**
  * Does this message read like something a person wrote for a person?
  *
@@ -353,8 +372,11 @@ function describeMissingInputRole(
 export function formatBuildError(error: unknown, errorContext: ErrorContext): ParsedError {
   const now = new Date().toISOString();
   const fallbackMessage = error instanceof Error ? error.message : i18n("failedToBuildTransaction");
-  const missingInputRef = extractMissingTransactionInputRef(error);
-  const missingInputRole = missingInputRef
+  const spentSttInput = getSpentSttInput(error);
+  const missingInputRef = spentSttInput
+    ? `${spentSttInput.spentRef.txHash}#${spentSttInput.spentRef.outputIndex}`
+    : extractMissingTransactionInputRef(error);
+  const missingInputRole = spentSttInput ? "stt" : missingInputRef
     ? describeMissingInputRole(missingInputRef, errorContext)
     : null;
   const [message, expected] = missingInputRef
