@@ -20,7 +20,7 @@ import {
   sttInputTxHashAtom,
   sttWalletInputsAtom
 } from "./atoms/forms/stt-spend-form.atoms";
-import { pendingWalletStateUpdateAtom } from "./atoms/wallet-state-update.atoms";
+import { beginWalletStateUpdateAtom, pendingWalletStateUpdatesAtom, pendingWalletStateUpdateAtom } from "./atoms/wallet-state-update.atoms";
 import { selectedOrphanInputsAtom } from "./atoms/forms/orphan-inputs.atoms";
 import type { BuildResult } from "@/lib/types/contracts";
 
@@ -83,6 +83,7 @@ function makeDeps(overrides: Record<string, unknown> = {}) {
 }
 
 beforeEach(() => {
+  localStorage.clear();
   mocks.signAndSubmitTx.mockReset().mockResolvedValue(TX_HASH);
   mocks.freshness.mockReset().mockResolvedValue(undefined);
 });
@@ -123,42 +124,19 @@ it("does not clear a recovery draft replaced during signing", async () => {
   expect(deps.jotaiStore.get(selectedOrphanInputsAtom)).toBe(replacement);
 });
 
-it("keeps confirmation alive across action navigation and swaps the spent State ref", async () => {
+it("retains the submitted State ref across action navigation for the readiness watcher", async () => {
   vi.useFakeTimers();
   const spent = { txHash: "cd".repeat(32), outputIndex: 1 };
-  const replacement = { txHash: "ef".repeat(32), outputIndex: 2 };
   const walletUnit = `${"12".repeat(28)}01`;
-  const token = (input: typeof spent) => ({
-    unit: walletUnit,
-    utxo: { input, output: { address: "addr_test1state", amount: [] } }
-  });
-  const refreshDetectedTokens = vi.fn()
-    .mockResolvedValueOnce({ tokens: [token(spent)] })
-    .mockResolvedValueOnce({ tokens: [token(replacement)] });
-  const deps = makeDeps({ selectedDetectedToken: token(spent), refreshDetectedTokens });
+  const deps = makeDeps({ selectedDetectedToken: { unit: walletUnit, utxo: { input: spent } } });
   deps.jotaiStore.set(sttInputTxHashAtom, spent.txHash);
   deps.jotaiStore.set(sttInputOutputIndexAtom, String(spent.outputIndex));
-  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ result: { hash: TX_HASH } }))));
-
-  try {
-    await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
-    deps.jotaiStore.set(resetFlowAtom);
-    expect(deps.jotaiStore.get(pendingWalletStateUpdateAtom)?.spentRef).toEqual(spent);
-
-    await vi.advanceTimersByTimeAsync(12_000);
-
-    expect(refreshDetectedTokens).toHaveBeenCalledTimes(2);
-    expect(refreshDetectedTokens).toHaveBeenLastCalledWith({
-      keepSelection: true,
-      knownUnit: walletUnit,
-      exactStateRefresh: true
-    });
-    expect(deps.jotaiStore.get(sttInputTxHashAtom)).toBe(replacement.txHash);
-    expect(deps.jotaiStore.get(sttInputOutputIndexAtom)).toBe("2");
-    expect(deps.jotaiStore.get(pendingWalletStateUpdateAtom)).toBeNull();
-  } finally {
-    vi.useRealTimers();
-  }
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ result: { hash: TX_HASH } }))));
+  await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
+  deps.jotaiStore.set(resetFlowAtom);
+  await vi.advanceTimersByTimeAsync(12_000);
+  expect(deps.jotaiStore.get(pendingWalletStateUpdateAtom)?.spentRef).toEqual(spent);
+  expect(deps.jotaiStore.get(sttInputTxHashAtom)).toBe(spent.txHash);
 });
 
 it("ignores unavailable local storage when saving recent recipients", () => {
@@ -518,4 +496,54 @@ it("invalidates the preview when a chain freshness check fails", async () => {
   expect(deps.jotaiStore.get(preparedWorkspaceTransactionAtom)).toBeNull();
   expect(deps.jotaiStore.get(previewSignatureAtom)).toBeNull();
   expect(deps.setSubmitHash).not.toHaveBeenCalled();
+});
+
+// #433: a pending State update must block signing, including an old callback.
+it("does not sign another preview while the wallet State is pending", async () => {
+  const deps = makeDeps();
+  deps.jotaiStore.set(pendingWalletStateUpdateAtom, {
+    walletUnit: "ab".repeat(28) + "01", submittedTxHash: TX_HASH,
+    spentRef: { txHash: "cd".repeat(32), outputIndex: 0 }
+  });
+  await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
+  expect(mocks.signAndSubmitTx).not.toHaveBeenCalled();
+});
+
+it("an old wallet callback cannot bypass its wait after selecting another wallet", async () => {
+  const unit = "ab".repeat(28) + "01";
+  const deps = makeDeps({ selectedDetectedToken: { unit, utxo: { input: { txHash: TX_HASH, outputIndex: 0 } } } });
+  deps.jotaiStore.set(routeStateAtom, { ...deps.jotaiStore.get(routeStateAtom), selectedWalletUnit: unit });
+  const old = createWorkspaceTransactionSubmit(deps);
+  deps.jotaiStore.set(pendingWalletStateUpdateAtom, { walletUnit: unit, submittedTxHash: TX_HASH, spentRef: { txHash: "cd".repeat(32), outputIndex: 0 } });
+  deps.jotaiStore.set(routeStateAtom, { ...deps.jotaiStore.get(routeStateAtom), selectedWalletUnit: "other" });
+  await old.submitTransactionPreview(preview);
+  expect(mocks.signAndSubmitTx).not.toHaveBeenCalled();
+});
+
+it.each([false, true])("#433 validates its own submission without accepting a foreign pending record (%s)", async foreign => {
+  const walletUnit = `${"aa".repeat(28)}01`;
+  const spent = { txHash: "cd".repeat(32), outputIndex: 0 };
+  const deps = makeDeps({ selectedDetectedToken: { unit: walletUnit, utxo: { input: spent } } });
+  deps.jotaiStore.set(routeStateAtom, { ...deps.jotaiStore.get(routeStateAtom), selectedWalletUnit: walletUnit });
+  deps.jotaiStore.set(sttInputTxHashAtom, spent.txHash);
+  deps.jotaiStore.set(sttInputOutputIndexAtom, "0");
+  bindPreview(deps);
+  const broadcast = vi.fn();
+  mocks.signAndSubmitTx.mockImplementationOnce(async (_wallet, _hex, options: {
+    assertCurrent: () => Promise<void>;
+    beforeBroadcast: (transaction: { txHash: string; invalidHereafter: number }) => void;
+  }) => {
+    await options.assertCurrent();
+    options.beforeBroadcast({ txHash: TX_HASH, invalidHereafter: 123 });
+    expect(deps.jotaiStore.get(pendingWalletStateUpdatesAtom)[walletUnit]?.submittedTxHash).toBe(TX_HASH);
+    if (foreign) deps.jotaiStore.set(beginWalletStateUpdateAtom, {
+      walletUnit, submittedTxHash: "ef".repeat(32), spentRef: spent
+    });
+    await options.assertCurrent();
+    broadcast();
+    return TX_HASH;
+  });
+  await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
+  expect(broadcast).toHaveBeenCalledTimes(foreign ? 0 : 1);
+  expect(mocks.freshness).toHaveBeenCalledTimes(foreign ? 1 : 2);
 });

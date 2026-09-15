@@ -311,7 +311,7 @@ describe("what the buttons are waiting for", () => {
       reasons: [],
       bodyHashMatches: true,
       stateTransition: { txBodyHash: detail.txBodyHash, outputIndex: 0, changes: [] },
-      effect: { inputs: [], outputs: [], feeLovelace: "200000" },
+      effect: { inputs: [{ txHash: "11".repeat(32), outputIndex: 0, live: true, isSttState: true }], outputs: [], feeLovelace: "200000" },
       signers: {
         authorityPath: "multisig",
         requiredSigners: [],

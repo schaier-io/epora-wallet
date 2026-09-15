@@ -19,10 +19,10 @@ import { type Dispatch, type MutableRefObject, type SetStateAction } from "react
 import { type MintConfirmationState, type SetBuildError } from "@/components/user/workspace/types";
 import { type useWorkspaceWalletDerivations } from "@/components/user/workspace/use-workspace-wallet-derivations";
 import { type useStore } from "jotai";
-import { buildRunAtom, workspaceSessionAtom, buildDiagnosticIdAtom, mintConfirmationRunAtom
+import { activeSubmitAtom, buildRunAtom, workspaceSessionAtom, buildDiagnosticIdAtom, mintConfirmationRunAtom
 } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { preparedWorkspaceTransactionAtom, workspaceTransactionSnapshotAtom } from "./workspace-prepared-transaction";
-import { walletStateUpdatingAtom } from "@/components/user/workspace/atoms/wallet-state-update.atoms";
+import { beginWalletStateUpdateAtom, walletStateUpdatingAtom } from "@/components/user/workspace/atoms/wallet-state-update.atoms";
 import { MINT_CONFIRMATION_INITIAL_DELAY_MS, MINT_CONFIRMATION_MAX_ATTEMPTS, MINT_CONFIRMATION_POLL_MS } from "@/components/user/workspace/constants";
 import { formatBuildError, isUserActionKind, normalizeTransactionHash, waitFor } from "@/components/user/workspace/helpers";
 import { type useDetectedSttTokens } from "@/components/user/workspace/use-detected-stt-tokens";
@@ -32,6 +32,9 @@ import { type useWalletActivity } from "@/components/user/workspace/use-wallet-a
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceWorkspaceFlowHandlers.json";
 import { resolveWalletContinuingOutputAddressFromState } from "@/lib/contracts/blueprint";
+
+import { getSpentSttInput } from "./helpers/build-errors";
+import { routeStateAtom } from "./atoms/workspace-route.atoms";
 
 const i18n = createDefaultTranslator("ComponentsUserWorkspaceWorkspaceFlowHandlers", defaultMessages);
 
@@ -102,7 +105,7 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
     jotaiStore.set(recoveryCapacityFailureAtom, null);
     const recoverySignature = jotaiStore.get(recoveryCapacitySignatureAtom);
 
-    if (jotaiStore.get(walletStateUpdatingAtom)) {
+    if (jotaiStore.get(walletStateUpdatingAtom) || jotaiStore.get(activeSubmitAtom)) {
       setBuildError(i18n("updatingWalletState"));
       setBuildErrorExpected(true);
       return null;
@@ -165,6 +168,9 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
       return result;
     } catch (error) {
       if (isCurrent()) {
+        const spent = getSpentSttInput(error);
+        const walletUnit = jotaiStore.get(routeStateAtom).selectedWalletUnit;
+        if (spent && walletUnit) jotaiStore.set(beginWalletStateUpdateAtom, { walletUnit, ...spent });
         const parsed = formatBuildError(error, {
           action: label,
           wallet: activeWalletName,

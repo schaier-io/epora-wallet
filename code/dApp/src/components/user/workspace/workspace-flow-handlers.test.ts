@@ -17,8 +17,8 @@ import {
   type WorkspaceFlowHandlersCtx
 } from "./workspace-flow-handlers";
 import { OwnedMessageError } from "./helpers/build-errors";
-import { resetAllFlowAtom, resetFlowAtom, mintConfirmationRunAtom } from "./atoms/transaction-flow.atoms";
-import { beginWalletStateUpdateAtom } from "./atoms/wallet-state-update.atoms";
+import { activeSubmitAtom, resetAllFlowAtom, resetFlowAtom, mintConfirmationRunAtom } from "./atoms/transaction-flow.atoms";
+import { beginWalletStateUpdateAtom, pendingWalletStateUpdateAtom } from "./atoms/wallet-state-update.atoms";
 import { resolveWalletSpendAddress, resolveWalletStakeScriptCredentialData, resolveWalletContinuingOutputAddressFromState } from "@/lib/contracts/blueprint";
 import { createDefaultStateForm, stateFormToDatum } from "@/lib/contracts/state-form";
 
@@ -493,4 +493,29 @@ test("editing and undoing during a build still retires its result", async () => 
   });
   assert.equal(await pending, null);
   assert.equal(calls.setPreview, undefined);
+});
+
+// #433: the signing interval precedes the durable broadcast record.
+test("the central build guard blocks while a signature is in flight", async () => {
+  const { ctx } = makeCtx();
+  ctx.jotaiStore.set(activeSubmitAtom, true);
+  let builds = 0;
+  const result = await createWorkspaceFlowHandlers(ctx).withBuildGuard("use", async () => { builds++; return fakePreview; });
+  assert.equal(result, null);
+  assert.equal(builds, 0);
+});
+
+test("a spent STT error starts the same durable wait and blocks another build", async () => {
+  const { ctx } = makeCtx();
+  const walletUnit = "ab".repeat(28) + "01";
+  ctx.jotaiStore.set(routeStateAtom, { ...ctx.jotaiStore.get(routeStateAtom), selectedWalletUnit: walletUnit });
+  const handlers = createWorkspaceFlowHandlers(ctx);
+  const spentBy = "ef".repeat(32);
+  await handlers.withBuildGuard("use", async () => { throw new Error(`STT input ${HASH}#0 was already spent by ${spentBy}.`); });
+  assert.deepEqual(ctx.jotaiStore.get(pendingWalletStateUpdateAtom), {
+    walletUnit, submittedTxHash: spentBy, spentRef: { txHash: HASH, outputIndex: 0 }
+  });
+  let builds = 0;
+  await handlers.withBuildGuard("use", async () => { builds++; return fakePreview; });
+  assert.equal(builds, 0);
 });
