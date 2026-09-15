@@ -20,7 +20,7 @@ export default function ProposalsPage() {
   const i18n = useTranslations("AppUserProposalsPage");
   return (
     <main className="page-shell flex flex-1 flex-col">
-      <ScopedClientIntlProvider prefixes={["ComponentsUserProposals", "ComponentsUi"]}>
+      <ScopedClientIntlProvider prefixes={["ComponentsUserProposals", "ComponentsUserWorkspaceWorkspaceFlowHandlers", "ComponentsUserPoolFinder", "ComponentsUi"]}>
         <div className="container flex flex-1 flex-col py-3 md:py-4">
           <Suspense
             fallback={
