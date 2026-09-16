@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   build: vi.fn(),
+  copyText: vi.fn(),
   detect: vi.fn(),
   replace: vi.fn(),
   save: vi.fn(),
@@ -25,18 +26,33 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: mocks.replace })
 }));
 vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string) => ({
-    build: "Build setup transaction",
-    building: "Building…",
-    checkAgain: "Check again",
-    checking: "Checking…",
-    confirming: "Confirming on-chain…",
-    connect: "Connect wallet",
-    deploy: "Sign and deploy",
-    ready: "Setup transaction ready",
-    submitting: "Waiting for your signature…",
-    title: "Set up the shared STT reference"
-  })[key] ?? key
+  useTranslations: () => (key: string, values?: Record<string, string>) => {
+    if (key === "estimatedFee") {
+      return `Estimated network fee: ${values?.ada} ADA.`;
+    }
+    if (key === "storeAddress") {
+      return `Permanent store: ${values?.address}`;
+    }
+    return ({
+      build: "Build setup transaction",
+      building: "Building…",
+      checkAgain: "Check again",
+      checking: "Checking…",
+      confirming: "Confirming on-chain…",
+      connect: "Connect wallet",
+      copy: "Copy",
+      deploy: "Sign and deploy",
+      purpose: "This locks a small amount of ADA in a reference output. Later Epora transactions reuse it, so they cost less.",
+      ready: "Setup transaction ready",
+      sttHint: "STT is short for state-thread token.",
+      sttHintLabel: "What STT means",
+      submitting: "Waiting for your signature…",
+      title: "Set up the shared STT reference"
+    })[key] ?? key
+  }
+}));
+vi.mock("@/lib/utils/clipboard", () => ({
+  copyTextToClipboard: mocks.copyText
 }));
 vi.mock("@/providers/wallet-provider", () => ({
   useWalletContext: () => mocks.walletContext
@@ -287,5 +303,45 @@ describe("STT reference setup", () => {
     });
 
     expect(screen.getByRole("button", { name: "Confirming on-chain…" })).toBeDisabled();
+  });
+
+  it("renders the review fee in ADA instead of raw lovelace", async () => {
+    mocks.build.mockResolvedValue({
+      estimatedFeeLovelace: "190000",
+      preview: { summary: "Deploy reference with 5 ADA" },
+      referenceScriptOutputIndex: 0,
+      signerAddress: "addr_test1_signer",
+      txHex: "84a400"
+    });
+
+    render(<SttReferenceSetup initialStore={missingStore} />);
+    fireEvent.click(screen.getByRole("button", { name: "Build setup transaction" }));
+    await act(async () => undefined);
+
+    expect(screen.getByText("Estimated network fee: 0.19 ADA.")).toBeInTheDocument();
+    expect(screen.queryByText(/lovelace/)).not.toBeInTheDocument();
+  });
+
+  it("explains the locked ADA in plain English and expands STT behind the hint", () => {
+    render(<SttReferenceSetup initialStore={missingStore} />);
+
+    expect(
+      screen.getByText(/locks a small amount of ADA in a reference output/)
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "What STT means" }));
+    expect(screen.getByText(/state-thread token/)).toBeInTheDocument();
+  });
+
+  it("copies the store address with the shared copy control", async () => {
+    mocks.copyText.mockResolvedValue(true);
+
+    render(<SttReferenceSetup initialStore={missingStore} />);
+    expect(screen.getByText("Permanent store: addr_test1_store")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy" }));
+    await act(async () => undefined);
+
+    expect(mocks.copyText).toHaveBeenCalledWith("addr_test1_store");
   });
 });

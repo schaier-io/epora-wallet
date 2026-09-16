@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
 import { WalletConnectionDialog } from "@/components/layout/wallet-panel";
+import { AddressCopyButton } from "@/components/ui/address-copy-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { InfoHint } from "@/components/ui/info-hint";
 import {
   SUBMIT_CONFIRMATION_INITIAL_DELAY_MS,
   SUBMIT_CONFIRMATION_MAX_ATTEMPTS,
@@ -24,6 +26,7 @@ import {
 } from "@/lib/mesh/transactions";
 import type { BuildResult } from "@/lib/types/contracts";
 import { getUserFacingErrorMessage } from "@/lib/utils/errors";
+import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 import { useWalletContext } from "@/providers/wallet-provider";
 
 type SetupPhase = "idle" | "checking" | "building" | "review" | "submitting" | "confirming";
@@ -183,8 +186,12 @@ export function SttReferenceSetup({
     <section className="w-full max-w-2xl space-y-6 rounded-2xl border border-border/70 bg-card/85 p-4 shadow-panel sm:p-8">
       <header className="space-y-2">
         <p className="eyebrow font-semibold text-primary">{i18n("eyebrow")}</p>
-        <h1 className="font-display text-2xl font-semibold text-foreground sm:text-3xl">{i18n("title")}</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="font-display text-2xl font-semibold text-foreground sm:text-3xl">{i18n("title")}</h1>
+          <InfoHint label={i18n("sttHintLabel")}>{i18n("sttHint")}</InfoHint>
+        </div>
         <p className="text-sm leading-relaxed text-muted-foreground">{i18n("description")}</p>
+        <p className="text-sm leading-relaxed text-muted-foreground">{i18n("purpose")}</p>
       </header>
 
       <div className="rounded-xl border border-amber-500/35 bg-amber-500/10 p-4">
@@ -225,7 +232,11 @@ export function SttReferenceSetup({
               </p>
               <p className="mt-2 text-sm text-muted-foreground">{preview.preview.summary}</p>
               <p className="mt-2 text-xs text-muted-foreground">
-                {i18n("estimatedFee", { lovelace: preview.estimatedFeeLovelace ?? i18n("unknown") })}
+                {i18n("estimatedFee", {
+                  ada: preview.estimatedFeeLovelace
+                    ? formatLovelaceAsAda(preview.estimatedFeeLovelace)
+                    : i18n("unknown")
+                })}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -259,7 +270,8 @@ export function SttReferenceSetup({
 
       {store?.storeAddress ? (
         <p className="break-all font-mono text-xs text-muted-foreground">
-          {i18n("storeAddress", { address: store.storeAddress })}
+          {i18n("storeAddress", { address: store.storeAddress })}{" "}
+          <AddressCopyButton value={store.storeAddress} />
         </p>
       ) : null}
 
