@@ -1,6 +1,6 @@
 import { useTranslations } from "next-intl";
 import { RotateCcw, ShieldAlert, Sparkles, X } from "lucide-react";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { AnimatedContent } from "@/components/react-bits/primitives";
 import {
   CardSilkBackground,
@@ -20,6 +20,7 @@ import {
   CardHeader,
   CardTitle
 } from "@/components/ui/card";
+import { PopupDialog } from "@/components/ui/popup-dialog";
 import { cn } from "@/lib/utils/cn";
 
 type UserActionConfigurationCardProps = {
@@ -105,6 +106,11 @@ export function UserActionConfigurationCard({
   children
 }: UserActionConfigurationCardProps) {
   const i18n = useTranslations("ComponentsUserActionConfigurationCard");
+  // "Clear form" wipes the whole draft in one call, so the button only opens the
+  // confirm dialog; the parent's `onClear` runs after the reader confirms. There is
+  // no cross-form "draft has content" check to gate the dialog on, and clearing an
+  // already-default form costs one click, so the dialog shows on every click.
+  const [confirmingClear, setConfirmingClear] = useState(false);
   const showSurfaceSummary = !isImplicitLockedInputSurfaceLabel(definition.surfaceLabel);
   // The description used to render only when it ran past 78 characters, and then only inside
   // an info hint. Measured against the action catalogue: 14 of the 15 explanations are shorter
@@ -117,6 +123,7 @@ export function UserActionConfigurationCard({
   const resolvedApprovalLabels = approvalLabels ?? definition.pathLabels;
 
   return (
+    <>
     <Card className="relative overflow-hidden">
       <CardSilkBackground section={resolvedSection} />
       <CardHeader className="relative z-10 pb-3">
@@ -134,7 +141,13 @@ export function UserActionConfigurationCard({
                 {i18n("reloadDefaults")}
               </Button>
             ) : null}
-            <Button type="button" size="sm" variant="ghost" onClick={onClear} className="px-2 text-xs">
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => setConfirmingClear(true)}
+              className="px-2 text-xs"
+            >
               <X className="h-3.5 w-3.5" />
               {i18n("clearForm")}
             </Button>
@@ -249,5 +262,38 @@ export function UserActionConfigurationCard({
         {children}
       </CardContent>
     </Card>
+    {/* The confirm step for "Clear form". Same pattern as the warning review in
+        `payee-view.tsx`: title, body, cancel left, destructive confirm right, and
+        Escape or the backdrop dismiss it without clearing. */}
+    <PopupDialog
+      open={confirmingClear}
+      onOpenChange={setConfirmingClear}
+      title={i18n("clearFormConfirmTitle")}
+      description={i18n("clearFormConfirmBody")}
+      className="max-w-lg"
+    >
+      <div className="flex justify-end gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setConfirmingClear(false)}
+        >
+          {i18n("cancel")}
+        </Button>
+        <Button
+          type="button"
+          variant="destructive"
+          size="sm"
+          onClick={() => {
+            setConfirmingClear(false);
+            onClear();
+          }}
+        >
+          {i18n("clearForm")}
+        </Button>
+      </div>
+    </PopupDialog>
+    </>
   );
 }

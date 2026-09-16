@@ -1,6 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ComponentProps } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { UserActionConfigurationCard } from "@/components/user/action-configuration-card";
 import { USER_ACTION_DEFINITION_MAP } from "@/lib/user-flow/action-definitions";
@@ -116,5 +116,66 @@ describe("action configuration card header", () => {
 
     expect(screen.getByText("Co-signers · 2/2 power")).toBeInTheDocument();
     expect(screen.queryByText("Owner")).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * "Clear form" wiped the whole draft on one click with no confirm and no undo
+ * (issue #415). The header button now only opens a confirm dialog; the caller's
+ * `onClear` runs after the reader confirms.
+ */
+describe("action configuration card clear confirmation", () => {
+  function renderCard(onClear: () => void) {
+    render(<UserActionConfigurationCard {...BASE} onClear={onClear} title="Add funds details" />);
+  }
+
+  it("opens the confirm dialog and does not clear yet", () => {
+    const onClear = vi.fn();
+    renderCard(onClear);
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear form" }));
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("dialog")).getByText(
+        "This removes everything you entered in this form. This cannot be undone."
+      )
+    ).toBeInTheDocument();
+    expect(onClear).not.toHaveBeenCalled();
+  });
+
+  it("keeps the draft when the reader cancels", () => {
+    const onClear = vi.fn();
+    renderCard(onClear);
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear form" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" }));
+
+    expect(onClear).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("clears the draft when the reader confirms", () => {
+    const onClear = vi.fn();
+    renderCard(onClear);
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear form" }));
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: "Clear form" })
+    );
+
+    expect(onClear).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("keeps the draft when the reader dismisses the dialog with Escape", () => {
+    const onClear = vi.fn();
+    renderCard(onClear);
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear form" }));
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    expect(onClear).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });
