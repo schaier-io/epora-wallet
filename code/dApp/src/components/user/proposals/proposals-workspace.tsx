@@ -8,6 +8,7 @@ import { FileSignature, Loader2, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CopyButton } from "@/components/ui/copy-button";
+import { pageHeadingClass } from "@/components/ui/page-heading";
 import { proposalKeys, refreshProposalBackgroundQueries } from "@/lib/proposals/query";
 import { useProposalBackgroundVerification } from "./use-proposal-background-verification";
 export { BACKGROUND_PROPOSAL_VERIFICATION_TIMEOUT_MS } from "./use-proposal-background-verification";
@@ -104,9 +105,7 @@ export function ProposalsWorkspace() {
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="font-display text-2xl font-medium tracking-[-0.02em]">
-            {i18n("approvalRequests")}
-          </h1>
+          <h1 className={pageHeadingClass}>{i18n("approvalRequests")}</h1>
           {/* "Signed in as" names the connected wallet's address, not the payment key hash the
               session is built on: a hash is not something a user can recognize in their wallet
               or an explorer, and the identity this page cares about is the wallet. When no
