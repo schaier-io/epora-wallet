@@ -24,6 +24,7 @@ type WalletConnectStatus =
   | "idle"
   | "connecting"
   | "awaiting-approval"
+  | "expired"
   | "connected"
   | "error";
 
@@ -51,6 +52,17 @@ const DEFAULT_STATE: WalletConnectState = {
   available: false
 };
 
+// A session proposal lives for FIVE_MINUTES (300s) on the relay: `wc_sessionPropose.req.ttl`
+// in `@walletconnect/sign-client`, value from `@walletconnect/time`. The library rejects the
+// approval promise on that schedule too, but via timers that background-tab throttling can
+// delay, so the provider arms its own deadline first and keeps the "expired" state
+// deterministic regardless of when the library's rejection lands.
+const PAIRING_EXPIRY_SECONDS = 300;
+// The message sign-client rejects the approval promise with when the proposal expires. It
+// can arrive as an Error (the promise's own timeout) or as a plain `{ message, code }`
+// object (the expirer path), so it is matched by message, not by error type.
+const SIGN_CLIENT_PROPOSAL_EXPIRED = "Proposal expired";
+
 const WalletConnectContext = createContext<WalletConnectContextValue | null>(null);
 
 export function WalletConnectProvider({ children }: PropsWithChildren) {
@@ -61,10 +73,20 @@ export function WalletConnectProvider({ children }: PropsWithChildren) {
   }));
   // Cancel or a newer connect bumps this; an older attempt then drops its result.
   const attemptRef = useRef(0);
+  const expiryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const patch = useCallback((next: Partial<WalletConnectState>) => {
     setState((prev) => ({ ...prev, ...next }));
   }, []);
+
+  const clearExpiryTimer = useCallback(() => {
+    if (expiryTimerRef.current) {
+      clearTimeout(expiryTimerRef.current);
+      expiryTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => clearExpiryTimer, [clearExpiryTimer]);
 
   // Restore any existing session on mount.
   useEffect(() => {
@@ -142,6 +164,7 @@ export function WalletConnectProvider({ children }: PropsWithChildren) {
     }
     const attempt = (attemptRef.current += 1);
     const stillActive = () => attemptRef.current === attempt;
+    clearExpiryTimer();
     patch({ status: "connecting", error: null, uri: null });
     try {
       const client = await getSignClient();
@@ -167,17 +190,35 @@ export function WalletConnectProvider({ children }: PropsWithChildren) {
       if (uri) {
         patch({ uri, status: "awaiting-approval" });
       }
+      expiryTimerRef.current = setTimeout(() => {
+        if (!stillActive()) return;
+        // The code is dead: it no longer pairs on the relay. Bumping the attempt sends
+        // a later approval into the reaping branch below instead of the UI.
+        attemptRef.current += 1;
+        patch({ status: "expired", uri: null });
+      }, PAIRING_EXPIRY_SECONDS * 1000);
       const session = await approval();
       if (!stillActive()) {
         // The phone approved after the user cancelled here: end that session.
+        // The timer, if any, was already cleared or fired by whoever cancelled
+        // this attempt, so a stale attempt must not touch it.
         void client
           .disconnect({ topic: session.topic, reason: { code: 6000, message: i18n("userDisconnected") } })
           .catch(() => undefined);
         return;
       }
+      clearExpiryTimer();
       patch({ session, status: "connected", uri: null });
     } catch (err) {
       if (!stillActive()) return;
+      clearExpiryTimer();
+      // The rejection can be an Error or a plain `{ message, code }`; match by message.
+      if ((err as { message?: unknown } | null)?.message === SIGN_CLIENT_PROPOSAL_EXPIRED) {
+        // The library's expiry beat this timer (for example a throttled background tab);
+        // same state either way.
+        patch({ status: "expired", uri: null });
+        return;
+      }
       patch({
         status: "error",
         uri: null,
@@ -187,10 +228,11 @@ export function WalletConnectProvider({ children }: PropsWithChildren) {
         )
       });
     }
-  }, [i18n, patch, state.network]);
+  }, [clearExpiryTimer, i18n, patch, state.network]);
 
   const disconnect = useCallback(async () => {
     attemptRef.current += 1;
+    clearExpiryTimer();
     const current = state.session;
     if (!current) {
       patch({ status: "idle", uri: null, error: null });
@@ -219,7 +261,7 @@ export function WalletConnectProvider({ children }: PropsWithChildren) {
         ? { ...prev, status: "idle", session: null, uri: null, error: null }
         : prev
     );
-  }, [i18n, patch, state.session]);
+  }, [clearExpiryTimer, i18n, patch, state.session]);
 
   const setNetwork = useCallback(
     (network: CardanoNetwork) => {
