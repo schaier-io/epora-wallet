@@ -7,6 +7,7 @@ import { AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
 import { WalletConnectionDialog } from "@/components/layout/wallet-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { pageHeadingClass } from "@/components/ui/page-heading";
 import {
   SUBMIT_CONFIRMATION_INITIAL_DELAY_MS,
   SUBMIT_CONFIRMATION_MAX_ATTEMPTS,
@@ -176,7 +177,7 @@ export function SttReferenceSetup({
     <section className="w-full max-w-2xl space-y-6 rounded-2xl border border-border/70 bg-card/85 p-4 shadow-panel sm:p-8">
       <header className="space-y-2">
         <p className="eyebrow font-semibold text-primary">{i18n("eyebrow")}</p>
-        <h1 className="font-display text-2xl font-semibold text-foreground sm:text-3xl">{i18n("title")}</h1>
+        <h1 className={pageHeadingClass}>{i18n("title")}</h1>
         <p className="text-sm leading-relaxed text-muted-foreground">{i18n("description")}</p>
       </header>
 
