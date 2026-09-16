@@ -443,3 +443,51 @@ describe("review rail receipt heading", () => {
     expect(screen.getByText("What will happen")).toBeInTheDocument();
   });
 });
+
+/**
+ * The review rail's CTA icons carried no `aria-hidden`, so a screen reader
+ * could announce "image" between the button's own words.
+ */
+describe("review rail CTA icons", () => {
+  function assertIconHidden(button: HTMLElement) {
+    const icon = button.querySelector("svg");
+    expect(icon).not.toBeNull();
+    expect(icon).toHaveAttribute("aria-hidden", "true");
+  }
+
+  it("hides the direct-sign arrow", () => {
+    render(<UserReviewPanel {...BASE} />);
+
+    assertIconHidden(screen.getByRole("button", { name: "Send funds" }));
+  });
+
+  it("hides the approval shield", () => {
+    render(
+      <UserReviewPanel
+        {...BASE}
+        primaryActionKind="approval"
+        primaryActionLabel="Save as approval request"
+      />
+    );
+
+    assertIconHidden(screen.getByRole("button", { name: "Save as approval request" }));
+  });
+
+  it("hides the busy spinner", () => {
+    render(<UserReviewPanel {...BASE} isBuilding />);
+
+    assertIconHidden(screen.getByRole("button", { name: "Send funds" }));
+  });
+
+  it("hides the secondary shield", () => {
+    render(
+      <UserReviewPanel
+        {...BASE}
+        secondaryActionLabel="Save as approval request"
+        onSecondaryAction={() => {}}
+      />
+    );
+
+    assertIconHidden(screen.getAllByRole("button")[1]);
+  });
+});

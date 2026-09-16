@@ -165,6 +165,7 @@ export function WorkspaceTransactionsView() {
                                   under `prefers-reduced-motion: reduce`, arbitrary utilities
                                   included. This is consistency, not a motion fix. */}
                               <div
+                                role="region"
                                 className="section-transition relative overflow-hidden rounded-lg border border-border/60 bg-background/45 p-3 sm:p-4"
                                 aria-label={i18n("value1Summary", { value1: isAda ? "ADA" : identity.symbol })}
                               >
