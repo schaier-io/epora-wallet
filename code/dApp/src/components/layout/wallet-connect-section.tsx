@@ -86,13 +86,6 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
   const isWaiting = wc.status === "awaiting-approval" || wc.status === "connecting";
   const isExpired = wc.status === "expired";
 
-  const containerClass = cn(
-    "rounded-2xl border p-4 sm:p-6",
-    isPrimary
-      ? "border-[#3396ff]/30 bg-[radial-gradient(circle_at_18%_18%,rgba(51,150,255,0.18),transparent_46%),linear-gradient(160deg,rgba(15,30,52,0.92),rgba(8,18,30,0.85))] shadow-[0_18px_42px_-28px_rgba(51,150,255,0.5)]"
-      : "border-border/60 bg-gradient-to-b from-muted/15 to-background/40"
-  );
-
   const motionState = isConnected
     ? "connected"
     : isWaiting
@@ -110,7 +103,11 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
   return (
     <section className="space-y-3 border-t border-border/60 pt-6">
       {heading}
-      <div className={cn(containerClass, "relative overflow-hidden")}>
+      {/* One panel surface for both variants and every state. The primary variant used to
+          carry a blue radial gradient and its own shadow, and the QR a glow behind it, to
+          say "waiting" -- which the pulse dot and the spinner already say. DESIGN.md's
+          flat-by-default rule keeps borders and background contrast before shadows. */}
+      <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-b from-muted/15 to-background/40 p-4 sm:p-6">
         <AnimatePresence mode="wait" initial={false}>
           {motionState === "connected" ? (
             <motion.div
@@ -156,13 +153,8 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
                 initial={{ opacity: 0, scale: 0.94 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] as const, delay: 0.06 }}
-                className="relative shrink-0"
+                className="shrink-0"
               >
-                {/* Soft blue glow behind the QR while waiting. */}
-                <div
-                  aria-hidden="true"
-                  className="absolute inset-0 -z-10 rounded-3xl bg-[radial-gradient(circle_at_50%_50%,rgba(51,150,255,0.35),transparent_70%)] blur-2xl"
-                />
                 <WalletConnectQr uri={wc.uri} size={248} className="shrink-0" />
               </motion.div>
               <div className="min-w-0 flex-1 space-y-3 text-center sm:text-left">

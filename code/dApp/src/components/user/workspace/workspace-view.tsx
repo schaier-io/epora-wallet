@@ -175,7 +175,7 @@ export function WorkspaceView() {
           <WorkspaceOnboardingView />
         ) : routeState.workspaceMode === "landing" && detectedSttTokensLoading ? (
           <div className="flex min-h-0 flex-1 items-center justify-center p-6">
-            <div role="status" aria-live="polite" className="flex max-w-sm items-center gap-3 rounded-xl border border-border/60 bg-card/60 px-6 py-4">
+            <div role="status" aria-live="polite" className="flex max-w-sm items-center gap-3 rounded-xl border border-border/60 bg-card/60 px-4 py-4">
               <Loader2 className="h-5 w-5 shrink-0 motion-safe:animate-spin text-primary" aria-hidden="true" />
               <div>
                 <p className="text-sm font-medium text-foreground">{i18n("detectingWallets")}</p>

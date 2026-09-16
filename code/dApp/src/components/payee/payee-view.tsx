@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/card";
 import { CopyButton } from "@/components/ui/copy-button";
 import { PopupDialog } from "@/components/ui/popup-dialog";
+import { pageHeadingClass } from "@/components/ui/page-heading";
 import { type DetectedSttToken } from "@/lib/mesh/detection";
 import { buildSttSpendTx, getValidityWindow, signAndSubmitTx } from "@/lib/mesh/transactions";
 import {
@@ -349,8 +350,9 @@ export function PayeeView() {
             <div>
               {/* The page's own heading. `/payee` holds one card and this names it, so the
                   page no longer carries a hidden `h1` saying the same words at a different
-                  level. */}
-              <CardTitle as="h1">{i18n("scheduledPaymentsToYou")}</CardTitle>
+                  level. `pageHeadingClass` overrides the CardTitle rung: `cn` merges with
+                  tailwind-merge, so the page scale wins over `text-lg font-medium`. */}
+              <CardTitle as="h1" className={pageHeadingClass}>{i18n("scheduledPaymentsToYou")}</CardTitle>
               <CardDescription>
                 {i18n("paymentsOtherWalletsSendToYouALittle")}
               </CardDescription>

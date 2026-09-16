@@ -47,6 +47,28 @@ function resolveImport(specifier, fromFile) {
 }
 
 /**
+ * True when the `from "x"` clause at `match` belongs to a statement the compiler
+ * erases: `import type ...`, `export type ...`, or a braces clause whose every
+ * specifier is `type`-prefixed. An erased import never loads the module in the
+ * browser, so it cannot need a provider -- following it demanded coverage for
+ * namespaces no runtime code on the page can ask for (the proposals page
+ * "reached" PoolFinder only through a `type StakePool` import).
+ *
+ * A clause is only ever skipped on a positive match; anything unparseable keeps
+ * the old behaviour and is followed, so a false negative here cannot weaken the
+ * guard, only keep it loud.
+ */
+function isTypeOnlyClause(source, match) {
+  const start = source.lastIndexOf(";", match.index) + 1;
+  const clause = source.slice(start, match.index).trim();
+  if (/^(?:import|export)\s+type\b/.test(clause)) return true;
+  const braces = clause.match(/^(?:import|export)\s*\{([^}]*)\}$/);
+  if (!braces) return false;
+  const specifiers = braces[1].split(",").map((specifier) => specifier.trim()).filter(Boolean);
+  return specifiers.length > 0 && specifiers.every((specifier) => specifier === "type" || /^type\s/.test(specifier));
+}
+
+/**
  * Namespaces reached from `entry` that need a client provider.
  *
  * Only client modules do: `useTranslations` in a Server Component resolves on
@@ -74,6 +96,7 @@ function reachableNamespaces(entry) {
       }
     }
     for (const match of source.matchAll(/from "([^"]+)"/g)) {
+      if (isTypeOnlyClause(source, match)) continue;
       const resolved = resolveImport(match[1], file);
       if (resolved) queue.push({ file: resolved, client: isClient });
     }
