@@ -1,0 +1,56 @@
+name: File Length Check
+
+# Repo-wide guard for the AGENTS.md "File length: hard cap 750 lines" rule:
+# code/dApp/scripts/check-file-length.mjs lists tracked files, prints every
+# authored source file over 750 lines with its count, and exits nonzero.
+#
+# Trigger: the guard's universe is the whole repository, so a `paths:` list of
+# source extensions would silently stop covering any new source type; the
+# inverse (run on everything except docs-only changes) cannot miss one. The
+# check is plain node with no install step, so the extra runs on asset or
+# config PRs are cheap. Docs-only changes cannot create a source-file
+# violation (markdown prose is out of the cap's scope), hence paths-ignore.
+on:
+  pull_request:
+    paths-ignore:
+      - "**/*.md"
+  # dapp-ci.yml carries the same leg: a direct push to an unprotected main
+  # would otherwise bypass the PR-time check entirely.
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: file-length-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    # Read-only check: it never pushes, so drop the default token scope and
+    # the persisted checkout credential.
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Same node setup as dapp-ci.yml. No pnpm cache and no install: the
+      # checker and its tests are dependency-free plain node.
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+
+      # Fixture tests first (they prove the 750/751 boundary and the exclusion
+      # families against throwaway temp repos), then the real check from the
+      # repo root. The checker also works from code/dApp; it resolves the
+      # repository root from its own location.
+      - name: Run the file-length fixture tests
+        run: node --test code/dApp/scripts/lib/file-length.test.mjs
+
+      - name: Check the 750-line source file cap
+        run: node code/dApp/scripts/check-file-length.mjs
