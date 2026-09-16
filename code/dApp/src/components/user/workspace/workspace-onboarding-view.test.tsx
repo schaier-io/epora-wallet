@@ -4,8 +4,8 @@ import { describe, expect, it } from "vitest";
 import { WorkspaceOnboardingView } from "@/components/user/workspace/workspace-onboarding-view";
 
 /**
- * This card is the first screen of the product: `/` redirects to `/user`, and a visitor with
- * no wallet connected sees nothing else. So the state that matters is the one the server
+ * This card is the first screen of the product: `/` renders it (canonical to `/user`), and a
+ * visitor with no wallet connected sees nothing else. So the state that matters is the one the server
  * sends, before any JavaScript runs.
  *
  * It used to be wrapped in `AnimatedContent`, which sets `opacity: 0` as an inline style and

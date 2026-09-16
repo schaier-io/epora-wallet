@@ -26,7 +26,7 @@ export function WorkspaceOnboardingView() {
               inline style and only reaches 1 after hydration plus an IntersectionObserver
               callback, because `usePrefersReducedMotion` reads `matchMedia` in an effect and
               so returns false on the server and on the first client render. This card is the
-              first screen of the product (`/` redirects to `/user`), and hydration here
+              first screen of the product (`/` renders it, canonical to `/user`), and hydration here
               waits on the whole Cardano stack, so the server sent the copy and then hid it:
               HTML complete at 57ms, card visible at 540ms on localhost with a warm cache.
               `.section-transition` animates from the stylesheet, so the card is painted as

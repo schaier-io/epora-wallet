@@ -127,10 +127,21 @@ function findPages(directory) {
 
 for (const page of findPages(APP)) {
   const source = readSource(page);
+  // A route may re-export another page module wholesale (the landing route
+  // renders the user page at "/"). The provider that covers its namespaces
+  // then lives in the re-exported module, so read the provider markers from
+  // there too. `reachableNamespaces` already follows the same statements.
+  const reexportTargets = [
+    ...source.matchAll(/export\s*\{[^}]*\}\s*from\s*"([^"]+)"/g)
+  ]
+    .map((match) => resolveImport(match[1], page))
+    .filter(Boolean)
+    .map(readSource);
+  const pageAndReexports = [source, ...reexportTargets].join("\n");
   const prefixes = [
-    ...(source.match(/prefixes=\{\[([^\]]*)\]\}/)?.[1] ?? "").matchAll(/"([^"]+)"/g)
+    ...(pageAndReexports.match(/prefixes=\{\[([^\]]*)\]\}/)?.[1] ?? "").matchAll(/"([^"]+)"/g)
   ].map((match) => match[1]);
-  const scoped = source.includes("<ScopedClientIntlProvider");
+  const scoped = pageAndReexports.includes("<ScopedClientIntlProvider");
 
   for (const [namespace, file] of reachableNamespaces(page)) {
     if (rootNamespaces.has(namespace)) continue;
