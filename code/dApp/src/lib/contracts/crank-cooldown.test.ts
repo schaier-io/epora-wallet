@@ -2,6 +2,7 @@ import { encodePayoutAddressToData } from "@/lib/contracts/payout-address";
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { HashHexSchema } from "@/lib/api/tx-primitives";
 import type { Data } from "@meshsdk/common";
 import {
   assertNonAdminStreamingActionWindow,
@@ -160,6 +161,43 @@ test("a stranger is not authorized to crank at all", () => {
     unlockTime: 0
   });
   assert.equal(crankSignerIsAuthorized(datum, SIGNER, 1_000), false);
+});
+
+test("an uppercase encoding of a listed credential behaves like its lowercase form", () => {
+  // The API schema accepts hex credentials in either case and canonicalizes
+  // them to lowercase before these checks run (issue #402). Parse through
+  // HashHexSchema the way every route does, then pin that both gates the crank
+  // path consults — authority and the admin cooldown bypass — see one
+  // credential's two encodings identically.
+  const adminDatum = state({
+    users: [user({ id: 0, wallets: [SIGNER], isAdmin: true })]
+  });
+  const parsedFromUpper = HashHexSchema.parse(SIGNER.toUpperCase());
+  assert.equal(parsedFromUpper, SIGNER);
+  assert.equal(crankSignerIsAuthorized(adminDatum, parsedFromUpper, 1_000), true);
+  assert.equal(
+    crankSignersBypassCooldown(adminDatum, [parsedFromUpper], 1_000),
+    true
+  );
+});
+
+test("an uppercase non-admin cranker is authorized and still stamps the cooldown", () => {
+  // The admin test above cannot speak for the preserve-vs-stamp split: a
+  // non-admin stays rate-limited, so the crank must stamp the cadence clock.
+  const datum = state({ users: [user({ id: 0, wallets: [SIGNER] })] });
+  const parsedFromUpper = HashHexSchema.parse(SIGNER.toUpperCase());
+  assert.equal(crankSignerIsAuthorized(datum, parsedFromUpper, 1_000), true);
+  assert.equal(
+    crankSignersBypassCooldown(datum, [parsedFromUpper], 1_000),
+    false
+  );
+});
+
+test("an uppercase credential that matches nothing stays rejected", () => {
+  const datum = state({ users: [user({ id: 0, wallets: [SIGNER] })] });
+  const parsedOther = HashHexSchema.parse(OTHER.toUpperCase());
+  assert.equal(crankSignerIsAuthorized(datum, parsedOther, 1_000), false);
+  assert.equal(crankSignerBypassesCooldown(datum, parsedOther, 1_000), false);
 });
 
 test("any listed user is authorized, whatever their role", () => {
