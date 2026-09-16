@@ -2415,10 +2415,10 @@
         "type": "object"
       },
       "CredentialHash": {
+        "description": "A blake2b-224 credential hash: 28 bytes as hex. Uppercase hex is accepted and canonicalized to lowercase.",
+        "example": "abababababababababababababababababababababababababababab",
         "type": "string",
-        "pattern": "^[0-9a-fA-F]{56}$",
-        "description": "A blake2b-224 credential hash: 28 bytes as hex.",
-        "example": "abababababababababababababababababababababababababababab"
+        "pattern": "^[0-9a-fA-F]{56}$"
       },
       "WalletInputRef": {
         "type": "object",
