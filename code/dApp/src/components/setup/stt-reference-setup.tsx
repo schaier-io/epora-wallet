@@ -28,6 +28,13 @@ import { useWalletContext } from "@/providers/wallet-provider";
 
 type SetupPhase = "idle" | "checking" | "building" | "review" | "submitting" | "confirming";
 
+const busyPhaseLabels: Partial<Record<SetupPhase, "checking" | "building" | "submitting" | "confirming">> = {
+  checking: "checking",
+  building: "building",
+  submitting: "submitting",
+  confirming: "confirming"
+};
+
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 export function SttReferenceSetup({
@@ -235,8 +242,8 @@ export function SttReferenceSetup({
             onClick={() => void (submittedReference ? retryConfirmation() : buildPreview())}
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
-            {phase === "confirming"
-              ? i18n("confirming")
+            {busyPhaseLabels[phase]
+              ? i18n(busyPhaseLabels[phase])
               : submittedReference
                 ? i18n("checkAgain")
                 : i18n("build")}
