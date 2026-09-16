@@ -191,4 +191,21 @@ describe("asset drill-down actions", () => {
     expect(panel?.className).toContain("rounded-lg");
     expect(panel?.className).not.toContain("rounded-xl");
   });
+
+  /**
+   * The label sat on a role-less `div`, and a name on a generic element is ignored by
+   * most screen readers, so the summary never reached assistive tech. `role="region"`
+   * turns the name into a landmark assistive tech can list and jump to.
+   */
+  it("exposes the summary as a named region", () => {
+    renderView({
+      assetDetailUnit: "lovelace",
+      wealthSeriesForAsset: () => [
+        { timestamp: Date.now() - 86400000, value: 5 },
+        { timestamp: Date.now(), value: 8 }
+      ]
+    });
+
+    expect(screen.getByRole("region", { name: "ADA summary" })).toBeInTheDocument();
+  });
 });

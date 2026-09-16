@@ -124,6 +124,19 @@ describe("the approval queue column", () => {
     );
   });
 
+  /** Colour is one cue, not the only one: the title carries a check mark too. */
+  it("marks the open request with a non-colour cue", () => {
+    renderList(undefined, { selectedId: "proposal-1" });
+    const title = screen.getByText("Raise the daily limit");
+    expect(title.querySelector("svg[aria-hidden='true']")).not.toBeNull();
+  });
+
+  it("leaves the cue off every other request", () => {
+    renderList(undefined, { selectedId: "proposal-2" });
+    const title = screen.getByText("Raise the daily limit");
+    expect(title.querySelector("svg")).toBeNull();
+  });
+
   it("leaves every other request without a current marker", () => {
     renderList(undefined, { selectedId: "proposal-2" });
     expect(

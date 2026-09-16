@@ -475,12 +475,12 @@ export function UserReviewPanel({
             }
             className={REVIEW_RAIL_BUTTON}
           >
-            {primaryActionBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            {primaryActionBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
             {!primaryActionBusy ? (
               primaryActionKind === "approval" ? (
-                <ShieldPlus className="h-4 w-4" />
+                <ShieldPlus className="h-4 w-4" aria-hidden="true" />
               ) : (
-                <ArrowRight className="h-4 w-4" />
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
               )
             ) : null}
             {primaryActionLabel}
@@ -494,7 +494,7 @@ export function UserReviewPanel({
               aria-describedby={approvalActionNote ? approvalActionNoteId : undefined}
               className={REVIEW_RAIL_BUTTON}
             >
-              <ShieldPlus className="h-4 w-4" />
+              <ShieldPlus className="h-4 w-4" aria-hidden="true" />
               {secondaryActionLabel}
             </Button>
           ) : null}
