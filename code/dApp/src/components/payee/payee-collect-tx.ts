@@ -22,6 +22,15 @@ export class PayeeCollectBlockedError extends Error {
   override name = "PayeeCollectBlockedError";
 }
 
+/**
+ * The end of one collect attempt. A declined warning review is a choice, not a
+ * failure, so it comes back as its own outcome instead of an error the view
+ * would have to render in red.
+ */
+export type PayeeCollectOutcome =
+  | { status: "submitted"; txHash: string }
+  | { status: "declined" };
+
 export async function runPayeeCollect(input: {
   wallet: BrowserWallet;
   payment: PayeeStreamingPayment;
@@ -32,7 +41,7 @@ export async function runPayeeCollect(input: {
   nowMs: number;
   /** Explicit user review for build warnings before the wallet signs. */
   confirmWarnings?: (warnings: readonly string[]) => boolean | Promise<boolean>;
-}): Promise<string> {
+}): Promise<PayeeCollectOutcome> {
   const {
     wallet,
     payment,
@@ -110,11 +119,10 @@ export async function runPayeeCollect(input: {
       ? await confirmWarnings(build.warnings)
       : false;
     if (!approved) {
-      throw new PayeeCollectBlockedError(
-        `This payout requires review before signing: ${build.warnings.join(" ")}`
-      );
+      return { status: "declined" };
     }
   }
 
-  return signAndSubmitTx(wallet, build.txHex);
+  const txHash = await signAndSubmitTx(wallet, build.txHex);
+  return { status: "submitted", txHash };
 }

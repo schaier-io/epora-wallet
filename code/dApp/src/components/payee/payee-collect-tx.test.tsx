@@ -143,7 +143,7 @@ describe("runPayeeCollect", () => {
     mocks.signAndSubmitTx.mockReset();
   });
 
-  it("refuses a payout top-up before asking the wallet to sign", async () => {
+  it("returns declined for a warned payout when no reviewer is wired", async () => {
     mocks.buildSttSpendTx.mockResolvedValue({
       txHex: "00",
       warnings: ["ADA payout top-up: extra sent to the payee 1.2 ADA."]
@@ -157,11 +157,11 @@ describe("runPayeeCollect", () => {
         payeePaymentKeyHash: PAYEE_KEY_HASH,
         nowMs: 1
       })
-    ).rejects.toThrow(/requires review before signing.*extra sent to the payee/);
+    ).resolves.toEqual({ status: "declined" });
     expect(mocks.signAndSubmitTx).not.toHaveBeenCalled();
   });
 
-  it("refuses a native-token payout min-UTxO top-up before signing", async () => {
+  it("returns declined for a native-token payout min-UTxO top-up when no reviewer is wired", async () => {
     mocks.buildSttSpendTx.mockResolvedValue({
       txHex: "00",
       warnings: ["ADA payout top-up: extra sent to the payee 1.5 ADA."]
@@ -175,7 +175,7 @@ describe("runPayeeCollect", () => {
         payeePaymentKeyHash: PAYEE_KEY_HASH,
         nowMs: 1
       })
-    ).rejects.toThrow(/requires review before signing.*extra sent to the payee/);
+    ).resolves.toEqual({ status: "declined" });
     expect(mocks.signAndSubmitTx).not.toHaveBeenCalled();
   });
 
@@ -196,7 +196,7 @@ describe("runPayeeCollect", () => {
         nowMs: 1,
         confirmWarnings
       })
-    ).resolves.toBe("88".repeat(32));
+    ).resolves.toEqual({ status: "submitted", txHash: "88".repeat(32) });
 
     expect(confirmWarnings).toHaveBeenCalledWith([
       "ADA payout top-up: extra sent to the payee 7 ADA."
@@ -205,6 +205,26 @@ describe("runPayeeCollect", () => {
       expect.anything(),
       "00"
     );
+  });
+
+  it("declines a warned payout without signing when the reviewer says no", async () => {
+    const confirmWarnings = vi.fn(async () => false);
+    mocks.buildSttSpendTx.mockResolvedValue({
+      txHex: "00",
+      warnings: ["ADA payout top-up: extra sent to the payee 7 ADA."]
+    });
+
+    await expect(
+      runPayeeCollect({
+        wallet: {} as BrowserWallet,
+        payment,
+        stateDatum: ordinaryStateDatum,
+        payeePaymentKeyHash: PAYEE_KEY_HASH,
+        nowMs: 1,
+        confirmWarnings
+      })
+    ).resolves.toEqual({ status: "declined" });
+    expect(mocks.signAndSubmitTx).not.toHaveBeenCalled();
   });
 
   it("blocks payee collection when final recovery requires beneficiary consent", async () => {
@@ -233,7 +253,7 @@ describe("runPayeeCollect", () => {
         payeePaymentKeyHash: PAYEE_KEY_HASH,
         nowMs: 1
       })
-    ).resolves.toBe("88".repeat(32));
+    ).resolves.toEqual({ status: "submitted", txHash: "88".repeat(32) });
   });
 
   it("forwards every selected fund pool to the payout builder", async () => {
@@ -248,7 +268,7 @@ describe("runPayeeCollect", () => {
         payeePaymentKeyHash: PAYEE_KEY_HASH,
         nowMs: 1
       })
-    ).resolves.toBe("88".repeat(32));
+    ).resolves.toEqual({ status: "submitted", txHash: "88".repeat(32) });
 
     expect(mocks.buildSttSpendTx).toHaveBeenCalledWith(
       expect.anything(),
