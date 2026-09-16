@@ -76,13 +76,13 @@ function PrimaryNavLinks({ pathname, walletUnit }: { pathname: string; walletUni
           // tabbing through the primary navigation fell back to the user agent's own outline.
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
           active
-            // A defined chip, not a wash, and in the header's own colour. `--primary` is a
-            // neutral near-white in this theme (`oklch(0.922 0 0)`), so `bg-primary/10` put a
-            // grey patch on a teal-black bar and the current page read as a smudge. The brand
-            // cyan is what the bar, the wallet card and the status dot are already tinted with.
-            // The hairline is a shadow rather than a border, so the pill does not change width
-            // when it lights up.
-            ? "bg-[hsl(var(--brand-cyan)/0.14)] text-foreground shadow-[inset_0_0_0_1px_hsl(var(--brand-cyan)/0.32)]"
+            // A defined chip, not a wash, in the protective teal DESIGN.md reserves for the
+            // selected task state (there, cyan is for secondary information). `--primary` is
+            // a neutral near-white in this theme (`oklch(0.922 0 0)`), so `bg-primary/10` put
+            // a grey patch on a teal-black bar and the current page read as a smudge -- hence
+            // the brand token directly. The hairline is a shadow rather than a border, so the
+            // pill does not change width when it lights up.
+            ? "bg-[hsl(var(--brand-teal)/0.14)] text-foreground shadow-[inset_0_0_0_1px_hsl(var(--brand-teal)/0.32)]"
             // The idle links answered hover with colour only, so two of the three had no
             // surface under the pointer while the third sat in a permanent pill.
             : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
