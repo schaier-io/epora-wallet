@@ -15,6 +15,7 @@ import {
   buildCardanoscanTransactionUrl,
   formatCompactHash
 } from "@/components/user/workspace/helpers";
+import { getFieldErrorLabel } from "@/components/user/workspace/field-error-labels";
 import {
   AnimatedContent,
   FadeContent
@@ -170,11 +171,17 @@ export function UserReviewPanel({
   const attentionIssues = readinessIssues.filter((issue) => !issue.transient);
   const { primary: primaryBlockingIssue, additional: otherBlockingIssues, fieldErrors: flattenedErrors } =
     summarizeBlockers(attentionIssues, fieldErrors);
+  // Field-derived readiness issues carry the validators' raw field key as their label.
+  // Both sources resolve through the same localizer, so a key that arrives twice (as a
+  // blocking issue and as a field error) localizes identically and dedups.
+  const blockingIssues = (
+    primaryBlockingIssue ? [primaryBlockingIssue, ...otherBlockingIssues] : []
+  ).map((issue) => ({ ...issue, label: getFieldErrorLabel(issue.label, i18n) }));
   const issues = [
-    ...(primaryBlockingIssue ? [primaryBlockingIssue, ...otherBlockingIssues] : []),
+    ...blockingIssues,
     ...flattenedErrors.map((entry, index) => ({
       id: `${entry.key}-${index}`,
-      label: entry.key,
+      label: getFieldErrorLabel(entry.key, i18n),
       description: entry.message,
       recovery: undefined
     }))
