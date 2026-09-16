@@ -13,5 +13,31 @@ test("field-error labels hide stable implementation IDs", () => {
     getFieldErrorLabel("scheduledPayment:7", translate),
     "translated:fieldScheduledPayment"
   );
-  assert.equal(getFieldErrorLabel("futureField", translate), "translated:fieldForm");
+});
+
+// The validators key FieldErrors by the field's default-English label
+// (action-validation-*.ts), so those strings are what the review rail receives.
+test("field-error labels resolve the keys the validators emit", () => {
+  assert.equal(
+    getFieldErrorLabel("Transfers / forwarded outputs", translate),
+    "translated:fieldDestinations"
+  );
+  assert.equal(
+    getFieldErrorLabel("STT input tx hash", translate),
+    "translated:fieldWalletIdentity"
+  );
+  assert.equal(
+    getFieldErrorLabel("Scheduled payment payout", translate),
+    "translated:fieldScheduledPayments"
+  );
+  // One key per payout row; the exact "Scheduled payment payout" key above must
+  // not be swallowed by this prefix.
+  assert.equal(
+    getFieldErrorLabel("Scheduled payment 3", translate),
+    "translated:fieldScheduledPayment"
+  );
+});
+
+test("unknown field keys fall back to the raw key", () => {
+  assert.equal(getFieldErrorLabel("futureField", translate), "futureField");
 });

@@ -75,9 +75,15 @@ export const OutputIndexSchema = z.int().min(0).meta({
 export const HashHexSchema = z
   .string()
   .regex(/^[0-9a-fA-F]{56}$/, "Expected a 56-character (28-byte) hex hash.")
+  // Canonical form is lowercase hex, matching what the CBOR decoders emit for
+  // datum credentials. Downstream authorization and cooldown checks compare
+  // these hashes case-sensitively, so both encodings of one credential must
+  // parse to the same value.
+  .transform((value) => value.toLowerCase())
   .meta({
     id: "CredentialHash",
-    description: "A blake2b-224 credential hash: 28 bytes as hex.",
+    description:
+      "A blake2b-224 credential hash: 28 bytes as hex. Uppercase hex is accepted and canonicalized to lowercase.",
     example: "ab".repeat(28)
   });
 

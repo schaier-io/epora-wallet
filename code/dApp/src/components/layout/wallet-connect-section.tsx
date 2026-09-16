@@ -84,8 +84,15 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
 
   const isConnected = wc.status === "connected" && wc.session !== null;
   const isWaiting = wc.status === "awaiting-approval" || wc.status === "connecting";
+  const isExpired = wc.status === "expired";
 
-  const motionState = isConnected ? "connected" : isWaiting ? "waiting" : "idle";
+  const motionState = isConnected
+    ? "connected"
+    : isWaiting
+      ? "waiting"
+      : isExpired
+        ? "expired"
+        : "idle";
   const motionVariants = {
     initial: { opacity: 0, y: 8, scale: 0.99 },
     animate: { opacity: 1, y: 0, scale: 1 },
@@ -207,6 +214,40 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
                   </Button>
                 </div>
               </div>
+            </motion.div>
+          ) : motionState === "expired" ? (
+            <motion.div
+              key="expired"
+              variants={motionVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              transition={motionTransition}
+              className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div className="min-w-0 space-y-1">
+                {/* `role="status"`: a polite announcement that the code the reader may
+                    still be aiming at has stopped working. Not `alert`: nothing failed. */}
+                <p
+                  role="status"
+                  className="inline-flex items-center gap-2 text-sm font-medium text-foreground"
+                >
+                  <QrCode className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+                  {i18n("thisPairingCodeHasExpired")}
+                </p>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  {i18n("pairingCodesStayLiveForAboutFiveMinutes")}
+                </p>
+              </div>
+              <Button
+                type="button"
+                // Same contrast-checked blue as the primary pair button above.
+                onClick={() => void wc.connect()}
+                className="shrink-0 bg-[#006fe6] text-white shadow-[0_8px_24px_-12px_rgba(51,150,255,0.7)] hover:bg-[#005ec2]"
+              >
+                <QrCode className="h-4 w-4" />
+                {i18n("showNewCode")}
+              </Button>
             </motion.div>
           ) : isPrimary ? (
             <motion.div

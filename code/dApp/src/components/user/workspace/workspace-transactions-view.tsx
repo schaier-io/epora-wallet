@@ -8,6 +8,7 @@ import {
   Copy,
   Download,
   ExternalLink,
+  Inbox,
   Loader2,
   RefreshCw,
   Send,
@@ -164,6 +165,7 @@ export function WorkspaceTransactionsView() {
                                   under `prefers-reduced-motion: reduce`, arbitrary utilities
                                   included. This is consistency, not a motion fix. */}
                               <div
+                                role="region"
                                 className="section-transition relative overflow-hidden rounded-lg border border-border/60 bg-background/45 p-3 sm:p-4"
                                 aria-label={i18n("value1Summary", { value1: isAda ? "ADA" : identity.symbol })}
                               >
@@ -347,6 +349,37 @@ export function WorkspaceTransactionsView() {
                           <p className="max-w-xs text-center text-xs text-muted-foreground">
                             {i18n("checkingYourConnectedWalletAndThisSmartWallet")}
                           </p>
+                        </div>
+                      ) : null}
+
+                      {lockingContract.address &&
+                      !walletTransactions.error &&
+                      !walletTransactions.loading &&
+                      recentWalletActivityEvents.length === 0 ? (
+                        // Last leg of the address-set states: loaded, no error, zero
+                        // events. Without it the section renders nothing, which reads
+                        // as a broken page rather than a wallet with no history yet.
+                        // Dashed border, like the no-address state: nothing is in
+                        // flight and nothing failed. The Refresh button stays in the
+                        // header above, so a retry is one click away. `role="status"`
+                        // closes the loop the loading state opens: its polite live
+                        // region announces "Fetching activity…", so the resolved
+                        // answer here is announced too, not swapped in silently.
+                        <div
+                          role="status"
+                          className="flex min-h-[min(320px,45vh)] flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border/60 bg-muted/10 p-3 text-center sm:p-4"
+                        >
+                          <div className="flex h-14 w-14 items-center justify-center rounded-md border border-border/60 bg-background/60 shadow-sm">
+                            <Inbox className="h-7 w-7 text-muted-foreground" aria-hidden="true" />
+                          </div>
+                          <div className="max-w-sm space-y-2">
+                            <p className="text-sm font-semibold text-foreground">
+                              {i18n("noActivityYet")}
+                            </p>
+                            <p className="text-sm leading-relaxed text-muted-foreground">
+                              {i18n("eventsAppearHereOnceTheFirstDeposit")}
+                            </p>
+                          </div>
                         </div>
                       ) : null}
 

@@ -246,6 +246,58 @@ describe("review rail live regions", () => {
     expect(screen.getByRole("alert")).not.toHaveTextContent("Payout address");
   });
 
+  /**
+   * The rail used to print the validators' internal field keys verbatim ("Transfers /
+   * forwarded outputs" and friends). A key the ComponentsUserReviewPanel catalog knows
+   * resolves to its curated label; an unmapped key still renders as itself rather than
+   * hiding behind a generic label.
+   */
+  it("localizes known field keys and keeps unknown keys verbatim", () => {
+    render(
+      <UserReviewPanel
+        {...BASE}
+        readinessIssues={[]}
+        fieldErrors={{
+          "Transfers / forwarded outputs": ["Complete asset row 1 before you continue."],
+          Payouts: ["No payout is staged yet."],
+          "Unmapped future key": ["This field is required."]
+        }}
+      />
+    );
+
+    expect(screen.getByText("Destinations:")).toBeInTheDocument();
+    expect(screen.getByText("Unmapped future key:")).toBeInTheDocument();
+  });
+
+  /**
+   * Production pairs every field error with a blocking readiness issue carrying the
+   * same raw key as its label, and the rail drops the duplicate field-error row. The
+   * readiness path must localize too, or the raw key wins the dedup and renders.
+   */
+  it("localizes a field key that also arrives as a blocking readiness issue", () => {
+    render(
+      <UserReviewPanel
+        {...BASE}
+        readinessIssues={[
+          {
+            id: "transfers-blocker",
+            label: "Transfers / forwarded outputs",
+            description: "Complete asset row 1 before you continue.",
+            status: "error",
+            blocking: true
+          }
+        ]}
+        fieldErrors={{
+          "Transfers / forwarded outputs": ["Complete asset row 1 before you continue."]
+        }}
+      />
+    );
+
+    expect(screen.getByText("Destinations:")).toBeInTheDocument();
+    expect(screen.queryByText("Transfers / forwarded outputs:")).toBeNull();
+    expect(screen.getAllByText("Complete asset row 1 before you continue.")).toHaveLength(1);
+  });
+
   it("stacks issue labels above complete messages", () => {
     render(
       <UserReviewPanel
@@ -255,7 +307,7 @@ describe("review rail live regions", () => {
       />
     );
 
-    expect(screen.getByText("Assets to lock:")).toHaveClass("block");
+    expect(screen.getByText("Assets to add:")).toHaveClass("block");
     expect(screen.getByText("Complete asset row 1 before you continue.")).toHaveClass(
       "block",
       "text-pretty"
@@ -267,6 +319,64 @@ describe("review rail live regions", () => {
 
     expect(screen.queryByText("Something needs attention")).toBeNull();
     expect(screen.queryByText("Payout address: This field is required.")).toBeNull();
+  });
+
+  const LOADING_ISSUES: Pick<ComponentProps<typeof UserReviewPanel>, "readinessIssues"> = {
+    readinessIssues: [
+      {
+        id: "stt-reference",
+        key: "stt-reference",
+        label: "Setup helper",
+        description: "Checking service availability.",
+        recovery: "Wait a moment; this check finishes on its own.",
+        status: "warning",
+        blocking: true,
+        transient: true
+      },
+      {
+        id: "locked-utxos",
+        key: "locked-utxos",
+        label: "Wallet funds",
+        description: "Refreshing wallet funds now.",
+        recovery: "Wait a moment; this check finishes on its own.",
+        status: "warning",
+        blocking: true,
+        transient: true
+      }
+    ]
+  };
+
+  /**
+   * While the page loads, the readiness gate reports the checks still running (setup
+   * helper, wallet funds). Those resolve on their own, so the amber alarm must not
+   * fire for them; the rail would otherwise open on "Something needs attention"
+   * before the user can act on anything.
+   */
+  it("does not raise the alarm while setup checks are still running", () => {
+    render(<UserReviewPanel {...BASE} {...LOADING_ISSUES} />);
+
+    expect(screen.queryByText("Something needs attention")).toBeNull();
+    expect(screen.queryByText("Checking service availability.")).toBeNull();
+    expect(screen.queryByText("Refreshing wallet funds now.")).toBeNull();
+  });
+
+  /**
+   * A running check must not hide real problems, either: with the wallet still
+   * refreshing and a genuine blocker beside it, only the genuine blocker is listed.
+   */
+  it("still lists real issues beside a running check", () => {
+    render(
+      <UserReviewPanel
+        {...BASE}
+        readinessIssues={[...LOADING_ISSUES.readinessIssues, ...ISSUES.readinessIssues]}
+        fieldErrors={ISSUES.fieldErrors}
+      />
+    );
+
+    expect(screen.getByText("Something needs attention")).toBeInTheDocument();
+    expect(screen.getByText("Receive address:")).toBeInTheDocument();
+    expect(screen.getByText("Choose a smart wallet first.")).toBeInTheDocument();
+    expect(screen.queryByText("Checking service availability.")).toBeNull();
   });
 
   it("shows the success copy without an ASCII receipt", () => {
@@ -331,5 +441,53 @@ describe("review rail receipt heading", () => {
     );
 
     expect(screen.getByText("What will happen")).toBeInTheDocument();
+  });
+});
+
+/**
+ * The review rail's CTA icons carried no `aria-hidden`, so a screen reader
+ * could announce "image" between the button's own words.
+ */
+describe("review rail CTA icons", () => {
+  function assertIconHidden(button: HTMLElement) {
+    const icon = button.querySelector("svg");
+    expect(icon).not.toBeNull();
+    expect(icon).toHaveAttribute("aria-hidden", "true");
+  }
+
+  it("hides the direct-sign arrow", () => {
+    render(<UserReviewPanel {...BASE} />);
+
+    assertIconHidden(screen.getByRole("button", { name: "Send funds" }));
+  });
+
+  it("hides the approval shield", () => {
+    render(
+      <UserReviewPanel
+        {...BASE}
+        primaryActionKind="approval"
+        primaryActionLabel="Save as approval request"
+      />
+    );
+
+    assertIconHidden(screen.getByRole("button", { name: "Save as approval request" }));
+  });
+
+  it("hides the busy spinner", () => {
+    render(<UserReviewPanel {...BASE} isBuilding />);
+
+    assertIconHidden(screen.getByRole("button", { name: "Send funds" }));
+  });
+
+  it("hides the secondary shield", () => {
+    render(
+      <UserReviewPanel
+        {...BASE}
+        secondaryActionLabel="Save as approval request"
+        onSecondaryAction={() => {}}
+      />
+    );
+
+    assertIconHidden(screen.getAllByRole("button")[1]);
   });
 });

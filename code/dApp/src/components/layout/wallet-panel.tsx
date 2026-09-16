@@ -394,7 +394,8 @@ export function WalletConnectionDialog({
                       type="button"
                       disabled={isConnecting}
                       aria-busy={connecting || undefined}
-                      aria-pressed={active || undefined}
+                      // No `aria-pressed`: connecting is an action, not a toggle. The
+                      // active state is already announced by the card's "Connected" badge.
                       onClick={() => {
                         void (async () => {
                           try {

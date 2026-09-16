@@ -312,3 +312,224 @@ it("keeps a cancelled pairing's failure off the screen", async () => {
   });
   expect(screen.getByTestId("status").textContent).toBe("idle");
 });
+
+it("expires a stalled pairing and reaps a session approved after expiry", async () => {
+  // The provider arms its own 300s deadline (the relay-side proposal TTL) rather than
+  // depending on when the library's rejection timers happen to run.
+  vi.useFakeTimers();
+  try {
+    let approve!: (session: { topic: string }) => void;
+    mocks.connect.mockResolvedValue({
+      uri: "wc:topic@2",
+      approval: () =>
+        new Promise((resolve) => {
+          approve = resolve;
+        })
+    });
+    render(
+      <WalletConnectProvider>
+        <Probe />
+      </WalletConnectProvider>
+    );
+
+    await act(async () => {
+      screen.getByRole("button", { name: "pair" }).click();
+    });
+    expect(screen.getByTestId("status").textContent).toBe("awaiting-approval");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(299_999);
+    });
+    expect(screen.getByTestId("status").textContent).toBe("awaiting-approval");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(screen.getByTestId("status").textContent).toBe("expired");
+
+    await act(async () => {
+      approve({ topic: "late-session" });
+    });
+    expect(screen.getByTestId("status").textContent).toBe("expired");
+    expect(mocks.disconnect).toHaveBeenCalledWith(
+      expect.objectContaining({ topic: "late-session" })
+    );
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it("keeps a stale attempt's late rejection from clearing the live pairing's timer", async () => {
+  // A throttled background tab can deliver the first attempt's "Proposal expired"
+  // rejection long after the user re-paired. That stale rejection must not remove
+  // the deadline of the pairing now on screen.
+  vi.useFakeTimers();
+  try {
+    let rejectFirst!: (error: unknown) => void;
+    mocks.connect.mockImplementationOnce(() =>
+      Promise.resolve({
+        uri: "wc:one@2",
+        approval: () =>
+          new Promise((_, rejectPromise) => {
+            rejectFirst = rejectPromise;
+          })
+      })
+    );
+    render(
+      <WalletConnectProvider>
+        <Probe />
+      </WalletConnectProvider>
+    );
+
+    await act(async () => {
+      screen.getByRole("button", { name: "pair" }).click();
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300_000);
+    });
+    expect(screen.getByTestId("status").textContent).toBe("expired");
+
+    mocks.connect.mockImplementationOnce(() =>
+      Promise.resolve({
+        uri: "wc:two@2",
+        approval: () => new Promise(() => undefined)
+      })
+    );
+    await act(async () => {
+      screen.getByRole("button", { name: "pair" }).click();
+    });
+    expect(screen.getByTestId("status").textContent).toBe("awaiting-approval");
+
+    await act(async () => {
+      rejectFirst({ message: "Proposal expired", code: 0 });
+    });
+    expect(screen.getByTestId("status").textContent).toBe("awaiting-approval");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300_000);
+    });
+    expect(screen.getByTestId("status").textContent).toBe("expired");
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it("keeps a cancelled pairing from expiring on screen later", async () => {
+  vi.useFakeTimers();
+  try {
+    mocks.connect.mockResolvedValue({
+      uri: "wc:topic@2",
+      approval: () => new Promise(() => undefined)
+    });
+    render(
+      <WalletConnectProvider>
+        <Probe />
+      </WalletConnectProvider>
+    );
+
+    await act(async () => {
+      screen.getByRole("button", { name: "pair" }).click();
+    });
+    await act(async () => {
+      screen.getByRole("button", { name: "cancel" }).click();
+    });
+    expect(screen.getByTestId("status").textContent).toBe("idle");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300_000);
+    });
+    expect(screen.getByTestId("status").textContent).toBe("idle");
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it("starts a fresh pairing from the expired state", async () => {
+  vi.useFakeTimers();
+  try {
+    let approveFirst!: (session: { topic: string }) => void;
+    mocks.connect.mockImplementationOnce(() =>
+      Promise.resolve({
+        uri: "wc:one@2",
+        approval: () =>
+          new Promise((resolve) => {
+            approveFirst = resolve;
+          })
+      })
+    );
+    render(
+      <WalletConnectProvider>
+        <Probe />
+      </WalletConnectProvider>
+    );
+
+    await act(async () => {
+      screen.getByRole("button", { name: "pair" }).click();
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300_000);
+    });
+    expect(screen.getByTestId("status").textContent).toBe("expired");
+
+    mocks.connect.mockImplementationOnce(() =>
+      Promise.resolve({
+        uri: "wc:two@2",
+        approval: async () => ({ topic: "second", acknowledged: true })
+      })
+    );
+    await act(async () => {
+      screen.getByRole("button", { name: "pair" }).click();
+    });
+    await act(async () => undefined);
+
+    expect(screen.getByTestId("status").textContent).toBe("connected");
+    expect(screen.getByTestId("topic").textContent).toBe("second");
+
+    // The dead first attempt still cannot reach the screen or state.
+    await act(async () => {
+      approveFirst({ topic: "late-first" });
+    });
+    expect(screen.getByTestId("status").textContent).toBe("connected");
+    expect(mocks.disconnect).toHaveBeenCalledWith(
+      expect.objectContaining({ topic: "late-first" })
+    );
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it("treats the library's own expiry rejection as expired, not an error", async () => {
+  // sign-client can reject the approval with its relay-side proposal expiry before
+  // the provider's timer fires, and it does so in two shapes: an Error from the
+  // promise's own timeout, and a plain `{ message, code }` from the expirer path.
+  // The state must land on "expired" either way.
+  for (const rejection of [
+    new Error("Proposal expired"),
+    { message: "Proposal expired", code: 0 }
+  ]) {
+    let reject!: (error: unknown) => void;
+    mocks.connect.mockResolvedValue({
+      uri: "wc:topic@2",
+      approval: () =>
+        new Promise((_, rejectPromise) => {
+          reject = rejectPromise;
+        })
+    });
+    const view = render(
+      <WalletConnectProvider>
+        <Probe />
+      </WalletConnectProvider>
+    );
+
+    await act(async () => {
+      screen.getByRole("button", { name: "pair" }).click();
+    });
+    await act(async () => {
+      reject(rejection);
+    });
+
+    expect(screen.getByTestId("status").textContent).toBe("expired");
+    expect(screen.getByTestId("error").textContent).toBe("");
+    view.unmount();
+  }
+});

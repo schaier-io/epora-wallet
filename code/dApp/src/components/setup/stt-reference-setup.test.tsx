@@ -27,10 +27,14 @@ vi.mock("next/navigation", () => ({
 vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => ({
     build: "Build setup transaction",
+    building: "Building…",
     checkAgain: "Check again",
+    checking: "Checking…",
+    confirming: "Confirming on-chain…",
     connect: "Connect wallet",
     deploy: "Sign and deploy",
     ready: "Setup transaction ready",
+    submitting: "Waiting for your signature…",
     title: "Set up the shared STT reference"
   })[key] ?? key
 }));
@@ -135,6 +139,7 @@ describe("STT reference setup", () => {
     await act(async () => undefined);
 
     expect(screen.getByText("Deploy reference with 5 ADA")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Build setup transaction" })).not.toBeInTheDocument();
     expect(mocks.signAndSubmit).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Sign and deploy" }));
@@ -226,5 +231,61 @@ describe("STT reference setup", () => {
     expect(mocks.signAndSubmit).toHaveBeenCalledTimes(1);
     expect(mocks.replace).toHaveBeenCalledWith("/");
     vi.useRealTimers();
+  });
+
+  it("shows the checking label while the initial store lookup is pending", () => {
+    mocks.detect.mockImplementation(() => new Promise(() => undefined));
+
+    render(<SttReferenceSetup initialStore={null} />);
+
+    expect(screen.getByRole("button", { name: "Checking…" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Build setup transaction" })).not.toBeInTheDocument();
+  });
+
+  it("shows phase labels while building and waiting for the wallet signature", async () => {
+    let resolveBuild!: (value: unknown) => void;
+    mocks.build.mockImplementation(() => new Promise((resolve) => {
+      resolveBuild = resolve;
+    }));
+
+    render(<SttReferenceSetup initialStore={missingStore} />);
+    fireEvent.click(screen.getByRole("button", { name: "Build setup transaction" }));
+    expect(screen.getByRole("button", { name: "Building…" })).toBeDisabled();
+
+    await act(async () => {
+      resolveBuild({
+        estimatedFeeLovelace: "190000",
+        preview: { summary: "Deploy reference with 5 ADA" },
+        referenceScriptOutputIndex: 0,
+        signerAddress: "addr_test1_signer",
+        txHex: "84a400"
+      });
+    });
+
+    mocks.signAndSubmit.mockImplementation(() => new Promise(() => undefined));
+    fireEvent.click(screen.getByRole("button", { name: "Sign and deploy" }));
+    expect(screen.getByRole("button", { name: "Waiting for your signature…" })).toBeDisabled();
+  });
+
+  it("keeps the confirming label while the submitted reference is being confirmed", async () => {
+    mocks.detect.mockImplementation(() => new Promise(() => undefined));
+    mocks.build.mockResolvedValue({
+      estimatedFeeLovelace: "190000",
+      preview: { summary: "Deploy reference with 5 ADA" },
+      referenceScriptOutputIndex: 0,
+      signerAddress: "addr_test1_signer",
+      txHex: "84a400"
+    });
+    mocks.signAndSubmit.mockResolvedValue("ef".repeat(32));
+
+    render(<SttReferenceSetup initialStore={missingStore} />);
+    fireEvent.click(screen.getByRole("button", { name: "Build setup transaction" }));
+    await act(async () => undefined);
+    fireEvent.click(screen.getByRole("button", { name: "Sign and deploy" }));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(screen.getByRole("button", { name: "Confirming on-chain…" })).toBeDisabled();
   });
 });

@@ -3,7 +3,7 @@ import { useTranslations } from "next-intl";
 import { resolveAssetIdentity } from "@/lib/cardano-assets";
 import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAtomValue, useSetAtom } from "jotai";
 import { CircleSlash, HandCoins, Loader2, RefreshCw, Wallet } from "lucide-react";
 
@@ -17,6 +17,7 @@ import {
   CardTitle
 } from "@/components/ui/card";
 import { CopyButton } from "@/components/ui/copy-button";
+import { PopupDialog } from "@/components/ui/popup-dialog";
 import { pageHeadingClass } from "@/components/ui/page-heading";
 import { type DetectedSttToken } from "@/lib/mesh/detection";
 import { buildSttSpendTx, getValidityWindow, signAndSubmitTx } from "@/lib/mesh/transactions";
@@ -55,6 +56,7 @@ type RowActionState =
   | { status: "idle" }
   | { status: "submitting" }
   | { status: "done"; txHash: string }
+  | { status: "declined" }
   | { status: "error"; message: string };
 
 function streamKey(payment: PayeeStreamingPayment): string {
@@ -137,6 +139,19 @@ export function PayeeView() {
   const [shortenStates, setShortenStates] = useState<Record<string, RowActionState>>({});
   const [collectStates, setCollectStates] = useState<Record<string, RowActionState>>({});
   const [actionAnnouncement, setActionAnnouncement] = useState("");
+  // The warning review dialog. The ref holds the pending promise's resolve so the
+  // suspended collect resumes with the reader's answer, and the state mirrors the
+  // warnings for the render. Unmounting settles the review as a decline, so the
+  // suspended collect still finishes and releases its State input lease.
+  const [warningReview, setWarningReview] = useState<readonly string[] | null>(null);
+  const warningReviewRef = useRef<{ resolve: (approved: boolean) => void } | null>(null);
+  const settleWarningReview = useCallback((approved: boolean) => {
+    const review = warningReviewRef.current;
+    warningReviewRef.current = null;
+    setWarningReview(null);
+    review?.resolve(approved);
+  }, []);
+  useEffect(() => () => settleWarningReview(false), [settleWarningReview]);
   const pendingStateInputs = useAtomValue(pendingPayeeInputActionsAtom);
   const beginStateInputAction = useSetAtom(beginPayeeInputActionAtom);
   const markStateInputSubmitted = useSetAtom(markPayeeInputSubmittedAtom);
@@ -187,22 +202,38 @@ export function PayeeView() {
           // this sentence never reached the user: they got the generic collect failure.
           throw new PayeeCollectBlockedError(i18n("theWalletHoldingThisPaymentCouldNotBe"));
         }
-        const txHash = await runPayeeCollect({
+        const outcome = await runPayeeCollect({
           wallet: activeWallet,
           payment,
           stateDatum: token.datum,
           payeePaymentKeyHash: activePaymentKeyHash ?? "",
           nowMs: Date.now(),
-          confirmWarnings: (warnings) =>
-            window.confirm(
-              i18n("reviewTheseWarningsBeforeYouSignContinue", {
-                warnings: warnings.join("\n\n")
-              })
-            )
+          confirmWarnings: (warnings) => {
+            // The dialog is modal, so a second review can only come from a
+            // racing action on another row. Decline it quietly instead of
+            // queueing a second modal over the first.
+            if (warningReviewRef.current) {
+              return Promise.resolve(false);
+            }
+            return new Promise<boolean>((resolve) => {
+              warningReviewRef.current = { resolve };
+              setWarningReview(warnings);
+            });
+          }
         });
+        if (outcome.status === "declined") {
+          // A declined review is the reader's choice, not a failed payment.
+          // The row goes back to collectable with one quiet note.
+          setCollectStates((prev) => ({ ...prev, [key]: { status: "declined" } }));
+          setActionAnnouncement(i18n("nothingWasSigned"));
+          return;
+        }
         submitted = true;
-        markStateInputSubmitted({ key: inputKey, txHash });
-        setCollectStates((prev) => ({ ...prev, [key]: { status: "done", txHash } }));
+        markStateInputSubmitted({ key: inputKey, txHash: outcome.txHash });
+        setCollectStates((prev) => ({
+          ...prev,
+          [key]: { status: "done", txHash: outcome.txHash }
+        }));
         setActionAnnouncement(i18n("sentTheListUpdatesAfterTheNextRefresh"));
         // Re-read the advanced paid-out total and the shared cooldown stamp.
         await loadTokens();
@@ -441,6 +472,8 @@ export function PayeeView() {
                   : shortenState.status === "done" ? shortenState.txHash : null;
                 // One line per row. Up to five used to stack here, so a row could carry an
                 // error, a transaction id, a cooldown and a "nothing owed" note at once.
+                // The cooldown note outranks the declined note: the cooldown says why the
+                // button is off right now, while a decline only reports the last attempt.
                 const status: { text: string; tone: "error" | "done" | "note" } | null =
                   collectState.status === "error"
                     ? { text: collectState.message, tone: "error" }
@@ -456,11 +489,13 @@ export function PayeeView() {
                               }),
                               tone: "note"
                             }
-                          : nothingOwed
-                            ? { text: i18n("nothingIsOwedToYouYetTheAmount"), tone: "note" }
-                            : !alreadyEnded && cannotShorten
-                              ? { text: i18n("thisPaymentEndsTooSoonToShortenIt"), tone: "note" }
-                              : null;
+                          : collectState.status === "declined"
+                            ? { text: i18n("nothingWasSigned"), tone: "note" }
+                            : nothingOwed
+                              ? { text: i18n("nothingIsOwedToYouYetTheAmount"), tone: "note" }
+                              : !alreadyEnded && cannotShorten
+                                ? { text: i18n("thisPaymentEndsTooSoonToShortenIt"), tone: "note" }
+                                : null;
                 return (
                   <li
                     key={key}
@@ -576,6 +611,47 @@ export function PayeeView() {
           )}
         </CardContent>
       </Card>
+      {/* The builder found something the reader should see before the wallet asks
+          for a signature. Each warning is one bordered row, in the page's warning
+          amber, so a list reads as a list rather than one truncated sentence. */}
+      <PopupDialog
+        open={warningReview !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            settleWarningReview(false);
+          }
+        }}
+        title={i18n("reviewTheseWarningsBeforeYouSign")}
+        description={i18n("thePayoutIsBuiltReadEachWarning")}
+      >
+        {warningReview ? (
+          <div className="flex flex-col gap-4">
+            <ul className="space-y-2">
+              {warningReview.map((warning, index) => (
+                <li
+                  key={`${index}:${warning}`}
+                  className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-foreground"
+                >
+                  {warning}
+                </li>
+              ))}
+            </ul>
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => settleWarningReview(false)}
+              >
+                {i18n("cancel")}
+              </Button>
+              <Button type="button" size="sm" onClick={() => settleWarningReview(true)}>
+                {i18n("continue")}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </PopupDialog>
     </div>
   );
 }

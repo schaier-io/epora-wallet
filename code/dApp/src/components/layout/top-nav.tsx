@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAtom, useAtomValue } from "jotai";
 import { Loader2, PlugZap, Wallet2 } from "lucide-react";
 import { WalletSessionProfileCard } from "@/components/user/wallet-session-profile-card";
@@ -121,6 +121,9 @@ export function TopNav() {
   const [dialogOpen, setDialogOpen] = useAtom(walletConnectionDialogOpenAtom);
   const workspaceOwnsDialog = useAtomValue(walletConnectionDialogMountedAtom);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  // Escape hands focus back to the toggle that opened the panel; without it the
+  // reader landed on `<body>` and lost their place in the page.
+  const mobileNavToggleRef = useRef<HTMLButtonElement>(null);
 
   const handleOpen = useCallback(() => setDialogOpen(true), [setDialogOpen]);
   const closeMobileNav = useCallback(() => setMobileNavOpen(false), []);
@@ -133,6 +136,10 @@ export function TopNav() {
     }
     const handleKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        // Close, then the reader's place is the toggle that opened the panel,
+        // not `<body>`. Focus before the state flip so the move is not lost
+        // if a render swallows the focus attempt.
+        mobileNavToggleRef.current?.focus();
         setMobileNavOpen(false);
       }
     };
@@ -310,6 +317,7 @@ export function TopNav() {
             {/* The three bars are separate spans so opening can morph them into an X:
                 outer bars walk inward while rotating, the middle one thins away. */}
             <button
+              ref={mobileNavToggleRef}
               type="button"
               onClick={() => setMobileNavOpen((open) => !open)}
               aria-expanded={mobileNavOpen}

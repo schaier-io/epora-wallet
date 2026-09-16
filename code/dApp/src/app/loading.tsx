@@ -4,8 +4,7 @@ import { SkeletonCard } from "@/components/ui/skeleton";
 import { COPY } from "@/lib/copy";
 
 /**
- * Route-level fallback for every segment without one of its own, which today is `/` (a
- * redirect to `/user`) and `/payee`.
+ * Route-level fallback for every segment without one of its own, which today is `/` and `/payee`.
  *
  * It used to read "Loading wallet…". A payee owns no wallet here -- `/payee` exists so
  * someone who is *paid* by an Epora wallet can see what is owed -- so the one noun on the

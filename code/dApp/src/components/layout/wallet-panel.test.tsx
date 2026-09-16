@@ -67,6 +67,19 @@ describe("wallet connection dialog", () => {
     expect(document.body.textContent).toContain("such as Lace, Eternl, or Vespr.");
   });
 
+  it("never announces the connect button as a toggle", () => {
+    ctx.walletsLoaded = true;
+    ctx.installedWallets = [demoWallet];
+    ctx.activeWalletName = demoWallet.id;
+    render(<WalletConnectionDialog open onOpenChange={() => {}} />);
+
+    // Connecting is an action, not a toggle; the active state is announced by
+    // the card's "Connected" badge, which is inside the button's own name.
+    const button = screen.getByRole("button", { name: /Demo wallet/ });
+    expect(button).not.toHaveAttribute("aria-pressed");
+    expect(screen.getByText("Connected")).toBeTruthy();
+  });
+
   it("keeps the smart-wallet step out of sight until a wallet is connected", () => {
     ctx.walletsLoaded = true;
     ctx.installedWallets = [eternl];

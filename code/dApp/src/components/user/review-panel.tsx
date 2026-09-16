@@ -15,6 +15,7 @@ import {
   buildCardanoscanTransactionUrl,
   formatCompactHash
 } from "@/components/user/workspace/helpers";
+import { getFieldErrorLabel } from "@/components/user/workspace/field-error-labels";
 import {
   AnimatedContent,
   FadeContent
@@ -163,13 +164,24 @@ export function UserReviewPanel({
   const resolvedDescription = description ?? i18n("checkWhatSAboutToHappenThenSign");
   const ActionIcon = definition.icon;
   const showSurfaceSummary = !isImplicitLockedInputSurfaceLabel(definition.surfaceLabel);
+  // Checks that are still running (`transient`, set while the page loads) stay blocking
+  // in the readiness gate, so they keep the submit button and the drafts honest. They
+  // just must not headline the alarm box: "Something needs attention" over "Checking
+  // service availability" reads as a complaint about work that resolves on its own.
+  const attentionIssues = readinessIssues.filter((issue) => !issue.transient);
   const { primary: primaryBlockingIssue, additional: otherBlockingIssues, fieldErrors: flattenedErrors } =
-    summarizeBlockers(readinessIssues, fieldErrors);
+    summarizeBlockers(attentionIssues, fieldErrors);
+  // Field-derived readiness issues carry the validators' raw field key as their label.
+  // Both sources resolve through the same localizer, so a key that arrives twice (as a
+  // blocking issue and as a field error) localizes identically and dedups.
+  const blockingIssues = (
+    primaryBlockingIssue ? [primaryBlockingIssue, ...otherBlockingIssues] : []
+  ).map((issue) => ({ ...issue, label: getFieldErrorLabel(issue.label, i18n) }));
   const issues = [
-    ...(primaryBlockingIssue ? [primaryBlockingIssue, ...otherBlockingIssues] : []),
+    ...blockingIssues,
     ...flattenedErrors.map((entry, index) => ({
       id: `${entry.key}-${index}`,
-      label: entry.key,
+      label: getFieldErrorLabel(entry.key, i18n),
       description: entry.message,
       recovery: undefined
     }))
@@ -463,12 +475,12 @@ export function UserReviewPanel({
             }
             className={REVIEW_RAIL_BUTTON}
           >
-            {primaryActionBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            {primaryActionBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
             {!primaryActionBusy ? (
               primaryActionKind === "approval" ? (
-                <ShieldPlus className="h-4 w-4" />
+                <ShieldPlus className="h-4 w-4" aria-hidden="true" />
               ) : (
-                <ArrowRight className="h-4 w-4" />
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
               )
             ) : null}
             {primaryActionLabel}
@@ -482,7 +494,7 @@ export function UserReviewPanel({
               aria-describedby={approvalActionNote ? approvalActionNoteId : undefined}
               className={REVIEW_RAIL_BUTTON}
             >
-              <ShieldPlus className="h-4 w-4" />
+              <ShieldPlus className="h-4 w-4" aria-hidden="true" />
               {secondaryActionLabel}
             </Button>
           ) : null}

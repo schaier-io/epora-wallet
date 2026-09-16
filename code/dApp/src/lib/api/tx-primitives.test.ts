@@ -3,6 +3,7 @@ import test from "node:test";
 import { serializeData } from "@meshsdk/core";
 import {
   ConstrDataSchema,
+  HashHexSchema,
   OnChainUint64Schema,
   QuantitySchema,
   stringifyTxRequestBody
@@ -14,6 +15,24 @@ test("quantity schema accepts the uint64 maximum", () => {
     QuantitySchema.safeParse(MAX_ON_CHAIN_STATE_INTEGER.toString()).success,
     true
   );
+});
+
+test("credential hash schema parses uppercase and lowercase to the same lowercase value", () => {
+  const lower = "ab".repeat(28);
+  const mixed = lower
+    .split("")
+    .map((character, index) => (index % 2 === 0 ? character.toUpperCase() : character))
+    .join("");
+
+  assert.equal(HashHexSchema.parse(lower), lower);
+  assert.equal(HashHexSchema.parse(mixed), lower);
+  assert.equal(HashHexSchema.parse(mixed.toUpperCase()), lower);
+});
+
+test("credential hash schema still rejects wrong lengths and non-hex text", () => {
+  assert.equal(HashHexSchema.safeParse("ab".repeat(27)).success, false);
+  assert.equal(HashHexSchema.safeParse("ab".repeat(29)).success, false);
+  assert.equal(HashHexSchema.safeParse(`${"gh".repeat(28)}`).success, false);
 });
 
 test("quantity schema rejects uint64 maximum plus one", () => {

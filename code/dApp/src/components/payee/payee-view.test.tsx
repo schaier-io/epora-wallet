@@ -182,6 +182,11 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
+/** The mocked `runPayeeCollect` outcome, matching the real function's contract. */
+function submittedCollect(txHash: string): { status: "submitted"; txHash: string } {
+  return { status: "submitted", txHash };
+}
+
 beforeEach(() => {
   notifyManager.setScheduler(queueMicrotask);
   payeeStore = createStore();
@@ -204,7 +209,7 @@ beforeEach(() => {
   actions.build.mockReset();
   actions.build.mockResolvedValue({ txHex: "84a0" });
   actions.collect.mockReset();
-  actions.collect.mockResolvedValue("ab".repeat(32));
+  actions.collect.mockResolvedValue(submittedCollect("ab".repeat(32)));
   actions.submit.mockReset();
   actions.submit.mockResolvedValue("cd".repeat(32));
   actions.copy.mockReset();
@@ -408,7 +413,7 @@ describe("a row", () => {
   it("blocks a sibling stream that spends the same State UTxO", async () => {
     const first = payment();
     const sibling = payment({ streamingPaymentId: 2 });
-    const pending = deferred<string>();
+    const pending = deferred<ReturnType<typeof submittedCollect>>();
     chain.scan.mockReturnValue(scanOf([first, sibling]));
     chain.detect.mockResolvedValue({ tokens: [detectedTokenFor(first)] });
     actions.collect.mockReturnValue(pending.promise);
@@ -420,12 +425,12 @@ describe("a row", () => {
 
     expect(actions.collect).toHaveBeenCalledTimes(1);
     expect(collectButtons[1]).toBeDisabled();
-    await act(async () => pending.resolve("ab".repeat(32)));
+    await act(async () => pending.resolve(submittedCollect("ab".repeat(32))));
   });
 
   it("keeps a collect pending when the page remounts before signing finishes", async () => {
     const current = payment();
-    const pending = deferred<string>();
+    const pending = deferred<ReturnType<typeof submittedCollect>>();
     chain.scan.mockReturnValue(scanOf([current]));
     chain.detect.mockResolvedValue({ tokens: [detectedTokenFor(current)] });
     actions.collect.mockReturnValue(pending.promise);
@@ -439,7 +444,7 @@ describe("a row", () => {
     expect(screen.getByRole("button", { name: "Shorten payment" })).toBeDisabled();
     expect(actions.collect).toHaveBeenCalledTimes(1);
 
-    await act(async () => pending.resolve("ab".repeat(32)));
+    await act(async () => pending.resolve(submittedCollect("ab".repeat(32))));
     expect(screen.getByRole("button", { name: "Collected" })).toBeDisabled();
     expect(screen.getByTitle("ab".repeat(32))).toBeInTheDocument();
     expect(chain.detect).toHaveBeenCalledTimes(1);
@@ -447,7 +452,7 @@ describe("a row", () => {
 
   it("releases a failed collect after its page unmounts", async () => {
     const current = payment();
-    const pending = deferred<string>();
+    const pending = deferred<ReturnType<typeof submittedCollect>>();
     chain.scan.mockReturnValue(scanOf([current]));
     chain.detect.mockResolvedValue({ tokens: [detectedTokenFor(current)] });
     actions.collect.mockReturnValue(pending.promise);
@@ -519,7 +524,7 @@ describe("a row", () => {
 
   it("blocks Shorten while Collect spends the same State UTxO", async () => {
     const current = payment();
-    const pending = deferred<string>();
+    const pending = deferred<ReturnType<typeof submittedCollect>>();
     chain.scan.mockReturnValue(scanOf([current]));
     chain.detect.mockResolvedValue({ tokens: [detectedTokenFor(current)] });
     actions.collect.mockReturnValue(pending.promise);
@@ -530,7 +535,7 @@ describe("a row", () => {
 
     expect(actions.collect).toHaveBeenCalledTimes(1);
     expect(actions.build).not.toHaveBeenCalled();
-    await act(async () => pending.resolve("ab".repeat(32)));
+    await act(async () => pending.resolve(submittedCollect("ab".repeat(32))));
   });
 
   it("keeps the State input locked while a refresh still returns that input", async () => {
@@ -625,7 +630,7 @@ describe("a row", () => {
     // it landed last, raising a load error over a list a newer read had already returned.
     const mine = payment();
     const other = payment({ streamingPaymentId: 2, sttInputTxHash: "22".repeat(32) });
-    const collectDone = deferred<string>();
+    const collectDone = deferred<ReturnType<typeof submittedCollect>>();
     const submitDone = deferred<string>();
     const supersededLoad = deferred<{ tokens: ReturnType<typeof detectedTokenFor>[] }>();
 
@@ -642,7 +647,7 @@ describe("a row", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "Shorten payment" })[1]!);
 
     // The collect settles first and starts the reload that the next one supersedes.
-    await act(async () => collectDone.resolve("ab".repeat(32)));
+    await act(async () => collectDone.resolve(submittedCollect("ab".repeat(32))));
     // The shorten settles next, and its reload reads the chain cleanly.
     await act(async () => submitDone.resolve("cd".repeat(32)));
     // Only now does the superseded reload fail.
@@ -710,7 +715,7 @@ describe("a row", () => {
     const other = payment({ streamingPaymentId: 2, sttInputTxHash: "22".repeat(32) });
     const mineToken = detectedTokenFor(mine);
     const otherToken = detectedTokenFor(other);
-    const collectDone = deferred<string>();
+    const collectDone = deferred<ReturnType<typeof submittedCollect>>();
     const submitDone = deferred<string>();
     const supersededLoad = deferred<{ tokens: ReturnType<typeof detectedTokenFor>[] }>();
 
@@ -740,7 +745,7 @@ describe("a row", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "Collect payment" })[0]!);
     fireEvent.click(screen.getAllByRole("button", { name: "Shorten payment" })[1]!);
 
-    await act(async () => collectDone.resolve("ab".repeat(32)));
+    await act(async () => collectDone.resolve(submittedCollect("ab".repeat(32))));
     await act(async () => submitDone.resolve("cd".repeat(32)));
     await act(async () => supersededLoad.resolve({ tokens: [otherToken] }));
 
@@ -771,17 +776,17 @@ describe("a row", () => {
     expect(screen.getByRole("button", { name: "Collect payment" })).toBeEnabled();
   });
 
-  it("gives the collector an explicit warning confirmation", async () => {
+  it("asks the collector to approve build warnings in a dialog", async () => {
     const current = payment();
-    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
     chain.scan.mockReturnValue(scanOf([current]));
     chain.detect.mockResolvedValue({ tokens: [detectedTokenFor(current)] });
     actions.collect.mockImplementation(async (input: {
-      confirmWarnings: (warnings: readonly string[]) => boolean | Promise<boolean>;
+      confirmWarnings: (warnings: readonly string[]) => Promise<boolean>;
     }) => {
       const approved = await input.confirmWarnings(["Recovery is open."]);
-      expect(approved).toBe(true);
-      return "ab".repeat(32);
+      return approved
+        ? submittedCollect("ab".repeat(32))
+        : { status: "declined" };
     });
     await renderView();
 
@@ -789,10 +794,115 @@ describe("a row", () => {
       fireEvent.click(screen.getByRole("button", { name: "Collect payment" }));
     });
 
-    expect(confirm).toHaveBeenCalledWith(
-      "Review these warnings before you sign:\n\nRecovery is open.\n\nContinue?"
-    );
-    confirm.mockRestore();
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("Review these warnings before you sign");
+    expect(dialog).toHaveTextContent("Recovery is open.");
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    });
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByTitle("ab".repeat(32))).toBeInTheDocument();
+  });
+
+  it("shows a declined review as a quiet note, not an error", async () => {
+    const current = payment();
+    chain.scan.mockReturnValue(scanOf([current]));
+    chain.detect.mockResolvedValue({ tokens: [detectedTokenFor(current)] });
+    actions.collect.mockImplementation(async (input: {
+      confirmWarnings: (warnings: readonly string[]) => Promise<boolean>;
+    }) => {
+      const approved = await input.confirmWarnings(["Recovery is open."]);
+      return approved
+        ? submittedCollect("ab".repeat(32))
+        : { status: "declined" };
+    });
+    await renderView();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Collect payment" }));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    });
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+    // The sentence shows twice by design: once in the row, once in the polite
+    // live region that announces the outcome to screen readers.
+    expect(screen.getAllByText("Nothing was signed.")).toHaveLength(2);
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByRole("button", { name: "Collect payment" })).toBeEnabled();
+    expect(actions.submit).not.toHaveBeenCalled();
+  });
+
+  it("lets a fresh cooldown note replace the declined note after a refresh", async () => {
+    // A non-owner can act on the paying wallet after the reader declines a
+    // review. The refresh then puts the row on hold, and the row's one status
+    // line must explain that, not repeat the stale decline.
+    const current = payment();
+    const heldPayment = payment({ lastNonAdminPayoutAt: NOW });
+    chain.scan.mockReturnValue(scanOf([current]));
+    chain.detect.mockResolvedValue({ tokens: [detectedTokenFor(current)] });
+    actions.collect.mockImplementation(async (input: {
+      confirmWarnings: (warnings: readonly string[]) => Promise<boolean>;
+    }) => {
+      const approved = await input.confirmWarnings(["Recovery is open."]);
+      return approved
+        ? submittedCollect("ab".repeat(32))
+        : { status: "declined" };
+    });
+    await renderView();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Collect payment" }));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    });
+    expect(screen.getAllByText("Nothing was signed.")).toHaveLength(2);
+
+    // The refetch must return different token content, or react-query's structural
+    // sharing keeps the old data reference and the scan never recomputes.
+    chain.detect.mockResolvedValue({ tokens: [] });
+    chain.scan.mockReturnValue(scanOf([heldPayment]));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    });
+
+    expect(screen.getByText(/Somebody other than an owner just acted/)).toBeInTheDocument();
+    // Only the polite announcement still carries the decline; the row itself
+    // speaks with the cooldown sentence, and the button stays off.
+    expect(screen.getAllByText("Nothing was signed.")).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Collect payment" })).toBeDisabled();
+  });
+
+  it("releases the collect when the page unmounts with the review open", async () => {
+    const current = payment();
+    chain.scan.mockReturnValue(scanOf([current]));
+    chain.detect.mockResolvedValue({ tokens: [detectedTokenFor(current)] });
+    actions.collect.mockImplementation(async (input: {
+      confirmWarnings: (warnings: readonly string[]) => Promise<boolean>;
+    }) => {
+      const approved = await input.confirmWarnings(["Recovery is open."]);
+      return approved
+        ? submittedCollect("ab".repeat(32))
+        : { status: "declined" };
+    });
+    const firstVisit = await renderView();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Collect payment" }));
+    });
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    firstVisit.unmount();
+    // The unmount settles the review as a decline; flush the resumed collect so
+    // it releases the State input lease.
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    await renderView();
+
+    expect(screen.getByRole("button", { name: "Collect payment" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Shorten payment" })).toBeEnabled();
   });
 
   it("keeps an unknown collection failure generic", async () => {

@@ -3,6 +3,7 @@ import { useTranslations } from "next-intl";
 
 import {
   AlertTriangle,
+  Check,
   CheckCircle2,
   Inbox,
   Loader2,
@@ -160,7 +161,15 @@ export function ProposalList({
                 )}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <span className="min-w-0 wrap-anywhere font-medium leading-tight">{proposal.title}</span>
+                  <span className="flex min-w-0 items-start gap-1.5 wrap-anywhere font-medium leading-tight">
+                    {/* Non-colour cue for the open request: `aria-current` carries the state
+                        to assistive tech, but the border tint alone was invisible to anyone
+                        reading by colour-blind-safe or low-contrast vision. */}
+                    {selected ? (
+                      <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" aria-hidden="true" />
+                    ) : null}
+                    {proposal.title}
+                  </span>
                   {proposal.status === "OPEN" ? (
                     <ValidityBadge validity={report?.validity} />
                   ) : (
