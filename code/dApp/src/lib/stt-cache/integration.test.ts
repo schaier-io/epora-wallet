@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
 import { after, before, beforeEach, describe, test } from "node:test";
+import type { TransactionInfo, UTxO } from "@meshsdk/common";
+import { serializeData } from "@meshsdk/core";
+import { stateFormToDatum } from "@/lib/contracts/state-form";
+import { decodeDatumFromUtxo } from "@/lib/mesh/datum";
 import type { PrismaClient } from "@/generated/prisma";
 import { lookupSttWallets } from "@/lib/stt-cache/lookup";
 import { STT_CACHE_NETWORK, STT_SYNC_CURSOR_KEYS } from "@/lib/stt-cache/domain";
@@ -10,7 +14,11 @@ import {
   runSttBackgroundSync,
   syncRecentHead
 } from "@/lib/stt-cache/indexer";
-import { fetchAndPersistTransaction, writeSyncCursor } from "@/lib/stt-cache/indexer-persistence";
+import {
+  fetchAndPersistTransaction,
+  stringifyJson,
+  writeSyncCursor
+} from "@/lib/stt-cache/indexer-persistence";
 import {
   walletIsIndexed,
   walletParticipantExists
@@ -197,6 +205,222 @@ test("reconcileWalletUnit does not roll a wallet back to an older UTxO", async (
   assert.equal(after.lastSeenBlockHeight, forwardTransaction.blockHeight);
   // The wallet was checked just now, so the freshness stamp still moves.
   assert.ok(after.lastSyncedAt !== null);
+});
+
+/**
+ * The issue #398 regression: Mesh's Blockfrost `fetchTxInfo` reports neither
+ * `blockHeight` nor `blockTime`, so a snapshot that read the chain before a newer
+ * one had nothing to be compared against and rolled `currentTxHash`, the datum and
+ * the participants back when it committed late. The ledger `slot` every Blockfrost
+ * transaction info carries is the ordering key: the late pass's transaction sits at
+ * an older slot, so only `lastSyncedAt` may move.
+ */
+test("a late metadata-less older snapshot cannot roll the wallet back", async () => {
+  const fixture = createSttFixture();
+  // The newer state projects one participant fewer than the mint state: dropping
+  // the second user removes the USER row, so a stale rewrite is observable.
+  const forwardState = { ...fixture.state, users: fixture.state.users.slice(0, 1) };
+  const forwardUtxo: UTxO = {
+    input: { txHash: "e".repeat(64), outputIndex: 0 },
+    output: {
+      ...fixture.liveUtxo.output,
+      plutusData: serializeData(stateFormToDatum(forwardState))
+    }
+  };
+  const forwardTransaction = {
+    ...fixture.mintTransaction,
+    hash: forwardUtxo.input.txHash,
+    index: 1,
+    // The pinned Blockfrost shape: a newer slot, no block position.
+    slot: "123500",
+    blockHeight: undefined,
+    blockTime: undefined,
+    inputs: [fixture.liveUtxo],
+    outputs: [forwardUtxo]
+  } satisfies TransactionInfo;
+  const base = createMockChainClient();
+  const forwardChainClient = {
+    ...base,
+    async fetchAddressUTxOs() {
+      return [forwardUtxo];
+    },
+    async fetchTxInfo() {
+      return forwardTransaction;
+    }
+  };
+  const staleChainClient = {
+    ...base,
+    async fetchTxInfo(hash: string) {
+      const info = await base.fetchTxInfo(hash);
+      return { ...info, blockHeight: undefined, blockTime: undefined };
+    }
+  };
+
+  assert.equal(
+    await reconcileWalletUnit(fixture.unit, {
+      db,
+      chainClient: forwardChainClient,
+      now: new Date(1_000)
+    }),
+    true
+  );
+  const forward = await db.sttWallet.findFirstOrThrow({ where: { unit: fixture.unit } });
+  assert.equal(forward.currentTxHash, forwardTransaction.hash);
+  assert.equal(await db.sttParticipant.count(), 4);
+
+  // A late pass that read the chain earlier: the mint UTxO, one slot behind, and
+  // carrying no block position, exactly as the pinned provider returns it.
+  assert.equal(
+    await reconcileWalletUnit(fixture.unit, {
+      db,
+      chainClient: staleChainClient,
+      now: new Date(2_000)
+    }),
+    true
+  );
+
+  const after = await db.sttWallet.findFirstOrThrow({ where: { unit: fixture.unit } });
+  assert.equal(after.currentTxHash, forwardTransaction.hash);
+  assert.equal(after.currentOutputIndex, forwardUtxo.input.outputIndex);
+  assert.equal(after.currentDatumJson, stringifyJson(decodeDatumFromUtxo(forwardUtxo)));
+  assert.equal(await db.sttParticipant.count(), 4);
+  assert.equal(
+    await db.sttParticipant.count({ where: { paymentKeyHash: TEST_REGULAR_PAYMENT_KEY_HASH } }),
+    0
+  );
+  // The wallet was checked just now, so the freshness stamp still moves.
+  assert.equal(after.lastSyncedAt?.getTime(), 2_000);
+});
+
+/**
+ * The pinned Blockfrost shape carries a slot and a transaction index but no block
+ * position, so two transitions recorded in the same block must be ordered by their
+ * index: the later one is a genuine transition and must land, and a late pass that
+ * read the earlier one cannot roll the wallet back to it.
+ */
+test("a same-block earlier snapshot cannot roll the wallet back", async () => {
+  const fixture = createSttFixture();
+  // The newer state projects one participant fewer than the mint state: dropping
+  // the second user removes the USER row, so a stale rewrite is observable.
+  const forwardState = { ...fixture.state, users: fixture.state.users.slice(0, 1) };
+  const forwardUtxo: UTxO = {
+    input: { txHash: "e".repeat(64), outputIndex: 0 },
+    output: {
+      ...fixture.liveUtxo.output,
+      plutusData: serializeData(stateFormToDatum(forwardState))
+    }
+  };
+  // Same block as the mint (`fixture.mintTransaction.slot`), one index later,
+  // and carrying no block position, exactly as the pinned provider returns it.
+  const forwardTransaction = {
+    ...fixture.mintTransaction,
+    hash: forwardUtxo.input.txHash,
+    index: 1,
+    blockHeight: undefined,
+    blockTime: undefined,
+    inputs: [fixture.liveUtxo],
+    outputs: [forwardUtxo]
+  } satisfies TransactionInfo;
+  const base = createMockChainClient();
+  const forwardChainClient = {
+    ...base,
+    async fetchAddressUTxOs() {
+      return [forwardUtxo];
+    },
+    async fetchTxInfo() {
+      return forwardTransaction;
+    }
+  };
+  const staleChainClient = {
+    ...base,
+    async fetchTxInfo(hash: string) {
+      const info = await base.fetchTxInfo(hash);
+      return { ...info, blockHeight: undefined, blockTime: undefined };
+    }
+  };
+
+  assert.equal(
+    await reconcileWalletUnit(fixture.unit, { db, chainClient: base, now: new Date(1_000) }),
+    true
+  );
+  assert.equal(
+    await reconcileWalletUnit(fixture.unit, {
+      db,
+      chainClient: forwardChainClient,
+      now: new Date(2_000)
+    }),
+    true
+  );
+  const forward = await db.sttWallet.findFirstOrThrow({ where: { unit: fixture.unit } });
+  assert.equal(forward.currentTxHash, forwardTransaction.hash);
+  assert.equal(await db.sttParticipant.count(), 4);
+
+  // A late pass that read the mint, one index behind in the same block.
+  assert.equal(
+    await reconcileWalletUnit(fixture.unit, {
+      db,
+      chainClient: staleChainClient,
+      now: new Date(3_000)
+    }),
+    true
+  );
+
+  const after = await db.sttWallet.findFirstOrThrow({ where: { unit: fixture.unit } });
+  assert.equal(after.currentTxHash, forwardTransaction.hash);
+  assert.equal(after.currentOutputIndex, forwardUtxo.input.outputIndex);
+  assert.equal(after.currentDatumJson, stringifyJson(decodeDatumFromUtxo(forwardUtxo)));
+  assert.equal(await db.sttParticipant.count(), 4);
+  assert.equal(
+    await db.sttParticipant.count({ where: { paymentKeyHash: TEST_REGULAR_PAYMENT_KEY_HASH } }),
+    0
+  );
+  // The wallet was checked just now, so the freshness stamp still moves.
+  assert.equal(after.lastSyncedAt?.getTime(), 3_000);
+});
+
+/**
+ * The guard must only reject snapshots that are provably older. A metadata-less
+ * read at a newer slot is a genuine wallet transition and must land.
+ */
+test("a genuinely newer metadata-less snapshot still updates the wallet", async () => {
+  const fixture = createSttFixture();
+  const forwardTransaction = {
+    ...buildForwardTransaction(),
+    slot: "123500",
+    blockHeight: undefined,
+    blockTime: undefined
+  } satisfies TransactionInfo;
+  const forwardUtxo = forwardTransaction.outputs[0]!;
+  const base = createMockChainClient();
+  const forwardChainClient = {
+    ...base,
+    async fetchAddressUTxOs() {
+      return [forwardUtxo];
+    },
+    async fetchTxInfo() {
+      return forwardTransaction;
+    }
+  };
+
+  assert.equal(
+    await reconcileWalletUnit(fixture.unit, { db, chainClient: base, now: new Date(1_000) }),
+    true
+  );
+  assert.equal(
+    await reconcileWalletUnit(fixture.unit, {
+      db,
+      chainClient: forwardChainClient,
+      now: new Date(2_000)
+    }),
+    true
+  );
+
+  const after = await db.sttWallet.findFirstOrThrow({ where: { unit: fixture.unit } });
+  assert.equal(after.currentTxHash, forwardTransaction.hash);
+  assert.equal(after.currentOutputIndex, forwardUtxo.input.outputIndex);
+  // The metadata-less write must not blank what the positioned first pass recorded.
+  assert.equal(after.lastSeenBlockHeight, fixture.mintTransaction.blockHeight);
+  assert.equal(await db.sttParticipant.count(), 5);
 });
 
 /**

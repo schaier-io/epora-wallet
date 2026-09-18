@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { BlockfrostProvider } from "@meshsdk/core";
 import { createSttChainClient, normalizeTransactionInfoUtxos } from "./chain";
+import { withPageMetadata } from "./indexer-persistence";
 import { extractTouchedWalletUnits } from "./domain";
 import type { TransactionInfo } from "@meshsdk/common";
 
@@ -232,4 +234,70 @@ test("fetchCollectionAssets surfaces an upstream failure and pages by 100", asyn
   assert.equal(first.next, 2);
   const second = await client.fetchCollectionAssets(POLICY, first.next ?? undefined);
   assert.deepEqual(second, { assets: [{ unit: UNIT, quantity: "1" }], next: null });
+});
+
+// --- the pinned provider's transaction info shape -----------------------------
+//
+// The stale-snapshot guard in `reconcileWalletAsset` orders snapshots by the
+// ledger `slot`, because the pinned provider reports no other position. Both
+// tests below pin that dependency against the actually installed package, not
+// a remembered one.
+
+/**
+ * @meshsdk/provider@1.9.0-beta.101 (re-exported by @meshsdk/core) builds its
+ * Blockfrost `fetchTxInfo` response from `GET /txs/{hash}` with `slot` and
+ * without `blockHeight` or `blockTime`. A provider upgrade that drops `slot`
+ * or starts reporting a block position must fail here before it silently
+ * disables or misorders the stale-snapshot guard.
+ */
+test("the pinned Blockfrost fetchTxInfo reports a slot and no block position", () => {
+  const source = BlockfrostProvider.prototype.fetchTxInfo.toString();
+
+  assert.match(source, /slot:\s*txData\.slot\.toString\(\)/);
+  assert.doesNotMatch(source, /blockHeight/);
+  assert.doesNotMatch(source, /blockTime/);
+});
+
+test("the reconcile pipeline surfaces the slot and nulls the absent block position", async () => {
+  // The literal the pinned BlockfrostProvider.fetchTxInfo returns: Blockfrost's
+  // flat wire UTxOs and no block position.
+  const blockfrostTxInfo = {
+    block: "b".repeat(64),
+    deposit: "0",
+    fees: "180000",
+    hash: TX_HASH,
+    index: 3,
+    invalidAfter: "999999999",
+    invalidBefore: "0",
+    slot: "72888114",
+    size: 512,
+    inputs: [
+      {
+        address: SCRIPT_ADDRESS,
+        amount: [{ unit: UNIT, quantity: "1" }],
+        output_index: 0,
+        tx_hash: "4444"
+      }
+    ],
+    outputs: [
+      {
+        address: SCRIPT_ADDRESS,
+        amount: [{ unit: UNIT, quantity: "1" }],
+        output_index: 1,
+        inline_datum: "d87980"
+      }
+    ]
+  } as unknown as TransactionInfo;
+  const client = createSttChainClient({
+    get: async () => [],
+    fetchTxInfo: async () => blockfrostTxInfo
+  });
+
+  const info = withPageMetadata(await client.fetchTxInfo(TX_HASH));
+
+  assert.equal(info.slot, "72888114");
+  assert.equal(info.blockHeight, null);
+  assert.equal(info.blockTime, null);
+  // The flat wire entry still reaches the nested shape the indexer reads.
+  assert.deepEqual(info.inputs[0]!.input, { txHash: "4444", outputIndex: 0 });
 });
