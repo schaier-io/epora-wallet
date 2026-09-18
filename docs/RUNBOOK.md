@@ -125,14 +125,63 @@ placeholders only.
 
 ## 5. Health check
 
-`GET /api/health` ([`src/app/api/health/route.ts`](../code/dApp/src/app/api/health/route.ts)):
+`GET /api/health` ([`src/app/api/health/route.ts`](../code/dApp/src/app/api/health/route.ts))
+probes the database and the indexer's sync cursors:
 
-- `200 {"status":"ok","checks":{"database":"up"}}` — app is up and can reach Postgres.
-- `503 {"status":"degraded","checks":{"database":"down"}}` — app is up but the
-  database probe failed (or timed out after 2s). The route never throws.
+- `200 {"status":"ok",...}` — the database answers `SELECT 1` (2 s timeout) and
+  both recurring sync cursors are fresh.
+- `503 {"status":"degraded",...}` — the database probe failed, or a required
+  sync cursor is stale, never stamped, or unreadable. The route never throws.
 
-Point an uptime monitor at it and alert on non-200. A `503` means investigate
-the database / `DATABASE_URL`, not the app process.
+Every response carries `checks.database` (`up`/`down`), `checks.indexer`
+(`up`/`down`/`unknown`; `unknown` means the cursors were not read because the
+database is down), and an `indexer` detail object with each cursor's
+`lastSyncedAt`, age in ms, freshness verdict, the history-backfill completion
+flag, and `degradedReasons`. `indexer` is `null` when the cursors were not read.
+
+### What each sync cursor attests
+
+| Cursor | Gates health on | Its timestamp attests |
+| --- | --- | --- |
+| `recent-head` | freshness (stale past 30 min) | a sync run last reached the chain (one page scanned). Not per-wallet freshness. |
+| `wallet-reconcile` | freshness (stale past 60 min) | the last *completed* full pass over the wallet collection. A deadline-stopped partial pass keeps the previous stamp. |
+| `history-backfill` | nothing (reported only) | nothing once complete: the walk returns early from then on, so its stamp freezes. Only its `completed` flag is reported. |
+
+The thresholds are named constants in
+[`src/lib/stt-cache/indexing-freshness.ts`](../code/dApp/src/lib/stt-cache/indexing-freshness.ts),
+derived from the sync schedule: the cron fires about every 5 minutes
+([`m4-deploy-03-sync-cron`](../tasks/subtasks/m4-deploy-03-sync-cron.md)) and
+one run budgets 4 minutes, so the legitimate gap between two stamps is at most
+about 9 minutes. The recent-head threshold is 6 missed runs (30 min); the
+wallet-reconcile threshold is 12 (60 min), wider because a completed pass may
+legitimately span several runs.
+
+### Startup, clock skew, and probe behavior
+
+There is no startup grace period, on purpose. A database with no sync cursors
+reports `degraded` ("no completed sync recorded") until the first sync pass
+finishes, which is within one cron interval on a healthy deployment. A stamp
+slightly in the future is clamped to age 0, so clock skew between instances
+cannot read as stale. The probe only reads cursors and makes no chain calls; a
+timestamp moves only when a sync run does work, never because the health
+endpoint ran.
+
+### Alert rule
+
+Point the uptime monitor at `GET /api/health` and alert on any non-200
+response; the 503 body's `degradedReasons` names the failing cursor. Suppress
+repeat alerts while the reason is unchanged, so a stalled indexer pages once
+instead of on every poll. A `503` with `checks.database: "down"` means
+investigate the database or `DATABASE_URL`; with `checks.indexer: "down"`,
+investigate the sync cron and the chain provider.
+
+**Monitor verification (still to be executed):** the detection side ships in
+code; configuring the monitor for the active Preprod deployment, and the
+deliberate-outage drill from
+[`m5-harden-01-health-alerts`](../tasks/subtasks/m5-harden-01-health-alerts.md)
+(pause the sync cron, record the alert arriving within the 30-minute
+threshold, resume, verify recovery) remain open. Record deployment commit,
+timing, and observed responses in that task file.
 
 ---
 
