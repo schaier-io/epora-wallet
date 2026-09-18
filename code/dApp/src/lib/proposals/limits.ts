@@ -12,6 +12,9 @@ export const MAX_OPEN_PROPOSALS_PER_CREATOR_WALLET = 25;
 export const MAX_PROPOSALS_PER_CREATOR_WALLET_PER_DAY = 100;
 export const DEFAULT_PROPOSAL_PAGE_SIZE = 25;
 export const MAX_PROPOSAL_PAGE_SIZE = 50;
+// Cursor tokens are base64url JSON carrying segment and sort position (~120
+// characters for a cuid id). The cap only bounds abuse, so it sits well above.
+export const MAX_PROPOSAL_CURSOR_LENGTH = 256;
 
 export function utf8ByteLength(value: string): number {
   return new TextEncoder().encode(value).byteLength;
