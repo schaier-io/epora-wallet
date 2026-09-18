@@ -45,6 +45,7 @@ import {
   readLastConnectedWalletName
 } from "@/lib/wallet/storage";
 import { readWalletAuthorityAddress } from "@/lib/wallet/authority-address";
+import { decideSavedDemoSessionRestore } from "@/lib/wallet/demo-session-restore";
 import {
   hasCardanoInjection,
   waitForCardanoInjection,
@@ -493,10 +494,23 @@ export function WalletProvider({ children }: PropsWithChildren) {
     }
 
     if (lastConnectedWalletName === DEMO_WALLET_ID) {
-      if (!walletsLoaded || !installedWallets.some((wallet) => wallet.id === DEMO_WALLET_ID)) {
+      const decision = decideSavedDemoSessionRestore({
+        walletsLoaded,
+        demoWalletDiscovered: installedWallets.some((wallet) => wallet.id === DEMO_WALLET_ID)
+      });
+      if (decision === "wait") {
         return;
       }
       hasAttemptedAutoReconnect.current = true;
+      if (decision === "abandon") {
+        // Discovery settled and keeps the demo wallet hidden while a real extension is
+        // installed, so this saved session can never restore. Settle the loading flag
+        // instead of waiting forever; the user picks from the wallets that do exist.
+        queueMicrotask(() => {
+          if (isMountedRef.current) setWalletSessionLoading(false);
+        });
+        return;
+      }
       // Silent auto-reconnect side-effect for the demo wallet.
       // eslint-disable-next-line react-hooks/set-state-in-effect
       void connect(lastConnectedWalletName, true).catch(() => undefined);

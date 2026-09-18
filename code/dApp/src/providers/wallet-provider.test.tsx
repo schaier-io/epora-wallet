@@ -532,3 +532,37 @@ it("never reaches the SDK when no extension injected window.cardano", async () =
   expect(mocks.getAvailableWallets).not.toHaveBeenCalled();
   expect(latest.current!.installedWallets.map((wallet) => wallet.id)).toEqual([DEMO_WALLET_ID]);
 });
+
+it("restores a saved demo session when no extension wallet is installed", async () => {
+  // Without an injection, discovery falls back to offering the demo wallet, so the
+  // saved demo session reconnects on its own.
+  persistLastConnectedWalletName(DEMO_WALLET_ID);
+  renderProvider();
+
+  await waitFor(() => expect(screen.getByTestId("wallet").textContent).toBe(DEMO_WALLET_ID));
+  expect(latest.current?.walletsLoaded).toBe(true);
+  expect(screen.getByTestId("session-loading").textContent).toBe("false");
+});
+
+it("settles a saved demo session when a real extension is installed instead", async () => {
+  // Discovery hides the demo wallet once real wallets exist, so the saved demo
+  // session can never restore. The session must still settle into a usable state
+  // instead of spinning forever, and the person connects an available wallet.
+  persistLastConnectedWalletName(DEMO_WALLET_ID);
+  inject({ lace: { isEnabled: async () => true, enable: mocks.enable } });
+  mocks.enable.mockResolvedValue(fakeWallet());
+  renderProvider();
+
+  await waitFor(() => expect(latest.current?.walletsLoaded).toBe(true));
+  expect(latest.current!.installedWallets.map((wallet) => wallet.id)).toEqual(["lace"]);
+  expect(screen.getByTestId("wallet").textContent).toBe("none");
+  // Abandon clears the flag from a microtask after the scan settles, so wait on
+  // the flag itself rather than assuming it landed by the time walletsLoaded did.
+  await waitFor(() => expect(screen.getByTestId("session-loading").textContent).toBe("false"));
+
+  await act(async () => {
+    await expect(latest.current!.connectWallet("lace")).resolves.toBe(true);
+  });
+  expect(screen.getByTestId("wallet").textContent).toBe("lace");
+  expect(screen.getByTestId("session-loading").textContent).toBe("false");
+});
