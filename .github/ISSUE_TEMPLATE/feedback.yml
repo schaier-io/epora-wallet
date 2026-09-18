@@ -1,0 +1,32 @@
+name: Feedback
+description: Tell us what is confusing, missing, or harder than it should be, and what should change.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for suggestions and rough edges, not for broken
+        behavior; bugs belong in the bug report form. Feedback is public,
+        so leave out anything private.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Current problem
+      description: What is confusing, missing, or slowing you down today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: improvement
+    attributes:
+      label: Requested improvement
+      description: What should happen instead, or what would you change?
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Supporting context (optional)
+      description: How you use the wallet, screenshots, links, or a workaround you found.
