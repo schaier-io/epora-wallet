@@ -7,7 +7,7 @@ import { activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
 import { holdsAnyRole } from "@/components/user/wizard-capabilities";
 import { seedWorkspaceWalletAtom } from "@/components/user/workspace/atoms/workspace-wallet-seeding.atoms";
 import { resolveWalletToSeed } from "@/components/user/workspace/helpers/wallet-session-seeding";
-import { useAtomValue } from "jotai";
+import { useAtomValueRawSync } from "jotai";
 
 import { useEffect } from "react";
 
@@ -74,13 +74,13 @@ export function useWorkspaceWalletSessionEffects(ctx: WorkspaceWalletSessionEffe
     userFlowBranch,
     walletReady
   } = ctx;
-  const detectedSttTokens = useAtomValue(detectedSttTokensAtom);
-  const detectedSttTokensLoading = useAtomValue(detectedSttTokensLoadingAtom);
-  const detectedSttTokensError = useAtomValue(detectedSttTokensErrorAtom);
+  const detectedSttTokens = useAtomValueRawSync(detectedSttTokensAtom);
+  const detectedSttTokensLoading = useAtomValueRawSync(detectedSttTokensLoadingAtom);
+  const detectedSttTokensError = useAtomValueRawSync(detectedSttTokensErrorAtom);
   const { routeState, commitRouteState, dispatch: dispatchWorkspaceAction, isRouteStateCurrent } = useWorkspaceRouteState();
-  const activePaymentKeyHash = useAtomValue(activePaymentKeyHashAtom);
-  const selectedDetectedToken = useAtomValue(selectedDetectedTokenAtom);
-  const selectedTokenCapabilityMap = useAtomValue(selectedTokenCapabilityMapAtom);
+  const activePaymentKeyHash = useAtomValueRawSync(activePaymentKeyHashAtom);
+  const selectedDetectedToken = useAtomValueRawSync(selectedDetectedTokenAtom);
+  const selectedTokenCapabilityMap = useAtomValueRawSync(selectedTokenCapabilityMapAtom);
   // The selected wallet's own rules say the connected key holds no role in it.
   //
   // The selection outlives the browser account: `?wallet=<unit>` is a plain link anyone can

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
-import { useAtomValue } from "jotai";
+import { useAtomValueRawSync } from "jotai";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { DetectedSttInfo, DetectedSttToken } from "@/lib/mesh/detection";
 import { createQueryTestWrapper } from "@/test/query-client";
@@ -99,8 +99,13 @@ function setup() {
 function mount(context: TestContext) {
   return renderHook(() => {
     const foundation = useWorkspaceFoundation();
-    const selected = useAtomValue(selectedDetectedTokenAtom);
-    const actions = useAtomValue(selectableWizardActionKindsAtom);
+    // RawSync: under jotai v3 a plain read can miss the route mirror write that
+    // lands between render and subscription on a remount (see
+    // use-workspace-controller.ts). Production heals plain readers transitively
+    // through the RawSync listener there; reading RawSync here keeps this hook
+    // independent of that re-render.
+    const selected = useAtomValueRawSync(selectedDetectedTokenAtom);
+    const actions = useAtomValueRawSync(selectableWizardActionKindsAtom);
     useWorkspaceWalletSessionEffects({ ...foundation, defaultDetectedWalletUnit: firstToken.unit, knownPermissionWalletCount: 1 });
     useWorkspaceWizardEffects({ ...foundation, selectedDetectedToken: selected, selectableWizardActionKinds: actions });
     return foundation;
