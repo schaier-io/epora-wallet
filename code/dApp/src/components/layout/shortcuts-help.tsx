@@ -2,15 +2,14 @@
 import { useTranslations } from "next-intl";
 
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAtom } from "jotai";
 import { PopupDialog } from "@/components/ui/popup-dialog";
 import { SparkleEasterEgg } from "@/components/layout/sparkle-easter-egg";
-import {
-  CREATE_WALLET_TARGET,
-  NAV_TARGETS,
-  SHORTCUTS
-} from "@/components/layout/shortcuts-catalog";
+import { shortcutsHelpOpenAtom } from "@/components/layout/shortcuts-help.atoms";
+import { SHORTCUTS } from "@/lib/shortcuts/registry";
+import { createShortcutEngine } from "@/lib/shortcuts/engine";
 
 function isTypingTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false;
@@ -33,75 +32,44 @@ function isModalOpen(target: EventTarget | null) {
   return document.querySelector('[aria-modal="true"], dialog[open]') !== null;
 }
 
-// Hidden reward: the Konami code (Up Up Down Down Left Right Left Right B A)
-// opens a redeemable CRT terminal. A quiet nod for the curious.
-const KONAMI_CODE = [
-  "arrowup",
-  "arrowup",
-  "arrowdown",
-  "arrowdown",
-  "arrowleft",
-  "arrowright",
-  "arrowleft",
-  "arrowright",
-  "b",
-  "a"
-];
-
 export function KeyboardShortcutsHelp() {
   const i18n = useTranslations("ComponentsLayoutShortcutsHelp");
-  const [open, setOpen] = useState(false);
+  // Shared atom, not local state: the footer's "Press ? for shortcuts" button opens this
+  // same dialog, and the footer cannot reach a `useState` that lives in here.
+  const [open, setOpen] = useAtom(shortcutsHelpOpenAtom);
   const [eggOpen, setEggOpen] = useState(false);
   const router = useRouter();
-  const pendingPrefixRef = useRef<{ key: string; expires: number } | null>(null);
-  const konamiProgressRef = useRef(0);
+  // One engine per mount, via useState's initializer rather than useMemo: the
+  // engine owns the armed `g` prefix and the Konami progress, and React may
+  // discard a memo cache, which would silently reset mid-sequence state.
+  const [engine] = useState(createShortcutEngine);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
-      if (isTypingTarget(event.target)) return;
-      // Before the Konami tracker too: nothing here should reach behind a modal.
-      if (isModalOpen(event.target)) return;
-
-      // Track the Konami code. Each correct key advances; any wrong key resets
-      // (but a key that matches the start keeps the run alive).
-      const konamiKey = event.key.toLowerCase();
-      if (konamiKey === KONAMI_CODE[konamiProgressRef.current]) {
-        konamiProgressRef.current += 1;
-        if (konamiProgressRef.current === KONAMI_CODE.length) {
-          konamiProgressRef.current = 0;
-          setEggOpen(true);
-        }
-      } else {
-        konamiProgressRef.current = konamiKey === KONAMI_CODE[0] ? 1 : 0;
-      }
-
-      if (event.key === "?") {
-        event.preventDefault();
-        setOpen(true);
-        pendingPrefixRef.current = null;
-        return;
-      }
-
-      const now = Date.now();
-      const pending = pendingPrefixRef.current;
-      if (pending && pending.key === "g" && now < pending.expires) {
-        const key = event.key.toLowerCase();
-        // Creating a wallet used to answer to a bare `c`. `c` is a browse-mode quick-nav key
-        // in NVDA and JAWS, and the guard above only skips text fields, so a screen-reader
-        // user pressing it anywhere else landed in the wallet-creation flow. It keeps the
-        // same destination; it just asks for the same `g` prefix as every other jump.
-        if (key === "c") {
-          event.preventDefault();
-          pendingPrefixRef.current = null;
-          router.push(`/user${CREATE_WALLET_TARGET}`);
+      const action = engine({
+        key: event.key,
+        metaKey: event.metaKey,
+        ctrlKey: event.ctrlKey,
+        altKey: event.altKey,
+        isTypingTarget: isTypingTarget(event.target),
+        isModalOpen: isModalOpen(event.target)
+      });
+      switch (action.type) {
+        case "none":
           return;
-        }
-        if (NAV_TARGETS[key]) {
+        case "swallow":
           event.preventDefault();
-          pendingPrefixRef.current = null;
-          if (typeof window !== "undefined") {
-            const target = `/user${NAV_TARGETS[key]}`;
+          return;
+        case "openHelp":
+          event.preventDefault();
+          setOpen(true);
+          return;
+        case "showEasterEgg":
+          setEggOpen(true);
+          return;
+        case "navigate":
+          event.preventDefault();
+          if (action.preserveWallet && typeof window !== "undefined") {
             try {
               // `h` used to be excluded here, so "Wallet home" dropped `?wallet`. Losing the
               // param does not just change the URL: the auto-select effect then re-picks the
@@ -110,29 +78,20 @@ export function KeyboardShortcutsHelp() {
               // one smart wallet, a silent wallet switch plus data loss with two.
               const wallet = new URLSearchParams(window.location.search).get("wallet");
               if (wallet) {
-                router.push(`${target}&wallet=${encodeURIComponent(wallet)}`);
+                router.push(`${action.target}&wallet=${encodeURIComponent(wallet)}`);
                 return;
               }
             } catch {
               // fall through to plain target
             }
-            router.push(target);
           }
+          router.push(action.target);
           return;
-        }
       }
-
-      if (event.key.toLowerCase() === "g") {
-        event.preventDefault();
-        pendingPrefixRef.current = { key: "g", expires: now + 1200 };
-        return;
-      }
-
-      pendingPrefixRef.current = null;
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [router]);
+  }, [engine, router, setOpen]);
 
   return (
     <>

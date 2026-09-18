@@ -4,12 +4,17 @@ import { useTranslations } from "next-intl";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAtom } from "jotai";
 import { ShieldAlert } from "lucide-react";
+import { shortcutsHelpOpenAtom } from "@/components/layout/shortcuts-help.atoms";
 
 export function SiteFooter() {
   const i18n = useTranslations("ComponentsLayoutSiteFooter");
   const pathname = usePathname();
   const showWalletHomeLink = pathname !== "/user";
+  // The one pointer/touch path to the shortcuts dialog. The `?` key answers only to a
+  // keyboard, so without this button touch users could never see the shortcut list at all.
+  const [, setShortcutsHelpOpen] = useAtom(shortcutsHelpOpenAtom);
 
   return (
     <footer className="mt-auto border-t border-border/60 bg-background/40">
@@ -19,6 +24,28 @@ export function SiteFooter() {
           {i18n("preprodTestNetwork")}
         </p>
         <div className="flex flex-wrap items-center gap-3">
+          {/*
+            The old hint was a static span here, hidden below `sm`, until it was dropped
+            entirely. It is a button now and visible at every width: on a phone there is no
+            `?` key to press and the hint text alone would be a dead end, so the whole
+            string opens the dialog. The focus ring matches the footer's links -- a bare
+            outline swap lost the ring once before on this exact row.
+          */}
+          <button
+            type="button"
+            onClick={() => setShortcutsHelpOpen(true)}
+            aria-haspopup="dialog"
+            className="inline-flex items-center gap-2 rounded-sm text-left hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
+            {/* The explicit `{" "}` nodes are load-bearing: the accessible name is the
+                concatenation of the button's text, and without them it is
+                "Press?for shortcuts" -- glued, because the visual spacing lives in flex
+                `gap-2`, which the name algorithm never sees. Whitespace-only text nodes
+                create no flex item, so nothing renders twice. */}
+            {i18n("press")}{" "}
+            <kbd className="rounded border border-border/60 bg-background/60 px-1 font-mono text-xs">?</kbd>{" "}
+            {i18n("forShortcuts")}
+          </button>
           {showWalletHomeLink ? (
             <>
               {/*
