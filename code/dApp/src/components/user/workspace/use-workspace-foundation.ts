@@ -16,7 +16,7 @@ import { useWorkspaceController } from "@/components/user/use-workspace-controll
 
 import { useWalletContext } from "@/providers/wallet-provider";
 import { chainReadsEnabledAtom } from "@/providers/wallet.atoms";
-import { useAtom, useSetAtom, useStore, useAtomValue, type ExtractAtomValue } from "jotai";
+import { useAtom, useSetAtom, useStore, useAtomValue, useAtomValueRawSync, type ExtractAtomValue } from "jotai";
 import {
   activeBuildAtom, activeSubmitAtom, buildDiagnosticIdAtom, buildErrorAtom, buildErrorExpectedAtom,
   buildErrorWriteAtom, submitHashAtom,
@@ -264,15 +264,21 @@ export function useWorkspaceFoundation() {
   // Selection state (which wallet / action / task / flow-step) is now a derived-atom projection of
   // the URL route state; see workspace-selection.atoms.ts. Read directly so downstream derivation
   // atoms and views read the same atoms instead of receiving these threaded through the barrel.
-  const selectedDetectedTokenUnit = useAtomValue(selectedDetectedTokenUnitAtom);
-  const userFlowBranch = useAtomValue(userFlowBranchAtom);
-  const wizardSelectedAction = useAtomValue(wizardSelectedActionAtom);
-  const selectedAction = useAtomValue(selectedActionAtom);
-  const effectiveSttAction = useAtomValue(effectiveSttActionAtom);
-  const wizardStep = useAtomValue(wizardStepAtom);
-  const selectedIntent = useAtomValue(selectedIntentAtom);
-  const selectedTask = useAtomValue(selectedTaskAtom);
-  const resolvedSelectedTask = useAtomValue(resolvedSelectedTaskAtom);
+  // RawSync: these derive from routeStateAtom, whose mirror write lands in an effect
+  // after this hook's subscription window. jotai v3 dropped useAtomValue's guaranteed
+  // post-mount re-render, so a plain read misses it on a remount and the seeding and
+  // route effects below run against a stale selection (jotai v3 migration guide,
+  // "a subtle mount-timing change"). RawSync never unwraps promises, so keep it
+  // off async atoms.
+  const selectedDetectedTokenUnit = useAtomValueRawSync(selectedDetectedTokenUnitAtom);
+  const userFlowBranch = useAtomValueRawSync(userFlowBranchAtom);
+  const wizardSelectedAction = useAtomValueRawSync(wizardSelectedActionAtom);
+  const selectedAction = useAtomValueRawSync(selectedActionAtom);
+  const effectiveSttAction = useAtomValueRawSync(effectiveSttActionAtom);
+  const wizardStep = useAtomValueRawSync(wizardStepAtom);
+  const selectedIntent = useAtomValueRawSync(selectedIntentAtom);
+  const selectedTask = useAtomValueRawSync(selectedTaskAtom);
+  const resolvedSelectedTask = useAtomValueRawSync(resolvedSelectedTaskAtom);
 
   const setSelectedDetectedTokenUnit = useCallback(
     (nextUnit: string) => {
