@@ -9,7 +9,9 @@ import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspace
 
 const i18n = createDefaultTranslator("ComponentsUserWorkspaceHelpersActivity", defaultMessages);
 
-function isLikelyScriptAddress(address: string | null | undefined) {
+// Exported for the agent console's payment attribution, which applies the same
+// "not a person's wallet" filter when it looks for external recipients.
+export function isLikelyScriptAddress(address: string | null | undefined) {
   return Boolean(
     address?.startsWith("addr1w") ||
       address?.startsWith("addr_test1w") ||
