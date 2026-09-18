@@ -13,9 +13,12 @@ import {
 import {
   approvalPowerForUser,
   approvalThresholdCeiling,
+  parseApprovalPowerInput,
   personApprovalPowerCeiling,
+  raisedThresholdMaximum,
   reachableApprovalPower,
   scheduledPaymentRateForPeriod,
+  thresholdSliderCeiling,
   withApprovalPowerEnabled,
   withBeneficiaryPayoutAndSigningAddress,
   withBeneficiarySigningAddressesDerived,
@@ -334,4 +337,50 @@ test("personApprovalPowerCeiling stops at the threshold, whatever anybody holds"
 
 test("personApprovalPowerCeiling keeps a usable range on an empty form", () => {
   assert.equal(personApprovalPowerCeiling(createDefaultStateForm()), 2);
+});
+
+test("parseApprovalPowerInput takes only whole numbers the chain could hold", () => {
+  assert.equal(parseApprovalPowerInput("12"), 12n);
+  assert.equal(parseApprovalPowerInput(" 007 "), 7n);
+  assert.equal(parseApprovalPowerInput(""), null);
+  assert.equal(parseApprovalPowerInput("1.5"), null);
+  assert.equal(parseApprovalPowerInput("-3"), null);
+  assert.equal(parseApprovalPowerInput("abc"), null);
+  // One past uint64: the datum could not hold it, so it is not a number here.
+  assert.equal(parseApprovalPowerInput("18446744073709551616"), null);
+});
+
+test("thresholdSliderCeiling keeps the derived ceiling when no custom maximum is set", () => {
+  const form = formWithSigners("2", [{ power: "1", wallets: [WALLET] }]);
+
+  assert.equal(thresholdSliderCeiling(form, ""), approvalThresholdCeiling(form));
+  // Blank is the "Auto" the editor shows, garbage is the editor's error to
+  // report: neither of them moves the range.
+  assert.equal(thresholdSliderCeiling(form, "later"), approvalThresholdCeiling(form));
+});
+
+test("thresholdSliderCeiling lifts past the power the wallet can reach", () => {
+  const form = formWithSigners("2", [{ power: "1", wallets: [WALLET] }]);
+
+  assert.equal(thresholdSliderCeiling(form, "50"), 50);
+  // A maximum below what the wallet already reaches buys nothing.
+  assert.equal(thresholdSliderCeiling(form, "1"), approvalThresholdCeiling(form));
+});
+
+test("thresholdSliderCeiling tops out at what a slider stop can name", () => {
+  const form = formWithSigners("2", [{ power: "1", wallets: [WALLET] }]);
+
+  // The chain holds uint64, a slider stop cannot: the exact entry carries the
+  // value itself, and the range stops at the largest safe integer.
+  assert.equal(thresholdSliderCeiling(form, "18446744073709551615"), Number.MAX_SAFE_INTEGER);
+});
+
+test("raisedThresholdMaximum raises for a larger exact value and never lowers", () => {
+  assert.equal(raisedThresholdMaximum("", "50"), "50");
+  assert.equal(raisedThresholdMaximum("50", "80"), "80");
+  // Lowering is the "Slider maximum" box's decision, and garbage changes
+  // nothing: neither a typo nor a half-typed number may shrink the range.
+  assert.equal(raisedThresholdMaximum("50", "20"), "50");
+  assert.equal(raisedThresholdMaximum("50", ""), "50");
+  assert.equal(raisedThresholdMaximum("50", "1.5"), "50");
 });
