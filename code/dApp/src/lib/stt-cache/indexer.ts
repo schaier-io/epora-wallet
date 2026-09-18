@@ -5,15 +5,17 @@ import { createDefaultSttChainClient } from "@/lib/stt-cache/chain";
 import {
   buildWalletIdentity,
   compareBlockPosition,
-  compareLatestSeen,
   getSttPolicyId,
   getSttScriptAddress,
+  parseChainSlot,
+  snapshotIsBehindStored,
   STT_CACHE_NETWORK,
   STT_SYNC_CURSOR_KEYS
 } from "@/lib/stt-cache/domain";
 import {
   fetchAndPersistTransaction,
   persistTransactionInfo,
+  readChainTransactionPosition,
   readSyncCursor,
   replaceWalletParticipants,
   selectLatestSeen,
@@ -424,7 +426,9 @@ export async function reconcileCurrentWallets(
  * inline. Without this the pass that read the older UTxO could commit last and
  * overwrite `currentTxHash`, the datum and the participants with stale values, while
  * `selectLatestSeen` kept the newer freshness metadata. The lock makes the read of the
- * persisted position and the write that depends on it one step.
+ * persisted position (the wallet row and the chain position of its `currentTxHash`
+ * transaction) and the snapshot comparison and write that depend on it one step; the
+ * slot and index comparison in `snapshotIsBehindStored` is what orders two such passes.
  *
  * `pg_advisory_xact_lock` returns void and Prisma cannot deserialize a void column, so
  * the call is projected to a boolean, as in `lib/proposals/store.ts`.
@@ -461,9 +465,15 @@ async function reconcileWalletAsset(
     const persisted = await persistTransactionInfo(db, transaction, now);
     const datum = decodeDatumFromUtxo(liveUtxo);
     const participants = projectParticipantsFromDatum(datum);
-    const incomingSeen = {
+    // The snapshot's chain position. Mesh's Blockfrost `fetchTxInfo` reports the
+    // ledger `slot` and the within-block transaction `index` but neither
+    // `blockHeight` nor `blockTime`, so slot and index are what order snapshots
+    // on the configured provider.
+    const incomingPosition = {
       blockHeight: transaction.blockHeight,
-      blockTime: transaction.blockTime
+      blockTime: transaction.blockTime,
+      slot: parseChainSlot(transaction.slot),
+      txIndex: transaction.index
     };
 
     // Atomic: wallet upsert and participant rewrite must commit together,
@@ -482,17 +492,20 @@ async function reconcileWalletAsset(
           }
         }
       });
-      const persistedSeen = {
+      // The stored snapshot's position: the block slot and transaction index of
+      // the transaction that created the `currentTxHash` UTxO, recorded by the
+      // pass that wrote it. Read inside the lock with the row, so an overtaking
+      // pass cannot change it unseen.
+      const storedPosition = {
         blockHeight: existing?.lastSeenBlockHeight ?? null,
-        blockTime: existing?.lastSeenBlockTime ?? null
+        blockTime: existing?.lastSeenBlockTime ?? null,
+        ...(await readChainTransactionPosition(
+          tx,
+          existing?.id ?? null,
+          existing?.currentTxHash ?? null
+        ))
       };
-      // Only a read that carries a block position can be shown to be behind the
-      // stored one. Mesh's `fetchTxInfo` reports neither field, so on that path the
-      // comparison has nothing to weigh and the write proceeds as before; the lock
-      // above is what keeps two such passes from interleaving.
-      const incomingIsPositioned =
-        incomingSeen.blockHeight !== null || incomingSeen.blockTime !== null;
-      if (existing && incomingIsPositioned && compareLatestSeen(persistedSeen, incomingSeen) > 0) {
+      if (existing && snapshotIsBehindStored(storedPosition, incomingPosition)) {
         // This pass read an older UTxO than what is already stored. Writing it back
         // would replace the newer transaction, datum and participants. Only the
         // freshness stamp is still true: the wallet was checked just now.
@@ -502,7 +515,9 @@ async function reconcileWalletAsset(
         });
         return;
       }
-      const latestSeen = selectLatestSeen(persistedSeen, incomingSeen);
+      // The freshness metadata is a max-merge, independent of the snapshot write
+      // above: only a position that is provably newer may raise it.
+      const latestSeen = selectLatestSeen(storedPosition, incomingPosition);
       const wallet = await tx.sttWallet.upsert({
         where: {
           network_unit: {

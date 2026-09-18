@@ -9,8 +9,10 @@ import {
   extractTouchedWalletUnits,
   getSttPolicyId,
   getSttScriptAddress,
+  parseChainSlot,
   STT_CACHE_NETWORK,
-  type SttWalletStatusValue
+  type SttWalletStatusValue,
+  type WalletSnapshotPosition
 } from "@/lib/stt-cache/domain";
 import type {
   AddressTransactionPageEntry,
@@ -123,6 +125,34 @@ export function selectLatestSeen(
   incoming: { blockHeight: number | null; blockTime: number | null }
 ) {
   return compareLatestSeen(existing, incoming) > 0 ? existing : incoming;
+}
+
+/**
+ * The chain position (block slot and within-block transaction index) of the
+ * transaction that produced a stored wallet's current state, read from the
+ * wallet transaction row the previous pass wrote for it. This is the stored
+ * side of the snapshot ordering in `reconcileWalletAsset`: a late pass must
+ * compare its transaction's position against it inside the lock, because the
+ * block position it would otherwise compare against is absent when Mesh's
+ * `fetchTxInfo` carries no `blockHeight` or `blockTime`. Unusable fields come
+ * back null, so the caller can fall back to comparing block positions.
+ */
+export async function readChainTransactionPosition(
+  tx: Prisma.TransactionClient,
+  walletId: string | null,
+  txHash: string | null
+): Promise<Pick<WalletSnapshotPosition, "slot" | "txIndex">> {
+  if (walletId === null || txHash === null) {
+    return { slot: null, txIndex: null };
+  }
+  const row = await tx.sttWalletTransaction.findFirst({
+    where: {
+      walletId,
+      chainTransaction: { network: STT_CACHE_NETWORK, txHash }
+    },
+    select: { slot: true, txIndex: true }
+  });
+  return { slot: parseChainSlot(row?.slot), txIndex: row?.txIndex ?? null };
 }
 
 async function upsertWalletSkeleton(

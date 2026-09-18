@@ -173,3 +173,54 @@ export function compareLatestSeen(
     }
   );
 }
+
+/** Absolute ledger slot as the provider reports it: a non-negative integer string. */
+export function parseChainSlot(slot: string | null | undefined): number | null {
+  if (slot === null || slot === undefined || !/^\d+$/.test(slot)) {
+    return null;
+  }
+  const parsed = Number(slot);
+  return Number.isSafeInteger(parsed) ? parsed : null;
+}
+
+export type WalletSnapshotPosition = {
+  blockHeight: number | null;
+  blockTime: number | null;
+  slot: number | null;
+  txIndex: number | null;
+};
+
+/**
+ * Whether an incoming wallet snapshot sits behind the stored one and must not
+ * overwrite it.
+ *
+ * The slot is the ledger-assigned absolute position of the block that contains
+ * the transaction that produced a snapshot, so it orders snapshots except for
+ * two transitions recorded in the same block; the transaction index breaks
+ * those ties. Mesh's Blockfrost `fetchTxInfo` always reports `slot` and
+ * `index` but neither `blockHeight` nor `blockTime`, which left the
+ * block-position comparison nothing to weigh on the reconcile path. Snapshot
+ * pairs the slot and index cannot order fall through to the block-position
+ * comparison, which a provider that reports those fields can still answer.
+ */
+export function snapshotIsBehindStored(
+  stored: WalletSnapshotPosition,
+  incoming: WalletSnapshotPosition
+): boolean {
+  if (stored.slot !== null && incoming.slot !== null) {
+    if (stored.slot !== incoming.slot) {
+      return stored.slot > incoming.slot;
+    }
+    if (
+      stored.txIndex !== null &&
+      incoming.txIndex !== null &&
+      stored.txIndex !== incoming.txIndex
+    ) {
+      return stored.txIndex > incoming.txIndex;
+    }
+  }
+
+  const incomingIsPositioned =
+    incoming.blockHeight !== null || incoming.blockTime !== null;
+  return incomingIsPositioned && compareLatestSeen(stored, incoming) > 0;
+}
