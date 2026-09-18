@@ -43,7 +43,8 @@ test("returns null for stake, mainnet-header, and mistyped addresses", () => {
     testnetPaymentCredentialHash("stake_test17pdwchy8ae9635fw8y9skl977rv27pp7yyx3wnrhdmhaf4qaj0and"),
     null
   );
-  // Mainnet network id in the header, wearing a testnet HRP: invalid, Mesh rejects it too.
+  // Mainnet network id in the header, wearing a testnet HRP: Mesh accepted
+  // this and extracted the hash; we reject it and keep the raw text.
   const mainnetHeader = bech32Encode(
     "addr_test",
     Uint8Array.of(0x71, ...Buffer.from(SCRIPT_HASH, "hex"))
