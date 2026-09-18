@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { rateLimit } from "@/lib/http/rate-limit";
 import { jsonError, requireProposalParticipant, requireSession } from "@/lib/proposals/api-helpers";
 import {
-  cancelProposalRecord,
+  disposeProposalRecord,
   getProposalRecord
 } from "@/lib/proposals/store";
 import { getTranslations } from "next-intl/server";
@@ -44,8 +44,10 @@ export async function GET(_request: Request, context: RouteContext) {
   return NextResponse.json({ proposal });
 }
 
-// DELETE /api/proposals/:id: cancel. Only the creator may cancel their own
-// proposal; it stays in the list marked CANCELLED rather than being deleted.
+// DELETE /api/proposals/:id: creator removal, dispatched by stored status. An
+// OPEN request is withdrawn (cancelled) so nobody else can sign it; a finished
+// one (CANCELLED or SUBMITTED) is deleted with its recorded signatures. Only the
+// creator may remove their own proposal in either direction.
 export async function DELETE(_request: Request, context: RouteContext) {
   const i18n = await getI18n();
   const auth = await requireSession();
@@ -67,7 +69,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
 
   const { id } = await context.params;
   if (id.length > 64) return jsonError(i18n("proposalIdTooLong"), 400);
-  const result = await cancelProposalRecord({
+  const result = await disposeProposalRecord({
     proposalId: id,
     actorKeyHash: auth.session.paymentKeyHash
   });

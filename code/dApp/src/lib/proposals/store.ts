@@ -8,6 +8,7 @@ import {
   walletParticipantExists
 } from "./membership";
 import { serializeJsonSafe } from "./serialization";
+import { deleteFinishedProposalRecord } from "./delete-record";
 import {
   evaluateProposalCancelGuard,
   evaluateProposalRebuildGuard,
@@ -415,6 +416,32 @@ export async function cancelProposalRecord(args: {
   return updated.count === 1
     ? { ok: true }
     : { ok: false, status: 409, error: proposalCopy.changedWhileCancelling() };
+}
+
+// What a creator's DELETE on /api/proposals/:id does, by the stored status:
+// an OPEN request is withdrawn (cancelled) so co-signers can no longer sign it,
+// while a finished one (CANCELLED or SUBMITTED) is deleted outright with its
+// recorded signatures. A SUBMITTING row belongs to neither path: a broadcast may
+// be in flight, so both guards refuse it.
+export async function disposeProposalRecord(args: {
+  proposalId: string;
+  actorKeyHash: string;
+}): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+  const existing = await getPrisma().multiSigProposal.findUnique({
+    where: { id: args.proposalId },
+    select: { status: true }
+  });
+  if (existing?.status === "OPEN") {
+    return cancelProposalRecord(args);
+  }
+  return deleteProposalRecord(args);
+}
+
+export async function deleteProposalRecord(args: {
+  proposalId: string;
+  actorKeyHash: string;
+}): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+  return deleteFinishedProposalRecord(getPrisma(), args);
 }
 
 // Authorization context for a proposal: which wallet it targets, who created it,
