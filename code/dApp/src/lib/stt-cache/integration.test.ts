@@ -10,10 +10,15 @@ import {
   runSttBackgroundSync,
   syncRecentHead
 } from "@/lib/stt-cache/indexer";
-import { writeSyncCursor } from "@/lib/stt-cache/indexer-persistence";
+import { fetchAndPersistTransaction, writeSyncCursor } from "@/lib/stt-cache/indexer-persistence";
+import {
+  walletIsIndexed,
+  walletParticipantExists
+} from "@/lib/proposals/membership";
 import {
   TEST_CONNECTED_ADDRESS,
   TEST_CONNECTED_PAYMENT_KEY_HASH,
+  TEST_REGULAR_PAYMENT_KEY_HASH,
   buildCloseTransaction,
   buildForwardTransaction,
   createMockChainClient,
@@ -110,6 +115,51 @@ test("reconcileWalletUnit answers false for a policy unit with no live wallet UT
   const wallet = await db.sttWallet.findFirstOrThrow({ where: { unit: fixture.unit } });
   assert.equal(wallet.status, "CLOSED");
   assert.equal(wallet.currentTxHash, null);
+});
+
+/**
+ * The head sync persists a recent transaction before any reconcile has projected the
+ * participants, which leaves an ACTIVE wallet row with no current state and no
+ * participants. Counting that row as indexed made `POST /api/proposals` skip the
+ * targeted reconcile and 403 the wallet's own owner. This is the route's decision
+ * sequence against the real cache writes: the partial row reads as not indexed, the
+ * inline reconcile completes the state, and the owner's key is then a participant
+ * while a key that holds no membership still is not.
+ */
+test("a partial ACTIVE skeleton reads as unindexed until the targeted reconcile completes it", async () => {
+  const fixture = createSttFixture();
+  const chainClient = createMockChainClient();
+
+  // The write the background head sync makes on the normal path: a wallet
+  // skeleton from the transaction alone, before any reconcile has run.
+  await fetchAndPersistTransaction(
+    chainClient,
+    db,
+    fixture.mintTransaction.hash,
+    new Date(),
+    fixture.transactionPageEntry
+  );
+  const skeleton = await db.sttWallet.findFirstOrThrow({ where: { unit: fixture.unit } });
+  assert.equal(skeleton.status, "ACTIVE");
+  assert.equal(skeleton.currentTxHash, null);
+  assert.equal(skeleton.currentDatumJson, null);
+  assert.equal(await db.sttParticipant.count({ where: { walletId: skeleton.id } }), 0);
+
+  // The route answers the participant miss with a targeted reconcile.
+  assert.equal(await walletIsIndexed(db, fixture.unit), false);
+  assert.equal(await reconcileWalletUnit(fixture.unit, { db, chainClient }), true);
+
+  // The completed reconcile confirms live membership for the wallet's members.
+  assert.equal(await walletIsIndexed(db, fixture.unit), true);
+  assert.equal(
+    await walletParticipantExists(db, fixture.unit, TEST_CONNECTED_PAYMENT_KEY_HASH),
+    true
+  );
+  assert.equal(
+    await walletParticipantExists(db, fixture.unit, TEST_REGULAR_PAYMENT_KEY_HASH),
+    true
+  );
+  assert.equal(await walletParticipantExists(db, fixture.unit, "ff".repeat(28)), false);
 });
 
 /**
