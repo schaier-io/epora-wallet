@@ -407,6 +407,84 @@ test("ADA payout selection keeps a valid singleton when pair improvement exceeds
   assert.equal(outputs[0]!.amount[0]!.quantity, "999800000");
 });
 
+test("ADA payout selection keeps a valid singleton when a later candidate exceeds the size limit", async () => {
+  const fiveAda = utxo("a".repeat(64), "5000000");
+  const thousandAda = utxo("b".repeat(64), "1000000000");
+  const outputs = [{
+    address: ADDRESS,
+    amount: [{ unit: "lovelace", quantity: "300000" }]
+  }];
+  // Mocked transaction size limit: any funding layout that reaches the
+  // thousand-ADA UTxO exceeds it; the five-ADA layout fits.
+  const MAX_FUNDED_LOVELACE = 50000000n;
+  let sawOversizedCandidate = false;
+  const selector = createNoChangeAdaSelector({
+    delegate: new LargestFirstInputSelector(),
+    resolveSinkOutputIndex: () => 0
+  });
+
+  const selection = await selector.select(
+    [],
+    outputs,
+    { withdrawals: 0n, deposit: 0n, reclaimDeposit: 0n, mint: [] },
+    [fiveAda, thousandAda],
+    ADDRESS,
+    {
+      computeMinimumCost: async () => ({ fee: 200000n }),
+      maxSizeExceed: async (candidate) => {
+        const totalLovelace = [...candidate.newInputs].reduce(
+          (total, input) =>
+            total +
+            BigInt(
+              input.output.amount.find((asset) => asset.unit === "lovelace")
+                ?.quantity ?? "0"
+            ),
+          0n
+        );
+        const exceeds = totalLovelace > MAX_FUNDED_LOVELACE;
+        sawOversizedCandidate ||= exceeds;
+        return exceeds;
+      },
+      computeMinimumCoinQuantity: () => 1000000n,
+      tokenBundleSizeExceedsLimit: () => false
+    }
+  );
+
+  assert.equal(sawOversizedCandidate, true);
+  assert.deepEqual([...selection.newInputs], [fiveAda]);
+  assert.deepEqual(selection.change, []);
+  assert.equal(outputs[0]!.amount[0]!.quantity, "4800000");
+});
+
+test("ADA payout selection reports the size error when every candidate exceeds the size limit", async () => {
+  const thousandAda = utxo("a".repeat(64), "1000000000");
+  const outputs = [{
+    address: ADDRESS,
+    amount: [{ unit: "lovelace", quantity: "300000" }]
+  }];
+  const selector = createNoChangeAdaSelector({
+    delegate: new LargestFirstInputSelector(),
+    resolveSinkOutputIndex: () => 0
+  });
+
+  await assert.rejects(
+    selector.select(
+      [],
+      outputs,
+      { withdrawals: 0n, deposit: 0n, reclaimDeposit: 0n, mint: [] },
+      [thousandAda],
+      ADDRESS,
+      {
+        computeMinimumCost: async () => ({ fee: 200000n }),
+        maxSizeExceed: async () => true,
+        computeMinimumCoinQuantity: () => 1000000n,
+        tokenBundleSizeExceedsLimit: () => false
+      }
+    ),
+    /Transaction size exceeds the maximum allowed size\./
+  );
+});
+
 test("ADA payout pair improvement keeps delegate work linear for a fragmented wallet", async () => {
   const candidates = Array.from({ length: 100 }, (_, index) =>
     utxo(
