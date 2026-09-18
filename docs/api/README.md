@@ -37,15 +37,17 @@ abbreviates long hashes with `...`, so fill those in from your own lookup.
 ### Health
 
 Unversioned on purpose. A health probe is operational, not part of the public
-contract. It returns `200` when the app reaches its database, `503` when it
-cannot.
+contract. It returns `200` when the app reaches its database and the indexer's
+sync cursors are fresh, `503` otherwise. The `indexer` object carries each sync
+cursor's last-sync time, age, and freshness verdict; what each field attests is
+documented in the [runbook](../RUNBOOK.md).
 
 ```bash
 curl -s "$BASE/api/health"
 ```
 
 ```json
-{ "status": "ok", "checks": { "database": "up" }, "ts": "2026-08-31T11:43:24.993Z" }
+{ "status": "ok", "checks": { "database": "up", "indexer": "up" }, "indexer": { "available": true, "recentHeadLastSyncedAt": "2026-08-31T11:43:19.993Z", "recentHeadAgeMs": 5000, "recentHeadFresh": true, "walletReconcileLastSyncedAt": "2026-08-31T11:42:44.993Z", "walletReconcileAgeMs": 40000, "walletReconcileFresh": true, "historyBackfillCompleted": true, "degradedReasons": [] }, "ts": "2026-08-31T11:43:24.993Z" }
 ```
 
 ### The spec itself

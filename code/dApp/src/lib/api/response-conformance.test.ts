@@ -130,12 +130,46 @@ describe("stt lookup request rules", () => {
 });
 
 describe("health conformance", () => {
-  // The handler builds one of exactly two bodies. Both are asserted here
-  // because the spec documents both, and only one is ever seen in practice.
-  test("both documented bodies match the schema", () => {
+  // The handler builds exactly these three bodies: healthy, degraded with
+  // indexer detail, and degraded with no detail because the database probe
+  // failed before the cursors were read. All are asserted here because the
+  // spec documents all three.
+  const ts = new Date().toISOString();
+  test("all documented bodies match the schema", () => {
     for (const body of [
-      { status: "ok", checks: { database: "up" }, ts: new Date().toISOString() },
-      { status: "degraded", checks: { database: "down" }, ts: new Date().toISOString() }
+      {
+        status: "ok",
+        checks: { database: "up", indexer: "up" },
+        indexer: {
+          available: true,
+          recentHeadLastSyncedAt: ts,
+          recentHeadAgeMs: 12_345,
+          recentHeadFresh: true,
+          walletReconcileLastSyncedAt: ts,
+          walletReconcileAgeMs: 6_789,
+          walletReconcileFresh: true,
+          historyBackfillCompleted: true,
+          degradedReasons: []
+        },
+        ts
+      },
+      {
+        status: "degraded",
+        checks: { database: "up", indexer: "down" },
+        indexer: {
+          available: true,
+          recentHeadLastSyncedAt: ts,
+          recentHeadAgeMs: 9_000_000,
+          recentHeadFresh: false,
+          walletReconcileLastSyncedAt: null,
+          walletReconcileAgeMs: null,
+          walletReconcileFresh: false,
+          historyBackfillCompleted: false,
+          degradedReasons: ["recent-head: stale (ageMs=9000000 > staleAfterMs=1800000)"]
+        },
+        ts
+      },
+      { status: "degraded", checks: { database: "down", indexer: "unknown" }, indexer: null, ts }
     ]) {
       const parsed = HealthResponseSchema.safeParse(body);
       assert.ok(parsed.success, `${JSON.stringify(body)}: ${JSON.stringify(parsed.error?.issues)}`);
@@ -146,8 +180,21 @@ describe("health conformance", () => {
     assert.equal(
       HealthResponseSchema.safeParse({
         status: "fine",
-        checks: { database: "up" },
-        ts: new Date().toISOString()
+        checks: { database: "up", indexer: "up" },
+        indexer: null,
+        ts
+      }).success,
+      false
+    );
+  });
+
+  test("rejects an indexer check value the spec does not document", () => {
+    assert.equal(
+      HealthResponseSchema.safeParse({
+        status: "ok",
+        checks: { database: "up", indexer: "maybe" },
+        indexer: null,
+        ts
       }).success,
       false
     );

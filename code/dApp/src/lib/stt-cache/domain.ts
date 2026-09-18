@@ -10,8 +10,6 @@ export const STT_SYNC_CURSOR_KEYS = {
 export const STT_LOOKUP_DEFAULT_TX_LIMIT = 10;
 export const STT_LOOKUP_MAX_TX_LIMIT = 50;
 export const STT_LOOKUP_WALLET_PAGE_SIZE = 25;
-export const STT_RECENT_HEAD_STALE_MS = 60_000;
-export const STT_WALLET_RECONCILE_STALE_MS = 300_000;
 
 export type SttWalletStatusValue = "ACTIVE" | "CLOSED";
 export type SttWalletTransitionKindValue = "MINT" | "FORWARD" | "CLOSE" | "UNKNOWN";
