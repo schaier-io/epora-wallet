@@ -633,12 +633,184 @@ test("a reconcile cut off mid-page stays on that page and the next run re-reads 
   assert.equal(first.processedWallets, 1);
   const paused = await getSttSyncCursor(STT_SYNC_CURSOR_KEYS.walletReconcile, { db });
   assert.equal(paused.state?.nextPage, 1);
+  // The run also saved where inside the page it stopped.
+  assert.equal(paused.state?.lastProcessedUnit, fixture.unit);
+  assert.equal(paused.state?.lastProcessedIndex, 0);
   assert.equal(await db.sttWallet.count(), 1);
 
+  // The second run re-reads the page but resumes past the wallet already done.
   const second = await reconcileCurrentWallets({ db, chainClient, clock });
 
   assert.equal(second.deadlineReached, false);
-  assert.equal(second.processedWallets, 2);
+  assert.equal(second.processedWallets, 1);
+  assert.equal(await db.sttWallet.count(), 2);
+});
+
+/**
+ * The issue #380 simulation: a page whose wallets cost more to read than one
+ * run's budget. Before the fix, every run re-reconciled the page head and the
+ * tail was never reached under the same budget.
+ */
+test("bounded runs that cannot finish a page still reach every wallet", async () => {
+  const fixture = createSttFixture();
+  const units = [
+    fixture.unit,
+    `${fixture.policyId}${"01".repeat(4)}`,
+    `${fixture.policyId}${"02".repeat(4)}`,
+    `${fixture.policyId}${"03".repeat(4)}`
+  ];
+  const base = createMockChainClient();
+  let nowMs = 0;
+  const reconciledUnits: string[] = [];
+  const requestedPages: unknown[] = [];
+  const chainClient = {
+    ...base,
+    async fetchCollectionAssets(_policyId: string, cursor?: number | string) {
+      requestedPages.push(cursor ?? 1);
+      return {
+        assets: units.map((unit) => ({ unit, quantity: "1" })),
+        next: null
+      };
+    },
+    async fetchAddressUTxOs(address: string, asset?: string) {
+      // Every wallet read costs one run's whole 100 ms budget.
+      nowMs += 100;
+      reconciledUnits.push(asset ?? "");
+      return base.fetchAddressUTxOs(address, asset);
+    }
+  };
+  const clock = () => nowMs;
+
+  // Three runs, each with time for exactly one wallet read. Each one resumes
+  // past the wallets the runs before it finished instead of repeating them.
+  for (let index = 0; index < 3; index += 1) {
+    const run = await reconcileCurrentWallets({
+      db,
+      chainClient,
+      clock,
+      deadline: nowMs + 100
+    });
+    assert.equal(run.deadlineReached, true);
+    assert.equal(run.processedWallets, 1);
+    assert.deepEqual(reconciledUnits, units.slice(0, index + 1));
+    const paused = await getSttSyncCursor(STT_SYNC_CURSOR_KEYS.walletReconcile, { db });
+    assert.equal(paused.state?.nextPage, 1);
+    // A partial pass never attests a full reconcile.
+    assert.equal(paused.lastSyncedAt, null);
+  }
+
+  const beforeLast = await getSttSyncCursor(STT_SYNC_CURSOR_KEYS.walletReconcile, { db });
+  assert.equal(beforeLast.state?.lastProcessedUnit, units[2]);
+  assert.equal(beforeLast.state?.lastProcessedIndex, 2);
+
+  // The fourth run finishes the page, so the pass is complete.
+  reconciledUnits.length = 0;
+  requestedPages.length = 0;
+  const last = await reconcileCurrentWallets({ db, chainClient, clock, deadline: nowMs + 100 });
+  assert.equal(last.deadlineReached, false);
+  assert.deepEqual(reconciledUnits, [units[3]]);
+  assert.deepEqual(requestedPages, [1]);
+  assert.equal(await db.sttWallet.count(), 4);
+  const done = await getSttSyncCursor(STT_SYNC_CURSOR_KEYS.walletReconcile, { db });
+  assert.equal(done.state?.nextPage, undefined);
+  assert.notEqual(done.lastSyncedAt, null);
+
+  // Writes stay idempotent: a fresh full pass re-walks every wallet in place.
+  reconciledUnits.length = 0;
+  const repeat = await reconcileCurrentWallets({ db, chainClient, clock });
+  assert.equal(repeat.deadlineReached, false);
+  assert.equal(repeat.processedWallets, 4);
+  assert.deepEqual([...reconciledUnits].sort(), [...units].sort());
+  assert.equal(await db.sttWallet.count(), 4);
+  assert.equal(await db.sttParticipant.count(), 5);
+});
+
+test("a resume skips ahead only when the page still matches the saved progress", async () => {
+  const fixture = createSttFixture();
+  const secondUnit = `${fixture.policyId}${"02".repeat(4)}`;
+  const base = createMockChainClient();
+  const reconciledUnits: string[] = [];
+  const chainClient = {
+    ...base,
+    async fetchCollectionAssets() {
+      // The provider reordered the page between runs.
+      return {
+        assets: [
+          { unit: secondUnit, quantity: "1" },
+          { unit: fixture.unit, quantity: "1" }
+        ],
+        next: null
+      };
+    },
+    async fetchAddressUTxOs(address: string, asset?: string) {
+      reconciledUnits.push(asset ?? "");
+      return base.fetchAddressUTxOs(address, asset);
+    }
+  };
+
+  // Saved as if the first listed wallet were already done, but the page now
+  // starts elsewhere: trusting the position would skip an unprocessed wallet,
+  // so the run falls back to a full re-read of the page.
+  await writeSyncCursor(db, STT_SYNC_CURSOR_KEYS.walletReconcile, {
+    cursorValue: "1",
+    state: { nextPage: 1, lastProcessedUnit: fixture.unit, lastProcessedIndex: 0 },
+    lastSyncedAt: null
+  });
+  const reordered = await reconcileCurrentWallets({ db, chainClient });
+
+  assert.equal(reordered.deadlineReached, false);
+  assert.equal(reordered.processedWallets, 2);
+  assert.deepEqual(reconciledUnits, [secondUnit, fixture.unit]);
+  assert.equal(await db.sttWallet.count(), 2);
+
+  // A saved unit the page no longer lists (burned or removed) falls back too.
+  reconciledUnits.length = 0;
+  await writeSyncCursor(db, STT_SYNC_CURSOR_KEYS.walletReconcile, {
+    cursorValue: "1",
+    state: { nextPage: 1, lastProcessedUnit: `${fixture.policyId}ffff`, lastProcessedIndex: 3 },
+    lastSyncedAt: new Date()
+  });
+  const missing = await reconcileCurrentWallets({ db, chainClient });
+
+  assert.equal(missing.processedWallets, 2);
+  assert.deepEqual(reconciledUnits, [secondUnit, fixture.unit]);
+  assert.equal(await db.sttWallet.count(), 2);
+});
+
+test("a saved state from before page progress existed still resumes without skipping", async () => {
+  const fixture = createSttFixture();
+  const closedUnit = `${fixture.policyId}${"00".repeat(4)}`;
+  const base = createMockChainClient();
+  const reconciledUnits: string[] = [];
+  const chainClient = {
+    ...base,
+    async fetchCollectionAssets() {
+      return {
+        assets: [
+          { unit: fixture.unit, quantity: "1" },
+          { unit: closedUnit, quantity: "1" }
+        ],
+        next: null
+      };
+    },
+    async fetchAddressUTxOs(address: string, asset?: string) {
+      reconciledUnits.push(asset ?? "");
+      return base.fetchAddressUTxOs(address, asset);
+    }
+  };
+
+  // Production rows saved before the progress fields existed carry only the
+  // page: resume at the page start and re-read everything on it.
+  await writeSyncCursor(db, STT_SYNC_CURSOR_KEYS.walletReconcile, {
+    cursorValue: "1",
+    state: { nextPage: 1 },
+    lastSyncedAt: null
+  });
+  const run = await reconcileCurrentWallets({ db, chainClient });
+
+  assert.equal(run.deadlineReached, false);
+  assert.equal(run.processedWallets, 2);
+  assert.deepEqual(reconciledUnits, [fixture.unit, closedUnit]);
   assert.equal(await db.sttWallet.count(), 2);
 });
 
