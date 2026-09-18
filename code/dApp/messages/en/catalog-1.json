@@ -604,5 +604,26 @@
   },
   "ComponentsUserProposalsFormat": {
     "notKnown": "Not known"
+  },
+  "ComponentsUserWorkspaceWorkspaceStreamingExpenseProjectionsView": {
+    "streamingExpenseProjections": "Streaming expense projections",
+    "title": "Streaming expenses",
+    "projectedBadge": "Projected",
+    "description": "Scheduled payments accrue between payouts. These running totals are projections, not settled payouts.",
+    "scheduledPaymentValue1": "Scheduled payment {value1}",
+    "nobodyToPay": "Nobody to pay",
+    "unpaidNow": "Unpaid now",
+    "paidSoFar": "Paid so far",
+    "projectedTotal": "Projected total",
+    "stillToAccrue": "Still to accrue",
+    "accruesAboutValue1AdaPerDay": "Accrues about {value1} ADA per day",
+    "accruesAboutValue1Value2PerDay": "Accrues about {value1} {value2} per day",
+    "value1Ada": "{value1} ADA",
+    "value1Value2": "{value1} {value2}",
+    "asOfValue1": "Projected as of {value1}",
+    "finished": "Finished",
+    "ended": "Ended",
+    "notStarted": "Not started",
+    "active": "Active"
   }
 }

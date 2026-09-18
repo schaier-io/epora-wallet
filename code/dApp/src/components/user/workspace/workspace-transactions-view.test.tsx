@@ -1,10 +1,14 @@
 import { render, screen } from "@testing-library/react";
+import { Provider, createStore } from "jotai";
 import type { TransactionInfo } from "@meshsdk/common";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WalletActivityEvent } from "@/components/user/workspace/types";
 
 const openWorkspaceIntent = vi.hoisted(() => vi.fn());
 const activityState = vi.hoisted(() => ({ value: {} as Record<string, unknown> }));
+const streamingPayments = vi.hoisted(() => ({ value: [] as unknown[] }));
+const { atom } = await import("jotai");
+const { createDefaultStateForm } = await import("@/lib/contracts/state-form");
 
 // The silk layer is a WebGL canvas loaded through `next/dynamic`. It draws decoration only.
 vi.mock("@/components/user/card-silk-background", () => ({
@@ -14,6 +18,19 @@ vi.mock("@/components/user/card-silk-background", () => ({
 vi.mock("@/components/user/workspace/use-workspace-activity-state", () => ({
   useWorkspaceActivityState: () => activityState.value
 }));
+
+// The streaming-expense section reads the wallet state through this atom. The
+// override keeps every other export of the module real.
+vi.mock(
+  "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms",
+  async (importOriginal) => ({
+    ...(await importOriginal<Record<string, unknown>>()),
+    activeInferredSttStateFormAtom: atom(() => ({
+      ...(createDefaultStateForm() as object),
+      streamingPayments: streamingPayments.value
+    }))
+  })
+);
 
 const { WorkspaceTransactionsView } = await import(
   "@/components/user/workspace/workspace-transactions-view"
@@ -80,7 +97,13 @@ function renderView(overrides: Record<string, unknown> = {}) {
     setActivityPageIndex: vi.fn(),
     ...overrides
   };
-  return render(<WorkspaceTransactionsView />);
+  // A fresh store per render: a shared default store would cache the read-only
+  // streaming-state atom across tests and hide later fixtures.
+  return render(
+    <Provider store={createStore()}>
+      <WorkspaceTransactionsView />
+    </Provider>
+  );
 }
 
 /**
@@ -207,5 +230,75 @@ describe("asset drill-down actions", () => {
     });
 
     expect(screen.getByRole("region", { name: "ADA summary" })).toBeInTheDocument();
+  });
+});
+
+/**
+ * The Activity section shows a scheduled payment's accruing expense before any payout
+ * settles it. The section reads the wallet state directly (not the transaction feed), so
+ * it must appear even when the event list is empty, and it must stay labeled as a
+ * projection so it cannot read as a settled transaction.
+ */
+describe("activity streaming-expense projections", () => {
+  const DAY_MS = 86_400_000;
+  const FIXED_NOW = 1_755_000_000_000;
+
+  function activeStream() {
+    return {
+      id: "5",
+      payoutAddress: "addr_test1payee",
+      paidOutAmount: "0",
+      policyId: "",
+      assetName: "",
+      amountPerDay: "1000000",
+      startDate: String(FIXED_NOW - 3 * DAY_MS),
+      endDate: String(FIXED_NOW + 7 * DAY_MS)
+    };
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers({ now: FIXED_NOW });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    streamingPayments.value = [];
+  });
+
+  it("hides the section when the wallet has no scheduled payments", () => {
+    renderView();
+
+    expect(
+      screen.queryByRole("region", { name: "Streaming expense projections" })
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows the accruing projection above the transaction list", () => {
+    streamingPayments.value = [activeStream()];
+    renderView();
+
+    expect(
+      screen.getByRole("region", { name: "Streaming expense projections" })
+    ).toBeInTheDocument();
+    expect(screen.getByText("Scheduled payment 1")).toBeInTheDocument();
+    expect(screen.getByText("Unpaid now 3 ADA")).toBeInTheDocument();
+    expect(screen.getAllByText("Projected").length).toBeGreaterThan(0);
+  });
+
+  it("shows the projection even while the event list is empty", () => {
+    streamingPayments.value = [activeStream()];
+    renderView();
+
+    expect(screen.getByRole("region", { name: "Streaming expense projections" })).toBeInTheDocument();
+    expect(screen.getByText("No activity yet")).toBeInTheDocument();
+  });
+
+  it("hides the section when the wallet address cannot be resolved", () => {
+    streamingPayments.value = [activeStream()];
+    renderView({ lockingContract: { address: null, error: "Choose a smart wallet first." } });
+
+    expect(
+      screen.queryByRole("region", { name: "Streaming expense projections" })
+    ).not.toBeInTheDocument();
   });
 });
