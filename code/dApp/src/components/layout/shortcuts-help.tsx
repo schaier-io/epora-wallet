@@ -2,7 +2,7 @@
 import { useTranslations } from "next-intl";
 
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAtom } from "jotai";
 import { PopupDialog } from "@/components/ui/popup-dialog";
@@ -39,8 +39,10 @@ export function KeyboardShortcutsHelp() {
   const [open, setOpen] = useAtom(shortcutsHelpOpenAtom);
   const [eggOpen, setEggOpen] = useState(false);
   const router = useRouter();
-  // One engine per mount: it owns the armed `g` prefix and the Konami progress.
-  const engine = useMemo(() => createShortcutEngine(), []);
+  // One engine per mount, via useState's initializer rather than useMemo: the
+  // engine owns the armed `g` prefix and the Konami progress, and React may
+  // discard a memo cache, which would silently reset mid-sequence state.
+  const [engine] = useState(createShortcutEngine);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
