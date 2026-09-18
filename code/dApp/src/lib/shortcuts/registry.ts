@@ -1,13 +1,13 @@
 /**
  * The keyboard-shortcut map, as data.
  *
- * Split out of `shortcuts-help.tsx` so a test can hold the one invariant this list has:
- * every label must be a name the destination actually carries. The list is a map of the
- * app, and a map that renames the places it points at is worse than no map. Three labels
- * had drifted into names used nowhere else -- `Send money` (the screen says "Send funds"),
- * `Receive money` (it says "Add funds") and `Create a new wallet` (it says "Create wallet").
- *
- * Pure data, no React, no JSX. Same reason `guided-admin-catalog.ts` is separate.
+ * Lives in `lib/` because it is shared domain data, not view code: the help dialog renders
+ * it and the shortcut engine matches against it. Split out of `shortcuts-help.tsx` so a
+ * test can hold the one invariant this list has: every label must be a name the destination
+ * actually carries. The list is a map of the app, and a map that renames the places it
+ * points at is worse than no map. Three labels had drifted into names used nowhere else --
+ * `Send money` (the screen says "Send funds"), `Receive money` (it says "Add funds") and
+ * `Create a new wallet` (it says "Create wallet").
  */
 
 export type ShortcutLabelKey =
@@ -41,7 +41,7 @@ export const SHORTCUTS: Shortcut[] = [
 
 /**
  * Second key after `g`, to the query it opens. `?wallet` is carried across every one of
- * these by the handler; see the comment on that block for what losing it costs.
+ * these by the handler; see the engine's navigate branch for what losing it costs.
  */
 export const NAV_TARGETS: Record<string, string> = {
   h: "?step=overview",
