@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { rateLimit } from "@/lib/http/rate-limit";
+import { readBoundedJson } from "@/lib/http/request-body";
 import { jsonError, requireProposalParticipant, requireSession } from "@/lib/proposals/api-helpers";
 import {
   disposeProposalRecord,
@@ -44,11 +45,14 @@ export async function GET(_request: Request, context: RouteContext) {
   return NextResponse.json({ proposal });
 }
 
-// DELETE /api/proposals/:id: creator removal, dispatched by stored status. An
-// OPEN request is withdrawn (cancelled) so nobody else can sign it; a finished
-// one (CANCELLED or SUBMITTED) is deleted with its recorded signatures. Only the
-// creator may remove their own proposal in either direction.
-export async function DELETE(_request: Request, context: RouteContext) {
+// DELETE /api/proposals/:id: creator removal with an explicit intent in the
+// JSON body. "cancel" (the default, and what clients without a body send)
+// withdraws an OPEN request so nobody else can sign it; "delete" removes a
+// finished one with its recorded signatures. The intent, not the stored
+// status, picks the path, so a stale withdraw click can never become an
+// unconfirmed delete. Only the creator may remove their own proposal in
+// either direction.
+export async function DELETE(request: Request, context: RouteContext) {
   const i18n = await getI18n();
   const auth = await requireSession();
   if ("response" in auth) {
@@ -69,9 +73,17 @@ export async function DELETE(_request: Request, context: RouteContext) {
 
   const { id } = await context.params;
   if (id.length > 64) return jsonError(i18n("proposalIdTooLong"), 400);
+  // Bodies this route does not understand fall back to the cancel intent: the
+  // pre-delete behavior every existing client relies on. The bounded read
+  // keeps a large or unparseable body from being held in memory.
+  const body = (await readBoundedJson(request, 4 * 1024).catch(() => null)) as {
+    intent?: unknown;
+  } | null;
+  const intent = body?.intent === "delete" ? "delete" : "cancel";
   const result = await disposeProposalRecord({
     proposalId: id,
-    actorKeyHash: auth.session.paymentKeyHash
+    actorKeyHash: auth.session.paymentKeyHash,
+    intent
   });
   if (!result.ok) {
     return jsonError(result.error, result.status);

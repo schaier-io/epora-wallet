@@ -184,6 +184,22 @@ export async function cancelProposal(id: string): Promise<void> {
   }
 }
 
+// Hard-deletes a finished request (withdrawn or sent). The explicit delete
+// intent is what separates this from `cancelProposal`: the server never picks
+// a destructive path from stored status alone, so a stale client state cannot
+// turn a withdraw into a delete or the reverse.
+export async function deleteProposal(id: string): Promise<void> {
+  const response = await fetch(proposalPath(id), {
+    method: "DELETE",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ intent: "delete" })
+  });
+  if (!response.ok) {
+    throw new ProposalRequestError(await readError(response), response.status, parseRetryAfterMs(response.headers.get("Retry-After")));
+  }
+}
+
 // ---- DTO decoding --------------------------------------------------------
 
 export function parseProposalBuildContext(

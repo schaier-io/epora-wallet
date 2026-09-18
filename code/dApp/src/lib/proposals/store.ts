@@ -418,20 +418,18 @@ export async function cancelProposalRecord(args: {
     : { ok: false, status: 409, error: proposalCopy.changedWhileCancelling() };
 }
 
-// What a creator's DELETE on /api/proposals/:id does, by the stored status:
-// an OPEN request is withdrawn (cancelled) so co-signers can no longer sign it,
-// while a finished one (CANCELLED or SUBMITTED) is deleted outright with its
-// recorded signatures. A SUBMITTING row belongs to neither path: a broadcast may
-// be in flight, so both guards refuse it.
+// A creator's DELETE on /api/proposals/:id carries an explicit intent, so the
+// server can never upgrade one destructive action into the other: "cancel"
+// withdraws an OPEN request so co-signers can no longer sign it (the only
+// behavior clients without a body get), "delete" removes a finished request
+// outright with its recorded signatures. A SUBMITTING row belongs to neither
+// path: a broadcast may be in flight, so both guards refuse it.
 export async function disposeProposalRecord(args: {
   proposalId: string;
   actorKeyHash: string;
+  intent: "cancel" | "delete";
 }): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
-  const existing = await getPrisma().multiSigProposal.findUnique({
-    where: { id: args.proposalId },
-    select: { status: true }
-  });
-  if (existing?.status === "OPEN") {
+  if (args.intent === "cancel") {
     return cancelProposalRecord(args);
   }
   return deleteProposalRecord(args);
