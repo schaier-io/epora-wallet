@@ -20,6 +20,10 @@ const STASH_KEY = "pw:proposal-draft";
 const STASH_VERSION = 1;
 
 export type StashedProposalDraft = {
+  // Identity stamp written with every draft (see `writeProposalDraft`). A save
+  // clears the stash only while it still holds this exact draft, so a save that
+  // finishes after the user built a newer draft cannot delete the newer one.
+  draftId?: string;
   walletUnit: string;
   walletPolicyId: string;
   actionKind: string;
@@ -53,24 +57,34 @@ function isStashedProposalDraft(value: unknown): value is StashedProposalDraft {
   );
 }
 
-export function writeProposalDraft(draft: StashedProposalDraft): void {
+// A fresh identity per draft; `crypto.randomUUID` is global in the browser
+// (every context that can reach wallet APIs is secure) and in Node 19+.
+function newDraftId(): string {
+  return crypto.randomUUID();
+}
+
+// Writes the draft with a fresh identity stamp and returns what was stored.
+// When storage is unavailable the input comes back unstamped; callers treat
+// the return as best-effort.
+export function writeProposalDraft(draft: StashedProposalDraft): StashedProposalDraft {
   if (typeof window === "undefined") {
-    return;
+    return draft;
   }
   try {
+    const stamped: StashedProposalDraft = {
+      ...draft,
+      draftId: newDraftId(),
+      summary: draft.summary ? fitProposalSummaryForStorage(draft.summary) : undefined
+    };
     window.sessionStorage.setItem(
       STASH_KEY,
-      serializeJsonSafe({
-        version: STASH_VERSION,
-        draft: {
-          ...draft,
-          summary: draft.summary ? fitProposalSummaryForStorage(draft.summary) : undefined
-        }
-      })
+      serializeJsonSafe({ version: STASH_VERSION, draft: stamped })
     );
+    return stamped;
   } catch {
     // sessionStorage may be unavailable (private mode); the create flow simply
     // shows an empty state in that case.
+    return draft;
   }
 }
 
@@ -82,19 +96,35 @@ export function readProposalDraft(): StashedProposalDraft | null {
     const raw = window.sessionStorage.getItem(STASH_KEY);
     if (!raw) return null;
     const stored = parseJsonSafe<{ version?: unknown; draft?: unknown }>(raw);
-    return stored?.version === STASH_VERSION && isStashedProposalDraft(stored.draft)
-      ? stored.draft
-      : null;
+    if (!(stored?.version === STASH_VERSION && isStashedProposalDraft(stored.draft))) {
+      return null;
+    }
+    // Drafts stashed before the identity stamp existed get one on first read,
+    // persisted like any write. Saves then always clear by identity, so a
+    // pre-stamp draft cannot delete a newer draft through the unconditional
+    // fallback in clearProposalDraft.
+    if (stored.draft.draftId === undefined) {
+      return writeProposalDraft(stored.draft);
+    }
+    return stored.draft;
   } catch {
     return null;
   }
 }
 
-export function clearProposalDraft(): void {
+// Clears the stash, or with an expected draft id only when the stash still
+// holds that exact draft: a save completing after the user stashed a newer
+// draft must not delete the newer one. Without an id it clears unconditionally
+// ("discard whatever is stashed"). Reads stamp legacy drafts, so saves built
+// from a read always pass an id.
+export function clearProposalDraft(expectedDraftId?: string): void {
   if (typeof window === "undefined") {
     return;
   }
   try {
+    if (expectedDraftId !== undefined && readProposalDraft()?.draftId !== expectedDraftId) {
+      return;
+    }
     window.sessionStorage.removeItem(STASH_KEY);
   } catch {
     // ignore
