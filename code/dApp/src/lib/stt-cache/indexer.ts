@@ -272,6 +272,14 @@ async function backfillHistory(
   };
 }
 
+// Field names inside the wallet reconcile sync cursor's JSON `state`. Read and
+// written here, nowhere else; `lookup.ts` reads only the cursor's timestamp.
+const WALLET_RECONCILE_STATE = {
+  nextPage: "nextPage",
+  lastUnit: "lastProcessedUnit",
+  lastIndex: "lastProcessedIndex"
+} as const;
+
 export async function reconcileCurrentWallets(
   options?: IndexerDependencies
 ): Promise<SttSyncOperationResult> {
@@ -283,11 +291,28 @@ export async function reconcileCurrentWallets(
   const previous = await readSyncCursor(db, STT_SYNC_CURSOR_KEYS.walletReconcile);
   // A run that stopped at its deadline left the collection page it had not
   // finished; pick the walk up there instead of from the first page.
-  const resumePage = previous.state?.nextPage;
-  let cursor: number | null | undefined =
-    typeof resumePage === "number" && Number.isSafeInteger(resumePage) && resumePage > 0
-      ? resumePage
+  const resumePage = previous.state?.[WALLET_RECONCILE_STATE.nextPage];
+  const resuming =
+    typeof resumePage === "number" && Number.isSafeInteger(resumePage) && resumePage > 0;
+  let cursor: number | null | undefined = resuming ? resumePage : undefined;
+  // Where the previous run stopped inside that page: everything up to and
+  // including this unit was reconciled. Trusted only when the re-fetched page
+  // still shows the unit at the saved index; a reordered or shrunk page falls
+  // back to a full re-read, which the idempotent upserts make safe. A saved
+  // state from before this field existed resumes at the page start.
+  const resumeUnit =
+    resuming && typeof previous.state?.[WALLET_RECONCILE_STATE.lastUnit] === "string"
+      ? (previous.state?.[WALLET_RECONCILE_STATE.lastUnit] as string)
       : undefined;
+  const savedIndex = previous.state?.[WALLET_RECONCILE_STATE.lastIndex];
+  const resumeIndex =
+    resuming && typeof savedIndex === "number" && Number.isSafeInteger(savedIndex)
+      ? savedIndex
+      : -1;
+  // Progress within the page `cursor` points at: the last asset unit fully
+  // reconciled there, and its index. Reset when the walk advances a page.
+  let progressUnit: string | undefined = resumeUnit;
+  let progressIndex = resumeIndex;
   let pagesScanned = 0;
   let processedTransactions = 0;
   let processedWallets = 0;
@@ -301,7 +326,23 @@ export async function reconcileCurrentWallets(
     const page = await chainClient.fetchCollectionAssets(policyId, cursor ?? undefined);
     pagesScanned += 1;
 
-    for (const asset of page.assets) {
+    // The saved progress describes only the first page fetched, the one the
+    // previous run stopped on. Skip its already reconciled head, but only
+    // while the page still shapes up exactly as saved.
+    let start = 0;
+    if (
+      pagesScanned === 1 &&
+      progressUnit !== undefined &&
+      page.assets[progressIndex]?.unit === progressUnit
+    ) {
+      start = progressIndex + 1;
+    }
+
+    for (const [index, asset] of page.assets.entries()) {
+      if (index < start) {
+        continue;
+      }
+
       if (pastDeadline(options)) {
         deadlineReached = true;
         break;
@@ -319,14 +360,21 @@ export async function reconcileCurrentWallets(
       const reconciled = await reconcileWalletAsset(db, chainClient, now, asset.unit);
       processedTransactions += reconciled.processedTransactions;
       processedWallets += 1;
+      progressUnit = asset.unit;
+      progressIndex = index;
     }
 
     if (deadlineReached) {
-      // The cursor stays on this page so the next run reads it again.
+      // The cursor stays on this page and the progress fields mark how far the
+      // walk got inside it, so the next run resumes past the wallets already
+      // done instead of repeating them.
       break;
     }
 
     cursor = page.next;
+    // The page is fully reconciled; the next one starts unprocessed.
+    progressUnit = undefined;
+    progressIndex = -1;
   } while (cursor);
 
   // `lastSyncedAt` is the time the last full pass over the collection finished.
@@ -339,7 +387,21 @@ export async function reconcileCurrentWallets(
     cursorValue: String(seenUnits.size),
     state: {
       walletCount: seenUnits.size,
-      ...(deadlineReached ? { nextPage: cursor ?? 1 } : {})
+      ...(deadlineReached
+        ? {
+            [WALLET_RECONCILE_STATE.nextPage]: cursor ?? 1,
+            // Kept only while the stop left work unfinished inside the page; a
+            // stop between pages, or before the first page was fetched on a
+            // fresh start, resumes at that page's start. A stop before any
+            // fetch on a resumed run carries the saved progress forward.
+            ...(progressUnit !== undefined
+              ? {
+                  [WALLET_RECONCILE_STATE.lastUnit]: progressUnit,
+                  [WALLET_RECONCILE_STATE.lastIndex]: progressIndex
+                }
+              : {})
+          }
+        : {})
     },
     lastSyncedAt
   });
