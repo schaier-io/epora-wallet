@@ -4,6 +4,7 @@ import { createDefaultStateForm } from "@/lib/contracts/state-form";
 import type { BuildResult } from "@/lib/types/contracts";
 import { createWorkspaceFlowHandlers, type WorkspaceFlowHandlersCtx } from "./workspace-flow-handlers";
 import { createWorkspaceTransactions } from "./workspace-transactions";
+import { warmBuildResultExpiry } from "./workspace-build-expiry";
 import type { WorkspaceTransactionsCtx } from "./workspace-transactions-types";
 import { activeBuildAtom, buildErrorAtom, buildErrorExpectedAtom, lastActionLabelAtom, mintConfirmationAtom, previewAtom, previewSignatureAtom, resetAllFlowAtom, submitHashAtom } from "./atoms/transaction-flow.atoms";
 import { lockFundsAssetsAtom } from "./atoms/forms/lock-funds-form.atoms";
@@ -146,17 +147,23 @@ it("an old render cannot start a build after its inputs change", async () => {
 it("a transaction that expires on the review screen cannot be signed", async () => {
   const { render } = fixture();
   const expired = { ...result, txHex: "84a40080018002000301a0f5f6" };
+  // Production previews are expiry-warmed when the build settles; these raw
+  // fixtures bypass the build flow, so warm them the same way.
+  await warmBuildResultExpiry(expired);
   await render().submitTransactionPreview(expired, { requireCurrentPreview: false });
   expect(mocks.sign).not.toHaveBeenCalled();
 });
 
 it("expiry while a warning confirmation is open prevents signing", async () => {
   const { render } = fixture();
+  const withWarnings = { ...result, warnings: ["Review omitted funds."] };
+  // The expiry cache keys the exact result object a build settled; warm this one.
+  await warmBuildResultExpiry(withWarnings);
   vi.spyOn(window, "confirm").mockImplementation(() => {
     vi.setSystemTime(new Date("2200-01-01"));
     return true;
   });
-  await render().submitTransactionPreview({ ...result, warnings: ["Review omitted funds."] }, { requireCurrentPreview: false });
+  await render().submitTransactionPreview(withWarnings, { requireCurrentPreview: false });
   expect(mocks.sign).not.toHaveBeenCalled();
 });
 

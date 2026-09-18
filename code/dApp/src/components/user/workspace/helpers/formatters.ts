@@ -9,10 +9,10 @@ import { type DetectedSttToken } from "@/lib/mesh/detection";
 import { type Asset } from "@/lib/types/contracts";
 import { formatLovelaceAsAda, splitDurationMillis } from "@/lib/user-flow/guided-helpers";
 import { shortenAddress, shortenIdentifier } from "@/lib/utils/explorer";
-import { type UTxO, SLOT_CONFIG_NETWORK, slotToBeginUnixTime } from "@meshsdk/core";
+import { type UTxO } from "@meshsdk/core";
 import { createDefaultTranslator, defaultFormatter } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceHelpersFormatters.json";
-import { NETWORK } from "@/lib/mesh/transactions/internals/constants";
+import { slotToBeginUnixTime } from "@/lib/cardano-slot-time";
 
 const i18n = createDefaultTranslator("ComponentsUserWorkspaceHelpersFormatters", defaultMessages);
 
@@ -174,7 +174,7 @@ export function approximateBlockTimeMsFromSlot(slot?: number | string): number |
   }
 
   try {
-    return normalizeBlockTimeMs(slotToBeginUnixTime(numericSlot, SLOT_CONFIG_NETWORK[NETWORK]));
+    return normalizeBlockTimeMs(slotToBeginUnixTime(numericSlot));
   } catch {
     return null;
   }

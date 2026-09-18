@@ -1,5 +1,6 @@
 "use client";
-import { isWorkspaceBuildResultExpired, runWorkspaceBuild, workspaceBuildIdentityAtom } from "./workspace-build-cache";
+import { runWorkspaceBuild, workspaceBuildIdentityAtom } from "./workspace-build-cache";
+import { isWorkspaceBuildResultExpired, warmBuildResultExpiry } from "./workspace-build-expiry";
 import { createAbortableWalletSource } from "@/lib/mesh/build-cancellation";
 import { ServerFetcher } from "@/lib/mesh/server-fetcher";
 import type { WorkspaceBuildResources } from "./workspace-transactions-types";
@@ -167,6 +168,8 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
         });
         const proposalCapture = proposalCaptureRef.current;
         const result = await pending;
+        // Warm the expiry before the check reads it synchronously.
+        await warmBuildResultExpiry(result);
         if (!isCurrent() || isWorkspaceBuildResultExpired(result)) {
           return null;
         }
