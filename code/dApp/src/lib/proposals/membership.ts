@@ -34,9 +34,22 @@ export async function walletParticipantExists(
 // first attempt retryable and every attempt after it a 403: the row the failed
 // attempt left behind reads as "indexed", and the reconcile that would settle it
 // never runs again.
+//
+// A partial row is not an answer either. Persisting a recent transaction creates
+// the wallet ACTIVE with no current state and no participants, and only a
+// completed reconcile fills the current state (and rewrites the participants in
+// the same transaction). Counting such a row as indexed skipped the targeted
+// reconcile a proposal would otherwise run, and the absent participants came back
+// as a 403 for the wallet's own owner. `currentTxHash` is what that reconcile
+// alone writes, so its presence is what separates the two states.
 export async function walletIsIndexed(db: PrismaClient, walletUnit: string): Promise<boolean> {
   const count = await db.sttWallet.count({
-    where: { network: STT_CACHE_NETWORK, unit: walletUnit, status: "ACTIVE" }
+    where: {
+      network: STT_CACHE_NETWORK,
+      unit: walletUnit,
+      status: "ACTIVE",
+      currentTxHash: { not: null }
+    }
   });
   return count > 0;
 }

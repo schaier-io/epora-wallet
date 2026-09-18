@@ -241,6 +241,7 @@ export function createNoChangeAdaSelector(
       let selection: Selection | undefined;
       let selectedChangeLovelace: bigint | undefined;
       let insufficientError: unknown;
+      let oversizeCandidateError: unknown;
       let feeFreeAddedLovelace: bigint | undefined;
 
       for (const candidateGroup of candidateGroups) {
@@ -274,10 +275,16 @@ export function createNoChangeAdaSelector(
             selectedChangeLovelace = candidateChangeLovelace;
           }
         } catch (error) {
-          if (!isInsufficientSelection(error)) {
+          // A size failure only invalidates the candidate that produced it; a
+          // selection already found stays valid. Errors outside the known
+          // per-candidate failures still invalidate the whole build.
+          if (isInsufficientSelection(error)) {
+            insufficientError = error;
+          } else if (isTransactionSizeExceeded(error)) {
+            oversizeCandidateError ??= error;
+          } else {
             throw error;
           }
-          insufficientError = error;
         }
       }
 
@@ -321,7 +328,9 @@ export function createNoChangeAdaSelector(
       }
 
       if (!selection) {
-        throw insufficientError ?? new Error("Not enough UTxOs to cover the required value.");
+        throw insufficientError ??
+          oversizeCandidateError ??
+          new Error("Not enough UTxOs to cover the required value.");
       }
       const sink = outputs[options.resolveSinkOutputIndex(outputs)];
       if (!sink) {

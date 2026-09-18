@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useAtomValue } from "jotai";
+import { useAtomValueRawSync } from "jotai";
 import { routeStateAtom } from "@/components/user/workspace/atoms/workspace-route.atoms";
 import {
   buildWorkspaceSearchParams,
@@ -36,7 +36,12 @@ export function useWorkspaceRouteState({ syncUrl = true }: { syncUrl?: boolean }
     () => buildWorkspaceSearchParams(routeState).toString(),
     [routeState]
   );
-  const mirroredRouteState = useAtomValue(routeStateAtom);
+  // RawSync on purpose: the mirror write lands in an effect, between this hook's initial
+  // render and its subscription. jotai v3 dropped `useAtomValue`'s guaranteed post-mount
+  // re-render (migration guide, "a subtle mount-timing change"), so a plain read misses
+  // that write on a remount and `isRouteStateCurrent` stays false, freezing every
+  // downstream effect. The useSyncExternalStore-based reader catches it.
+  const mirroredRouteState = useAtomValueRawSync(routeStateAtom);
   const isRouteStateCurrent = useMemo(
     () => buildWorkspaceSearchParams(mirroredRouteState).toString() === currentCanonicalSearch,
     [mirroredRouteState, currentCanonicalSearch]

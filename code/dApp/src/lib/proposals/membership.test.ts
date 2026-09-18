@@ -32,7 +32,10 @@ describe("proposal wallet membership", { skip: DB_SKIP }, () => {
         assetNameHex: unit.slice(8),
         unit,
         sttScriptAddress: `stt_${unit}`,
-        walletScriptAddress: `wallet_${unit}`
+        walletScriptAddress: `wallet_${unit}`,
+        // A completed reconcile: the tests here mean "indexed" in the full sense,
+        // current state present, not the skeleton the head sync writes first.
+        currentTxHash: "11".repeat(32)
       }
     });
     await db.sttParticipant.createMany({
@@ -121,5 +124,32 @@ describe("proposal wallet membership", { skip: DB_SKIP }, () => {
     });
 
     assert.equal(await walletIsIndexed(db, UNIT_CLOSED), false);
+  });
+
+  /**
+   * The background head sync persists a recent transaction before any reconcile has
+   * run, so the wallet row exists with status ACTIVE but no current state and no
+   * participants. Counting that row as indexed let `POST /api/proposals` skip the
+   * targeted reconcile and 403 the wallet's owner; only a completed reconcile writes
+   * `currentTxHash`, so that is what the query requires.
+   */
+  test("walletIsIndexed does not count a partial ACTIVE record as indexed", async () => {
+    const UNIT_PARTIAL = "cccccccc0011";
+    await db.sttWallet.create({
+      data: {
+        network: STT_CACHE_NETWORK,
+        policyId: UNIT_PARTIAL.slice(0, 8),
+        assetNameHex: UNIT_PARTIAL.slice(8),
+        unit: UNIT_PARTIAL,
+        sttScriptAddress: `stt_${UNIT_PARTIAL}`,
+        walletScriptAddress: `wallet_${UNIT_PARTIAL}`,
+        status: "ACTIVE",
+        currentTxHash: null,
+        currentOutputIndex: null,
+        currentDatumJson: null
+      }
+    });
+
+    assert.equal(await walletIsIndexed(db, UNIT_PARTIAL), false);
   });
 });

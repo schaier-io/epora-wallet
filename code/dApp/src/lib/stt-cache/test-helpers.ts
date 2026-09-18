@@ -112,7 +112,8 @@ export function createSttFixture() {
   const policyId = getSttPolicyId();
   const assetNameHex = "73747474657374";
   const unit = `${policyId}${assetNameHex}`;
-  const datum = stateFormToDatum(buildState());
+  const state = buildState();
+  const datum = stateFormToDatum(state);
   const sttScriptAddress = getSttScriptAddress();
   const liveUtxo: UTxO = {
     input: {
@@ -148,6 +149,7 @@ export function createSttFixture() {
     mintTransaction,
     policyId,
     sttScriptAddress,
+    state,
     transactionPageEntry,
     unit
   };

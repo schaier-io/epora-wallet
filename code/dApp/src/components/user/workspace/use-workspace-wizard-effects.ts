@@ -1,7 +1,7 @@
 "use client";
 import { connectStepPinnedAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
 import { detectedSttTokensLoadingAtom } from "./atoms/workspace-data.atoms";
-import { useAtomValue } from "jotai";
+import { useAtomValueRawSync } from "jotai";
 
 import { useEffect } from "react";
 
@@ -49,9 +49,9 @@ export function useWorkspaceWizardEffects(ctx: WorkspaceWizardEffectsCtx): void 
     wizardSelectedAction,
     wizardStep
   } = ctx;
-  const connectStepPinned = useAtomValue(connectStepPinnedAtom);
+  const connectStepPinned = useAtomValueRawSync(connectStepPinnedAtom);
   const { isRouteStateCurrent } = useWorkspaceRouteState();
-  const detectedTokensLoading = useAtomValue(detectedSttTokensLoadingAtom);
+  const detectedTokensLoading = useAtomValueRawSync(detectedSttTokensLoadingAtom);
 
   useEffect(() => {
     if (!isRouteStateCurrent || (walletReady && detectedTokensLoading)) return;

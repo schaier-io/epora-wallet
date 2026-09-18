@@ -30,6 +30,7 @@ import { assertProposalTransactionBinding } from "@/lib/proposals/transaction-bi
 import { proposalCopy } from "@/lib/proposals/copy";
 import {
   DEFAULT_PROPOSAL_PAGE_SIZE,
+  MAX_PROPOSAL_CURSOR_LENGTH,
   MAX_PROPOSAL_PAGE_SIZE,
   MAX_SUMMARY_CELL_LENGTH,
   MAX_SUMMARY_HEADLINE_LENGTH,
@@ -62,7 +63,9 @@ export async function GET(request: Request) {
     return jsonError(i18n("limitMustBeBetween1AndMaxProposal", { MAX_PROPOSAL_PAGE_SIZE }), 400);
   }
   if (walletUnit && walletUnit.length > 120) return jsonError(i18n("walletunitIsTooLong"), 400);
-  if (cursor && cursor.length > 64) return jsonError(i18n("cursorIsTooLong"), 400);
+  if (cursor && cursor.length > MAX_PROPOSAL_CURSOR_LENGTH) {
+    return jsonError(i18n("cursorIsTooLong"), 400);
+  }
 
   const limit = await rateLimit(`proposals:list:${auth.session.paymentKeyHash}`, 600, 60_000);
   if (!limit.ok) {

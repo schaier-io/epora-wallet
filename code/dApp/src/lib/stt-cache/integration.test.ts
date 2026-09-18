@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
 import { after, before, beforeEach, describe, test } from "node:test";
+import type { TransactionInfo, UTxO } from "@meshsdk/common";
+import { serializeData } from "@meshsdk/core";
+import { stateFormToDatum } from "@/lib/contracts/state-form";
+import { decodeDatumFromUtxo } from "@/lib/mesh/datum";
 import type { PrismaClient } from "@/generated/prisma";
 import { lookupSttWallets } from "@/lib/stt-cache/lookup";
 import { STT_CACHE_NETWORK, STT_SYNC_CURSOR_KEYS } from "@/lib/stt-cache/domain";
@@ -10,10 +14,19 @@ import {
   runSttBackgroundSync,
   syncRecentHead
 } from "@/lib/stt-cache/indexer";
-import { writeSyncCursor } from "@/lib/stt-cache/indexer-persistence";
+import {
+  fetchAndPersistTransaction,
+  stringifyJson,
+  writeSyncCursor
+} from "@/lib/stt-cache/indexer-persistence";
+import {
+  walletIsIndexed,
+  walletParticipantExists
+} from "@/lib/proposals/membership";
 import {
   TEST_CONNECTED_ADDRESS,
   TEST_CONNECTED_PAYMENT_KEY_HASH,
+  TEST_REGULAR_PAYMENT_KEY_HASH,
   buildCloseTransaction,
   buildForwardTransaction,
   createMockChainClient,
@@ -113,6 +126,51 @@ test("reconcileWalletUnit answers false for a policy unit with no live wallet UT
 });
 
 /**
+ * The head sync persists a recent transaction before any reconcile has projected the
+ * participants, which leaves an ACTIVE wallet row with no current state and no
+ * participants. Counting that row as indexed made `POST /api/proposals` skip the
+ * targeted reconcile and 403 the wallet's own owner. This is the route's decision
+ * sequence against the real cache writes: the partial row reads as not indexed, the
+ * inline reconcile completes the state, and the owner's key is then a participant
+ * while a key that holds no membership still is not.
+ */
+test("a partial ACTIVE skeleton reads as unindexed until the targeted reconcile completes it", async () => {
+  const fixture = createSttFixture();
+  const chainClient = createMockChainClient();
+
+  // The write the background head sync makes on the normal path: a wallet
+  // skeleton from the transaction alone, before any reconcile has run.
+  await fetchAndPersistTransaction(
+    chainClient,
+    db,
+    fixture.mintTransaction.hash,
+    new Date(),
+    fixture.transactionPageEntry
+  );
+  const skeleton = await db.sttWallet.findFirstOrThrow({ where: { unit: fixture.unit } });
+  assert.equal(skeleton.status, "ACTIVE");
+  assert.equal(skeleton.currentTxHash, null);
+  assert.equal(skeleton.currentDatumJson, null);
+  assert.equal(await db.sttParticipant.count({ where: { walletId: skeleton.id } }), 0);
+
+  // The route answers the participant miss with a targeted reconcile.
+  assert.equal(await walletIsIndexed(db, fixture.unit), false);
+  assert.equal(await reconcileWalletUnit(fixture.unit, { db, chainClient }), true);
+
+  // The completed reconcile confirms live membership for the wallet's members.
+  assert.equal(await walletIsIndexed(db, fixture.unit), true);
+  assert.equal(
+    await walletParticipantExists(db, fixture.unit, TEST_CONNECTED_PAYMENT_KEY_HASH),
+    true
+  );
+  assert.equal(
+    await walletParticipantExists(db, fixture.unit, TEST_REGULAR_PAYMENT_KEY_HASH),
+    true
+  );
+  assert.equal(await walletParticipantExists(db, fixture.unit, "ff".repeat(28)), false);
+});
+
+/**
  * The chain reads run before the write, so a background pass and the targeted reconcile a
  * proposal files inline can overlap. The pass that read the older UTxO must not commit
  * last and roll the wallet back: `currentTxHash`, the datum and the participants were
@@ -147,6 +205,222 @@ test("reconcileWalletUnit does not roll a wallet back to an older UTxO", async (
   assert.equal(after.lastSeenBlockHeight, forwardTransaction.blockHeight);
   // The wallet was checked just now, so the freshness stamp still moves.
   assert.ok(after.lastSyncedAt !== null);
+});
+
+/**
+ * The issue #398 regression: Mesh's Blockfrost `fetchTxInfo` reports neither
+ * `blockHeight` nor `blockTime`, so a snapshot that read the chain before a newer
+ * one had nothing to be compared against and rolled `currentTxHash`, the datum and
+ * the participants back when it committed late. The ledger `slot` every Blockfrost
+ * transaction info carries is the ordering key: the late pass's transaction sits at
+ * an older slot, so only `lastSyncedAt` may move.
+ */
+test("a late metadata-less older snapshot cannot roll the wallet back", async () => {
+  const fixture = createSttFixture();
+  // The newer state projects one participant fewer than the mint state: dropping
+  // the second user removes the USER row, so a stale rewrite is observable.
+  const forwardState = { ...fixture.state, users: fixture.state.users.slice(0, 1) };
+  const forwardUtxo: UTxO = {
+    input: { txHash: "e".repeat(64), outputIndex: 0 },
+    output: {
+      ...fixture.liveUtxo.output,
+      plutusData: serializeData(stateFormToDatum(forwardState))
+    }
+  };
+  const forwardTransaction = {
+    ...fixture.mintTransaction,
+    hash: forwardUtxo.input.txHash,
+    index: 1,
+    // The pinned Blockfrost shape: a newer slot, no block position.
+    slot: "123500",
+    blockHeight: undefined,
+    blockTime: undefined,
+    inputs: [fixture.liveUtxo],
+    outputs: [forwardUtxo]
+  } satisfies TransactionInfo;
+  const base = createMockChainClient();
+  const forwardChainClient = {
+    ...base,
+    async fetchAddressUTxOs() {
+      return [forwardUtxo];
+    },
+    async fetchTxInfo() {
+      return forwardTransaction;
+    }
+  };
+  const staleChainClient = {
+    ...base,
+    async fetchTxInfo(hash: string) {
+      const info = await base.fetchTxInfo(hash);
+      return { ...info, blockHeight: undefined, blockTime: undefined };
+    }
+  };
+
+  assert.equal(
+    await reconcileWalletUnit(fixture.unit, {
+      db,
+      chainClient: forwardChainClient,
+      now: new Date(1_000)
+    }),
+    true
+  );
+  const forward = await db.sttWallet.findFirstOrThrow({ where: { unit: fixture.unit } });
+  assert.equal(forward.currentTxHash, forwardTransaction.hash);
+  assert.equal(await db.sttParticipant.count(), 4);
+
+  // A late pass that read the chain earlier: the mint UTxO, one slot behind, and
+  // carrying no block position, exactly as the pinned provider returns it.
+  assert.equal(
+    await reconcileWalletUnit(fixture.unit, {
+      db,
+      chainClient: staleChainClient,
+      now: new Date(2_000)
+    }),
+    true
+  );
+
+  const after = await db.sttWallet.findFirstOrThrow({ where: { unit: fixture.unit } });
+  assert.equal(after.currentTxHash, forwardTransaction.hash);
+  assert.equal(after.currentOutputIndex, forwardUtxo.input.outputIndex);
+  assert.equal(after.currentDatumJson, stringifyJson(decodeDatumFromUtxo(forwardUtxo)));
+  assert.equal(await db.sttParticipant.count(), 4);
+  assert.equal(
+    await db.sttParticipant.count({ where: { paymentKeyHash: TEST_REGULAR_PAYMENT_KEY_HASH } }),
+    0
+  );
+  // The wallet was checked just now, so the freshness stamp still moves.
+  assert.equal(after.lastSyncedAt?.getTime(), 2_000);
+});
+
+/**
+ * The pinned Blockfrost shape carries a slot and a transaction index but no block
+ * position, so two transitions recorded in the same block must be ordered by their
+ * index: the later one is a genuine transition and must land, and a late pass that
+ * read the earlier one cannot roll the wallet back to it.
+ */
+test("a same-block earlier snapshot cannot roll the wallet back", async () => {
+  const fixture = createSttFixture();
+  // The newer state projects one participant fewer than the mint state: dropping
+  // the second user removes the USER row, so a stale rewrite is observable.
+  const forwardState = { ...fixture.state, users: fixture.state.users.slice(0, 1) };
+  const forwardUtxo: UTxO = {
+    input: { txHash: "e".repeat(64), outputIndex: 0 },
+    output: {
+      ...fixture.liveUtxo.output,
+      plutusData: serializeData(stateFormToDatum(forwardState))
+    }
+  };
+  // Same block as the mint (`fixture.mintTransaction.slot`), one index later,
+  // and carrying no block position, exactly as the pinned provider returns it.
+  const forwardTransaction = {
+    ...fixture.mintTransaction,
+    hash: forwardUtxo.input.txHash,
+    index: 1,
+    blockHeight: undefined,
+    blockTime: undefined,
+    inputs: [fixture.liveUtxo],
+    outputs: [forwardUtxo]
+  } satisfies TransactionInfo;
+  const base = createMockChainClient();
+  const forwardChainClient = {
+    ...base,
+    async fetchAddressUTxOs() {
+      return [forwardUtxo];
+    },
+    async fetchTxInfo() {
+      return forwardTransaction;
+    }
+  };
+  const staleChainClient = {
+    ...base,
+    async fetchTxInfo(hash: string) {
+      const info = await base.fetchTxInfo(hash);
+      return { ...info, blockHeight: undefined, blockTime: undefined };
+    }
+  };
+
+  assert.equal(
+    await reconcileWalletUnit(fixture.unit, { db, chainClient: base, now: new Date(1_000) }),
+    true
+  );
+  assert.equal(
+    await reconcileWalletUnit(fixture.unit, {
+      db,
+      chainClient: forwardChainClient,
+      now: new Date(2_000)
+    }),
+    true
+  );
+  const forward = await db.sttWallet.findFirstOrThrow({ where: { unit: fixture.unit } });
+  assert.equal(forward.currentTxHash, forwardTransaction.hash);
+  assert.equal(await db.sttParticipant.count(), 4);
+
+  // A late pass that read the mint, one index behind in the same block.
+  assert.equal(
+    await reconcileWalletUnit(fixture.unit, {
+      db,
+      chainClient: staleChainClient,
+      now: new Date(3_000)
+    }),
+    true
+  );
+
+  const after = await db.sttWallet.findFirstOrThrow({ where: { unit: fixture.unit } });
+  assert.equal(after.currentTxHash, forwardTransaction.hash);
+  assert.equal(after.currentOutputIndex, forwardUtxo.input.outputIndex);
+  assert.equal(after.currentDatumJson, stringifyJson(decodeDatumFromUtxo(forwardUtxo)));
+  assert.equal(await db.sttParticipant.count(), 4);
+  assert.equal(
+    await db.sttParticipant.count({ where: { paymentKeyHash: TEST_REGULAR_PAYMENT_KEY_HASH } }),
+    0
+  );
+  // The wallet was checked just now, so the freshness stamp still moves.
+  assert.equal(after.lastSyncedAt?.getTime(), 3_000);
+});
+
+/**
+ * The guard must only reject snapshots that are provably older. A metadata-less
+ * read at a newer slot is a genuine wallet transition and must land.
+ */
+test("a genuinely newer metadata-less snapshot still updates the wallet", async () => {
+  const fixture = createSttFixture();
+  const forwardTransaction = {
+    ...buildForwardTransaction(),
+    slot: "123500",
+    blockHeight: undefined,
+    blockTime: undefined
+  } satisfies TransactionInfo;
+  const forwardUtxo = forwardTransaction.outputs[0]!;
+  const base = createMockChainClient();
+  const forwardChainClient = {
+    ...base,
+    async fetchAddressUTxOs() {
+      return [forwardUtxo];
+    },
+    async fetchTxInfo() {
+      return forwardTransaction;
+    }
+  };
+
+  assert.equal(
+    await reconcileWalletUnit(fixture.unit, { db, chainClient: base, now: new Date(1_000) }),
+    true
+  );
+  assert.equal(
+    await reconcileWalletUnit(fixture.unit, {
+      db,
+      chainClient: forwardChainClient,
+      now: new Date(2_000)
+    }),
+    true
+  );
+
+  const after = await db.sttWallet.findFirstOrThrow({ where: { unit: fixture.unit } });
+  assert.equal(after.currentTxHash, forwardTransaction.hash);
+  assert.equal(after.currentOutputIndex, forwardUtxo.input.outputIndex);
+  // The metadata-less write must not blank what the positioned first pass recorded.
+  assert.equal(after.lastSeenBlockHeight, fixture.mintTransaction.blockHeight);
+  assert.equal(await db.sttParticipant.count(), 5);
 });
 
 /**
@@ -583,12 +857,184 @@ test("a reconcile cut off mid-page stays on that page and the next run re-reads 
   assert.equal(first.processedWallets, 1);
   const paused = await getSttSyncCursor(STT_SYNC_CURSOR_KEYS.walletReconcile, { db });
   assert.equal(paused.state?.nextPage, 1);
+  // The run also saved where inside the page it stopped.
+  assert.equal(paused.state?.lastProcessedUnit, fixture.unit);
+  assert.equal(paused.state?.lastProcessedIndex, 0);
   assert.equal(await db.sttWallet.count(), 1);
 
+  // The second run re-reads the page but resumes past the wallet already done.
   const second = await reconcileCurrentWallets({ db, chainClient, clock });
 
   assert.equal(second.deadlineReached, false);
-  assert.equal(second.processedWallets, 2);
+  assert.equal(second.processedWallets, 1);
+  assert.equal(await db.sttWallet.count(), 2);
+});
+
+/**
+ * The issue #380 simulation: a page whose wallets cost more to read than one
+ * run's budget. Before the fix, every run re-reconciled the page head and the
+ * tail was never reached under the same budget.
+ */
+test("bounded runs that cannot finish a page still reach every wallet", async () => {
+  const fixture = createSttFixture();
+  const units = [
+    fixture.unit,
+    `${fixture.policyId}${"01".repeat(4)}`,
+    `${fixture.policyId}${"02".repeat(4)}`,
+    `${fixture.policyId}${"03".repeat(4)}`
+  ];
+  const base = createMockChainClient();
+  let nowMs = 0;
+  const reconciledUnits: string[] = [];
+  const requestedPages: unknown[] = [];
+  const chainClient = {
+    ...base,
+    async fetchCollectionAssets(_policyId: string, cursor?: number | string) {
+      requestedPages.push(cursor ?? 1);
+      return {
+        assets: units.map((unit) => ({ unit, quantity: "1" })),
+        next: null
+      };
+    },
+    async fetchAddressUTxOs(address: string, asset?: string) {
+      // Every wallet read costs one run's whole 100 ms budget.
+      nowMs += 100;
+      reconciledUnits.push(asset ?? "");
+      return base.fetchAddressUTxOs(address, asset);
+    }
+  };
+  const clock = () => nowMs;
+
+  // Three runs, each with time for exactly one wallet read. Each one resumes
+  // past the wallets the runs before it finished instead of repeating them.
+  for (let index = 0; index < 3; index += 1) {
+    const run = await reconcileCurrentWallets({
+      db,
+      chainClient,
+      clock,
+      deadline: nowMs + 100
+    });
+    assert.equal(run.deadlineReached, true);
+    assert.equal(run.processedWallets, 1);
+    assert.deepEqual(reconciledUnits, units.slice(0, index + 1));
+    const paused = await getSttSyncCursor(STT_SYNC_CURSOR_KEYS.walletReconcile, { db });
+    assert.equal(paused.state?.nextPage, 1);
+    // A partial pass never attests a full reconcile.
+    assert.equal(paused.lastSyncedAt, null);
+  }
+
+  const beforeLast = await getSttSyncCursor(STT_SYNC_CURSOR_KEYS.walletReconcile, { db });
+  assert.equal(beforeLast.state?.lastProcessedUnit, units[2]);
+  assert.equal(beforeLast.state?.lastProcessedIndex, 2);
+
+  // The fourth run finishes the page, so the pass is complete.
+  reconciledUnits.length = 0;
+  requestedPages.length = 0;
+  const last = await reconcileCurrentWallets({ db, chainClient, clock, deadline: nowMs + 100 });
+  assert.equal(last.deadlineReached, false);
+  assert.deepEqual(reconciledUnits, [units[3]]);
+  assert.deepEqual(requestedPages, [1]);
+  assert.equal(await db.sttWallet.count(), 4);
+  const done = await getSttSyncCursor(STT_SYNC_CURSOR_KEYS.walletReconcile, { db });
+  assert.equal(done.state?.nextPage, undefined);
+  assert.notEqual(done.lastSyncedAt, null);
+
+  // Writes stay idempotent: a fresh full pass re-walks every wallet in place.
+  reconciledUnits.length = 0;
+  const repeat = await reconcileCurrentWallets({ db, chainClient, clock });
+  assert.equal(repeat.deadlineReached, false);
+  assert.equal(repeat.processedWallets, 4);
+  assert.deepEqual([...reconciledUnits].sort(), [...units].sort());
+  assert.equal(await db.sttWallet.count(), 4);
+  assert.equal(await db.sttParticipant.count(), 5);
+});
+
+test("a resume skips ahead only when the page still matches the saved progress", async () => {
+  const fixture = createSttFixture();
+  const secondUnit = `${fixture.policyId}${"02".repeat(4)}`;
+  const base = createMockChainClient();
+  const reconciledUnits: string[] = [];
+  const chainClient = {
+    ...base,
+    async fetchCollectionAssets() {
+      // The provider reordered the page between runs.
+      return {
+        assets: [
+          { unit: secondUnit, quantity: "1" },
+          { unit: fixture.unit, quantity: "1" }
+        ],
+        next: null
+      };
+    },
+    async fetchAddressUTxOs(address: string, asset?: string) {
+      reconciledUnits.push(asset ?? "");
+      return base.fetchAddressUTxOs(address, asset);
+    }
+  };
+
+  // Saved as if the first listed wallet were already done, but the page now
+  // starts elsewhere: trusting the position would skip an unprocessed wallet,
+  // so the run falls back to a full re-read of the page.
+  await writeSyncCursor(db, STT_SYNC_CURSOR_KEYS.walletReconcile, {
+    cursorValue: "1",
+    state: { nextPage: 1, lastProcessedUnit: fixture.unit, lastProcessedIndex: 0 },
+    lastSyncedAt: null
+  });
+  const reordered = await reconcileCurrentWallets({ db, chainClient });
+
+  assert.equal(reordered.deadlineReached, false);
+  assert.equal(reordered.processedWallets, 2);
+  assert.deepEqual(reconciledUnits, [secondUnit, fixture.unit]);
+  assert.equal(await db.sttWallet.count(), 2);
+
+  // A saved unit the page no longer lists (burned or removed) falls back too.
+  reconciledUnits.length = 0;
+  await writeSyncCursor(db, STT_SYNC_CURSOR_KEYS.walletReconcile, {
+    cursorValue: "1",
+    state: { nextPage: 1, lastProcessedUnit: `${fixture.policyId}ffff`, lastProcessedIndex: 3 },
+    lastSyncedAt: new Date()
+  });
+  const missing = await reconcileCurrentWallets({ db, chainClient });
+
+  assert.equal(missing.processedWallets, 2);
+  assert.deepEqual(reconciledUnits, [secondUnit, fixture.unit]);
+  assert.equal(await db.sttWallet.count(), 2);
+});
+
+test("a saved state from before page progress existed still resumes without skipping", async () => {
+  const fixture = createSttFixture();
+  const closedUnit = `${fixture.policyId}${"00".repeat(4)}`;
+  const base = createMockChainClient();
+  const reconciledUnits: string[] = [];
+  const chainClient = {
+    ...base,
+    async fetchCollectionAssets() {
+      return {
+        assets: [
+          { unit: fixture.unit, quantity: "1" },
+          { unit: closedUnit, quantity: "1" }
+        ],
+        next: null
+      };
+    },
+    async fetchAddressUTxOs(address: string, asset?: string) {
+      reconciledUnits.push(asset ?? "");
+      return base.fetchAddressUTxOs(address, asset);
+    }
+  };
+
+  // Production rows saved before the progress fields existed carry only the
+  // page: resume at the page start and re-read everything on it.
+  await writeSyncCursor(db, STT_SYNC_CURSOR_KEYS.walletReconcile, {
+    cursorValue: "1",
+    state: { nextPage: 1 },
+    lastSyncedAt: null
+  });
+  const run = await reconcileCurrentWallets({ db, chainClient });
+
+  assert.equal(run.deadlineReached, false);
+  assert.equal(run.processedWallets, 2);
+  assert.deepEqual(reconciledUnits, [fixture.unit, closedUnit]);
   assert.equal(await db.sttWallet.count(), 2);
 });
 

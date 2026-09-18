@@ -1,7 +1,10 @@
 import { assertSerializedTransactionSizeIsBounded, createStageError, extractComputedScriptIntegrity, isLikelyTransactionCbor, normalizeError, readScriptDataHash, refreshScriptDataHashWithLiveCostModels, setScriptDataHash, withStage } from "./internals";
 import { ServerFetcher } from "@/lib/mesh/server-fetcher";
 import { resolveTxHash, type BrowserWallet } from "@meshsdk/core";
-import { addVKeyWitnessSetToTransaction, deserializeTx } from "@/lib/mesh/cst";
+import { addVKeyWitnessSetToTransaction, deserializeTx, type CstTransaction } from "@/lib/mesh/cst";
+// Imported directly, not through the internals barrel: submit.test.tsx mocks
+// "./internals", and a barrel re-export would be shadowed by that mock factory.
+import { assertVKeyWitnessesSignTxBody } from "./internals/witness-body-binding";
 
 export async function signAndSubmitTx(
   wallet: BrowserWallet,
@@ -39,16 +42,46 @@ export async function signAndSubmitTx(
     }
 
     await options.assertCurrent?.();
+    // The ledger verifies every vkey signature over exactly this body hash, so
+    // a witness made for any other body would make the transaction invalid.
+    const intendedBodyHash = resolveTxHash(unsignedTxHex);
     const signedPayload = await wallet.signTx(unsignedTxHex, true);
     const normalizedSignedPayload = signedPayload.trim();
     let signed = unsignedTxHex;
     let signerPayloadKind = "witness-set";
     let returnedTxScriptDataHash: string | null = null;
 
+    // Single chokepoint for splicing wallet-provided vkey witnesses into our
+    // body: each merged signature is verified against the intended body hash
+    // first, so a witness made for a different transaction can never be
+    // merged and submitted (issue #384).
+    const mergeWalletWitnesses = (witnessSetHex: string) => {
+      try {
+        assertVKeyWitnessesSignTxBody({
+          txBodyHash: intendedBodyHash,
+          witnessSetHex
+        });
+      } catch (error) {
+        throw createStageError("submit:witnessBodyVerification", error, {
+          ...diagnostics,
+          intendedBodyHash,
+          unsignedScriptDataHash,
+          returnedTxScriptDataHash
+        });
+      }
+      return addVKeyWitnessSetToTransaction(unsignedTxHex, witnessSetHex);
+    };
+
     if (isLikelyTransactionCbor(normalizedSignedPayload)) {
+      let returnedTx: CstTransaction | null = null;
       try {
         // Some wallets return the full signed transaction CBOR instead of only the vkey witness set.
-        const returnedTx = deserializeTx(normalizedSignedPayload);
+        returnedTx = deserializeTx(normalizedSignedPayload);
+      } catch {
+        returnedTx = null;
+      }
+
+      if (returnedTx) {
         returnedTxScriptDataHash =
           returnedTx.body().scriptDataHash()?.toString() ?? null;
 
@@ -56,19 +89,18 @@ export async function signAndSubmitTx(
           signed = normalizedSignedPayload;
           signerPayloadKind = "full-transaction";
         } else {
-          // Keep our corrected body and only take the wallet-provided vkey witnesses.
-          signed = addVKeyWitnessSetToTransaction(
-            unsignedTxHex,
-            returnedTx.witnessSet().toCbor().toString()
-          );
+          // The wallet signed its own stale body. Its witnesses are only
+          // usable when they still verify against the body we intend to
+          // broadcast; anything else would submit invalid signatures.
+          signed = mergeWalletWitnesses(returnedTx.witnessSet().toCbor().toString());
           signerPayloadKind = "full-transaction-stale-body-witness-merged";
         }
-      } catch {
-        signed = addVKeyWitnessSetToTransaction(unsignedTxHex, normalizedSignedPayload);
+      } else {
+        signed = mergeWalletWitnesses(normalizedSignedPayload);
         signerPayloadKind = "witness-set";
       }
     } else {
-      signed = addVKeyWitnessSetToTransaction(unsignedTxHex, normalizedSignedPayload);
+      signed = mergeWalletWitnesses(normalizedSignedPayload);
     }
 
     const signedScriptDataHash = readScriptDataHash(signed);
