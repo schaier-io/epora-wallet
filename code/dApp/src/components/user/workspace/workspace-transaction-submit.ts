@@ -2,7 +2,7 @@ import { preparedWorkspaceTransactionAtom, preparedWorkspaceTransactionIsCurrent
 import { assertBeneficiaryWithdrawalReviewCurrent } from "./beneficiary-withdrawal-review";
 import { assertPreparedTransactionFresh } from "@/lib/mesh/transactions/prepared-transaction-freshness";
 import { queryClientAtom } from "jotai-tanstack-query";
-import { isWorkspaceBuildResultExpired } from "./workspace-build-cache";
+import { isWorkspaceBuildResultExpired } from "./workspace-build-expiry";
 import { invalidateBuildAtom } from "./atoms/transaction-flow.atoms";
 import { txInfoQueryOptions } from "@/lib/query/chain";
 import { invalidateChainQueries } from "@/lib/query/invalidation";

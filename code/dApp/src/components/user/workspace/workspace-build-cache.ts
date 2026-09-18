@@ -1,9 +1,8 @@
 import { atom, type createStore } from "jotai";
-import { SLOT_CONFIG_NETWORK, slotToBeginUnixTime } from "@meshsdk/core";
-import { deserializeTx } from "@/lib/mesh/cst";
 import { abortable } from "@/lib/mesh/build-cancellation";
 import type { BuildResult } from "@/lib/types/contracts";
 import { workspaceTransactionSnapshotAtom } from "./workspace-prepared-transaction";
+import { isWorkspaceBuildResultExpired, warmBuildResultExpiry } from "./workspace-build-expiry";
 import { walletStateUpdatingAtom } from "./atoms/wallet-state-update.atoms";
 import { activeBuildAtom, buildErrorStaleInputsAtom, buildRunAtom, previewSignatureAtom, submitHashAtom, workspaceSessionAtom } from "./atoms/transaction-flow.atoms";
 
@@ -17,22 +16,6 @@ type BuildRecord = {
 
 const buildRecordAtom = atom<BuildRecord | null>(null);
 export const workspaceBuildIdentityAtom = workspaceTransactionSnapshotAtom;
-
-function validityEndTime(result: BuildResult): number | null {
-  try {
-    const ttl = deserializeTx(result.txHex).body().ttl();
-    if (ttl === undefined) return null;
-    const slot = Number(ttl);
-    return Number.isSafeInteger(slot) ? slotToBeginUnixTime(slot, SLOT_CONFIG_NETWORK.preprod) : null;
-  } catch {
-    return null;
-  }
-}
-
-export function isWorkspaceBuildResultExpired(result: BuildResult): boolean {
-  const expires = validityEndTime(result);
-  return expires !== null && expires <= Date.now();
-}
 
 /** Share one pending build per store, and cancel it as soon as its inputs change. */
 export function runWorkspaceBuild(
@@ -90,7 +73,9 @@ export function runWorkspaceBuild(
   record.promise = new Promise((resolve, reject) => { resolvePromise = resolve; rejectPromise = reject; });
   invalidate();
   void abortable(controller.signal, () => run(controller.signal))
-    .then(result => {
+    .then(async result => {
+      // Warm the expiry before the checks read it synchronously.
+      if (result) await warmBuildResultExpiry(result);
       if (!record.isCurrent() || (result && isWorkspaceBuildResultExpired(result))) {
         record.cancel();
         return null;

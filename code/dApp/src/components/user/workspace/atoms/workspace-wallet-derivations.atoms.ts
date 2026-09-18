@@ -22,7 +22,7 @@ import { lockedContractUtxosAtom } from "@/components/user/workspace/atoms/works
 import { configAtom } from "@/components/user/workspace/atoms/workspace-config.atoms";
 import { networkIdAtom } from "@/providers/wallet.atoms";
 import { withdrawRewardAddressAtom } from "@/components/user/workspace/atoms/forms/withdraw-form.atoms";
-import { serializeRewardAddress } from "@meshsdk/core";
+import { serializeScriptRewardAddress } from "@/lib/cardano-addresses";
 import {
   sttExtraTransfersAtom,
   sttWalletInputsAtom,
@@ -115,15 +115,15 @@ export const walletRewardAddressAtom = atom<string | null>((get) => {
   const networkId = get(networkIdAtom);
   if (!walletPolicyId || !walletAssetNameHex || networkId === null) return null;
   try {
-    // Mesh types this helper as `=> any`; it returns the bech32 string.
-    return serializeRewardAddress(
+    // Local CIP-19 bech32 encoding (see lib/cardano-addresses): the Mesh helper
+    // this replaced would pull the SDK's serialisation chunk into first load.
+    return serializeScriptRewardAddress(
       resolveWalletSpendScriptHash({
         sttPolicyId: walletPolicyId,
         sttAssetNameHex: walletAssetNameHex
       }),
-      true,
       networkId === 1 ? 1 : 0
-    ) as string;
+    );
   } catch {
     return null;
   }
