@@ -1,0 +1,89 @@
+name: Bug report
+description: Report something broken in the dApp, the validators, or the surrounding tooling.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Reports are public. Never paste seed phrases, private keys, or
+        mnemonics into any field. The wallet currently targets the Cardano
+        Preprod test network; do not test with real funds.
+
+  - type: dropdown
+    id: network
+    attributes:
+      label: Network
+      description: Which Cardano network were you using?
+      options:
+        - Preprod (current target)
+        - Preview
+        - Mainnet (not yet supported)
+        - Other or not sure
+    validations:
+      required: true
+
+  - type: input
+    id: wallet
+    attributes:
+      label: Wallet used
+      description: Name and version of the browser wallet, or "WalletConnect" plus the mobile wallet for paired sessions.
+      placeholder: e.g. Lace 1.24.0, or WalletConnect + Vespr 2.1
+    validations:
+      required: true
+
+  - type: textarea
+    id: action
+    attributes:
+      label: Action attempted
+      description: What were you doing in the app when it failed? One sentence is enough.
+      placeholder: e.g. Created a spend permission, then tried to draw the daily allowance.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Numbered steps another person can follow to see the same failure.
+      placeholder: |
+        1. Connect wallet
+        2. Open the workspace
+        3. Click "Draw allowance"
+        4. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+      description: What should have happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+      description: What happened instead? Quote error messages exactly as shown.
+    validations:
+      required: true
+
+  - type: input
+    id: tx-hash
+    attributes:
+      label: Transaction hash (optional)
+      description: If a transaction was involved, paste its hash or a Preprod explorer link. Leave empty if none.
+      placeholder: e.g. https://preprod.cardanoscan.io/transaction/...
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment details (optional)
+      description: Browser and version, operating system, and whether this was the hosted preview or a self-hosted build.
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs and screenshots (optional)
+      description: Browser console output, network errors, or screenshots. Redact addresses and account names if you prefer.
