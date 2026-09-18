@@ -125,7 +125,65 @@ function draft(): StashedProposalDraft {
 test("proposal drafts round-trip the current version and captured signer", () => {
   withDraftStorage(() => {
     writeProposalDraft(draft());
-    assert.deepEqual(readProposalDraft(), draft());
+    const stored = readProposalDraft();
+    assert.match(stored?.draftId ?? "", /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+    const { draftId: _stamp, ...withoutStamp } = stored!;
+    assert.deepEqual(withoutStamp, draft());
+  });
+});
+
+test("every stashed draft gets its own identity stamp", () => {
+  withDraftStorage(() => {
+    writeProposalDraft(draft());
+    const first = readProposalDraft();
+    writeProposalDraft(draft());
+    const second = readProposalDraft();
+    assert.notEqual(first?.draftId, second?.draftId);
+  });
+});
+
+test("a late save cannot clear a newer draft", () => {
+  withDraftStorage(() => {
+    // The user stashes a draft, its save starts, they navigate away and build
+    // again (a new draft is stashed), then the old save resolves and clears.
+    writeProposalDraft(draft());
+    const staleDraftId = readProposalDraft()?.draftId;
+    writeProposalDraft({ ...draft(), unsignedTxHex: "81" });
+    clearProposalDraft(staleDraftId);
+    assert.equal(readProposalDraft()?.unsignedTxHex, "81");
+    // The newer draft's own save still clears it.
+    clearProposalDraft(readProposalDraft()?.draftId);
+    assert.equal(readProposalDraft(), null);
+  });
+});
+
+test("a draft stored without an identity stamp still clears on save", () => {
+  withDraftStorage((entries) => {
+    entries.set("pw:proposal-draft", JSON.stringify({ version: 1, draft: draft() }));
+    clearProposalDraft(readProposalDraft()?.draftId);
+    assert.equal(readProposalDraft(), null);
+  });
+});
+
+test("a legacy draft is stamped on read, so its late save cannot delete a newer draft", () => {
+  withDraftStorage((entries) => {
+    entries.set("pw:proposal-draft", JSON.stringify({ version: 1, draft: draft() }));
+    // The panel mounts post-deploy and reads the pre-stamp draft: it comes
+    // back with an identity that is persisted, not just returned.
+    const legacy = readProposalDraft();
+    assert.match(legacy?.draftId ?? "", /^[0-9a-f-]{36}$/);
+    // The stamp must be persisted, not only returned: a clear checks storage,
+    // so an in-memory-only stamp would make a legitimate clear skip.
+    const storedAfterRead = JSON.parse(entries.get("pw:proposal-draft") ?? "{}") as {
+      draft?: { draftId?: string };
+    };
+    assert.equal(storedAfterRead.draft?.draftId, legacy?.draftId);
+    // Regression for the review finding: the save built from that read is in
+    // flight, the user stashes a newer draft, then the old save resolves. The
+    // identity-checked clear must not fall back to unconditional removal.
+    writeProposalDraft({ ...draft(), unsignedTxHex: "81" });
+    clearProposalDraft(legacy?.draftId);
+    assert.equal(readProposalDraft()?.unsignedTxHex, "81");
   });
 });
 

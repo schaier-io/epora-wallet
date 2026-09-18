@@ -7,7 +7,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { StashedProposalDraft } from "./stash";
 
 const stash = vi.hoisted(() => ({
-  draft: null as StashedProposalDraft | null
+  draft: null as StashedProposalDraft | null,
+  clear: vi.fn()
 }));
 const client = vi.hoisted(() => ({ create: vi.fn() }));
 const builder = vi.hoisted(() => ({
@@ -18,7 +19,7 @@ const builder = vi.hoisted(() => ({
 
 vi.mock("./stash", () => ({
   readProposalDraft: () => stash.draft,
-  clearProposalDraft: vi.fn()
+  clearProposalDraft: stash.clear
 }));
 vi.mock("@/lib/proposals/client", () => ({
   createProposal: client.create,
@@ -97,6 +98,7 @@ function renderPanel() {
 
 beforeEach(() => {
   stash.draft = draft();
+  stash.clear.mockReset();
   client.create.mockReset();
   client.create.mockResolvedValue({ id: "proposal-1" });
   builder.build.mockReset();
@@ -271,4 +273,41 @@ it("caches a created proposal under its authenticated creator", async () => {
   await waitFor(() => expect(onCreated).toHaveBeenCalledWith(record.id));
   expect(context.queryClient.getQueryData(proposalKeys.detail(OTHER, record.id))).toEqual(record);
   expect(context.queryClient.getQueryData(proposalKeys.detail(PROPOSER, record.id))).toBeUndefined();
+});
+
+describe("a save that finishes after the user left", () => {
+  it("clears the stash only for the draft the save was built from", async () => {
+    stash.draft = { ...draft(), draftId: "stale-draft" };
+    renderPanel();
+
+    fireEvent.click(screen.getByRole("button", { name: /save request/i }));
+
+    await waitFor(() => expect(stash.clear).toHaveBeenCalledWith("stale-draft"));
+  });
+
+  /**
+   * Regression for the pending-save race: navigation unmounts the panel while
+   * the save is still in flight, and building again stashes a newer draft. The
+   * late completion must clear only the draft it saved and must not yank the
+   * user back with a route change.
+   */
+  it("does not redirect or clear the newer draft when the save resolves after unmount", async () => {
+    let resolveCreate: (proposal: { id: string; createdByKeyHash: string }) => void = () => {};
+    client.create.mockImplementation(
+      () => new Promise((resolve) => { resolveCreate = resolve; })
+    );
+    stash.draft = { ...draft(), draftId: "stale-draft" };
+    const onCreated = vi.fn();
+    const view = render(<CreateProposalPanel onCreated={onCreated} onCancel={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: /save request/i }));
+    await waitFor(() => expect(client.create).toHaveBeenCalledTimes(1));
+
+    view.unmount();
+    stash.draft = { ...draft(), draftId: "newer-draft" };
+    resolveCreate({ id: "old-created-request", createdByKeyHash: OTHER });
+
+    await waitFor(() => expect(stash.clear).toHaveBeenCalledTimes(1));
+    expect(stash.clear).toHaveBeenCalledWith("stale-draft");
+    expect(onCreated).not.toHaveBeenCalled();
+  });
 });

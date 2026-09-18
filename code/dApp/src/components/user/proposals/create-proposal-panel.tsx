@@ -1,7 +1,7 @@
 "use client";
 import { useTranslations } from "next-intl";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -39,6 +39,16 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
   const [busy, setBusy] = useState(false);
   const queryClient = useQueryClient();
   const saveInFlight = useRef(false);
+  // The save outlives a navigation (the await keeps running after unmount), so
+  // its completion must know whether the user is still here. Set inside the
+  // effect, not at initialization, so a StrictMode remount reads `true` again.
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
   const createMutation = useMutation({ mutationFn: (body: Parameters<typeof createProposal>[0]) => createProposal(body), retry: false, networkMode: "always" });
   const [error, setError] = useState<string | null>(null);
   // Older drafts carry no state; they save as before, listing the proposer alone.
@@ -119,8 +129,16 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
         queryClient.setQueryData(proposalKeys.detail(signer, proposal.id), proposal);
         void queryClient.invalidateQueries({ queryKey: proposalKeys.lists(signer) });
       }
-      clearProposalDraft();
-      onCreated(proposal.id);
+      // Clear only while the stash still holds the draft this save was built
+      // from: if the user left and built a newer draft meanwhile, the late save
+      // must not delete it. Cache updates stay unconditional because the
+      // proposal exists on the server either way.
+      clearProposalDraft(draft.draftId);
+      // Navigating for a user who already left would yank them back to the
+      // created request, so only the still-mounted panel reports creation.
+      if (isMountedRef.current) {
+        onCreated(proposal.id);
+      }
     } catch (caught) {
       setError(getProposalErrorMessage(caught, i18n("couldNotSaveTheApprovalRequest")));
     } finally {
