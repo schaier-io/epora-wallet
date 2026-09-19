@@ -27,13 +27,28 @@ test("an unarmed timer reads as absent rather than as zero time left", () => {
 
 test("a mode of some with no usable timestamp is still treated as off", () => {
   // The form can hold `some` with an empty or half-typed value while the user edits.
-  for (const raw of ["", "0", "not-a-date"]) {
+  // (`0` is deliberately absent: it is a real lapsed deadline. See the Some(0) test.)
+  for (const raw of ["", "   ", "not-a-date"]) {
     const summary = describeProofOfLife(
       { proofOfLifeUnlockTimeMode: "some", proofOfLifeUnlockTime: raw },
       NOW
     );
     assert.equal(summary.value, null, `expected "${raw}" to read as off`);
   }
+});
+
+test("an unlock_time of Some(0) reads as ran out, not as off", () => {
+  // The contract permits `unlock_time = Some(0)` and counts it as already reached
+  // (`lib/state/proof_of_life.ak` documents it as an already-lapsed value that makes
+  // beneficiaries immediately unlockable), so the tile must alarm like any lapsed timer.
+  const summary = describeProofOfLife(
+    { proofOfLifeUnlockTimeMode: "some", proofOfLifeUnlockTime: "0" },
+    NOW
+  );
+
+  assert.equal(summary.value, "Ran out");
+  assert.equal(summary.cta, "Check in now");
+  assert.equal(summary.urgent, true);
 });
 
 test("a distant deadline counts down in days and is not urgent", () => {
