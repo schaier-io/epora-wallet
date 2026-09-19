@@ -4,9 +4,9 @@
 // witnesses made for a different body (for example a wallet that signed its own
 // stale script-data hash) would otherwise submit a transaction the ledger
 // rejects for invalid signatures.
-import * as crypto from "@harmoniclabs/crypto";
+import { hexToBytes } from "ethereum-cryptography/utils";
 import { deserializeVKeyWitnessSet } from "@/lib/mesh/cst";
-import { bytesToHex, hexToBytes } from "ethereum-cryptography/utils";
+import { verifyVKeyWitnessSignature } from "@/lib/mesh/vkey-witness-verification";
 
 export function assertVKeyWitnessesSignTxBody(args: {
   witnessSetHex: string;
@@ -16,12 +16,10 @@ export function assertVKeyWitnessesSignTxBody(args: {
   const witnessSet = deserializeVKeyWitnessSet(args.witnessSetHex.trim().toLowerCase());
 
   for (const witness of witnessSet.vkeys()?.values() ?? []) {
-    const publicKey = hexToBytes(witness.vkey().toString());
-    const signature = hexToBytes(witness.signature().toString());
-    if (crypto.verifyEd25519Signature_sync(signature, message, publicKey)) {
+    const { ok, keyHash } = verifyVKeyWitnessSignature({ witness, message });
+    if (ok) {
       continue;
     }
-    const keyHash = bytesToHex(crypto.blake2b_224(publicKey));
     throw new Error(
       `The wallet returned a witness for key hash ${keyHash} that does not verify against the transaction body it was asked to sign.`
     );
