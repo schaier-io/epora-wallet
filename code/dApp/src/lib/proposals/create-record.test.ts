@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { getPrisma } from "@/lib/prisma";
-import { createProposalRecord, ProposalQuotaExceededError } from "./create-record";
+import {
+  createProposalRecord,
+  findDeduplicableProposal,
+  ProposalQuotaExceededError
+} from "./create-record";
 import { MAX_OPEN_PROPOSALS_PER_CREATOR_WALLET, PROPOSAL_CREATION_QUOTA_WINDOW_MS } from "./limits";
 import type { CreateProposalRequest } from "./types";
 
@@ -91,6 +95,40 @@ test("a changed transaction body files a second proposal", { skip: DB_SKIP }, as
 
   assert.notEqual(rebuilt.id, first.id);
   assert.equal(await db.multiSigProposal.count({ where: { createdByKeyHash: creator } }), 2);
+});
+
+test("the route's replay pre-check maps a re-save to the stored original", { skip: DB_SKIP }, async (t) => {
+  const db = getPrisma();
+  const creator = randomUUID();
+  t.after(() => cleanup([creator]));
+
+  const request = createRequest();
+  const first = await createProposalRecord(db, request, creator);
+  const replay = await findDeduplicableProposal(db, {
+    walletUnit: request.walletUnit,
+    txBodyHash: request.txBodyHash,
+    createdByKeyHash: creator
+  });
+
+  assert.equal(replay?.id, first.id);
+});
+
+test("the route's replay pre-check never matches another creator's proposal", { skip: DB_SKIP }, async (t) => {
+  const db = getPrisma();
+  const creatorA = randomUUID();
+  const creatorB = randomUUID();
+  t.after(() => cleanup([creatorA, creatorB]));
+
+  const request = createRequest();
+  await createProposalRecord(db, request, creatorA);
+
+  const replay = await findDeduplicableProposal(db, {
+    walletUnit: request.walletUnit,
+    txBodyHash: request.txBodyHash,
+    createdByKeyHash: creatorB
+  });
+
+  assert.equal(replay, null);
 });
 
 test("a withdrawn original does not swallow a re-filed duplicate", { skip: DB_SKIP }, async (t) => {
