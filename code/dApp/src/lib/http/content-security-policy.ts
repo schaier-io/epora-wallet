@@ -1,10 +1,13 @@
 // Sentry's SaaS ingest endpoints, added to connect-src only while browser
 // error reporting is configured. The plain wildcard covers the default
-// region; regional hosts (e.g. o123.ingest.us.sentry.io) need their own
-// pattern because a CSP host wildcard matches exactly one leading label.
+// region only: regional hosts put the region label before "ingest"
+// (o123.ingest.us.sentry.io, o123.ingest.de.sentry.io), so the default
+// pattern does not suffix-match them and each region needs its own
+// entry.
 const SENTRY_INGEST_HOSTS = [
   "https://*.ingest.sentry.io",
-  "https://*.ingest.us.sentry.io"
+  "https://*.ingest.us.sentry.io",
+  "https://*.ingest.de.sentry.io"
 ];
 
 export function buildContentSecurityPolicy(
