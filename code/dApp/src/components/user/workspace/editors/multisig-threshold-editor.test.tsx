@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { MultisigThresholdEditor } from "./people-editors";
@@ -286,7 +287,7 @@ describe("the compact variant at the top of the People tab", () => {
 describe("adding a co-signer in place", () => {
   /**
    * The unreachable-threshold warning used to be a dead end: the people who would close
-   * the gap live on the People page, which nothing on this editor named.
+   * the gap live on the People page, which nothing here named.
    */
   it("offers the add right under the warning, sized to cover the shortfall", () => {
     const { onChange } = renderEditor(formWith({ threshold: "2", people: [] }));
@@ -322,5 +323,112 @@ describe("adding a co-signer in place", () => {
     expect(screen.getByText("Co-signer #0")).toBeInTheDocument();
     expect(screen.getByText("Wallets this person signs with")).toBeInTheDocument();
     expect(screen.getByLabelText("Approval power")).toBeInTheDocument();
+  });
+});
+
+describe("setting the total freely", () => {
+  /**
+   * The editor is controlled: the exact entry's parse error reads the form value,
+   * so these renders feed `onChange` back into state, the way the workspace does.
+   */
+  function StatefulEditor({ initial }: { initial: StateFormState }) {
+    const [value, setValue] = useState(initial);
+    return <MultisigThresholdEditor value={value} onChange={setValue} />;
+  }
+
+  /**
+   * The slider's derived ceiling stopped at the power the wallet can already reach, so a
+   * total above it had to be a code change. The exact box now carries the value itself,
+   * and typing a larger number lifts the custom slider maximum with it (raised, never
+   * lowered, so a drag cannot shrink the range).
+   */
+  it("accepts an exact total above the derived slider limit", () => {
+    const { onChange } = renderEditor(
+      formWith({ threshold: "2", people: [{ power: "1", wallets: [WALLET] }] })
+    );
+
+    fireEvent.change(screen.getByLabelText("Exact value"), { target: { value: "50" } });
+
+    const next = onChange.mock.calls[0]![0] as StateFormState;
+    expect(next.multiSigThreshold).toBe("50");
+    // The ratchet lifted the range, so the slider can now reach what was typed.
+    expect(screen.getByLabelText("Approval power needed")).toHaveAttribute(
+      "aria-valuemax",
+      "50"
+    );
+  });
+
+  it("keeps co-signer powers while the exact total moves", () => {
+    const { onChange } = renderEditor(
+      formWith({ threshold: "2", people: [{ power: "3", wallets: [WALLET] }] })
+    );
+
+    fireEvent.change(screen.getByLabelText("Exact value"), { target: { value: "9" } });
+
+    const next = onChange.mock.calls[0]![0] as StateFormState;
+    expect(next.users[0]!.multiSigPower).toBe("3");
+  });
+
+  it("reports text that is not a whole on-chain number", () => {
+    render(
+      <StatefulEditor
+        initial={formWith({ threshold: "2", people: [{ power: "1", wallets: [WALLET] }] })}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText("Exact value"), { target: { value: "2.5" } });
+
+    expect(
+      screen.getByText("Enter a whole number between 1 and 18446744073709551615.")
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Approval power needed")).toHaveAttribute(
+      "aria-invalid",
+      "true"
+    );
+  });
+
+  it("raises the range from the slider maximum box and keeps it at Auto when empty", () => {
+    renderEditor(formWith({ threshold: "2", people: [{ power: "1", wallets: [WALLET] }] }));
+    const slider = screen.getByLabelText("Approval power needed");
+    const maximumBox = screen.getByLabelText("Slider maximum");
+
+    expect(slider).toHaveAttribute("aria-valuemax", "2");
+    fireEvent.change(maximumBox, { target: { value: "20" } });
+    expect(slider).toHaveAttribute("aria-valuemax", "20");
+
+    fireEvent.change(maximumBox, { target: { value: "" } });
+    expect(slider).toHaveAttribute("aria-valuemax", "2");
+  });
+
+  it("reports a slider maximum that is not a whole number", () => {
+    renderEditor(formWith({ threshold: "2", people: [{ power: "1", wallets: [WALLET] }] }));
+
+    fireEvent.change(screen.getByLabelText("Slider maximum"), { target: { value: "later" } });
+
+    expect(
+      screen.getByText("Enter a whole number of 1 or more, or leave the box empty.")
+    ).toBeInTheDocument();
+  });
+
+  it("selects a value above the old derived limit once the maximum is raised", () => {
+    const { onChange } = renderEditor(
+      formWith({ threshold: "2", people: [{ power: "1", wallets: [WALLET] }] })
+    );
+
+    fireEvent.change(screen.getByLabelText("Slider maximum"), { target: { value: "20" } });
+    fireEvent.keyDown(screen.getByLabelText("Approval power needed"), { key: "ArrowRight" });
+
+    const next = onChange.mock.calls[0]![0] as StateFormState;
+    expect(next.multiSigThreshold).toBe("3");
+  });
+
+  it("offers the exact entry and the slider maximum on the compact variant too", () => {
+    renderEditor(
+      formWith({ threshold: "2", people: [{ power: "1", wallets: [WALLET] }] }),
+      "compact"
+    );
+
+    expect(screen.getByLabelText("Exact value")).toBeInTheDocument();
+    expect(screen.getByLabelText("Slider maximum")).toBeInTheDocument();
   });
 });

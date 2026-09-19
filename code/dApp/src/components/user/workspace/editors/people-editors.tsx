@@ -4,7 +4,7 @@ import { activeAddressAtom, activePaymentKeyHashAtom } from "@/providers/wallet.
 import { useAtomValue } from "jotai";
 
 
-import { useId } from "react";
+import { useId, useState } from "react";
 
 import { buildKnownAddresses, WalletHashesEditor } from "./asset-editors";
 import { ApprovalPowerSlider } from "./approval-power-slider";
@@ -16,13 +16,16 @@ import { Label } from "@/components/ui/label";
 import { InlineFieldError } from "./primitives";
 import { describeAddressProblem, looksLikeCardanoAddress, paymentKeyHashFromAddress } from "@/lib/contracts/payout-address";
 import {
-  approvalThresholdCeiling,
+  parseApprovalPowerInput,
   personApprovalPowerCeiling,
+  raisedThresholdMaximum,
   reachableApprovalPower,
+  thresholdSliderCeiling,
   withBeneficiaryPayoutAndSigningAddress,
   withCoSignerAdded,
   withMultisigDerivedFromCoSigners
 } from "@/components/user/workspace/helpers/form-state";
+import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
 import { PersonHeading } from "@/components/user/workspace/editors/person-heading";
 import { personLabel } from "@/lib/contracts/person-label";
 import { type BeneficiaryFormState, type StateFormState } from "@/lib/contracts/state-form";
@@ -203,9 +206,29 @@ export function MultisigThresholdEditor({
   // "Add a co-signer" so turning the rule on never requires a detour.
   const change = (next: StateFormState) =>
     onChange(withMultisigDerivedFromCoSigners(next));
+  // The custom slider maximum is a range preference, not wallet configuration:
+  // the chain holds no such field, so it lives in this editor and resets to the
+  // derived ceiling ("Auto") on a fresh mount. The threshold itself is form
+  // state, and the slider re-widens around it from the value it is handed.
+  const [customMaximum, setCustomMaximum] = useState("");
   const availablePower = reachableApprovalPower(value.users);
   const needed = Number.parseInt(value.multiSigThreshold, 10);
   const hasNeeded = Number.isFinite(needed) && needed > 0;
+  // The exact entry takes whatever is typed, so the trust boundary is here: a
+  // non-blank value that is not a whole on-chain number shows its own error,
+  // and blank keeps the long-standing "enter at least 1" line under the slider.
+  const thresholdPower = parseApprovalPowerInput(value.multiSigThreshold);
+  const thresholdParseError =
+    value.multiSigThreshold.trim() && thresholdPower === null
+      ? i18n("enterAWholeNumberBetween1AndMax", {
+          max: MAX_ON_CHAIN_STATE_INTEGER.toString()
+        })
+      : null;
+  const maximumPower = parseApprovalPowerInput(customMaximum);
+  const maximumParseError =
+    customMaximum.trim() && (maximumPower === null || maximumPower < 1n)
+      ? i18n("enterAWholeNumberOf1OrMoreOrLeave")
+      : null;
   // The people the threshold counts: the contract sums `multi_sig_power` over the
   // users who opted in (`configuration.ak:272-296`), so these are the co-signers.
   const coSigners = value.users.filter((user) => user.multiSigPowerMode === "some");
@@ -255,11 +278,15 @@ export function MultisigThresholdEditor({
            * the person editor calls approval power, so a wallet where one person holds
            * 2 needs one signer to reach a threshold of 2, not two.
            *
-           * The free-number box became a slider: it cannot hold 0, a decimal, or an
-           * empty string, which retired the "must be an integer" and "enter at least
-           * 1" error states, and the fill carries the reachability colour — green
-           * while the co-signers can meet the number, red once the threshold passes
-           * the power they hold between them.
+           * The slider keeps the shape of the number (it cannot hold 0 or a
+           * decimal), and the exact box beside it carries the value itself: a
+           * total above the power the wallet can reach is legitimate on-chain
+           * (`configuration.ak:16-24` keeps owners able to act) but lies past the
+           * derived slider limit, so typing it is the only honest way to set it.
+           * "Slider maximum" raises the range itself, without a code change, and
+           * the fill carries the reachability colour — green while the
+           * co-signers can meet the number, red once the threshold passes the
+           * power they hold between them.
            */}
           <Label id={`${uid}-required-approvals-label`}>{i18n("approvalPowerNeeded")}</Label>
           <ApprovalPowerSlider
@@ -270,7 +297,7 @@ export function MultisigThresholdEditor({
               change({ ...value, multiSigThreshold })
             }
             min={1}
-            max={approvalThresholdCeiling(value)}
+            max={thresholdSliderCeiling(value, customMaximum)}
             fullAt={availablePower}
             fullAtHint={i18n("everyCosignerHasToApprove")}
             invalid={!hasNeeded || needed > availablePower}
@@ -282,6 +309,70 @@ export function MultisigThresholdEditor({
               : needed > availablePower
                 ? i18n("nobodyCanReachNeededThePeopleWhoCan", { needed: needed, availablePower: availablePower })
                 : i18n("thisAddsUpApprovalPowerNotPeopleThe", { availablePower: availablePower })}
+          </p>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <div className="flex items-center gap-2">
+              <Label
+                htmlFor={`${uid}-threshold-exact`}
+                className="whitespace-nowrap text-xs text-muted-foreground"
+              >
+                {i18n("exactValue")}
+              </Label>
+              <Input
+                id={`${uid}-threshold-exact`}
+                inputMode="numeric"
+                autoComplete="off"
+                className="w-28 tabular-nums"
+                value={value.multiSigThreshold}
+                onChange={(event) => {
+                  const multiSigThreshold = event.target.value;
+                  // Typing a larger total lifts the custom maximum with it, so
+                  // the slider can reach the number; only this box lowers the
+                  // range. The ratchet lives in the helper so a slider drag can
+                  // never shrink it.
+                  setCustomMaximum((previous) =>
+                    raisedThresholdMaximum(previous, multiSigThreshold)
+                  );
+                  change({ ...value, multiSigThreshold });
+                }}
+                aria-invalid={thresholdParseError ? true : undefined}
+                aria-describedby={
+                  thresholdParseError ? `${uid}-threshold-exact-error` : undefined
+                }
+              />
+              <InlineFieldError
+                id={`${uid}-threshold-exact-error`}
+                message={thresholdParseError}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Label
+                htmlFor={`${uid}-slider-maximum`}
+                className="whitespace-nowrap text-xs text-muted-foreground"
+              >
+                {i18n("sliderMaximum")}
+              </Label>
+              <Input
+                id={`${uid}-slider-maximum`}
+                inputMode="numeric"
+                autoComplete="off"
+                className="w-24 tabular-nums"
+                placeholder={i18n("sliderMaximumAuto")}
+                value={customMaximum}
+                onChange={(event) => setCustomMaximum(event.target.value)}
+                aria-invalid={maximumParseError ? true : undefined}
+                aria-describedby={
+                  maximumParseError ? `${uid}-slider-maximum-error` : undefined
+                }
+              />
+              <InlineFieldError
+                id={`${uid}-slider-maximum-error`}
+                message={maximumParseError}
+              />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {i18n("sliderMaximumHelpsYouPickAThreshold")}
           </p>
         </div>
       ) : (
