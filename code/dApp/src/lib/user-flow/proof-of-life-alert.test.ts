@@ -66,19 +66,53 @@ test("a missing deadline reads as ok and never as overdue", () => {
 });
 
 test("readProofOfLifeDeadline treats every unarmed or unusable form value as no deadline", () => {
-  // The form can hold `none`, an empty string, zero, a negative draft, or half-typed text
-  // while the user edits; none of these is a deadline.
+  // The form can hold `none`, an empty string, a negative draft, or half-typed text while
+  // the user edits; none of these is a deadline. (`0` is deliberately absent here: it is a
+  // real lapsed deadline, not an unarmed value. See the Some(0) tests below.)
   const cases = [
     { proofOfLifeUnlockTimeMode: "none" as const, proofOfLifeUnlockTime: "" },
     { proofOfLifeUnlockTimeMode: "none" as const, proofOfLifeUnlockTime: String(NOW) },
     { proofOfLifeUnlockTimeMode: "some" as const, proofOfLifeUnlockTime: "" },
-    { proofOfLifeUnlockTimeMode: "some" as const, proofOfLifeUnlockTime: "0" },
+    { proofOfLifeUnlockTimeMode: "some" as const, proofOfLifeUnlockTime: "   " },
     { proofOfLifeUnlockTimeMode: "some" as const, proofOfLifeUnlockTime: "-5" },
     { proofOfLifeUnlockTimeMode: "some" as const, proofOfLifeUnlockTime: "not-a-date" }
   ];
   for (const form of cases) {
     assert.equal(readProofOfLifeDeadline(form), null, JSON.stringify(form));
   }
+});
+
+test("an unlock_time of Some(0) is a real, already-lapsed deadline and stays armed", () => {
+  // The contract permits `unlock_time = Some(0)` and treats it as already reached
+  // (`lib/state/proof_of_life.ak` documents it as an already-lapsed value that makes
+  // beneficiaries immediately unlockable), so a wallet minted that way is the exact state
+  // these alerts exist to warn about, not an unarmed one.
+  const form = { proofOfLifeUnlockTimeMode: "some" as const, proofOfLifeUnlockTime: "0" };
+
+  assert.equal(readProofOfLifeDeadline(form), 0);
+  assert.deepEqual(evaluateProofOfLifeAlert({ deadlineMs: 0, nowMs: NOW }), {
+    state: "overdue",
+    remainingMs: -NOW
+  });
+});
+
+test("selectProofOfLifeAlerts warns about a Some(0) wallet as overdue, first", () => {
+  const alerts = selectProofOfLifeAlerts(
+    [
+      { unit: "unit-zero", walletName: "Lapsed at mint", ...armed(0), canRenew: true },
+      { unit: "unit-late", walletName: "Ran out", ...armed(NOW - DAY), canRenew: false }
+    ],
+    NOW
+  );
+
+  assert.deepEqual(
+    alerts.map((alert) => [alert.unit, alert.state]),
+    [
+      ["unit-zero", "overdue"],
+      ["unit-late", "overdue"]
+    ]
+  );
+  assert.equal(alerts[0].deadlineMs, 0);
 });
 
 test("readProofOfLifeDeadline passes an armed timestamp through as a number", () => {

@@ -31,16 +31,26 @@ export type ProofOfLifeDeadlineSource = Pick<
 
 /**
  * The armed deadline as milliseconds since the Unix epoch, or `null` when the timer is off
- * or holds no usable value (`none`, empty, or a non-positive / unparseable number). The form
- * can carry half-typed values while the user edits, so every caller funnels through this
+ * or holds no usable value (`none`, an empty or unparseable draft, or a negative number).
+ * Zero is NOT `null`: on-chain `Some(0)` is a real deadline at epoch 0 that the contract
+ * already counts as reached (`lib/state/proof_of_life.ak` documents it as an
+ * already-lapsed `unlock_time`, making beneficiaries immediately unlockable), so a wallet
+ * minted that way must alarm, exactly like any other lapsed timer. Negative numbers cannot
+ * exist on-chain (`numeric_bounds.is_non_negative_bounded`), so they are half-typed drafts.
+ * The form can carry such drafts while the user edits, so every caller funnels through this
  * guard instead of re-deciding what counts as armed.
  */
 export function readProofOfLifeDeadline(form: ProofOfLifeDeadlineSource): number | null {
   if (form.proofOfLifeUnlockTimeMode !== "some") {
     return null;
   }
+  // `Number("")` and `Number("   ")` are both `0`, and 0 is a real deadline below, so an
+  // empty draft has to be excluded before the numeric parse, not by the sign check.
+  if (form.proofOfLifeUnlockTime.trim() === "") {
+    return null;
+  }
   const deadlineMs = Number(form.proofOfLifeUnlockTime);
-  if (!Number.isFinite(deadlineMs) || deadlineMs <= 0) {
+  if (!Number.isFinite(deadlineMs) || deadlineMs < 0) {
     return null;
   }
   return deadlineMs;
