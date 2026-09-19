@@ -22,16 +22,18 @@ test("development CSP permits eval for Next diagnostics but still rejects inline
 
 test("connect-src excludes Sentry ingest while browser reporting is unconfigured", () => {
   const policy = buildContentSecurityPolicy("nonce", false);
-  assert.doesNotMatch(policy, /ingest\.sentry\.io/);
+  assert.doesNotMatch(policy, /ingest(\.de|\.us)?\.sentry\.io/);
 });
 
 test("connect-src allows Sentry ingest only when browser reporting is enabled", () => {
   const policy = buildContentSecurityPolicy("nonce", false, { sentryEnabled: true });
   const connectDirective = policy.split("; ").find((directive) => directive.startsWith("connect-src"));
 
-  assert.match(policy, /https:\/\/\*\.ingest\.sentry\.io/);
-  // Regional ingest hosts (o123.ingest.us.sentry.io) need their own pattern:
-  // a CSP host wildcard matches exactly one leading label.
-  assert.match(policy, /https:\/\/\*\.ingest\.us\.sentry\.io/);
+  assert.match(connectDirective ?? "", /https:\/\/\*\.ingest\.sentry\.io/);
+  // Regional ingest hosts put the region label before "ingest"
+  // (o123.ingest.us.sentry.io, o123.ingest.de.sentry.io), so the default
+  // pattern does not suffix-match them; each needs its own entry.
+  assert.match(connectDirective ?? "", /https:\/\/\*\.ingest\.us\.sentry\.io/);
+  assert.match(connectDirective ?? "", /https:\/\/\*\.ingest\.de\.sentry\.io/);
   assert.match(connectDirective ?? "", /walletconnect/);
 });
