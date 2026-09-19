@@ -1,3 +1,4 @@
+import { withSentryConfig } from "@sentry/nextjs";
 import createNextIntlPlugin from "next-intl/plugin";
 
 const securityHeaders = [
@@ -22,4 +23,40 @@ const nextConfig = {
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
-export default withNextIntl(nextConfig);
+// Sentry build steps (release creation, source-map upload) run ONLY when an
+// auth token is present, i.e. in CI or on the server. Everything else about
+// the integration (runtime capture, scrubbing) is independent of this wrapper
+// and stays inert without the DSN env vars (see src/instrumentation*.ts).
+// Credentials never appear in this file: SENTRY_AUTH_TOKEN / SENTRY_ORG /
+// SENTRY_PROJECT are read from the environment. See docs/RUNBOOK.md.
+const sentryRelease =
+  process.env.SENTRY_RELEASE ??
+  process.env.VERCEL_GIT_COMMIT_SHA ??
+  process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA;
+
+function buildConfig() {
+  const base = withNextIntl(nextConfig);
+  if (!process.env.SENTRY_AUTH_TOKEN) {
+    return base;
+  }
+  // Inlining the release id at build time gives the browser bundle the same
+  // release identifier the server uses (client code cannot read
+  // VERCEL_GIT_COMMIT_SHA at runtime).
+  const withReleaseId = sentryRelease
+    ? { ...base, env: { NEXT_PUBLIC_SENTRY_RELEASE: sentryRelease } }
+    : base;
+  return withSentryConfig(withReleaseId, {
+    authToken: process.env.SENTRY_AUTH_TOKEN,
+    org: process.env.SENTRY_ORG,
+    project: process.env.SENTRY_PROJECT,
+    release: sentryRelease,
+    // Keep the build log quiet about steps that concern only the tracker.
+    sourcemaps: {
+      // Uploaded maps are deleted from the build output: the server keeps
+      // serving them, but the public bundle does not ship them.
+      deleteSourcemapsAfterUpload: true
+    }
+  });
+}
+
+export default buildConfig();
