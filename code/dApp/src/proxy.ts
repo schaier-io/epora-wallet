@@ -6,7 +6,10 @@ export function proxy(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const contentSecurityPolicy = buildContentSecurityPolicy(
     nonce,
-    process.env.NODE_ENV !== "production"
+    process.env.NODE_ENV !== "production",
+    // Inlined at build time; true only while browser error reporting is
+    // configured, which is when the client SDK needs its ingest endpoint.
+    { sentryEnabled: Boolean(process.env.NEXT_PUBLIC_SENTRY_DSN) }
   );
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);

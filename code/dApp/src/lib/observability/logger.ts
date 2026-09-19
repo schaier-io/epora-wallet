@@ -1,8 +1,10 @@
 // Dependency-free structured logging. Emits one JSON object per line to
 // stdout/stderr, which the hosting platform (Vercel) captures and makes
-// searchable: the minimum viable error-visibility layer until a dedicated
-// error tracker (e.g. Sentry) is wired in. The `reportError` hook below is the
-// single seam to forward to such a service later without touching call sites.
+// searchable: the minimum viable error-visibility layer alongside the Sentry
+// error tracker. The `reportError` hook below is the single seam that
+// forwards every `logger.error` to Sentry without touching call sites.
+
+import { captureServerLogError } from "./sentry-forward";
 
 export type LogLevel = "info" | "warn" | "error";
 
@@ -109,9 +111,11 @@ export const logger = {
   }
 };
 
-// Seam for an external error tracker. Left as a no-op so there is exactly one
-// place to add `Sentry.captureException(...)` (see docs/RUNBOOK.md → Observability)
-// without changing any caller.
-function reportError(_event: string, _context?: LogContext): void {
-  // intentionally empty
+// Seam for the external error tracker (Sentry). Every `logger.error` forwards
+// here; the bridge lives in `sentry-forward.ts` so this module keeps zero SDK
+// imports. It initializes to a no-op unless Sentry is configured (a DSN env
+// var), so call sites never branch on whether monitoring is enabled.
+// See docs/RUNBOOK.md, "Observability".
+function reportError(event: string, context?: LogContext): void {
+  captureServerLogError(event, context);
 }

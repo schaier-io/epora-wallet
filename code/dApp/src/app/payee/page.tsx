@@ -4,7 +4,7 @@ import { ScopedClientIntlProvider } from "@/i18n/scoped-client-provider";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Loader2 } from "lucide-react";
-import { PayeeView } from "@/components/payee/payee-view";
+import { LazyPayeeView } from "@/components/payee/lazy-payee-view";
 import { SkeletonCard } from "@/components/ui/skeleton";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -39,7 +39,7 @@ export default function PayeePage() {
               </div>
             }
           >
-            <PayeeView />
+            <LazyPayeeView />
           </Suspense>
         </div>
       </ScopedClientIntlProvider>

@@ -10,6 +10,11 @@ export const MAX_SUMMARY_BYTES = 256 * 1024;
 export const MAX_WITNESS_SET_BYTES = 32 * 1024;
 export const MAX_OPEN_PROPOSALS_PER_CREATOR_WALLET = 25;
 export const MAX_PROPOSALS_PER_CREATOR_WALLET_PER_DAY = 100;
+// Rolling window of the per-creator daily creation quota. It is also the
+// duplicate window for saves: a re-save of an already-stored transaction maps
+// back to the original for exactly as long as that original still counts as a
+// creation of the day.
+export const PROPOSAL_CREATION_QUOTA_WINDOW_MS = 24 * 60 * 60 * 1000;
 export const DEFAULT_PROPOSAL_PAGE_SIZE = 25;
 export const MAX_PROPOSAL_PAGE_SIZE = 50;
 // Cursor tokens are base64url JSON carrying segment and sort position (~120

@@ -1,4 +1,17 @@
-export function buildContentSecurityPolicy(nonce: string, isDevelopment: boolean): string {
+// Sentry's SaaS ingest endpoints, added to connect-src only while browser
+// error reporting is configured. The plain wildcard covers the default
+// region; regional hosts (e.g. o123.ingest.us.sentry.io) need their own
+// pattern because a CSP host wildcard matches exactly one leading label.
+const SENTRY_INGEST_HOSTS = [
+  "https://*.ingest.sentry.io",
+  "https://*.ingest.us.sentry.io"
+];
+
+export function buildContentSecurityPolicy(
+  nonce: string,
+  isDevelopment: boolean,
+  options: { sentryEnabled?: boolean } = {}
+): string {
   return [
     "default-src 'self'",
     // 'wasm-unsafe-eval' lets the Cardano libraries compile their WebAssembly
@@ -12,7 +25,7 @@ export function buildContentSecurityPolicy(nonce: string, isDevelopment: boolean
     // from script execution while preserving third-party asset logos.
     "img-src 'self' blob: data: https:",
     "font-src 'self' data:",
-    "connect-src 'self' https://*.walletconnect.com https://*.walletconnect.org https://*.reown.com wss://*.walletconnect.com wss://*.walletconnect.org",
+    `connect-src 'self' https://*.walletconnect.com https://*.walletconnect.org https://*.reown.com wss://*.walletconnect.com wss://*.walletconnect.org${options.sentryEnabled ? ` ${SENTRY_INGEST_HOSTS.join(" ")}` : ""}`,
     "frame-src 'self' https://verify.walletconnect.com https://verify.walletconnect.org",
     "object-src 'none'",
     "base-uri 'self'",

@@ -19,3 +19,19 @@ test("development CSP permits eval for Next diagnostics but still rejects inline
   assert.doesNotMatch(scriptDirective ?? "", /unsafe-inline/);
   assert.doesNotMatch(policy, /upgrade-insecure-requests/);
 });
+
+test("connect-src excludes Sentry ingest while browser reporting is unconfigured", () => {
+  const policy = buildContentSecurityPolicy("nonce", false);
+  assert.doesNotMatch(policy, /ingest\.sentry\.io/);
+});
+
+test("connect-src allows Sentry ingest only when browser reporting is enabled", () => {
+  const policy = buildContentSecurityPolicy("nonce", false, { sentryEnabled: true });
+  const connectDirective = policy.split("; ").find((directive) => directive.startsWith("connect-src"));
+
+  assert.match(policy, /https:\/\/\*\.ingest\.sentry\.io/);
+  // Regional ingest hosts (o123.ingest.us.sentry.io) need their own pattern:
+  // a CSP host wildcard matches exactly one leading label.
+  assert.match(policy, /https:\/\/\*\.ingest\.us\.sentry\.io/);
+  assert.match(connectDirective ?? "", /walletconnect/);
+});

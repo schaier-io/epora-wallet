@@ -13,8 +13,17 @@ vi.mock("@/lib/mesh/shared-stt-reference-server", () => ({
 vi.mock("@/i18n/scoped-client-provider", () => ({
   ScopedClientIntlProvider: ({ children }: { children: React.ReactNode }) => children
 }));
-vi.mock("@/components/setup/stt-reference-setup", () => ({
-  SttReferenceSetup: () => <div>Setup client</div>
+
+/**
+ * The page hands the view to `LazySttReferenceSetup`, the route's client-only dynamic
+ * boundary (issue #410; guarded by app/layout-mesh-boundary.test.ts). Mocking the shim
+ * keeps these tests on the page's server logic, and the `data-initial-store` attribute
+ * asserts the server-read store still reaches the client view through the boundary.
+ */
+vi.mock("@/components/setup/lazy-stt-reference-setup", () => ({
+  LazySttReferenceSetup: ({ initialStore }: { initialStore: unknown }) => (
+    <div data-initial-store={JSON.stringify(initialStore)}>Setup client</div>
+  )
 }));
 
 const { default: SetupPage } = await import("./page");
@@ -38,7 +47,10 @@ describe("setup page", () => {
 
     render(await SetupPage());
 
-    expect(screen.getByText("Setup client")).toBeInTheDocument();
+    expect(screen.getByText("Setup client")).toHaveAttribute(
+      "data-initial-store",
+      JSON.stringify({ status: "missing" })
+    );
     expect(mocks.redirect).not.toHaveBeenCalled();
   });
 
@@ -47,6 +59,9 @@ describe("setup page", () => {
 
     render(await SetupPage());
 
-    expect(screen.getByText("Setup client")).toBeInTheDocument();
+    expect(screen.getByText("Setup client")).toHaveAttribute(
+      "data-initial-store",
+      "null"
+    );
   });
 });
