@@ -65,6 +65,17 @@ export function resolveProvider(env = process.env) {
         "to a local devnet — `pnpm devnet:up` prints the URL.",
     );
   }
+  // Mesh derives the Blockfrost host from the key's own prefix, so a preview-
+  // or mainnet-prefixed key would target a ledger that none of the printed
+  // links, addresses, or "preprod" metadata describe. The scripts document
+  // preprod only, so anything else fails fast instead of lying quietly.
+  if (!blockfrostApiKey.startsWith("preprod")) {
+    throw new Error(
+      "BLOCKFROST_API_KEY must be a preprod-prefixed project key: the scripts " +
+        "target the preprod test network (see .env.example). Use a preprod key " +
+        "or point CARDANO_PROVIDER_URL at a local devnet.",
+    );
+  }
 
   return {
     provider: new BlockfrostProvider(blockfrostApiKey),

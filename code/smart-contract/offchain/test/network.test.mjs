@@ -47,6 +47,15 @@ test("missing provider configuration is rejected before wallet access", () => {
   assert.throws(() => resolveProvider({}), /Missing BLOCKFROST_API_KEY/);
 });
 
+test("a non-preprod Blockfrost key fails instead of targeting the wrong ledger", () => {
+  for (const key of ["previewSmallKey000", "mainnetWhaleKey0000"]) {
+    assert.throws(
+      () => resolveProvider({ BLOCKFROST_API_KEY: key }),
+      /must be a preprod-prefixed project key/,
+    );
+  }
+});
+
 for (const [name, value] of [
   ["a bare network name", "preprod"],
   ["a scheme-less host", "localhost:8080/api/v1/"],
