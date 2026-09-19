@@ -225,7 +225,7 @@ The dApp uses `@sentry/nextjs` for browser, server, and API-route error capture
 Everything is inert without credentials: local development needs no Sentry
 setup.
 
-**How errors reach Sentry (one report per failure, never two):**
+**How errors reach Sentry:**
 
 - Server / API routes: `createTxRoute` catches errors and logs them via
   `logger.error`, whose `reportError` seam forwards to
@@ -238,6 +238,17 @@ setup.
   the client SDK initialized in
   [`src/instrumentation-client.ts`](../code/dApp/src/instrumentation-client.ts).
   Repeated identical events are collapsed by the `dedupeIntegration`.
+- Browser caught failures (workspace build/sign/submit errors): the two
+  diagnostic seams that `console.error` an unexpected failure also forward the
+  live error through `sentry-client-forward.ts` → `Sentry.captureException`,
+  gated on the DSN and skipped for expected outcomes, so a real signing
+  failure reports even though the UI caught it. Declines and other recognised
+  conditions stay unreported. One failure can produce two events, one per
+  vantage point: a chain/proxy error is logged by the route that hit it, and
+  the same condition surfaces in the browser build's report with UI context;
+  dedupe does not collapse them. Stale-snapshot and TTL freshness races also
+  classify as unexpected and report; if their volume grows, reclassify them
+  as owned messages instead of filtering in the seam.
 
 **Redaction** (`src/lib/observability/sentry-scrub.ts`, wired as `beforeSend` /
 `beforeBreadcrumb`): routine wallet rejections (the user declined or cancelled a
