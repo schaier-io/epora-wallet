@@ -4,7 +4,7 @@ import { ScopedClientIntlProvider } from "@/i18n/scoped-client-provider";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Loader2 } from "lucide-react";
-import { ProposalsWorkspace } from "@/components/user/proposals/proposals-workspace";
+import { LazyProposalsWorkspace } from "@/components/user/proposals/lazy-proposals-workspace";
 
 export async function generateMetadata(): Promise<Metadata> {
   const i18n = await getTranslations("AppUserProposalsPage");
@@ -39,7 +39,7 @@ export default function ProposalsPage() {
               </div>
             }
           >
-            <ProposalsWorkspace />
+            <LazyProposalsWorkspace />
           </Suspense>
         </div>
       </ScopedClientIntlProvider>

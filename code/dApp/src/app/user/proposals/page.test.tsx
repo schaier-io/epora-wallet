@@ -3,9 +3,11 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 // The workspace suspends on its data fetch. A never-resolving promise reproduces
-// that state, so the test sees the fallback the way a first visit does.
-vi.mock("@/components/user/proposals/proposals-workspace", () => ({
-  ProposalsWorkspace: () => {
+// that state, so the test sees the fallback the way a first visit does. Mocking
+// the shim (not the workspace behind it) keeps these tests on the page's own
+// rendering, the same split the setup page tests use.
+vi.mock("@/components/user/proposals/lazy-proposals-workspace", () => ({
+  LazyProposalsWorkspace: () => {
     throw new Promise(() => {});
   }
 }));

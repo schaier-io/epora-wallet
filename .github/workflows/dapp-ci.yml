@@ -158,3 +158,8 @@ jobs:
 
       # `pnpm build` === `prisma generate && next build`.
       - run: pnpm build
+
+      # First-load JS budget gate (issue #410). Reads the production build
+      # output of the step above (.next/diagnostics/route-bundle-stats.json),
+      # so it must stay in this job, after `pnpm build`.
+      - run: pnpm bundle-budget:check
