@@ -36,15 +36,39 @@ const STATIC_IMPORT =
  *
  * Feature pages import the SDK through their own code and were outside the original boundary;
  * the `/user` workspace shipped the same 6 MB chunk to every visit before its tree was held to
- * the same rule (issue #410). `/payee` and `/setup` still need that treatment; until then the
- * SDK stays behind dynamic imports only where a page boundary enforces it.
+ * the same rule, and `/payee` and `/setup` followed the same way (issue #410).
  */
 const LAYOUT_BOUNDARY = "no root-layout module imports the Mesh SDK for a value";
-// /payee and /setup still reach the SDK through their own module trees; they need
-// the same page-boundary treatment the /user workspace got (issue #410 covers /user).
-const PAGE_BOUNDARIES: Record<string, string> = {
-  "app/user/page.tsx": "no /user page module imports the Mesh SDK for a value"
+/**
+ * `minModules` floors the walk so a boundary cannot pass vacuously (a page entry that
+ * resolves to nothing, or a shell trimmed to a bare re-export). Each floor is the real
+ * shell size minus headroom: the /user page keeps its larger floor because its shell
+ * carries the workspace title parser and two skeletons; /payee and /setup shells are
+ * just the i18n provider, a skeleton, and the dynamic shim (they walk 6 and 7 modules).
+ */
+const PAGE_BOUNDARIES: Record<string, { name: string; minModules: number }> = {
+  "app/user/page.tsx": {
+    name: "no /user page module imports the Mesh SDK for a value",
+    minModules: 10
+  },
+  "app/payee/page.tsx": {
+    name: "no /payee page module imports the Mesh SDK for a value",
+    minModules: 5
+  },
+  "app/setup/page.tsx": {
+    name: "no /setup page module imports the Mesh SDK for a value",
+    minModules: 5
+  }
 };
+
+/**
+ * Marks a module as server-only (`import "server-only"` throws when such a module is
+ * pulled into a client bundle), so its subtree cannot ship any first-load JavaScript.
+ * The static walk still sees these modules behind server components such as the /setup
+ * page, which reads the shared STT reference on the server; their Mesh value imports
+ * are runtime server work, not client bundle weight, so the walk stops there.
+ */
+const SERVER_ONLY = /\bimport\s+["']server-only["'];?/;
 
 function meshValueImports(source: string) {
   const found: string[] = [];
@@ -73,6 +97,8 @@ function boundaryOffenders(entry: string) {
     visited.add(file);
 
     const source = readFileSync(file, "utf8");
+    if (SERVER_ONLY.test(source)) return;
+
     for (const mesh of meshValueImports(source)) {
       const chain: string[] = [];
       for (let cursor: string | undefined = file; cursor; cursor = parents.get(cursor)) {
@@ -113,13 +139,13 @@ test(LAYOUT_BOUNDARY, () => {
   );
 });
 
-for (const [page, name] of Object.entries(PAGE_BOUNDARIES)) {
+for (const [page, { name, minModules }] of Object.entries(PAGE_BOUNDARIES)) {
   test(name, () => {
-    // Small floor: the workspace sits behind the page's dynamic boundary, so the
-    // static graph is the shell plus the modules the server entry imports.
+    // The page's heavy tree sits behind its dynamic boundary, so the static graph is
+    // the shell plus the modules the server entry imports (see minModules above).
     const { visited, offenders } = boundaryOffenders(join(SRC, page));
 
-    assert.ok(visited.size > 10, `expected to walk the ${page} graph, walked ${visited.size}`);
+    assert.ok(visited.size >= minModules, `expected to walk the ${page} graph, walked ${visited.size}`);
     assert.deepEqual(
       offenders,
       [],

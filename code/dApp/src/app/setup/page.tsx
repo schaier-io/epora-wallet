@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { redirect } from "next/navigation";
-import { SttReferenceSetup } from "@/components/setup/stt-reference-setup";
+import { LazySttReferenceSetup } from "@/components/setup/lazy-stt-reference-setup";
 import { ScopedClientIntlProvider } from "@/i18n/scoped-client-provider";
 import { resolveSharedSttReferenceServer } from "@/lib/mesh/shared-stt-reference-server";
 
@@ -30,7 +30,7 @@ export default async function SetupPage() {
     <main className="page-shell flex flex-1 flex-col">
       <ScopedClientIntlProvider prefixes={["ComponentsSetup"]}>
         <div className="container flex flex-1 items-center justify-center py-8 sm:py-12">
-          <SttReferenceSetup initialStore={initialStore} />
+          <LazySttReferenceSetup initialStore={initialStore} />
         </div>
       </ScopedClientIntlProvider>
     </main>
