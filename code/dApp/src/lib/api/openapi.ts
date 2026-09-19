@@ -234,15 +234,16 @@ export function buildOpenApiDocument() {
           operationId: "getHealth",
           summary: "Liveness and readiness",
           description:
-            "Returns 200 when the app can reach its database, and 503 when it cannot, so an uptime monitor can alert on the difference. Deliberately unversioned: a health probe is operational, not part of the public contract.",
+            "Returns 200 when the app can reach its database and the indexer's sync cursors are fresh, and 503 when either is not, so an uptime monitor can alert on the difference. Deliberately unversioned: a health probe is operational, not part of the public contract.",
           tags: ["Service"],
           responses: {
             "200": {
-              description: "The service is healthy.",
+              description: "The service is healthy: database up, indexer cursors fresh.",
               content: { "application/json": { schema: HealthResponseSchema } }
             },
             "503": {
-              description: "The service is up but a dependency is down.",
+              description:
+                "The service is up but a dependency is down or the indexer's sync cursors are stale or unreadable.",
               content: { "application/json": { schema: HealthResponseSchema } }
             }
           }

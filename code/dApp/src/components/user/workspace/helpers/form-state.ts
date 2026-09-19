@@ -22,7 +22,13 @@ import {
 import { OwnedMessageError } from "./build-errors";
 import { paymentKeyHashFromAddress } from "@/lib/contracts/payout-address";
 
-function readFormUint64(value: string): bigint | null {
+/**
+ * Parses a whole number typed freely into an approval-power box: an exact
+ * threshold, a custom slider maximum, or the powers the presets carry. The
+ * chain holds these as uint64, so anything else (blank, a decimal, a sign,
+ * past 18446744_073709551615) is null and the caller shows its own error.
+ */
+export function parseApprovalPowerInput(value: string): bigint | null {
   const normalized = value.trim();
   if (!/^\d+$/.test(normalized)) {
     return null;
@@ -39,7 +45,7 @@ function configuredApprovalPower(users: readonly UserFormState[], requireWallet:
     ) {
       return total;
     }
-    const power = readFormUint64(user.multiSigPower);
+    const power = parseApprovalPowerInput(user.multiSigPower);
     return power !== null && power > 0n ? total + power : total;
   }, 0n);
 }
@@ -274,7 +280,7 @@ export function withUserAdded(
  * arithmetic warning then clears as soon as they have a wallet id to sign with.
  */
 export function withCoSignerAdded(form: StateFormState): StateFormState {
-  const needed = readFormUint64(form.multiSigThreshold);
+  const needed = parseApprovalPowerInput(form.multiSigThreshold);
   const shortOf = needed === null
     ? 1n
     : needed - configuredApprovalPower(form.users, true);
@@ -347,7 +353,7 @@ export function approvalPowerForUser(user: UserFormState): number {
     return 0;
   }
 
-  const parsed = readFormUint64(user.multiSigPower);
+  const parsed = parseApprovalPowerInput(user.multiSigPower);
   if (parsed === null || parsed <= 0n) {
     return 0;
   }
@@ -392,13 +398,60 @@ export function approvalThresholdCeiling(form: StateFormState): number {
  * the number under the pointer would shrink as that number was dragged down.
  */
 export function personApprovalPowerCeiling(form: StateFormState): number {
-  const needed = readFormUint64(form.multiSigThreshold) ?? 0n;
+  const needed = parseApprovalPowerInput(form.multiSigThreshold) ?? 0n;
   return Math.max(
     2,
     needed > BigInt(Number.MAX_SAFE_INTEGER)
       ? Number.MAX_SAFE_INTEGER
       : Number(needed)
   );
+}
+
+/**
+ * The top of the threshold slider, lifted by a custom maximum typed into the
+ * editor.
+ *
+ * `customMaximum` is what the "Slider maximum" box holds. Blank falls back to
+ * the derived ceiling (`approvalThresholdCeiling`), a number lifts the ceiling
+ * past the power the wallet can reach so a larger total becomes selectable, and
+ * garbage is ignored here — the editor reports it beside the box. The chain
+ * caps these numbers at uint64 (`MAX_ON_CHAIN_STATE_INTEGER`), so a custom
+ * maximum past what a slider stop can name (`Number.MAX_SAFE_INTEGER`) tops out
+ * there while the exact entry still carries the value itself.
+ *
+ * The number the slider writes never feeds back in: `approvalThresholdCeiling`
+ * stays blind to `multiSigThreshold`, so the range cannot shrink under the
+ * pointer mid-drag.
+ */
+export function thresholdSliderCeiling(
+  form: StateFormState,
+  customMaximum: string
+): number {
+  const derived = approvalThresholdCeiling(form);
+  const custom = parseApprovalPowerInput(customMaximum);
+  const top = custom !== null && custom > BigInt(derived) ? custom : BigInt(derived);
+  return top > BigInt(Number.MAX_SAFE_INTEGER)
+    ? Number.MAX_SAFE_INTEGER
+    : Number(top);
+}
+
+/**
+ * The custom slider maximum after an exact value was typed into the threshold
+ * box. Raises only: a whole number above the current maximum lifts it so the
+ * slider can reach what was typed, and blank or invalid text keeps the current
+ * maximum. Lowering stays a decision the "Slider maximum" box owns, so typing
+ * into the exact entry — and no slider drag — can ever shrink the range.
+ */
+export function raisedThresholdMaximum(
+  currentMaximum: string,
+  typedThreshold: string
+): string {
+  const typed = parseApprovalPowerInput(typedThreshold);
+  if (typed === null) {
+    return currentMaximum;
+  }
+  const current = parseApprovalPowerInput(currentMaximum) ?? 0n;
+  return typed > current ? typed.toString() : currentMaximum;
 }
 
 export function isAdaScheduledPayment(payment: StreamingPaymentFormState): boolean {

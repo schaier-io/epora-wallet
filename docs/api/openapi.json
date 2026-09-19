@@ -39,13 +39,13 @@
       "get": {
         "operationId": "getHealth",
         "summary": "Liveness and readiness",
-        "description": "Returns 200 when the app can reach its database, and 503 when it cannot, so an uptime monitor can alert on the difference. Deliberately unversioned: a health probe is operational, not part of the public contract.",
+        "description": "Returns 200 when the app can reach its database and the indexer's sync cursors are fresh, and 503 when either is not, so an uptime monitor can alert on the difference. Deliberately unversioned: a health probe is operational, not part of the public contract.",
         "tags": [
           "Service"
         ],
         "responses": {
           "200": {
-            "description": "The service is healthy.",
+            "description": "The service is healthy: database up, indexer cursors fresh.",
             "content": {
               "application/json": {
                 "schema": {
@@ -55,7 +55,7 @@
             }
           },
           "503": {
-            "description": "The service is up but a dependency is down.",
+            "description": "The service is up but a dependency is down or the indexer's sync cursors are stale or unreadable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3070,12 +3070,33 @@
                   "down"
                 ],
                 "description": "Result of a `SELECT 1` probe with a 2 second timeout."
+              },
+              "indexer": {
+                "type": "string",
+                "enum": [
+                  "up",
+                  "down",
+                  "unknown"
+                ],
+                "description": "`up` when every gated sync cursor is fresh, `down` when one is stale, never stamped, or its read failed, `unknown` when the database probe failed so cursors were not read."
               }
             },
             "required": [
-              "database"
+              "database",
+              "indexer"
             ],
             "additionalProperties": false
+          },
+          "indexer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IndexerHealth"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Sync-cursor freshness detail. Null when the database probe failed, because the cursors were not read."
           },
           "ts": {
             "type": "string",
@@ -3088,10 +3109,104 @@
         "required": [
           "status",
           "checks",
+          "indexer",
           "ts"
         ],
         "additionalProperties": false,
         "description": "Liveness and dependency readiness."
+      },
+      "IndexerHealth": {
+        "type": "object",
+        "properties": {
+          "available": {
+            "type": "boolean",
+            "description": "False when reading the sync cursors failed; every other field then carries its empty value."
+          },
+          "recentHeadLastSyncedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When a sync run last reached the chain (indexer.ts syncRecentHead). Attests the indexer is alive, not that every wallet is current."
+          },
+          "recentHeadAgeMs": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Milliseconds since that stamp, clamped at 0 to absorb clock skew."
+          },
+          "recentHeadFresh": {
+            "type": "boolean",
+            "description": "False when no sync was ever stamped, or the stamp is older than 1800000 ms."
+          },
+          "walletReconcileLastSyncedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the last completed full pass over the wallet collection finished (indexer.ts reconcileCurrentWallets). A deadline-stopped partial pass keeps the previous stamp."
+          },
+          "walletReconcileAgeMs": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Milliseconds since that stamp, clamped at 0 to absorb clock skew."
+          },
+          "walletReconcileFresh": {
+            "type": "boolean",
+            "description": "False when no pass was ever completed, or the stamp is older than 3600000 ms."
+          },
+          "historyBackfillCompleted": {
+            "type": "boolean",
+            "description": "Whether the one-time history backfill walked to the chain's end. Its stamp freezes once complete, so only this flag is reported; an incomplete backfill does not gate health."
+          },
+          "degradedReasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Empty when every gated cursor passes; one reason per failing cursor otherwise."
+          }
+        },
+        "required": [
+          "available",
+          "recentHeadLastSyncedAt",
+          "recentHeadAgeMs",
+          "recentHeadFresh",
+          "walletReconcileLastSyncedAt",
+          "walletReconcileAgeMs",
+          "walletReconcileFresh",
+          "historyBackfillCompleted",
+          "degradedReasons"
+        ],
+        "additionalProperties": false,
+        "description": "Sync-cursor freshness of the STT indexer for the configured network."
       },
       "PoolsResponse": {
         "type": "object",

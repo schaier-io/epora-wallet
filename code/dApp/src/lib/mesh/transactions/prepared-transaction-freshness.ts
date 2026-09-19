@@ -1,15 +1,17 @@
-import { SLOT_CONFIG_NETWORK, slotToBeginUnixTime } from "@meshsdk/core";
-import { deserializeTx, type CstCollection, type CstTransactionInput } from "@/lib/mesh/cst";
+import { slotToBeginUnixTime } from "@/lib/cardano-slot-time";
+import type { CstCollection, CstTransactionInput } from "@/lib/mesh/cst";
 import { ServerFetcher } from "@/lib/mesh/server-fetcher";
-import { NETWORK } from "./internals/constants";
 import { assertExactInputUnspent } from "./internals/utxo";
 
 // Leave time for the wallet prompt and propagation before the exclusive upper bound.
 export const PREPARED_TRANSACTION_SIGNING_MARGIN_MS = 30_000;
 
 export async function assertPreparedTransactionFresh(txHex: string): Promise<void> {
+  // Loaded on demand: this module sits on the /user first-load path through the
+  // submit flow, and a static value import would put the Mesh serialisation
+  // chunk there (see app/layout-mesh-boundary.test.ts).
+  const { deserializeTx } = await import("@/lib/mesh/cst");
   const body = deserializeTx(txHex).body();
-  const slotConfig = SLOT_CONFIG_NETWORK[NETWORK];
   const start = body.validityStartInterval();
   const end = body.ttl();
   const slotTime = (slot: bigint | number) => {
@@ -17,7 +19,7 @@ export async function assertPreparedTransactionFresh(txHex: string): Promise<voi
     if (!Number.isSafeInteger(value) || value < 0) {
       throw new Error("Prepared transaction has an invalid validity interval. Rebuild it.");
     }
-    return slotToBeginUnixTime(value, slotConfig);
+    return slotToBeginUnixTime(value);
   };
   const startsAt = start === undefined ? undefined : slotTime(start);
   const expiresAt = end === undefined ? undefined : slotTime(end);

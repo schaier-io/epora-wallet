@@ -1,10 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  CREATE_WALLET_TARGET,
-  NAV_TARGETS,
-  SHORTCUTS
-} from "@/components/layout/shortcuts-catalog";
+import { CREATE_WALLET_TARGET, NAV_TARGETS, SHORTCUTS } from "@/lib/shortcuts/registry";
 import { parseWorkspaceRouteState } from "@/components/user/workspace-controller";
 import { GUIDED_ADMIN_GROUPS, GUIDED_ADMIN_TASK_MAP } from "@/components/user/workspace/guided-admin-catalog";
 import { USER_ACTION_DEFINITION_MAP } from "@/lib/user-flow/action-definitions";

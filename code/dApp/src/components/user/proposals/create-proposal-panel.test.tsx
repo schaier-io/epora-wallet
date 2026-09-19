@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import type { RenderOptions } from "@testing-library/react";
 import { createQueryTestWrapper } from "@/test/query-client";
-import { fireEvent, render as queryRender, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render as queryRender, screen, waitFor, within } from "@testing-library/react";
 const render = (callback: ReactNode, options?: RenderOptions) => queryRender(callback, { wrapper: createQueryTestWrapper().wrapper, ...options });
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { StashedProposalDraft } from "./stash";
@@ -309,5 +309,39 @@ describe("a save that finishes after the user left", () => {
     await waitFor(() => expect(stash.clear).toHaveBeenCalledTimes(1));
     expect(stash.clear).toHaveBeenCalledWith("stale-draft");
     expect(onCreated).not.toHaveBeenCalled();
+  });
+});
+
+describe("discarding a stashed draft", () => {
+  it("removes the draft only after the reader confirms", () => {
+    stash.draft = { ...draft(), draftId: "discard-me" };
+    renderPanel();
+
+    fireEvent.click(screen.getByRole("button", { name: /discard draft/i }));
+
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("Discard this draft?");
+    expect(dialog).toHaveTextContent(/removed from this browser/);
+    expect(stash.clear).not.toHaveBeenCalled();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: /discard draft/i }));
+
+    expect(stash.clear).toHaveBeenCalledWith("discard-me");
+    // The panel drops the draft instead of pretending nothing happened.
+    expect(screen.getByText(/Nothing to save yet/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /save request/i })).toBeNull();
+  });
+
+  it("keeps the draft when the reader changes their mind", () => {
+    stash.draft = { ...draft(), draftId: "keep-me" };
+    renderPanel();
+
+    fireEvent.click(screen.getByRole("button", { name: /discard draft/i }));
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: /keep draft/i })
+    );
+
+    expect(stash.clear).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: /save request/i })).toBeInTheDocument();
   });
 });

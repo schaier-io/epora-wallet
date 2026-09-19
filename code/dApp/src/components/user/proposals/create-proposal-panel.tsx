@@ -5,9 +5,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, Loader2, Save } from "lucide-react";
+import { ArrowLeft, Loader2, Save, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -31,7 +32,9 @@ type CreateProposalPanelProps = {
 export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanelProps) {
   const i18n = useTranslations("ComponentsUserProposalsCreateProposalPanel");
   const { activeWallet, activePaymentKeyHash } = useWalletContext();
-  const draft = useMemo(() => readProposalDraft(), []);
+  // Read once, then owned by state so a discard can drop the panel's draft.
+  const [draft, setDraft] = useState(readProposalDraft);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const walletUnit = useSearchParams().get("wallet");
   const [title, setTitle] = useState(draft?.suggestedTitle ?? "");
   const [description, setDescription] = useState("");
@@ -237,8 +240,35 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
           <Button type="button" variant="ghost" onClick={onCancel} disabled={busy}>
             {i18n("cancel")}
           </Button>
+          {/* Leaving via "Cancel" keeps the draft stashed on purpose, so the only way
+              to get rid of an unwanted draft without saving is this explicit discard. */}
+          <Button
+            type="button"
+            variant="destructive"
+            onClick={() => setConfirmDiscard(true)}
+            disabled={busy}
+          >
+            <Trash2 className="h-4 w-4" aria-hidden="true" /> {i18n("discardDraft")}
+          </Button>
         </div>
       </CardContent>
+
+      <ConfirmDialog
+        open={confirmDiscard}
+        onOpenChange={setConfirmDiscard}
+        title={i18n("discardDraftTitle")}
+        description={i18n("discardDraftDescription")}
+        confirmLabel={i18n("discardDraftConfirm")}
+        cancelLabel={i18n("discardDraftCancel")}
+        destructive
+        onConfirm={() => {
+          // Id-guarded: only the draft this panel was built from is cleared, so
+          // a newer draft stashed from another tab survives.
+          clearProposalDraft(draft.draftId);
+          setDraft(null);
+          setConfirmDiscard(false);
+        }}
+      />
     </Card>
   );
 }

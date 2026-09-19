@@ -42,6 +42,7 @@ import { ActivityUtxoList } from "@/components/user/workspace/editors";
 import { buildActivityCsv, buildCardanoscanTransactionUrl, approximateBlockTimeMsFromSlot, formatCompactHash, formatWalletTransactionRelative, formatWalletTransactionTime, normalizeBlockTimeMs } from "@/components/user/workspace/helpers";
 
 import { useWorkspaceActivityState } from "@/components/user/workspace/use-workspace-activity-state";
+import { WorkspaceStreamingExpenseProjectionsView } from "@/components/user/workspace/workspace-streaming-expense-projections-view";
 
 export function WorkspaceTransactionsView() {
   const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceTransactionsView");
@@ -321,6 +322,15 @@ export function WorkspaceTransactionsView() {
                           </Button>
                         </div>
                       </div>
+
+                      {/* Accruing scheduled-payment expenses, projected from the
+                          stream terms. Sits above the event list because it moves
+                          with time, not with transactions; it renders even while
+                          the history loads, since it reads the wallet state, not
+                          the transaction feed. */}
+                      {lockingContract.address ? (
+                        <WorkspaceStreamingExpenseProjectionsView />
+                      ) : null}
 
                       {walletTransactions.error ? (
                         // `role="alert"`: the fetch the reader just asked for failed, and the

@@ -1,4 +1,5 @@
 import type { MultiSigProposal, ProposalSignature } from "@/generated/prisma";
+import { TERMINAL_PROPOSAL_STATUSES } from "./list-pagination";
 import type {
   ProposalAuthorityPath,
   ProposalDetailDto,
@@ -166,6 +167,26 @@ export function evaluateProposalCancelGuard(
     return { ok: false, status: 403, error: proposalCopy.onlyProposerCanCancel() };
   }
   if (proposal.status !== "OPEN") {
+    return { ok: false, status: 409, error: proposalCopy.status(proposal.status) };
+  }
+  return { ok: true };
+}
+
+// Hard deletion is for finished requests only: a withdrawn (CANCELLED) or sent
+// (SUBMITTED) one. An OPEN request other people can still sign is withdrawn
+// instead, and a SUBMITTING one may already sit on the chain, so neither is
+// deletable. Pure so the precondition can be tested without a database.
+export function evaluateProposalDeleteGuard(
+  proposal: { createdByKeyHash: string; status: string } | null,
+  actorKeyHash: string
+): GuardResult {
+  if (!proposal) {
+    return { ok: false, status: 404, error: proposalCopy.notFound() };
+  }
+  if (proposal.createdByKeyHash !== actorKeyHash) {
+    return { ok: false, status: 403, error: proposalCopy.onlyProposerCanDelete() };
+  }
+  if (!(TERMINAL_PROPOSAL_STATUSES as readonly string[]).includes(proposal.status)) {
     return { ok: false, status: 409, error: proposalCopy.status(proposal.status) };
   }
   return { ok: true };
