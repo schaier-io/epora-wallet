@@ -25,7 +25,7 @@ import { type StateFormState, type StreamingPaymentFormState } from "@/lib/contr
 import { MAX_STREAMING_PAYMENTS } from "@/lib/contracts/state-validation";
 import { describeAddressProblem, looksLikeCardanoAddress } from "@/lib/contracts/payout-address";
 import { VALIDITY_WINDOW_FUTURE_MS } from "@/lib/mesh/transactions/internals/constants";
-import { formatLovelaceAsAda } from "@/lib/user-flow/guided-helpers";
+import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 import { CalendarPlus2, CalendarSearch, Plus, Repeat } from "lucide-react";
 import Link from "next/link";
 import { useId, useState } from "react";

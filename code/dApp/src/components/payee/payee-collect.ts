@@ -12,11 +12,11 @@ import type { UTxO } from "@meshsdk/core";
 import type { PayeeStreamingPayment } from "@/components/payee/collect-payee-streaming-payments";
 import { computePayeeDueAmount, toStreamingPaymentForm } from "@/components/payee/payee-amounts";
 import { nonAdminStreamingActionCooldownRemainingMs } from "@/lib/contracts/crank-cooldown";
+import { buildStreamingPaymentPayoutTransfer } from "@/lib/user-flow/streaming-payment-helpers";
 import {
-  buildStreamingPaymentPayoutTransfer,
   maximumAdaSpendWithChange,
   suggestLockedInputsForSpend
-} from "@/lib/user-flow/guided-helpers";
+} from "@/lib/user-flow/wallet-input-selection";
 import type { PayoutTransfer, WalletInputRef } from "@/lib/types/contracts";
 import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 import { createDefaultTranslator, defaultFormatter } from "@/i18n/default-translator";

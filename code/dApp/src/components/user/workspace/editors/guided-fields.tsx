@@ -10,7 +10,13 @@ import { Label } from "@/components/ui/label";
 import { formatAmountSummary, formatCountLabel, formatInputRefLabel } from "@/components/user/workspace/helpers";
 import { isNonNegativeUint64Decimal } from "@/lib/contracts/on-chain-integer";
 import { type WalletInputRef } from "@/lib/types/contracts";
-import { type DurationUnit, combineDurationToMillis, combineLocalDateAndTimeToTimestamp, splitDurationMillis, splitTimestampToLocalInputParts } from "@/lib/user-flow/guided-helpers";
+import {
+  type DurationUnit,
+  combineDurationToMillis,
+  combineLocalDateAndTimeToTimestamp,
+  splitDurationMillis,
+  splitTimestampToLocalInputParts
+} from "@/lib/user-flow/time-inputs";
 import { cn } from "@/lib/utils/cn";
 import { type UTxO } from "@meshsdk/core";
 import { useId, useState } from "react";

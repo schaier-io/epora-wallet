@@ -7,7 +7,8 @@ import { countAdminUsersInStateForm, stateFormFromDatum } from "@/lib/contracts/
 import { normalizeWalletName } from "@/lib/contracts/state-wallet-name";
 import { type DetectedSttToken } from "@/lib/mesh/detection";
 import { type Asset } from "@/lib/types/contracts";
-import { formatLovelaceAsAda, splitDurationMillis } from "@/lib/user-flow/guided-helpers";
+import { formatLovelaceAsAda } from "@/lib/units/lovelace";
+import { splitDurationMillis } from "@/lib/user-flow/time-inputs";
 import { shortenAddress, shortenIdentifier } from "@/lib/utils/explorer";
 import { type UTxO } from "@meshsdk/core";
 import { createDefaultTranslator, defaultFormatter } from "@/i18n/default-translator";

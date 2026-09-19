@@ -15,9 +15,10 @@ import {
   type OnChainInteger
 } from "@/lib/contracts/on-chain-integer";
 import {
-  computeStreamingPaymentRemainingObligation,
   formatLovelaceAsAda,
-  parseAdaToLovelace } from "@/lib/user-flow/guided-helpers";
+  parseAdaToLovelace
+} from "@/lib/units/lovelace";
+import { computeStreamingPaymentRemainingObligation } from "@/lib/user-flow/streaming-payment-helpers";
 import { getValidityWindow } from "@/lib/mesh/transactions";
 import { FocusedTaskSurface, InlineFieldError } from "@/components/user/workspace/editors";
 import { GUIDED_ADMIN_TASKS } from "@/components/user/workspace/guided-admin-catalog";

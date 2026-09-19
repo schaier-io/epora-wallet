@@ -27,7 +27,7 @@ import {
 } from "@/lib/contracts/state-form";
 import { buildSttSpendTx } from "@/lib/mesh/transactions/stt-spend";
 import { buildConsolidateUtxosTx } from "@/lib/mesh/transactions/consolidate-utxos";
-import { buildStreamingPaymentPayoutTransfer } from "@/lib/user-flow/guided-helpers";
+import { buildStreamingPaymentPayoutTransfer } from "@/lib/user-flow/streaming-payment-helpers";
 import {
   deserializeTx,
   type CstKeyHash,

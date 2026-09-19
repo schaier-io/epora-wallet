@@ -11,7 +11,7 @@ import {
   deriveStreamingPaymentPayoutStateDatum,
   retagStreamingPaymentPayoutTransfers
 } from "@/lib/contracts/streaming-payout";
-import { buildStreamingPaymentPayoutTransfer } from "@/lib/user-flow/guided-helpers";
+import { buildStreamingPaymentPayoutTransfer } from "@/lib/user-flow/streaming-payment-helpers";
 import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
 import type { PayoutTransfer } from "@/lib/types/contracts";
 import { resolveWalletSpendAddress } from "@/lib/contracts/blueprint";

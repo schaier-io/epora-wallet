@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { PayeeStreamingPayment } from "@/components/payee/collect-payee-streaming-payments";
 import { computePayeeDueAmount } from "@/components/payee/payee-amounts";
-import { computeStreamingPaymentDueAmount } from "@/lib/user-flow/guided-helpers";
+import { computeStreamingPaymentDueAmount } from "@/lib/user-flow/streaming-payment-helpers";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const START = 1_760_000_000_000;

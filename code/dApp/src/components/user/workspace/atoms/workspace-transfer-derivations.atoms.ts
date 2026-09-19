@@ -5,15 +5,15 @@ import { atom } from "jotai";
 import type { UTxO } from "@meshsdk/core";
 import { type WealthSeriesPoint } from "@/components/user/wealth-chart";
 import { getValidityWindow } from "@/lib/mesh/transactions";
+import { requestedTransferAssets } from "@/lib/user-flow/asset-quantities";
 import {
   buildStreamingPaymentPayoutTransfer,
   computeStreamingPaymentDueAmount,
   computeStreamingReserveAssets,
-  requestedTransferAssets,
   streamingPaymentNeedsZeroDeltaCleanup,
-  streamingPaymentUnit,
-  suggestLockedInputsForSpend
-} from "@/lib/user-flow/guided-helpers";
+  streamingPaymentUnit
+} from "@/lib/user-flow/streaming-payment-helpers";
+import { suggestLockedInputsForSpend } from "@/lib/user-flow/wallet-input-selection";
 import { lovelaceToAdaNumber } from "@/lib/units/lovelace";
 import { type PayoutTransfer } from "@/lib/types/contracts";
 import {

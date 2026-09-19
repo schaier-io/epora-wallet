@@ -104,7 +104,7 @@ const {
   resolveStructuredOnChainAction
 } = await import("@/lib/contracts/action-data");
 const { buildStreamingPaymentPayoutTransfer } = await import(
-  "@/lib/user-flow/guided-helpers"
+  "@/lib/user-flow/streaming-payment-helpers"
 );
 const { buildSttSpendTx } = await import("@/lib/mesh/transactions/stt-spend");
 const { buildConsolidateUtxosTx } = await import(
