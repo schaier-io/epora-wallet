@@ -250,6 +250,17 @@ setup.
   classify as unexpected and report; if their volume grows, reclassify them
   as owned messages instead of filtering in the seam.
 
+**Health-route flood control:** the health route forwards its probe-failure
+logs (`health.db_probe_failed`, `health.indexer_probe_failed`) to Sentry only
+for the first occurrence of a degraded state, any change of that state, and one
+re-announcement per 5-minute cooldown while the state stays identical
+([`degraded-forward-gate.ts`](../code/dApp/src/app/api/health/degraded-forward-gate.ts)).
+Suppressed repeats still reach the platform logs at `info` level with
+`sentrySuppressed: true`. The gate is in-process and per-instance: each server
+instance keeps only its own last-forwarded record, so N instances can each
+forward the same first failure once. It bounds the per-instance flood; it does
+not dedupe across instances.
+
 **Redaction** (`src/lib/observability/sentry-scrub.ts`, wired as `beforeSend` /
 `beforeBreadcrumb`): routine wallet rejections (the user declined or cancelled a
 signature prompt — patterns shared with

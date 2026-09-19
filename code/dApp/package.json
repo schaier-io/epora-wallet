@@ -15,6 +15,7 @@
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "typecheck": "tsc --noEmit",
     "entrypoint-budget:check-generated": "node ../smart-contract/scripts/check-entrypoint-budget.mjs --check-generated",
+    "bundle-budget:check": "node --test scripts/lib/bundle-budget.test.mjs && node scripts/check-bundle-budget.mjs",
     "file-length:check": "node --test scripts/lib/file-length.test.mjs && node scripts/check-file-length.mjs",
     "i18n:check": "node --test scripts/lib/i18n-static-coverage.test.mjs && node scripts/check-message-catalog.mjs && node scripts/check-intl-wiring.mjs && node scripts/generate-default-message-catalog.mjs --check && node scripts/migrate-jsx-copy-to-i18n.mjs --check && node scripts/migrate-static-copy-to-i18n.mjs --check && node scripts/check-i18n-static-coverage.mjs && node scripts/audit-i18n-internal-values.mjs",
     "i18n:extract": "node scripts/extract-ui-copy.mjs",

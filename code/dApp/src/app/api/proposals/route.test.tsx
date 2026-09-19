@@ -4,10 +4,15 @@ import { z } from "zod";
 
 const store = vi.hoisted(() => ({
   createProposalRecord: vi.fn(),
+  findReplayableProposalRecord: vi.fn(),
   isWalletIndexed: vi.fn(),
   isWalletParticipant: vi.fn(),
   listProposalRecordsForParticipant: vi.fn(),
   ProposalQuotaExceededError: class ProposalQuotaExceededError extends Error {}
+}));
+
+const httpRateLimit = vi.hoisted(() => ({
+  rateLimit: vi.fn()
 }));
 
 const indexer = vi.hoisted(() => ({
@@ -23,9 +28,7 @@ const transactionBinding = vi.hoisted(() => ({
 vi.mock("@/lib/proposals/store", () => store);
 vi.mock("@/lib/stt-cache/indexer", () => indexer);
 vi.mock("@/lib/proposals/transaction-binding", () => transactionBinding);
-vi.mock("@/lib/http/rate-limit", () => ({
-  rateLimit: vi.fn().mockResolvedValue({ ok: true, retryAfterSeconds: 0 })
-}));
+vi.mock("@/lib/http/rate-limit", () => httpRateLimit);
 vi.mock("@/lib/proposals/api-helpers", () => ({
   buildContextSchema: z.object({ builder: z.string() }).passthrough(),
   hexSchema: z.string().regex(/^[0-9a-f]+$/i),
@@ -152,10 +155,15 @@ function createRequest(overrides: Record<string, unknown> = {}) {
 describe("POST /api/proposals", () => {
   beforeEach(() => {
     store.createProposalRecord.mockReset();
+    store.findReplayableProposalRecord.mockReset();
     store.isWalletParticipant.mockReset();
     store.listProposalRecordsForParticipant.mockReset();
     indexer.reconcileWalletUnit.mockReset();
     transactionBinding.assertProposalTransactionBinding.mockReset();
+    httpRateLimit.rateLimit.mockReset();
+    httpRateLimit.rateLimit.mockResolvedValue({ ok: true, retryAfterSeconds: 0 });
+    // No stored draft by default: every existing test exercises the create path.
+    store.findReplayableProposalRecord.mockResolvedValue(null);
   });
 
   it("returns a bounded page and forwards the cursor", async () => {
@@ -183,6 +191,47 @@ describe("POST /api/proposals", () => {
     const response = await GET(new Request("http://localhost/api/proposals?limit=51"));
     expect(response.status).toBe(400);
     expect(store.listProposalRecordsForParticipant).not.toHaveBeenCalled();
+  });
+
+  it("maps an idempotent replay to the original even with the creation bucket exhausted", async () => {
+    // The whole point of the pre-check: a retry storm after a save must not
+    // lock its author out, so the exhausted bucket is never even asked.
+    const original = { id: "proposal-original", title: "Spend" };
+    store.findReplayableProposalRecord.mockResolvedValue(original);
+    httpRateLimit.rateLimit.mockResolvedValue({ ok: false, retryAfterSeconds: 900 });
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(201);
+    expect(await response.json()).toEqual({ proposal: original });
+    expect(httpRateLimit.rateLimit).not.toHaveBeenCalled();
+    expect(store.createProposalRecord).not.toHaveBeenCalled();
+  });
+
+  it("scopes the replay pre-check to the session's creations, never the payload's", async () => {
+    store.isWalletParticipant.mockResolvedValue(true);
+    store.createProposalRecord.mockResolvedValue({ id: "proposal-1" });
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(201);
+    expect(store.findReplayableProposalRecord).toHaveBeenCalledWith(
+      `${POLICY}${ASSET_NAME}`,
+      "dd".repeat(32),
+      CALLER
+    );
+  });
+
+  it("still rate-limits a first-time save when the creation bucket is exhausted", async () => {
+    store.findReplayableProposalRecord.mockResolvedValue(null);
+    httpRateLimit.rateLimit.mockResolvedValue({ ok: false, retryAfterSeconds: 900 });
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("Retry-After")).toBe("900");
+    expect(store.isWalletParticipant).not.toHaveBeenCalled();
+    expect(store.createProposalRecord).not.toHaveBeenCalled();
   });
 
   it("rejects an authenticated caller who is not a wallet participant", async () => {

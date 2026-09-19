@@ -12,6 +12,7 @@ import { rateLimit } from "@/lib/http/rate-limit";
 import { readBoundedJson, RequestBodyTooLargeError } from "@/lib/http/request-body";
 import {
   createProposalRecord,
+  findReplayableProposalRecord,
   isWalletIndexed,
   isWalletParticipant,
   listProposalRecordsForParticipant,
@@ -120,6 +121,40 @@ export async function POST(request: Request) {
   }
 
   try {
+    // All payload validation is pure (schema, wallet binding, tx binding, body
+    // hash), so it runs before the rate limit: only a well-formed save then
+    // reaches the DB, and the replay pre-check below can trust its inputs.
+    const body = CreateSchema.parse(await readBoundedJson(request));
+    assertProposalWalletBinding(body as CreateProposalRequest);
+    const buildContext = body.buildContext as CreateProposalRequest["buildContext"];
+    if (body.actionKind !== proposalActionKind(buildContext)) {
+      throw new InvalidProposalBuildContextError(proposalCopy.walletIdentityMismatch());
+    }
+    assertProposalTransactionBinding({
+      unsignedTxHex: body.unsignedTxHex,
+      buildContext
+    });
+    const txBodyHash = reconcileBodyHash(body.unsignedTxHex, body.txBodyHash);
+
+    // A replay of an already-stored save answers with the original before the
+    // rate limit is asked for a token: the save would write no new row, so a
+    // retry storm must not lock its author out of their own proposal. The
+    // creator always comes from the session (the payload carries no creator),
+    // so this cannot probe anyone else's proposals; the query is bounded by
+    // the creator+wallet+createdAt index and the 100-per-day creation quota.
+    // The participant check is skipped safely: the hit is the caller's own row,
+    // and a creator is always authorized on their own proposal. The dedupe
+    // inside createProposalRecord stays as the race-safe backstop for two
+    // simultaneous first-saves.
+    const replay = await findReplayableProposalRecord(
+      body.walletUnit,
+      txBodyHash,
+      auth.session.paymentKeyHash
+    );
+    if (replay) {
+      return NextResponse.json({ proposal: replay }, { status: 201 });
+    }
+
     const limit = await rateLimit(
       `proposals:create:${auth.session.paymentKeyHash}`,
       300,
@@ -131,16 +166,6 @@ export async function POST(request: Request) {
         { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
       );
     }
-    const body = CreateSchema.parse(await readBoundedJson(request));
-    assertProposalWalletBinding(body as CreateProposalRequest);
-    const buildContext = body.buildContext as CreateProposalRequest["buildContext"];
-    if (body.actionKind !== proposalActionKind(buildContext)) {
-      throw new InvalidProposalBuildContextError(proposalCopy.walletIdentityMismatch());
-    }
-    assertProposalTransactionBinding({
-      unsignedTxHex: body.unsignedTxHex,
-      buildContext
-    });
     // Two states, two answers. `isWalletParticipant` reads the chain indexer, and a
     // missing row means either "not a member" or "this wallet has not been indexed
     // yet". Answering both with "You are not a participant of this wallet." asserts
@@ -175,7 +200,7 @@ export async function POST(request: Request) {
     }
     const request_: CreateProposalRequest = {
       ...body,
-      txBodyHash: reconcileBodyHash(body.unsignedTxHex, body.txBodyHash),
+      txBodyHash,
       buildContext
     };
     const proposal = await createProposalRecord(request_, auth.session.paymentKeyHash);
