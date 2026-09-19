@@ -1,7 +1,6 @@
 import "server-only";
 import { proposalCopy } from "./copy";
 import { getPrisma } from "@/lib/prisma";
-import { STT_CACHE_NETWORK } from "@/lib/stt-cache/domain";
 import {
   walletIsIndexed,
   walletParticipantExists
@@ -18,9 +17,9 @@ import {
 } from "./store-logic";
 import { validateVKeyWitnessSet } from "./witness-validation";
 import {
-  MAX_OPEN_PROPOSALS_PER_CREATOR_WALLET,
-  MAX_PROPOSALS_PER_CREATOR_WALLET_PER_DAY
-} from "./limits";
+  createProposalRecord as createProposalRow,
+  ProposalQuotaExceededError
+} from "./create-record";
 import type {
   CreateProposalRequest,
   ProposalAuthorityPath,
@@ -39,65 +38,11 @@ export async function createProposalRecord(
   request: CreateProposalRequest,
   createdByKeyHash: string
 ): Promise<ProposalDetailDto> {
-  return getPrisma().$transaction(async (tx) => {
-    const quotaKey = `${STT_CACHE_NETWORK}:${request.walletUnit}:${createdByKeyHash}`;
-    // pg_advisory_xact_lock returns void, and Prisma cannot deserialize a void
-    // column — the raw form of this statement threw on every call, failing every
-    // proposal save with a 500. Project it to a boolean so the lock statement
-    // yields a readable row.
-    await tx.$queryRaw`SELECT (pg_advisory_xact_lock(hashtextextended(${quotaKey}, 0)) IS NULL) AS locked`;
-
-    const activeCount = await tx.multiSigProposal.count({
-      where: {
-        network: STT_CACHE_NETWORK,
-        walletUnit: request.walletUnit,
-        createdByKeyHash,
-        status: { in: ["OPEN", "SUBMITTING"] }
-      }
-    });
-    if (activeCount >= MAX_OPEN_PROPOSALS_PER_CREATOR_WALLET) {
-      throw new ProposalQuotaExceededError(
-        proposalCopy.activeProposalLimit(MAX_OPEN_PROPOSALS_PER_CREATOR_WALLET)
-      );
-    }
-
-    const recentCount = await tx.multiSigProposal.count({
-      where: {
-        network: STT_CACHE_NETWORK,
-        walletUnit: request.walletUnit,
-        createdByKeyHash,
-        createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
-      }
-    });
-    if (recentCount >= MAX_PROPOSALS_PER_CREATOR_WALLET_PER_DAY) {
-      throw new ProposalQuotaExceededError(
-        proposalCopy.dailyProposalLimit(MAX_PROPOSALS_PER_CREATOR_WALLET_PER_DAY)
-      );
-    }
-
-    const row = await tx.multiSigProposal.create({
-      data: {
-        network: STT_CACHE_NETWORK,
-        walletUnit: request.walletUnit,
-        walletPolicyId: request.walletPolicyId,
-        title: request.title,
-        description: request.description ?? null,
-        actionKind: request.actionKind,
-        authorityPath: request.authorityPath,
-        builder: request.builder,
-        buildContextJson: serializeJsonSafe(request.buildContext),
-        unsignedTxHex: request.unsignedTxHex,
-        txBodyHash: request.txBodyHash,
-        summaryJson: request.summary ? serializeJsonSafe(request.summary) : null,
-        createdByKeyHash
-      },
-      include: { signatures: true }
-    });
-    return mapDetail(row, row.signatures);
-  });
+  return createProposalRow(getPrisma(), request, createdByKeyHash);
 }
 
-export class ProposalQuotaExceededError extends Error {}
+export { ProposalQuotaExceededError };
+
 
 // The list query itself lives in list-records.ts, free of "server-only" and
 // taking an explicit PrismaClient, so cursor decoding, the keyset
