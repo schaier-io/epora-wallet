@@ -188,7 +188,14 @@ export function TopNav() {
 
   return (
     <>
-      <header className="relative z-20 border-b border-border/60 bg-[#091215] shadow-[inset_0_-1px_0_#2b464666]">
+      {/* `sticky`, not `fixed`: the bar keeps its place in the layout flow, so the page
+          needs no spacer. Content does scroll underneath it, so anchor targets carry
+          scroll margins (`#main` in the root layout, `scroll-mt-20` on the two hash
+          targets in the workspace). The opaque `bg-[#091215]` is what makes this work:
+          scrolled content passes underneath instead of showing through. `z-20` stays
+          below tooltips (`z-50`), dialogs (`z-[100]`), toasts (`z-[110]`) and the
+          disclaimer gate (`z-[200]`). */}
+      <header className="sticky top-0 z-20 border-b border-border/60 bg-[#091215] shadow-[inset_0_-1px_0_#2b464666]">
         {/* `gap-6`, not `gap-3`. The links carry `px-2.5` and sit `gap-1` apart, so at 12px the
             wordmark ended 28px from "Wallet" against 24px between the links themselves, and the
             brand read as a fourth nav item. At 24px that separation is 40px. The row still fits:
