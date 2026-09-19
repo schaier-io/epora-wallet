@@ -26,6 +26,7 @@ const dependencies = vi.hoisted(() => {
     walletContext: { activeWallet: wallet, isDemoWallet: false },
     normalizeWitnessSetHex: vi.fn(),
     cancelProposal: vi.fn(),
+    deleteProposal: vi.fn(),
     fetchProposal: vi.fn(),
     markProposalSubmitted: vi.fn(),
     parseProposalBuildContext: vi.fn(),
@@ -52,6 +53,7 @@ vi.mock("@/lib/proposals/client", async () => {
   );
   return {
     cancelProposal: dependencies.cancelProposal,
+    deleteProposal: dependencies.deleteProposal,
     fetchProposal: dependencies.fetchProposal,
     getProposalErrorMessage: actual.getProposalErrorMessage,
     markProposalSubmitted: dependencies.markProposalSubmitted,
@@ -519,6 +521,102 @@ describe("proposal lifecycle Model", () => {
     expect(dependencies.cancelProposal).toHaveBeenCalledWith(initial.id);
     expect(result.current.detail?.status).toBe("CANCELLED");
     expect(onChanged).toHaveBeenCalledTimes(2);
+  });
+
+  it("deletes a finished request for its creator and confirms the removal", async () => {
+    const finished = proposal("proposal-1", {
+      createdByKeyHash: SIGNER_KEY_HASH,
+      status: "CANCELLED"
+    });
+    dependencies.fetchProposal.mockResolvedValue(finished);
+    dependencies.deleteProposal.mockResolvedValue(undefined);
+    const { result } = renderHook(() =>
+      useProposalOrchestration({
+        proposalId: finished.id,
+        sessionKeyHash: SIGNER_KEY_HASH,
+        onChanged: vi.fn()
+      })
+    );
+
+    await waitFor(() => expect(result.current.detail?.id).toBe(finished.id));
+    expect(result.current.isDeletable).toBe(true);
+
+    await act(async () => {
+      expect(await result.current.handleDelete()).toBe(true);
+    });
+
+    expect(dependencies.deleteProposal).toHaveBeenCalledWith(finished.id);
+    expect(result.current.actionError).toBeNull();
+  });
+
+  it("never offers deletion of a request that is not finished", async () => {
+    for (const status of ["OPEN", "SUBMITTING"] as const) {
+      const active = proposal("proposal-1", {
+        createdByKeyHash: SIGNER_KEY_HASH,
+        status
+      });
+      dependencies.fetchProposal.mockResolvedValue(active);
+      const { result, unmount } = renderHook(() =>
+        useProposalOrchestration({
+          proposalId: active.id,
+          sessionKeyHash: SIGNER_KEY_HASH,
+          onChanged: vi.fn()
+        })
+      );
+
+      await waitFor(() => expect(result.current.detail?.id).toBe(active.id));
+      expect(result.current.isDeletable).toBe(false);
+      await act(async () => result.current.handleDelete());
+      expect(dependencies.deleteProposal).not.toHaveBeenCalled();
+      unmount();
+    }
+  });
+
+  it("keeps a finished request visible when its deletion fails", async () => {
+    const finished = proposal("proposal-1", {
+      createdByKeyHash: SIGNER_KEY_HASH,
+      status: "SUBMITTED"
+    });
+    dependencies.fetchProposal.mockResolvedValue(finished);
+    // A network-level failure carries no server message, so the handler falls
+    // back to the catalog sentence that tells the user to try again.
+    dependencies.deleteProposal.mockRejectedValue(new Error("delete failed"));
+    const { result } = renderHook(() =>
+      useProposalOrchestration({
+        proposalId: finished.id,
+        sessionKeyHash: SIGNER_KEY_HASH,
+        onChanged: vi.fn()
+      })
+    );
+
+    await waitFor(() => expect(result.current.detail?.id).toBe(finished.id));
+    await act(async () => {
+      expect(await result.current.handleDelete()).toBe(false);
+    });
+
+    expect(result.current.detail?.id).toBe(finished.id);
+    expect(result.current.actionError).toBe(
+      "Could not delete this request. It is still in the list, so you can try again."
+    );
+  });
+
+  it("never lets a co-signer delete somebody else's finished request", async () => {
+    const finished = proposal("proposal-1", { status: "CANCELLED" });
+    dependencies.fetchProposal.mockResolvedValue(finished);
+    const { result } = renderHook(() =>
+      useProposalOrchestration({
+        proposalId: finished.id,
+        sessionKeyHash: SIGNER_KEY_HASH,
+        onChanged: vi.fn()
+      })
+    );
+
+    await waitFor(() => expect(result.current.detail?.id).toBe(finished.id));
+    expect(result.current.isDeletable).toBe(true);
+    await act(async () => {
+      expect(await result.current.handleDelete()).toBe(false);
+    });
+    expect(dependencies.deleteProposal).not.toHaveBeenCalled();
   });
 
   it("disables rebuild while the rebuilt body is being verified", async () => {

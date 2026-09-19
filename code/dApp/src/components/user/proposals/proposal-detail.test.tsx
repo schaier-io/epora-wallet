@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import type { RenderOptions } from "@testing-library/react";
 import { createQueryTestWrapper } from "@/test/query-client";
-import { fireEvent, render as queryRender, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render as queryRender, screen, waitFor, within } from "@testing-library/react";
 const render = (callback: ReactNode, options?: RenderOptions) => queryRender(callback, { wrapper: createQueryTestWrapper().wrapper, ...options });
 import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -29,12 +29,22 @@ const fixtures = vi.hoisted(() => ({ detail: {
   signatures: []
 } }));
 const verify = vi.hoisted(() => ({ proposal: vi.fn() }));
+// A stable wallet identity: the hook ties in-flight commands to the connected
+// wallet, and a mock handing out a fresh object per render would abort them.
+const walletContext = vi.hoisted(() => ({
+  activeWallet: { signTx: vi.fn() },
+  isDemoWallet: false
+}));
 
 const detail = fixtures.detail as ProposalDetailDto;
 
 vi.mock("@/lib/proposals/client", () => ({
   cancelProposal: vi.fn(),
+  deleteProposal: vi.fn(),
   fetchProposal: vi.fn().mockResolvedValue(fixtures.detail),
+  // Every rejection in these tests is a plain Error, which the real helper maps
+  // to its fallback sentence — reproduced here without the class check.
+  getProposalErrorMessage: (_error: unknown, fallback: string) => fallback,
   markProposalSubmitted: vi.fn(),
   parseProposalBuildContext: vi.fn().mockReturnValue(null),
   parseProposalSummary: vi.fn().mockReturnValue(null),
@@ -54,11 +64,12 @@ vi.mock("@/lib/proposals/rebuild", () => ({
   rebuildProposalTx: vi.fn()
 }));
 vi.mock("@/providers/wallet-provider", () => ({
-  useWalletContext: () => ({ activeWallet: { signTx: vi.fn() }, isDemoWallet: false })
+  useWalletContext: () => walletContext
 }));
 
 import { ToastProvider } from "@/providers/toast-provider";
 import {
+  deleteProposal,
   fetchProposal,
   parseProposalBuildContext,
   parseProposalSummary
@@ -519,5 +530,84 @@ describe("the words on the approval request detail", () => {
       await screen.findByRole("button", { name: /withdraw request/i })
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Cancel$/ })).toBeNull();
+  });
+});
+
+describe("deleting a finished request", () => {
+  const creator = detail.createdByKeyHash;
+  let onBack = vi.fn();
+
+  function renderAs(status: ProposalDetailDto["status"], sessionKeyHash = creator) {
+    vi.mocked(fetchProposal).mockResolvedValue({ ...detail, status });
+    return renderDetail(
+      <ProposalDetail
+        proposalId={detail.id}
+        sessionKeyHash={sessionKeyHash}
+        onChanged={() => undefined}
+        onBack={onBack}
+      />
+    );
+  }
+
+  beforeEach(() => {
+    verify.proposal.mockReset();
+    verify.proposal.mockReturnValue(new Promise(() => undefined));
+    vi.mocked(parseProposalBuildContext).mockReturnValue(null);
+    vi.mocked(parseProposalSummary).mockReturnValue(null);
+    vi.mocked(isAutoRebuildable).mockReturnValue(false);
+    vi.mocked(deleteProposal).mockReset().mockResolvedValue(undefined);
+    onBack = vi.fn();
+  });
+
+  it("deletes a withdrawn request only after the creator confirms", async () => {
+    renderAs("CANCELLED");
+
+    fireEvent.click(await screen.findByRole("button", { name: /delete request/i }));
+
+    // The confirmation names what is removed and what happens to co-signers.
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Delete this request?")).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/removes the request and its recorded signatures for every co-signer/i)
+    ).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: /delete request/i }));
+
+    await waitFor(() => expect(deleteProposal).toHaveBeenCalledWith(detail.id));
+    await waitFor(() => expect(onBack).toHaveBeenCalled());
+  });
+
+  it("offers no delete to a co-signer, not even on a finished request", async () => {
+    renderAs("CANCELLED", "dd".repeat(28));
+
+    expect(await screen.findByText(detail.title)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /delete request/i })).toBeNull();
+  });
+
+  it("offers only the withdrawal, not a delete, while the request is active", async () => {
+    renderAs("OPEN");
+
+    expect(
+      await screen.findByRole("button", { name: /withdraw request/i })
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /delete request/i })).toBeNull();
+  });
+
+  it("keeps the request visible with a retryable error when deletion fails", async () => {
+    vi.mocked(deleteProposal).mockRejectedValue(new Error("network down"));
+    renderAs("CANCELLED");
+
+    fireEvent.click(await screen.findByRole("button", { name: /delete request/i }));
+    fireEvent.click(
+      within(await screen.findByRole("dialog")).getByRole("button", { name: /delete request/i })
+    );
+
+    expect(
+      await screen.findByText(
+        "Could not delete this request. It is still in the list, so you can try again."
+      )
+    ).toBeInTheDocument();
+    expect(screen.getByText(detail.title)).toBeInTheDocument();
+    expect(onBack).not.toHaveBeenCalled();
   });
 });

@@ -16,12 +16,14 @@ import {
   Loader2,
   Send,
   ShieldCheck,
+  Trash2,
   XCircle
 } from "lucide-react";
 import { cardanoscanTransactionUrl } from "@/lib/cardano-network";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils/cn";
 import type { ProposalVerification } from "@/lib/proposals/types";
 import { actionKindLabel, lovelaceToAda, truncateMiddle } from "./format";
@@ -49,6 +51,7 @@ export function ProposalDetail({
   const i18n = useTranslations("ComponentsUserProposalsProposalDetail");
   const toast = useToast();
   const [linkCopied, setLinkCopied] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const {
     actionError,
     actionInfo,
@@ -59,10 +62,12 @@ export function ProposalDetail({
     canSubmit,
     detail,
     handleCancel,
+    handleDelete,
     handleRebuild,
     handleSign,
     handleSubmit,
     isCreator,
+    isDeletable,
     isInvalid,
     isOpen,
     loading,
@@ -386,9 +391,42 @@ export function ProposalDetail({
                 <XCircle className="h-4 w-4" aria-hidden="true" /> {i18n("withdrawRequest")}
               </Button>
             ) : null}
+
+            {/* Deletion exists for finished requests only (withdrawn or sent). A
+                co-signer is never offered it: the server accepts only the creator. */}
+            {isCreator && isDeletable ? (
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => setConfirmDelete(true)}
+                disabled={busy !== null}
+                aria-busy={busy === "delete"}
+              >
+                <Trash2 className="h-4 w-4" aria-hidden="true" /> {i18n("deleteRequest")}
+              </Button>
+            ) : null}
           </div>
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        onOpenChange={setConfirmDelete}
+        title={i18n("deleteRequestTitle")}
+        description={i18n("deleteRequestDescription")}
+        confirmLabel={i18n("deleteRequestConfirm")}
+        cancelLabel={i18n("deleteRequestCancel")}
+        destructive
+        busy={busy === "delete"}
+        onConfirm={() => {
+          // Close first: on failure the detail stays with the error below, so
+          // the user can retry; on success the pane leaves for the list.
+          setConfirmDelete(false);
+          void handleDelete().then((deleted) => {
+            if (deleted) onBack();
+          });
+        }}
+      />
     </div>
   );
 }

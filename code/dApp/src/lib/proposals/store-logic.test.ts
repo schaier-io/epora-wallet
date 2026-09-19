@@ -3,6 +3,7 @@ import { test } from "node:test";
 import type { MultiSigProposal, ProposalSignature } from "@/generated/prisma";
 import {
   evaluateProposalCancelGuard,
+  evaluateProposalDeleteGuard,
   evaluateProposalRebuildGuard,
   evaluateProposalSignatureGuard,
   evaluateProposalSubmissionGuard,
@@ -143,4 +144,25 @@ test("cancel guard allows only the creator to cancel an open proposal", () => {
   assert.equal(evaluateProposalCancelGuard(proposal, "outsider").ok, false);
   assert.equal(evaluateProposalCancelGuard({ ...proposal, status: "SUBMITTED" }, "creator").ok, false);
   assert.deepEqual(evaluateProposalCancelGuard(proposal, "creator"), { ok: true });
+});
+
+test("delete guard allows only the creator to delete a finished proposal", () => {
+  const creator = "creator";
+  const outsider = "outsider";
+  assert.deepEqual(evaluateProposalDeleteGuard(null, creator), {
+    ok: false,
+    status: 404,
+    error: "Proposal not found."
+  });
+  assert.deepEqual(evaluateProposalDeleteGuard({ createdByKeyHash: creator, status: "CANCELLED" }, outsider), {
+    ok: false,
+    status: 403,
+    error: "Only the wallet that created this request can delete it."
+  });
+  // Active requests keep their co-signers: OPEN can still be signed, and a
+  // SUBMITTING row may already sit on the chain.
+  assert.equal(evaluateProposalDeleteGuard({ createdByKeyHash: creator, status: "OPEN" }, creator).ok, false);
+  assert.equal(evaluateProposalDeleteGuard({ createdByKeyHash: creator, status: "SUBMITTING" }, creator).ok, false);
+  assert.deepEqual(evaluateProposalDeleteGuard({ createdByKeyHash: creator, status: "CANCELLED" }, creator), { ok: true });
+  assert.deepEqual(evaluateProposalDeleteGuard({ createdByKeyHash: creator, status: "SUBMITTED" }, creator), { ok: true });
 });

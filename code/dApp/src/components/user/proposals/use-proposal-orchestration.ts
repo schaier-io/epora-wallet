@@ -14,6 +14,7 @@ import {
 } from "@/lib/proposals/assemble";
 import {
   cancelProposal,
+  deleteProposal,
   getProposalErrorMessage,
   markProposalSubmitted,
   parseProposalBuildContext,
@@ -21,6 +22,7 @@ import {
   rebuildProposal,
   signProposal
 } from "@/lib/proposals/client";
+import { TERMINAL_PROPOSAL_STATUSES } from "@/lib/proposals/list-pagination";
 import { RebuildUnsupportedError, isAutoRebuildable, rebuildProposalTx } from "@/lib/proposals/rebuild";
 import type { ProposalDetailDto, ProposalSummary, ProposalVerification } from "@/lib/proposals/types";
 import { proposalDetailQueryOptions, proposalKeys, refreshProposalBackgroundQueries } from "@/lib/proposals/query";
@@ -42,7 +44,7 @@ export type ProposalOrchestration = {
   loadError: string | null;
   verification: ProposalVerification | null;
   verifying: boolean;
-  busy: null | "sign" | "submit" | "rebuild" | "cancel";
+  busy: null | "sign" | "submit" | "rebuild" | "cancel" | "delete";
   actionError: string | null;
   actionInfo: string | null;
   summary: ProposalSummary | null;
@@ -50,6 +52,9 @@ export type ProposalOrchestration = {
   alreadySigned: boolean;
   isOpen: boolean;
   isInvalid: boolean;
+  // A finished request (withdrawn or sent): the one state the creator may
+  // hard-delete. OPEN and SUBMITTING never satisfy this.
+  isDeletable: boolean;
   canSign: boolean;
   canSubmit: boolean;
   canRebuild: boolean;
@@ -59,6 +64,9 @@ export type ProposalOrchestration = {
   handleSubmit: () => Promise<void>;
   handleRebuild: () => Promise<void>;
   handleCancel: () => Promise<void>;
+  // Resolves true when the request is gone, so the view can leave the detail
+  // pane; a failure keeps the request on screen with the error set.
+  handleDelete: () => Promise<boolean>;
 };
 
 export function useProposalOrchestration({
@@ -76,7 +84,7 @@ export function useProposalOrchestration({
   const flowI18n = useTranslations("ComponentsUserWorkspaceWorkspaceFlowHandlers");
   const lifecycleKey = `${sessionKeyHash}:${proposalId}`;
   const [stateLifecycleKey, setStateLifecycleKey] = useState(lifecycleKey);
-  const [busy, setBusy] = useState<null | "sign" | "submit" | "rebuild" | "cancel">(null);
+  const [busy, setBusy] = useState<null | "sign" | "submit" | "rebuild" | "cancel" | "delete">(null);
   const [settledRefreshRevision, setSettledRefreshRevision] = useState(refreshRevision);
   const awaitingRefresh = busy === null && settledRefreshRevision !== refreshRevision;
   const [actionError, setActionError] = useState<string | null>(null);
@@ -102,6 +110,7 @@ export function useProposalOrchestration({
     id: string; payload: Parameters<typeof rebuildProposal>[1];
   }) => rebuildProposal(id, payload), retry: false, networkMode: "always" });
   const cancelMutation = useMutation({ mutationFn: (id: string) => cancelProposal(id), retry: false, networkMode: "always" });
+  const deleteMutation = useMutation({ mutationFn: (id: string) => deleteProposal(id), retry: false, networkMode: "always" });
 
   useLayoutEffect(() => {
     proposalIdRef.current = proposalId;
@@ -183,6 +192,11 @@ export function useProposalOrchestration({
     )
   );
   const isOpen = currentDetail?.status === "OPEN";
+  // Deletion is for finished requests only; the same terminal set the server's
+  // delete guard enforces, so the button never offers a call that answers 409.
+  const isDeletable = Boolean(
+    currentDetail && (TERMINAL_PROPOSAL_STATUSES as readonly string[]).includes(currentDetail.status)
+  );
   const isInvalid = !verifying && currentVerification?.validity === "invalid";
   const isVerifiedValid = Boolean(
     !verifying && currentVerification?.validity === "valid" && currentVerification.signers &&
@@ -397,6 +411,45 @@ export function useProposalOrchestration({
     }
   }
 
+  // Hard-deletes a finished request. On failure the request stays on screen with
+  // the error set, so the user can retry; on success the cached detail is
+  // dropped and the list refetches without the row.
+  async function handleDelete(): Promise<boolean> {
+    if (
+      !detail ||
+      detail.id !== proposalId ||
+      busy !== null || actionInFlight.current === lifecycleTokenRef.current ||
+      !isCreator || !isDeletable
+    ) {
+      return false;
+    }
+    const actionProposalId = detail.id;
+    const lifecycleToken = lifecycleTokenRef.current;
+    actionInFlight.current = lifecycleToken;
+    setBusy("delete");
+    setActionError(null);
+    try {
+      await deleteMutation.mutateAsync(actionProposalId);
+      void queryClient.invalidateQueries({ queryKey: proposalKeys.lists(sessionKeyHash) });
+      void queryClient.invalidateQueries({ queryKey: proposalKeys.backgrounds(sessionKeyHash) });
+      queryClient.removeQueries({
+        queryKey: proposalKeys.detail(sessionKeyHash, actionProposalId),
+        exact: true
+      });
+      return isCurrentLifecycle(actionProposalId, lifecycleToken);
+    } catch (caught) {
+      if (isCurrentLifecycle(actionProposalId, lifecycleToken)) {
+        setActionError(getProposalErrorMessage(caught, i18n("couldNotDelete")));
+      }
+      return false;
+    } finally {
+      if (actionInFlight.current === lifecycleToken) actionInFlight.current = null;
+      if (isCurrentLifecycle(actionProposalId, lifecycleToken)) {
+        setBusy(null);
+      }
+    }
+  }
+
   return {
     detail: currentDetail,
     loading: Boolean(sessionKeyHash) && (detailQuery.isPending || awaitingRefresh),
@@ -411,6 +464,7 @@ export function useProposalOrchestration({
     alreadySigned,
     isOpen,
     isInvalid,
+    isDeletable,
     canSign,
     canSubmit,
     canRebuild,
@@ -418,6 +472,7 @@ export function useProposalOrchestration({
     handleSign,
     handleSubmit,
     handleRebuild,
-    handleCancel
+    handleCancel,
+    handleDelete
   };
 }

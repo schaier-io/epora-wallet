@@ -8,6 +8,7 @@ import {
   walletParticipantExists
 } from "./membership";
 import { serializeJsonSafe } from "./serialization";
+import { deleteFinishedProposalRecord } from "./delete-record";
 import {
   evaluateProposalCancelGuard,
   evaluateProposalRebuildGuard,
@@ -415,6 +416,30 @@ export async function cancelProposalRecord(args: {
   return updated.count === 1
     ? { ok: true }
     : { ok: false, status: 409, error: proposalCopy.changedWhileCancelling() };
+}
+
+// A creator's DELETE on /api/proposals/:id carries an explicit intent, so the
+// server can never upgrade one destructive action into the other: "cancel"
+// withdraws an OPEN request so co-signers can no longer sign it (the only
+// behavior clients without a body get), "delete" removes a finished request
+// outright with its recorded signatures. A SUBMITTING row belongs to neither
+// path: a broadcast may be in flight, so both guards refuse it.
+export async function disposeProposalRecord(args: {
+  proposalId: string;
+  actorKeyHash: string;
+  intent: "cancel" | "delete";
+}): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+  if (args.intent === "cancel") {
+    return cancelProposalRecord(args);
+  }
+  return deleteProposalRecord(args);
+}
+
+export async function deleteProposalRecord(args: {
+  proposalId: string;
+  actorKeyHash: string;
+}): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+  return deleteFinishedProposalRecord(getPrisma(), args);
 }
 
 // Authorization context for a proposal: which wallet it targets, who created it,
