@@ -8,7 +8,7 @@
 // tsx) can miss those runtime-added keys. `require` sees the final module.
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
-import test from "node:test";
+import test, { before } from "node:test";
 
 import { captureServerLogError } from "./sentry-forward";
 import { buildSentryInitOptions } from "./sentry-options";
@@ -57,6 +57,14 @@ Sentry.init({
   })
 });
 
+// Drain whatever the SDK emits around initialization, so the per-test counts
+// below measure only what each capture sends. On a slow CI runner an init-time
+// or background envelope would otherwise land inside a test's flush window
+// and break an exact-count assertion.
+before(async () => {
+  await Sentry.flush(500).catch(() => undefined);
+});
+
 function payloadOf(envelope: Envelope): Record<string, unknown> {
   const eventItem = envelope[1]?.find(
     ([itemHeader]) => itemHeader.type === "event"
@@ -66,7 +74,10 @@ function payloadOf(envelope: Envelope): Record<string, unknown> {
 }
 
 test("logger.error forwards an Error through the seam to the transport, scrubbed", async () => {
-  const before = envelopes.length;
+  // Match on the forwarded error itself rather than counting every envelope
+  // in the flush window: on a slow CI runner an unrelated background event
+  // must not fail an exact-count assertion.
+  envelopes.length = 0;
   const error = new Error(`submit failed for receiver ${TEST_ADDRESS}`);
   captureServerLogError("api.tx_lock-funds_build_failed", {
     err: { name: "BuildError", message: error.message, stack: error.stack }
@@ -74,8 +85,15 @@ test("logger.error forwards an Error through the seam to the transport, scrubbed
 
   await Sentry.flush(2000);
 
-  assert.equal(envelopes.length, before + 1, "exactly one envelope must be sent");
-  const payload = payloadOf(envelopes[envelopes.length - 1]);
+  const forwarded = envelopes.filter((envelope) => {
+    const item = envelope[1]?.find(([itemHeader]) => itemHeader.type === "event");
+    const payload = item?.[1] as {
+      exception?: { values?: Array<{ type?: string }> };
+    } | undefined;
+    return payload?.exception?.values?.[0]?.type === "BuildError";
+  });
+  assert.equal(forwarded.length, 1, "exactly one envelope must be sent");
+  const payload = payloadOf(forwarded[0]!);
   const exception = payload.exception as {
     values: Array<{ type?: string; value?: string }>;
   };
@@ -90,23 +108,23 @@ test("logger.error forwards an Error through the seam to the transport, scrubbed
 });
 
 test("a routine wallet rejection is dropped before the transport sees it", async () => {
-  const before = envelopes.length;
+  envelopes.length = 0;
   captureServerLogError("api.wallet_declined", {
     err: { message: "user declined to sign tx" }
   });
 
   await Sentry.flush(2000);
 
-  assert.equal(envelopes.length, before, "no envelope may be sent for a rejection");
+  assert.equal(envelopes.length, 0, "no envelope may be sent for a rejection");
 });
 
 test("a log call without an err field captures a message event with its context", async () => {
-  const before = envelopes.length;
+  envelopes.length = 0;
   captureServerLogError("api.stt_sync_stale", { route: "/api/stt/sync", attempts: 3 });
 
   await Sentry.flush(2000);
 
-  assert.equal(envelopes.length, before + 1);
+  assert.equal(envelopes.length, 1);
   const payload = payloadOf(envelopes[envelopes.length - 1]);
   assert.ok(payload.message, "expected a message-carrying event payload");
   assert.ok(JSON.stringify(payload).includes("attempts"));
