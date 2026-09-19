@@ -24,6 +24,27 @@ export class ProposalQuotaExceededError extends Error {}
 // withdrew it on purpose and may re-file the same transaction.
 const DEDUPLICABLE_PROPOSAL_STATUSES = ["OPEN", "SUBMITTING", "SUBMITTED"] as const;
 
+// The window is the creation-quota day the original still counts toward. The
+// proposal_creator_wallet_created_at index serves the prefix + range, and the
+// daily quota (100/creator, all statuses) bounds the scan regardless.
+export function findDeduplicableProposal(
+  db: Pick<PrismaClient, "multiSigProposal">,
+  input: { walletUnit: string; txBodyHash: string; createdByKeyHash: string }
+): Promise<ProposalDetailDto | null> {
+  return db.multiSigProposal.findFirst({
+    where: {
+      network: STT_CACHE_NETWORK,
+      walletUnit: input.walletUnit,
+      createdByKeyHash: input.createdByKeyHash,
+      txBodyHash: input.txBodyHash,
+      status: { in: [...DEDUPLICABLE_PROPOSAL_STATUSES] },
+      createdAt: { gte: new Date(Date.now() - PROPOSAL_CREATION_QUOTA_WINDOW_MS) }
+    },
+    orderBy: { createdAt: "desc" },
+    include: { signatures: true }
+  }).then((row) => (row ? mapDetail(row, row.signatures) : null));
+}
+
 export async function createProposalRecord(
   db: PrismaClient,
   request: CreateProposalRequest,
@@ -43,22 +64,18 @@ export async function createProposalRecord(
     // server already stored (the client's saveInFlight guard is per-mount, and
     // the stash clears only after the first save resolves). Map that replay to
     // the original instead of writing a second identical row. It runs before the
-    // quotas so an idempotent replay neither consumes nor trips them, and the
-    // window is the creation-quota day the original still counts toward.
-    const duplicate = await tx.multiSigProposal.findFirst({
-      where: {
-        network: STT_CACHE_NETWORK,
-        walletUnit: request.walletUnit,
-        createdByKeyHash,
-        txBodyHash: request.txBodyHash,
-        status: { in: [...DEDUPLICABLE_PROPOSAL_STATUSES] },
-        createdAt: { gte: new Date(Date.now() - PROPOSAL_CREATION_QUOTA_WINDOW_MS) }
-      },
-      orderBy: { createdAt: "desc" },
-      include: { signatures: true }
+    // quotas so an idempotent replay neither consumes nor trips them. The same
+    // predicate also backs the route's pre-check (findDeduplicableProposal);
+    // this transaction-local copy stays as the race-safe backstop: two
+    // simultaneous first-saves serialize on the advisory lock above, so the
+    // second one sees the first's row here.
+    const duplicate = await findDeduplicableProposal(tx, {
+      walletUnit: request.walletUnit,
+      txBodyHash: request.txBodyHash,
+      createdByKeyHash
     });
     if (duplicate) {
-      return mapDetail(duplicate, duplicate.signatures);
+      return duplicate;
     }
 
     const activeCount = await tx.multiSigProposal.count({

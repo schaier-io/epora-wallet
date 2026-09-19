@@ -18,6 +18,7 @@ import {
 import { validateVKeyWitnessSet } from "./witness-validation";
 import {
   createProposalRecord as createProposalRow,
+  findDeduplicableProposal,
   ProposalQuotaExceededError
 } from "./create-record";
 import type {
@@ -42,6 +43,18 @@ export async function createProposalRecord(
 }
 
 export { ProposalQuotaExceededError };
+
+// Read-only lookup for the POST route's idempotent-replay pre-check: the exact
+// predicate createProposalRecord dedupes on, run before the rate-limit token so
+// a replayed save neither consumes nor trips it. Creator-scoped by the caller;
+// the route must pass the session's key hash, never anything from the payload.
+export async function findReplayableProposalRecord(
+  walletUnit: string,
+  txBodyHash: string,
+  createdByKeyHash: string
+): Promise<ProposalDetailDto | null> {
+  return findDeduplicableProposal(getPrisma(), { walletUnit, txBodyHash, createdByKeyHash });
+}
 
 
 // The list query itself lives in list-records.ts, free of "server-only" and
