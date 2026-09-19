@@ -209,6 +209,8 @@ and [`tasks/subtasks/m4-deploy-04-reference-store.md`](../tasks/subtasks/m4-depl
 
 ## 7. Observability
 
+### 7.1 Structured logs
+
 Structured logging is emitted as one JSON object per line via
 [`src/lib/observability/logger.ts`](../code/dApp/src/lib/observability/logger.ts)
 (`logger.info/warn/error`), captured by Vercel's log drains. Use `serializeError`
@@ -216,8 +218,68 @@ to attach a thrown value safely — it forwards only `name`/`message`/`stack` an
 the `cause` chain, never the error's arbitrary (possibly secret-bearing)
 properties.
 
-There is **no external error tracker wired in yet.** The single seam to add one
-is `reportError` at the bottom of `logger.ts`: drop
-`Sentry.captureException(...)` there and every `logger.error` call forwards
-automatically — no call-site changes. Until then, production errors are visible
-only in Vercel runtime logs; filter on `"level":"error"`.
+### 7.2 Sentry error monitoring
+
+The dApp uses `@sentry/nextjs` for browser, server, and API-route error capture
+(issue #388). Performance tracing and session replay are deliberately OFF.
+Everything is inert without credentials: local development needs no Sentry
+setup.
+
+**How errors reach Sentry (one report per failure, never two):**
+
+- Server / API routes: `createTxRoute` catches errors and logs them via
+  `logger.error`, whose `reportError` seam forwards to
+  `sentry-forward.ts` → `Sentry.captureException`. The error is swallowed into
+  a JSON response, so the uncaught-error hook never fires for the same failure.
+- Uncaught server errors (App Router, route handlers): the `onRequestError`
+  hook in [`src/instrumentation.ts`](../code/dApp/src/instrumentation.ts)
+  forwards to `Sentry.captureRequestError`.
+- Browser: uncaught errors and promise rejections are captured automatically by
+  the client SDK initialized in
+  [`src/instrumentation-client.ts`](../code/dApp/src/instrumentation-client.ts).
+  Repeated identical events are collapsed by the `dedupeIntegration`.
+
+**Redaction** (`src/lib/observability/sentry-scrub.ts`, wired as `beforeSend` /
+`beforeBreadcrumb`): routine wallet rejections (the user declined or cancelled a
+signature prompt — patterns shared with
+`src/lib/utils/wallet-rejection-patterns.ts`) are dropped entirely; cookies,
+`Authorization` headers, request bodies, and body-shaped breadcrumb fields are
+removed; Cardano addresses (`addr1…`, `addr_test1…`, `stake1…`, `stake_test1…`)
+and 64-hex transaction hashes are replaced with `[REDACTED]` in messages,
+extras, contexts, and breadcrumbs.
+
+**Environment variables:**
+
+| Variable | Where | Purpose |
+| --- | --- | --- |
+| `NEXT_PUBLIC_SENTRY_DSN` | Browser (build-time inlined) | Enables client capture; also relaxes CSP `connect-src` for `*.ingest.sentry.io` and `*.ingest.us.sentry.io` |
+| `SENTRY_DSN` | Server / edge runtime | Enables server and API-route capture |
+| `SENTRY_RELEASE` / `NEXT_PUBLIC_SENTRY_RELEASE` | Server / browser | Optional explicit release id |
+| `VERCEL_GIT_COMMIT_SHA` / `NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA` | both | Fallback release id (commit SHA) |
+| `SENTRY_ENVIRONMENT` / `NEXT_PUBLIC_SENTRY_ENVIRONMENT` | both | Optional; falls back to `NODE_ENV` |
+| `SENTRY_AUTH_TOKEN` | Build only: CI or the Vercel project settings | Enables release creation + source-map upload in `next.config.mjs` |
+| `SENTRY_ORG`, `SENTRY_PROJECT` | Build only, same places as the token | Sentry org/project slugs for the upload |
+
+Set the DSN variables in the Vercel project (all environments you want
+monitored). Local `pnpm dev` / `pnpm build` without them sends nothing and
+initializes no Sentry client (the browser SDK is behind a dynamic import, so
+credential-free builds do not even download it; the server bundles the module
+but never initializes it).
+
+**Source maps:** while `SENTRY_AUTH_TOKEN` is present, `next.config.mjs` wraps
+the build with `withSentryConfig`, creates the release, uploads source maps, and
+deletes the uploaded maps from the build output. Without the token the build
+pipeline is untouched. The token is an org-level secret: keep it in CI secrets
+or Vercel project settings, never in the repo, and scope it to
+`project:releases` / `project:releases:write` only (add `org:read` if the
+upload endpoint asks for it).
+
+**Verifying without production traffic:** set both DSN variables to a test
+project's DSN in a non-production deployment, trigger a browser error and an
+API-route error, and check the Sentry issue for redacted payloads and a
+readable stack trace (the release must exist for symbolication — build with the
+auth token set).
+
+Until a DSN is configured, production errors remain visible in Vercel runtime
+logs; filter on `"level":"error"`.
+

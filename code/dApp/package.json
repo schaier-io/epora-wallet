@@ -59,6 +59,7 @@
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
     "@prisma/client-runtime-utils": "7.10.0",
+    "@sentry/nextjs": "^10.75.0",
     "@tanstack/query-core": "^5",
     "@tanstack/react-query": "^5",
     "@walletconnect/sign-client": "^2.25.0",

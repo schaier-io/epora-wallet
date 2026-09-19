@@ -2,6 +2,7 @@ import { isRecord, safeStringify } from "./guards";
 import { type ErrorContext, type ParsedError } from "@/components/user/workspace/types";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceHelpersBuildErrors.json";
+import { WALLET_REJECTION_PATTERNS } from "@/lib/utils/wallet-rejection-patterns";
 
 const i18n = createDefaultTranslator("ComponentsUserWorkspaceHelpersBuildErrors", defaultMessages);
 
@@ -102,21 +103,12 @@ const USER_DECLINED_TO_SIGN = i18n("youDeclinedToSignInYourWallet");
  * decision, not a failure. Wallets phrase it variously ("user declined to sign tx",
  * "signing cancelled"), so match on the decision words rather than an error code — a
  * `DataSignError` with a key problem, for instance, must stay a real error.
+ * The patterns live in `lib/utils/wallet-rejection-patterns.ts`, shared with the
+ * Sentry event filter.
  */
-const DECLINED_TO_SIGN_PATTERNS: RegExp[] = [
-  /declined to sign/i,
-  /refused to sign/i,
-  /user declined/i,
-  /user refused/i,
-  /user rejected/i,
-  /user cancel(?:l)?ed/i,
-  /cancel(?:l)?ed by user/i,
-  /signing cancel(?:l)?ed/i
-];
-
 function declinedToSign(error: unknown) {
   const messages = [...collectBuildErrorMessages(error)];
-  return DECLINED_TO_SIGN_PATTERNS.some((pattern) =>
+  return WALLET_REJECTION_PATTERNS.some((pattern) =>
     messages.some((message) => pattern.test(message))
   );
 }

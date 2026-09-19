@@ -129,6 +129,8 @@ export async function POST(request: Request, context: RouteContext) {
       });
       return jsonError(i18n("couldNotSubmitProposalTransaction"), 500);
     }
+    // Reported once through the logger bridge; rethrowing here as well made
+    // onRequestError file a second Sentry event for the same failure.
     try {
       const completed = await completeProposalSubmission({
         proposalId: id,
@@ -149,7 +151,7 @@ export async function POST(request: Request, context: RouteContext) {
         submittedTxHash,
         err: serializeError(error)
       });
-      throw error;
+      return jsonError(i18n("couldNotSubmitProposalTransaction"), 500);
     }
   } catch (error) {
     if (error instanceof RequestBodyTooLargeError) {
