@@ -252,7 +252,7 @@ extras, contexts, and breadcrumbs.
 
 | Variable | Where | Purpose |
 | --- | --- | --- |
-| `NEXT_PUBLIC_SENTRY_DSN` | Browser (build-time inlined) | Enables client capture; also relaxes CSP `connect-src` for `*.ingest.sentry.io` and `*.ingest.us.sentry.io` |
+| `NEXT_PUBLIC_SENTRY_DSN` | Browser (build-time inlined) | Enables client capture; also relaxes CSP `connect-src` for `*.ingest.sentry.io`, `*.ingest.us.sentry.io`, and `*.ingest.de.sentry.io` |
 | `SENTRY_DSN` | Server / edge runtime | Enables server and API-route capture |
 | `SENTRY_RELEASE` / `NEXT_PUBLIC_SENTRY_RELEASE` | Server / browser | Optional explicit release id |
 | `VERCEL_GIT_COMMIT_SHA` / `NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA` | both | Fallback release id (commit SHA) |
