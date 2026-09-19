@@ -7,7 +7,7 @@ import { beneficiaryStreamStopIdAtom } from "./atoms/forms/stt-spend-form.atoms"
 import { selectedActionAtom } from "./atoms/workspace-selection.atoms";
 import { deriveBeneficiaryStreamStopPreview } from "./beneficiary-stream-stop-model";
 import { deriveStreamingPaymentRowStatus } from "./streaming-payment-status";
-import { streamingPaymentNeedsZeroDeltaCleanup } from "@/lib/user-flow/guided-helpers";
+import { streamingPaymentNeedsZeroDeltaCleanup } from "@/lib/user-flow/streaming-payment-helpers";
 import { useWorkspaceActions } from "./workspace-actions-context";
 
 export function useBeneficiaryStreamStop() {

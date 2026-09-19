@@ -1,6 +1,6 @@
 import type { PayeeStreamingPayment } from "@/components/payee/collect-payee-streaming-payments";
 import type { StreamingPaymentFormState } from "@/lib/contracts/state-form";
-import { computeStreamingPaymentDueAmount } from "@/lib/user-flow/guided-helpers";
+import { computeStreamingPaymentDueAmount } from "@/lib/user-flow/streaming-payment-helpers";
 
 /**
  * The datum stores numbers; every shared streaming-payment helper reads the form shape, which

@@ -3,19 +3,21 @@ import { test } from "node:test";
 import type { UTxO } from "@meshsdk/core";
 import type { StreamingPaymentFormState } from "@/lib/contracts/state-form";
 import type { Asset } from "@/lib/types/contracts";
+import { resolveAutomaticSendPath } from "@/lib/user-flow/guided-helpers";
 import {
-  resolveAutomaticSendPath,
   computeStreamingPaymentDueAmount,
   computeStreamingPaymentLifetimeAmount,
   computeStreamingPaymentRemainingObligation,
   computeStreamingReserveAssets,
-  maximumAdaSpendWithChange,
-  parseAdaToLovelace,
   streamingPaymentNeedsZeroDeltaCleanup,
-  streamingPaymentUnit,
+  streamingPaymentUnit
+} from "@/lib/user-flow/streaming-payment-helpers";
+import {
+  maximumAdaSpendWithChange,
   suggestLockedInputsForSpend,
   suggestWalletInputsForRequestedAssets
-} from "@/lib/user-flow/guided-helpers";
+} from "@/lib/user-flow/wallet-input-selection";
+import { parseAdaToLovelace } from "@/lib/units/lovelace";
 import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
 
 const DAY_MS = 86_400_000;

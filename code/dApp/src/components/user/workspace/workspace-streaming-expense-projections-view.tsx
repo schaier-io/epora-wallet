@@ -12,7 +12,7 @@ import { Repeat } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { resolveAssetIdentity } from "@/lib/cardano-assets";
-import { formatLovelaceAsAda } from "@/lib/user-flow/guided-helpers";
+import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 import {
   activeInferredSttStateFormAtom
 } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
