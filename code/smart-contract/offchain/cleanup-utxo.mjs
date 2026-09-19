@@ -4,9 +4,11 @@
 import { MeshWallet, Transaction } from "@meshsdk/core";
 import fs from "node:fs";
 import "dotenv/config";
+import { txIdLogText } from "./lib/explorer.mjs";
 import { resolveProvider } from "./lib/network.mjs";
 
-const { provider: blockchainProvider, network, networkId } = resolveProvider();
+const { provider: blockchainProvider, network, networkId, isDevnet } =
+  resolveProvider();
 
 const wallet = new MeshWallet({
   networkId,
@@ -30,7 +32,5 @@ const signedTx = await wallet.signTx(unsignedTx, true);
 const txHash = await wallet.submitTx(signedTx);
 
 console.log(`UTXO cleanup via:
-      Tx ID: view on https://${
-        network === "preprod" ? "preprod." : ""
-      }cardanoscan.io/transaction/${txHash}
+      Tx ID: ${txIdLogText({ txHash, network, isDevnet })}
   `);
