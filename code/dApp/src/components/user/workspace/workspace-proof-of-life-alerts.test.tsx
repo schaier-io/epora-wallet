@@ -2,7 +2,10 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { WorkspaceProofOfLifeAlerts } from "./workspace-proof-of-life-alerts";
-import type { ProofOfLifeAlert } from "@/lib/user-flow/proof-of-life-alert";
+import {
+  selectProofOfLifeAlerts,
+  type ProofOfLifeAlert
+} from "@/lib/user-flow/proof-of-life-alert";
 
 const DEADLINE_MS = 1_760_000_000_000;
 
@@ -93,5 +96,33 @@ describe("WorkspaceProofOfLifeAlerts", () => {
 
     expect(rows[0].textContent).toContain("A");
     expect(rows[1].textContent).toContain("B");
+  });
+
+  it("surfaces a Some(0) wallet as an overdue row with its epoch-0 deadline", () => {
+    // `unlock_time = Some(0)` is a real, already-lapsed on-chain deadline, so the picker
+    // must show the ran-out row (never silence). The fixture flows through the real
+    // selection so the test covers the whole path from the decoded datum to the row.
+    const NOW = 1_760_000_000_000;
+    const [alert]: ProofOfLifeAlert[] = selectProofOfLifeAlerts(
+      [
+        {
+          unit: "unit-zero",
+          walletName: "Lapsed at mint",
+          proofOfLifeUnlockTimeMode: "some",
+          proofOfLifeUnlockTime: "0",
+          canRenew: true
+        }
+      ],
+      NOW
+    );
+
+    expect(alert.state).toBe("overdue");
+    render(<WorkspaceProofOfLifeAlerts alerts={[alert!]} onRenew={vi.fn()} />);
+
+    expect(screen.getByText(/Lapsed at mint: proof of life ran out/)).toBeInTheDocument();
+    expect(screen.getByText(/1970/)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Refresh proof of life for Lapsed at mint" })
+    ).toBeInTheDocument();
   });
 });
