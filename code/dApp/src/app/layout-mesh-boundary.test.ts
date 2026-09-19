@@ -43,8 +43,9 @@ const LAYOUT_BOUNDARY = "no root-layout module imports the Mesh SDK for a value"
  * `minModules` floors the walk so a boundary cannot pass vacuously (a page entry that
  * resolves to nothing, or a shell trimmed to a bare re-export). Each floor is the real
  * shell size minus headroom: the /user page keeps its larger floor because its shell
- * carries the workspace title parser and two skeletons; /payee and /setup shells are
- * just the i18n provider, a skeleton, and the dynamic shim (they walk 6 and 7 modules).
+ * carries the workspace title parser and two skeletons; /payee, /setup, and
+ * /user/proposals shells are just the i18n provider, a skeleton, and the dynamic shim
+ * (they walk 6, 7, and 6 modules).
  */
 const PAGE_BOUNDARIES: Record<string, { name: string; minModules: number }> = {
   "app/user/page.tsx": {
@@ -57,6 +58,10 @@ const PAGE_BOUNDARIES: Record<string, { name: string; minModules: number }> = {
   },
   "app/setup/page.tsx": {
     name: "no /setup page module imports the Mesh SDK for a value",
+    minModules: 5
+  },
+  "app/user/proposals/page.tsx": {
+    name: "no /user/proposals page module imports the Mesh SDK for a value",
     minModules: 5
   }
 };
