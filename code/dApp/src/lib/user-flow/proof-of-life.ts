@@ -1,6 +1,10 @@
 import type { StateFormState } from "@/lib/contracts/state-form";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/LibUserFlowProofOfLife.json";
+import {
+  evaluateProofOfLifeAlert,
+  readProofOfLifeDeadline
+} from "@/lib/user-flow/proof-of-life-alert";
 
 const i18n = createDefaultTranslator("LibUserFlowProofOfLife", defaultMessages);
 
@@ -27,8 +31,6 @@ export type ProofOfLifeSummary = {
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
-/** Under a week left is close enough that a passing glance has to catch it. */
-const URGENT_WINDOW_MS = 7 * DAY_MS;
 
 const EMPTY_LABEL = i18n("proofOfLife");
 
@@ -46,11 +48,9 @@ export function describeProofOfLife(
   form: Pick<StateFormState, "proofOfLifeUnlockTimeMode" | "proofOfLifeUnlockTime">,
   nowMs: number
 ): ProofOfLifeSummary {
-  const unlockMs = Number(form.proofOfLifeUnlockTime);
-  const armed =
-    form.proofOfLifeUnlockTimeMode === "some" && Number.isFinite(unlockMs) && unlockMs > 0;
+  const deadlineMs = readProofOfLifeDeadline(form);
 
-  if (!armed) {
+  if (deadlineMs === null) {
     return {
       value: null,
       label: "",
@@ -60,8 +60,8 @@ export function describeProofOfLife(
     };
   }
 
-  const remainingMs = unlockMs - nowMs;
-  if (remainingMs <= 0) {
+  const alert = evaluateProofOfLifeAlert({ deadlineMs, nowMs });
+  if (alert.state === "overdue") {
     // No countdown here: the number stopped mattering the moment it hit zero. What matters
     // is that recovery contacts can claim the wallet right now.
     return {
@@ -74,10 +74,10 @@ export function describeProofOfLife(
   }
 
   return {
-    value: formatRemaining(remainingMs),
+    value: formatRemaining(alert.remainingMs),
     label: i18n("toCheckIn"),
     emptyLabel: EMPTY_LABEL,
     cta: i18n("manageProofOfLife"),
-    urgent: remainingMs <= URGENT_WINDOW_MS
+    urgent: alert.state === "approaching"
   };
 }

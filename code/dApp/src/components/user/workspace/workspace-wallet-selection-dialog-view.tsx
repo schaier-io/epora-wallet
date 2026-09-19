@@ -34,7 +34,11 @@ import { formatCountLabel, getAssetQuantityByUnit } from "@/components/user/work
 
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 import { useAtomValue, useSetAtom } from "jotai";
+import { useMemo, useState } from "react";
 import { detectedTokenSearchAtom, walletConnectionDialogOpenAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
+
+import { WorkspaceProofOfLifeAlerts } from "@/components/user/workspace/workspace-proof-of-life-alerts";
+import { selectProofOfLifeAlerts } from "@/lib/user-flow/proof-of-life-alert";
 
 export function WalletSelectionDialogView() {
   const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceWalletSelectionDialogView");
@@ -53,6 +57,7 @@ export function WalletSelectionDialogView() {
     filteredPermissionWalletCards,
     handleDetectedTokenChange,
     handleFlowBranchSelect,
+    openWorkspaceIntent,
     permissionWalletCards,
     refreshDetectedTokens,
     refreshPermissionWalletSummaries,
@@ -81,6 +86,40 @@ export function WalletSelectionDialogView() {
     Recovery: i18n("youAreARecoveryContactForThisWallet"),
     Scheduled: i18n("thisWalletHasScheduledPayments"),
     "Receive only": i18n("thisWalletCanOnlyReceiveFunds")
+  };
+
+  // Every detected wallet's datum carries its proof-of-life deadline, so the picker can warn
+  // about a wallet the user is NOT currently looking at. The full card list drives this, not
+  // the filtered one: typing in the search box must not hide a deadline. The clock is
+  // captured once per mount, like the dashboard's proof-of-life tile: the dialog is
+  // short-lived, the rows show absolute dates, and a seven-day threshold cannot go stale
+  // inside one session.
+  const [alertsNowMs] = useState(() => Date.now());
+  const proofOfLifeAlerts = useMemo(
+    () =>
+      selectProofOfLifeAlerts(
+        permissionWalletCards.map((entry) => ({
+          unit: entry.token.unit,
+          walletName: entry.primaryLabel,
+          proofOfLifeUnlockTimeMode: entry.state.proofOfLifeUnlockTimeMode,
+          proofOfLifeUnlockTime: entry.state.proofOfLifeUnlockTime,
+          canRenew: entry.capabilityMap.hasDirectProofOfLifeRenewalMatch
+        })),
+        alertsNowMs
+      ),
+    [permissionWalletCards, alertsNowMs]
+  );
+
+  // Select the alerted wallet first: the renewal flow reads the open wallet's state. Then
+  // close the picker and route to the renewal action, which opens at its own configure step.
+  const renewProofOfLifeFor = (unit: string) => {
+    const card = permissionWalletCards.find((entry) => entry.token.unit === unit);
+    if (!card) {
+      return;
+    }
+    handleDetectedTokenChange(card.token);
+    setWalletConnectionDialogOpen(false);
+    openWorkspaceIntent("manual-tools", "renew-proof-of-life");
   };
 
   return (
@@ -184,6 +223,11 @@ export function WalletSelectionDialogView() {
                 {detectedSttTokensError}
               </FadeContent>
             ) : null}
+
+            <WorkspaceProofOfLifeAlerts
+              alerts={proofOfLifeAlerts}
+              onRenew={renewProofOfLifeFor}
+            />
 
             <div className="user-scrollbar max-h-[420px] overflow-y-auto">
               {filteredPermissionWalletCards.length === 0 ? (

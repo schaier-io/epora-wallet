@@ -5,9 +5,12 @@ import { Provider, createStore } from "jotai";
 import type { BrowserWallet } from "@meshsdk/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { activeWalletAtom, networkIdAtom } from "@/providers/wallet.atoms";
+import { walletConnectionDialogOpenAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
 
 
-// Only the fields the view reads. `token.unit` is the key and the selection id.
+// Only the fields the view reads. `token.unit` is the key and the selection id. `state`
+// feeds the proof-of-life alert derivation; `capabilityMap` decides whether its Renew
+// button is offered to this signer.
 const cards: Array<{
   token: { unit: string };
   primaryLabel: string;
@@ -15,19 +18,27 @@ const cards: Array<{
   roleBadges: string[];
   lockedSummary: undefined;
   warning: null;
+  state: {
+    proofOfLifeUnlockTimeMode: "none" | "some";
+    proofOfLifeUnlockTime: string;
+  };
+  capabilityMap: { hasDirectProofOfLifeRenewalMatch: boolean };
 }> = [];
 
 const actions = vi.hoisted(() => ({
   refreshDetectedTokens: vi.fn(),
-  refreshPermissionWalletSummaries: vi.fn()
+  refreshPermissionWalletSummaries: vi.fn(),
+  handleDetectedTokenChange: vi.fn(),
+  openWorkspaceIntent: vi.fn()
 }));
 
 vi.mock("@/components/user/workspace/workspace-actions-context", () => ({
   useWorkspaceActions: () => ({
     autoOpenDetectedWalletUnit: null,
     filteredPermissionWalletCards: cards,
-    handleDetectedTokenChange: vi.fn(),
+    handleDetectedTokenChange: actions.handleDetectedTokenChange,
     handleFlowBranchSelect: vi.fn(),
+    openWorkspaceIntent: actions.openWorkspaceIntent,
     permissionWalletCards: cards,
     refreshDetectedTokens: actions.refreshDetectedTokens,
     refreshPermissionWalletSummaries: actions.refreshPermissionWalletSummaries
@@ -58,11 +69,12 @@ function renderWith(network: number | null, connected: boolean) {
   store.set(detectedSttTokensLoadingAtom, false);
   store.set(permissionWalletSummariesLoadingAtom, false);
 
-  return render(
+  const view = render(
     <Provider store={store}>
       <WalletSelectionDialogView />
     </Provider>
   );
+  return { ...view, store };
 }
 
 describe("wallet selection dialog", () => {
@@ -70,6 +82,8 @@ describe("wallet selection dialog", () => {
     cards.length = 0;
     actions.refreshDetectedTokens.mockReset();
     actions.refreshPermissionWalletSummaries.mockReset();
+    actions.handleDetectedTokenChange.mockReset();
+    actions.openWorkspaceIntent.mockReset();
   });
 
   it("asks for a connection when there is no wallet", () => {
@@ -98,7 +112,9 @@ describe("wallet selection dialog", () => {
       secondaryLabel: "f8482092d1",
       roleBadges: ["Owner", "Receive only"],
       lockedSummary: undefined,
-      warning: null
+      warning: null,
+      state: { proofOfLifeUnlockTimeMode: "none", proofOfLifeUnlockTime: "" },
+      capabilityMap: { hasDirectProofOfLifeRenewalMatch: false }
     });
     const { container } = renderWith(0, true);
 
@@ -135,5 +151,81 @@ describe("wallet selection dialog", () => {
     await waitFor(() =>
       expect(actions.refreshPermissionWalletSummaries).toHaveBeenCalledWith(tokens)
     );
+  });
+
+  it("warns about a lapsed proof of life and routes its renew button through that wallet", () => {
+    const DAY = 24 * 60 * 60 * 1000;
+    const token = { unit: "unit-late" };
+    cards.push({
+      token,
+      primaryLabel: "Ran out",
+      secondaryLabel: "f8482092d1",
+      roleBadges: [],
+      lockedSummary: undefined,
+      warning: null,
+      state: {
+        proofOfLifeUnlockTimeMode: "some",
+        proofOfLifeUnlockTime: String(Date.now() - DAY)
+      },
+      capabilityMap: { hasDirectProofOfLifeRenewalMatch: true }
+    });
+    const { store } = renderWith(0, true);
+
+    expect(screen.getByText(/Ran out: proof of life ran out/)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Refresh proof of life for Ran out" }));
+
+    // The renewal flow reads the open wallet's state, so the alerted wallet is selected
+    // first; the action opens at its configure step and signs nothing on its own.
+    expect(actions.handleDetectedTokenChange).toHaveBeenCalledWith(token);
+    expect(actions.openWorkspaceIntent).toHaveBeenCalledWith(
+      "manual-tools",
+      "renew-proof-of-life"
+    );
+    expect(store.get(walletConnectionDialogOpenAtom)).toBe(false);
+  });
+
+  it("closes an open picker when renew is clicked", () => {
+    const token = { unit: "unit-late" };
+    cards.push({
+      token,
+      primaryLabel: "Ran out",
+      secondaryLabel: "f8482092d1",
+      roleBadges: [],
+      lockedSummary: undefined,
+      warning: null,
+      state: {
+        proofOfLifeUnlockTimeMode: "some",
+        proofOfLifeUnlockTime: String(Date.now() - 1000)
+      },
+      capabilityMap: { hasDirectProofOfLifeRenewalMatch: true }
+    });
+    const { store } = renderWith(0, true);
+    // Start from the dialog actually open: only then does the assertion pin
+    // that the renew click closes it, rather than passing on the default.
+    store.set(walletConnectionDialogOpenAtom, true);
+
+    fireEvent.click(screen.getByRole("button", { name: "Refresh proof of life for Ran out" }));
+
+    expect(store.get(walletConnectionDialogOpenAtom)).toBe(false);
+  });
+
+  it("draws no proof-of-life alert section while every deadline is far away", () => {
+    cards.push({
+      token: { unit: "unit-1" },
+      primaryLabel: "Family",
+      secondaryLabel: "f8482092d1",
+      roleBadges: [],
+      lockedSummary: undefined,
+      warning: null,
+      state: {
+        proofOfLifeUnlockTimeMode: "some",
+        proofOfLifeUnlockTime: String(Date.now() + 60 * 24 * 60 * 60 * 1000)
+      },
+      capabilityMap: { hasDirectProofOfLifeRenewalMatch: true }
+    });
+    const { container } = renderWith(0, true);
+
+    expect(container.textContent).not.toMatch(/proof of life (ends|ran out)/);
   });
 });

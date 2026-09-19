@@ -395,6 +395,14 @@
     "scheduledPaymentsLeaveOnTimeMultiSignatureWhen": "Scheduled payments leave on time. Payments above your threshold wait for a co-signer.",
     "worksWithLaceEternlVesprAndOtherWallets": "Works with Lace, Eternl, Vespr, and other wallets on Preprod."
   },
+  "ComponentsUserWorkspaceWorkspaceProofOfLifeAlerts": {
+    "proofOfLifeDeadlines": "Proof-of-life deadlines",
+    "theseWalletsNeedACheckInBeforeTheirTimerRunsOut": "These wallets need a check-in before the deadline passes. After it, recovery contacts can claim the wallet.",
+    "walletDeadlineApproaching": "{wallet}: proof of life ends {date}",
+    "walletDeadlineRanOut": "{wallet}: proof of life ran out {date}",
+    "refreshProofOfLife": "Refresh proof of life",
+    "refreshProofOfLifeFor": "Refresh proof of life for {wallet}"
+  },
   "ComponentsUserWorkspaceWorkspaceReviewRailView": {
     "approvalRequestsCannotRenameThisWallet": "Approval requests cannot rename this wallet. Restore the current name first.",
     "updatingWalletState": "Updating wallet state…",
