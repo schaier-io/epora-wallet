@@ -312,6 +312,46 @@ describe("a save that finishes after the user left", () => {
   });
 });
 
+describe("re-entering the create route while the first save is still in flight", () => {
+  /**
+   * The saveInFlight guard is per-mount, and the stash clears only after the
+   * save resolves, so ?create=1 remounts with the same draft and saves it
+   * again. The server maps that replay to the original proposal; both saves
+   * then resolve to the same request, and the second one reports created with
+   * the original id instead of an error.
+   */
+  it("reports the original request when the re-entered save resolves to it", async () => {
+    const original = { id: "proposal-original", createdByKeyHash: OTHER };
+    let resolveFirst: (proposal: typeof original) => void = () => {};
+    // The first save hangs in flight until the test releases it; the replayed
+    // save resolves straight to the original, the deduped server answer.
+    client.create.mockImplementationOnce(
+      () => new Promise<typeof original>((resolve) => { resolveFirst = resolve; })
+    );
+    client.create.mockResolvedValue(original);
+    stash.draft = { ...draft(), draftId: "window-draft" };
+    const onFirstCreated = vi.fn();
+    const first = render(<CreateProposalPanel onCreated={onFirstCreated} onCancel={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: /save request/i }));
+    await waitFor(() => expect(client.create).toHaveBeenCalledTimes(1));
+
+    first.unmount();
+    const onSecondCreated = vi.fn();
+    render(<CreateProposalPanel onCreated={onSecondCreated} onCancel={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: /save request/i }));
+    await waitFor(() => expect(onSecondCreated).toHaveBeenCalledWith("proposal-original"));
+    expect(client.create).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole("alert")).toBeNull();
+
+    // The first save then lands too; its panel is gone, so it never yanks the
+    // user back, and both mounts cleared the draft they saved.
+    resolveFirst(original);
+    await waitFor(() => expect(stash.clear).toHaveBeenCalledTimes(2));
+    expect(onFirstCreated).not.toHaveBeenCalled();
+    expect(stash.clear).toHaveBeenCalledWith("window-draft");
+  });
+});
+
 describe("discarding a stashed draft", () => {
   it("removes the draft only after the reader confirms", () => {
     stash.draft = { ...draft(), draftId: "discard-me" };
