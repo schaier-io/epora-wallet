@@ -6,6 +6,7 @@ import {
   plutusScript,
   scriptAddress as resolveScriptAddress,
 } from "./lib/blueprint.mjs";
+import { txIdLogText } from "./lib/explorer.mjs";
 import { resolveProvider } from "./lib/network.mjs";
 import { sttIdentifiersFromEnv } from "./lib/stt-env.mjs";
 
@@ -25,7 +26,7 @@ import { sttIdentifiersFromEnv } from "./lib/stt-env.mjs";
 const { sttPolicyId, sttAssetName } = sttIdentifiersFromEnv();
 
 console.log("Locking funds into the wallet spend address (example)");
-const { provider: blockchainProvider, network } = resolveProvider();
+const { provider: blockchainProvider, network, isDevnet } = resolveProvider();
 const wallet = new MeshWallet({
   networkId: 0,
   fetcher: blockchainProvider,
@@ -65,13 +66,6 @@ const signedTx = await wallet.signTx(unsignedTx);
 const txHash = await wallet.submitTx(signedTx);
 
 console.log(`Created locking transaction:
-    Tx ID: ${txHash}
-    View (after a bit) on https://${
-      process.env.BLOCKFROST_API_KEY?.toLowerCase().startsWith("preview")
-        ? "preview."
-        : process.env.BLOCKFROST_API_KEY?.toLowerCase().startsWith("preprod")
-        ? "preprod."
-        : ""
-    }cardanoscan.io/transaction/${txHash}
+    Tx ID: ${txIdLogText({ txHash, network, isDevnet })}
     Wallet address funded: ${walletAddress}
 `);
