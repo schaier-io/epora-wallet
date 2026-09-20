@@ -155,6 +155,83 @@ chunk, so the time until the real payment list can render is untouched. The impr
 is that the page identifies itself and paints its largest text immediately instead of
 showing a bare skeleton for that whole window.
 
+## #501 follow-up (2026-09-19): main-thread attribution on `/` and `/user`
+
+VERIFIED: numbers in this section come from saved Lighthouse JSON reports in
+`/tmp/lighthouse-i522/`, from the built chunks in `code/dApp/.next/static/chunks/`, or from
+the commands quoted inline. Same hardware, Brave setup, and method as above. No fix shipped
+from this pass. The section records what the main-thread time on `/` and `/user` is, what
+causes the gap to `/setup` and `/user/proposals`, and which fix shapes were measured and
+ruled out.
+
+### Re-measurement
+
+3 runs per route with the method above. TBT per run, run 1 to run 3, and the median:
+
+| Route | TBT per run (ms) | Median (ms) |
+| --- | --- | ---: |
+| `/` | 2,408 / 2,042 / 2,137 | 2,137 |
+| `/user` | 2,259 / 2,231 / 2,196 | 2,231 |
+
+Both medians sit within 110 ms of the #410 snapshot (2,209 and 2,245 ms), so the baseline
+reproduces. Run 1 on `/` also read LCP 15.78 s; the other two runs read 5.4 s. TBT was
+stable across all three. The #410 pass saw the same first-run effect and discarded a smoke
+run for it.
+
+### Attribution
+
+From the saved reports (`root-before-2`, `user-before-1`):
+
+- `mainthread-work-breakdown`: Script Evaluation is 2,226 to 2,313 ms of the total. Style
+  and Layout are 82 to 85 ms. No third-party group appears.
+- `bootup-time` names exactly two scripts with meaningful cost on both routes:
+  `chunks/0ysybt4qrh0g_.js` (229,757 bytes on disk; framework and app shell; 1,525 to
+  1,579 ms total) and `chunks/3-2t-gdo6kejy.js` (5,857,940 bytes; the `@meshsdk/core`
+  serialisation chunk named in the #502 section; 1,030 to 1,083 ms total). Everything else,
+  the document included, stays under 165 ms.
+- `long-tasks` on `/`: one task of about 1.02 s and one of about 0.25 s from the shell
+  chunk, and one task of about 1.03 s from the mesh chunk.
+
+The mesh chunk is not in the served HTML's script list (`curl -s http://localhost:3000/ |
+grep -c 3-2t-gdo6kejy` prints 0), so runtime code loads it. The saved DevTools log holds
+the request's initiator stack: hydration renders the `/user` page's `next/dynamic`
+boundary (`UserActionsPage`, `src/components/user/actions-page.tsx`), and that boundary's
+chunk group contains the mesh chunk. `src/app/page.tsx` is a re-export of `./user/page`,
+so `/` and `/user` behave identically. `/setup` and `/user/proposals` never mount the
+boundary, and their TBT (863 and 901 ms in the #410 snapshot) bounds what the shared shell
+costs. The gap between the route pairs is the workspace chunk group's parse and evaluation.
+
+### Fix shapes ruled out
+
+- Heavy module-top-level work in the root layout graph: none found. Sentry loads behind a
+  DSN-gated dynamic import (`src/instrumentation-client.ts`). The runtime evidence bounds
+  the claim: `bootup-time` shows no third script carrying meaningful time on these routes.
+- Third-party or polyfill cost: none. All execution time belongs to the app's own chunks.
+- Deferring the boundary's load until after load: measured, no effect on TBT. A temporary
+  build delayed the mount by 2 s and `/` then read TBT 3,827 and 2,182 ms across 2 runs.
+  Under simulated throttling the group's evaluation always lands inside the FCP-to-TTI
+  window: the measured numbers match TTI being placed after the last long task, so a later
+  fetch only moves the evaluation later without taking it out of the TBT sum. The deferral
+  build's LCP read 3.93 and 3.92 s against a same-session baseline of 5.4 s and one
+  outlier of 15.8 s, so the deferral may help LCP even though it cannot help TBT; the two
+  runs are too few to call it, and the 3,827 ms first TBT run is an unexplained outlier
+  the other run does not repeat.
+
+### Where a fix would land (out of scope here)
+
+88 non-test modules under `src/components/user`, `src/hooks`, and `src/providers`
+statically import `src/lib/mesh/*` or `src/lib/contracts/*`; 77 of them value-import
+the SDK surface (the other 11 import types only), and 41 carry a `"use client"`
+directive. Those imports pull
+`@meshsdk/core`. That is why the SDK (5.86 MB, with `libsodium-sumo` via
+`@cardano-sdk/crypto` and `blake2b-wasm` via `@meshsdk/common`, plus `plutus.json`'s
+230,721 bytes in the same group) parses and evaluates whenever the workspace loads. Cutting
+that seam means moving those value imports behind `await import("@meshsdk/core")` at call
+sites, the pattern `wallet-provider.tsx` already uses and
+`app/layout-mesh-boundary.test.ts` guards, or deciding that the landing route should not
+auto-load the workspace at all. Neither is a small, safe change, so this pass shipped no
+code and TBT on `/` and `/user` is unchanged.
+
 ## Raw reports
 
 The 16 Lighthouse JSON reports (15 matrix runs plus the discarded smoke run) were kept
