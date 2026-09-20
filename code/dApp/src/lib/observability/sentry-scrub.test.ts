@@ -62,6 +62,40 @@ test("isRoutineWalletRejection matches a decline buried in breadcrumbs", () => {
   assert.equal(isRoutineWalletRejection(event), true);
 });
 
+test("scrubSentryEvent drops browser-extension noise", () => {
+  const event: SentryEventLike = {
+    exception: {
+      values: [
+        {
+          value: "Failed to connect to MetaMask",
+          stacktrace: { frames: [{ filename: "app:///scripts/inpage.js" }] }
+        },
+        { value: "MetaMask extension not found" }
+      ]
+    }
+  };
+  assert.equal(scrubSentryEvent(event), null);
+});
+
+test("scrubSentryEvent keeps a mixed-stack extension error", () => {
+  const event: SentryEventLike = {
+    exception: {
+      values: [
+        {
+          value: "Failed to connect to MetaMask",
+          stacktrace: {
+            frames: [
+              { filename: "app:///_next/static/chunks/main-app-abc123.js" },
+              { filename: "chrome-extension://abcdef/scripts/inpage.js" }
+            ]
+          }
+        }
+      ]
+    }
+  };
+  assert.notEqual(scrubSentryEvent(event), null);
+});
+
 test("collectEventMessages gathers message, exception, and breadcrumb text", () => {
   const messages = collectEventMessages({
     message: { formatted: "top level" },
