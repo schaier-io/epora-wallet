@@ -5,9 +5,9 @@ import { cn } from "@/lib/utils/cn";
 const buttonVariants = cva(
   [
     "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-semibold",
-    "ring-offset-background transition-[background-color,border-color,color,box-shadow,transform,opacity] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+    "ring-offset-card transition-[background-color,border-color,color,box-shadow,opacity,transform,translate,scale,rotate] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-    "disabled:pointer-events-none disabled:opacity-50",
+    "disabled:bg-muted disabled:text-muted-foreground disabled:border disabled:border-border/60 disabled:opacity-100 disabled:cursor-not-allowed",
     "aria-[busy=true]:cursor-progress",
     "active:duration-75 active:scale-[0.96]"
   ].join(" "),
