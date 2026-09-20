@@ -158,7 +158,7 @@ export function WalletSessionProfileCard({
           "transition-[border-color,box-shadow] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.99]",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
           compact
-            ? "h-12 w-[230px] max-w-full rounded-[14px] pl-2 pr-4"
+            ? "h-12 max-w-[230px] rounded-[14px] px-3"
             : "min-h-[60px] w-full rounded-2xl px-3.5 py-2",
           !shimmer && "pc-wallet-simple-button--static",
           className

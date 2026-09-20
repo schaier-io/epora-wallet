@@ -34,6 +34,12 @@ export function SidebarActiveGlow() {
   );
 }
 
+// ISO/IEC 18004 requires a light border of at least four modules on every side of
+// the symbol. The `qrcode` library's raw module grid carries none, and the tile sits
+// on a near-black card, so the page cannot supply one either. Baking it into the
+// viewBox makes the quiet zone scale with the symbol on any tile size.
+const QR_QUIET_ZONE_MODULES = 4;
+
 export function ReceiveAddressQrCode({ address }: { address: string }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsPrimitives");
   // Generate the QR client-side with the bundled `qrcode` library. The address
@@ -71,7 +77,7 @@ export function ReceiveAddressQrCode({ address }: { address: string }) {
   return (
     <div className="flex h-36 w-36 items-center justify-center overflow-hidden rounded-xl bg-white p-2 shadow-[0_8px_24px_-18px_rgba(0,0,0,0.6)]">
       <svg
-        viewBox={`0 0 ${modulePath.grid} ${modulePath.grid}`}
+        viewBox={`${-QR_QUIET_ZONE_MODULES} ${-QR_QUIET_ZONE_MODULES} ${modulePath.grid + QR_QUIET_ZONE_MODULES * 2} ${modulePath.grid + QR_QUIET_ZONE_MODULES * 2}`}
         className="h-full w-full"
         role="img"
         aria-label={i18n("qrCodeForTheSmartWalletReceiveAddress")}
@@ -246,7 +252,7 @@ export function SetupProgressStepper({ steps }: { steps: SetupProgressStep[] }) 
           {steps.filter((step) => step.status === "done").length}/{steps.length} {i18n("done")}
         </Badge>
       </div>
-      <ol className="mt-4 grid gap-3 sm:grid-cols-2">
+      <ol className="mt-4 grid gap-3 sm:grid-cols-3">
         {steps.map((step, index) => {
           const isDone = step.status === "done";
           const isActive = step.status === "active";
@@ -287,21 +293,26 @@ export function SetupProgressStepper({ steps }: { steps: SetupProgressStep[] }) 
                 >
                   {isDone ? <CheckCircle2 className="h-3.5 w-3.5" aria-hidden /> : index + 1}
                 </span>
-                <p className="text-sm font-medium text-foreground">{step.label}</p>
-                <span
-                  className={cn(
-                    "eyebrow shrink-0",
-                    isDone
-                      ? "text-emerald-100/80"
-                      : isBlocked
-                        ? "text-amber-100/90"
-                        : isActive
-                          ? "text-primary"
-                          : "text-muted-foreground"
-                  )}
-                >
-                  {statusWord}
-                </span>
+                {/* items-baseline, not the row's items-center: the status word is a
+                    smaller size, so centring the two line boxes lifted it off the
+                    label's baseline. The numbered circle stays on the centred row. */}
+                <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
+                  <p className="text-sm font-medium text-foreground">{step.label}</p>
+                  <span
+                    className={cn(
+                      "eyebrow shrink-0",
+                      isDone
+                        ? "text-emerald-100/80"
+                        : isBlocked
+                          ? "text-amber-100/90"
+                          : isActive
+                            ? "text-primary"
+                            : "text-muted-foreground"
+                    )}
+                  >
+                    {statusWord}
+                  </span>
+                </div>
               </div>
               <p className="mt-2 text-xs leading-snug text-muted-foreground">
                 {step.description}

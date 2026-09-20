@@ -53,23 +53,25 @@ export function ReviewTransactionPreview({
   const i18n = useTranslations("ComponentsUserReviewPanelPreview");
   const validityMinutes = Math.round(VALIDITY_WINDOW_FUTURE_MS / 60_000);
 
-  if (!preview) {
-    if (!autoSignPending) return null;
-    return (
-      <FadeContent role="status" className="text-xs leading-relaxed text-muted-foreground">
-        {i18n("yourWalletWillOpenAutomaticallyToSign")}
-      </FadeContent>
-    );
-  }
-
+  // No early `return null` for a missing preview. Removing the whole card collapsed the
+  // rail by its full height the moment the reader switched tabs, and left the primary
+  // button looking exactly as ready with nothing built as it does beside a costed
+  // transaction. The rows below state properties of every build, so they are true before
+  // one exists; only the fee and the balance after it wait on the build, and the card
+  // says so in their place.
   return (
     <AnimatedContent className={cn("space-y-4", compact && "space-y-3")} distance={18}>
-      {!previewMatchesSelectedAction ? (
+      {!preview && autoSignPending ? (
+        <FadeContent role="status" className="text-xs leading-relaxed text-muted-foreground">
+          {i18n("yourWalletWillOpenAutomaticallyToSign")}
+        </FadeContent>
+      ) : null}
+      {preview && !previewMatchesSelectedAction ? (
         <FadeContent className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-muted-foreground">
           {i18n("theSavedTransactionDetailsBelongTo")} <span className="font-medium text-foreground">{lastActionLabel}</span>{i18n("continueAgainToRefreshThemForThisAction")}
         </FadeContent>
       ) : null}
-      {previewMatchesSelectedAction && preview.warnings && preview.warnings.length > 0 ? (
+      {preview && previewMatchesSelectedAction && preview.warnings && preview.warnings.length > 0 ? (
         <FadeContent className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-100">
           <p className="font-medium">{i18n("headsUpBeforeYouSign")}</p>
           <ul className="mt-1 list-disc space-y-1 pl-4 text-amber-100/90">
@@ -79,40 +81,57 @@ export function ReviewTransactionPreview({
           </ul>
         </FadeContent>
       ) : null}
-      <div className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
+      <div
+        className={cn(
+          "rounded-lg border border-border/60 bg-background/40",
+          compact ? "p-3" : "p-3 sm:p-4"
+        )}
+      >
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="secondary">{definition.shortLabel}</Badge>
-          <span className="text-sm text-foreground/90">
-            {i18n("readyToSign")} {definition.outcome}
+          <Badge variant={preview ? "secondary" : "outline"}>{definition.shortLabel}</Badge>
+          <span className={cn("text-sm", preview ? "text-foreground/90" : "text-muted-foreground")}>
+            {preview ? (
+              <>
+                {i18n("readyToSign")} {definition.outcome}
+              </>
+            ) : (
+              i18n("notBuiltYet")
+            )}
           </span>
         </div>
-        <ReviewCosts
-          rows={buildPresignCostRows({
-            estimatedFeeLovelace: preview.estimatedFeeLovelace,
-            walletBalanceLovelace
-          })}
-        />
+        {preview ? (
+          <ReviewCosts
+            rows={buildPresignCostRows({
+              estimatedFeeLovelace: preview.estimatedFeeLovelace,
+              walletBalanceLovelace
+            })}
+          />
+        ) : (
+          <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+            {i18n("costsAppearAfterBuild")}
+          </p>
+        )}
         {/* What signing commits the user to beyond the fee, in receipt-row form so the
             card reads as one surface with the receipt above it, not a second list style. */}
         <dl className="mt-3 divide-y divide-border/40 rounded-md border border-border/40 bg-background/30">
           {signerAddress ? (
-            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-3 py-2">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-2 py-2">
               <dt className="eyebrow font-medium text-muted-foreground">{i18n("signer")}</dt>
               {/* `title` carries the full address: the shortened form scans, the hover
                   (and screen reader) get the exact credential being asked for. */}
               <dd
-                className="min-w-0 break-words text-right text-xs font-medium text-foreground"
+                className="inline-flex min-w-0 items-center justify-end gap-1 break-words text-xs font-medium text-foreground"
                 title={signerAddress}
               >
                 {shortenAddress(signerAddress)}
-                <AddressCopyButton value={signerAddress} className="mx-1 inline-flex align-middle" />
+                <AddressCopyButton value={signerAddress} className="inline-flex align-middle" />
               </dd>
               <dd className="min-w-0 basis-full break-words text-xs leading-snug text-muted-foreground">
                 {i18n("signerDetail")}
               </dd>
             </div>
           ) : null}
-          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-3 py-2">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-2 py-2">
             <dt className="eyebrow font-medium text-muted-foreground">{i18n("validity")}</dt>
             <dd className="min-w-0 break-words text-right text-xs font-medium text-foreground">
               {i18n("validityValue", { minutes: validityMinutes })}
@@ -121,7 +140,7 @@ export function ReviewTransactionPreview({
               {i18n("validityDetail")}
             </dd>
           </div>
-          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-3 py-2">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-2 py-2">
             <dt className="eyebrow font-medium text-muted-foreground">{i18n("change")}</dt>
             <dd className="min-w-0 break-words text-right text-xs font-medium text-foreground">
               {i18n("changeValue")}

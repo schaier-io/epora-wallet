@@ -48,9 +48,11 @@ export function WorkspaceProofOfLifeAlerts({
       <ul className="space-y-2">
         {alerts.map((alert) => {
           const overdue = alert.state === "overdue";
-          // The deadline as an absolute, localized date-time. The catalog shares the app's
-          // default zone, so every reader sees the same instant the chain timestamp names.
-          const deadlineLabel = formatter.dateTime(new Date(alert.deadlineMs), "short");
+          // The deadline as an absolute date-time, with the zone named. The comment here
+          // used to say every reader sees the same instant, which is true of the instant
+          // and useless to the reader: unnamed, `defaultTimeZone` reads as a local wall
+          // clock, and a check-in deadline is a time somebody has to act on.
+          const deadlineLabel = formatter.dateTime(new Date(alert.deadlineMs), "shortWithZone");
           return (
             <li
               key={alert.unit}

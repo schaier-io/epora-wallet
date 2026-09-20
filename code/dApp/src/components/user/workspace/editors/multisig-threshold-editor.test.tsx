@@ -347,7 +347,7 @@ describe("setting the total freely", () => {
       formWith({ threshold: "2", people: [{ power: "1", wallets: [WALLET] }] })
     );
 
-    fireEvent.change(screen.getByLabelText("Exact value"), { target: { value: "50" } });
+    fireEvent.change(screen.getByLabelText("Exact value (saved on chain)"), { target: { value: "50" } });
 
     const next = onChange.mock.calls[0]![0] as StateFormState;
     expect(next.multiSigThreshold).toBe("50");
@@ -363,7 +363,7 @@ describe("setting the total freely", () => {
       formWith({ threshold: "2", people: [{ power: "3", wallets: [WALLET] }] })
     );
 
-    fireEvent.change(screen.getByLabelText("Exact value"), { target: { value: "9" } });
+    fireEvent.change(screen.getByLabelText("Exact value (saved on chain)"), { target: { value: "9" } });
 
     const next = onChange.mock.calls[0]![0] as StateFormState;
     expect(next.users[0]!.multiSigPower).toBe("3");
@@ -376,7 +376,7 @@ describe("setting the total freely", () => {
       />
     );
 
-    fireEvent.change(screen.getByLabelText("Exact value"), { target: { value: "2.5" } });
+    fireEvent.change(screen.getByLabelText("Exact value (saved on chain)"), { target: { value: "2.5" } });
 
     expect(
       screen.getByText("Enter a whole number between 1 and 18446744073709551615.")
@@ -390,7 +390,7 @@ describe("setting the total freely", () => {
   it("raises the range from the slider maximum box and keeps it at Auto when empty", () => {
     renderEditor(formWith({ threshold: "2", people: [{ power: "1", wallets: [WALLET] }] }));
     const slider = screen.getByLabelText("Approval power needed");
-    const maximumBox = screen.getByLabelText("Slider maximum");
+    const maximumBox = screen.getByLabelText("Slider maximum (this screen only)");
 
     expect(slider).toHaveAttribute("aria-valuemax", "2");
     fireEvent.change(maximumBox, { target: { value: "20" } });
@@ -403,7 +403,7 @@ describe("setting the total freely", () => {
   it("reports a slider maximum that is not a whole number", () => {
     renderEditor(formWith({ threshold: "2", people: [{ power: "1", wallets: [WALLET] }] }));
 
-    fireEvent.change(screen.getByLabelText("Slider maximum"), { target: { value: "later" } });
+    fireEvent.change(screen.getByLabelText("Slider maximum (this screen only)"), { target: { value: "later" } });
 
     expect(
       screen.getByText("Enter a whole number of 1 or more, or leave the box empty.")
@@ -415,11 +415,34 @@ describe("setting the total freely", () => {
       formWith({ threshold: "2", people: [{ power: "1", wallets: [WALLET] }] })
     );
 
-    fireEvent.change(screen.getByLabelText("Slider maximum"), { target: { value: "20" } });
+    fireEvent.change(screen.getByLabelText("Slider maximum (this screen only)"), { target: { value: "20" } });
     fireEvent.keyDown(screen.getByLabelText("Approval power needed"), { key: "ArrowRight" });
 
     const next = onChange.mock.calls[0]![0] as StateFormState;
     expect(next.multiSigThreshold).toBe("3");
+  });
+
+  /**
+   * The two boxes are the same shape and sit side by side, but only the exact value
+   * is signed; the slider maximum is a view preference. Before this, one helper
+   * sentence sat under both and described only the maximum.
+   */
+  it("gives each number box its own helper, and names the signed one in the label", () => {
+    renderEditor(formWith({ threshold: "2", people: [{ power: "1", wallets: [WALLET] }] }));
+
+    const exact = screen.getByLabelText("Exact value (saved on chain)");
+    const maximum = screen.getByLabelText("Slider maximum (this screen only)");
+
+    const exactHelp = document.getElementById(
+      exact.getAttribute("aria-describedby")!.split(" ")[0]!
+    );
+    const maximumHelp = document.getElementById(
+      maximum.getAttribute("aria-describedby")!.split(" ")[0]!
+    );
+
+    expect(exactHelp).toHaveTextContent("The exact value is the number saved on chain.");
+    expect(maximumHelp).toHaveTextContent("Slider maximum sets how far the slider reaches.");
+    expect(exactHelp).not.toBe(maximumHelp);
   });
 
   it("offers the exact entry and the slider maximum on the compact variant too", () => {
@@ -428,7 +451,7 @@ describe("setting the total freely", () => {
       "compact"
     );
 
-    expect(screen.getByLabelText("Exact value")).toBeInTheDocument();
-    expect(screen.getByLabelText("Slider maximum")).toBeInTheDocument();
+    expect(screen.getByLabelText("Exact value (saved on chain)")).toBeInTheDocument();
+    expect(screen.getByLabelText("Slider maximum (this screen only)")).toBeInTheDocument();
   });
 });

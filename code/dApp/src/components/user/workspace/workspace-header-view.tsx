@@ -84,6 +84,9 @@ export function WorkspaceHeaderView() {
       })();
     };
 
+    // This pill is the connected *browser* wallet, the key that signs and pays the fee.
+    // The smart-wallet card below shows a different figure. Both used to read only
+    // "wallet", so the labels now name which wallet each number belongs to.
     const browserWalletFundsLovelace = walletBalanceSummary.loading || walletBalanceSummary.error
       ? null
       : getAssetQuantityByUnit(walletBalanceSummary.assets, "lovelace");
@@ -179,7 +182,9 @@ export function WorkspaceHeaderView() {
     );
   }
 
-  const statusControls = (
+  // Every control below is gated on `walletReady`, so signed out this div rendered empty and
+  // still took a `gap-3` slot beside the header text.
+  const statusControls = !walletReady ? null : (
     <div
       className={cn(
         "flex min-w-0 flex-wrap items-center gap-2 text-xs",
@@ -283,8 +288,24 @@ export function WorkspaceHeaderView() {
       <SoftAurora className="opacity-85" />
       <CardContent className="relative z-10">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-emerald-300/20 bg-background/70 text-emerald-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+          {/* Top-anchored only while there are two lines to anchor to. A 40px tile cannot be
+              centred on a 20px first line without a negative margin that would lift it out of
+              the card, so `items-start` plus `mt-0.5` does the achievable thing: the tile's top
+              edge sits on the title's em box, which caps the drop at ~12px instead of letting it
+              grow with the description. It grew: title (20px, 22.5px at `md`) + `space-y-1` (4px)
+              + description (19.5px, 22.75px at `md`) makes the block 43.5px / 49.25px, and a
+              wrapped description takes it past 63px, where `items-center` sat the tile 21.5px
+              below the heading it labels.
+              With only one of the two, the block is shorter than the tile and `items-start`
+              would strand that single line at the top of a 42px row, so that state keeps
+              `items-center` -- which is exactly right when the tile is the tallest item. */}
+          <div
+            className={cn(
+              "flex min-w-0 gap-3",
+              guidedWorkspaceTitle && guidedWorkspaceDescription ? "items-start" : "items-center"
+            )}
+          >
+            <span className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-emerald-300/20 bg-background/70 text-emerald-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
               <GuidedWorkspaceHeaderIcon className="h-4.5 w-4.5" />
             </span>
             <div className="min-w-0 space-y-1">

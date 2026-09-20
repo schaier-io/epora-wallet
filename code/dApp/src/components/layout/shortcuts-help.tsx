@@ -11,6 +11,16 @@ import { shortcutsHelpOpenAtom } from "@/components/layout/shortcuts-help.atoms"
 import { SHORTCUTS } from "@/lib/shortcuts/registry";
 import { createShortcutEngine } from "@/lib/shortcuts/engine";
 
+/**
+ * The registry holds chrome/focus keys and then the `sequence: true` navigation chords. A
+ * flat list rendered both at one divider pitch, so the map of the app read as one run.
+ * Grouping is a view concern only: the registry and every binding stay as they are.
+ */
+const SHORTCUT_GROUPS = [
+  SHORTCUTS.filter((shortcut) => !shortcut.sequence),
+  SHORTCUTS.filter((shortcut) => shortcut.sequence)
+];
+
 function isTypingTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false;
   const tag = target.tagName;
@@ -101,35 +111,39 @@ export function KeyboardShortcutsHelp() {
       onOpenChange={setOpen}
       title={i18n("keyboardShortcuts")}
       description={i18n("flyAroundWithoutTouchingTheMouse")}
-      className="max-w-md"
+      className="max-w-sm"
       >
-        <ul className="divide-y divide-border/60">
-        {SHORTCUTS.map((shortcut) => (
-          <li
-            key={shortcut.labelKey}
-            className="flex items-center justify-between gap-4 py-2 first:pt-0 last:pb-0"
-          >
-            <span className="text-sm text-foreground">{i18n(shortcut.labelKey)}</span>
-            <span className="inline-flex items-center gap-1">
-              {shortcut.keys.map((key, index) => (
-                <span key={`${shortcut.labelKey}-${index}`} className="inline-flex items-center gap-1">
-                  {index > 0 ? (
-                    // Not `aria-hidden`: without it a reader says "g c", which is the same
-                    // thing it says for a chord. The word is what tells them to press the
-                    // keys one after the other.
-                    <span className="text-xs text-muted-foreground">
-                      {shortcut.sequence ? i18n("then") : "+"}
+        <div className="space-y-6">
+        {SHORTCUT_GROUPS.map((group) => (
+          <ul key={group[0]?.labelKey} className="divide-y divide-border/60">
+            {group.map((shortcut) => (
+              <li
+                key={shortcut.labelKey}
+                className="flex items-center justify-between gap-4 py-2 first:pt-0 last:pb-0"
+              >
+                <span className="text-sm text-foreground">{i18n(shortcut.labelKey)}</span>
+                <span className="inline-flex items-center gap-1">
+                  {shortcut.keys.map((key, index) => (
+                    <span key={`${shortcut.labelKey}-${index}`} className="inline-flex items-center gap-1">
+                      {index > 0 ? (
+                        // Not `aria-hidden`: without it a reader says "g c", which is the same
+                        // thing it says for a chord. The word is what tells them to press the
+                        // keys one after the other.
+                        <span className="text-xs text-muted-foreground">
+                          {shortcut.sequence ? i18n("then") : "+"}
+                        </span>
+                      ) : null}
+                      <kbd className="inline-flex min-w-[1.75rem] items-center justify-center rounded-md border border-border/70 bg-background/80 px-2 py-1 font-mono text-xs font-medium text-foreground">
+                        {key}
+                      </kbd>
                     </span>
-                  ) : null}
-                  <kbd className="inline-flex min-w-[1.75rem] items-center justify-center rounded-md border border-border/70 bg-background/80 px-2 py-1 font-mono text-xs font-medium text-foreground">
-                    {key}
-                  </kbd>
+                  ))}
                 </span>
-              ))}
-            </span>
-          </li>
+              </li>
+            ))}
+          </ul>
         ))}
-      </ul>
+      </div>
     </PopupDialog>
     </>
   );

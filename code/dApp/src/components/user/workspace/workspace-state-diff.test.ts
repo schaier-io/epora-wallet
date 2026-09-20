@@ -179,10 +179,13 @@ test("a changed recovery-contact wait is reported", () => {
   assert.equal(items.length, 1);
   assert.match(items[0]!.label, /Recovery contact changed/);
   // `unlock_after` is a point in time, not a wait: the editor stores a timestamp.
+  // It names its zone: this row is read right before a signature, and the app does
+  // not format in the reader's own zone.
   assert.ok(
-    items[0]!.value.endsWith(`after ${defaultFormatter.dateTime(1790955182000, "short")}`),
+    items[0]!.value.endsWith(`after ${defaultFormatter.dateTime(1790955182000, "shortWithZone")}`),
     items[0]!.value
   );
+  assert.match(items[0]!.value, /UTC/, items[0]!.value);
 });
 
 test("a moved schedule end date is reported", () => {

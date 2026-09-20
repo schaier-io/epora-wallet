@@ -71,6 +71,26 @@ describe("ReviewTransactionPreview", () => {
     expect(screen.queryByText("Network fee")).not.toBeInTheDocument();
   });
 
+  /**
+   * The card used to disappear entirely without a preview, so the rail lost its whole
+   * height on every tab switch and the primary button looked as ready with nothing built
+   * as it does beside a costed transaction.
+   */
+  it("holds the review card open before a build, without stating costs", () => {
+    render(<ReviewTransactionPreview {...BASE} preview={null} />);
+
+    expect(screen.getByText("Not built yet.")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "The fee and your balance after it appear here once the transaction is built."
+      )
+    ).toBeInTheDocument();
+    // The rows state properties of every build, so they are true before one exists.
+    expect(screen.getByText("Valid for")).toBeInTheDocument();
+    expect(screen.getByText("Change")).toBeInTheDocument();
+    expect(screen.queryByText(/Ready to sign/)).not.toBeInTheDocument();
+  });
+
   it("warns that the shown details belong to another action when they drifted", () => {
     render(<ReviewTransactionPreview {...BASE} previewMatchesSelectedAction={false} />);
 
