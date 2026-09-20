@@ -79,7 +79,12 @@ export function ReviewTransactionPreview({
           </ul>
         </FadeContent>
       ) : null}
-      <div className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
+      <div
+        className={cn(
+          "rounded-lg border border-border/60 bg-background/40",
+          compact ? "p-3" : "p-3 sm:p-4"
+        )}
+      >
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="secondary">{definition.shortLabel}</Badge>
           <span className="text-sm text-foreground/90">
@@ -96,23 +101,23 @@ export function ReviewTransactionPreview({
             card reads as one surface with the receipt above it, not a second list style. */}
         <dl className="mt-3 divide-y divide-border/40 rounded-md border border-border/40 bg-background/30">
           {signerAddress ? (
-            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-3 py-2">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-2 py-2">
               <dt className="eyebrow font-medium text-muted-foreground">{i18n("signer")}</dt>
               {/* `title` carries the full address: the shortened form scans, the hover
                   (and screen reader) get the exact credential being asked for. */}
               <dd
-                className="min-w-0 break-words text-right text-xs font-medium text-foreground"
+                className="inline-flex min-w-0 items-center justify-end gap-1 break-words text-xs font-medium text-foreground"
                 title={signerAddress}
               >
                 {shortenAddress(signerAddress)}
-                <AddressCopyButton value={signerAddress} className="mx-1 inline-flex align-middle" />
+                <AddressCopyButton value={signerAddress} className="inline-flex align-middle" />
               </dd>
               <dd className="min-w-0 basis-full break-words text-xs leading-snug text-muted-foreground">
                 {i18n("signerDetail")}
               </dd>
             </div>
           ) : null}
-          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-3 py-2">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-2 py-2">
             <dt className="eyebrow font-medium text-muted-foreground">{i18n("validity")}</dt>
             <dd className="min-w-0 break-words text-right text-xs font-medium text-foreground">
               {i18n("validityValue", { minutes: validityMinutes })}
@@ -121,7 +126,7 @@ export function ReviewTransactionPreview({
               {i18n("validityDetail")}
             </dd>
           </div>
-          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-3 py-2">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-2 py-2">
             <dt className="eyebrow font-medium text-muted-foreground">{i18n("change")}</dt>
             <dd className="min-w-0 break-words text-right text-xs font-medium text-foreground">
               {i18n("changeValue")}

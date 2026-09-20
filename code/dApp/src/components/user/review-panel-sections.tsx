@@ -57,8 +57,8 @@ export function ReviewReceiptCard({
                   // line when the label is long, so short values like
                   // "0 scheduled payments" wraps instead of truncating.
                   item.copyValue && item.copyLabel
-                    ? "grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-3 py-2"
-                    : "flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-3 py-2",
+                    ? "grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-2 py-2"
+                    : "flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-2 py-2",
                   item.tone === "success" && "bg-emerald-500/10",
                   item.tone === "warning" && "bg-amber-500/10"
                 )}
@@ -68,14 +68,16 @@ export function ReviewReceiptCard({
                 </dt>
                 <dd
                   className={cn(
-                    "min-w-0 text-right text-xs font-medium text-foreground",
-                    item.copyValue && item.copyLabel ? "truncate" : "break-words"
+                    "min-w-0 text-xs font-medium text-foreground",
+                    item.copyValue && item.copyLabel
+                      ? "truncate text-right"
+                      : "break-words"
                   )}
                   title={item.copyValue ?? item.value}
                 >
                   {item.value}
                   {item.copyValue && !item.copyLabel ? (
-                    <AddressCopyButton value={item.copyValue} className="mx-1 inline-flex align-middle" />
+                    <AddressCopyButton value={item.copyValue} className="ml-1 inline-flex align-middle" />
                   ) : null}
                 </dd>
                 {item.copyValue && item.copyLabel ? (
@@ -127,7 +129,7 @@ export function ReviewReceiptCard({
                 </dt>
                 <dd className="mt-1 break-words text-sm font-medium text-foreground">
                   {item.value}
-                  <AddressCopyButton value={item.copyValue} className="mx-1 inline-flex align-middle" />
+                  <AddressCopyButton value={item.copyValue} className="ml-1 inline-flex align-middle" />
                 </dd>
                 {item.detail ? (
                   <dd className="mt-1 break-words text-xs leading-snug text-muted-foreground">
