@@ -160,7 +160,7 @@ describe("a length-of-time field", () => {
   });
 
   /**
-   * `splitDurationMillis` (`lib/user-flow/guided-helpers.ts:230-249`) falls back to
+   * `splitDurationMillis` (`lib/user-flow/time-inputs.ts`) falls back to
    * milliseconds when no larger unit divides evenly, so the option has to stay reachable
    * or a stored odd value could not be shown at all.
    */
@@ -224,8 +224,8 @@ describe("choosing which funds to spend", () => {
     expect(screen.queryByText("Locked funds to use")).not.toBeInTheDocument();
   });
 
-  /** `suggestWalletInputsForRequestedAssets` (`guided-helpers.ts:381`) picks enough pools
-   * to cover what is being sent, which "suggested inputs" named neither half of. */
+  /** `suggestWalletInputsForRequestedAssets` (`lib/user-flow/wallet-input-selection.ts`) picks
+   * enough pools to cover what is being sent, which "suggested inputs" named neither half of. */
   it("says what the pick-for-me button will do", () => {
     renderSelector();
 
