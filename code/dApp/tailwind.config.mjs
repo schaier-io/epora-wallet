@@ -68,11 +68,12 @@ const config = {
           foreground: "var(--card-foreground)"
         }
       },
-      borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)"
-      },
+      // No `borderRadius` here. The radius scale lives in the `@theme` block in
+      // `globals.css`, which Tailwind v4 resolves ahead of this v3 `@config` bridge, so a
+      // block here compiles to nothing (verified: every `rounded-*` utility emits the
+      // `@theme` multiplier form, `calc(var(--radius) * N)`, never this file's arithmetic).
+      // The two agreed numerically at `--radius: 0.625rem` and would have diverged the
+      // moment it changed, so the duplicate was removed rather than kept in sync.
       boxShadow: {
         panel: "0 20px 55px -28px hsl(173 70% 18% / 0.35)"
       }

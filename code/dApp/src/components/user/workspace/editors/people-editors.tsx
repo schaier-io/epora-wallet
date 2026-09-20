@@ -10,6 +10,7 @@ import { buildKnownAddresses, WalletHashesEditor } from "./asset-editors";
 import { ApprovalPowerSlider } from "./approval-power-slider";
 import { GuidedDateTimeField } from "./guided-fields";
 import { Button } from "@/components/ui/button";
+import { DestructiveRemoveButton } from "./destructive-remove-button";
 import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -96,9 +97,13 @@ export function BeneficiaryEditor({
     <div className="user-surface user-list-item space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <PersonHeading person={beneficiary}>{personLabel(i18n("recoveryContact"), beneficiary)}</PersonHeading>
-        <Button type="button" variant="ghost" onClick={onRemove}>
-          {i18n("removeRecoveryContact")}
-        </Button>
+        <DestructiveRemoveButton
+          label={i18n("removeRecoveryContact")}
+          confirmTitle={i18n("removeRecoveryContactConfirmTitle")}
+          confirmBody={i18n("removeRecoveryContactConfirmBody")}
+          cancelLabel={i18n("cancel")}
+          onConfirm={onRemove}
+        />
       </div>
       <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-1">
@@ -310,7 +315,9 @@ export function MultisigThresholdEditor({
                 ? i18n("nobodyCanReachNeededThePeopleWhoCan", { needed: needed, availablePower: availablePower })
                 : i18n("thisAddsUpApprovalPowerNotPeopleThe", { availablePower: availablePower })}
           </p>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          {/* A control group of its own: at the flat `space-y-1` step the sentence above
+              read as a caption for these boxes rather than for the slider. */}
+          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
             <div className="flex items-center gap-2">
               <Label
                 htmlFor={`${uid}-threshold-exact`}
@@ -322,7 +329,7 @@ export function MultisigThresholdEditor({
                 id={`${uid}-threshold-exact`}
                 inputMode="numeric"
                 autoComplete="off"
-                className="w-28 tabular-nums"
+                className="w-24 tabular-nums"
                 value={value.multiSigThreshold}
                 onChange={(event) => {
                   const multiSigThreshold = event.target.value;
@@ -337,7 +344,9 @@ export function MultisigThresholdEditor({
                 }}
                 aria-invalid={thresholdParseError ? true : undefined}
                 aria-describedby={
-                  thresholdParseError ? `${uid}-threshold-exact-error` : undefined
+                  thresholdParseError
+                    ? `${uid}-threshold-exact-help ${uid}-threshold-exact-error`
+                    : `${uid}-threshold-exact-help`
                 }
               />
               <InlineFieldError
@@ -362,7 +371,9 @@ export function MultisigThresholdEditor({
                 onChange={(event) => setCustomMaximum(event.target.value)}
                 aria-invalid={maximumParseError ? true : undefined}
                 aria-describedby={
-                  maximumParseError ? `${uid}-slider-maximum-error` : undefined
+                  maximumParseError
+                    ? `${uid}-slider-maximum-help ${uid}-slider-maximum-error`
+                    : `${uid}-slider-maximum-help`
                 }
               />
               <InlineFieldError
@@ -371,7 +382,13 @@ export function MultisigThresholdEditor({
               />
             </div>
           </div>
-          <p className="text-xs text-muted-foreground">
+          {/* Two boxes of the same shape sit side by side, and only one of them is
+              signed. Each carries its own sentence now, and the labels name the
+              difference, so the on-chain box cannot be read as a view setting. */}
+          <p id={`${uid}-threshold-exact-help`} className="text-xs text-muted-foreground">
+            {i18n("theExactValueIsTheNumberSavedOn")}
+          </p>
+          <p id={`${uid}-slider-maximum-help`} className="text-xs text-muted-foreground">
             {i18n("sliderMaximumHelpsYouPickAThreshold")}
           </p>
         </div>

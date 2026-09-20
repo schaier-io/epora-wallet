@@ -366,7 +366,9 @@ export function SearchableAssetUnitDropdown({
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-controls={isOpen ? listboxId : undefined}
-        className="flex w-full items-center justify-between gap-3 rounded-md border border-input bg-background/70 px-3 py-2 text-left ring-offset-background transition-colors hover:border-primary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        // h-10, not content height: px-3 py-2 sizes the trigger to 38px, and the row it
+        // shares with `Input` (h-10) is `items-end`, so the 2px landed on the label line.
+        className="flex h-10 w-full items-center justify-between gap-3 rounded-md border border-input bg-background/70 px-3 py-2 text-left ring-offset-card transition-colors hover:border-primary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         onClick={() => {
           if (isOpen) {
             // `true`, not `false`: on Safari a click never focuses the trigger, and the

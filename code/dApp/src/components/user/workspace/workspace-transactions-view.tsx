@@ -96,7 +96,7 @@ export function WorkspaceTransactionsView() {
   return (
                   <Card className="user-surface relative overflow-hidden">
                     <CardSilkBackground section="activity" />
-                    <CardContent className="relative z-10 space-y-4 pt-4">
+                    <CardContent className="relative z-10 space-y-4">
                       {!lockingContract.address ? (
                         <div className="flex min-h-[min(320px,45vh)] flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border/60 bg-muted/10 p-3 text-center sm:p-4">
                           <div className="flex h-14 w-14 items-center justify-center rounded-md border border-border/60 bg-background/60 shadow-sm">
@@ -148,7 +148,7 @@ export function WorkspaceTransactionsView() {
                               <button
                                 type="button"
                                 onClick={() => openAssetDetail(null)}
-                                className="inline-flex items-center gap-1 rounded-md text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                                className="inline-flex items-center gap-1 rounded-md text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
                               >
                                 <ChevronRight className="h-3 w-3 rotate-180" aria-hidden="true" />
                                 {i18n("backToWalletBalance")}
@@ -278,7 +278,11 @@ export function WorkspaceTransactionsView() {
                         the very top read as if it belonged to the chart rather than to the
                         transaction list scrolling beneath it.
                       */}
-                      <div className="flex w-full flex-wrap items-start gap-x-3 gap-y-2">
+                      {/* Asymmetric on purpose: `space-y-4` put an equal 16px on both sides,
+                          which read as a heading floating between the chart and the list.
+                          `pt-2` adds to the stack gap above (padding does not collapse);
+                          `mb-2` beats the zero-specificity `space-y-4` rule below it. */}
+                      <div className="flex w-full flex-wrap items-start gap-x-3 gap-y-2 pt-2 mb-2">
                         <div className="min-w-0 flex-1 space-y-1">
                           <CardTitle className="flex items-center gap-2">
                             <ArrowUpDown className="h-4 w-4 text-primary" />

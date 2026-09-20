@@ -26,6 +26,11 @@ import {
   countFieldErrorMessages,
   formatTimestampLabel,
   getFirstFieldError } from "@/components/user/workspace/helpers";
+import { buildErrorAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
+// The builder writes its messages through `createDefaultTranslator`, which is pinned to
+// `defaultLocale` regardless of the reader's locale (`i18n/default-translator.ts:17-20`).
+// Reading the same catalog is therefore an exact comparison, not a best-effort one.
+import workspaceTransactionsMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceWorkspaceTransactions.json";
 import { lockedContractUtxosLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { activeInferredSttStateFormAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import { streamingPayoutAmountIsSelected } from "@/components/user/workspace/atoms/workspace-transfer-derivations.atoms";
@@ -36,6 +41,11 @@ import {
   deriveStreamingPaymentRowStatus,
   type StreamingPaymentRowStatus } from "@/components/user/workspace/streaming-payment-status";
 import { useConfigSttSpendState } from "@/components/user/workspace/use-config-sttspend-state";
+
+// The one build message that restates field errors rather than reporting a failure of
+// its own (`workspace-transactions.ts:496`).
+const FIELD_ERROR_RESTATEMENT =
+  workspaceTransactionsMessages.fixTheHighlightedFieldsBeforeContinuing;
 
 // The badge variant is the state's second channel after the word: amber only when
 // the reader must act (a stopped payment still owes), sky for the future, green
@@ -76,6 +86,7 @@ function readStateFormInteger(value: string): OnChainInteger {
 export function SttSpendPayoutView() {
   const i18n = useTranslations("ComponentsUserWorkspaceConfigSttspendPayoutView");
   const lockedContractUtxosLoading = useAtomValue(lockedContractUtxosLoadingAtom);
+  const buildError = useAtomValue(buildErrorAtom);
   const renderNowMs = useAtomValue(renderNowMsAtom);
   const inferredStateForm = useAtomValue(activeInferredSttStateFormAtom);
   const {
@@ -104,6 +115,27 @@ export function SttSpendPayoutView() {
     txEarliestTimeMs: clockReady ? getValidityWindow(renderNowMs).earliestTimeMs : 0,
     nowMs: renderNowMs
   });
+  // A failed build is an issue the reader has to act on: counting field errors alone
+  // printed a calm "No issues" chip in the header beside a live rose build failure.
+  //
+  // Exactly one build message is not a second issue, and it is identified by its text,
+  // not by `buildErrorExpected`. `buildSelectedActionFresh` refuses to build while any
+  // field is invalid and writes FIELD_ERROR_RESTATEMENT in place of a real failure
+  // (`workspace-transactions.ts:495-498`); adding that one counts the same problem twice.
+  // `buildErrorExpected` is the wrong test for this, because it marks any recognised,
+  // recoverable condition. "This action was already completed. Change something before
+  // trying again." is also expected, is an independent problem, and survives the edit it
+  // asks for: the payout amount inputs write `streamingPaymentPayoutAmountsAtom` through
+  // a bare `useSetAtom` (`workspace-navigation.ts:119`) and never call
+  // `clearBuildMessages`. Suppressing on `expected` lost that second issue.
+  //
+  // The restatement only stops counting once the fields it points at are on screen. The
+  // build gate reads the raw field errors while this view is handed the display-gated set
+  // (`use-permission-wallet-workspace-state.tsx:600-609`), so Continue on a pristine
+  // invalid draft leaves this message as the only signal the reader has.
+  const fieldIssueCount = countFieldErrorMessages(activeFieldErrors);
+  const buildIssueCount =
+    buildError && !(buildError === FIELD_ERROR_RESTATEMENT && fieldIssueCount > 0) ? 1 : 0;
   const rows = streamingPaymentPayoutRows;
   const payingCount = rows.filter(
     (row) => row.cleanupRequired || streamingPayoutAmountIsSelected(row.configuredAmount)
@@ -119,7 +151,7 @@ export function SttSpendPayoutView() {
       onSelectTask={handleFocusedTaskSelect}
       badgeByTask={guidedStreamingPaymentTaskBadges}
       disabledTaskIds={guidedStreamingPaymentsDisabledTasks}
-      issueCount={countFieldErrorMessages(activeFieldErrors)}
+      issueCount={fieldIssueCount + buildIssueCount}
     >
       <div className="space-y-4 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
         <div className="space-y-1">
@@ -279,7 +311,9 @@ export function SttSpendPayoutView() {
                         ? i18n("closingThisFinishedPayment")
                         : i18n("payThisOneNow")}
                     </label>
-                    <div className="min-w-0 wrap-anywhere rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs tabular-nums text-muted-foreground md:col-start-2 md:row-start-2">
+                    {/* min-h-10: the chip content-sizes to 34px beside the 40px amount
+                        input it shares this centred row with. */}
+                    <div className="flex min-h-10 min-w-0 items-center wrap-anywhere rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs tabular-nums text-muted-foreground md:col-start-2 md:row-start-2">
                       {i18n("dueNow")}{" "}
                       {row.unit === "lovelace"
                         ? i18n("value1Ada", { value1: formatLovelaceAsAda(row.dueAmount) })

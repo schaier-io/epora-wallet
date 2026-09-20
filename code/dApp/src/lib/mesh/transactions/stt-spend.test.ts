@@ -4,7 +4,7 @@ import { test } from "node:test";
 import {
   deriveValidatedStreamingPaymentPayoutStateDatum,
   resolveStreamingPayoutFundingSource
-} from "@/lib/mesh/transactions/stt-spend";
+} from "@/lib/mesh/transactions/stt-spend-payout";
 import { classifyStreamingPayoutBatch } from "@/lib/mesh/transactions/internals/streaming-payout-build";
 import type { ConstrData, PayoutTransfer } from "@/lib/types/contracts";
 

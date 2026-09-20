@@ -9,6 +9,7 @@ import { ApprovalPowerSlider } from "./approval-power-slider";
 import { GuidedDateTimeField } from "./guided-fields";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DestructiveRemoveButton } from "./destructive-remove-button";
 import { Label } from "@/components/ui/label";
 import { walletBalanceSummaryAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { activeAddressAtom, activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
@@ -49,7 +50,10 @@ function PermissionChip({
       title={title}
       onClick={onClick}
       className={cn(
-        "user-surface user-task-chip inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-[background-color,border-color,color]",
+        "user-surface user-task-chip relative inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-[background-color,border-color,color]",
+        // 30 CSS painted, 44 to a finger. The pill keeps its own size: growing it would
+        // push every wrapped row of chips down.
+        "after:absolute after:inset-x-0 after:-inset-y-[7px] after:content-['']",
         pressed
           ? "border-primary/45 bg-primary/12 text-foreground"
           : "border-border/70 bg-background/40 text-muted-foreground hover:border-primary/30 hover:text-foreground",
@@ -140,9 +144,13 @@ export function PersonPermissionsEditor({
     <div className="user-surface user-list-item space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <PersonHeading person={user}>{personLabel("Person", user)}</PersonHeading>
-        <Button type="button" variant="ghost" onClick={onRemove}>
-          {i18n("remove")}
-        </Button>
+        <DestructiveRemoveButton
+          label={i18n("remove")}
+          confirmTitle={i18n("removeConfirmTitle")}
+          confirmBody={i18n("removeConfirmBody")}
+          cancelLabel={i18n("cancel")}
+          onConfirm={onRemove}
+        />
       </div>
 
       <div className="space-y-2">

@@ -1,5 +1,5 @@
 import { useTranslations } from "next-intl";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { CopyButton } from "@/components/ui/copy-button";
 import { type TaskDefinition } from "@/components/user/flow-types";
@@ -57,8 +57,8 @@ export function ReviewReceiptCard({
                   // line when the label is long, so short values like
                   // "0 scheduled payments" wraps instead of truncating.
                   item.copyValue && item.copyLabel
-                    ? "grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-3 py-2"
-                    : "flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-3 py-2",
+                    ? "grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-2 py-2"
+                    : "flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-2 py-2",
                   item.tone === "success" && "bg-emerald-500/10",
                   item.tone === "warning" && "bg-amber-500/10"
                 )}
@@ -68,14 +68,16 @@ export function ReviewReceiptCard({
                 </dt>
                 <dd
                   className={cn(
-                    "min-w-0 text-right text-xs font-medium text-foreground",
-                    item.copyValue && item.copyLabel ? "truncate" : "break-words"
+                    "min-w-0 text-xs font-medium text-foreground",
+                    item.copyValue && item.copyLabel
+                      ? "truncate text-right"
+                      : "break-words"
                   )}
                   title={item.copyValue ?? item.value}
                 >
                   {item.value}
                   {item.copyValue && !item.copyLabel ? (
-                    <AddressCopyButton value={item.copyValue} className="mx-1 inline-flex align-middle" />
+                    <AddressCopyButton value={item.copyValue} className="ml-1 inline-flex align-middle" />
                   ) : null}
                 </dd>
                 {item.copyValue && item.copyLabel ? (
@@ -127,7 +129,7 @@ export function ReviewReceiptCard({
                 </dt>
                 <dd className="mt-1 break-words text-sm font-medium text-foreground">
                   {item.value}
-                  <AddressCopyButton value={item.copyValue} className="mx-1 inline-flex align-middle" />
+                  <AddressCopyButton value={item.copyValue} className="ml-1 inline-flex align-middle" />
                 </dd>
                 {item.detail ? (
                   <dd className="mt-1 break-words text-xs leading-snug text-muted-foreground">
@@ -153,7 +155,8 @@ export function ReviewActionExplainer({
   const i18n = useTranslations("ComponentsUserReviewPanelSections");
   return compact ? (
     <details className="rounded-md border border-border/50 bg-muted/10 p-3">
-      <summary className="cursor-pointer text-sm font-medium text-foreground">
+      <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-medium text-foreground [&::-webkit-details-marker]:hidden">
+        <ChevronRight className="expand-chevron h-4 w-4 shrink-0" aria-hidden="true" />
         {i18n("whatThisDoes")}
       </summary>
       <div className="mt-3 space-y-3 border-t border-border/40 pt-3 text-sm">
@@ -203,7 +206,9 @@ export function ReviewActionExplainer({
 
 // Which money moves before and when this transaction signs, in the order a reader
 // asks about it: what the network charges, what the protocol holds aside, what the
-// wallet holds now, and what is left. Rows exist only for amounts a caller actually
+// connected (browser) wallet holds now, and what is left. The balance rows are the
+// signer's own connected wallet -- the one that pays the fee -- never the smart
+// wallet's funds, so every balance label names it. Rows exist only for amounts a caller actually
 // produced (see `buildPresignCostRows`): a missing deposit or minimum-UTxO figure is
 // a row that does not render, never a guessed number.
 const COST_ROW_LABEL_KEYS: Record<

@@ -181,7 +181,7 @@ export function WorkspaceWalletDashboardView() {
                 {resolvedGuidedOverviewSection === "home" ? (
                   <Card className="user-surface relative overflow-hidden">
                     <CardSilkBackground section="home" />
-                    <CardHeader className="relative z-10 pb-3">
+                    <CardHeader className="relative z-10 pb-6">
                       <CardTitle className="flex items-center gap-2">
                         <House className="h-4 w-4 text-primary" />
                         {i18n("walletHome")}
@@ -373,8 +373,12 @@ export function WorkspaceWalletDashboardView() {
                                         <p className="flex items-baseline gap-1.5">
                                           <span
                                             className={cn(
-                                              "font-display font-medium tabular-nums leading-none tracking-[-0.02em] text-muted-foreground/70",
-                                              /^\d+$/.test(row.emptyValue) ? "text-2xl" : "text-lg"
+                                              "font-display font-medium tabular-nums tracking-[-0.02em] text-muted-foreground/70",
+                                              /^\d+$/.test(row.emptyValue) ? "text-2xl" : "text-lg",
+                                              // After the size class, never before it: tailwind-merge
+                                              // treats `text-<size>` as conflicting with `leading-*`, so a
+                                              // leading listed first is dropped from the output entirely.
+                                              "leading-6"
                                             )}
                                           >
                                             {row.emptyValue}
@@ -386,7 +390,7 @@ export function WorkspaceWalletDashboardView() {
                                         <button
                                           type="button"
                                           onClick={row.onClick}
-                                          className="mt-2 inline-flex items-center gap-1 rounded-full border border-dashed border-border/60 px-2 py-0.5 text-xs font-medium text-foreground/90 transition-[color,background-color,border-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-primary/40 hover:bg-primary/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                                          className="mt-2 inline-flex items-center gap-1 rounded-full border border-dashed border-border/60 px-2 py-0.5 text-xs font-medium text-foreground/90 transition-[color,background-color,border-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-primary/40 hover:bg-primary/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
                                         >
                                           <Plus className="h-3 w-3" aria-hidden="true" />
                                           {row.cta}
@@ -397,8 +401,14 @@ export function WorkspaceWalletDashboardView() {
                                         <p className="flex items-baseline gap-1.5">
                                           <span
                                             className={cn(
-                                              "font-display font-medium tabular-nums leading-none tracking-[-0.02em]",
+                                              // `leading-6` on both branches, not `leading-none`: the value switches between
+                                              // `text-2xl` and `text-lg`, and two different line boxes pulled the
+                                              // shorter tile's baseline off the row. It is listed after the size
+                                              // class because tailwind-merge drops a `leading-*` that precedes a
+                                              // `text-<size>`.
+                                              "font-display font-medium tabular-nums tracking-[-0.02em]",
                                               numeric ? "text-2xl" : "text-lg",
+                                              "leading-6",
                                               row.urgent ? "text-amber-300" : "text-foreground"
                                             )}
                                           >
@@ -413,7 +423,7 @@ export function WorkspaceWalletDashboardView() {
                                         <button
                                           type="button"
                                           onClick={row.onClick}
-                                          className="mt-2 inline-flex items-center gap-1 rounded-sm text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                                          className="mt-2 inline-flex items-center gap-1 rounded-sm text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
                                         >
                                           {row.cta}
                                           <ChevronRight className="h-3 w-3" aria-hidden="true" />

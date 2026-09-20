@@ -85,9 +85,15 @@ export function WorkspaceSidebarView() {
 
   // Padding stays on the content here, not on the Card. The inner scroller below is
   // deliberately near-full-bleed so its scrollbar hugs the card edge; Card padding sits
-  // outside that `overflow-hidden` box, which would move the track inward and break the
-  // `scrollbar-gutter: stable` reservation in globals.css. Both `p-` and `sm:p-` have to be
-  // cleared: tailwind-merge treats them as separate groups.
+  // outside that `overflow-hidden` box and would move the track inward. Both `p-` and `sm:p-`
+  // have to be cleared: tailwind-merge treats them as separate groups.
+  //
+  // Correction: this used to say the track had to stay put so it would not break the
+  // `scrollbar-gutter: stable` reservation in globals.css. There is no reservation. Measured in
+  // Chromium on macOS, `offsetWidth - clientWidth` is 0 on a `.user-scrollbar` that is actually
+  // scrolling, because the thumb is an overlay one and `scrollbar-gutter` only applies to
+  // classic scrollbars. Keeping the track at the card edge is still right, but the reason is
+  // the full-bleed look, not a gutter that was never reserved.
   return (
             // `top-20`, not `top-4`: the sticky TopNav is 65px tall (the `h-16` row plus
             // its 1px `border-b`), so 80px from the viewport top leaves 15px of
@@ -118,7 +124,23 @@ export function WorkspaceSidebarView() {
                 ) : null}
 
                 {selectedDetectedToken ? (
-                  <div className="user-scrollbar min-h-0 space-y-4 overflow-x-clip overflow-y-auto px-1 pb-1 pr-2">
+                  // No `pr-2` here. It was meant to clear the scrollbar track, but measured in
+                  // Chromium on macOS `.user-scrollbar` reserves nothing: offsetWidth -
+                  // clientWidth is 0 while the list overflows, because the thumb is an overlay
+                  // and `scrollbar-gutter: stable` only applies to classic scrollbars. So the
+                  // 8px bought no clearance and cost symmetry -- it left the nav column 20px
+                  // from the CardContent gutter on the left and 24px on the right, on 19 screens.
+                  // `px-1` alone centres it.
+                  //
+                  // This overrules the note at `layout-breakpoints.test.ts:425-437`, which called
+                  // this `pr-2` the sidebar's settled choice "because its cards sit inside a card
+                  // whose right edge the thumb would otherwise cover". That reason does not hold:
+                  // the thumb paints at the scroller's edge, 16px inside the Card's own edge, so
+                  // what it can cover is the outer 4px of a nav card while scrolling, never the
+                  // Card. The same note already lists "reserve nothing and let the thumb float
+                  // over the content" as the other settled answer, and the main panel, the review
+                  // rail and the two proposal lists all take it. The sidebar now does too.
+                  <div className="user-scrollbar min-h-0 space-y-4 overflow-x-clip overflow-y-auto px-1 pb-1">
                     {/* This column is the app's second navigation and it had no landmark:
                         every entry below moves the main panel, but a screen reader met a card
                         full of buttons with nothing to jump to. The `space-y-4` that used to
@@ -222,7 +244,10 @@ export function WorkspaceSidebarView() {
                                         variant={
                                           walletTransactions.loading ? "secondary" : "outline"
                                         }
-                                        className="whitespace-nowrap"
+                                        // `leading-none` keeps the count badge on the 17.5px title
+                                        // line; the default `text-xs` leading made this row taller
+                                        // than every other two-line row.
+                                        className="whitespace-nowrap leading-none"
                                       >
                                         {walletTransactions.loading
                                           ? i18n("refreshing")
@@ -273,11 +298,28 @@ export function WorkspaceSidebarView() {
                         </div>
                       )}
                       {advancedActions.length > 0 ? (
-                        <details className="rounded-lg border border-border/40 bg-background/20 p-3">
-                          <summary className="cursor-pointer eyebrow font-semibold text-muted-foreground">
+                        // No wrapper padding, border or tint: those indented this group's left
+                        // edge 13px and narrowed its cards 254 -> 228 while the two groups above
+                        // it sit flush against the scroller. The tint has to go with the padding:
+                        // with no inset it would sit directly behind cards that are themselves
+                        // `bg-background/20`, so every ADVANCED card would composite two coats
+                        // and read darker than the identical cards above it.
+                        // `pt-1`, not `mt-1`: a top margin collapses with the summary's `-mt-2`
+                        // below and with the 16px `space-y-4` above, which left the heading 16px
+                        // under the previous card where its peers sit at 20px. Padding does not
+                        // collapse, so it restores the peer rhythm and keeps the summary's
+                        // negative margin inside this box.
+                        <details className="pt-1">
+                          {/* `py-2 -my-2` lifts the 13.2px eyebrow line to a 29.2px target
+                              without moving anything: the padding grows the box, the negative
+                              margin gives the space back. Measured: the text lands where an
+                              unpadded summary puts it, and the hit box still stops 12px short
+                              of the card above. */}
+                          <summary className="eyebrow -my-2 flex cursor-pointer list-none items-center gap-2 py-2 font-semibold text-muted-foreground [&::-webkit-details-marker]:hidden">
+                            <ChevronRight className="expand-chevron h-4 w-4 shrink-0" aria-hidden="true" />
                             {i18n("advanced")}
                           </summary>
-                          <div className="mt-3">
+                          <div className="mt-2">
                             <GuidedActionSectionView title={null} actions={advancedActions} />
                           </div>
                         </details>

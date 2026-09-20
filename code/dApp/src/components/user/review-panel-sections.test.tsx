@@ -35,8 +35,8 @@ describe("ReviewCosts", () => {
       />
     );
 
-    expect(screen.getByText("Wallet balance now")).toBeInTheDocument();
-    expect(screen.getByText("Wallet balance after the fee")).toBeInTheDocument();
+    expect(screen.getByText("Connected wallet balance now")).toBeInTheDocument();
+    expect(screen.getByText("Connected wallet balance after the fee")).toBeInTheDocument();
     expect(screen.getByText(/9\.817603 ₳/)).toBeInTheDocument();
     // One tag on the fee, one on the remainder; the exact balance carries none.
     expect(screen.getAllByText("estimated")).toHaveLength(2);
@@ -48,9 +48,30 @@ describe("ReviewCosts", () => {
     );
 
     expect(screen.queryByText("Network fee")).not.toBeInTheDocument();
-    expect(screen.queryByText("Wallet balance after the fee")).not.toBeInTheDocument();
+    expect(screen.queryByText("Connected wallet balance after the fee")).not.toBeInTheDocument();
     expect(screen.queryByText("Deposit set aside")).not.toBeInTheDocument();
-    expect(screen.getByText("Wallet balance now")).toBeInTheDocument();
+    expect(screen.getByText("Connected wallet balance now")).toBeInTheDocument();
+  });
+
+  // This block is the last thing read before a signature, and the balance in it is the
+  // signer's connected browser wallet, not the smart wallet whose funds the action moves.
+  // Both were called "wallet balance", one screen apart.
+  it("says which wallet the balance rows belong to", () => {
+    render(
+      <ReviewCosts
+        rows={buildPresignCostRows({
+          estimatedFeeLovelace: "182397",
+          walletBalanceLovelace: "10000000"
+        })}
+      />
+    );
+
+    for (const label of screen.getAllByRole("term")) {
+      if (/balance/i.test(label.textContent ?? "")) {
+        expect(label.textContent).toMatch(/Connected wallet/);
+      }
+    }
+    expect(screen.getByText(/connected wallet balance minus the estimated fee/i)).toBeInTheDocument();
   });
 
   it("renders nothing when no amount is available", () => {

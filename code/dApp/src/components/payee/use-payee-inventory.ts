@@ -8,11 +8,16 @@ import { sttInventoryQueryOptions, isCurrentSttInventoryRead } from "@/lib/query
 import { queryPolicy } from "@/lib/query/keys";
 import { reconcilePayeeInputsAtom } from "./payee-pending-inputs.atoms";
 
-export function usePayeeInventory() {
+/**
+ * `enabled` carries the caller's "a wallet is connected" answer. Without it the 30 second poll
+ * ran on a page that cannot show a result, and `isFetching` in `loading` unmounted the row list
+ * on every tick, mid-read. `loading` is now first-load only; `fetching` is a background refresh.
+ */
+export function usePayeeInventory(enabled = true) {
   const client = useQueryClient();
   const policyId = getSttMintPolicyId();
   const options = sttInventoryQueryOptions(policyId);
-  const query = useQuery({ ...options, refetchInterval: queryPolicy.activePollMs });
+  const query = useQuery({ ...options, enabled, refetchInterval: queryPolicy.activePollMs });
   const reconcile = useSetAtom(reconcilePayeeInputsAtom);
   const mounted = useRef(true);
   useEffect(() => {
@@ -42,5 +47,5 @@ export function usePayeeInventory() {
       // Query owns the error. Keep a successful transaction's feedback visible.
     }
   }, [client, policyId]);
-  return { tokens: query.data?.tokens ?? [], loading: query.isPending || query.isFetching, error: query.error, refresh };
+  return { tokens: query.data?.tokens ?? [], loading: query.isPending, fetching: query.isFetching, error: query.error, refresh };
 }

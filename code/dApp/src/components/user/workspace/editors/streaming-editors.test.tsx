@@ -284,4 +284,32 @@ describe("where the money goes", () => {
       "/payee"
     );
   });
+  /**
+   * The tab chips came from two maps: the sidebar derived New / <n> payments / Pay |
+   * Locked, and this editor built its own Create / <n> payments / Ready | Unavailable.
+   * The Add chip therefore read CREATE here and NEW on the payout tab, and the chip row
+   * reflowed on every tab switch. Both surfaces now call
+   * `buildStreamingPaymentTaskBadges`, so the chips must match the sidebar wording.
+   */
+  it("labels the task chips from the one shared badge map", () => {
+    const value = createDefaultStateForm();
+    value.streamingPayments = [createDefaultStreamingPaymentFormState("7")];
+    render(
+      <FocusedStreamingPaymentRulesEditor
+        value={value}
+        onChange={() => {}}
+        selectedTask="streaming-payments-add"
+        onSelectTask={() => {}}
+        fieldErrors={{}}
+        canPayDue={false}
+        existingStreamingPayments={[]}
+      />
+    );
+
+    // The sidebar wording, verbatim, from `buildStreamingPaymentTaskBadges`.
+    expect(screen.getByText("New")).toBeInTheDocument();
+    expect(screen.getByText("Locked")).toBeInTheDocument();
+    expect(screen.queryByText("Create")).not.toBeInTheDocument();
+    expect(screen.queryByText("Unavailable")).not.toBeInTheDocument();
+  });
 });

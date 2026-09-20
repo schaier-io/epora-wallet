@@ -36,6 +36,19 @@ describe("recent activity timeline", () => {
     expect(screen.queryByText(/Loading recent activity/)).toBeNull();
   });
 
+  /**
+   * The row chevron rested at `text-muted-foreground/0`, fully transparent, so no row
+   * showed one and hover was the only cue that a row is a button.
+   */
+  it("shows the row chevron before the pointer arrives", () => {
+    const { container } = render(<RecentActivityTimeline events={[EVENT]} />);
+
+    const chevron = container.querySelector("svg.lucide-chevron-right");
+    expect(chevron).not.toBeNull();
+    expect(chevron?.getAttribute("class")).not.toContain("text-muted-foreground/0 ");
+    expect(chevron?.getAttribute("class")).toContain("text-muted-foreground/50");
+  });
+
   it("says the list is empty rather than showing an empty rail", () => {
     const { container } = render(<RecentActivityTimeline events={[]} />);
 

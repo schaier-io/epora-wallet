@@ -1,8 +1,11 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import { describe, expect, it, vi } from "vitest";
 
 const holder = vi.hoisted(() => ({
+  rewardAddress: "stake_test17qexample" as string | null,
+  voteJson: "{}",
+  setVoteJson: vi.fn(),
   operatorOptions: [
     { value: "admin", label: "Owner" },
     { value: "multisig", label: "Co-signers" }
@@ -21,12 +24,23 @@ vi.mock(
   }
 );
 
+vi.mock(
+  "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms",
+  async (importOriginal) => {
+    const { atom } = await import("jotai");
+    return {
+      ...(await importOriginal<Record<string, unknown>>()),
+      walletRewardAddressAtom: atom(() => holder.rewardAddress)
+    };
+  }
+);
+
 vi.mock("@/components/user/workspace/workspace-actions-context", () => ({
   useWorkspaceActions: () => ({ activeFieldErrors: holder.fieldErrors })
 }));
 
 vi.mock("@/components/user/workspace/forms/use-vote-form", () => ({
-  useVoteForm: () => ({ voteJson: "{}", setVoteJson: vi.fn() })
+  useVoteForm: () => ({ voteJson: holder.voteJson, setVoteJson: holder.setVoteJson })
 }));
 
 vi.mock("@/components/user/workspace/forms/use-stt-spend-form", () => ({
@@ -38,11 +52,14 @@ const { WalletVoteConfigView } = await import(
 );
 
 function renderView({
+  rewardAddress = "stake_test17qexample" as string | null,
   operatorOptions = holder.operatorOptions,
   fieldErrors = {} as Record<string, string[]>
 } = {}) {
+  holder.rewardAddress = rewardAddress;
   holder.operatorOptions = operatorOptions;
   holder.fieldErrors = fieldErrors;
+  holder.setVoteJson = vi.fn();
   return render(
     <Provider store={createStore()}>
       <WalletVoteConfigView />
@@ -91,6 +108,82 @@ describe("what the box needs", () => {
     expect(
       explanation.compareDocumentPosition(textarea) & Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();
+  });
+
+  it("shows the vote shape in the empty box", () => {
+    renderView();
+
+    const placeholder = screen.getByLabelText("Vote JSON").getAttribute("placeholder") ?? "";
+    expect(placeholder).toContain('"voter"');
+    expect(placeholder).toContain('"govActionId"');
+    expect(placeholder).toContain('"votingProcedure"');
+  });
+});
+
+/**
+ * Mesh's `VoteType` (`@meshsdk/common` `index.d.ts:1607-1626`) is
+ * `{voter, govActionId, votingProcedure: {voteKind: "Yes"|"No"|"Abstain"}}`.
+ */
+describe("vote templates", () => {
+  it("writes a Yes vote Mesh can serialize", () => {
+    renderView();
+
+    fireEvent.click(screen.getByRole("button", { name: "Yes" }));
+
+    expect(holder.setVoteJson).toHaveBeenCalledTimes(1);
+    const written: unknown = JSON.parse(holder.setVoteJson.mock.calls[0][0] as string);
+    expect(written).toEqual({
+      voter: { type: "DRep", drepId: "" },
+      govActionId: { txHash: "", txIndex: 0 },
+      votingProcedure: { voteKind: "Yes" }
+    });
+  });
+
+  it("writes a No vote Mesh can serialize", () => {
+    renderView();
+
+    fireEvent.click(screen.getByRole("button", { name: "No" }));
+
+    expect(holder.setVoteJson).toHaveBeenCalledTimes(1);
+    const written: unknown = JSON.parse(holder.setVoteJson.mock.calls[0][0] as string);
+    expect(written).toEqual({
+      voter: { type: "DRep", drepId: "" },
+      govActionId: { txHash: "", txIndex: 0 },
+      votingProcedure: { voteKind: "No" }
+    });
+  });
+
+  it("writes an Abstain vote Mesh can serialize", () => {
+    renderView();
+
+    fireEvent.click(screen.getByRole("button", { name: "Abstain" }));
+
+    expect(holder.setVoteJson).toHaveBeenCalledTimes(1);
+    const written: unknown = JSON.parse(holder.setVoteJson.mock.calls[0][0] as string);
+    expect(written).toEqual({
+      voter: { type: "DRep", drepId: "" },
+      govActionId: { txHash: "", txIndex: 0 },
+      votingProcedure: { voteKind: "Abstain" }
+    });
+  });
+
+  it("turns the templates off when the staking address is unknown", () => {
+    renderView({ rewardAddress: null });
+
+    expect(screen.getByRole("button", { name: "Yes" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "No" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Abstain" })).toBeDisabled();
+    expect(
+      screen.getByText(/The templates need this wallet's staking address/)
+    ).toBeInTheDocument();
+  });
+
+  it("leaves Clear working so the box can be emptied by hand", () => {
+    renderView({ rewardAddress: null });
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+
+    expect(holder.setVoteJson).toHaveBeenCalledWith("{}");
   });
 });
 

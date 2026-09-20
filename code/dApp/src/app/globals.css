@@ -36,7 +36,11 @@
 
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
+  /* `--primary` was shadcn's neutral gray. Hue is brand teal: hsl(167 84% 48%)
+     converts to oklch(0.812 0.156 171.406). That fill is 1.61:1 with
+     --primary-foreground (WCAG 2 relative luminance). L/C dropped until the
+     same pair measures 4.80:1. Hue stays 171.406. */
+  --primary: oklch(0.530 0.100 171.406);
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
@@ -493,7 +497,10 @@ body:has(> [role="alertdialog"]) .user-soft-aurora-blob {
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
+  /* Same hue. Inverted high-L fill (kept 0.922) at C=0.100 is 14.78:1 with
+     --primary-foreground. Mid-L brand oklch(0.812 0.156 171.406) is 10.66:1,
+     also AA; high L kept so primary buttons stay light-on-dark. */
+  --primary: oklch(0.922 0.100 171.406);
   --primary-foreground: oklch(0.205 0 0);
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
@@ -511,7 +518,9 @@ body:has(> [role="alertdialog"]) .user-soft-aurora-blob {
   --destructive-foreground: oklch(0.205 0 0);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 35%);
-  --ring: oklch(0.556 0 0);
+  /* Same hue, C=0.100 so a 50% color-mix stays chromatic. WCAG 1.4.11 vs
+     background/card/muted: 4.41:1, 3.99:1, 3.37:1. */
+  --ring: oklch(0.556 0.100 171.406);
 }
 
 @layer base {

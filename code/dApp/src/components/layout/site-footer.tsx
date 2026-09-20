@@ -23,7 +23,10 @@ export function SiteFooter() {
           <ShieldAlert className="h-3.5 w-3.5 text-amber-300" aria-hidden="true" />
           {i18n("preprodTestNetwork")}
         </p>
-        <div className="flex flex-wrap items-center gap-3">
+        {/* `-my-1` absorbs the children's `py-1`: the targets reach 24px without the
+            footer getting taller. `gap-x-4` outside plus `gap-2` inside is what makes
+            the separator dot express a grouping instead of a uniform gap. */}
+        <div className="-my-1 flex flex-wrap items-center gap-x-4 gap-y-2">
           {/*
             The old hint was a static span here, hidden below `sm`, until it was dropped
             entirely. It is a button now and visible at every width: on a phone there is no
@@ -35,7 +38,7 @@ export function SiteFooter() {
             type="button"
             onClick={() => setShortcutsHelpOpen(true)}
             aria-haspopup="dialog"
-            className="inline-flex items-center gap-2 rounded-sm text-left hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className="inline-flex items-center gap-2 rounded-sm py-1 text-left hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
             {/* The explicit `{" "}` nodes are load-bearing: the accessible name is the
                 concatenation of the button's text, and without them it is
@@ -46,6 +49,7 @@ export function SiteFooter() {
             <kbd className="rounded border border-border/60 bg-background/60 px-1 font-mono text-xs">?</kbd>{" "}
             {i18n("forShortcuts")}
           </button>
+          <div className="flex flex-wrap items-center gap-2">
           {showWalletHomeLink ? (
             <>
               {/*
@@ -57,7 +61,7 @@ export function SiteFooter() {
               */}
               <Link
                 href="/user"
-                className="rounded-sm hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                className="rounded-sm py-1 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
                 {i18n("walletHome")}
               </Link>
@@ -68,10 +72,11 @@ export function SiteFooter() {
             href="https://projectcatalyst.io/funds/11/cardano-use-cases-concept/dead-man-switch-permission-based-wallet"
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-sm hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className="rounded-sm py-1 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
             {i18n("catalystProposal")}
           </a>
+          </div>
         </div>
       </div>
     </footer>

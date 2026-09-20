@@ -66,13 +66,19 @@ export function requireZeroAdminConfirmation(
  * A wallet whose `intended_stake_credential` is `None` delegates to nothing, so it has
  * earned nothing to claim. The claim config view already said so in an amber box, but
  * nothing stopped the build: the receipt read `Status: Ready` beside that warning.
+ *
+ * The message is a short pointer, not the explanation. This error and the review
+ * receipt's own staking row land in the same rail about 700px apart, and the sentence
+ * "Staking is not on for this wallet yet, so it has earned nothing to claim. Turn on
+ * staking first, then delegate to a pool." used to print verbatim in both. The receipt
+ * and the claim card carry the why; this line only has to name the blocker.
  */
 export function requireStakingEnabled(errors: FieldErrors, stateForm: StateFormState): void {
   if (!hasIntendedStakeCredential(stateForm.intendedStakeCredential)) {
     pushFieldError(
       errors,
       i18n("staking"),
-      i18n("stakingIsNotOnForThisWalletYet")
+      i18n("turnOnStakingBeforeYouClaim")
     );
   }
 }
@@ -160,13 +166,12 @@ export function validateGovernanceVotePayload(errors: FieldErrors, voteJson: str
       ? (parsed as Record<string, unknown>)
       : null;
   if (vote === null || !vote.voter || !vote.govActionId || !vote.votingProcedure) {
-    // One sentence, not two: the field's own helper sits directly above the box and already
-    // says where a whole vote comes from, so repeating that here printed the same advice
-    // twice, once in grey and once in red, on first load.
+    // `{}` is the empty default and the Clear target. It parses, so this has to name
+    // the templates the way a typeless certificate names them.
     pushFieldError(
       errors,
       i18n("voteJson"),
-      i18n("aVoteHasToSayWhoIsVoting")
+      i18n("thisVoteIsMissingWhoIsVoting")
     );
     return;
   }

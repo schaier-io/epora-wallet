@@ -93,5 +93,7 @@
   "beneficiaryAccessRetained": "Retained after withdrawal",
   "beneficiaryAccessRemoved": "Removed after withdrawal",
   "beneficiaryRetainedDetail": "As the final recovery contact, you keep access to remaining funds and later deposits.",
-  "beneficiaryRemovedDetail": "This withdrawal removes your recovery access. You forfeit any unused share and rights to remaining funds and later deposits."
+  "beneficiaryRemovedDetail": "This withdrawal removes your recovery access. You forfeit any unused share and rights to remaining funds and later deposits.",
+  "scheduleUpdateReceipt": "Scheduled payment update receipt",
+  "whatThisTransactionChangesAboutTheScheduledPayments": "What this transaction changes about this wallet's scheduled payments."
 }

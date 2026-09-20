@@ -19,6 +19,7 @@ import {
   resolveSpentSttRef,
 } from "@/components/user/workspace/atoms/wallet-state-update.atoms";
 import { resetLockFundsFormAtom } from "@/components/user/workspace/atoms/forms/lock-funds-form.atoms";
+import { resetTransferFormAtom } from "@/components/user/workspace/atoms/forms/transfer-form.atoms";
 import { sttExtraTransfersAtom, sttWalletInputsAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { selectedOrphanInputsAtom } from "./atoms/forms/orphan-inputs.atoms";
 import {
@@ -331,7 +332,13 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
       // review rail keep describing the send in the future tense -- "You are sending
       // 5 ₳ to ..." -- over money that had already left the wallet, with Next step
       // still saying "Review the receipt and continue".
-      runPostSubmitTask("clear-payouts", () => jotaiStore.set(sttExtraTransfersAtom, []));
+      // The transfer form is cleared with them. Leaving Recipient on "My address" after a
+      // send re-aims the next payout at the signer's own wallet, which is the default
+      // `transfer-form.atoms.ts` deliberately removed on a wallet with several owners.
+      runPostSubmitTask("clear-payouts", () => {
+        jotaiStore.set(sttExtraTransfersAtom, []);
+        jotaiStore.set(resetTransferFormAtom);
+      });
     }
     if (selectedAction === "consolidate-utxo" && jotaiStore.get(beneficiaryPreparationActiveAtom)) {
       runPostSubmitTask("clear-prepared-inputs", () => jotaiStore.set(consolidateWalletInputsAtom, []));

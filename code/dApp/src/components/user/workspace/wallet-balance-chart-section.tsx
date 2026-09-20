@@ -172,8 +172,14 @@ export function WalletBalanceChartSection() {
               onClick={() => toggleUnit(pill.unit)}
               aria-pressed={active}
               className={cn(
-                "rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-colors",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                // Matches the chart's range pills: `py-1.5 min-h-6`, because these
+                // series toggles are a real control, not a label. The invisible
+                // after-layer stretches the touch target to the 44px height (and to
+                // the 4px gap on each side) without moving the pills; horizontally it
+                // stops at the gap so neighbours never overlap.
+                "relative min-h-6 rounded-full border px-2.5 py-1.5 text-[11px] font-medium transition-colors",
+                "after:absolute after:-inset-y-2.5 after:-inset-x-0.5 after:content-['']",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card",
                 active
                   ? "border-primary/40 bg-primary/15 text-foreground"
                   : "border-border/60 bg-background/40 text-muted-foreground hover:text-foreground"

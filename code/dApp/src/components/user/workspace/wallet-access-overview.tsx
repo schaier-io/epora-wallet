@@ -74,12 +74,14 @@ export function WalletAccessOverview({
 
   return (
     <section className="rounded-lg border border-primary/20 bg-primary/[0.04] p-3 sm:p-4">
-      <div className="flex items-start gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-primary/25 bg-primary/10 text-primary">
-          <KeyRound className="h-4 w-4" aria-hidden="true" />
-        </span>
-        <div className="min-w-0 flex-1 space-y-3">
-          <div>
+      <div className="space-y-3">
+        {/* The avatar indents the heading row only. While it wrapped the whole column,
+            every row under it carried a 48px left inset against a flush right edge. */}
+        <div className="flex items-start gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-primary/25 bg-primary/10 text-primary">
+            <KeyRound className="h-4 w-4" aria-hidden="true" />
+          </span>
+          <div className="min-w-0 flex-1">
             <h3 className="text-sm font-semibold text-foreground">{i18n("yourAccess")}</h3>
             <div className="mt-2 flex flex-wrap gap-2">
               {summary.readOnly ? <Badge variant="outline">{i18n("readOnly")}</Badge> : null}
@@ -88,41 +90,41 @@ export function WalletAccessOverview({
               ))}
             </div>
           </div>
-
-          {summary.readOnly ? (
-            <p className="text-sm text-muted-foreground">{i18n("connectForPermissions")}</p>
-          ) : permissions.length > 0 ? (
-            <ul className="grid gap-1.5 text-sm text-foreground sm:grid-cols-2">
-              {permissions.map((permission) => (
-                <li key={permission} className="flex items-start gap-2">
-                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-                  <span>{permission}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-muted-foreground">{i18n("noActivePermissions")}</p>
-          )}
-
-          <DisclosureSection
-            title={i18n("permissionDetails")}
-            description={i18n("permissionDetailsDescription")}
-          >
-            <dl className="space-y-3">
-              <AccessDetailRow label={i18n("approvalPower")} value={approvalPower} />
-              <AccessDetailRow label={i18n("dailyAllowance")} value={dailyAllowance} />
-              <AccessDetailRow
-                label={i18n("proofOfLifeRights")}
-                value={
-                  summary.canRenewProofOfLife
-                    ? i18n("canRenewProofOfLife")
-                    : i18n("cannotRenewProofOfLife")
-                }
-              />
-              <AccessDetailRow label={i18n("recoveryAccess")} value={recoveryAccess} />
-            </dl>
-          </DisclosureSection>
         </div>
+
+        {summary.readOnly ? (
+          <p className="text-sm text-muted-foreground">{i18n("connectForPermissions")}</p>
+        ) : permissions.length > 0 ? (
+          <ul className="grid gap-x-6 gap-y-1.5 text-sm text-foreground sm:grid-cols-[repeat(auto-fit,minmax(16rem,1fr))]">
+            {permissions.map((permission) => (
+              <li key={permission} className="flex items-start gap-2">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                <span>{permission}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-muted-foreground">{i18n("noActivePermissions")}</p>
+        )}
+
+        <DisclosureSection
+          title={i18n("permissionDetails")}
+          description={i18n("permissionDetailsDescription")}
+        >
+          <dl className="space-y-3">
+            <AccessDetailRow label={i18n("approvalPower")} value={approvalPower} />
+            <AccessDetailRow label={i18n("dailyAllowance")} value={dailyAllowance} />
+            <AccessDetailRow
+              label={i18n("proofOfLifeRights")}
+              value={
+                summary.canRenewProofOfLife
+                  ? i18n("canRenewProofOfLife")
+                  : i18n("cannotRenewProofOfLife")
+              }
+            />
+            <AccessDetailRow label={i18n("recoveryAccess")} value={recoveryAccess} />
+          </dl>
+        </DisclosureSection>
       </div>
     </section>
   );

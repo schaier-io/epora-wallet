@@ -412,7 +412,6 @@
     "createItOnceIfNeeded": "Epora maintains the helper. Check again if it is unavailable.",
     "owner": "Owner",
     "peopleAreSet": "People are set.",
-    "readyInYourWallet": "Ready in your wallet.",
     "readyOnPreprod": "Ready on Preprod.",
     "recoveryContact": "Recovery contact",
     "ruleDriven": "Rule-driven",
@@ -422,14 +421,14 @@
     "walletSigner": "Wallet signer"
   },
   "ComponentsUserWorkspaceWorkspaceHeaderView": {
-    "checkingFunds": "Checking funds…",
+    "checkingFunds": "Checking connected wallet…",
     "chooseTheSmartWalletThisSessionShouldUse": "Choose the smart wallet this session should use.",
     "chooseYourNextStep": "Choose your next step",
     "createANewSmartWalletOrOpenOne": "Create a new smart wallet, or open one you already control.",
     "createWallet": "Create wallet",
     "loadingYourWallet": "Loading your wallet…",
     "nameTheWalletChooseWhoCanUseIt": "Name the wallet, choose who can use it, and add its first funds.",
-    "noAdaAvailable": "No ADA available",
+    "noAdaAvailable": "Connected wallet: no ADA",
     "openAWallet": "Open a wallet",
     "refreshWalletData": "Refresh wallet data",
     "reloadTheSmartWalletList": "Reload the smart wallet list",
@@ -437,8 +436,8 @@
     "shareOneNonCustodialCardanoWalletAcrossOwners": "Share one non-custodial Cardano wallet across owners and spenders. Cardano smart contracts hold the funds and enforce every rule on-chain.",
     "smartWallets": "Smart wallets",
     "smartWalletsValue1SwitchOrCreateOne": "Smart wallets, {value1}. Switch or create one.",
-    "value1AdaAvailable": "{value1} ADA available",
-    "walletBalanceUnavailable": "Wallet balance unavailable",
+    "value1AdaAvailable": "Connected wallet: {value1} ADA",
+    "walletBalanceUnavailable": "Connected wallet balance unavailable",
     "walletCouldNotLoad": "Wallet could not load",
     "welcomeToEporaWallet": "Welcome to Epora Wallet"
   },
@@ -483,7 +482,7 @@
     "approvalRequestsCannotRenameThisWallet": "Approval requests cannot rename this wallet. Restore the current name first.",
     "updatingWalletState": "Updating wallet state…",
     "approvalRuleNeedsPower": "This rule needs {approvalThreshold} approval power between the co-signers.",
-    "fixHighlightedFieldsBeforeSaving": "Fix the highlighted fields first. Then this can be saved for the other signers.",
+    "fixHighlightedFieldsBeforeSaving": "Some fields still need a value or a correction. Fix them first. Then this can be saved for the other signers.",
     "proposalBlocked": "{description} Then this can be saved for the other signers.",
     "proposalBlockedWithRecovery": "{description} {recovery} Then this can be saved for the other signers.",
     "refreshChainState": "Refresh chain state",
@@ -501,9 +500,9 @@
     "confirmDistribution": "Confirm distribution",
     "previewPreparation": "Preview preparation",
     "confirmPreparation": "Confirm preparation",
-    "directActionInFlight": "Wait for the transaction in progress to finish. Then this can be saved for the other signers.",
-    "proposalBlockedByFieldErrors": "Fix the highlighted fields first. Then this can be saved for the other signers.",
-    "proposalBlockedByIssue": "{issue} Then this can be saved for the other signers."
+    "previewAction": "Preview {action}",
+    "confirmAction": "Confirm {action}",
+    "directActionInFlight": "Wait for the transaction in progress to finish. Then this can be saved for the other signers."
   },
   "ComponentsUserWorkspaceWorkspaceReviewReceipt": {
     "action": "Action",
@@ -600,7 +599,9 @@
     "beneficiaryAccessRetained": "Retained after withdrawal",
     "beneficiaryAccessRemoved": "Removed after withdrawal",
     "beneficiaryRetainedDetail": "As the final recovery contact, you keep access to remaining funds and later deposits.",
-    "beneficiaryRemovedDetail": "This withdrawal removes your recovery access. You forfeit any unused share and rights to remaining funds and later deposits."
+    "beneficiaryRemovedDetail": "This withdrawal removes your recovery access. You forfeit any unused share and rights to remaining funds and later deposits.",
+    "scheduleUpdateReceipt": "Scheduled payment update receipt",
+    "whatThisTransactionChangesAboutTheScheduledPayments": "What this transaction changes about this wallet's scheduled payments."
   },
   "ComponentsUserWorkspaceWorkspaceSetupCheckpointView": {
     "checkingThisWalletSFunds": "Checking this wallet's funds…",

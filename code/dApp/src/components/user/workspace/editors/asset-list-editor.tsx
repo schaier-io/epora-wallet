@@ -135,7 +135,7 @@ export function AssetListEditor({
                 key={`${uid}-${index}`}
                 className="grid grid-cols-1 items-end gap-3 rounded-md border border-border/60 bg-muted/20 p-3 @sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)_auto]"
               >
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <Label htmlFor={`${uid}-quantity-${index}`}>
                     {isAdaRow ? i18n("howMuchAda") : i18n("howMuch")}
                   </Label>
@@ -170,7 +170,7 @@ export function AssetListEditor({
                         /* Same inset on every side: see config-sttspend-view.tsx — size="sm"'s
                            sm:h-9 outranked the old unconditional h-7 and left the button
                            vertically tighter than it was horizontal inside the h-10 input. */
-                        className="absolute right-1 top-1/2 h-8 sm:h-8 -translate-y-1/2 px-2"
+                        className="absolute right-1 top-1/2 h-8 sm:h-8 -translate-y-1/2 rounded-sm px-2"
                         onClick={() =>
                           updateAsset(index, { quantity: selectedOption.maxQuantity })
                         }
@@ -182,7 +182,7 @@ export function AssetListEditor({
                   </div>
                 </div>
 
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <Label htmlFor={`${uid}-unit-${index}`}>{i18n("asset")}</Label>
                   {hasAvailableOptions ? (
                     <SearchableAssetUnitDropdown

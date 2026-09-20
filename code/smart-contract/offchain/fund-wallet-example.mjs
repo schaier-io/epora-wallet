@@ -26,9 +26,10 @@ import { sttIdentifiersFromEnv } from "./lib/stt-env.mjs";
 const { sttPolicyId, sttAssetName } = sttIdentifiersFromEnv();
 
 console.log("Locking funds into the wallet spend address (example)");
-const { provider: blockchainProvider, network, isDevnet } = resolveProvider();
+const { provider: blockchainProvider, network, networkId, isDevnet } =
+  resolveProvider();
 const wallet = new MeshWallet({
-  networkId: 0,
+  networkId,
   fetcher: blockchainProvider,
   submitter: blockchainProvider,
   key: {

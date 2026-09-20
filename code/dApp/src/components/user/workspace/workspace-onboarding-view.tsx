@@ -20,7 +20,7 @@ export function WorkspaceOnboardingView() {
   const setWalletConnectionDialogOpen = useSetAtom(walletConnectionDialogOpenAtom);
 
   return (
-          <div className="flex min-h-0 flex-1 items-start justify-center pt-2 md:pt-6">
+          <div className="flex min-h-0 flex-1 items-start justify-center">
             {/*
               A CSS entrance, not the JS one. `AnimatedContent` starts at `opacity: 0` as an
               inline style and only reaches 1 after hydration plus an IntersectionObserver
@@ -90,7 +90,7 @@ export function WorkspaceOnboardingView() {
                           <h3 className="font-sans text-base font-semibold leading-snug tracking-[-0.02em] text-foreground md:text-lg">
                             {row.title}
                           </h3>
-                          <p className="text-sm leading-relaxed text-muted-foreground">
+                          <p className="max-w-[46ch] text-sm leading-relaxed text-muted-foreground">
                             {row.body}
                           </p>
                         </div>
@@ -127,7 +127,7 @@ export function WorkspaceOnboardingView() {
                         every other body line on this card: at `text-xs` the one paragraph
                         stating what the app may do with a wallet was the least readable text on
                         the screen. */}
-                    <p className="max-w-[68ch] text-sm leading-relaxed text-muted-foreground">
+                    <p className="max-w-[46ch] text-sm leading-relaxed text-muted-foreground">
                       {i18n("connectingLetsEporaReadYourAddressAndBalance")}
                     </p>
                   </div>
@@ -136,7 +136,10 @@ export function WorkspaceOnboardingView() {
                       than a list that keeps going. The FAQ lost its own box when its rows moved
                       onto the card's rail, and with nothing in its place the card ended in an
                       undifferentiated run of rows. */}
-                  <div className="border-t border-border/60 pt-6">
+                  {/* `pt-10`, not `pt-6`. The first `<summary>`'s own `py-3` puts ~15px of blank
+                      under the eyebrow that the box model does not count, so at `pt-6` the heading
+                      sat equidistant between the rule above it and the row below it. */}
+                  <div className="border-t border-border/60 pt-10">
                     <ProductFaqList />
                   </div>
                 </CardContent>

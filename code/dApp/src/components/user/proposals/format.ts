@@ -23,6 +23,15 @@ export function truncateMiddle(value: string, head = 10, tail = 6): string {
   return `${value.slice(0, head)}…${value.slice(-tail)}`;
 }
 
+/**
+ * The zone is not named here, deliberately. This renders `proposal.createdAt` in the
+ * proposal list (`proposal-list.tsx:196`), where it sits next to the signature progress as
+ * context for how old a request is. It is not a time anyone acts on: the times a reader
+ * acts on are a schedule's start and stop, and those go through `formatTimestampLabel`.
+ * `defaultFormatter` already pins the configured zone (`i18n/config.ts`), so this label
+ * agrees with every other timestamp in the product. Adding a zone suffix to this one alone
+ * would make the quietest timestamp on the screen the loudest.
+ */
 export function formatTimestamp(iso: string): string {
   const date = new Date(iso);
   return Number.isNaN(date.getTime()) ? iso : defaultFormatter.dateTime(date, "short");

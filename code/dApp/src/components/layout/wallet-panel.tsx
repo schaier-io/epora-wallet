@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { type ReactNode, useEffect, useRef } from "react";
 import type { Wallet } from "@meshsdk/core";
 import {
+  ChevronRight,
   Loader2,
   PlugZap,
   RefreshCw,
@@ -278,17 +279,15 @@ export function WalletConnectionDialog({
       <div className="space-y-6">
         {!connectedSwitcher ? (
         <section className="space-y-3">
-          <div className="flex gap-3">
-            <div className="min-w-0 flex-1 space-y-1">
-              <p className="eyebrow font-semibold text-muted-foreground">
-                {i18n("browserWallet")}
-              </p>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                {guidedSteps
-                  ? i18n("useACardanoBrowserWalletHereToApprove")
-                  : i18n("connectABrowserWalletToCreateAndConfirm")}
-              </p>
-            </div>
+          <div className="min-w-0 flex-1 space-y-1">
+            <p className="eyebrow font-semibold text-muted-foreground">
+              {i18n("browserWallet")}
+            </p>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              {guidedSteps
+                ? i18n("useACardanoBrowserWalletHereToApprove")
+                : i18n("connectABrowserWalletToCreateAndConfirm")}
+            </p>
           </div>
 
             <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-muted/25 to-background/40 p-3 sm:p-4 shadow-sm">
@@ -341,7 +340,8 @@ export function WalletConnectionDialog({
                   </Button>
                 </div>
                 <details className="mt-2 rounded-lg border border-border/60 bg-background/45 p-2">
-                  <summary className="cursor-pointer text-xs font-medium text-foreground">
+                  <summary className="flex cursor-pointer list-none items-center gap-2 text-xs font-medium text-foreground [&::-webkit-details-marker]:hidden">
+                    <ChevronRight className="expand-chevron h-4 w-4 shrink-0" aria-hidden="true" />
                     {i18n("connectionHelp")}
                   </summary>
                   <div className="mt-2 space-y-1 text-xs leading-relaxed text-muted-foreground">
@@ -382,7 +382,7 @@ export function WalletConnectionDialog({
               </div>
             ) : null}
             {installedWallets.length > 0 ? (
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="mt-6 grid gap-3 sm:grid-cols-2">
                 {installedWallets.map((wallet) => {
                   const active = wallet.id === activeWalletName;
                   const connecting = wallet.id === connectingWalletName;
@@ -414,15 +414,15 @@ export function WalletConnectionDialog({
                         // the disabled swap the whole grid makes on every connect.
                         "rounded-xl border p-3 text-left duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
                         "transition-[background-color,border-color,box-shadow,transform,opacity]",
-                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card",
                         active
                           ? "border-primary bg-primary/10 shadow-[0_0_0_1px_color-mix(in_oklch,var(--primary)_25%,transparent)]"
                           : "border-border/70 bg-background/60 hover:-translate-y-0.5 hover:border-primary/40 hover:bg-background/80",
                         isConnecting && !connecting && "cursor-not-allowed opacity-70"
                       )}
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex min-w-0 items-center gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="flex min-w-0 flex-1 items-center gap-3">
                           <WalletBrandIcon wallet={wallet} />
                           <p className="min-w-0 truncate text-sm font-medium text-foreground">
                             {wallet.name}

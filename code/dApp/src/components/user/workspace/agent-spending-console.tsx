@@ -203,66 +203,68 @@ export function AgentSpendingConsole({
       className="rounded-lg border border-primary/20 bg-primary/[0.04] p-3 sm:p-4"
       aria-labelledby="agent-spending-console-heading"
     >
-      <div className="flex items-start gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-primary/25 bg-primary/10 text-primary">
-          <Bot className="h-4 w-4" aria-hidden="true" />
-        </span>
-        <div className="min-w-0 flex-1 space-y-3">
-          <div>
+      <div className="space-y-3">
+        {/* The avatar indents the heading row only. While it wrapped the whole column,
+            every row under it carried a 48px left inset against a flush right edge. */}
+        <div className="flex items-start gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-primary/25 bg-primary/10 text-primary">
+            <Bot className="h-4 w-4" aria-hidden="true" />
+          </span>
+          <div className="min-w-0 flex-1">
             <h3 id="agent-spending-console-heading" className="text-sm font-semibold text-foreground">
               {i18n("title")}
             </h3>
             <p className="mt-1 text-sm text-muted-foreground">{i18n("description")}</p>
           </div>
-
-          <p className="text-xs text-muted-foreground">{i18n("freshnessNote")}</p>
-
-          {budgets.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-border/60 bg-background/30 p-3">
-              <p className="text-sm font-medium text-foreground">{i18n("emptyTitle")}</p>
-              <p className="mt-1 text-sm text-muted-foreground">{i18n("emptyHint")}</p>
-              <button
-                type="button"
-                onClick={onChangeAccess}
-                className="mt-2 inline-flex items-center gap-1 rounded-full border border-dashed border-border/60 px-2 py-0.5 text-xs font-medium text-foreground/90 transition-[color,background-color,border-color] duration-200 hover:border-primary/40 hover:bg-primary/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-              >
-                {i18n("changeAccess")}
-              </button>
-            </div>
-          ) : (
-            <div className="grid gap-3 lg:grid-cols-2">
-              {budgets.map((budget) => (
-                <AgentBudgetCard key={`${budget.recordIndex}-${budget.userId}`} budget={budget} />
-              ))}
-              <button
-                type="button"
-                onClick={onChangeAccess}
-                className="col-span-full self-start rounded-sm text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-              >
-                {i18n("changeAccess")}
-              </button>
-            </div>
-          )}
-
-          <DisclosureSection
-            title={i18n("paymentsHeading")}
-            description={i18n("paymentsDescription")}
-          >
-            {eventsLoading ? (
-              <p role="status" className="text-sm text-muted-foreground">
-                {i18n("paymentsLoading")}
-              </p>
-            ) : payments.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{i18n("paymentsEmpty")}</p>
-            ) : (
-              <ul className="space-y-2">
-                {payments.map((record) => (
-                  <AgentPaymentRow key={record.id} record={record} budgets={budgets} />
-                ))}
-              </ul>
-            )}
-          </DisclosureSection>
         </div>
+
+        <p className="text-xs text-muted-foreground">{i18n("freshnessNote")}</p>
+
+        {budgets.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-border/60 bg-background/30 p-3">
+            <p className="text-sm font-medium text-foreground">{i18n("emptyTitle")}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{i18n("emptyHint")}</p>
+            <button
+              type="button"
+              onClick={onChangeAccess}
+              className="mt-2 inline-flex items-center gap-1 rounded-full border border-dashed border-border/60 px-2 py-0.5 text-xs font-medium text-foreground/90 transition-[color,background-color,border-color] duration-200 hover:border-primary/40 hover:bg-primary/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
+            >
+              {i18n("changeAccess")}
+            </button>
+          </div>
+        ) : (
+          <div className="grid gap-3 lg:grid-cols-[repeat(auto-fit,minmax(20rem,1fr))]">
+            {budgets.map((budget) => (
+              <AgentBudgetCard key={`${budget.recordIndex}-${budget.userId}`} budget={budget} />
+            ))}
+            <button
+              type="button"
+              onClick={onChangeAccess}
+              className="col-span-full justify-self-start self-start text-left rounded-sm text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
+            >
+              {i18n("changeAccess")}
+            </button>
+          </div>
+        )}
+
+        <DisclosureSection
+          title={i18n("paymentsHeading")}
+          description={i18n("paymentsDescription")}
+        >
+          {eventsLoading ? (
+            <p role="status" className="text-sm text-muted-foreground">
+              {i18n("paymentsLoading")}
+            </p>
+          ) : payments.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{i18n("paymentsEmpty")}</p>
+          ) : (
+            <ul className="space-y-2">
+              {payments.map((record) => (
+                <AgentPaymentRow key={record.id} record={record} budgets={budgets} />
+              ))}
+            </ul>
+          )}
+        </DisclosureSection>
       </div>
     </section>
   );

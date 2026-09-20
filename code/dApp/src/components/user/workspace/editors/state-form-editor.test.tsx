@@ -22,6 +22,18 @@ import {
   MAX_USERS
 } from "@/lib/contracts/state-validation";
 
+// "stores one full recovery address and derives its sole signing key" serializes the
+// edited form through a real `node --import tsx` subprocess (see the comment at its
+// execFileSync call), so it stretches under full-suite worker contention and timed
+// out once at vitest's 5 s default in CI, the same flake class as
+// stt-spend.integration.test.tsx. In isolation it measures 1211/584/635 ms across
+// three runs on a fast Apple Silicon box; the next-slowest test in this file is
+// 283 ms. 15 s is about 12x the measured worst, well past the observed 5 s CI
+// timeout, while still failing a genuinely hung subprocess in bounded time.
+// vi.setConfig is file-scoped: vitest calls vi.resetConfig() after each file, so
+// other suites keep the 5 s default.
+vi.setConfig({ testTimeout: 15_000 });
+
 describe("StateFormEditor streaming-payment controls", () => {
   it("does not offer schedule creation on the UpdateState path", () => {
     render(
@@ -187,7 +199,11 @@ describe("one place per fact", () => {
 });
 
 describe("create flow", () => {
-  it("stores one full recovery address and derives its sole signing key", () => {
+  // This case spawns a second Node process (see the `execFileSync` note below). The spawn
+  // plus `tsx` startup costs 0.7-1.7s on an idle machine and more when the suite runs in
+  // parallel, so the 5s default times out under load while the assertions themselves are
+  // sub-second. The generous timeout is about process startup, not about the code tested.
+  it("stores one full recovery address and derives its sole signing key", { timeout: 30_000 }, () => {
     const address = "addr_test1qqg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyfzyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3qwzdgzn";
     const paymentHash = "11".repeat(28);
     const stakeHash = "22".repeat(28);
