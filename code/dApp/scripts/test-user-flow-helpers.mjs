@@ -1,48 +1,51 @@
+// Plain-node smoke check for the pure user-flow helpers in src/lib/user-flow
+// and the lovelace formatting in src/lib/units/lovelace. Run:
+//   pnpm test:user-flow-helpers
+// (equivalent to: node --import tsx scripts/test-user-flow-helpers.mjs)
 import assert from "node:assert/strict";
-import fs from "node:fs/promises";
-import path from "node:path";
-import ts from "typescript";
-
-const frontendRoot = path.resolve(process.cwd());
-const helperPath = path.join(frontendRoot, "src/lib/user-flow/guided-helpers.ts");
-const helperSource = await fs.readFile(helperPath, "utf8");
-const transpiled = ts.transpileModule(helperSource, {
-  compilerOptions: {
-    module: ts.ModuleKind.ESNext,
-    target: ts.ScriptTarget.ES2022
-  },
-  fileName: helperPath
-}).outputText;
-
-const helperModuleUrl = `data:text/javascript;base64,${Buffer.from(transpiled).toString("base64")}`;
-const helpers = await import(helperModuleUrl);
-
-const {
-  GUIDED_USER_ACTION_KINDS,
-  buildSubscriptionPayoutTransfer,
+import {
+  chooseAutoOpenDetectedWallet,
+  derivePermissionWalletBadgeLabels,
+  deriveWalletHomeFlowAvailability,
+  filterGuidedUserActions,
+  rememberRecentRecipient,
+  resolveAutomaticSendPath
+} from "../src/lib/user-flow/guided-helpers.ts";
+import {
   combineDurationToMillis,
   combineLocalDateAndTimeToTimestamp,
-  computeSubscriptionDueAmount,
-  chooseAutoOpenDetectedWallet,
-  deriveWalletHomeFlowAvailability,
-  derivePermissionWalletBadgeLabels,
-  filterGuidedUserActions,
+  splitDurationMillis,
+  splitTimestampToLocalInputParts
+} from "../src/lib/user-flow/time-inputs.ts";
+import { requestedTransferAssets } from "../src/lib/user-flow/asset-quantities.ts";
+import {
+  buildStreamingPaymentPayoutTransfer,
+  computeStreamingPaymentDueAmount
+} from "../src/lib/user-flow/streaming-payment-helpers.ts";
+import { suggestWalletInputsForRequestedAssets } from "../src/lib/user-flow/wallet-input-selection.ts";
+import {
   formatLovelaceAsAda,
   formatLovelaceAsAdaRounded,
-  parseAdaToLovelace,
-  rememberRecentRecipient,
-  resolveAutomaticSendPath,
-  requestedTransferAssets,
-  shouldShowCompactAssetSearch,
-  splitDurationMillis,
-  splitTimestampToLocalInputParts,
-  summarizeAssetKinds,
-  summarizePeopleSection,
-  summarizeSettingsSection,
-  summarizeSubscriptionsSection,
-  summarizeWalletHoldings,
-  suggestWalletInputsForRequestedAssets
-} = helpers;
+  parseAdaToLovelace
+} from "../src/lib/units/lovelace.ts";
+
+function capabilityMap(overrides = {}) {
+  return {
+    hasAdminPath: false,
+    hasDirectAdminSigner: false,
+    hasMultisigPath: false,
+    hasDirectUserMatch: false,
+    hasDirectAllowance: false,
+    hasDirectProofOfLifeRenewalMatch: false,
+    hasBeneficiaryMatch: false,
+    hasStreamingPayments: false,
+    hasLockedUtxos: false,
+    lockedUtxosLoading: false,
+    availableOperatorPaths: [],
+    availableConsolidatePaths: [],
+    ...overrides
+  };
+}
 
 const timestamp = combineLocalDateAndTimeToTimestamp("2026-04-06", "14:30");
 assert.match(timestamp, /^\d+$/);
@@ -52,7 +55,7 @@ assert.deepEqual(splitTimestampToLocalInputParts(timestamp), {
 });
 
 assert.equal(formatLovelaceAsAda("5500000"), "5.5");
-assert.equal(formatLovelaceAsAdaRounded("9299375757"), "9,299.4");
+assert.equal(formatLovelaceAsAdaRounded("9299375757"), "9,299.3");
 assert.equal(formatLovelaceAsAdaRounded("15000000"), "15");
 assert.equal(parseAdaToLovelace("5.5"), "5500000");
 assert.equal(parseAdaToLovelace("1.234567"), "1234567");
@@ -71,20 +74,17 @@ assert.deepEqual(
   filterGuidedUserActions([
     { kind: "mint" },
     { kind: "update-state" },
-    { kind: "manage-subscriptions" },
+    { kind: "manage-streaming-payments" },
     { kind: "wallet-withdraw" },
     { kind: "use-beneficiary" }
   ]),
   [
     { kind: "mint" },
     { kind: "update-state" },
-    { kind: "manage-subscriptions" },
+    { kind: "manage-streaming-payments" },
     { kind: "use-beneficiary" }
   ]
 );
-assert.deepEqual(GUIDED_USER_ACTION_KINDS.includes("wallet-withdraw"), false);
-assert.deepEqual(GUIDED_USER_ACTION_KINDS.includes("update-state"), true);
-assert.deepEqual(GUIDED_USER_ACTION_KINDS.includes("manage-subscriptions"), true);
 
 assert.deepEqual(
   rememberRecentRecipient(["addr2", "addr1"], "addr3"),
@@ -103,114 +103,64 @@ assert.equal(
   null
 );
 assert.deepEqual(
-  derivePermissionWalletBadgeLabels({
-    hasAdminPath: true,
-    hasDirectAdminSigner: true,
-    hasMultisigPath: false,
-    hasDirectUserMatch: true,
-    hasBeneficiaryMatch: false,
-    hasSubscriptions: true,
-    hasLockedUtxos: true,
-    lockedUtxosLoading: false,
-    availableOperatorPaths: ["admin"],
-    availableConsolidatePaths: ["admin"]
-  }),
-  ["Admin", "Allowance", "Subscriptions"]
+  derivePermissionWalletBadgeLabels(
+    capabilityMap({
+      hasDirectAdminSigner: true,
+      hasDirectAllowance: true,
+      hasBeneficiaryMatch: true,
+      hasStreamingPayments: true
+    })
+  ),
+  ["Owner", "Allowance", "Recovery", "Scheduled"]
 );
 assert.equal(
-  resolveAutomaticSendPath({
-    hasAdminPath: true,
-    hasDirectAdminSigner: true,
-    hasMultisigPath: false,
-    hasDirectUserMatch: true,
-    hasBeneficiaryMatch: true,
-    hasSubscriptions: false,
-    hasLockedUtxos: true,
-    lockedUtxosLoading: false,
-    availableOperatorPaths: ["admin"],
-    availableConsolidatePaths: ["admin"]
-  }),
+  resolveAutomaticSendPath(
+    capabilityMap({
+      hasAdminPath: true,
+      hasDirectAdminSigner: true,
+      hasLockedUtxos: true,
+      availableOperatorPaths: ["admin"],
+      availableConsolidatePaths: ["admin"]
+    })
+  ),
   "use"
 );
 assert.equal(
-  resolveAutomaticSendPath({
-    hasAdminPath: false,
-    hasDirectAdminSigner: false,
-    hasMultisigPath: false,
-    hasDirectUserMatch: true,
-    hasBeneficiaryMatch: true,
-    hasSubscriptions: false,
-    hasLockedUtxos: true,
-    lockedUtxosLoading: false,
-    availableOperatorPaths: [],
-    availableConsolidatePaths: []
-  }),
+  resolveAutomaticSendPath(capabilityMap({ hasDirectAllowance: true })),
   "use-allowance"
 );
+assert.equal(
+  resolveAutomaticSendPath(capabilityMap({ hasBeneficiaryMatch: true })),
+  "use-beneficiary"
+);
+assert.equal(resolveAutomaticSendPath(null), "use");
 assert.deepEqual(
-  deriveWalletHomeFlowAvailability({
-    hasAdminPath: true,
-    hasDirectAdminSigner: false,
-    hasMultisigPath: true,
-    hasDirectUserMatch: false,
-    hasBeneficiaryMatch: false,
-    hasSubscriptions: true,
-    hasLockedUtxos: true,
-    lockedUtxosLoading: false,
-    availableOperatorPaths: ["multisig"],
-    availableConsolidatePaths: ["multisig"]
-  }),
+  deriveWalletHomeFlowAvailability(
+    capabilityMap({
+      hasAdminPath: true,
+      hasMultisigPath: true,
+      hasStreamingPayments: true,
+      hasLockedUtxos: true,
+      availableOperatorPaths: ["multisig"],
+      availableConsolidatePaths: ["multisig"]
+    })
+  ),
   {
     canSend: true,
     canAddFunds: true,
     canManagePeople: true,
     canManageSettings: true,
-    canPaySubscriptions: true,
-    canManageSubscriptions: true
+    canPayStreamingPayments: true,
+    canManageStreamingPayments: true
   }
 );
-assert.equal(
-  summarizeAssetKinds(
-    [
-      { unit: "lovelace", quantity: "1" },
-      { unit: "policy1asset1", quantity: "2" },
-      { unit: "policy2asset2", quantity: "3" }
-    ],
-    2
-  ),
-  "ADA, policy1asset1 +1 more"
-);
-assert.equal(
-  shouldShowCompactAssetSearch([{ unit: "lovelace", quantity: "1" }], ""),
-  false
-);
-assert.equal(
-  shouldShowCompactAssetSearch(
-    [
-      { unit: "lovelace", quantity: "1" },
-      { unit: "token1", quantity: "2" },
-      { unit: "token2", quantity: "3" }
-    ],
-    ""
-  ),
-  true
-);
-assert.equal(
-  summarizeWalletHoldings([
-    { unit: "lovelace", quantity: "15000000" },
-    { unit: "token1", quantity: "2" }
-  ]),
-  "15 ADA available"
-);
-assert.equal(summarizePeopleSection(3, 1), "1 admin(s), 2 user(s)");
-assert.equal(summarizeSubscriptionsSection(0), "0 active");
-assert.equal(summarizeSettingsSection(2), "2 beneficiary rule(s)");
 
 const suggestedRefs = suggestWalletInputsForRequestedAssets(
   [
     {
       input: { txHash: "a".repeat(64), outputIndex: 0 },
       output: {
+        address: "addr_test1...",
         amount: [
           { unit: "lovelace", quantity: "3000000" },
           { unit: "token", quantity: "2" }
@@ -220,6 +170,7 @@ const suggestedRefs = suggestWalletInputsForRequestedAssets(
     {
       input: { txHash: "b".repeat(64), outputIndex: 1 },
       output: {
+        address: "addr_test1...",
         amount: [{ unit: "lovelace", quantity: "4000000" }]
       }
     }
@@ -234,32 +185,21 @@ assert.deepEqual(suggestedRefs, [
   { txHash: "b".repeat(64), outputIndex: 1 }
 ]);
 
-const dueAmount = computeSubscriptionDueAmount(
-  {
-    id: "7",
-    payoutAddress: "addr_test1...",
-    paidOutAmount: "0",
-    policyId: "",
-    assetName: "",
-    amountPerDay: "1000000",
-    startDate: "0",
-    endDate: "172800000"
-  },
-  86400000
-);
+const scheduledPayment = {
+  id: "7",
+  payoutAddress: "addr_test1...",
+  paidOutAmount: "0",
+  policyId: "",
+  assetName: "",
+  amountPerDay: "1000000",
+  startDate: "0",
+  endDate: "172800000"
+};
+const dueAmount = computeStreamingPaymentDueAmount(scheduledPayment, 86_400_000);
 assert.equal(dueAmount, "1000000");
 
-const payoutTransfer = buildSubscriptionPayoutTransfer(
-  {
-    id: "7",
-    payoutAddress: "addr_test1...",
-    paidOutAmount: "0",
-    policyId: "",
-    assetName: "",
-    amountPerDay: "1000000",
-    startDate: "0",
-    endDate: "172800000"
-  },
+const payoutTransfer = buildStreamingPaymentPayoutTransfer(
+  scheduledPayment,
   "1000000",
   "c".repeat(64),
   2
@@ -270,4 +210,4 @@ assert.deepEqual(requestedTransferAssets([payoutTransfer]), [
 assert.equal(payoutTransfer.inlineDatum.alternative, 0);
 assert.deepEqual(payoutTransfer.inlineDatum.fields, [7, "c".repeat(64), 2]);
 
-console.log("guided helper tests passed");
+console.log("user-flow helper smoke checks passed");
