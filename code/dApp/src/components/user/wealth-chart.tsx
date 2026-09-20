@@ -273,7 +273,11 @@ export function WealthChart({
                   // border rather than clear of it.
                   // `py-1.5 min-h-6`: these are the only control over what the chart draws,
                   // and at `py-0.5` they stood 19px tall against 10px of side padding.
+                  // The invisible after-layer stretches the touch target to the 44px
+                  // height (and to the 4px gap on each side) without moving the pills;
+                  // horizontally it stops at the gap so neighbours never overlap.
                   "relative isolate min-h-6 rounded-full px-2.5 py-1.5 text-[11px] font-medium transition-colors",
+                  "after:absolute after:-inset-y-2.5 after:-inset-x-0.5 after:content-['']",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   active ? "text-foreground" : "text-muted-foreground hover:text-foreground"
                 )}
