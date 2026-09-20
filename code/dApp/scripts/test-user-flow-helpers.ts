@@ -17,10 +17,10 @@ import {
   resolveAutomaticSendPath
 } from "../src/lib/user-flow/guided-helpers";
 import {
+  combineDateAndTimeToTimestamp,
   combineDurationToMillis,
-  combineLocalDateAndTimeToTimestamp,
   splitDurationMillis,
-  splitTimestampToLocalInputParts
+  splitTimestampToInputParts
 } from "../src/lib/user-flow/time-inputs";
 import { requestedTransferAssets } from "../src/lib/user-flow/asset-quantities";
 import {
@@ -52,9 +52,9 @@ function capabilityMap(overrides = {}) {
   };
 }
 
-const timestamp = combineLocalDateAndTimeToTimestamp("2026-04-06", "14:30");
+const timestamp = combineDateAndTimeToTimestamp("2026-04-06", "14:30");
 assert.match(timestamp, /^\d+$/);
-assert.deepEqual(splitTimestampToLocalInputParts(timestamp), {
+assert.deepEqual(splitTimestampToInputParts(timestamp), {
   date: "2026-04-06",
   time: "14:30"
 });
