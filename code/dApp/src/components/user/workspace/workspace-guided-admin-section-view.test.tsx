@@ -3,7 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import { Users } from "lucide-react";
 
 const mockState = vi.hoisted(() => ({
-  activeAdminGroupId: null as string | null
+  activeAdminGroupId: null as string | null,
+  status: { token: "ready", label: "Configured" } as { token: string; label: string }
 }));
 
 vi.mock("@/components/user/workspace/workspace-actions-context", () => ({
@@ -17,7 +18,7 @@ vi.mock("@/components/user/workspace/workspace-actions-context", () => ({
       }
     ],
     guidedAdminGroupBadgeText: { "manage-people": "1 owner" },
-    guidedAdminGroupStatusText: { "manage-people": "Configured" },
+    guidedAdminGroupStatusText: { "manage-people": mockState.status },
     activeAdminGroupId: mockState.activeAdminGroupId,
     openGuidedAdminGroup: vi.fn()
   })
@@ -38,6 +39,29 @@ describe("guided admin section", () => {
     render(<GuidedAdminSectionView />);
 
     expect(screen.getByText("Configured")).toHaveClass("bg-secondary");
+  });
+
+  /**
+   * The tone used to be picked by comparing the rendered label against the English
+   * literals "Configured" and "Draft". Every other label fell through to `outline`:
+   * the scheduled-payments group emits "Ready" for the same ready state, so it lost
+   * its tone in English, and every non-English locale lost the tone on both groups.
+   */
+  it.each([
+    { token: "ready", label: "Ready", expected: "bg-secondary" },
+    { token: "ready", label: "Konfiguriert", expected: "bg-secondary" },
+    { token: "draft", label: "Entwurf", expected: "bg-amber-500/15" },
+    { token: "needsSetup", label: "Needs setup", expected: "border-border/80" }
+  ])("tones $label from the $token token, not the translated label", (scenario) => {
+    mockState.status = { token: scenario.token, label: scenario.label };
+
+    try {
+      render(<GuidedAdminSectionView />);
+
+      expect(screen.getByText(scenario.label)).toHaveClass(scenario.expected);
+    } finally {
+      mockState.status = { token: "ready", label: "Configured" };
+    }
   });
 
   it("puts the section label on the eyebrow rung", () => {

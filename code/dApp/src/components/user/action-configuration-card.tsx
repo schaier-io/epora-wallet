@@ -127,6 +127,13 @@ export function UserActionConfigurationCard({
     <Card className="relative overflow-hidden">
       <CardSilkBackground section={resolvedSection} />
       <CardHeader className="relative z-10 pb-3">
+        {/* The row stays `items-start` and the action group carries `-mt-1`. A 44/36 CSS
+            button box beside a 22.5 CSS title line drops the button label 10.75/6.75 CSS
+            below the title's centre; -4 CSS takes that to 6.75/2.75. `items-baseline`
+            aligns the two exactly, but the description keeps the left column taller than
+            the buttons, so it pushes the title 11/7 CSS off the card's own padding edge
+            and grows the header by the same amount. `items-center` is worse again: it
+            centres the buttons on the title AND description together, 12 CSS low. */}
         <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
           <div className="min-w-0">
             <CardTitle>{title ?? i18n("actionDetails")}</CardTitle>
@@ -134,7 +141,11 @@ export function UserActionConfigurationCard({
               <CardDescription className="mt-1">{resolvedDescription}</CardDescription>
             ) : null}
           </div>
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {/* `-mr-2` cancels the ghost buttons' own `px-2`, so the label hangs on the card's
+              right rail instead of 8 CSS inside it. The card is `p-4 sm:p-6`, so the 8 CSS
+              of border box and the 4 CSS of `ring-offset-2 ring-2` outside it both stay
+              inside the card border at every width. */}
+          <div className="-mr-2 -mt-1 flex shrink-0 flex-wrap items-center gap-2">
             {selectedDetectedToken && supportsDetectedTokenReset(selectedAction) ? (
               <Button type="button" size="sm" variant="ghost" onClick={onReset} className="px-2 text-xs">
                 <RotateCcw className="h-3.5 w-3.5" />
@@ -157,7 +168,7 @@ export function UserActionConfigurationCard({
       <CardContent className="relative z-10 space-y-4">
         <AnimatedContent distance={18}>
           {riskLabel ? (
-            <Badge className="mb-3" variant={definition.risk === "high" ? "warning" : "outline"}>
+            <Badge className="mb-4" variant={definition.risk === "high" ? "warning" : "outline"}>
               {riskLabel}
             </Badge>
           ) : null}

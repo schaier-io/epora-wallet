@@ -45,8 +45,11 @@ export function WalletWithdrawConfigView() {
     <div className="space-y-4">
       {!isWalletStakingEnabled ? (
         // Out of the section below and given a control. The old copy told the reader to turn
-        // on staking on a screen that had no way to do it, and the review rail states the same
-        // blocker three more times; this is the one place that can act on it.
+        // on staking on a screen that had no way to do it, and the review rail repeated the
+        // same blocker sentence verbatim. That field error is now a short pointer
+        // ("Turn on staking before you claim rewards.", `action-validation-shared.ts`), so the
+        // explanation lives here and in the review receipt, and this is still the one place
+        // that can act on it.
         <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-100">
           <p className="leading-relaxed">
             {i18n("stakingIsOffForThisWalletSoIt")}

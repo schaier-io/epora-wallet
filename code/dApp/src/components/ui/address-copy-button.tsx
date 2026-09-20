@@ -25,7 +25,13 @@ export function AddressCopyButton({
       hideLabel
       variant="ghost"
       size="sm"
-      className={cn("h-6 px-1.5", className)}
+      // The painted box drops to the 12px text line this sits on (`-my-1`), while the
+      // `after:` band keeps the pressable area at 24px. `sm:h-5` has to ride along:
+      // tailwind-merge keeps the size variant's own `sm:h-9` otherwise.
+      className={cn(
+        "relative -my-1 h-5 px-1.5 after:absolute after:inset-x-0 after:-inset-y-0.5 sm:h-5",
+        className
+      )}
     />
   );
 }

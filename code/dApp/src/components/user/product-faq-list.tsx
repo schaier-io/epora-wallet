@@ -67,7 +67,7 @@ export function ProductFaqList() {
                 aria-hidden="true"
               />
             </summary>
-            <p className="mb-3 max-w-[68ch] text-sm leading-relaxed text-muted-foreground">
+            <p className="mb-3 max-w-[46ch] text-sm leading-relaxed text-muted-foreground">
               {entry.answer}
             </p>
           </details>

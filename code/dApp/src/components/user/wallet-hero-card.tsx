@@ -157,8 +157,16 @@ export function WalletHeroCard({
             </h3>
           </div>
           <div className="flex w-fit max-w-full flex-wrap items-center gap-1">
+            {/*
+              No `key` here. It used to be `addressCopied ? "copied" : "idle"`, to restart the
+              copy-pulse animation, but a key change remounts the node: React destroyed the
+              focused button, so a keyboard user who pressed Enter on Copy was thrown to
+              `<body>`. The key bought nothing either. The animation plays because the
+              `animate-[copy-pulse...]` class is added when `addressCopied` flips, and a repeat
+              copy inside the 1800ms feedback window keeps the same key, so it never restarted
+              that case anyway.
+            */}
             <button
-              key={addressCopied ? "copied" : "idle"}
               type="button"
               onClick={onCopyAddress}
               disabled={!address}

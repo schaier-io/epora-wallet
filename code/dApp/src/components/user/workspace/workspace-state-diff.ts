@@ -63,12 +63,16 @@ function formatOption(mode: "none" | "some", value: string, unset: string): stri
   return mode === "some" && value.trim().length > 0 ? value.trim() : unset;
 }
 
+// The zone is named. These rows are what a signer reads before approving a state
+// rewrite, and the app formats in `defaultTimeZone`, not the reader's zone, so an
+// unnamed time here read as the reader's wall clock and was not: the same instant
+// showed as 11:33 in the editor input beside it and 03:33 PM in this row.
 function formatTimestamp(value: string): string {
   const asNumber = Number(value);
   if (!Number.isFinite(asNumber) || asNumber <= 0) {
     return value.trim() || i18n("unset");
   }
-  return defaultFormatter.dateTime(asNumber, "short");
+  return defaultFormatter.dateTime(asNumber, "shortWithZone");
 }
 
 function change(before: string, after: string): string {

@@ -64,6 +64,8 @@ export function WorkspaceReviewRailView() {
     activeActionDraft,
     activeFieldErrors,
     activeReadinessIssues,
+    blockingFieldErrors,
+    blockingReadinessIssues,
     buildAndSubmitSelectedActionTx,
     buildSelectedActionTx,
     submitTransactionPreview,
@@ -111,7 +113,10 @@ export function WorkspaceReviewRailView() {
 
   const transactionInFlight = directActionPending || activeBuild !== null || activeSubmit || walletStateUpdating;
   const directActionInFlight = !preparingProposal && transactionInFlight;
-  const proposalBlockingIssue = activeReadinessIssues.find((issue) => issue.blocking);
+  // The RAW pair, not the display-gated one: this reason disables the approval CTA, so
+  // reading the gated pair would arm "Save as approval request" over a pristine invalid
+  // draft. `activeFieldErrors` / `activeReadinessIssues` stay gated for what is shown.
+  const proposalBlockingIssue = blockingReadinessIssues.find((issue) => issue.blocking);
   // Both sentences were English literals here. The i18n migrator only reads JSX, so a
   // string built in the component body ships untranslated and `i18n:check` never sees it.
   // The issue text stays a placeholder: it is data the readiness gate produced, not copy.
@@ -122,7 +127,7 @@ export function WorkspaceReviewRailView() {
           recovery: proposalBlockingIssue.recovery
         })
       : i18n("proposalBlocked", { description: proposalBlockingIssue.description })
-    : hasFieldErrors(activeFieldErrors)
+    : hasFieldErrors(blockingFieldErrors)
       ? i18n("fixHighlightedFieldsBeforeSaving")
       : null;
   const approvalThreshold =
@@ -167,7 +172,10 @@ export function WorkspaceReviewRailView() {
 
   // Request the co-signer path. The shared build record reuses only the same authority.
   async function saveAsApprovalRequest() {
-    if (preparingProposal || transactionInFlight) {
+    // `approvalBlockedReason` is the same reason the CTA renders disabled, checked here
+    // too so the handler is not the one control on this rail whose only guard is a DOM
+    // attribute. `runDirectAction` above already re-checks its own disabled reason.
+    if (preparingProposal || transactionInFlight || approvalBlockedReason) {
       return;
     }
     setPreparingProposal(true);

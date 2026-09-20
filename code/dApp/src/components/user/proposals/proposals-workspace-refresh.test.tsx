@@ -14,7 +14,12 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams("proposal=proposal-1")
 }));
 vi.mock("@/providers/wallet-provider", () => ({
-  useWalletContext: () => ({ activeWallet: wallet, isDemoWallet: false })
+  useWalletContext: () => ({
+    activeWallet: wallet,
+    activeAddress: "addr_test1refresh",
+    isDemoWallet: false,
+    walletSessionLoading: false
+  })
 }));
 vi.mock("@/lib/proposals/client", async (importOriginal) => ({
   ...await importOriginal<typeof ProposalClient>(),

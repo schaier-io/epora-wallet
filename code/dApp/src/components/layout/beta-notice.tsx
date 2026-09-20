@@ -30,7 +30,7 @@ export function BetaNotice() {
         <button
           type="button"
           onClick={() => setDismissed(true)}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-amber-500/40 px-2 py-1 font-medium text-amber-50 transition-colors hover:bg-amber-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+          className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-md border border-amber-500/40 px-2 py-1 md:min-h-8 font-medium text-amber-50 transition-colors hover:bg-amber-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
         >
           {i18n("gotIt")}
           <X className="h-3.5 w-3.5" aria-hidden="true" />

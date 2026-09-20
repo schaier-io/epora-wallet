@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { buildGuidedActionDrafts, getPrimaryBlockingIssue, type GuidedActionDraftContext } from "@/components/user/guided-action-adapters";
 import {
   USER_ACTION_DEFINITION_MAP,
@@ -15,6 +15,9 @@ import type {
   UserActionKind
 } from "@/components/user/flow-types";
 import type { BuildResult } from "@/lib/types/contracts";
+
+/** Stable empty map, so the gated value below keeps a stable identity between renders. */
+const NO_FIELD_ERRORS: FieldErrors = {};
 
 type UseUserFlowStateInput = {
   setupState: SetupState;
@@ -94,6 +97,49 @@ export function useUserFlowState({
   const activeSetupReadinessIssues = activeActionDefinition.prerequisites
     .map((key) => setupReadinessByKey[key])
     .filter((issue): issue is ReadinessIssue => Boolean(issue));
+
+  // Display gate for field validation. `activeFieldErrors` is a pure derivation of the
+  // draft, so an action the user had only just opened arrived with every "required"
+  // message already on screen: rose border, inline message and attention panel, before a
+  // single keystroke.
+  //
+  // This suppresses the DISPLAY of those messages only. `activeFieldErrors` and
+  // `activeReadinessIssues` keep their raw values, and the build gate, the primary CTA and
+  // the approval CTA keep reading those. A pristine invalid draft must stay un-buildable,
+  // because the builders assume the validator already ran: an empty vote reaches Mesh's
+  // `addBasicVote` as a raw TypeError (see `action-validation-shared.ts`).
+  //
+  // "Touched" is the per-action form fingerprint the preview comparison already uses, held
+  // against the fingerprint captured when this action became the selected one. It is a
+  // comparison and not a latch, so clearing the form back to how it opened hides the
+  // messages again, and switching actions re-captures the fingerprint, so one action's
+  // touched state can never carry onto another. A value that settles asynchronously (a
+  // state form seeded from chain) also reads as a change: that reveals the messages early,
+  // which is exactly the old behaviour, and never the reverse.
+  const selectedActionSignature = getBuildActionSignature(selectedAction);
+  // React's own "adjust state while rendering" pattern, not an effect: the captured
+  // fingerprint has to be right in the same render that switches action, or the new
+  // action's first paint would compare against the old action's fingerprint and open
+  // accusing. The `action` check below keeps the one transitional render (the state is
+  // still stale there) on the hidden side, which is the safe side.
+  const [pristineSignature, setPristineSignature] = useState({
+    action: selectedAction,
+    signature: selectedActionSignature
+  });
+  if (pristineSignature.action !== selectedAction) {
+    setPristineSignature({ action: selectedAction, signature: selectedActionSignature });
+  }
+  const fieldErrorsVisible =
+    pristineSignature.action === selectedAction &&
+    pristineSignature.signature !== selectedActionSignature;
+  const visibleFieldErrors = fieldErrorsVisible ? activeFieldErrors : NO_FIELD_ERRORS;
+  // The readiness list is prerequisite issues followed by one issue per field error, so
+  // hiding the field half leaves exactly the prerequisites -- which is what
+  // `activeSetupReadinessIssues` already is.
+  const visibleReadinessIssues = fieldErrorsVisible
+    ? activeReadinessIssues
+    : activeSetupReadinessIssues;
+
   const lastActionDisplayLabel =
     lastActionLabel && lastActionLabel in USER_ACTION_DEFINITION_MAP
       ? USER_ACTION_DEFINITION_MAP[lastActionLabel as UserActionKind].label
@@ -106,6 +152,8 @@ export function useUserFlowState({
     activeActionDraft,
     activeFieldErrors,
     activeReadinessIssues,
+    visibleFieldErrors,
+    visibleReadinessIssues,
     activeActionDefinition,
     activeSetupReadinessIssues,
     previewMatchesSelectedAction,

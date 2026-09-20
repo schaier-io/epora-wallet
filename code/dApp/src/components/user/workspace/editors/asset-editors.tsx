@@ -474,7 +474,7 @@ export function WalletInputRefsEditor({
 
   const hasRefs = value.length > 0;
   return (
-    <details className="group rounded-lg border border-border/40 bg-background/20 p-3" open={hasRefs}>
+    <details className="group rounded-lg border border-border/40 bg-background/20 p-3 sm:p-4" open={hasRefs}>
       <summary className="flex cursor-pointer items-center justify-between gap-2 text-xs text-muted-foreground">
         <span className="font-medium text-foreground">
           {i18n("advanced")} {label.toLowerCase()}

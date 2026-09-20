@@ -14,7 +14,7 @@ export type DurationParts = {
   unit: DurationUnit;
 };
 
-export type LocalDateTimeParts = {
+export type DateTimeParts = {
   date: string;
   time: string;
 };
@@ -23,7 +23,23 @@ export const DURATION_UNIT_MAP = Object.fromEntries(
   DURATION_UNITS.map((unit) => [unit.value, unit.milliseconds])
 ) as Record<DurationUnit, bigint>;
 
-export function splitTimestampToLocalInputParts(value: string): LocalDateTimeParts {
+/**
+ * Splits a stored millisecond timestamp into the two halves a `date` and a `time`
+ * input carry, in `defaultTimeZone` (UTC).
+ *
+ * This used to shift by `getTimezoneOffset()`, so the two inputs held the reader's
+ * own wall clock while every rendered timestamp in the app (all of them pinned to
+ * `defaultTimeZone`, see `i18n/config.ts`) held UTC. The echo under the inputs then
+ * read a UTC number and called it local. One zone for the whole column removes the
+ * divergence; the echo names the zone so the number is never read as a local clock.
+ *
+ * The split is UTC because `toISOString()` is, which only matches the labels while
+ * `defaultTimeZone` is "UTC". `time-inputs.test.ts` derives the expected halves from
+ * `defaultTimeZone` itself and fails if that ever stops being true. It also pins its
+ * own host zone off UTC, so a host-zone shift put back here fails on a UTC CI runner
+ * too, where it would otherwise be a no-op.
+ */
+export function splitTimestampToInputParts(value: string): DateTimeParts {
   const timestamp = readPositiveBigInt(value);
   if (timestamp === null || timestamp <= 0n) {
     return { date: "", time: "" };
@@ -34,9 +50,7 @@ export function splitTimestampToLocalInputParts(value: string): LocalDateTimePar
     return { date: "", time: "" };
   }
 
-  const offsetMinutes = date.getTimezoneOffset();
-  const localDate = new Date(date.getTime() - offsetMinutes * 60_000);
-  const iso = localDate.toISOString();
+  const iso = date.toISOString();
 
   return {
     date: iso.slice(0, 10),
@@ -44,7 +58,8 @@ export function splitTimestampToLocalInputParts(value: string): LocalDateTimePar
   };
 }
 
-export function combineLocalDateAndTimeToTimestamp(
+/** The inverse of `splitTimestampToInputParts`: both halves are read as UTC. */
+export function combineDateAndTimeToTimestamp(
   date: string,
   time: string
 ): string {
@@ -54,7 +69,7 @@ export function combineLocalDateAndTimeToTimestamp(
     return "";
   }
 
-  const parsed = new Date(`${normalizedDate}T${normalizedTime}`);
+  const parsed = new Date(`${normalizedDate}T${normalizedTime}Z`);
   if (Number.isNaN(parsed.getTime())) {
     return "";
   }

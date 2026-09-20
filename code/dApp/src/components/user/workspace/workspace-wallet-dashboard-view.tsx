@@ -181,7 +181,7 @@ export function WorkspaceWalletDashboardView() {
                 {resolvedGuidedOverviewSection === "home" ? (
                   <Card className="user-surface relative overflow-hidden">
                     <CardSilkBackground section="home" />
-                    <CardHeader className="relative z-10 pb-3">
+                    <CardHeader className="relative z-10 pb-6">
                       <CardTitle className="flex items-center gap-2">
                         <House className="h-4 w-4 text-primary" />
                         {i18n("walletHome")}
@@ -373,8 +373,12 @@ export function WorkspaceWalletDashboardView() {
                                         <p className="flex items-baseline gap-1.5">
                                           <span
                                             className={cn(
-                                              "font-display font-medium tabular-nums leading-none tracking-[-0.02em] text-muted-foreground/70",
-                                              /^\d+$/.test(row.emptyValue) ? "text-2xl" : "text-lg"
+                                              "font-display font-medium tabular-nums tracking-[-0.02em] text-muted-foreground/70",
+                                              /^\d+$/.test(row.emptyValue) ? "text-2xl" : "text-lg",
+                                              // After the size class, never before it: tailwind-merge
+                                              // treats `text-<size>` as conflicting with `leading-*`, so a
+                                              // leading listed first is dropped from the output entirely.
+                                              "leading-6"
                                             )}
                                           >
                                             {row.emptyValue}
@@ -397,8 +401,14 @@ export function WorkspaceWalletDashboardView() {
                                         <p className="flex items-baseline gap-1.5">
                                           <span
                                             className={cn(
-                                              "font-display font-medium tabular-nums leading-none tracking-[-0.02em]",
+                                              // `leading-6` on both branches, not `leading-none`: the value switches between
+                                              // `text-2xl` and `text-lg`, and two different line boxes pulled the
+                                              // shorter tile's baseline off the row. It is listed after the size
+                                              // class because tailwind-merge drops a `leading-*` that precedes a
+                                              // `text-<size>`.
+                                              "font-display font-medium tabular-nums tracking-[-0.02em]",
                                               numeric ? "text-2xl" : "text-lg",
+                                              "leading-6",
                                               row.urgent ? "text-amber-300" : "text-foreground"
                                             )}
                                           >
