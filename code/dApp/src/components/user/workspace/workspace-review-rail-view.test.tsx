@@ -81,6 +81,7 @@ function renderRail(options: {
   buildAndSubmitSelectedActionTx?: ReturnType<typeof vi.fn>;
   submitTransactionPreview?: ReturnType<typeof vi.fn>;
   selectedAction?: string;
+  stateOverrides?: Partial<PermissionWalletWorkspaceState>;
 }) {
   signingActions.value = options.signingAvailability ?? {
     canDirectSign: true,
@@ -112,6 +113,9 @@ function renderRail(options: {
     activeActionDraft: { nextStep: "Review" },
     activeFieldErrors: {},
     activeReadinessIssues: [],
+    // The raw pair. The view gates the approval CTA on these, and shows the two above.
+    blockingFieldErrors: {},
+    blockingReadinessIssues: [],
     buildAndSubmitSelectedActionTx: options.buildAndSubmitSelectedActionTx ?? vi.fn(),
     buildSelectedActionTx: options.buildSelectedActionTx,
     submitTransactionPreview: options.submitTransactionPreview ?? vi.fn(),
@@ -124,7 +128,8 @@ function renderRail(options: {
     reviewPanelDescription: "Review",
     reviewReceipt: { title: "Review", summary: "", items: [] },
     reviewPrimaryActionLabel: "Continue",
-    reviewPrimaryActionDisabled: false
+    reviewPrimaryActionDisabled: false,
+    ...options.stateOverrides
   } as unknown as PermissionWalletWorkspaceState;
   state.proposalCaptureRef.current = {} as never;
 
@@ -427,6 +432,61 @@ describe("context-aware signing actions", () => {
     expect(reviewPanelProps.latest.primaryActionLabel).toBe("Continue");
     expect(reviewPanelProps.latest.secondaryActionLabel).toBeNull();
     expect(reviewPanelProps.latest.approvalActionNote).toBeNull();
+  });
+
+  // The display gate (S1-L) hides field errors on a form the user has not touched. The
+  // approval CTA must keep reading the RAW pair, or an untouched invalid draft would arm
+  // "Save as approval request" with nothing on screen to say why it should not.
+  it("still blocks the approval action on a pristine invalid draft", () => {
+    const buildSelectedActionTx = vi.fn();
+    const handleSaveProposalFromBuild = vi.fn();
+    renderRail({
+      previewMatchesSelectedAction: false,
+      buildSelectedActionTx,
+      handleSaveProposalFromBuild,
+      selectedAction: "wallet-vote",
+      stateOverrides: {
+        // What the user sees: nothing, because the form is untouched.
+        activeFieldErrors: {},
+        activeReadinessIssues: [],
+        // What the gate sees: the validator's real verdict.
+        blockingFieldErrors: { "Vote JSON": ["Paste the vote first."] },
+        blockingReadinessIssues: []
+      } as unknown as Partial<PermissionWalletWorkspaceState>
+    });
+
+    expect(reviewPanelProps.latest.secondaryActionDisabled).toBe(true);
+    // The note is derived from the RAW pair, so on a pristine form it appears with no
+    // field highlighted. It must therefore not send the reader looking for a highlight.
+    expect(reviewPanelProps.latest.approvalActionNote).toBe(
+      "Some fields still need a value or a correction. Fix them first. Then this can be saved for the other signers."
+    );
+    expect(reviewPanelProps.latest.approvalActionNote).not.toMatch(/highlight/i);
+    (reviewPanelProps.latest.onSecondaryAction as () => void)();
+    expect(buildSelectedActionTx).not.toHaveBeenCalled();
+    expect(handleSaveProposalFromBuild).not.toHaveBeenCalled();
+  });
+
+  it("still blocks the approval action on a pristine draft with a blocking readiness issue", () => {
+    renderRail({
+      previewMatchesSelectedAction: false,
+      buildSelectedActionTx: vi.fn(),
+      handleSaveProposalFromBuild: vi.fn(),
+      selectedAction: "wallet-vote",
+      stateOverrides: {
+        activeFieldErrors: {},
+        activeReadinessIssues: [],
+        blockingFieldErrors: {},
+        blockingReadinessIssues: [
+          { id: "x", label: "Vote", description: "Paste the vote first.", status: "error", blocking: true }
+        ]
+      } as unknown as Partial<PermissionWalletWorkspaceState>
+    });
+
+    expect(reviewPanelProps.latest.secondaryActionDisabled).toBe(true);
+    expect(reviewPanelProps.latest.approvalActionNote).toBe(
+      "Paste the vote first. Then this can be saved for the other signers."
+    );
   });
 
   it("blocks only the approval action when an owner renames the wallet", () => {

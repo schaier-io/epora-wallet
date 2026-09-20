@@ -287,16 +287,27 @@ export function computeActionFieldErrors(
     }
 
     const lockFundsErrors: FieldErrors = {};
+    const assetsToLockKey = i18n("assetsToLock");
     if (lockFundsAssets.length === 0) {
-      pushFieldError(lockFundsErrors, i18n("assetsToLock"), i18n("addAtLeastOneAssetRow"));
-    } else if (!hasPositiveAssetAmount(lockFundsAssets)) {
-      pushFieldError(
-        lockFundsErrors,
-        i18n("assetsToLock"),
-        i18n("addAtLeastOneAmountGreaterThanZero")
-      );
+      pushFieldError(lockFundsErrors, assetsToLockKey, i18n("addAtLeastOneAssetRow"));
+    } else {
+      // The two checks below are exclusive on purpose. `DEFAULT_LOCK_ASSETS` seeds one ADA
+      // row with a blank amount, so before the reader had typed anything the row check and
+      // the positive-amount check both fired and the rail printed two rose lines about the
+      // same empty box. The row check names the row it means, so it wins; the generic line
+      // only runs once every row is well formed.
+      validateAssetRows(lockFundsErrors, assetsToLockKey, lockFundsAssets);
+      if (
+        (lockFundsErrors[assetsToLockKey]?.length ?? 0) === 0 &&
+        !hasPositiveAssetAmount(lockFundsAssets)
+      ) {
+        pushFieldError(
+          lockFundsErrors,
+          assetsToLockKey,
+          i18n("addAtLeastOneAmountGreaterThanZero")
+        );
+      }
     }
-    validateAssetRows(lockFundsErrors, i18n("assetsToLock"), lockFundsAssets);
 
     const withdrawErrors: FieldErrors = {};
     requireStakingEnabled(withdrawErrors, activeInferredSttStateForm);

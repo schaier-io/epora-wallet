@@ -131,6 +131,27 @@ describe("streaming expense projections in Activity", () => {
     expect(screen.getByText("Unpaid now 0 ADA")).toBeInTheDocument();
   });
 
+  /**
+   * The unpaid line was unconditionally amber, so a stream owing nothing wore the same
+   * alert colour as one behind on its payouts. Amber is now the "you owe money" colour.
+   */
+  it("uses the alert colour only when the stream actually owes money", () => {
+    streamsFixture.value = [stream()];
+    const { unmount } = renderView();
+
+    expect(screen.getByText("Unpaid now 3 ADA").className).toContain("text-amber-100");
+
+    unmount();
+    streamsFixture.value = [
+      stream({ startDate: String(NOW + 2 * DAY_MS), endDate: String(NOW + 9 * DAY_MS) })
+    ];
+    renderView();
+
+    const settled = screen.getByText("Unpaid now 0 ADA");
+    expect(settled.className).not.toContain("text-amber-100");
+    expect(settled.className).toContain("text-foreground");
+  });
+
   it("keeps native-asset streams in their own unit", () => {
     streamsFixture.value = [
       stream({

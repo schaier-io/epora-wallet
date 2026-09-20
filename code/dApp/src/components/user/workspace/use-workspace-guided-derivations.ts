@@ -36,6 +36,35 @@ import {
   walletTransactionsAtom
 } from "@/components/user/workspace/atoms/workspace-activity.atoms";
 
+export type GuidedAdminGroupStatusToken = "ready" | "draft" | "needsSetup";
+
+export interface GuidedAdminGroupStatus {
+  token: GuidedAdminGroupStatusToken;
+  label: string;
+}
+
+type GuidedDerivationsTranslator = ReturnType<
+  typeof useTranslations<"ComponentsUserWorkspaceUseWorkspaceGuidedDerivations">
+>;
+
+/**
+ * The one badge map for the scheduled-payment tabs. The sidebar derived it here while
+ * `editors/streaming-editors.tsx` built a second map of its own, so the Add chip read
+ * "New" on one tab and "Create" on the others and the chip row reflowed on every tab
+ * switch. Both surfaces now call this.
+ */
+export function buildStreamingPaymentTaskBadges(
+  translate: GuidedDerivationsTranslator,
+  paymentCount: number,
+  canPayDue: boolean
+): Partial<Record<UserWorkspaceTask, string>> {
+  return {
+    "streaming-payments-add": translate("new"),
+    "streaming-payments-edit-renew": formatCountLabel(paymentCount, "payment"),
+    "streaming-payments-pay-due": canPayDue ? translate("pay") : translate("locked")
+  };
+}
+
 export interface WorkspaceGuidedDerivationsInputs {
   actionDrafts: ReturnType<typeof useUserFlowState>["actionDrafts"];
   activeInferredSttStateForm: StateFormState;
@@ -137,16 +166,11 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
   const guidedAdminGroups = GUIDED_ADMIN_GROUPS.filter(
     () => selectedDetectedToken !== null && flowAvailability.canManageSettings
   );
-  const guidedStreamingPaymentTaskBadges: Partial<Record<UserWorkspaceTask, string>> = {
-    "streaming-payments-add": i18n("new"),
-    "streaming-payments-edit-renew": formatCountLabel(
-      activeInferredSttStateForm.streamingPayments.length,
-      "payment"
-    ),
-    "streaming-payments-pay-due": flowAvailability.canPayStreamingPayments
-      ? i18n("pay")
-      : i18n("locked")
-  };
+  const guidedStreamingPaymentTaskBadges = buildStreamingPaymentTaskBadges(
+    i18n,
+    activeInferredSttStateForm.streamingPayments.length,
+    flowAvailability.canPayStreamingPayments
+  );
   const guidedAdminGroupBadgeText: Record<GuidedAdminGroupId, string> = {
     "wallet-settings": activeInferredSttStateForm.beneficiaries.length > 0
       ? formatCountLabel(activeInferredSttStateForm.beneficiaries.length, "recoveryContact")
@@ -156,24 +180,38 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
       "payment"
     )
   };
-  const guidedAdminGroupStatusText: Record<GuidedAdminGroupId, string> = {
-    "wallet-settings": actionDrafts["update-state"].ready
-      ? i18n("configured")
-      : actionDrafts["update-state"].dirty
-        ? i18n("draft")
-        : i18n("needsSetup"),
-    streamingPayments:
-      selectedAction === "payout-streaming-payment"
-        ? actionDrafts["payout-streaming-payment"].ready
-          ? i18n("ready")
-          : actionDrafts["payout-streaming-payment"].dirty
+  const resolveDraftStatusToken = (kind: UserActionKind): GuidedAdminGroupStatusToken =>
+    actionDrafts[kind].ready ? "ready" : actionDrafts[kind].dirty ? "draft" : "needsSetup";
+  const walletSettingsStatusToken = resolveDraftStatusToken("update-state");
+  const streamingPaymentsStatusToken = resolveDraftStatusToken(
+    selectedAction === "payout-streaming-payment"
+      ? "payout-streaming-payment"
+      : "manage-streaming-payments"
+  );
+  // Carries the token next to the label. The sidebar badge used to pick its tone by
+  // comparing this value against the English literals "Configured" and "Draft", which
+  // left every non-English locale on the fallback tone and never matched the
+  // `streamingPayments` label "Ready" at all. The name keeps the `...Text` suffix only
+  // because renaming it reaches into `use-permission-wallet-workspace-state.tsx`.
+  const guidedAdminGroupStatusText: Record<GuidedAdminGroupId, GuidedAdminGroupStatus> = {
+    "wallet-settings": {
+      token: walletSettingsStatusToken,
+      label:
+        walletSettingsStatusToken === "ready"
+          ? i18n("configured")
+          : walletSettingsStatusToken === "draft"
             ? i18n("draft")
             : i18n("needsSetup")
-        : actionDrafts["manage-streaming-payments"].ready
+    },
+    streamingPayments: {
+      token: streamingPaymentsStatusToken,
+      label:
+        streamingPaymentsStatusToken === "ready"
           ? i18n("ready")
-          : actionDrafts["manage-streaming-payments"].dirty
+          : streamingPaymentsStatusToken === "draft"
             ? i18n("draft")
             : i18n("needsSetup")
+    }
   };
   // `guidedAdminGroupSummary` used to be derived here and rendered under the active
   // card's description; the pairs were near-duplicates, so the summary line and its

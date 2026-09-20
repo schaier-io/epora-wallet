@@ -308,7 +308,10 @@ export function buildGuidedActionDrafts(
       blockingHint: getBlockingHint(
         context.actionReadinessMap["set-intended-stake-credential"]
       ),
-      nextStep: i18n("confirmEnablingStakingThenBuildThePreview")
+      // Was a constant, so it told a user with no wallet picked to "confirm enabling
+      // staking" on a screen that had nothing to confirm. Same shape as `wallet-withdraw`
+      // above: name the missing precondition first, the action only once it can be taken.
+      nextStep: sttStartHint ?? i18n("confirmEnablingStakingThenBuildThePreview")
     },
     "wallet-publish": {
       dirty:

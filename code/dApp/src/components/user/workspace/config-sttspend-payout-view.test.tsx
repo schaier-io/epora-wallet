@@ -1,5 +1,4 @@
 import "@/test/mock-workspace-queries";
-import {  } from "@/test/workspace-query-fixtures";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import { describe, expect, it, vi } from "vitest";
@@ -20,13 +19,16 @@ vi.mock("@/components/user/workspace/editors", async () => ({
   FocusedStreamingPaymentRulesEditor: () => null,
   FocusedTaskSurface: ({
     description,
+    issueCount,
     children
   }: {
     description?: string;
+    issueCount?: number;
     children?: ReactNode;
   }) => (
     <div>
       <p>{description}</p>
+      <span data-testid="issue-count">{issueCount}</span>
       {children}
     </div>
   ),
@@ -104,6 +106,9 @@ const { lockedContractUtxosLoadingAtom } = await import(
 const { renderNowMsAtom } = await import(
   "@/components/user/workspace/atoms/workspace-ui.atoms"
 );
+const { buildErrorAtom, buildErrorExpectedAtom } = await import(
+  "@/components/user/workspace/atoms/transaction-flow.atoms"
+);
 const { createDefaultStateForm } = await import("@/lib/contracts/state-form");
 
 // Between the fixture row's start and end dates, so an active row is genuinely active.
@@ -146,6 +151,8 @@ function renderPayout(
     selectedAction?: string;
     stateful?: boolean;
     activeFieldErrors?: Record<string, string[]>;
+    buildError?: string;
+    buildErrorExpected?: boolean;
   } = {}
 ) {
   state.value = {
@@ -217,6 +224,10 @@ function renderPayout(
   );
   if (options.lockedContractUtxosLoading) {
     store.set(lockedContractUtxosLoadingAtom, true);
+  }
+  if (options.buildError) {
+    store.set(buildErrorAtom, options.buildError);
+    store.set(buildErrorExpectedAtom, options.buildErrorExpected ?? false);
   }
   return render(
     <Provider store={store}>
@@ -645,5 +656,100 @@ describe("an empty test wallet on the transfer side", () => {
     ).toBeInTheDocument();
     // The guidance must never imply the app takes mainnet funds today.
     expect(screen.queryByText(/mainnet/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("what the pay-due header counts as an issue", () => {
+  it("counts a live build failure, not only field errors", () => {
+    renderPayout([payoutRow()], { buildError: "Wallet declined the transaction." });
+
+    expect(screen.getByTestId("issue-count")).toHaveTextContent("1");
+  });
+
+  it("stays at zero when nothing failed", () => {
+    renderPayout([payoutRow()]);
+
+    expect(screen.getByTestId("issue-count")).toHaveTextContent("0");
+  });
+
+  /**
+   * The build refuses to run while a field is invalid and writes "Some fields still need
+   * a value or a correction." instead of a real failure, so summing the two counted the
+   * one problem twice: one invalid field read as "2 issues".
+   */
+  it("does not count the build error that only restates a field error", () => {
+    renderPayout([payoutRow()], {
+      activeFieldErrors: { "Scheduled payment 1": ["Amount exceeds the available balance."] },
+      buildError: "Some fields still need a value or a correction. Fix them before continuing.",
+      // Set because the real gate sets it, NOT because the chip reads it: the chip keys
+      // off the message text. See the expected-but-independent case further down.
+      buildErrorExpected: true
+    });
+
+    expect(screen.getByTestId("issue-count")).toHaveTextContent("1");
+  });
+
+  /**
+   * A real failure survives a later field edit: the payout amount
+   * inputs write `streamingPaymentPayoutAmountsAtom` directly and never call
+   * `clearBuildMessages`, so the rail still shows "Wallet declined the transaction."
+   * beside the rose field. Two live problems, two issues.
+   */
+  it("counts a real build failure that outlives a later field error", () => {
+    renderPayout([payoutRow()], {
+      activeFieldErrors: { "Scheduled payment 1": ["Amount exceeds the available balance."] },
+      buildError: "Wallet declined the transaction.",
+      buildErrorExpected: false
+    });
+
+    expect(screen.getByTestId("issue-count")).toHaveTextContent("2");
+  });
+});
+
+describe("the header chip against an expected build error that is not the field restatement", () => {
+  /**
+   * `buildErrorExpected` marks a recognised, recoverable condition. It does NOT mark
+   * "this message restates the field errors". Only `workspace-transactions.ts:496` writes
+   * the restatement; every other expected message is an independent problem.
+   *
+   * Reachable path on this surface:
+   *  1. The form is valid, Continue builds a preview.
+   *  2. Confirm hits `workspace-transaction-submit.ts:161-162`, which writes
+   *     "This action was already completed. Change something before trying again."
+   *     with `setBuildErrorExpected(true)`.
+   *  3. The reader does as told and edits a payout amount to an invalid value. Editing
+   *     moves the action's form fingerprint, so `fieldErrorsVisible` flips on
+   *     (`use-user-flow-state.ts:131-135`) and the inline error renders.
+   *  4. `setStreamingPaymentPayoutAmounts` is a bare `useSetAtom` on
+   *     `streamingPaymentPayoutAmountsAtom` (`workspace-navigation.ts:119`) and never
+   *     calls `clearBuildMessages`, so the submit message and its expected flag survive.
+   *
+   * The reader now sees two rose surfaces describing two different problems.
+   */
+  it("counts an expected submit failure that outlives a later field error", () => {
+    renderPayout([payoutRow()], {
+      activeFieldErrors: { "Scheduled payment 1": ["Amount exceeds the available balance."] },
+      buildError: "This action was already completed. Change something before trying again.",
+      buildErrorExpected: true
+    });
+
+    expect(screen.getByTestId("issue-count")).toHaveTextContent("2");
+  });
+
+  /**
+   * The mirror of the restatement case: the fields the restatement points at are hidden
+   * until the form is touched, while the build gate reads the raw, ungated set
+   * (`use-permission-wallet-workspace-state.tsx:600-609`). Pressing Continue on a pristine
+   * invalid draft therefore leaves the rail message as the ONLY visible signal, so
+   * suppressing it would reprint the original "No issues beside a live rose failure" bug.
+   */
+  it("counts the restatement when no field error is visible to restate", () => {
+    renderPayout([payoutRow()], {
+      activeFieldErrors: {},
+      buildError: "Some fields still need a value or a correction. Fix them before continuing.",
+      buildErrorExpected: true
+    });
+
+    expect(screen.getByTestId("issue-count")).toHaveTextContent("1");
   });
 });

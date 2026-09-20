@@ -120,7 +120,7 @@ export function ApprovalPowerSlider({
       {/* The readout rides above the thumb, so the live number needs no second
           control beside the track. Both this and the scale below sit inside the
           same half-thumb inset the thumb centre travels in. */}
-      <div className="relative mx-2.5 h-6">
+      <div className="relative mx-2.5 mb-1 h-6">
         <span
           style={{ left: `${fractionOf(current) * 100}%` }}
           className={cn(

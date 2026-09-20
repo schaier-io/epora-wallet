@@ -254,7 +254,7 @@ export function UserReviewPanel({
               ))}
           </dl>
         ) : null}
-        <div className="rounded-md border border-border/50 bg-muted/10 p-3">
+        <div className="rounded-lg border border-border/50 bg-muted/10 p-3">
           <p className="eyebrow font-medium text-muted-foreground">
             {i18n("nextStep")}
           </p>
@@ -289,7 +289,7 @@ export function UserReviewPanel({
             // pause. `aria-atomic` stays at its default so only the changed line is read,
             // not the heading again.
             aria-live="polite"
-            className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 sm:p-4"
+            className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3"
           >
             <p className="text-sm font-medium text-foreground">{i18n("somethingNeedsAttention")}</p>
             <ul className="mt-2 space-y-2">
@@ -324,22 +324,31 @@ export function UserReviewPanel({
                 : "border-rose-500/40 bg-rose-500/10 text-rose-100"
             )}
           >
-            <div className="inline-flex items-center gap-2">
+            {/* The icon sits beside the whole text column, not beside the first line only:
+                the diagnostic line is part of the message, so out-denting it from the text
+                it explains reads as an unrelated note. */}
+            <div className="flex items-start gap-2">
               {/* A recognised outcome (a declined signature, a named ledger rule) gets a
                   calm note; something genuinely unexpected gets the alarm. Either way the
                   serialized error is printed to the browser console, never rendered here. */}
               {buildErrorExpected ? (
-                <Info className="h-4 w-4" />
+                <Info className="h-4 w-4 shrink-0" />
               ) : (
-                <AlertCircle className="h-4 w-4" />
+                <AlertCircle className="h-4 w-4 shrink-0" />
               )}
-              <span>{buildError}</span>
+              {/* `min-w-0` because a flex item keeps `min-width: auto`, so an unbreakable
+                  64-character hash pushed the line past the card's right edge. `break-words`
+                  and not `break-all`: this message is a sentence, and `break-all` breaks every
+                  line mid-word rather than only the one word that cannot fit on its own. */}
+              <div className="min-w-0 flex-1 space-y-2">
+                <span className="block break-words">{buildError}</span>
+                {!buildErrorExpected && buildDiagnosticId ? (
+                  <p className="text-xs text-rose-100/80">
+                    {i18n("diagnosticReference")}: <span className="font-mono">{buildDiagnosticId}</span>
+                  </p>
+                ) : null}
+              </div>
             </div>
-            {!buildErrorExpected && buildDiagnosticId ? (
-              <p className="text-xs text-rose-100/80">
-                {i18n("diagnosticReference")}: <span className="font-mono">{buildDiagnosticId}</span>
-              </p>
-            ) : null}
           </FadeContent>
         ) : null}
 
@@ -475,12 +484,14 @@ export function UserReviewPanel({
             }
             className={REVIEW_RAIL_BUTTON}
           >
-            {primaryActionBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+            {primaryActionBusy ? (
+              <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden="true" />
+            ) : null}
             {!primaryActionBusy ? (
               primaryActionKind === "approval" ? (
-                <ShieldPlus className="h-4 w-4" aria-hidden="true" />
+                <ShieldPlus className="h-4 w-4 shrink-0" aria-hidden="true" />
               ) : (
-                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
               )
             ) : null}
             {primaryActionLabel}
@@ -494,7 +505,7 @@ export function UserReviewPanel({
               aria-describedby={approvalActionNote ? approvalActionNoteId : undefined}
               className={REVIEW_RAIL_BUTTON}
             >
-              <ShieldPlus className="h-4 w-4" aria-hidden="true" />
+              <ShieldPlus className="h-4 w-4 shrink-0" aria-hidden="true" />
               {secondaryActionLabel}
             </Button>
           ) : null}

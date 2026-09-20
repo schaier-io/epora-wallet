@@ -13,9 +13,9 @@ import { type WalletInputRef } from "@/lib/types/contracts";
 import {
   type DurationUnit,
   combineDurationToMillis,
-  combineLocalDateAndTimeToTimestamp,
+  combineDateAndTimeToTimestamp,
   splitDurationMillis,
-  splitTimestampToLocalInputParts
+  splitTimestampToInputParts
 } from "@/lib/user-flow/time-inputs";
 import { cn } from "@/lib/utils/cn";
 import { type UTxO } from "@meshsdk/core";
@@ -42,15 +42,15 @@ export function GuidedDateTimeField({
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsGuidedFields");
   const format = useFormatter();
-  const [parts, setParts] = useState(() => splitTimestampToLocalInputParts(value));
+  const [parts, setParts] = useState(() => splitTimestampToInputParts(value));
   // A date picked before its time combines to "", the same as an untouched field,
   // so the field cannot tell its own edits from a reset by keying on `value`.
   // Re-read the stored value only when it moved away from what these parts say.
   const [syncedValue, setSyncedValue] = useState(value);
   if (value !== syncedValue) {
     setSyncedValue(value);
-    if (combineLocalDateAndTimeToTimestamp(parts.date, parts.time) !== value) {
-      setParts(splitTimestampToLocalInputParts(value));
+    if (combineDateAndTimeToTimestamp(parts.date, parts.time) !== value) {
+      setParts(splitTimestampToInputParts(value));
     }
   }
   const normalizedStoredTimestamp = value.trim();
@@ -63,14 +63,19 @@ export function GuidedDateTimeField({
     Number.isSafeInteger(storedTimestamp) && !Number.isNaN(storedDate.getTime());
   const storedTimestampLabel = hasStoredTimestamp
     ? storedTimestampFitsDate
-      ? format.dateTime(storedTimestamp, "short")
+      ? // `shortWithZone`, not `short`: the two inputs above are filled and read in
+        // `defaultTimeZone` (guarded by `lib/user-flow/time-inputs.test.ts`), and an
+        // unnamed number here read as the reader's own wall clock. This field sets when
+        // a recovery contact may take the wallet, so the echo has to say which clock the
+        // number is on.
+        format.dateTime(storedTimestamp, "shortWithZone")
       : normalizedStoredTimestamp
     : null;
 
   function updateParts(patch: Partial<typeof parts>) {
     const merged = { ...parts, ...patch };
     setParts(merged);
-    onChange(combineLocalDateAndTimeToTimestamp(merged.date, merged.time));
+    onChange(combineDateAndTimeToTimestamp(merged.date, merged.time));
   }
 
   return (
@@ -92,15 +97,23 @@ export function GuidedDateTimeField({
         {/* Datetimes here are usually "roughly when it should start/stop", and typing
             today's date plus a time into two browser pickers is the long way round a
             one-click answer. */}
+        {/* `h-auto` (plus `sm:h-auto`, a separate tailwind-merge group, or the size
+            variant's `sm:h-10` survives) keeps this button out of the row height, so the
+            label lines up with the bare one on the duration field. `-my-2 py-2` gives the
+            hit area back without giving the height back. The padding comes off whichever
+            edge meets the form column. */}
         {!disabled ? (
           <Button
             type="button"
             variant="ghost"
-            className="px-2 text-xs"
+            className={cn(
+              "-my-2 h-auto px-2 py-2 text-xs sm:h-auto",
+              stacked ? "-ml-2" : "pr-0"
+            )}
             onClick={
               shortcut
                 ? shortcut.onSelect
-                : () => updateParts(splitTimestampToLocalInputParts(String(Date.now())))
+                : () => updateParts(splitTimestampToInputParts(String(Date.now())))
             }
           >
             {shortcut?.label ?? i18n("now")}
@@ -108,7 +121,7 @@ export function GuidedDateTimeField({
         ) : null}
       </div>
       <div
-        className={cn("grid gap-3", !stacked && "md:grid-cols-2")}
+        className={cn("grid gap-3", !stacked && "sm:grid-cols-2")}
         role="group"
         aria-labelledby={`${idPrefix}-label`}
       >
@@ -128,12 +141,16 @@ export function GuidedDateTimeField({
           disabled={disabled}
         />
       </div>
-      {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}
-      <p className="text-xs text-muted-foreground">
-        {storedTimestampLabel
-          ? i18n("thatIsStoredtimestamplabelWhereYouAre", { storedTimestampLabel: storedTimestampLabel })
-          : i18n("chooseBothADateAndTime")}
-      </p>
+      {/* Two lines of the same helper: as `space-y-1` siblings they sat a step further
+          apart than the single wrapped helper beside them. */}
+      <div className="space-y-0">
+        {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}
+        <p className="text-xs text-muted-foreground">
+          {storedTimestampLabel
+            ? i18n("thatIsStoredtimestamplabel", { storedTimestampLabel: storedTimestampLabel })
+            : i18n("chooseBothADateAndTimeTheyAreReadInUtc")}
+        </p>
+      </div>
     </div>
   );
 }

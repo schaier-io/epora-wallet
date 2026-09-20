@@ -18,6 +18,7 @@ const session = vi.hoisted(() => ({
     signOut: vi.fn()
   } as Record<string, unknown>
 }));
+const wallet = vi.hoisted(() => ({ value: { walletSessionLoading: false } }));
 const list = vi.hoisted(() => ({
   proposals: [] as ProposalListItemDto[],
   enabled: null as boolean | null
@@ -30,6 +31,7 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(nav.params)
 }));
 vi.mock("./use-proposal-session", () => ({ useProposalSession: () => session.value }));
+vi.mock("@/providers/wallet-provider", () => ({ useWalletContext: () => wallet.value }));
 vi.mock("./use-proposals", () => ({
   useProposals: (enabled: boolean) => {
     list.enabled = enabled;
@@ -102,6 +104,7 @@ beforeEach(() => {
   };
   list.proposals = [];
   list.enabled = null;
+  wallet.value = { walletSessionLoading: false };
   client.fetch.mockReset();
   verify.proposal.mockReset();
 });
@@ -235,6 +238,29 @@ describe("the proposals shell", () => {
     expect(screen.queryByText(/^cccccccccc/)).toBeNull();
     // Not merely hidden: the fetch for that key's requests never starts.
     expect(list.enabled).toBe(false);
+  });
+
+  /**
+   * The session cookie outlives the wallet connection. Rendering the list and a Sign out
+   * button then looked like a working session, and the truth arrived only on pressing Sign,
+   * where the wallet call throws.
+   */
+  it("shows the gate, not the list, when the cookie is alive but no wallet is connected", () => {
+    session.value = { ...session.value, activeAddress: null };
+    render(<ProposalsWorkspace />);
+
+    expect(screen.getByText("sign in gate")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /sign out/i })).toBeNull();
+    expect(list.enabled).toBe(false);
+  });
+
+  it("waits for the silent wallet reconnect before showing the gate", () => {
+    session.value = { ...session.value, activeAddress: null };
+    wallet.value = { walletSessionLoading: true };
+    render(<ProposalsWorkspace />);
+
+    expect(screen.queryByText("sign in gate")).toBeNull();
+    expect(screen.getByText("Checking your sign-in…")).toBeInTheDocument();
   });
 
   it("shows the signed-in identity as an identifier, not as prose", () => {
