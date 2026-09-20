@@ -373,6 +373,12 @@ details[open] > summary .expand-chevron,
   .egg-link-underline::after { transition: none; }
 }
 
+/* Lucide default strokeWidth=2 on a 24 viewBox is 1.33 CSS px at h-4.
+   3 * 16/24 = 2px, matching font-semibold stems. */
+svg.lucide {
+  stroke-width: 3;
+}
+
 /* ============================================================================
  * GLOBAL REDUCED-MOTION SAFETY NET
  *
