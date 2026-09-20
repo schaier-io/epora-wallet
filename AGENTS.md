@@ -3,7 +3,7 @@
 Universal rules for this repository. Domain-specific rules are nested:
 
 - Contracts (Aiken/Plutus): [code/smart-contract/CLAUDE.md](code/smart-contract/CLAUDE.md)
-  (the rules file there is named CLAUDE.md, not AGENTS.md).
+  (the rules file there is named CLAUDE.md; a stub AGENTS.md now points at it).
 
 ## File length: hard cap 750 lines
 
@@ -30,7 +30,9 @@ controller (`workspace/use-permission-wallet-workspace-state.tsx`) is ~636 after
 the state was atomized and the `useWorkspaceState` barrel was largely dissolved
 (see the `workspace-barrel-dismantle-arch` memory); `action-validation.ts` (~492),
 `lib/contracts/use-allowance.ts` (~482), and `lib/mesh/transactions/internals/budget.ts`
-(~98) are well under. `app/globals.css` was trimmed to ~483 and is no longer near the cap.
+(~98) are well under. `app/globals.css` is **733** lines and is close to the
+cap: split before adding to it. The "~483" once recorded here was stale; the
+file has since grown.
 
 Watch list (closest to the cap — split before adding, don't grow):
 `workspace/workspace-transactions.ts` (~720),
@@ -58,7 +60,7 @@ recommending any library, tool, code pattern, or CIP behavior:
    encode current best practices, decision criteria, and trade-offs. Bias
    toward invoking one even when you feel confident — confidence is not
    evidence of currency.
-2. **Search `/Users/sandro/.codex/cardano-dev-skills/docs/sources/`** before relying on memory
+2. **Search `${CLAUDE_PLUGIN_ROOT}/docs/sources/`** before relying on memory
    or web search. The corpus is regularly refreshed from upstream and covers
    Aiken, Plutus, current SDKs, all CIPs, on-chain tooling, and ~50 other
    Cardano projects.
