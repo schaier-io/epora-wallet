@@ -92,6 +92,7 @@ migration (column/table drops).
 | --- | --- | --- |
 | `PROPOSAL_AUTH_SECRET` | `src/lib/proposals/auth.ts` | HMAC for multi-sig proposal sign-in nonces + session cookies. **Required in production** (a fixed dev fallback is used only when unset locally). |
 | `STT_SYNC_SECRET` | `src/app/api/stt/sync/route.ts` | Bearer secret guarding the background STT sync route. |
+| `CRON_SECRET` | Vercel Cron → `GET /api/stt/sync` | Vercel sends this as `Authorization: Bearer …` on the 5-minute indexer cron. Set it to the same value as `STT_SYNC_SECRET`. |
 | `BLOCKFROST_PREPROD_PROJECT_ID` | server chain proxies | Blockfrost preprod access. |
 | `DATABASE_URL` | Prisma | Postgres connection string. |
 | `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | client WalletConnect | Optional; CIP-45 pairing. Public by design. |
@@ -112,9 +113,10 @@ them invalidates outstanding artifacts, so rotate deliberately:
    — signers must re-authenticate with their wallet. It does **not** affect
    already-collected on-chain witnesses (those are keyed by tx body hash, not
    this secret). Announce a maintenance window if signers are mid-flow.
-5. **`STT_SYNC_SECRET`**: update the secret in the caller of `/api/stt/sync`
-   (the sync cron/job — see [`tasks/subtasks/m4-deploy-03-sync-cron.md`](../tasks/subtasks/m4-deploy-03-sync-cron.md))
-   in the same change, or sync will start returning 401.
+5. **`STT_SYNC_SECRET`**: if `CRON_SECRET` is a copy of this value, update both
+   in the same change, or the 5-minute Vercel cron starts returning 401.
+   Manual `POST /api/stt/sync` callers use this secret. See
+   [`tasks/subtasks/m4-deploy-03-sync-cron.md`](../tasks/subtasks/m4-deploy-03-sync-cron.md).
 6. **`BLOCKFROST_PREPROD_PROJECT_ID`**: create the new project id in the
    Blockfrost dashboard, set it in Vercel, redeploy, then revoke the old key.
 
@@ -124,6 +126,15 @@ placeholders only.
 ---
 
 ## 5. Health check
+
+The indexer cron is a Vercel Cron Job in
+[`code/dApp/vercel.json`](../code/dApp/vercel.json): `GET /api/stt/sync` every
+five minutes. Vercel sends `Authorization: Bearer $CRON_SECRET`. Set
+`CRON_SECRET` in the Vercel project to the same value as `STT_SYNC_SECRET`.
+GET has no body, so the indexer defaults apply (recent-head 5 pages,
+history-backfill 10). HTTP 409 means a previous run still holds the advisory
+lock. Treat that as success. Each run is a function invocation under
+Project → Logs, path `/api/stt/sync`.
 
 `GET /api/health` ([`src/app/api/health/route.ts`](../code/dApp/src/app/api/health/route.ts))
 probes the database and the indexer's sync cursors:

@@ -32,27 +32,30 @@ const RequestSchema = z.object({
   timeBudgetMs: z.number().int().min(1_000).max(SYNC_TIME_BUDGET_MS).optional()
 });
 
-function isAuthorized(request: Request) {
-  const configuredSecret = getSttSyncSecret();
-
-  const matchesConfiguredSecret = (candidate: string | null): boolean => {
-    if (!candidate) {
-      return false;
-    }
-    const candidateDigest = createHash("sha256").update(candidate.trim()).digest();
-    const configuredDigest = createHash("sha256").update(configuredSecret).digest();
-    return timingSafeEqual(candidateDigest, configuredDigest);
-  };
-
-  const authorization = request.headers.get("authorization");
-  if (authorization?.startsWith("Bearer ")) {
-    return matchesConfiguredSecret(authorization.slice("Bearer ".length));
-  }
-
-  return matchesConfiguredSecret(request.headers.get("x-stt-sync-secret"));
+function bearerMatches(candidate: string, secret: string): boolean {
+  const candidateDigest = createHash("sha256").update(candidate.trim()).digest();
+  const configuredDigest = createHash("sha256").update(secret).digest();
+  return timingSafeEqual(candidateDigest, configuredDigest);
 }
 
-export async function POST(request: Request) {
+function isAuthorized(request: Request) {
+  const authorization = request.headers.get("authorization");
+  const candidate = authorization?.startsWith("Bearer ")
+    ? authorization.slice("Bearer ".length)
+    : request.headers.get("x-stt-sync-secret");
+  if (!candidate) {
+    return false;
+  }
+  if (bearerMatches(candidate, getSttSyncSecret())) {
+    return true;
+  }
+  // Vercel Cron sends `Authorization: Bearer $CRON_SECRET`. Same value as
+  // STT_SYNC_SECRET is fine; a distinct cron secret is also accepted.
+  const cronSecret = process.env.CRON_SECRET;
+  return Boolean(cronSecret) && bearerMatches(candidate, cronSecret);
+}
+
+async function handleSttSync(request: Request) {
   const i18n = await getI18n();
   try {
     if (!isAuthorized(request)) {
@@ -105,4 +108,14 @@ export async function POST(request: Request) {
     logger.error("api.stt_sync_failed", { err: serializeError(error) });
     return NextResponse.json({ error: i18n("sttSynchronizationFailed") }, { status: 500 });
   }
+}
+
+export async function POST(request: Request) {
+  return handleSttSync(request);
+}
+
+// Vercel Cron Jobs issue GET. Empty body uses the indexer page-budget defaults
+// (recent-head 5, history-backfill 10).
+export async function GET(request: Request) {
+  return handleSttSync(request);
 }

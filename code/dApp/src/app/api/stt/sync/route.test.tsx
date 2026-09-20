@@ -19,13 +19,13 @@ vi.mock("next-intl/server", () => ({
   getTranslations: async () => (key: string) => key
 }));
 
-import { POST } from "./route";
+import { GET, POST } from "./route";
 
-function request(body?: string) {
+function request(body?: string, authorization = "Bearer sync-secret") {
   return new Request("http://localhost/api/stt/sync", {
     method: "POST",
     headers: {
-      authorization: "Bearer sync-secret",
+      authorization,
       ...(body === undefined ? {} : { "content-type": "application/json" })
     },
     body
@@ -63,6 +63,39 @@ describe("POST /api/stt/sync", () => {
     expect((await response.json() as { error: string }).error).toBe(
       "Request body nests deeper than 64 levels."
     );
+    expect(sync.runSttBackgroundSync).not.toHaveBeenCalled();
+  });
+});
+
+describe("GET /api/stt/sync", () => {
+  beforeEach(() => {
+    sync.runSttBackgroundSync.mockReset();
+    sync.runSttBackgroundSync.mockResolvedValue({ walletsUpdated: 0 });
+    vi.unstubAllEnvs();
+  });
+
+  it("accepts the Vercel cron bearer and uses default budgets", async () => {
+    vi.stubEnv("CRON_SECRET", "cron-secret");
+    const response = await GET(
+      new Request("http://localhost/api/stt/sync", {
+        method: "GET",
+        headers: { authorization: "Bearer cron-secret" }
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(sync.runSttBackgroundSync).toHaveBeenCalledOnce();
+  });
+
+  it("rejects a Vercel cron request when CRON_SECRET is unset", async () => {
+    const response = await GET(
+      new Request("http://localhost/api/stt/sync", {
+        method: "GET",
+        headers: { authorization: "Bearer cron-secret" }
+      })
+    );
+
+    expect(response.status).toBe(401);
     expect(sync.runSttBackgroundSync).not.toHaveBeenCalled();
   });
 });

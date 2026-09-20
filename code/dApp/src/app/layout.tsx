@@ -28,6 +28,7 @@ import { Geist, JetBrains_Mono } from "next/font/google";
 import { cn } from "@/lib/utils/cn";
 import { getSiteUrl } from "@/lib/env/server-env";
 import { buildFaqJsonLdEntities } from "@/lib/product-faq";
+import { DISCORD_INVITE_URL } from "@/lib/site-links";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
 // Display/heading now uses the same sans family, so no serif anywhere.
@@ -145,7 +146,7 @@ export default async function RootLayout({
         url: siteUrl,
         sameAs: [
           "https://projectcatalyst.io/funds/11/cardano-use-cases-concept/dead-man-switch-permission-based-wallet",
-          "https://discord.gg/2uh4BynQBW",
+          DISCORD_INVITE_URL,
           "https://x.com/eporawallet"
         ]
       },

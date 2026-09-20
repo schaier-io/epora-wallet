@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { DISCORD_INVITE_URL, GITHUB_NEW_ISSUE_URL } from "@/lib/site-links";
 
 /**
  * The fallback used to render `Error.message` as its only sentence. That string is written
@@ -37,6 +38,14 @@ describe("error boundary fallback", () => {
     const alert = screen.getByRole("alert");
     expect(alert.textContent).not.toContain(RAW);
     expect(alert.textContent).toContain("This part of the page stopped working");
+    expect(screen.getByRole("link", { name: "GitHub" })).toHaveAttribute(
+      "href",
+      GITHUB_NEW_ISSUE_URL
+    );
+    expect(screen.getByRole("link", { name: "Discord" })).toHaveAttribute(
+      "href",
+      DISCORD_INVITE_URL
+    );
   });
 
   it("keeps a focusable main target when the page fails", () => {

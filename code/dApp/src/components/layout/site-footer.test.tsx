@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { getDefaultStore } from "jotai";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { DISCORD_INVITE_URL, GITHUB_NEW_ISSUE_URL } from "@/lib/site-links";
 
 const pathname = vi.fn(() => "/user");
 vi.mock("next/navigation", () => ({
@@ -13,16 +14,14 @@ const { KeyboardShortcutsHelp } = await import("@/components/layout/shortcuts-he
 const { shortcutsHelpOpenAtom } = await import("@/components/layout/shortcuts-help.atoms");
 
 /**
- * The footer's second row is a list of links joined by "·". The "Wallet home" link only
- * exists off `/user`, and the separator before the Catalyst link must exist exactly when
- * that link does: on `/user` the row would otherwise open with an orphaned
- * "· Catalyst proposal".
+ * The footer's second row is a list of links joined by "·". Discord, Report an
+ * issue, and Catalyst always show. Wallet home only exists off `/user`, and the
+ * separator after it must exist exactly when that link does.
  */
-function trailingSeparator() {
-  const separators = Array.from(document.querySelectorAll('[aria-hidden="true"]')).filter(
+function footerSeparators() {
+  return Array.from(document.querySelectorAll('[aria-hidden="true"]')).filter(
     (node) => node.textContent?.trim() === "·"
   );
-  return separators.at(-1);
 }
 
 afterEach(() => {
@@ -32,20 +31,28 @@ afterEach(() => {
 });
 
 describe("footer separators", () => {
-  it("renders no leading separator on /user, where nothing precedes Catalyst", () => {
+  it("keeps Discord and issue links on /user without Wallet home", () => {
     pathname.mockReturnValue("/user");
     render(<SiteFooter />);
 
     expect(screen.queryByRole("link", { name: "Wallet home" })).toBeNull();
-    expect(trailingSeparator()).toBeUndefined();
+    expect(screen.getByRole("link", { name: "Discord" })).toHaveAttribute(
+      "href",
+      DISCORD_INVITE_URL
+    );
+    expect(screen.getByRole("link", { name: "Report an issue" })).toHaveAttribute(
+      "href",
+      GITHUB_NEW_ISSUE_URL
+    );
+    expect(footerSeparators()).toHaveLength(2);
   });
 
-  it("separates Wallet home from Catalyst once Wallet home is shown", () => {
+  it("separates Wallet home from Discord once Wallet home is shown", () => {
     pathname.mockReturnValue("/payee");
     render(<SiteFooter />);
 
     expect(screen.getByRole("link", { name: "Wallet home" })).toBeTruthy();
-    expect(trailingSeparator()).toBeTruthy();
+    expect(footerSeparators()).toHaveLength(3);
   });
 });
 
