@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { type ReactNode, useEffect, useRef } from "react";
 import type { Wallet } from "@meshsdk/core";
 import {
+  ChevronRight,
   Loader2,
   PlugZap,
   RefreshCw,
@@ -339,7 +340,8 @@ export function WalletConnectionDialog({
                   </Button>
                 </div>
                 <details className="mt-2 rounded-lg border border-border/60 bg-background/45 p-2">
-                  <summary className="cursor-pointer text-xs font-medium text-foreground">
+                  <summary className="flex cursor-pointer list-none items-center gap-2 text-xs font-medium text-foreground [&::-webkit-details-marker]:hidden">
+                    <ChevronRight className="expand-chevron h-4 w-4 shrink-0" aria-hidden="true" />
                     {i18n("connectionHelp")}
                   </summary>
                   <div className="mt-2 space-y-1 text-xs leading-relaxed text-muted-foreground">

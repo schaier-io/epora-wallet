@@ -315,7 +315,8 @@ export function WorkspaceSidebarView() {
                               margin gives the space back. Measured: the text lands where an
                               unpadded summary puts it, and the hit box still stops 12px short
                               of the card above. */}
-                          <summary className="eyebrow -my-2 cursor-pointer py-2 font-semibold text-muted-foreground">
+                          <summary className="eyebrow -my-2 flex cursor-pointer list-none items-center gap-2 py-2 font-semibold text-muted-foreground [&::-webkit-details-marker]:hidden">
+                            <ChevronRight className="expand-chevron h-4 w-4 shrink-0" aria-hidden="true" />
                             {i18n("advanced")}
                           </summary>
                           <div className="mt-2">

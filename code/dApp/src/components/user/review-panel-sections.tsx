@@ -1,5 +1,5 @@
 import { useTranslations } from "next-intl";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { CopyButton } from "@/components/ui/copy-button";
 import { type TaskDefinition } from "@/components/user/flow-types";
@@ -155,7 +155,8 @@ export function ReviewActionExplainer({
   const i18n = useTranslations("ComponentsUserReviewPanelSections");
   return compact ? (
     <details className="rounded-md border border-border/50 bg-muted/10 p-3">
-      <summary className="cursor-pointer text-sm font-medium text-foreground">
+      <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-medium text-foreground [&::-webkit-details-marker]:hidden">
+        <ChevronRight className="expand-chevron h-4 w-4 shrink-0" aria-hidden="true" />
         {i18n("whatThisDoes")}
       </summary>
       <div className="mt-3 space-y-3 border-t border-border/40 pt-3 text-sm">
