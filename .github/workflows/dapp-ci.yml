@@ -95,7 +95,7 @@ jobs:
 
       # Plain-node smoke checks for the pure user-flow helpers and the lovelace
       # formatting (scripts/test-user-flow-helpers.mjs). They live outside both
-      # suites below (node:test owns src/**/*.test.ts, vitest owns *.test.tsx),
+      # test suites (node:test owns src/**/*.test.ts, vitest owns *.test.tsx),
       # so without this step their checks get no CI protection.
       - run: pnpm test:user-flow-helpers
 
