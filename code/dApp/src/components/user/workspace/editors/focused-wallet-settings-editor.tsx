@@ -264,7 +264,6 @@ export function FocusedWalletSettingsEditor({
           value={value.walletName}
           onChange={(walletName) => onChange({ ...value, walletName })}
           editable={walletNameEditable}
-          compact
         />
       ) : null}
       {selectedTask === "settings-proof-of-life" ? (

@@ -289,7 +289,7 @@ export function SttSpendConfigView() {
                   {i18n("pickARecipientAndAnAmountThenAdd")}
                 </p>
               </div>
-              <div className="max-w-sm space-y-1">
+              <div className="space-y-1">
                 <Label htmlFor="walletRecipientSelect">{i18n("recipient")}</Label>
                 <Select
                   id="walletRecipientSelect"
@@ -406,7 +406,7 @@ export function SttSpendConfigView() {
                            outranked an unconditional h-7, so on desktop the button rendered
                            36px tall in this 40px input — 2px of air above and below against
                            4px on the right. 32px leaves the same 4px on all three sides. */
-                        className="absolute right-1 top-1/2 h-8 sm:h-8 -translate-y-1/2 px-2"
+                        className="absolute right-1 top-1/2 h-8 sm:h-8 -translate-y-1/2 rounded-sm px-2"
                         onClick={() =>
                           setTransferDisplayAmount(
                             selectedTransferAsset

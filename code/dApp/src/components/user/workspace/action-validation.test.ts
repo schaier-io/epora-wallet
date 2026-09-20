@@ -83,6 +83,15 @@ test("an empty editor asks for a row, and only that", () => {
   assert.deepEqual(errors["Assets to lock"], ["Add at least one asset row."]);
 });
 
+// `DEFAULT_LOCK_ASSETS` seeds one ADA row with a blank amount, so the editor's own
+// starting state printed two rose lines at once: the row check named the row, and the
+// generic positive-amount check repeated the same complaint. One empty box, one message.
+test("the seeded blank amount row reports one problem, not two", () => {
+  const errors = lockFundsErrors([{ unit: "lovelace", quantity: "" }]);
+
+  assert.deepEqual(errors["Assets to lock"], ["Complete asset row 1 before you continue."]);
+});
+
 test("a positive amount passes", () => {
   const errors = lockFundsErrors([{ unit: "lovelace", quantity: "5000000" }]);
 

@@ -58,7 +58,11 @@ export function RecentActivityTimeline({
   const sliced = events.slice(0, limit);
   return (
     <div className="space-y-2">
-      <div className="flex items-baseline justify-between gap-3">
+      {/* Padded onto the content rail of the panel below: the `ol` is `px-3` inside a 1px
+          border, so its text starts at 13px while this header used to start at 0. `px-3`
+          lands the header at 12px, 1px out. Matching 13px exactly needs an arbitrary
+          padding value, which `layout-breakpoints.test.ts` rejects. */}
+      <div className="flex items-baseline justify-between gap-3 px-3">
         <p className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
           <ArrowUpDown className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
           {i18n("recentActivity")}
@@ -114,14 +118,16 @@ export function RecentActivityTimeline({
           />
           {sliced.map((event, index) => {
             const isFirst = index === 0;
-            const isLast = index === sliced.length - 1;
             return (
               <li
                 key={event.id}
                 className={cn(
+                  // Margin, not padding: the dot below is positioned against this li's
+                  // padding box, whose top does not move with `pt-*`, so a padded row
+                  // pushed its content down and left the dot behind. `mt-4` on every row
+                  // but the first reproduces the old 16px between rows.
                   "list-stagger-item relative pl-7",
-                  !isFirst && "pt-2",
-                  !isLast && "pb-2"
+                  !isFirst && "mt-4"
                 )}
                 style={{ animationDelay: `${index * 80}ms` }}
               >
@@ -129,7 +135,7 @@ export function RecentActivityTimeline({
                 <span
                   aria-hidden="true"
                   className={cn(
-                    "absolute left-[0.6875rem] top-[1.0625rem] block h-1.5 w-1.5 rounded-full ring-2 ring-background",
+                    "absolute left-[0.6875rem] top-[0.8125rem] block h-1.5 w-1.5 rounded-full ring-2 ring-background",
                     dotToneClass(event.amountClassName)
                   )}
                 />
@@ -141,7 +147,7 @@ export function RecentActivityTimeline({
                 {isFirst ? (
                   <span
                     aria-hidden="true"
-                    className="absolute left-[0.5625rem] top-[0.9375rem] block h-[0.625rem] w-[0.625rem] rounded-full opacity-60 animate-[pill-pulse_2200ms_cubic-bezier(0.22,1,0.36,1)_infinite]"
+                    className="absolute left-[0.5625rem] top-[0.6875rem] block h-[0.625rem] w-[0.625rem] rounded-full opacity-60 animate-[pill-pulse_2200ms_cubic-bezier(0.22,1,0.36,1)_infinite]"
                   />
                 ) : null}
                 <button
@@ -158,7 +164,7 @@ export function RecentActivityTimeline({
                   // indistinguishable from a mouse hover and had no ring at all. The ring
                   // carries no offset because the `ol` above is `overflow-hidden`, and an
                   // offset ring would be clipped by it.
-                  className="group -mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-md px-2 py-1.5 text-left transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-background/65 focus-visible:bg-background/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="group -mx-2 flex w-[calc(100%+1rem)] items-start gap-3 rounded-md px-2 py-1.5 text-left transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-background/65 focus-visible:bg-background/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex min-w-0 items-center gap-2">
@@ -182,14 +188,22 @@ export function RecentActivityTimeline({
                   </div>
                   <p
                     className={cn(
-                      "shrink-0 text-right text-sm tabular-nums",
+                      // `leading-5` matches the title's line box, so with `items-start`
+                      // on the row the amount shares the title's baseline.
+                      "shrink-0 text-right text-sm leading-5 tabular-nums",
                       event.amountClassName
                     )}
                   >
                     {event.amountSummary}
                   </p>
+                  {/*
+                    The resting colour used to be `text-muted-foreground/0`: fully
+                    transparent, so no row showed a chevron and hover was the only cue
+                    that the rows are buttons. It rests visible now and still brightens
+                    and slides in on hover and keyboard focus.
+                  */}
                   <ChevronRight
-                    className="h-3.5 w-3.5 shrink-0 -translate-x-1 text-muted-foreground/0 transition-[transform,color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:translate-x-0 group-hover:text-muted-foreground/80 group-focus-visible:translate-x-0 group-focus-visible:text-muted-foreground/80"
+                    className="h-3.5 w-3.5 shrink-0 self-center -translate-x-1 text-muted-foreground/50 transition-[transform,color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:translate-x-0 group-hover:text-muted-foreground/80 group-focus-visible:translate-x-0 group-focus-visible:text-muted-foreground/80"
                     aria-hidden="true"
                   />
                 </button>

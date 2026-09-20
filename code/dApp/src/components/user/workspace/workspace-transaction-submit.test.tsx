@@ -22,6 +22,7 @@ import {
 } from "./atoms/forms/stt-spend-form.atoms";
 import { beginWalletStateUpdateAtom, pendingWalletStateUpdatesAtom, pendingWalletStateUpdateAtom } from "./atoms/wallet-state-update.atoms";
 import { selectedOrphanInputsAtom } from "./atoms/forms/orphan-inputs.atoms";
+import { transferRecipientModeAtom, transferCustomAddressAtom, transferDisplayAmountAtom } from "./atoms/forms/transfer-form.atoms";
 import type { BuildResult } from "@/lib/types/contracts";
 
 const mocks = vi.hoisted(() => ({ freshness: vi.fn(), signAndSubmitTx: vi.fn() }));
@@ -100,6 +101,26 @@ it("retires the selected recovery outputs after successful submission", async ()
   await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
   expect(mocks.signAndSubmitTx).toHaveBeenCalledTimes(1);
   expect(deps.jotaiStore.get(selectedOrphanInputsAtom)).toBeNull();
+});
+
+it("clears the transfer recipient after a send so the next payout is not aimed at the signer", async () => {
+  vi.useFakeTimers();
+  const deps = makeDeps({ selectedAction: "use" });
+  deps.jotaiStore.set(transferRecipientModeAtom, "my-address");
+  deps.jotaiStore.set(transferCustomAddressAtom, "addr_test1signer");
+  deps.jotaiStore.set(transferDisplayAmountAtom, "5");
+  await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
+  expect(deps.jotaiStore.get(transferRecipientModeAtom)).toBe("");
+  expect(deps.jotaiStore.get(transferCustomAddressAtom)).toBe("");
+  expect(deps.jotaiStore.get(transferDisplayAmountAtom)).toBe("");
+});
+
+it("keeps the transfer recipient when the wallet rejects submission", async () => {
+  const deps = makeDeps({ selectedAction: "use" });
+  deps.jotaiStore.set(transferRecipientModeAtom, "my-address");
+  mocks.signAndSubmitTx.mockRejectedValueOnce(new Error("User declined signing"));
+  await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
+  expect(deps.jotaiStore.get(transferRecipientModeAtom)).toBe("my-address");
 });
 
 it("keeps recovery outputs when the wallet rejects submission", async () => {

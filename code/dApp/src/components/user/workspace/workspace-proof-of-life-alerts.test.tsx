@@ -37,6 +37,17 @@ describe("WorkspaceProofOfLifeAlerts", () => {
     ).toBeInTheDocument();
   });
 
+  /**
+   * The deadline rendered through `short`, i.e. `defaultTimeZone` with no zone printed,
+   * so it read as the reader's own wall clock. A check-in deadline is a time somebody
+   * has to act on before a recovery contact can take the wallet.
+   */
+  it("names the zone the deadline is in", () => {
+    render(<WorkspaceProofOfLifeAlerts alerts={[approachingAlert()]} onRenew={vi.fn()} />);
+
+    expect(screen.getByText(/proof of life ends .*\bUTC\b/)).toBeInTheDocument();
+  });
+
   it("says a lapsed timer ran out and still offers the renewal", () => {
     render(
       <WorkspaceProofOfLifeAlerts

@@ -110,6 +110,41 @@ describe("wallet hero card", () => {
   });
 
   /**
+   * The copy button carried `key={addressCopied ? "copied" : "idle"}` to restart its
+   * copy-pulse animation. A key change remounts the node, so React destroyed the focused
+   * button and a keyboard user who pressed Enter on Copy landed on `<body>`. Both halves
+   * matter: focus stays, and the pulse class still arrives.
+   */
+  it("keeps keyboard focus on the copy control when the copied state arrives", () => {
+    const { rerender } = renderCard({ address: FULL_ADDRESS });
+
+    const copyButton = screen.getByLabelText("Copy wallet address") as HTMLButtonElement;
+    copyButton.focus();
+    expect(document.activeElement).toBe(copyButton);
+
+    rerender(
+      <WalletHeroCard
+        walletName="Smart wallet"
+        address={FULL_ADDRESS}
+        balanceLovelace="8000000"
+        assetTypeCount={1}
+        fundingSourceCount={1}
+        onCopyAddress={vi.fn()}
+        addressCopied
+        onSend={vi.fn()}
+        onReceive={vi.fn()}
+        onActivity={vi.fn()}
+        onSettings={vi.fn()}
+      />
+    );
+
+    const copiedButton = screen.getByLabelText("Wallet address copied");
+    expect(copiedButton).toBe(copyButton);
+    expect(document.activeElement).toBe(copyButton);
+    expect(copiedButton.className).toContain("animate-[copy-pulse");
+  });
+
+  /**
    * The card sits inside the "Wallet home" card, whose `CardTitle` is an `h3`. The wallet name
    * was an `h2`, so it outranked the card containing it and heading navigation on the app's main
    * screen ran h1, h3, then backwards to h2. Level 3 keeps the name a sibling of its container

@@ -2,7 +2,7 @@
   "connectWalletFirst": "Connect wallet first.",
   "demoWalletCannotConfirmActionsConnectABrowser": "Demo wallet cannot confirm actions. Connect a browser wallet to continue.",
   "finishTheSetupChecklistBeforeContinuing": "Finish the setup checklist before continuing.",
-  "fixTheHighlightedFieldsBeforeContinuing": "Fix the highlighted fields before continuing.",
+  "fixTheHighlightedFieldsBeforeContinuing": "Some fields still need a value or a correction. Fix them before continuing.",
   "reviewTheseWarningsBeforeYouSignContinue": "Review these warnings before you sign:\n\n{warnings}\n\nContinue?",
   "theSelectedActionIsNotWiredToA_ee5fb7": "The selected action is not wired to a builder yet.",
   "theTransactionCouldNotBePreparedTryAgain": "The transaction could not be prepared. Try again.",

@@ -428,9 +428,15 @@ test("no transition duration is an arbitrary value", () => {
 //
 // The two settled answers are both still allowed. Reserve nothing and let the thumb float over
 // the content, which is what the main panel, the review rail and the two proposal lists do; or
-// reserve enough to clear it, which is what the sidebar's `pr-2` does, because its cards sit
-// inside a card whose right edge the thumb would otherwise cover. `p-4`/`p-6` bodies clear it
-// too. Only 4px buys neither.
+// reserve enough to clear it, which is what `p-4`/`p-6` bodies do. Only 4px buys neither.
+//
+// Correction: this note used to name the sidebar's `pr-2` as the second answer, "because its
+// cards sit inside a card whose right edge the thumb would otherwise cover". That reason was
+// wrong. The thumb paints at the scroller's edge, which is 16px inside the Card's own edge, so
+// what it can cover is the outer 4px of a nav card while scrolling -- never the Card. Measured
+// against that, the 8px reservation cost more than it bought: it left the nav column 20px from
+// the CardContent gutter on the left and 24px on the right, on 19 screens. The sidebar now
+// takes the first answer, so every scroller in the app reserves nothing.
 //
 // Not determined: how wide the reservation has to be. `scrollbar-gutter: stable` reserves
 // nothing on this machine -- `offsetWidth - clientWidth` is 0 on a scroller that is scrolling --

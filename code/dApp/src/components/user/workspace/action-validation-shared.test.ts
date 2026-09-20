@@ -105,7 +105,15 @@ test("hasIntendedStakeCredential separates Some from None", () => {
 test("requireStakingEnabled blocks a claim on a wallet that delegates to nothing", () => {
   const errors: FieldErrors = {};
   requireStakingEnabled(errors, stateFormWithStakeCredential(INTENDED_STAKE_CREDENTIAL_NONE));
-  assert.match(errors["Staking"]?.[0] ?? "", /earned nothing to claim/);
+  assert.deepEqual(errors["Staking"], ["Turn on staking before you claim rewards."]);
+});
+
+// The review receipt prints the long "earned nothing to claim" explanation in the same
+// rail, so this field error must not repeat it word for word.
+test("requireStakingEnabled does not repeat the receipt's explanation", () => {
+  const errors: FieldErrors = {};
+  requireStakingEnabled(errors, stateFormWithStakeCredential(INTENDED_STAKE_CREDENTIAL_NONE));
+  assert.doesNotMatch(errors["Staking"]?.[0] ?? "", /earned nothing to claim/);
 });
 
 test("requireStakingEnabled passes a wallet with a stake credential", () => {

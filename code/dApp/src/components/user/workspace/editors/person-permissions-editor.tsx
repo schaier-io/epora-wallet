@@ -49,7 +49,10 @@ function PermissionChip({
       title={title}
       onClick={onClick}
       className={cn(
-        "user-surface user-task-chip inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-[background-color,border-color,color]",
+        "user-surface user-task-chip relative inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-[background-color,border-color,color]",
+        // 30 CSS painted, 44 to a finger. The pill keeps its own size: growing it would
+        // push every wrapped row of chips down.
+        "after:absolute after:inset-x-0 after:-inset-y-[7px] after:content-['']",
         pressed
           ? "border-primary/45 bg-primary/12 text-foreground"
           : "border-border/70 bg-background/40 text-muted-foreground hover:border-primary/30 hover:text-foreground",
@@ -140,7 +143,16 @@ export function PersonPermissionsEditor({
     <div className="user-surface user-list-item space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <PersonHeading person={user}>{personLabel("Person", user)}</PersonHeading>
-        <Button type="button" variant="ghost" onClick={onRemove}>
+        {/* Pays back the ghost button's `px-4`, so its text box lands on the same edge as
+            the heading. It tracks the card's own `p-3 sm:p-4`: a flat `-mr-4` put the
+            button's hover fill and focus ring 4 CSS outside the card below 640. The hit
+            box is unchanged. */}
+        <Button
+          type="button"
+          variant="ghost"
+          className="-mr-3 sm:-mr-4"
+          onClick={onRemove}
+        >
           {i18n("remove")}
         </Button>
       </div>

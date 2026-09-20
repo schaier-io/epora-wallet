@@ -6,8 +6,8 @@
   "specificProofOfLifeDate": "Specific proof of life date",
   "specificWakeUpTimerDate": "Specific proof of life date",
   "staking": "Staking",
-  "stakingIsNotOnForThisWalletYet": "Staking is not on for this wallet yet, so it has earned nothing to claim. Turn on staking first, then delegate to a pool.",
   "theVoteHasToBeYesNoOr": "The vote has to be Yes, No or Abstain.",
+  "turnOnStakingBeforeYouClaim": "Turn on staking before you claim rewards.",
   "voteJson": "Vote JSON",
   "walletWithNoOwner": "Wallet with no owner"
 }

@@ -172,7 +172,9 @@ export function WalletBalanceChartSection() {
               onClick={() => toggleUnit(pill.unit)}
               aria-pressed={active}
               className={cn(
-                "rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-colors",
+                // Matches the chart's range pills: `py-1.5 min-h-6`, because these
+                // series toggles are a real control, not a label.
+                "min-h-6 rounded-full border px-2.5 py-1.5 text-[11px] font-medium transition-colors",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 active
                   ? "border-primary/40 bg-primary/15 text-foreground"

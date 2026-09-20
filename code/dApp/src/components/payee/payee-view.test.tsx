@@ -9,6 +9,7 @@ import type {
   PayeeStreamingPayment
 } from "@/components/payee/collect-payee-streaming-payments";
 import type { ConstrData } from "@/lib/types/contracts";
+import { defaultLocale, defaultTimeZone, formats } from "@/i18n/config";
 
 const NOW = 1_760_000_000_000;
 let payeeStore: ReturnType<typeof createStore>;
@@ -244,6 +245,39 @@ describe("who this page is for", () => {
     expect(screen.queryByText(/top-right/)).toBeNull();
   });
 
+  /**
+   * The poll ran on a disconnected page: a 30 second scan of a chain the notice already says
+   * cannot be read, behind a Refresh button that invited more of them.
+   */
+  it("reads nothing from the chain while no wallet is connected", async () => {
+    wallet.value = { ...wallet.value, activeAddress: null };
+    await renderView();
+
+    expect(chain.detect).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: /refresh/i })).toBeDisabled();
+  });
+
+  /**
+   * `loading` carried `isFetching`, so every background poll unmounted the card body and the
+   * row list vanished mid-read. A refetch may only set `aria-busy`.
+   */
+  it("keeps the rows on screen through a background refresh", async () => {
+    await renderView();
+    expect(screen.getByText(/No scheduled payments to this wallet yet/)).toBeInTheDocument();
+
+    // Hold the poll's scan open, so the in-flight state is observable rather than resolved
+    // inside the same act().
+    let release!: (value: { tokens: [] }) => void;
+    chain.detect.mockReturnValueOnce(new Promise((resolve) => { release = resolve; }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
+
+    expect(screen.getByText(/No scheduled payments to this wallet yet/)).toBeInTheDocument();
+    expect(screen.queryByText(/Looking for payments scheduled to you/i)).toBeNull();
+    expect(screen.getByRole("button", { name: /refresh/i })).toHaveAttribute("aria-busy", "true");
+
+    await act(async () => { release({ tokens: [] }); await vi.advanceTimersByTimeAsync(0); });
+  });
+
   it("says what the demo wallet cannot do here, in one sentence", async () => {
     wallet.value = { ...wallet.value, isDemoWallet: true };
     await renderView();
@@ -344,6 +378,30 @@ describe("amounts and asset names", () => {
     await renderView();
 
     expect(screen.getByText(/27,021,597,764,222,973 USDM/)).toBeInTheDocument();
+  });
+});
+
+describe("the schedule both sides of a payment read", () => {
+  /**
+   * The payer renders these same two values through `formatTimestampLabel`
+   * (`config-sttspend-payout-view.tsx:283,286`), which uses the configured zone and
+   * names it (`shortWithZone`). A local `toLocaleString()` here rendered them in the
+   * host browser's zone instead, so payer and payee read different clocks for one
+   * schedule, and this client render disagreed with the server HTML. Asserting the
+   * configured-zone render with the zone named keeps the two sides on one clock.
+   */
+  it("renders start and end in the app's configured time zone", async () => {
+    const utc = new Intl.DateTimeFormat(defaultLocale, {
+      ...formats.dateTime.shortWithZone,
+      timeZone: defaultTimeZone
+    });
+    const normalize = (value: string) => value.replace(/\s+/g, " ");
+    chain.scan.mockReturnValue(scanOf([payment()]));
+    await renderView();
+
+    const schedule = normalize(screen.getByText(/From Alice/).textContent ?? "");
+    expect(schedule).toContain(normalize(utc.format(NOW - 86_400_000)));
+    expect(schedule).toContain(normalize(utc.format(NOW + 86_400_000)));
   });
 });
 

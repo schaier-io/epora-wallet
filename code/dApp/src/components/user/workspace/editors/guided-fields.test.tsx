@@ -1,6 +1,8 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { useState } from "react";
+import { hydrateRoot } from "react-dom/client";
+import { renderToString } from "react-dom/server";
 import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
 import type { WalletInputRef } from "@/lib/types/contracts";
 
@@ -10,8 +12,12 @@ describe("a date and time field", () => {
   /**
    * The echo read "Saved as ...". Nothing is saved by typing in a form, and the line's one
    * real job is to say which clock the two boxes are read against.
+   *
+   * It then read "That is <time> where you are." while rendering `defaultTimeZone`, i.e.
+   * it named a zone the number was not in. This field sets when a recovery contact may
+   * take the wallet, so the echo has to name the zone it is actually in.
    */
-  it("says which clock the two boxes are read against", () => {
+  it("says which clock the two boxes are read against, and names it", () => {
     render(
       <GuidedDateTimeField
         idPrefix="t"
@@ -21,14 +27,91 @@ describe("a date and time field", () => {
       />
     );
 
-    expect(screen.getByText(/where you are\.$/)).toBeInTheDocument();
+    expect(screen.getByText(/^That is .*\bUTC\.$/)).toBeInTheDocument();
+    expect(screen.queryByText(/where you are/)).not.toBeInTheDocument();
     expect(screen.queryByText(/^Saved as/)).not.toBeInTheDocument();
   });
 
-  it("asks for both halves when it is empty", () => {
+  it("asks for both halves when it is empty, and says which clock they are read on", () => {
     render(<GuidedDateTimeField idPrefix="t" label="Starts" value="" onChange={vi.fn()} />);
 
-    expect(screen.getByText("Choose both a date and time.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Choose both a date and time. They are read in UTC.")
+    ).toBeInTheDocument();
+  });
+
+  /**
+   * The two inputs were filled through `getTimezoneOffset()`, so they held the runner's
+   * own wall clock while the echo under them, and every other rendered timestamp in the
+   * app, held `defaultTimeZone`. Pinning both halves to one zone is what makes the echo
+   * true. These assertions are absolute, so they only hold if the host zone cannot reach
+   * the inputs: run this file under TZ=UTC and TZ=Asia/Tokyo and both must pass.
+   */
+  it("fills and reads both boxes in the zone the app renders every other time in", () => {
+    const onChange = vi.fn();
+    render(
+      <GuidedDateTimeField
+        idPrefix="t"
+        label="Starts"
+        value="1750000000000"
+        onChange={onChange}
+      />
+    );
+    const date = screen.getByLabelText("Starts", { selector: "input" }) as HTMLInputElement;
+    const time = screen.getByLabelText("Time of day") as HTMLInputElement;
+
+    // 1750000000000 === 2025-06-15T15:06:40.000Z
+    expect(date.value).toBe("2025-06-15");
+    expect(time.value).toBe("15:06");
+
+    fireEvent.change(time, { target: { value: "17:00" } });
+
+    expect(onChange).toHaveBeenLastCalledWith(String(Date.parse("2025-06-15T17:00:00Z")));
+  });
+
+  /**
+   * The reason `defaultTimeZone` is pinned at all (`i18n/config.ts`): the server writes
+   * the first HTML and the browser hydrates it. A zone read from the browser makes the
+   * two disagree. Nothing in this field reads the host zone any more, so the server
+   * string and the hydrated tree are identical and React logs no mismatch.
+   *
+   * What this cannot see: both passes run in one process on one host zone, so a field
+   * that read `Intl.DateTimeFormat().resolvedOptions().timeZone` would render the same
+   * string twice and pass here while breaking in a browser whose zone is not the
+   * server's. Measured: adding such a read to this component leaves this test green.
+   * The guard against that case is that nothing reads the host zone at all, which
+   * `lib/user-flow/time-inputs.test.ts` holds by pinning its own host zone off UTC.
+   */
+  it("hydrates the server markup without a mismatch", () => {
+    const element = (
+      <GuidedDateTimeField
+        idPrefix="t"
+        label="Starts"
+        value="1750000000000"
+        onChange={vi.fn()}
+      />
+    );
+    const container = document.createElement("div");
+    container.innerHTML = renderToString(element);
+    document.body.append(container);
+    // React 19 reports a hydration mismatch through the root's own error callbacks,
+    // not through `console.error`. A `console.error` spy here collects nothing and the
+    // assertion on it passes even when the two trees differ, so read the callbacks.
+    const errors: unknown[] = [];
+    let root: ReturnType<typeof hydrateRoot>;
+    act(() => {
+      root = hydrateRoot(container, element, {
+        onCaughtError: (error) => errors.push(error),
+        onUncaughtError: (error) => errors.push(error),
+        onRecoverableError: (error) => errors.push(error)
+      });
+    });
+    act(() => {
+      root!.unmount();
+    });
+
+    expect(errors).toEqual([]);
+    expect(container.textContent ?? "").not.toContain("where you are");
   });
 
   it("keeps a uint64 timestamp visible when it is outside the JavaScript Date range", () => {
@@ -57,11 +140,11 @@ describe("a date and time field", () => {
     const timestamp = Number(onChange.mock.calls[0]![0]);
     // Minute resolution: the pickers take HH:MM, so seconds are truncated.
     expect(Math.abs(timestamp - before)).toBeLessThan(120_000);
-    const today = new Date();
-    const pad = (value: number) => String(value).padStart(2, "0");
+    // Both halves are read in `defaultTimeZone`, so Now fills today's UTC date, not the
+    // runner's local one. The two differ for part of every day outside UTC.
     expect(
       (screen.getByLabelText("Starts", { selector: "input" }) as HTMLInputElement).value
-    ).toBe(`${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`);
+    ).toBe(new Date(timestamp).toISOString().slice(0, 10));
   });
 
   it("keeps a date picked before its time, even when the stored value was 0", () => {

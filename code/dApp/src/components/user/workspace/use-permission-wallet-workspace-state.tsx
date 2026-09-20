@@ -211,6 +211,8 @@ export function usePermissionWalletWorkspaceState() {
     activeActionDraft,
     activeFieldErrors,
     activeReadinessIssues,
+    visibleFieldErrors,
+    visibleReadinessIssues,
     activeActionDefinition,
     previewMatchesSelectedAction,
     lastActionDisplayLabel,
@@ -594,8 +596,18 @@ export function usePermissionWalletWorkspaceState() {
     selectedActionDefinition,
 
     // Review phase: field errors, readiness, receipt, and the primary CTA state.
-    activeFieldErrors,
-    activeReadinessIssues,
+    //
+    // What leaves this hook is the DISPLAY-gated pair: a form the user has not touched
+    // yet must not open covered in failure signals. The raw pair stays inside this hook
+    // for the gates above (`reviewPrimaryActionDisabled`, the prebuild enable, and the
+    // `activeFieldErrors` handed to `createWorkspaceTransactions`), so a pristine invalid
+    // draft is still un-buildable. `blockingFieldErrors` / `blockingReadinessIssues`
+    // carry the raw pair out for the one view that gates on it as well as shows it (the
+    // review rail's approval CTA).
+    activeFieldErrors: visibleFieldErrors,
+    activeReadinessIssues: visibleReadinessIssues,
+    blockingFieldErrors: activeFieldErrors,
+    blockingReadinessIssues: activeReadinessIssues,
     previewMatchesSelectedAction,
     reviewContextRows,
     reviewPanelDescription,
