@@ -6,9 +6,9 @@ Everything reported must land in one trackable place with enough detail to repro
 
 ## Steps
 
-- [ ] GitHub issue templates: bug (network, wallet used, action attempted, tx hash if any) and feedback. Required fields, not prose hopes.
-- [ ] Labels matching the milestone's published sort: `feasible`, `fixed`, `next`, `not-a-bug`.
-- [ ] Discord reports get copied into issues as text, not linked — Discord history is not evidence and not searchable from the repo.
+- [x] GitHub issue templates: bug (network, wallet used, action attempted, tx hash if any) and feedback. Required fields, not prose hopes.
+- [x] Labels matching the milestone's published sort: `feasible`, `fixed`, `next`, `not-a-bug`.
+- [x] Discord reports get copied into issues as text, not linked — Discord history is not evidence and not searchable from the repo. Standing rule. None were on file for the 2026-09-20 snapshot.
 
 ## Done when
 

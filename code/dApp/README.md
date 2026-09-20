@@ -70,6 +70,8 @@ Open [http://localhost:3000](http://localhost:3000).
   `postgresql://postgres@localhost:5432/wallet`; make sure the `wallet` database
   exists locally.
 - `STT_SYNC_SECRET`: Shared secret for the protected background STT sync route.
+- `CRON_SECRET`: Vercel Cron bearer for `GET /api/stt/sync`. Set it in the Vercel
+  project to the same value as `STT_SYNC_SECRET`. Not needed for local `pnpm dev`.
 - `PROPOSAL_AUTH_SECRET`: HMAC secret for proposal sign-in nonces and session
   cookies; required in production.
 - `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`: Optional Reown/WalletConnect project
