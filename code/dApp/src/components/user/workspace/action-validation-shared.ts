@@ -166,13 +166,12 @@ export function validateGovernanceVotePayload(errors: FieldErrors, voteJson: str
       ? (parsed as Record<string, unknown>)
       : null;
   if (vote === null || !vote.voter || !vote.govActionId || !vote.votingProcedure) {
-    // One sentence, not two: the field's own helper sits directly above the box and already
-    // says where a whole vote comes from, so repeating that here printed the same advice
-    // twice, once in grey and once in red, on first load.
+    // `{}` is the empty default and the Clear target. It parses, so this has to name
+    // the templates the way a typeless certificate names them.
     pushFieldError(
       errors,
       i18n("voteJson"),
-      i18n("aVoteHasToSayWhoIsVoting")
+      i18n("thisVoteIsMissingWhoIsVoting")
     );
     return;
   }

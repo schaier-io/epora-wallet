@@ -103,9 +103,16 @@
   },
   "ComponentsUserWorkspaceConfigWalletvoteView": {
     "aVoteSaysThreeThingsWhoIsVoting": "A vote says three things: who is voting, which proposal, and how you vote (Yes, No or Abstain). This app cannot look proposals up, so paste the whole vote from the tool you found the proposal in.",
+    "abstain": "Abstain",
+    "clear": "Clear",
+    "no": "No",
     "signAsASingleOwnerOrCollectThe": "Sign as a single owner, or collect the approvals your wallet requires.",
+    "theTemplatesNeedThisWalletSStakingAddress": "The templates need this wallet's staking address, which could not be worked out yet. You can still paste a vote exported from another tool.",
     "voteJson": "Vote JSON",
-    "whoApprovesThisVote": "Who approves this vote"
+    "voteJsonPlaceholder": "'{\n  \"voter\": { \"type\": \"DRep\", \"drepId\": \"drep1...\" },\n  \"govActionId\": { \"txHash\": \"...\", \"txIndex\": 0 },\n  \"votingProcedure\": { \"voteKind\": \"Yes\" }\n}'",
+    "whoApprovesThisVote": "Who approves this vote",
+    "yes": "Yes",
+    "yesNoAndAbstainFillHowYouVote": "Yes, No and Abstain fill how you vote. Paste the proposal id from the tool you found the proposal in."
   },
   "ComponentsUserWorkspaceConfigWalletwithdrawView": {
     "availableToClaim": "Available to claim",
