@@ -144,6 +144,21 @@ export type MintFormInput = {
   selectedReferenceUtxo?: { txHash: string; outputIndex: number };
 };
 
+// The eleven State transitions `buildSttSpendTx` dispatches on. `action`
+// selects which redeemer the builder produces and which input fields apply.
+export type SttSpendAction =
+  | "use"
+  | "renew-proof-of-life"
+  | "update-state"
+  | "manage-streaming-payments"
+  | "use-allowance"
+  | "use-beneficiary"
+  | "stop-beneficiary-stream"
+  | "distribute-beneficiaries"
+  | "payout-streaming-payment"
+  | "cancel-streaming-payment"
+  | "remove-access-index";
+
 export type SttSpendFormInput = {
   sttInputTxHash: string;
   sttInputOutputIndex?: number;
