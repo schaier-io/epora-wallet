@@ -5,20 +5,14 @@ import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAtomValue, useSetAtom } from "jotai";
-import { CircleSlash, HandCoins, Loader2, RefreshCw, Wallet } from "lucide-react";
+import { CircleSlash, HandCoins, Loader2, Wallet } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { CopyButton } from "@/components/ui/copy-button";
 import { PopupDialog } from "@/components/ui/popup-dialog";
-import { pageHeadingClass } from "@/components/ui/page-heading";
+import { PayeeCardHeader } from "@/components/payee/payee-card-header";
 import { type DetectedSttToken } from "@/lib/mesh/detection";
 import { buildSttSpendTx, getValidityWindow, signAndSubmitTx } from "@/lib/mesh/transactions";
 import {
@@ -345,31 +339,10 @@ export function PayeeView() {
   return (
     <div className="container flex flex-col py-3 md:py-4">
       <Card className="flex w-full flex-col">
-        <CardHeader>
-          <div className="flex w-full flex-wrap items-start justify-between gap-x-3 gap-y-2">
-            <div>
-              {/* The page's own heading. `/payee` holds one card and this names it, so the
-                  page no longer carries a hidden `h1` saying the same words at a different
-                  level. `pageHeadingClass` overrides the CardTitle rung: `cn` merges with
-                  tailwind-merge, so the page scale wins over `text-lg font-medium`. */}
-              <CardTitle as="h1" className={pageHeadingClass}>{i18n("scheduledPaymentsToYou")}</CardTitle>
-              <CardDescription>
-                {i18n("paymentsOtherWalletsSendToYouALittle")}
-              </CardDescription>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => void loadTokens()}
-              disabled={loading}
-              aria-busy={loading}
-            >
-              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} aria-hidden="true" />
-              {i18n("refresh")}
-            </Button>
-          </div>
-        </CardHeader>
+        <PayeeCardHeader
+          refreshing={loading}
+          onRefresh={() => void loadTokens()}
+        />
         <CardContent className="flex flex-col space-y-4">
           <p role="status" aria-live="polite" className="sr-only">
             {actionAnnouncement}

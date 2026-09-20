@@ -1,11 +1,9 @@
-import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { ScopedClientIntlProvider } from "@/i18n/scoped-client-provider";
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { Loader2 } from "lucide-react";
 import { LazyPayeeView } from "@/components/payee/lazy-payee-view";
-import { SkeletonCard } from "@/components/ui/skeleton";
+import { PayeeCardFallback } from "@/components/payee/payee-card-fallback";
 
 export async function generateMetadata(): Promise<Metadata> {
   const i18n = await getTranslations("AppPayeePage");
@@ -18,27 +16,20 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default function PayeePage() {
-  const i18n = useTranslations("AppPayeePage");
   return (
     <main className="page-shell flex flex-1 flex-col md:overflow-x-clip">
-      <ScopedClientIntlProvider prefixes={["ComponentsPayee", "ComponentsUi"]}>
+      {/* `AppPayeePage` ships too because the loading fallback (payee-card-fallback)
+          reads its "Preparing your payments" line on the client as well as the server. */}
+      <ScopedClientIntlProvider
+        prefixes={["ComponentsPayee", "ComponentsUi", "AppPayeePage"]}
+      >
         <div className="flex min-h-0 flex-1 flex-col">
-          <Suspense
-            fallback={
-              <div className="container space-y-4 py-3 md:py-4">
-                {/* The SkeletonCard below is `aria-hidden`, so this line is the only thing
-                    a screen reader has to tell it the page is still loading. */}
-                <div
-                  role="status"
-                  className="inline-flex items-center gap-2 text-sm text-muted-foreground"
-                >
-                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                  {i18n("preparingYourPayments")}
-                </div>
-                <SkeletonCard />
-              </div>
-            }
-          >
+          {/* The fallback is the card shell, so the heading and note paragraph paint in
+              the server HTML. Before issue #502 they waited inside the view's async
+              chunk, and the note paragraph was the route's LCP element at about 14.5 s
+              while sibling routes sat at 4 to 5 s. The live view swaps in with the same
+              header plus the refresh control and the real content. */}
+          <Suspense fallback={<PayeeCardFallback />}>
             <LazyPayeeView />
           </Suspense>
         </div>
