@@ -4,6 +4,7 @@ import { Component, type ErrorInfo, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { AlertOctagon, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DISCORD_INVITE_URL, GITHUB_NEW_ISSUE_URL } from "@/lib/site-links";
 
 type ErrorBoundaryProps = {
   children: ReactNode;
@@ -13,6 +14,27 @@ type ErrorBoundaryProps = {
 type ErrorBoundaryState = {
   hasError: boolean;
 };
+
+function ReportLink({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="font-medium text-foreground underline decoration-border underline-offset-2 hover:decoration-foreground"
+    >
+      {children}
+    </a>
+  );
+}
+
+function GitHubReportLink(children: ReactNode) {
+  return <ReportLink href={GITHUB_NEW_ISSUE_URL}>{children}</ReportLink>;
+}
+
+function DiscordReportLink(children: ReactNode) {
+  return <ReportLink href={DISCORD_INVITE_URL}>{children}</ReportLink>;
+}
 
 // The raw `Error.message` is a developer string: it says things like "Cannot read
 // properties of undefined (reading 'datum')" or names an SDK internal. It is not shown;
@@ -34,6 +56,12 @@ function ErrorFallback({ onReset, onReload }: { onReset: () => void; onReload: (
         </div>
         <p className="text-sm text-muted-foreground">
           {i18n("thisPartOfThePageStoppedWorking")}
+        </p>
+        <p className="text-sm text-muted-foreground">
+          {i18n.rich("ifThisKeepsHappeningReportIt", {
+            github: GitHubReportLink,
+            discord: DiscordReportLink
+          })}
         </p>
         <div className="flex flex-wrap gap-2">
           <Button type="button" size="sm" onClick={onReset}>

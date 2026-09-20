@@ -7,6 +7,18 @@ import { usePathname } from "next/navigation";
 import { useAtom } from "jotai";
 import { ShieldAlert } from "lucide-react";
 import { shortcutsHelpOpenAtom } from "@/components/layout/shortcuts-help.atoms";
+import { DISCORD_INVITE_URL, GITHUB_NEW_ISSUE_URL } from "@/lib/site-links";
+
+const FOOTER_LINK_CLASS =
+  "rounded-sm py-1 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+
+function FooterSeparator() {
+  return (
+    <span aria-hidden="true" className="text-border">
+      ·
+    </span>
+  );
+}
 
 export function SiteFooter() {
   const i18n = useTranslations("ComponentsLayoutSiteFooter");
@@ -59,20 +71,35 @@ export function SiteFooter() {
                 so the footer was the one place in the chrome where a keyboard user lost the
                 focus ring. `rounded-sm` keeps the ring off the glyphs.
               */}
-              <Link
-                href="/user"
-                className="rounded-sm py-1 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-              >
+              <Link href="/user" className={FOOTER_LINK_CLASS}>
                 {i18n("walletHome")}
               </Link>
-              <span aria-hidden="true" className="text-border">·</span>
+              <FooterSeparator />
             </>
           ) : null}
+          <a
+            href={DISCORD_INVITE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={FOOTER_LINK_CLASS}
+          >
+            {i18n("discord")}
+          </a>
+          <FooterSeparator />
+          <a
+            href={GITHUB_NEW_ISSUE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={FOOTER_LINK_CLASS}
+          >
+            {i18n("reportAnIssue")}
+          </a>
+          <FooterSeparator />
           <a
             href="https://projectcatalyst.io/funds/11/cardano-use-cases-concept/dead-man-switch-permission-based-wallet"
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-sm py-1 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className={FOOTER_LINK_CLASS}
           >
             {i18n("catalystProposal")}
           </a>

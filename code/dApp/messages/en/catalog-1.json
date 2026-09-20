@@ -121,9 +121,10 @@
     "loadingApprovalRequests": "Loading approval requests…"
   },
   "ComponentsErrorBoundary": {
+    "ifThisKeepsHappeningReportIt": "If this keeps happening, report it on <github>GitHub</github> or <discord>Discord</discord>.",
     "reloadPage": "Reload page",
     "somethingWentWrong": "Something went wrong",
-    "thisPartOfThePageStoppedWorking": "This part of the page stopped working. Reloading usually fixes it. If it keeps happening, try again later.",
+    "thisPartOfThePageStoppedWorking": "This part of the page stopped working. Reloading usually fixes it.",
     "title": "Page could not load",
     "tryAgain": "Try again",
     "technicalDetails": "Technical details"
@@ -173,9 +174,11 @@
   },
   "ComponentsLayoutSiteFooter": {
     "catalystProposal": "Catalyst proposal",
+    "discord": "Discord",
     "forShortcuts": "for shortcuts",
     "preprodTestNetwork": "Preprod test network.",
     "press": "Press",
+    "reportAnIssue": "Report an issue",
     "walletHome": "Wallet home"
   },
   "ComponentsLayoutSparkleEasterEgg": {
