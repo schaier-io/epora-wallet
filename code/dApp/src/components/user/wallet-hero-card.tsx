@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CountUp, SoftAurora } from "@/components/react-bits/primitives";
 import { shortenAddress } from "@/lib/utils/explorer";
-import { formatLovelaceAsAda } from "@/lib/user-flow/guided-helpers";
+import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 import { formatCountLabel } from "@/components/user/workspace/helpers";
 import { walletIdentityPalette } from "@/providers/smart-wallet-display";
 import { cn } from "@/lib/utils/cn";

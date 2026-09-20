@@ -1,8 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Loader2 } from "lucide-react";
-import { SkeletonCard } from "@/components/ui/skeleton";
+
+import { PayeeCardFallback } from "@/components/payee/payee-card-fallback";
 
 /**
  * The payee view's module graph reaches the Cardano serialisation stack
@@ -12,19 +12,17 @@ import { SkeletonCard } from "@/components/ui/skeleton";
  * guarded by app/layout-mesh-boundary.test.ts). The view is an interactive
  * wallet screen: without JavaScript the server HTML was inert anyway, so the
  * shell renders skeletons until the chunk arrives.
+ *
+ * The loading fallback is the card shell (payee-card-fallback), not a bare
+ * skeleton: the header is static text, and painting it with the server HTML
+ * keeps the route's largest text from waiting on the multi-megabyte chunk
+ * (issue #502).
  */
 const LazyPayeeView = dynamic(
   () => import("@/components/payee/payee-view").then(mod => ({ default: mod.PayeeView })),
   {
     ssr: false,
-    loading: () => (
-      <div className="space-y-4" aria-busy="true">
-        <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-        </div>
-        <SkeletonCard />
-      </div>
-    )
+    loading: () => <PayeeCardFallback />
   }
 );
 

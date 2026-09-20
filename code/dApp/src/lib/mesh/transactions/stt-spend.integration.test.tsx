@@ -11,6 +11,18 @@ import { CARDANO_MAX_TX_SIZE_BYTES } from "@/lib/mesh/transactions/internals/con
 import { calculateMinimumLovelaceForOutput } from "@/lib/mesh/transactions/internals/value";
 import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 
+// These tests drive the real Mesh transaction builders, so most of them do real
+// Conway CBOR construction. All chain access is mocked (see the ServerFetcher
+// below), which leaves pure CPU work that stretches under full-suite worker
+// contention. The slowest test ("builds three mixed ADA and native payouts with
+// ordinary wallet change") measures 1356/1135/1030 ms across three isolated runs
+// on a fast Apple Silicon box, and CI timed it out at the 5 s default once
+// (run 34111508415), with four later CI runs stretching the file to 13.8 to
+// 21.8 s under worker contention. vi.setConfig is
+// file-scoped: vitest calls vi.resetConfig() after each file, so other suites
+// keep the 5 s default.
+vi.setConfig({ testTimeout: 30_000 });
+
 const BENEFICIARY_PAYOUT_ADDRESS = "addr_test1vqg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygxrcya6";
 
 const chain = vi.hoisted(() => ({
@@ -104,7 +116,7 @@ const {
   resolveStructuredOnChainAction
 } = await import("@/lib/contracts/action-data");
 const { buildStreamingPaymentPayoutTransfer } = await import(
-  "@/lib/user-flow/guided-helpers"
+  "@/lib/user-flow/streaming-payment-helpers"
 );
 const { buildSttSpendTx } = await import("@/lib/mesh/transactions/stt-spend");
 const { buildConsolidateUtxosTx } = await import(

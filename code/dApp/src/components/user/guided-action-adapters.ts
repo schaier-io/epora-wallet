@@ -3,7 +3,7 @@ import type {
   ReadinessIssue,
   UserActionKind
 } from "@/components/user/flow-types";
-import { formatLovelaceAsAda } from "@/lib/user-flow/guided-helpers";
+import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 import { formatCountLabel } from "@/components/user/workspace/helpers/formatters";
 import { DEFAULT_WITHDRAWAL_LOVELACE } from "@/lib/units/lovelace";
 import { createDefaultTranslator } from "@/i18n/default-translator";

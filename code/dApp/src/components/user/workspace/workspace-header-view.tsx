@@ -33,7 +33,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 import {
   formatLovelaceAsAda,
-  formatLovelaceAsAdaRounded } from "@/lib/user-flow/guided-helpers";
+  formatLovelaceAsAdaRounded
+} from "@/lib/units/lovelace";
 
 import { cn } from "@/lib/utils/cn";
 import { getAssetQuantityByUnit } from "@/components/user/workspace/helpers";

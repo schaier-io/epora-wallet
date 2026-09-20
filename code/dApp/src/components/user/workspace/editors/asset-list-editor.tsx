@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { buildAssetSelectionOptions } from "@/components/user/workspace/helpers";
 import { resolveAssetIdentity } from "@/lib/cardano-assets";
 import { type Asset } from "@/lib/types/contracts";
-import { parseAdaToLovelace } from "@/lib/user-flow/guided-helpers";
+import { parseAdaToLovelace } from "@/lib/units/lovelace";
 import { Plus } from "lucide-react";
 import { useId, useMemo, useRef } from "react";
 

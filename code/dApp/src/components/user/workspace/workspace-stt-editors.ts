@@ -10,8 +10,7 @@ import { type useRecentRecipients } from "@/components/user/workspace/use-recent
 
 import type { UTxO } from "@meshsdk/core";
 
-import {
-  parseAdaToLovelace } from "@/lib/user-flow/guided-helpers";
+import { parseAdaToLovelace } from "@/lib/units/lovelace";
 import { describeAddressProblem } from "@/lib/contracts/payout-address";
 import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 import {

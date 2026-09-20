@@ -5,7 +5,7 @@ import { useState } from "react";
 
 import { WealthChart } from "@/components/user/wealth-chart";
 import { resolveAssetIdentity } from "@/lib/cardano-assets";
-import { streamingPaymentUnit } from "@/lib/user-flow/guided-helpers";
+import { streamingPaymentUnit } from "@/lib/user-flow/streaming-payment-helpers";
 import { cn } from "@/lib/utils/cn";
 import {
   availableWealthSeriesForAssetAtom,
