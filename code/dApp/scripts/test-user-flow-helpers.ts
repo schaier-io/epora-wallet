@@ -2,41 +2,37 @@
 // and the lovelace formatting in src/lib/units/lovelace. Run:
 //   pnpm test:user-flow-helpers
 // (equivalent to: node --import tsx scripts/test-user-flow-helpers.mjs)
+// A .ts script importing .ts modules on purpose: the whole file is
+// transpiled by the same tsx pipeline the test suites use, so the imports
+// behave exactly like they do inside src (an .mjs script importing .ts
+// crossed a CJS/ESM interop boundary whose export visibility differs by
+// Node version, which broke this file in CI twice).
 import assert from "node:assert/strict";
-import { createRequire } from "node:module";
-
-// Load the .ts helpers through createRequire, the way sentry-forward.test.ts
-// loads the Sentry SDK: an ESM import of CJS-transpiled .ts depends on the
-// Node version's export detection (the CI runner's Node 24 does not see
-// exports that Node 25 does, through named imports or the namespace object),
-// while require returns the real module.exports on every version.
-const require = createRequire(import.meta.url);
-
-const {
+import {
   chooseAutoOpenDetectedWallet,
   derivePermissionWalletBadgeLabels,
   deriveWalletHomeFlowAvailability,
   filterGuidedUserActions,
   rememberRecentRecipient,
   resolveAutomaticSendPath
-} = require("../src/lib/user-flow/guided-helpers.ts");
-const {
+} from "../src/lib/user-flow/guided-helpers";
+import {
   combineDurationToMillis,
   combineLocalDateAndTimeToTimestamp,
   splitDurationMillis,
   splitTimestampToLocalInputParts
-} = require("../src/lib/user-flow/time-inputs.ts");
-const { requestedTransferAssets } = require("../src/lib/user-flow/asset-quantities.ts");
-const {
+} from "../src/lib/user-flow/time-inputs";
+import { requestedTransferAssets } from "../src/lib/user-flow/asset-quantities";
+import {
   buildStreamingPaymentPayoutTransfer,
   computeStreamingPaymentDueAmount
-} = require("../src/lib/user-flow/streaming-payment-helpers.ts");
-const { suggestWalletInputsForRequestedAssets } = require("../src/lib/user-flow/wallet-input-selection.ts");
-const {
+} from "../src/lib/user-flow/streaming-payment-helpers";
+import { suggestWalletInputsForRequestedAssets } from "../src/lib/user-flow/wallet-input-selection";
+import {
   formatLovelaceAsAda,
   formatLovelaceAsAdaRounded,
   parseAdaToLovelace
-} = require("../src/lib/units/lovelace.ts");
+} from "../src/lib/units/lovelace";
 
 function capabilityMap(overrides = {}) {
   return {
@@ -216,7 +212,10 @@ const payoutTransfer = buildStreamingPaymentPayoutTransfer(
 assert.deepEqual(requestedTransferAssets([payoutTransfer]), [
   { unit: "lovelace", quantity: "1000000" }
 ]);
-assert.equal(payoutTransfer.inlineDatum.alternative, 0);
-assert.deepEqual(payoutTransfer.inlineDatum.fields, [7, "c".repeat(64), 2]);
+// The payout carries its streaming schedule as an inline CBOR datum.
+const inlineDatum = payoutTransfer.inlineDatum;
+assert.ok(inlineDatum, "the payout transfer must carry an inline datum");
+assert.equal(inlineDatum.alternative, 0);
+assert.deepEqual(inlineDatum.fields, [7, "c".repeat(64), 2]);
 
 console.log("user-flow helper smoke checks passed");
