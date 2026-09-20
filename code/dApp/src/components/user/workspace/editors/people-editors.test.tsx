@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { BeneficiaryEditor } from "./people-editors";
@@ -139,5 +139,33 @@ describe("the configured payout address", () => {
     });
     expect(screen.getByLabelText("Payout and signing wallet")).toHaveAttribute("aria-invalid", "true");
     expect(screen.getByText(/script address cannot sign for recovery/i)).toBeInTheDocument();
+  });
+});
+
+describe("recovery contact remove confirmation", () => {
+  it("does not remove until the reader confirms", () => {
+    const onRemove = vi.fn();
+    render(
+      <BeneficiaryEditor
+        beneficiary={createDefaultBeneficiaryFormState("1")}
+        index={0}
+        totalWeight={1}
+        onChange={vi.fn()}
+        onRemove={onRemove}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove recovery contact" }));
+    expect(onRemove).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" }));
+    expect(onRemove).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove recovery contact" }));
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: "Remove recovery contact" })
+    );
+    expect(onRemove).toHaveBeenCalledTimes(1);
   });
 });

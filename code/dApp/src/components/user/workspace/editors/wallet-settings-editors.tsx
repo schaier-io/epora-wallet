@@ -11,6 +11,7 @@ import { GuidedDateTimeField } from "./guided-fields";
 import { BeneficiaryPayoutAddressEditor } from "./people-editors";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DestructiveRemoveButton } from "./destructive-remove-button";
 import { InfoHint } from "@/components/ui/info-hint";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -162,9 +163,13 @@ export function OwnerAccessEditor({
             <Badge variant="outline">{formatCountLabel(user.wallets.length, "walletId")}</Badge>
           </div>
         </div>
-        <Button type="button" variant="ghost" onClick={onRemove}>
-          {i18n("removeOwner")}
-        </Button>
+        <DestructiveRemoveButton
+          label={i18n("removeOwner")}
+          confirmTitle={i18n("removeOwnerConfirmTitle")}
+          confirmBody={i18n("removeOwnerConfirmBody")}
+          cancelLabel={i18n("cancel")}
+          onConfirm={onRemove}
+        />
       </div>
       <WalletHashesEditor
         label={i18n("ownerWalletIds")}
@@ -229,9 +234,13 @@ export function SpendingAccessEditor({
             <Badge variant="outline">{formatCountLabel(user.perDayAllowance.length, "limit")}</Badge>
           </div>
         </div>
-        <Button type="button" variant="ghost" onClick={onRemove}>
-          {i18n("removePerson")}
-        </Button>
+        <DestructiveRemoveButton
+          label={i18n("removePerson")}
+          confirmTitle={i18n("removePersonConfirmTitle")}
+          confirmBody={i18n("removePersonConfirmBody")}
+          cancelLabel={i18n("cancel")}
+          onConfirm={onRemove}
+        />
       </div>
       <WalletHashesEditor
         label={i18n("walletIdsAllowedToSpend")}
@@ -282,9 +291,13 @@ export function RecoveryAccessEditor({
           <PersonHeading person={beneficiary}>{personLabel(i18n("recoveryContact"), beneficiary)}</PersonHeading>
           <Badge variant="outline">{formatCountLabel(beneficiary.wallets.length, "walletId")}</Badge>
         </div>
-        <Button type="button" variant="ghost" onClick={onRemove}>
-          {i18n("removeRecoveryContact")}
-        </Button>
+        <DestructiveRemoveButton
+          label={i18n("removeRecoveryContact")}
+          confirmTitle={i18n("removeRecoveryContactConfirmTitle")}
+          confirmBody={i18n("removeRecoveryContactConfirmBody")}
+          cancelLabel={i18n("cancel")}
+          onConfirm={onRemove}
+        />
       </div>
       <BeneficiaryPayoutAddressEditor
         value={beneficiary.payoutAddress}
