@@ -1,5 +1,5 @@
 import { useTranslations } from "next-intl";
-import { RotateCcw, ShieldAlert, Sparkles, X } from "lucide-react";
+import { ChevronRight, RotateCcw, ShieldAlert, Sparkles, X } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { AnimatedContent } from "@/components/react-bits/primitives";
 import {
@@ -175,7 +175,8 @@ export function UserActionConfigurationCard({
           <p className="text-sm text-foreground">{definition.outcome}</p>
           {compact ? (
             <details className="mt-4">
-              <summary className="cursor-pointer text-sm font-medium text-foreground">
+              <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-medium text-foreground [&::-webkit-details-marker]:hidden">
+                <ChevronRight className="expand-chevron h-4 w-4 shrink-0" aria-hidden="true" />
                 {i18n("whatThisDoes")}
               </summary>
               <div className="mt-3 space-y-3">
