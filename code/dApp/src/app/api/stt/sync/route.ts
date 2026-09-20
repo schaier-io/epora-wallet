@@ -52,7 +52,10 @@ function isAuthorized(request: Request) {
   // Vercel Cron sends `Authorization: Bearer $CRON_SECRET`. Same value as
   // STT_SYNC_SECRET is fine; a distinct cron secret is also accepted.
   const cronSecret = process.env.CRON_SECRET;
-  return Boolean(cronSecret) && bearerMatches(candidate, cronSecret);
+  if (!cronSecret) {
+    return false;
+  }
+  return bearerMatches(candidate, cronSecret);
 }
 
 async function handleSttSync(request: Request) {
