@@ -3,17 +3,14 @@
 //   pnpm test:user-flow-helpers
 // (equivalent to: node --import tsx scripts/test-user-flow-helpers.mjs)
 import assert from "node:assert/strict";
-// Namespace imports on purpose: tsx transpiles the imported .ts modules to
-// CJS, and named imports from that output depend on the Node version's
-// CJS-interop export detection (the CI runner's Node 24 does not see every
-// named export that Node 25 does). A namespace object carries all keys on
-// every version.
-import * as guidedHelpers from "../src/lib/user-flow/guided-helpers.ts";
-import * as timeInputs from "../src/lib/user-flow/time-inputs.ts";
-import * as assetQuantities from "../src/lib/user-flow/asset-quantities.ts";
-import * as streamingPaymentHelpers from "../src/lib/user-flow/streaming-payment-helpers.ts";
-import * as walletInputSelection from "../src/lib/user-flow/wallet-input-selection.ts";
-import * as lovelace from "../src/lib/units/lovelace.ts";
+import { createRequire } from "node:module";
+
+// Load the .ts helpers through createRequire, the way sentry-forward.test.ts
+// loads the Sentry SDK: an ESM import of CJS-transpiled .ts depends on the
+// Node version's export detection (the CI runner's Node 24 does not see
+// exports that Node 25 does, through named imports or the namespace object),
+// while require returns the real module.exports on every version.
+const require = createRequire(import.meta.url);
 
 const {
   chooseAutoOpenDetectedWallet,
@@ -22,24 +19,24 @@ const {
   filterGuidedUserActions,
   rememberRecentRecipient,
   resolveAutomaticSendPath
-} = guidedHelpers;
+} = require("../src/lib/user-flow/guided-helpers.ts");
 const {
   combineDurationToMillis,
   combineLocalDateAndTimeToTimestamp,
   splitDurationMillis,
   splitTimestampToLocalInputParts
-} = timeInputs;
-const { requestedTransferAssets } = assetQuantities;
+} = require("../src/lib/user-flow/time-inputs.ts");
+const { requestedTransferAssets } = require("../src/lib/user-flow/asset-quantities.ts");
 const {
   buildStreamingPaymentPayoutTransfer,
   computeStreamingPaymentDueAmount
-} = streamingPaymentHelpers;
-const { suggestWalletInputsForRequestedAssets } = walletInputSelection;
+} = require("../src/lib/user-flow/streaming-payment-helpers.ts");
+const { suggestWalletInputsForRequestedAssets } = require("../src/lib/user-flow/wallet-input-selection.ts");
 const {
   formatLovelaceAsAda,
   formatLovelaceAsAdaRounded,
   parseAdaToLovelace
-} = lovelace;
+} = require("../src/lib/units/lovelace.ts");
 
 function capabilityMap(overrides = {}) {
   return {
