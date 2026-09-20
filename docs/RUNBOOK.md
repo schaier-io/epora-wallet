@@ -179,10 +179,13 @@ endpoint ran.
 
 ### Alert rule
 
-Point the uptime monitor at `GET /api/health` and alert on any non-200
-response; the 503 body's `degradedReasons` names the failing cursor. Suppress
-repeat alerts while the reason is unchanged, so a stalled indexer pages once
-instead of on every poll. A `503` with `checks.database: "down"` means
+Monitor of record: BetterStack (free tier), polling `GET /api/health` at its
+configured interval and alerting the destinations set in the BetterStack
+dashboard on any non-200 response. The 503 body's `degradedReasons` names the
+failing cursor. BetterStack's own repeat handling covers the "page once, not on
+every poll" rule while the reason is unchanged. A `503` with
+`checks.database: "down"` means investigate the database or `DATABASE_URL`; with
+`checks.indexer: "down"`, investigate the sync cron and the chain provider. A `503` with `checks.database: "down"` means
 investigate the database or `DATABASE_URL`; with `checks.indexer: "down"`,
 investigate the sync cron and the chain provider.
 
