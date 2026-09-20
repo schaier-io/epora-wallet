@@ -2,6 +2,11 @@
 // and the lovelace formatting in src/lib/units/lovelace. Run:
 //   pnpm test:user-flow-helpers
 // (equivalent to: node --import tsx scripts/test-user-flow-helpers.mjs)
+// A .ts script importing .ts modules on purpose: the whole file is
+// transpiled by the same tsx pipeline the test suites use, so the imports
+// behave exactly like they do inside src (an .mjs script importing .ts
+// crossed a CJS/ESM interop boundary whose export visibility differs by
+// Node version, which broke this file in CI twice).
 import assert from "node:assert/strict";
 import {
   chooseAutoOpenDetectedWallet,
@@ -10,24 +15,24 @@ import {
   filterGuidedUserActions,
   rememberRecentRecipient,
   resolveAutomaticSendPath
-} from "../src/lib/user-flow/guided-helpers.ts";
+} from "../src/lib/user-flow/guided-helpers";
 import {
+  combineDateAndTimeToTimestamp,
   combineDurationToMillis,
-  combineLocalDateAndTimeToTimestamp,
   splitDurationMillis,
-  splitTimestampToLocalInputParts
-} from "../src/lib/user-flow/time-inputs.ts";
-import { requestedTransferAssets } from "../src/lib/user-flow/asset-quantities.ts";
+  splitTimestampToInputParts
+} from "../src/lib/user-flow/time-inputs";
+import { requestedTransferAssets } from "../src/lib/user-flow/asset-quantities";
 import {
   buildStreamingPaymentPayoutTransfer,
   computeStreamingPaymentDueAmount
-} from "../src/lib/user-flow/streaming-payment-helpers.ts";
-import { suggestWalletInputsForRequestedAssets } from "../src/lib/user-flow/wallet-input-selection.ts";
+} from "../src/lib/user-flow/streaming-payment-helpers";
+import { suggestWalletInputsForRequestedAssets } from "../src/lib/user-flow/wallet-input-selection";
 import {
   formatLovelaceAsAda,
   formatLovelaceAsAdaRounded,
   parseAdaToLovelace
-} from "../src/lib/units/lovelace.ts";
+} from "../src/lib/units/lovelace";
 
 function capabilityMap(overrides = {}) {
   return {
@@ -47,9 +52,9 @@ function capabilityMap(overrides = {}) {
   };
 }
 
-const timestamp = combineLocalDateAndTimeToTimestamp("2026-04-06", "14:30");
+const timestamp = combineDateAndTimeToTimestamp("2026-04-06", "14:30");
 assert.match(timestamp, /^\d+$/);
-assert.deepEqual(splitTimestampToLocalInputParts(timestamp), {
+assert.deepEqual(splitTimestampToInputParts(timestamp), {
   date: "2026-04-06",
   time: "14:30"
 });
@@ -207,7 +212,10 @@ const payoutTransfer = buildStreamingPaymentPayoutTransfer(
 assert.deepEqual(requestedTransferAssets([payoutTransfer]), [
   { unit: "lovelace", quantity: "1000000" }
 ]);
-assert.equal(payoutTransfer.inlineDatum.alternative, 0);
-assert.deepEqual(payoutTransfer.inlineDatum.fields, [7, "c".repeat(64), 2]);
+// The payout carries its streaming schedule as an inline CBOR datum.
+const inlineDatum = payoutTransfer.inlineDatum;
+assert.ok(inlineDatum, "the payout transfer must carry an inline datum");
+assert.equal(inlineDatum.alternative, 0);
+assert.deepEqual(inlineDatum.fields, [7, "c".repeat(64), 2]);
 
 console.log("user-flow helper smoke checks passed");
