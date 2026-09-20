@@ -278,17 +278,15 @@ export function WalletConnectionDialog({
       <div className="space-y-6">
         {!connectedSwitcher ? (
         <section className="space-y-3">
-          <div className="flex gap-3">
-            <div className="min-w-0 flex-1 space-y-1">
-              <p className="eyebrow font-semibold text-muted-foreground">
-                {i18n("browserWallet")}
-              </p>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                {guidedSteps
-                  ? i18n("useACardanoBrowserWalletHereToApprove")
-                  : i18n("connectABrowserWalletToCreateAndConfirm")}
-              </p>
-            </div>
+          <div className="min-w-0 flex-1 space-y-1">
+            <p className="eyebrow font-semibold text-muted-foreground">
+              {i18n("browserWallet")}
+            </p>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              {guidedSteps
+                ? i18n("useACardanoBrowserWalletHereToApprove")
+                : i18n("connectABrowserWalletToCreateAndConfirm")}
+            </p>
           </div>
 
             <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-muted/25 to-background/40 p-3 sm:p-4 shadow-sm">
@@ -382,7 +380,7 @@ export function WalletConnectionDialog({
               </div>
             ) : null}
             {installedWallets.length > 0 ? (
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="mt-6 grid gap-3 sm:grid-cols-2">
                 {installedWallets.map((wallet) => {
                   const active = wallet.id === activeWalletName;
                   const connecting = wallet.id === connectingWalletName;
@@ -421,8 +419,8 @@ export function WalletConnectionDialog({
                         isConnecting && !connecting && "cursor-not-allowed opacity-70"
                       )}
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex min-w-0 items-center gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="flex min-w-0 flex-1 items-center gap-3">
                           <WalletBrandIcon wallet={wallet} />
                           <p className="min-w-0 truncate text-sm font-medium text-foreground">
                             {wallet.name}

@@ -2,6 +2,13 @@
 import { useTranslations } from "next-intl";
 import { resolveAssetIdentity } from "@/lib/cardano-assets";
 import { formatLovelaceAsAda } from "@/lib/units/lovelace";
+// The payer reads this same schedule through `formatTimestampLabel`
+// (`config-sttspend-payout-view.tsx:283,286`), which renders in the configured zone
+// (`i18n/config.ts`). Reading it here through the same helper puts payer and payee on one
+// clock. Formatting the instant with the host zone put the payee on the browser clock
+// instead, which also made this client render disagree with the server's HTML.
+import { formatTimestampLabel } from "@/components/user/workspace/helpers/formatters";
+import { defaultFormatter } from "@/i18n/default-translator";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAtomValue, useSetAtom } from "jotai";
@@ -89,17 +96,9 @@ function amountParts(
     return { amount: formatLovelaceAsAda(String(value)), asset: "ADA" };
   }
   return {
-    amount: BigInt(value).toLocaleString(),
+    amount: defaultFormatter.number(BigInt(value)),
     asset: assetLabel(payment.policyId, payment.assetName)
   };
-}
-
-function formatDate(posixMs: number | bigint): string {
-  const asNumber = Number(posixMs);
-  const date = new Date(asNumber);
-  return Number.isSafeInteger(asNumber) && Number.isFinite(date.getTime())
-    ? date.toLocaleString()
-    : posixMs.toString();
 }
 
 /**
@@ -128,7 +127,8 @@ export function PayeeView() {
   const { activeWallet, activeAddress, activePaymentKeyHash, isDemoWallet, networkId } =
     useWalletContext();
 
-  const { tokens, loading, error: inventoryError, refresh: loadTokens } = usePayeeInventory();
+  const { tokens, loading, fetching, error: inventoryError, refresh: loadTokens } =
+    usePayeeInventory(Boolean(activeAddress));
   const loadError = inventoryError ? i18n("unableToLoadScheduledPayments") : null;
   const [shortenStates, setShortenStates] = useState<Record<string, RowActionState>>({});
   const [collectStates, setCollectStates] = useState<Record<string, RowActionState>>({});
@@ -340,10 +340,11 @@ export function PayeeView() {
     <div className="container flex flex-col py-3 md:py-4">
       <Card className="flex w-full flex-col">
         <PayeeCardHeader
-          refreshing={loading}
+          refreshing={fetching}
+          disabled={loading || fetching}
           onRefresh={() => void loadTokens()}
         />
-        <CardContent className="flex flex-col space-y-4">
+        <CardContent className="flex flex-col gap-4">
           <p role="status" aria-live="polite" className="sr-only">
             {actionAnnouncement}
           </p>
@@ -458,7 +459,7 @@ export function PayeeView() {
                           ? {
                               text: i18n("cooldownHolding", {
                                 minutes: NON_ADMIN_STREAMING_ACTION_COOLDOWN_MS / 60_000,
-                                time: formatDate(renderNowMs + cooldownRemainingMs)
+                                time: formatTimestampLabel(renderNowMs + cooldownRemainingMs)
                               }),
                               tone: "note"
                             }
@@ -491,8 +492,8 @@ export function PayeeView() {
                         <p className="wrap-anywhere text-sm text-muted-foreground">
                           {i18n("runsFromTo", {
                             payer: payment.payerWalletName,
-                            start: formatDate(payment.startDate),
-                            end: formatDate(payment.endDate)
+                            start: formatTimestampLabel(payment.startDate),
+                            end: formatTimestampLabel(payment.endDate)
                           })}
                         </p>
                         <p className="wrap-anywhere text-sm text-foreground">

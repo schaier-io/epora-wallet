@@ -89,16 +89,35 @@ describe("workspace header", () => {
   it("says the wallet is empty instead of checking forever", () => {
     renderWith({ assets: [], loading: false, error: null });
 
-    const label = screen.getByText("No ADA available");
-    expect(screen.queryByText("Checking funds…")).toBeNull();
-    // Nothing to add to "No ADA available", so the pill carries no tooltip.
+    const label = screen.getByText("Connected wallet: no ADA");
+    expect(screen.queryByText("Checking connected wallet…")).toBeNull();
+    // Nothing to add to "Connected wallet: no ADA", so the pill carries no tooltip.
     expect(label.closest("span[title]")).toBeNull();
   });
 
   it("still says it is checking while the balance is loading", () => {
     renderWith({ assets: [], loading: true, error: null });
 
-    expect(screen.getByText("Checking funds…")).toBeTruthy();
+    expect(screen.getByText("Checking connected wallet…")).toBeTruthy();
+  });
+
+  /**
+   * The pill reads `browserWalletFundsLovelace`, the connected browser wallet, while the
+   * card below it shows the smart wallet's balance. Both were labelled only "wallet", so a
+   * reader had two different ADA figures under one word. Every state of this pill now names
+   * the wallet it belongs to.
+   */
+  it("names the connected wallet in every funds-pill state", () => {
+    const { unmount } = renderWith({
+      assets: [{ unit: "lovelace", quantity: "2500000" }],
+      loading: false,
+      error: null
+    });
+    expect(screen.getByText("Connected wallet: 2.50 ADA")).toBeTruthy();
+    unmount();
+
+    renderWith({ assets: [], loading: false, error: "Could not read the balance." });
+    expect(screen.getByText("Connected wallet balance unavailable")).toBeTruthy();
   });
 
   it("shows a loading shell instead of a false empty-wallet message", () => {

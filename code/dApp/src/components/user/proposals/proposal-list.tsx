@@ -101,7 +101,7 @@ export function ProposalList({
   return (
     // `flex-1`: the wrapper sizes this list to the pane height, so the rows scroll inside
     // the column instead of stretching the page beside the full-height detail pane.
-    <div className="flex min-h-0 flex-1 flex-col gap-3">
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
       <div className="flex items-center justify-between">
         <h2 className="font-display text-lg font-medium tracking-[-0.02em]">{i18n("requests")}</h2>
         <Button
@@ -110,6 +110,7 @@ export function ProposalList({
           onClick={onRefresh}
           disabled={loading}
           aria-busy={loading}
+          className="-mr-3"
         >
           {loading ? (
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -188,8 +189,12 @@ export function ProposalList({
                     <Users className="h-3 w-3" aria-hidden="true" />
                     {progress.label}
                   </span>
-                  <span aria-hidden="true">·</span>
-                  <span>{formatTimestamp(proposal.createdAt)}</span>
+                  {/* The dot is inside the timestamp span: as its own flex item it wrapped
+                      to the end of the previous line and read as truncated data. */}
+                  <span>
+                    <span aria-hidden="true">· </span>
+                    {formatTimestamp(proposal.createdAt)}
+                  </span>
                 </div>
                 {/* One whole sentence per branch, not a count glued to a trailing
                     "still to sign." Word order moves between languages, so a sentence

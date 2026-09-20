@@ -17,4 +17,4 @@ export const guidedSidebarTitleClass =
 export const guidedSidebarDescriptionClass =
     "user-sidebar-copy mt-1 text-xs leading-snug text-muted-foreground";
 export const guidedSidebarChevronClass =
-    "user-sidebar-chevron mt-1 h-4 w-4 shrink-0 transition-[opacity,color,transform] duration-200 ease-out";
+    "user-sidebar-chevron mt-px h-4 w-4 shrink-0 transition-[opacity,color,transform] duration-200 ease-out";

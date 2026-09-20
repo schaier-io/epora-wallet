@@ -136,6 +136,31 @@ test("formatTimestampLabel names the moment, not the stored millisecond value", 
   assert.equal(formatTimestampLabel(Number.NaN), `${Number.NaN}`);
 });
 
+test("formatTimestampLabel names its zone and does not move with the host timezone", () => {
+  const originalTimeZone = process.env.TZ;
+  try {
+    // The app formats in `defaultTimeZone`, not the reader's. Unnamed, this label
+    // read as the reader's wall clock. The date/time inputs beside it are filled
+    // from the same configured zone, so the named zone is the honest label.
+    process.env.TZ = "America/New_York";
+    const inNewYork = formatTimestampLabel(1_790_955_182_000);
+    process.env.TZ = "Asia/Tokyo";
+    const inTokyo = formatTimestampLabel(1_790_955_182_000);
+
+    assert.match(inNewYork, /UTC/, inNewYork);
+    // Server HTML and browser hydration must render the same string, so the label
+    // must not pick up the host zone. This is the guard against "fixing" the line
+    // above by switching to a client-only timezone.
+    assert.equal(inNewYork, inTokyo);
+  } finally {
+    if (originalTimeZone === undefined) {
+      delete process.env.TZ;
+    } else {
+      process.env.TZ = originalTimeZone;
+    }
+  }
+});
+
 test("formatWalletTransactionAmountSummary summarizes ada + token type counts", () => {
   assert.equal(
     formatWalletTransactionAmountSummary([{ unit: "lovelace", quantity: "0" }]),

@@ -16,18 +16,22 @@ function escapeSpreadsheetFormula(value: string) {
 }
 
 /**
- * The Activity feed as a spreadsheet: when it happened (machine-readable UTC and the
- * localized local time side by side), what it was, the amount as the feed words it,
- * who acted, the fee the chain charged, and the hash to look it up with.
+ * The Activity feed as a spreadsheet: when it happened (machine-readable ISO-8601 and a
+ * readable form of the same instant, both UTC), what it was, the amount as the feed
+ * words it, who acted, the fee the chain charged, and the hash to look it up with.
+ *
+ * The second column was headed "Date (local)" and the comment here claimed UTC and local
+ * sat side by side. `formatWalletTransactionTime` is pinned to `defaultTimeZone`, so it
+ * never rendered a local time; the header named a zone the number was not in.
  */
 export function buildActivityCsv(
   events: WalletActivityEvent[],
   formatDateUtc: (ms: number) => string = (ms) => new Date(ms).toISOString(),
-  formatDateLocal: (ms: number) => string = (ms) => formatWalletTransactionTime(ms) ?? ""
+  formatDateReadable: (ms: number) => string = (ms) => formatWalletTransactionTime(ms) ?? ""
 ): string {
   const headers = [
     "Date (UTC)",
-    "Date (local)",
+    "Date (readable)",
     "Type",
     "Title",
     "Amount",
@@ -48,7 +52,7 @@ export function buildActivityCsv(
       blockTimeMs !== null && Math.abs(blockTimeMs) <= 8_640_000_000_000_000;
     return [
       dated ? formatDateUtc(blockTimeMs) : "",
-      dated ? formatDateLocal(blockTimeMs) : "",
+      dated ? formatDateReadable(blockTimeMs) : "",
       event.label,
       event.title,
       event.amountSummary,

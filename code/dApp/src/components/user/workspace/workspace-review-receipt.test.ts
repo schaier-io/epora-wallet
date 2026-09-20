@@ -225,3 +225,35 @@ test("mint receipt does not expose shared helper infrastructure", () => {
   const receipt = computeReviewReceipt({ ...sendCtx([]), selectedAction: "mint", showSharedReferenceSetup: true });
   assert.equal(receipt.items.some((item) => /helper/i.test(item.label)), false);
 });
+
+test("a schedule edit is titled for the schedule, not for who can use the wallet", () => {
+  const baseline = createDefaultStateForm();
+  const next = createDefaultStateForm();
+  next.streamingPayments = [
+    {
+      id: "0", payoutAddress: ADDRESS_ONE, paidOutAmount: "0", policyId: "",
+      assetName: "", amountPerDay: "1000000", startDate: "1000", endDate: "2000"
+    }
+  ];
+  const receipt = computeReviewReceipt({
+    ...sendCtx([]),
+    selectedAction: "manage-streaming-payments",
+    sttBaselineStateForm: baseline,
+    sttStateForm: next
+  });
+
+  assert.equal(receipt.title, "Scheduled payment update receipt");
+  assert.match(receipt.summary, /scheduled payments/);
+  assert.doesNotMatch(receipt.summary, /who can use this wallet/);
+});
+
+test("an update-state edit keeps the wallet-rules title", () => {
+  const receipt = computeReviewReceipt({
+    ...sendCtx([]),
+    selectedAction: "update-state",
+    sttBaselineStateForm: createDefaultStateForm(),
+    sttStateForm: createDefaultStateForm()
+  });
+
+  assert.equal(receipt.title, "Wallet update receipt");
+});

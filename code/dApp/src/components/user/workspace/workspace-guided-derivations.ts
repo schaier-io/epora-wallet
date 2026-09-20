@@ -5,7 +5,6 @@ import type {
 } from "@/components/user/flow-types";
 
 import {
-  type BuildResult,
   type AuthorityPath,
   type ConsolidateAuthorityPath,
   type OperatorAuthorityPath } from "@/lib/types/contracts";
@@ -87,25 +86,21 @@ export function computeSelectedPathLabel(ctx: SelectedPathLabelCtx): string | nu
 
 export interface MintSetupStepsCtx {
   activeWallet: BrowserWallet | null;
+  /** The only truthful "Confirm is finished" signal: the mint was seen on chain
+   * (`mintConfirmationAtom?.phase === "confirmed"`). A built preview is not it.
+   * Optional: when the caller does not thread it, absent reads as not confirmed. */
+  mintConfirmed?: boolean;
   mintHasOwnerChoice: boolean;
   networkId: number | null;
-  preview: BuildResult | null;
-  previewMatchesSelectedAction: boolean;
-  selectedAction: UserActionKind;
-  sharedReferenceReady: boolean;
-  sharedSttReferenceStoreLoading: boolean;
-  showSharedReferenceSetup: boolean;
   walletReady: boolean;
 }
 
 export function computeMintSetupSteps(ctx: MintSetupStepsCtx): SetupProgressStep[] {
   const {
     activeWallet,
+    mintConfirmed = false,
     mintHasOwnerChoice,
     networkId,
-    preview,
-    previewMatchesSelectedAction,
-    selectedAction,
     walletReady
   } = ctx;
     const walletStepStatus: SetupProgressStep["status"] = walletReady
@@ -118,12 +113,16 @@ export function computeMintSetupSteps(ctx: MintSetupStepsCtx): SetupProgressStep
       : walletReady
         ? "active"
         : "waiting";
-    const previewStatus: SetupProgressStep["status"] =
-      selectedAction === "mint" && preview?.txHex && previewMatchesSelectedAction
-        ? "done"
-        : mintHasOwnerChoice && walletReady
-          ? "active"
-          : "waiting";
+    // A built preview is an unsigned transaction: `preview.txHex` says the app assembled
+    // a draft, not that the wallet signed or the chain accepted anything. Marking the
+    // step "done" on that signal badged Confirm as DONE and counted 3/3 for a mint that
+    // did not exist yet. The preview therefore never completes this step. Only an
+    // on-chain mint confirmation does, so the stepper can still reach 3/3 truthfully.
+    const previewStatus: SetupProgressStep["status"] = mintConfirmed
+      ? "done"
+      : mintHasOwnerChoice && walletReady
+        ? "active"
+        : "waiting";
 
     const steps: SetupProgressStep[] = [
       {
@@ -139,10 +138,9 @@ export function computeMintSetupSteps(ctx: MintSetupStepsCtx): SetupProgressStep
       },
       {
         label: i18n("confirm"),
-        description:
-          selectedAction === "mint" && preview?.txHex && previewMatchesSelectedAction
-            ? i18n("readyInYourWallet")
-            : i18n("reviewThenContinueInYourWallet"),
+        // "Ready in your wallet." read as "the wallet already has it". The instruction is
+        // the same before and after the preview builds: read the review rail, then sign.
+        description: i18n("reviewThenContinueInYourWallet"),
         status: previewStatus
       }
     ];

@@ -122,8 +122,12 @@ export function formatTimestampLabel(value: number | bigint) {
   }
 
   // The raw millisecond value used to trail the date in parentheses; that is the
-  // stored form, not anything the reader can act on.
-  return defaultFormatter.dateTime(date, "short");
+  // stored form, not anything the reader can act on. The zone is named because the
+  // app formats in `defaultTimeZone`, not the reader's: unnamed, this label read as
+  // a local wall clock. The date/time inputs beside it are filled from the same
+  // configured zone (`lib/user-flow/time-inputs.ts`), so naming the zone is what
+  // stops the number being read as the reader's own clock.
+  return defaultFormatter.dateTime(date, "shortWithZone");
 }
 
 export function formatInputRefLabel(txHash: string, outputIndex: number) {
@@ -149,9 +153,10 @@ export function formatWalletTransactionTime(value?: number) {
     return null;
   }
 
-  // Localized, in the reader's own timezone, with the zone named: a chain time in a
-  // foreign zone made them do the conversion themselves, and without the year it said
-  // nothing about which September it was.
+  // Localized, with the zone named. The comment here used to claim "the reader's own
+  // timezone"; it never was one. `defaultFormatter` is pinned to `defaultTimeZone`, so
+  // this renders UTC and says UTC. Naming the zone is the part that holds: without the
+  // year it also said nothing about which September it was.
   return defaultFormatter.dateTime(normalized, {
     year: "numeric",
     month: "short",

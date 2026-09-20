@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { CopyButton } from "@/components/ui/copy-button";
 import { pageHeadingClass } from "@/components/ui/page-heading";
 import { proposalKeys, refreshProposalBackgroundQueries } from "@/lib/proposals/query";
+import { useWalletContext } from "@/providers/wallet-provider";
 import { useProposalBackgroundVerification } from "./use-proposal-background-verification";
 export { BACKGROUND_PROPOSAL_VERIFICATION_TIMEOUT_MS } from "./use-proposal-background-verification";
 import { CreateProposalPanel } from "./create-proposal-panel";
@@ -34,6 +35,7 @@ export function ProposalsWorkspace() {
   const selectedId = searchParams.get("proposal");
 
   const session = useProposalSession();
+  const { walletSessionLoading } = useWalletContext();
   const [detailRefreshRevision, setDetailRefreshRevision] = useState(0);
   // The address comes off the session controller (which already reads the wallet context), so
   // the identity line renders from the same source the sign-in used.
@@ -42,7 +44,13 @@ export function ProposalsWorkspace() {
   // session for whoever is at the keyboard now, and `useProposals` must not fetch that key's
   // list: the server scopes it by the session's own wallet memberships, so the rows would be
   // real, just someone else's.
-  const signedIn = Boolean(session.session) && !session.connectedWalletMismatch;
+  //
+  // No wallet at all is the same answer. The cookie outlives the connection, so a stale session
+  // used to render the request list and a Sign out button in the tone of a working session,
+  // while every signature it offers fails at the wallet call. The gate names the missing wallet
+  // instead. `walletSessionLoading` holds the gate back until the silent reconnect after a
+  // reload has settled, so the gate does not flash on every load.
+  const signedIn = Boolean(session.session) && !session.connectedWalletMismatch && Boolean(activeAddress);
   const { proposals, loading, loadingMore, hasMore, error, refresh, loadMore } =
     useProposals(signedIn, session.session?.paymentKeyHash ?? "");
   const reportById = useProposalBackgroundVerification(proposals, session.session?.paymentKeyHash ?? "", signedIn);
@@ -89,7 +97,7 @@ export function ProposalsWorkspace() {
     void queryClient.invalidateQueries({ queryKey: proposalKeys.lists(session.session?.paymentKeyHash ?? "") });
   }, [queryClient, session.session?.paymentKeyHash]);
 
-  if (session.loading) {
+  if (session.loading || walletSessionLoading) {
     return (
       <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
         <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> {i18n("checkingYourSignIn")}
@@ -108,9 +116,9 @@ export function ProposalsWorkspace() {
           <h1 className={pageHeadingClass}>{i18n("approvalRequests")}</h1>
           {/* "Signed in as" names the connected wallet's address, not the payment key hash the
               session is built on: a hash is not something a user can recognize in their wallet
-              or an explorer, and the identity this page cares about is the wallet. When no
-              address is readable (session cookie alive, wallet not connected) the line is
-              omitted rather than falling back to the hash. */}
+              or an explorer, and the identity this page cares about is the wallet. A readable
+              address is now a condition of reaching this view at all (see `signedIn` above), so
+              the null branch only covers the frame before the address arrives. */}
           {activeAddress ? (
             <p className="flex items-center gap-1 text-sm text-muted-foreground">
               {i18n("signedInAs")}{" "}
@@ -119,7 +127,7 @@ export function ProposalsWorkspace() {
             </p>
           ) : null}
         </div>
-        <Button variant="ghost" size="sm" onClick={() => void session.signOut()}>
+        <Button variant="ghost" size="sm" onClick={() => void session.signOut()} className="-mr-3">
           <LogOut className="h-4 w-4" aria-hidden="true" /> {i18n("signOut")}
         </Button>
       </header>
@@ -142,7 +150,7 @@ export function ProposalsWorkspace() {
           onCancel={() => router.replace(buildUrl({ create: null }))}
         />
       ) : (
-        <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(320px,380px)_minmax(0,1fr)]">
+        <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(320px,440px)_minmax(0,1fr)]">
           {/* `lg:h-full` + flex column so the list fills the pane height and scrolls inside
               it. Unconstrained, the list grew the page while the detail pane stayed a full
               height box -- two columns that disagreed about how tall the row was. */}
@@ -181,7 +189,7 @@ export function ProposalsWorkspace() {
                 onBack={handleBackToList}
               />
             ) : (
-              <Card className="hidden h-full lg:flex lg:items-center lg:justify-center">
+              <Card className="hidden lg:flex lg:items-center lg:justify-center">
                 <CardContent className="flex min-h-40 flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
                   <FileSignature className="h-6 w-6" aria-hidden="true" />
                   <p>{i18n("selectAnApprovalRequestToVerifyAndSign")}</p>

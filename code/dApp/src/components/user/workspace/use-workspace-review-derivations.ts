@@ -2,6 +2,7 @@
 import { useTranslations } from "next-intl";
 
 import { sharedSttReferenceStoreAtom, sharedSttReferenceStoreLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
+import { mintConfirmationAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { useAtomValue } from "jotai";
 import { consolidateSttInputHashAtom, consolidateWalletInputsAtom, consolidateWalletOutputsAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
 import { lockFundsAssetsAtom } from "@/components/user/workspace/atoms/forms/lock-funds-form.atoms";
@@ -86,6 +87,11 @@ export function useWorkspaceReviewDerivations(inputs: WorkspaceReviewDerivations
     walletReady,
     wizardSelectedAction
   } = inputs;
+  // The only truthful "the mint exists" signal the stepper can read. A built preview is
+  // an unsigned draft, so it must not complete the Confirm step; this atom is set by the
+  // post-submit confirmation watcher and cleared with the flow (`resetFlowAtom` /
+  // `resetAllFlowAtom` / wallet change), so the done badge clears with it.
+  const mintConfirmation = useAtomValue(mintConfirmationAtom);
   const sharedSttReferenceStore = useAtomValue(sharedSttReferenceStoreAtom);
   const sharedSttReferenceStoreLoading = useAtomValue(sharedSttReferenceStoreLoadingAtom);
   const consolidateAuthorityPath = useAtomValue(consolidateAuthorityPathAtom);
@@ -182,6 +188,8 @@ export function useWorkspaceReviewDerivations(inputs: WorkspaceReviewDerivations
     activeActionDraft,
     activeFieldErrors,
     activeReadinessIssues,
+    visibleFieldErrors,
+    visibleReadinessIssues,
     activeActionDefinition,
     previewMatchesSelectedAction,
     lastActionDisplayLabel
@@ -219,26 +227,16 @@ export function useWorkspaceReviewDerivations(inputs: WorkspaceReviewDerivations
     () =>
       computeMintSetupSteps({
         activeWallet,
+        mintConfirmed: mintConfirmation?.phase === "confirmed",
         mintHasOwnerChoice,
         networkId,
-        preview,
-        previewMatchesSelectedAction,
-        selectedAction,
-        sharedReferenceReady,
-        sharedSttReferenceStoreLoading,
-        showSharedReferenceSetup,
         walletReady
       }),
     [
       activeWallet,
+      mintConfirmation,
       mintHasOwnerChoice,
       networkId,
-      preview,
-      previewMatchesSelectedAction,
-      selectedAction,
-      sharedSttReferenceStoreLoading,
-      sharedReferenceReady,
-      showSharedReferenceSetup,
       walletReady
     ]
   );
@@ -322,6 +320,8 @@ export function useWorkspaceReviewDerivations(inputs: WorkspaceReviewDerivations
     activeActionDraft,
     activeFieldErrors,
     activeReadinessIssues,
+    visibleFieldErrors,
+    visibleReadinessIssues,
     activeActionDefinition,
     previewMatchesSelectedAction,
     lastActionDisplayLabel,

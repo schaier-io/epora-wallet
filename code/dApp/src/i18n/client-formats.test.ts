@@ -5,12 +5,20 @@ import test from "node:test";
 
 import { defaultLocale, defaultTimeZone, formats } from "@/i18n/config";
 import { defaultFormatter } from "@/i18n/default-translator";
+import { formatTimestampLabel } from "@/components/user/workspace/helpers/formatters";
 
 const sourceRoot = new URL("../", import.meta.url);
 
 function readSource(path: string): string {
   return readFileSync(fileURLToPath(new URL(path, sourceRoot)), "utf8");
 }
+
+// Pinned after imports: ESM evaluates imports first either way. Node re-reads
+// `process.env.TZ` on the next `Date` / `Intl.DateTimeFormat()`, and this runner
+// gives each file its own process, so the pin stays local. CI runners are UTC,
+// where a formatter that silently falls back to the host zone is indistinguishable
+// from a correct one.
+process.env.TZ = "Asia/Kolkata";
 
 test("shared formatters apply the configured UTC time zone", () => {
   const instant = Date.UTC(2026, 8, 4, 12, 34);
@@ -25,6 +33,7 @@ test("shared formatters apply the configured UTC time zone", () => {
 test("localized presentation paths do not bypass the configured formatter", () => {
   const paths = [
     "components/payee/payee-collect.ts",
+    "components/payee/payee-view.tsx",
     "components/user/locked-assets-panel.tsx",
     "components/user/proposals/format.ts",
     "components/user/wealth-chart.tsx",
@@ -40,4 +49,19 @@ test("localized presentation paths do not bypass the configured formatter", () =
   for (const path of paths) {
     assert.doesNotMatch(readSource(path), directIntl, `${path} bypasses next-intl`);
   }
+});
+
+test("timestamp labels stay on the configured zone under a non-UTC host", () => {
+  // `formatTimestampLabel` is the one label both sides of a streaming payment read: the payer
+  // at `config-sttspend-payout-view.tsx:283,286` and the payee at `payee-view.tsx`.
+  // If it followed the host zone, the two would name different instants for one schedule.
+  assert.notEqual(Intl.DateTimeFormat().resolvedOptions().timeZone, defaultTimeZone);
+
+  const instant = Date.UTC(2026, 8, 4, 12, 34);
+  const expected = new Intl.DateTimeFormat(defaultLocale, {
+    ...formats.dateTime.shortWithZone,
+    timeZone: defaultTimeZone
+  }).format(instant);
+
+  assert.equal(formatTimestampLabel(instant), expected);
 });
