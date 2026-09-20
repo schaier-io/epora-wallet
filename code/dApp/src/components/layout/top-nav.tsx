@@ -356,7 +356,7 @@ export function TopNav() {
               aria-label={i18n("menu")}
               className={cn(
                 "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-background/40 text-foreground md:hidden",
-                "transition-[background-color,border-color,box-shadow,transform] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                "transition-[background-color,border-color,box-shadow,transform,translate,scale,rotate] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
                 "hover:border-primary/40 hover:bg-background/60 active:scale-[0.96]",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               )}
@@ -369,7 +369,7 @@ export function TopNav() {
                     instead of fading in underneath the moving pair. */}
                 <span
                   className={cn(
-                    "h-[1.5px] w-5 rounded-full bg-current transition-[transform,opacity] duration-300",
+                    "h-[1.5px] w-5 rounded-full bg-current transition-[transform,translate,scale,rotate,opacity] duration-300",
                     mobileNavOpen
                       ? "translate-y-[5.5px] rotate-45 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
                       : "ease-[cubic-bezier(0.22,1,0.36,1)]"
@@ -377,13 +377,13 @@ export function TopNav() {
                 />
                 <span
                   className={cn(
-                    "h-[1.5px] w-5 rounded-full bg-current transition-[transform,opacity] duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                    "h-[1.5px] w-5 rounded-full bg-current transition-[transform,translate,scale,rotate,opacity] duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
                     mobileNavOpen ? "scale-x-0 opacity-0" : "delay-150"
                   )}
                 />
                 <span
                   className={cn(
-                    "h-[1.5px] w-5 rounded-full bg-current transition-[transform,opacity] duration-300",
+                    "h-[1.5px] w-5 rounded-full bg-current transition-[transform,translate,scale,rotate,opacity] duration-300",
                     mobileNavOpen
                       ? "-translate-y-[5.5px] -rotate-45 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
                       : "ease-[cubic-bezier(0.22,1,0.36,1)]"

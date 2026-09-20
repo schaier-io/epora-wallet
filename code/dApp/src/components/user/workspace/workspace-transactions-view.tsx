@@ -148,7 +148,7 @@ export function WorkspaceTransactionsView() {
                               <button
                                 type="button"
                                 onClick={() => openAssetDetail(null)}
-                                className="inline-flex items-center gap-1 rounded-md text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                                className="inline-flex items-center gap-1 rounded-md text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
                               >
                                 <ChevronRight className="h-3 w-3 rotate-180" aria-hidden="true" />
                                 {i18n("backToWalletBalance")}
