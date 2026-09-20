@@ -3,31 +3,43 @@
 //   pnpm test:user-flow-helpers
 // (equivalent to: node --import tsx scripts/test-user-flow-helpers.mjs)
 import assert from "node:assert/strict";
-import {
+// Namespace imports on purpose: tsx transpiles the imported .ts modules to
+// CJS, and named imports from that output depend on the Node version's
+// CJS-interop export detection (the CI runner's Node 24 does not see every
+// named export that Node 25 does). A namespace object carries all keys on
+// every version.
+import * as guidedHelpers from "../src/lib/user-flow/guided-helpers.ts";
+import * as timeInputs from "../src/lib/user-flow/time-inputs.ts";
+import * as assetQuantities from "../src/lib/user-flow/asset-quantities.ts";
+import * as streamingPaymentHelpers from "../src/lib/user-flow/streaming-payment-helpers.ts";
+import * as walletInputSelection from "../src/lib/user-flow/wallet-input-selection.ts";
+import * as lovelace from "../src/lib/units/lovelace.ts";
+
+const {
   chooseAutoOpenDetectedWallet,
   derivePermissionWalletBadgeLabels,
   deriveWalletHomeFlowAvailability,
   filterGuidedUserActions,
   rememberRecentRecipient,
   resolveAutomaticSendPath
-} from "../src/lib/user-flow/guided-helpers.ts";
-import {
+} = guidedHelpers;
+const {
   combineDurationToMillis,
   combineLocalDateAndTimeToTimestamp,
   splitDurationMillis,
   splitTimestampToLocalInputParts
-} from "../src/lib/user-flow/time-inputs.ts";
-import { requestedTransferAssets } from "../src/lib/user-flow/asset-quantities.ts";
-import {
+} = timeInputs;
+const { requestedTransferAssets } = assetQuantities;
+const {
   buildStreamingPaymentPayoutTransfer,
   computeStreamingPaymentDueAmount
-} from "../src/lib/user-flow/streaming-payment-helpers.ts";
-import { suggestWalletInputsForRequestedAssets } from "../src/lib/user-flow/wallet-input-selection.ts";
-import {
+} = streamingPaymentHelpers;
+const { suggestWalletInputsForRequestedAssets } = walletInputSelection;
+const {
   formatLovelaceAsAda,
   formatLovelaceAsAdaRounded,
   parseAdaToLovelace
-} from "../src/lib/units/lovelace.ts";
+} = lovelace;
 
 function capabilityMap(overrides = {}) {
   return {
