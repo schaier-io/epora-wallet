@@ -175,7 +175,7 @@ export function WalletBalanceChartSection() {
                 // Matches the chart's range pills: `py-1.5 min-h-6`, because these
                 // series toggles are a real control, not a label.
                 "min-h-6 rounded-full border px-2.5 py-1.5 text-[11px] font-medium transition-colors",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card",
                 active
                   ? "border-primary/40 bg-primary/15 text-foreground"
                   : "border-border/60 bg-background/40 text-muted-foreground hover:text-foreground"

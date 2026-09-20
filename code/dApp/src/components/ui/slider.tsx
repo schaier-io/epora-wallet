@@ -56,7 +56,7 @@ export function Slider({
           "shadow-[0_2px_10px_-2px_hsl(var(--brand-teal)/0.7)]",
           "transition-[transform,box-shadow] duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
           "hover:scale-110 active:scale-105",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card",
           thumbProps?.className
         )}
       />

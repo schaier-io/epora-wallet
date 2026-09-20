@@ -339,7 +339,7 @@ export function SetupProgressStepper({ steps }: { steps: SetupProgressStep[] }) 
                       .getElementById(targetId)
                       ?.scrollIntoView({ behavior: "smooth", block: "start" });
                   }}
-                  className="-m-1 block w-full rounded-md p-1 text-left transition-colors hover:bg-foreground/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  className="-m-1 block w-full rounded-md p-1 text-left transition-colors hover:bg-foreground/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
                 >
                   {stepBody}
                 </button>

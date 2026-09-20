@@ -390,7 +390,7 @@ export function WorkspaceWalletDashboardView() {
                                         <button
                                           type="button"
                                           onClick={row.onClick}
-                                          className="mt-2 inline-flex items-center gap-1 rounded-full border border-dashed border-border/60 px-2 py-0.5 text-xs font-medium text-foreground/90 transition-[color,background-color,border-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-primary/40 hover:bg-primary/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                                          className="mt-2 inline-flex items-center gap-1 rounded-full border border-dashed border-border/60 px-2 py-0.5 text-xs font-medium text-foreground/90 transition-[color,background-color,border-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-primary/40 hover:bg-primary/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
                                         >
                                           <Plus className="h-3 w-3" aria-hidden="true" />
                                           {row.cta}
@@ -423,7 +423,7 @@ export function WorkspaceWalletDashboardView() {
                                         <button
                                           type="button"
                                           onClick={row.onClick}
-                                          className="mt-2 inline-flex items-center gap-1 rounded-sm text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                                          className="mt-2 inline-flex items-center gap-1 rounded-sm text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
                                         >
                                           {row.cta}
                                           <ChevronRight className="h-3 w-3" aria-hidden="true" />

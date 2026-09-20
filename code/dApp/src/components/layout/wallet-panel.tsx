@@ -412,7 +412,7 @@ export function WalletConnectionDialog({
                         // the disabled swap the whole grid makes on every connect.
                         "rounded-xl border p-3 text-left duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
                         "transition-[background-color,border-color,box-shadow,transform,opacity]",
-                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card",
                         active
                           ? "border-primary bg-primary/10 shadow-[0_0_0_1px_color-mix(in_oklch,var(--primary)_25%,transparent)]"
                           : "border-border/70 bg-background/60 hover:-translate-y-0.5 hover:border-primary/40 hover:bg-background/80",
