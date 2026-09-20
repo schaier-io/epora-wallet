@@ -25,7 +25,12 @@ export function PayeeCardHeader({ refreshing = false, onRefresh }: PayeeCardHead
   return (
     <CardHeader>
       <div className="flex w-full flex-wrap items-start justify-between gap-x-3 gap-y-2">
-        <div>
+        {/* `flex-1`, not `min-w-0` on its own: `min-width: 0` leaves the flex base size at
+            this div's max-content width, so it overflowed the line and pushed Refresh onto a
+            second flex row where `justify-between` never applied. `flex-1` puts the basis at
+            0. `space-y-1` sits here and not on `CardHeader`, which has this div as its only
+            child and so matches nothing with `:not(:last-child)`. */}
+        <div className="min-w-0 flex-1 space-y-1">
           {/* The page's own heading. `/payee` holds one card and this names it, so the
               page no longer carries a hidden `h1` saying the same words at a different
               level. `pageHeadingClass` overrides the CardTitle rung: `cn` merges with
@@ -33,7 +38,7 @@ export function PayeeCardHeader({ refreshing = false, onRefresh }: PayeeCardHead
           <CardTitle as="h1" className={pageHeadingClass}>
             {i18n("scheduledPaymentsToYou")}
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="max-w-prose">
             {i18n("paymentsOtherWalletsSendToYouALittle")}
           </CardDescription>
         </div>

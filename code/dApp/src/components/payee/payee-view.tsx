@@ -343,7 +343,7 @@ export function PayeeView() {
           refreshing={loading}
           onRefresh={() => void loadTokens()}
         />
-        <CardContent className="flex flex-col space-y-4">
+        <CardContent className="flex flex-col gap-4">
           <p role="status" aria-live="polite" className="sr-only">
             {actionAnnouncement}
           </p>
