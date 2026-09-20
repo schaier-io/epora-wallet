@@ -66,7 +66,7 @@ export function WorkspaceStreamingExpenseProjectionsView() {
   return (
     <section
       aria-label={i18n("streamingExpenseProjections")}
-      className="rounded-lg border border-border/60 bg-background/40 p-3"
+      className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4"
     >
       <div className="flex flex-wrap items-center gap-2">
         <Repeat className="h-4 w-4 text-primary" aria-hidden="true" />

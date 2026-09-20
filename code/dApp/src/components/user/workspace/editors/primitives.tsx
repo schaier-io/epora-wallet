@@ -246,7 +246,7 @@ export function SetupProgressStepper({ steps }: { steps: SetupProgressStep[] }) 
           {steps.filter((step) => step.status === "done").length}/{steps.length} {i18n("done")}
         </Badge>
       </div>
-      <ol className="mt-4 grid gap-3 sm:grid-cols-2">
+      <ol className="mt-4 grid gap-3 sm:grid-cols-3">
         {steps.map((step, index) => {
           const isDone = step.status === "done";
           const isActive = step.status === "active";
@@ -287,21 +287,26 @@ export function SetupProgressStepper({ steps }: { steps: SetupProgressStep[] }) 
                 >
                   {isDone ? <CheckCircle2 className="h-3.5 w-3.5" aria-hidden /> : index + 1}
                 </span>
-                <p className="text-sm font-medium text-foreground">{step.label}</p>
-                <span
-                  className={cn(
-                    "eyebrow shrink-0",
-                    isDone
-                      ? "text-emerald-100/80"
-                      : isBlocked
-                        ? "text-amber-100/90"
-                        : isActive
-                          ? "text-primary"
-                          : "text-muted-foreground"
-                  )}
-                >
-                  {statusWord}
-                </span>
+                {/* items-baseline, not the row's items-center: the status word is a
+                    smaller size, so centring the two line boxes lifted it off the
+                    label's baseline. The numbered circle stays on the centred row. */}
+                <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
+                  <p className="text-sm font-medium text-foreground">{step.label}</p>
+                  <span
+                    className={cn(
+                      "eyebrow shrink-0",
+                      isDone
+                        ? "text-emerald-100/80"
+                        : isBlocked
+                          ? "text-amber-100/90"
+                          : isActive
+                            ? "text-primary"
+                            : "text-muted-foreground"
+                    )}
+                  >
+                    {statusWord}
+                  </span>
+                </div>
               </div>
               <p className="mt-2 text-xs leading-snug text-muted-foreground">
                 {step.description}

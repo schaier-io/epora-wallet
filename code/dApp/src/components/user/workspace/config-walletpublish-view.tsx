@@ -35,83 +35,87 @@ export function WalletPublishConfigView() {
 
       return (
         <div className="space-y-4">
-          <div className="space-y-1">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <Label htmlFor="userPublishCertificateJson">{i18n("certificateJson")}</Label>
-              <div className="flex flex-wrap gap-1.5">
-                {/* Named for what it does. It was labelled `Vote: Abstain`, which reads as
-                    casting an abstain vote on a proposal; it hands this wallet's voting
-                    power to the always-abstain DRep, and it stands until it is replaced. */}
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="px-2 text-xs"
-                  disabled={!walletRewardAddress}
-                  onClick={() =>
-                    setPublishCertificateJson(
-                      JSON.stringify(
-                        {
-                          // Both template shapes come from Mesh's `CertificateType` union
-                          // (`@meshsdk/common` `index.d.ts:321-380`). They used to read
-                          // `VoteDeleg` and `StakeRegistration`, which are in that union
-                          // under neither name, and `toCardanoCert`
-                          // (`@meshsdk/core-cst` `index.js:73354`) has no default branch:
-                          // an unknown type returned `undefined` and the build could never
-                          // produce a transaction from either template.
-                          type: "VoteDelegation",
-                          stakeKeyAddress: walletRewardAddress,
-                          drep: { alwaysAbstain: null }
-                        },
-                        null,
-                        2
+          {/* space-y-2 between blocks, space-y-1 inside the label group: at space-y-1
+              throughout, the gap between two blocks was half the line pitch inside one. */}
+          <div className="space-y-2">
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <Label htmlFor="userPublishCertificateJson">{i18n("certificateJson")}</Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {/* Named for what it does. It was labelled `Vote: Abstain`, which reads as
+                      casting an abstain vote on a proposal; it hands this wallet's voting
+                      power to the always-abstain DRep, and it stands until it is replaced. */}
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="px-2 text-xs"
+                    disabled={!walletRewardAddress}
+                    onClick={() =>
+                      setPublishCertificateJson(
+                        JSON.stringify(
+                          {
+                            // Both template shapes come from Mesh's `CertificateType` union
+                            // (`@meshsdk/common` `index.d.ts:321-380`). They used to read
+                            // `VoteDeleg` and `StakeRegistration`, which are in that union
+                            // under neither name, and `toCardanoCert`
+                            // (`@meshsdk/core-cst` `index.js:73354`) has no default branch:
+                            // an unknown type returned `undefined` and the build could never
+                            // produce a transaction from either template.
+                            type: "VoteDelegation",
+                            stakeKeyAddress: walletRewardAddress,
+                            drep: { alwaysAbstain: null }
+                          },
+                          null,
+                          2
+                        )
                       )
-                    )
-                  }
-                >
-                  {i18n("alwaysAbstain")}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="px-2 text-xs"
-                  disabled={!walletRewardAddress}
-                  onClick={() =>
-                    setPublishCertificateJson(
-                      JSON.stringify(
-                        {
-                          type: "RegisterStake",
-                          stakeKeyAddress: walletRewardAddress
-                        },
-                        null,
-                        2
+                    }
+                  >
+                    {i18n("alwaysAbstain")}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="px-2 text-xs"
+                    disabled={!walletRewardAddress}
+                    onClick={() =>
+                      setPublishCertificateJson(
+                        JSON.stringify(
+                          {
+                            type: "RegisterStake",
+                            stakeKeyAddress: walletRewardAddress
+                          },
+                          null,
+                          2
+                        )
                       )
-                    )
-                  }
-                >
-                  {i18n("stakeRegistration")}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="px-2 text-xs"
-                  onClick={() => setPublishCertificateJson("{}")}
-                >
-                  {i18n("clear")}
-                </Button>
+                    }
+                  >
+                    {i18n("stakeRegistration")}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="px-2 text-xs"
+                    onClick={() => setPublishCertificateJson("{}")}
+                  >
+                    {i18n("clear")}
+                  </Button>
+                </div>
               </div>
+              {/* Above the box, not below it. Only one of the two templates explained itself,
+                  and it did so through a `title` tooltip no keyboard or touch user ever sees.
+                  A reader who has just read the two button labels needs this before the box,
+                  not after it. */}
+              <p className="text-xs text-muted-foreground">
+                {walletRewardAddress
+                  ? i18n("alwaysAbstainHandsThisWalletSVotingPower")
+                  : i18n("theTemplatesNeedThisWalletSStakingAddress")}
+              </p>
             </div>
-            {/* Above the box, not below it. Only one of the two templates explained itself,
-                and it did so through a `title` tooltip no keyboard or touch user ever sees.
-                A reader who has just read the two button labels needs this before the box,
-                not after it. */}
-            <p className="text-xs text-muted-foreground">
-              {walletRewardAddress
-                ? i18n("alwaysAbstainHandsThisWalletSVotingPower")
-                : i18n("theTemplatesNeedThisWalletSStakingAddress")}
-            </p>
             {/* The message was rendered beside the box and attached to nothing. Nothing
                 marked the box invalid either, so `Textarea`'s own
                 `aria-[invalid=true]:border-rose-500/60` never fired: the field a reader was

@@ -143,18 +143,22 @@ export function StreamingPaymentEditor({
            * existing payment the figure is worth reading and cannot be changed by this
            * path (`forwarding.ak:212`), so it is a fact, not a field.
            */}
-          <p className="text-sm text-foreground">{i18n("paidSoFar_ed3197")}</p>
-          <p className="text-sm font-medium text-foreground">
-            {ada
-              ? i18n("value1Ada", { value1: formatLovelaceAsAda(streamingPayment.paidOutAmount) })
-              : streamingPayment.paidOutAmount}
+          {/* The label and its value are one line: as three siblings of one space-y-1 the
+              label sat as far from the paragraph above it as from the figure it names. */}
+          <p className="mt-2 flex flex-wrap items-baseline gap-2 text-sm text-foreground">
+            <span>{i18n("paidSoFar_ed3197")}</span>
+            <span className="font-medium text-foreground">
+              {ada
+                ? i18n("value1Ada", { value1: formatLovelaceAsAda(streamingPayment.paidOutAmount) })
+                : streamingPayment.paidOutAmount}
+            </span>
           </p>
         </div>
       ) : null}
       <fieldset disabled={existing} className="grid gap-4">
         <div className="space-y-1">
           <Label htmlFor={`${uid}-amount`}>{i18n("amount")}{ada ? i18n("ada") : ""}</Label>
-          <div className="grid gap-2">
+          <div className="grid gap-3">
             {ada ? (
               <AdaAmountInput
                 id={`${uid}-amount`}
@@ -474,7 +478,10 @@ export function FocusedStreamingPaymentRulesEditor({
             ? i18n("moneyBuildsUpForThePersonYouName")
             : i18n("changeAPaymentYouAlreadySetUpOnly")}
         </p>
-        {adding ? (
+        {/* Not while the empty state carries the same button: it owns this exact label and
+            handler, so the toolbar copy was a second identical button. At the cap the empty
+            state drops its CTA, so the disabled toolbar one stays as the cap's only cue. */}
+        {adding && (shownPayments.length > 0 || scheduledAtCap) ? (
           <Button
             type="button"
             variant="secondary"

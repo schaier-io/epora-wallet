@@ -51,7 +51,7 @@ export function LockFundsConfigView() {
                 </p>
               </div>
             </div>
-            <div className="mt-4 grid gap-4 md:grid-cols-[168px_minmax(0,1fr)]">
+            <div className="mt-4 grid gap-4 md:grid-cols-[170px_minmax(0,1fr)]">
               <div className="flex items-center justify-center rounded-md border border-border/60 bg-background/40 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                 {lockingContract.address ? (
                   <ReceiveAddressQrCode address={walletReceiveAddress ?? lockingContract.address} />
@@ -62,8 +62,11 @@ export function LockFundsConfigView() {
                   </div>
                 )}
               </div>
-              <div>
-                <div className="flex min-w-0 items-center gap-2 rounded-md border border-border/60 bg-background/50 p-3">
+              {/* flex-col + flex-1 on the box, not h-full: the cell's height comes from the
+                  grid stretch, so the address box fills the QR tile's height instead of
+                  sitting in the top-right of an empty cell. */}
+              <div className="flex flex-col">
+                <div className="flex min-w-0 flex-1 items-center gap-2 rounded-md border border-border/60 bg-background/50 p-3">
                   {lockingContract.address ? (
                     <a
                       href={buildCardanoscanAddressUrl(walletReceiveAddress ?? lockingContract.address)}
