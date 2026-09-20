@@ -500,6 +500,8 @@
     "confirmDistribution": "Confirm distribution",
     "previewPreparation": "Preview preparation",
     "confirmPreparation": "Confirm preparation",
+    "previewAction": "Preview {action}",
+    "confirmAction": "Confirm {action}",
     "directActionInFlight": "Wait for the transaction in progress to finish. Then this can be saved for the other signers."
   },
   "ComponentsUserWorkspaceWorkspaceReviewReceipt": {

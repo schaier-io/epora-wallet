@@ -314,6 +314,58 @@ it("signs the reviewed recovery preparation only on the confirmation click", () 
   expect(build).not.toHaveBeenCalled();
 });
 
+it.each([
+  ["use", "Send funds"],
+  ["mint", "Create wallet"]
+] as const)("builds a %s transaction for review without opening the signing wallet", (selectedAction, actionLabel) => {
+  const build = vi.fn();
+  const submit = vi.fn();
+  const combined = vi.fn();
+  renderRail({
+    selectedAction,
+    previewMatchesSelectedAction: false,
+    buildSelectedActionTx: build,
+    submitTransactionPreview: submit,
+    buildAndSubmitSelectedActionTx: combined,
+    handleSaveProposalFromBuild: vi.fn(),
+    stateOverrides: {
+      activeActionDefinition: { label: actionLabel }
+    } as unknown as Partial<PermissionWalletWorkspaceState>
+  });
+  expect(reviewPanelProps.latest.primaryActionLabel).toBe(`Preview ${actionLabel}`);
+  (reviewPanelProps.latest.onPrimaryAction as () => void)();
+  expect(build).toHaveBeenCalledWith("admin");
+  expect(submit).not.toHaveBeenCalled();
+  expect(combined).not.toHaveBeenCalled();
+});
+
+it.each([
+  ["use", "Send funds"],
+  ["mint", "Create wallet"]
+] as const)("signs the reviewed %s transaction only on the confirmation click", (selectedAction, actionLabel) => {
+  const build = vi.fn();
+  const submit = vi.fn();
+  const combined = vi.fn();
+  renderRail({
+    selectedAction,
+    previewMatchesSelectedAction: true,
+    buildSelectedActionTx: build,
+    submitTransactionPreview: submit,
+    buildAndSubmitSelectedActionTx: combined,
+    handleSaveProposalFromBuild: vi.fn(),
+    stateOverrides: {
+      activeActionDefinition: { label: actionLabel },
+      reviewPrimaryActionLabel: "Continue"
+    } as unknown as Partial<PermissionWalletWorkspaceState>
+  });
+  expect(reviewPanelProps.latest.primaryActionLabel).toBe(`Confirm ${actionLabel}`);
+  expect(reviewPanelProps.latest.primaryActionLabel).not.toBe("Continue");
+  (reviewPanelProps.latest.onPrimaryAction as () => void)();
+  expect(submit).toHaveBeenCalledWith(expect.objectContaining({ txHex: "old-payout-tx" }));
+  expect(build).not.toHaveBeenCalled();
+  expect(combined).not.toHaveBeenCalled();
+});
+
 describe("context-aware signing actions", () => {
   it("hands the connected wallet's address to the review panel as the signer", () => {
     renderRail({

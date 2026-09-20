@@ -89,8 +89,17 @@ export function WorkspaceReviewRailView() {
     action: typeof selectedAction; session: typeof session;
   } | null>(null);
   const directActionPending = clickedAction?.action === selectedAction && clickedAction.session === session;
-  const reviewBeforeSigning = preparationActive || selectedAction === "use-beneficiary" ||
-    selectedAction === "stop-beneficiary-stream" || selectedAction === "distribute-beneficiaries";
+  const reviewBeforeSigning =
+    preparationActive ||
+    selectedAction === "use-beneficiary" ||
+    selectedAction === "stop-beneficiary-stream" ||
+    selectedAction === "distribute-beneficiaries" ||
+    selectedAction === "use" ||
+    selectedAction === "wallet-withdraw" ||
+    selectedAction === "update-state" ||
+    selectedAction === "mint" ||
+    selectedAction === "lock-funds" ||
+    selectedAction === "set-intended-stake-credential";
 
   async function runDirectAction() {
     if (directActionPending || preparingProposal || activeSubmit || walletStateUpdating || reviewPrimaryActionDisabled) return;
@@ -278,6 +287,10 @@ export function WorkspaceReviewRailView() {
                         : selectedAction === "use-beneficiary"
                           ? previewMatchesSelectedAction && preview?.txHex
                             ? i18n("confirmBeneficiaryWithdrawal") : i18n("previewBeneficiaryWithdrawal")
+                        : reviewBeforeSigning
+                          ? previewMatchesSelectedAction && preview?.txHex
+                            ? i18n("confirmAction", { action: activeActionDefinition.label })
+                            : i18n("previewAction", { action: activeActionDefinition.label })
                           : reviewPrimaryActionLabel
                     }
                     primaryActionKind={approvalOnly ? "approval" : "direct"}
