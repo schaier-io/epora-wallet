@@ -205,7 +205,9 @@ export function ReviewActionExplainer({
 
 // Which money moves before and when this transaction signs, in the order a reader
 // asks about it: what the network charges, what the protocol holds aside, what the
-// wallet holds now, and what is left. Rows exist only for amounts a caller actually
+// connected (browser) wallet holds now, and what is left. The balance rows are the
+// signer's own connected wallet -- the one that pays the fee -- never the smart
+// wallet's funds, so every balance label names it. Rows exist only for amounts a caller actually
 // produced (see `buildPresignCostRows`): a missing deposit or minimum-UTxO figure is
 // a row that does not render, never a guessed number.
 const COST_ROW_LABEL_KEYS: Record<

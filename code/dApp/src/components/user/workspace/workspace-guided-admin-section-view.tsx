@@ -112,17 +112,21 @@ export function GuidedAdminSectionView() {
                           <Badge variant="outline" className="max-w-full truncate">
                             {guidedAdminGroupBadgeText[group.id]}
                           </Badge>
+                          {/* Tone switches on the status token, never on the label:
+                              the label is translated, so the old `=== "Configured"`
+                              comparison dropped every non-English locale to the
+                              fallback tone and never matched "Ready" even in English. */}
                           <Badge
                             className="max-w-full truncate"
                             variant={
-                              guidedAdminGroupStatusText[group.id] === "Configured"
+                              guidedAdminGroupStatusText[group.id].token === "ready"
                                 ? "secondary"
-                                : guidedAdminGroupStatusText[group.id] === "Draft"
+                                : guidedAdminGroupStatusText[group.id].token === "draft"
                                   ? "warning"
                                   : "outline"
                             }
                           >
-                            {guidedAdminGroupStatusText[group.id]}
+                            {guidedAdminGroupStatusText[group.id].label}
                           </Badge>
                         </div>
                         {/* One description line on active and idle cards alike: an

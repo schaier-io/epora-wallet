@@ -13,3 +13,11 @@ test("nested navigation destinations stay current below their route", () => {
   assert.equal(isNavLinkActive("/payee", "/payee"), true);
   assert.equal(isNavLinkActive("/missing", "/payee"), false);
 });
+
+// `app/page.tsx` re-exports `app/user/page.tsx`, so `/` renders the smart wallet page. The
+// nav used to light nothing up there while the workspace marked itself current.
+test("wallet navigation is current on the site root as well", () => {
+  assert.equal(isNavLinkActive("/", "/user"), true);
+  assert.equal(isNavLinkActive("/", "/user/proposals"), false);
+  assert.equal(isNavLinkActive("/", "/payee"), false);
+});

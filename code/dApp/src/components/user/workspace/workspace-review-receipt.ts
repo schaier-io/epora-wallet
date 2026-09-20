@@ -304,10 +304,18 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
         }
       ]);
 
+      // `manage-streaming-payments` shares the diff, not the story. Both actions rewrite
+      // the same datum, so the rows are identical work, but titling a schedule edit
+      // "Wallet update receipt" over "…about who can use this wallet" described the one
+      // thing that action does not touch.
+      const isScheduleUpdate = selectedAction === "manage-streaming-payments";
+
       return {
-        title: i18n("walletUpdateReceipt"),
+        title: isScheduleUpdate ? i18n("scheduleUpdateReceipt") : i18n("walletUpdateReceipt"),
         summary: stateChange.isDiff
-          ? i18n("whatThisTransactionChangesAboutWhoCanUse")
+          ? isScheduleUpdate
+            ? i18n("whatThisTransactionChangesAboutTheScheduledPayments")
+            : i18n("whatThisTransactionChangesAboutWhoCanUse")
           : // No baseline loaded, so the rows below describe the result, not the change.
             i18n("thisWalletSCurrentRulesHaveNotLoaded"),
         items: stateChange.items

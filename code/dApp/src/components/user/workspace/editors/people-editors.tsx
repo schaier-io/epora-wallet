@@ -339,7 +339,9 @@ export function MultisigThresholdEditor({
                 }}
                 aria-invalid={thresholdParseError ? true : undefined}
                 aria-describedby={
-                  thresholdParseError ? `${uid}-threshold-exact-error` : undefined
+                  thresholdParseError
+                    ? `${uid}-threshold-exact-help ${uid}-threshold-exact-error`
+                    : `${uid}-threshold-exact-help`
                 }
               />
               <InlineFieldError
@@ -364,7 +366,9 @@ export function MultisigThresholdEditor({
                 onChange={(event) => setCustomMaximum(event.target.value)}
                 aria-invalid={maximumParseError ? true : undefined}
                 aria-describedby={
-                  maximumParseError ? `${uid}-slider-maximum-error` : undefined
+                  maximumParseError
+                    ? `${uid}-slider-maximum-help ${uid}-slider-maximum-error`
+                    : `${uid}-slider-maximum-help`
                 }
               />
               <InlineFieldError
@@ -373,7 +377,13 @@ export function MultisigThresholdEditor({
               />
             </div>
           </div>
-          <p className="text-xs text-muted-foreground">
+          {/* Two boxes of the same shape sit side by side, and only one of them is
+              signed. Each carries its own sentence now, and the labels name the
+              difference, so the on-chain box cannot be read as a view setting. */}
+          <p id={`${uid}-threshold-exact-help`} className="text-xs text-muted-foreground">
+            {i18n("theExactValueIsTheNumberSavedOn")}
+          </p>
+          <p id={`${uid}-slider-maximum-help`} className="text-xs text-muted-foreground">
             {i18n("sliderMaximumHelpsYouPickAThreshold")}
           </p>
         </div>

@@ -196,8 +196,14 @@ export function RecentActivityTimeline({
                   >
                     {event.amountSummary}
                   </p>
+                  {/*
+                    The resting colour used to be `text-muted-foreground/0`: fully
+                    transparent, so no row showed a chevron and hover was the only cue
+                    that the rows are buttons. It rests visible now and still brightens
+                    and slides in on hover and keyboard focus.
+                  */}
                   <ChevronRight
-                    className="h-3.5 w-3.5 shrink-0 self-center -translate-x-1 text-muted-foreground/0 transition-[transform,color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:translate-x-0 group-hover:text-muted-foreground/80 group-focus-visible:translate-x-0 group-focus-visible:text-muted-foreground/80"
+                    className="h-3.5 w-3.5 shrink-0 self-center -translate-x-1 text-muted-foreground/50 transition-[transform,color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:translate-x-0 group-hover:text-muted-foreground/80 group-focus-visible:translate-x-0 group-focus-visible:text-muted-foreground/80"
                     aria-hidden="true"
                   />
                 </button>

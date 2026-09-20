@@ -253,7 +253,11 @@ export function ProposalDetail({
               <p className="mb-2 break-words text-xs text-muted-foreground">
                 {summary.headline}
               </p>
-              <dl className="grid grid-cols-1 gap-x-8 gap-y-1 text-sm sm:grid-cols-2">
+              {/* `gap-y-3`, not `gap-y-1`: at 4px the space between a value and the next
+                  pair's label was smaller than the word spaces inside the value, so the
+                  summary read as one run-on string on the panel a co-signer verifies an
+                  amount and a destination in. */}
+              <dl className="grid grid-cols-1 gap-x-8 gap-y-3 text-sm sm:grid-cols-2">
                 {summary.rows.map((row, index) => (
                   // Grid, not `justify-between`: the value belongs next to its label. Pushed
                   // to the far end, a truncated bech32 address welded itself to the next

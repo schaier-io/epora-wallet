@@ -11,6 +11,7 @@ import { useTranslations } from "next-intl";
 import { Repeat } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils/cn";
 import { resolveAssetIdentity } from "@/lib/cardano-assets";
 import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 import {
@@ -135,7 +136,19 @@ function ProjectionRow({
           </Badge>
         </div>
       </div>
-      <p className="mt-2 text-sm font-semibold tabular-nums text-amber-100">
+      {/*
+          Amber is the "you owe money" colour and is conditional. It used to be
+          unconditional, so a healthy stream owing nothing wore the same alert colour as
+          one behind on its payouts. `computeStreamingPaymentDueAmount` returns a
+          non-negative base-unit integer string and the exact literal "0" when nothing is
+          owed, so the string compare is the whole test.
+      */}
+      <p
+        className={cn(
+          "mt-2 text-sm font-semibold tabular-nums",
+          projection.unpaidAccrued === "0" ? "text-foreground" : "text-amber-100"
+        )}
+      >
         {i18n("unpaidNow")} {formatAmount(projection.unpaidAccrued)}
       </p>
       <div className="mt-2 grid gap-2 tabular-nums sm:grid-cols-2">

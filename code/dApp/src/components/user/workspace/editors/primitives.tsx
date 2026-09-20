@@ -34,6 +34,12 @@ export function SidebarActiveGlow() {
   );
 }
 
+// ISO/IEC 18004 requires a light border of at least four modules on every side of
+// the symbol. The `qrcode` library's raw module grid carries none, and the tile sits
+// on a near-black card, so the page cannot supply one either. Baking it into the
+// viewBox makes the quiet zone scale with the symbol on any tile size.
+const QR_QUIET_ZONE_MODULES = 4;
+
 export function ReceiveAddressQrCode({ address }: { address: string }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsPrimitives");
   // Generate the QR client-side with the bundled `qrcode` library. The address
@@ -71,7 +77,7 @@ export function ReceiveAddressQrCode({ address }: { address: string }) {
   return (
     <div className="flex h-36 w-36 items-center justify-center overflow-hidden rounded-xl bg-white p-2 shadow-[0_8px_24px_-18px_rgba(0,0,0,0.6)]">
       <svg
-        viewBox={`0 0 ${modulePath.grid} ${modulePath.grid}`}
+        viewBox={`${-QR_QUIET_ZONE_MODULES} ${-QR_QUIET_ZONE_MODULES} ${modulePath.grid + QR_QUIET_ZONE_MODULES * 2} ${modulePath.grid + QR_QUIET_ZONE_MODULES * 2}`}
         className="h-full w-full"
         role="img"
         aria-label={i18n("qrCodeForTheSmartWalletReceiveAddress")}

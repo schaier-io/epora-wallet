@@ -13,9 +13,9 @@ import { type WalletInputRef } from "@/lib/types/contracts";
 import {
   type DurationUnit,
   combineDurationToMillis,
-  combineLocalDateAndTimeToTimestamp,
+  combineDateAndTimeToTimestamp,
   splitDurationMillis,
-  splitTimestampToLocalInputParts
+  splitTimestampToInputParts
 } from "@/lib/user-flow/time-inputs";
 import { cn } from "@/lib/utils/cn";
 import { type UTxO } from "@meshsdk/core";
@@ -42,15 +42,15 @@ export function GuidedDateTimeField({
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsGuidedFields");
   const format = useFormatter();
-  const [parts, setParts] = useState(() => splitTimestampToLocalInputParts(value));
+  const [parts, setParts] = useState(() => splitTimestampToInputParts(value));
   // A date picked before its time combines to "", the same as an untouched field,
   // so the field cannot tell its own edits from a reset by keying on `value`.
   // Re-read the stored value only when it moved away from what these parts say.
   const [syncedValue, setSyncedValue] = useState(value);
   if (value !== syncedValue) {
     setSyncedValue(value);
-    if (combineLocalDateAndTimeToTimestamp(parts.date, parts.time) !== value) {
-      setParts(splitTimestampToLocalInputParts(value));
+    if (combineDateAndTimeToTimestamp(parts.date, parts.time) !== value) {
+      setParts(splitTimestampToInputParts(value));
     }
   }
   const normalizedStoredTimestamp = value.trim();
@@ -63,14 +63,19 @@ export function GuidedDateTimeField({
     Number.isSafeInteger(storedTimestamp) && !Number.isNaN(storedDate.getTime());
   const storedTimestampLabel = hasStoredTimestamp
     ? storedTimestampFitsDate
-      ? format.dateTime(storedTimestamp, "short")
+      ? // `shortWithZone`, not `short`: the two inputs above are filled and read in
+        // `defaultTimeZone` (guarded by `lib/user-flow/time-inputs.test.ts`), and an
+        // unnamed number here read as the reader's own wall clock. This field sets when
+        // a recovery contact may take the wallet, so the echo has to say which clock the
+        // number is on.
+        format.dateTime(storedTimestamp, "shortWithZone")
       : normalizedStoredTimestamp
     : null;
 
   function updateParts(patch: Partial<typeof parts>) {
     const merged = { ...parts, ...patch };
     setParts(merged);
-    onChange(combineLocalDateAndTimeToTimestamp(merged.date, merged.time));
+    onChange(combineDateAndTimeToTimestamp(merged.date, merged.time));
   }
 
   return (
@@ -108,7 +113,7 @@ export function GuidedDateTimeField({
             onClick={
               shortcut
                 ? shortcut.onSelect
-                : () => updateParts(splitTimestampToLocalInputParts(String(Date.now())))
+                : () => updateParts(splitTimestampToInputParts(String(Date.now())))
             }
           >
             {shortcut?.label ?? i18n("now")}
@@ -142,8 +147,8 @@ export function GuidedDateTimeField({
         {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}
         <p className="text-xs text-muted-foreground">
           {storedTimestampLabel
-            ? i18n("thatIsStoredtimestamplabelWhereYouAre", { storedTimestampLabel: storedTimestampLabel })
-            : i18n("chooseBothADateAndTime")}
+            ? i18n("thatIsStoredtimestamplabel", { storedTimestampLabel: storedTimestampLabel })
+            : i18n("chooseBothADateAndTimeTheyAreReadInUtc")}
         </p>
       </div>
     </div>

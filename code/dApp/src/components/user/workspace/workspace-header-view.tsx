@@ -84,6 +84,9 @@ export function WorkspaceHeaderView() {
       })();
     };
 
+    // This pill is the connected *browser* wallet, the key that signs and pays the fee.
+    // The smart-wallet card below shows a different figure. Both used to read only
+    // "wallet", so the labels now name which wallet each number belongs to.
     const browserWalletFundsLovelace = walletBalanceSummary.loading || walletBalanceSummary.error
       ? null
       : getAssetQuantityByUnit(walletBalanceSummary.assets, "lovelace");

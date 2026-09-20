@@ -43,10 +43,18 @@ const NAV_LINKS = [
   { href: "/payee", labelKey: "scheduledIncome", carriesWallet: false }
 ] as const;
 
+/** Keeps a destination on the smart wallet the reader is already in. See `carriesWallet`. */
+function withWallet(href: string, walletUnit: string | null): string {
+  return walletUnit ? `${href}?wallet=${encodeURIComponent(walletUnit)}` : href;
+}
+
 export function isNavLinkActive(pathname: string, href: string): boolean {
   // `/user` must not light up while you are on `/user/proposals`, so the root entry matches
-  // exactly and the nested ones match their subtree.
-  return href === "/user" ? pathname === "/user" : pathname.startsWith(href);
+  // exactly and the nested ones match their subtree. `/` counts as the same destination:
+  // `app/page.tsx` re-exports `app/user/page.tsx`, so the site root renders the smart wallet
+  // page. Without this arm no nav item lit up on `/` while the workspace still marked itself
+  // current, and the two navigations disagreed about where the reader was.
+  return href === "/user" ? pathname === "/user" || pathname === "/" : pathname.startsWith(href);
 }
 
 function PrimaryNavLinks({ pathname, walletUnit }: { pathname: string; walletUnit: string | null }) {
@@ -54,10 +62,7 @@ function PrimaryNavLinks({ pathname, walletUnit }: { pathname: string; walletUni
 
   return NAV_LINKS.map((link) => {
     const active = isNavLinkActive(pathname, link.href);
-    const href =
-      link.carriesWallet && walletUnit
-        ? `${link.href}?wallet=${encodeURIComponent(walletUnit)}`
-        : link.href;
+    const href = link.carriesWallet ? withWallet(link.href, walletUnit) : link.href;
 
     return (
       <Link
@@ -102,6 +107,45 @@ function PrimaryNavLinks({ pathname, walletUnit }: { pathname: string; walletUni
 function PrimaryNavWithWallet({ pathname }: { pathname: string }) {
   const walletUnit = useSearchParams().get("wallet");
   return <PrimaryNavLinks pathname={pathname} walletUnit={walletUnit} />;
+}
+
+function BrandLink({ walletUnit }: { walletUnit: string | null }) {
+  const i18n = useTranslations("ComponentsLayoutTopNav");
+
+  return (
+    <Link
+      href={withWallet("/user", walletUnit)}
+      className="group inline-flex shrink-0 items-center gap-2.5 -ml-1.5 rounded-xl px-1.5 py-1 text-sm font-semibold text-[#fafafa] transition-opacity hover:opacity-[0.85] focus-visible:opacity-[0.85] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      aria-label={i18n("value1Home_689835", { value1: COPY.brand.name })}
+    >
+      <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center bg-transparent" aria-hidden="true">
+        <Image
+          src="/logo-mark.svg"
+          alt=""
+          width={32}
+          height={32}
+          priority
+          className="h-full w-full transition-transform group-hover:scale-[1.06] group-hover:-rotate-2 group-active:scale-[0.96]"
+        />
+      </span>
+      <span className="hidden min-w-0 flex-col justify-center gap-1 leading-[1.1] sm:flex">
+        <span className="inline-flex items-baseline gap-1 font-sans text-base leading-none text-[#fafafa] [font-feature-settings:'ss01','cv11']">
+          <span className="font-medium tracking-[-0.005em] text-[#e0e0e0]">{COPY.brand.nameDisplay[0]}</span>
+          <span className="font-semibold tracking-[-0.02em] text-[#fafafa]">{COPY.brand.nameDisplay[1]}</span>
+        </span>
+        {/* Alpha `c4`, not `b2`. Measured on the header's own `#091215`: `#8ba7a7b2`
+            renders 4.16:1, and `.eyebrow` is 11px, so it needed 4.5:1 and missed.
+            `#8ba7a7c4` renders 4.80:1 and keeps the tagline subordinate to the
+            wordmark beside it (14.34:1 and 18.14:1). */}
+        <span className="eyebrow hidden max-w-[22rem] truncate font-medium text-[#8ba7a7c4] lg:block">{COPY.brand.tagline}</span>
+      </span>
+    </Link>
+  );
+}
+
+function BrandLinkWithWallet() {
+  const walletUnit = useSearchParams().get("wallet");
+  return <BrandLink walletUnit={walletUnit} />;
 }
 
 export function TopNav() {
@@ -202,33 +246,13 @@ export function TopNav() {
             the network pill moved into the wallet card below, which gave back more than this
             costs. */}
         <div className="container flex h-16 items-center gap-6 py-2">
-          <Link
-            href="/user"
-            className="group inline-flex shrink-0 items-center gap-2.5 -ml-1.5 rounded-xl px-1.5 py-1 text-sm font-semibold text-[#fafafa] transition-opacity hover:opacity-[0.85] focus-visible:opacity-[0.85] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-            aria-label={i18n("value1Home_689835", { value1: COPY.brand.name })}
-          >
-            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center bg-transparent" aria-hidden="true">
-              <Image
-                src="/logo-mark.svg"
-                alt=""
-                width={32}
-                height={32}
-                priority
-                className="h-full w-full transition-transform group-hover:scale-[1.06] group-hover:-rotate-2 group-active:scale-[0.96]"
-              />
-            </span>
-            <span className="hidden min-w-0 flex-col justify-center gap-1 leading-[1.1] sm:flex">
-              <span className="inline-flex items-baseline gap-1 font-sans text-base leading-none text-[#fafafa] [font-feature-settings:'ss01','cv11']">
-                <span className="font-medium tracking-[-0.005em] text-[#e0e0e0]">{COPY.brand.nameDisplay[0]}</span>
-                <span className="font-semibold tracking-[-0.02em] text-[#fafafa]">{COPY.brand.nameDisplay[1]}</span>
-              </span>
-              {/* Alpha `c4`, not `b2`. Measured on the header's own `#091215`: `#8ba7a7b2`
-                  renders 4.16:1, and `.eyebrow` is 11px, so it needed 4.5:1 and missed.
-                  `#8ba7a7c4` renders 4.80:1 and keeps the tagline subordinate to the
-                  wordmark beside it (14.34:1 and 18.14:1). */}
-              <span className="eyebrow hidden max-w-[22rem] truncate font-medium text-[#8ba7a7c4] lg:block">{COPY.brand.tagline}</span>
-            </span>
-          </Link>
+          {/* The logo goes to the same destination as the "Smart wallet" link, so it carries
+              `?wallet=` for the same reason (see `carriesWallet`). It used to be the one header
+              control that dropped it, so clicking the brand from any wallet landed on `/user`
+              with no wallet and the app silently auto-picked its default. */}
+          <Suspense fallback={<BrandLink walletUnit={null} />}>
+            <BrandLinkWithWallet />
+          </Suspense>
 
           {/* `shrink-0` because these three links are the row's fixed point. As a shrinkable
               flex item the nav's floor is its min-content width, which is narrow enough to

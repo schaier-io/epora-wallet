@@ -13,9 +13,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { type FieldErrors, type UserWorkspaceTask } from "@/components/user/flow-types";
 import { GUIDED_ADMIN_TASKS } from "@/components/user/workspace/guided-admin-catalog";
+import { buildStreamingPaymentTaskBadges } from "@/components/user/workspace/use-workspace-guided-derivations";
 import {
   countFieldErrorMessages,
-  formatCountLabel,
   isAdaScheduledPayment,
   scheduledPaymentRateForPeriod,
   withScheduledPaymentAdded,
@@ -433,6 +433,8 @@ export function FocusedStreamingPaymentRulesEditor({
   existingStreamingPayments: readonly StreamingPaymentFormState[];
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsStreamingEditors");
+  // The chip labels come from the sidebar's namespace on purpose: one map, one wording.
+  const badgeI18n = useTranslations("ComponentsUserWorkspaceUseWorkspaceGuidedDerivations");
   const tasks = GUIDED_ADMIN_TASKS.filter((task) => task.group === "streamingPayments");
   const issueCount = countFieldErrorMessages(fieldErrors);
   const adding = selectedTask === "streaming-payments-add";
@@ -461,11 +463,11 @@ export function FocusedStreamingPaymentRulesEditor({
       tasks={tasks}
       selectedTask={selectedTask}
       onSelectTask={onSelectTask}
-      badgeByTask={{
-        "streaming-payments-add": i18n("create"),
-        "streaming-payments-edit-renew": formatCountLabel(value.streamingPayments.length, "payment"),
-        "streaming-payments-pay-due": canPayDue ? i18n("ready") : i18n("unavailable")
-      }}
+      badgeByTask={buildStreamingPaymentTaskBadges(
+        badgeI18n,
+        value.streamingPayments.length,
+        canPayDue
+      )}
       disabledTaskIds={canPayDue ? [] : ["streaming-payments-pay-due"]}
       disabledReasonByTask={{
         "streaming-payments-pay-due": i18n("addScheduledPaymentBeforePayout")

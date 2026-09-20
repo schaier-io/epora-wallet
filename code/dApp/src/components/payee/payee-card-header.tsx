@@ -7,8 +7,11 @@ import { CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { pageHeadingClass } from "@/components/ui/page-heading";
 
 type PayeeCardHeaderProps = {
-  /** Turns the refresh control's spinner on and disables it while a scan runs. */
+  /** Spinner and `aria-busy`. Background refetch only, not the first-load wait. */
   refreshing?: boolean;
+  /** When set, overrides `refreshing` for the disabled state. First load and a
+   * disconnected page both disable Refresh without spinning. */
+  disabled?: boolean;
   /** When absent the refresh control does not render: the view is not mounted yet. */
   onRefresh?: () => void;
 };
@@ -20,8 +23,13 @@ type PayeeCardHeaderProps = {
  * element, painted only once the Mesh chunk arrived). The refresh control appears only
  * once the live view owns a scan to refresh.
  */
-export function PayeeCardHeader({ refreshing = false, onRefresh }: PayeeCardHeaderProps) {
+export function PayeeCardHeader({
+  refreshing = false,
+  disabled,
+  onRefresh
+}: PayeeCardHeaderProps) {
   const i18n = useTranslations("ComponentsPayeePayeeView");
+  const refreshDisabled = disabled ?? refreshing;
   return (
     <CardHeader>
       <div className="flex w-full flex-wrap items-start justify-between gap-x-3 gap-y-2">
@@ -48,7 +56,7 @@ export function PayeeCardHeader({ refreshing = false, onRefresh }: PayeeCardHead
             variant="outline"
             size="sm"
             onClick={onRefresh}
-            disabled={refreshing}
+            disabled={refreshDisabled}
             aria-busy={refreshing}
           >
             <RefreshCw
