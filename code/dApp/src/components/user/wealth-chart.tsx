@@ -271,7 +271,9 @@ export function WealthChart({
                   // (`* { outline-ring }` in globals.css). No ring offset: the pills sit
                   // 2px inside their own container, and an offset ring would sit on its
                   // border rather than clear of it.
-                  "relative isolate rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors",
+                  // `py-1.5 min-h-6`: these are the only control over what the chart draws,
+                  // and at `py-0.5` they stood 19px tall against 10px of side padding.
+                  "relative isolate min-h-6 rounded-full px-2.5 py-1.5 text-[11px] font-medium transition-colors",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   active ? "text-foreground" : "text-muted-foreground hover:text-foreground"
                 )}
@@ -440,7 +442,7 @@ export function WealthChart({
       {legend ? (
         // The legend names what is drawn — which asset each line is and where it
         // stands now — because a multi-asset chart has no single headline number.
-        <div className="mt-3 space-y-1 border-t border-border/40 pt-2">
+        <div className="mt-3 space-y-1 border-t border-border/40 pt-3">
           {legend.map(({ entry, text }) => (
             <div key={entry.id} className="flex items-center gap-2 text-xs">
               <span
