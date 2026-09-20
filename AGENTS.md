@@ -2,7 +2,8 @@
 
 Universal rules for this repository. Domain-specific rules are nested:
 
-- Contracts (Aiken/Plutus): [code/smart-contract/AGENTS.md](code/smart-contract/AGENTS.md)
+- Contracts (Aiken/Plutus): [code/smart-contract/CLAUDE.md](code/smart-contract/CLAUDE.md)
+  (the rules file there is named CLAUDE.md, not AGENTS.md).
 
 ## File length: hard cap 750 lines
 
