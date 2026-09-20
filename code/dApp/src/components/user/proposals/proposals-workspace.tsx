@@ -119,7 +119,7 @@ export function ProposalsWorkspace() {
             </p>
           ) : null}
         </div>
-        <Button variant="ghost" size="sm" onClick={() => void session.signOut()}>
+        <Button variant="ghost" size="sm" onClick={() => void session.signOut()} className="-mr-3">
           <LogOut className="h-4 w-4" aria-hidden="true" /> {i18n("signOut")}
         </Button>
       </header>
@@ -142,7 +142,7 @@ export function ProposalsWorkspace() {
           onCancel={() => router.replace(buildUrl({ create: null }))}
         />
       ) : (
-        <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(320px,380px)_minmax(0,1fr)]">
+        <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(320px,440px)_minmax(0,1fr)]">
           {/* `lg:h-full` + flex column so the list fills the pane height and scrolls inside
               it. Unconstrained, the list grew the page while the detail pane stayed a full
               height box -- two columns that disagreed about how tall the row was. */}
@@ -181,7 +181,7 @@ export function ProposalsWorkspace() {
                 onBack={handleBackToList}
               />
             ) : (
-              <Card className="hidden h-full lg:flex lg:items-center lg:justify-center">
+              <Card className="hidden lg:flex lg:items-center lg:justify-center">
                 <CardContent className="flex min-h-40 flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
                   <FileSignature className="h-6 w-6" aria-hidden="true" />
                   <p>{i18n("selectAnApprovalRequestToVerifyAndSign")}</p>
