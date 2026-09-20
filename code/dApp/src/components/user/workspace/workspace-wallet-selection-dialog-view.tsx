@@ -26,8 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-import {
-  formatLovelaceAsAda } from "@/lib/user-flow/guided-helpers";
+import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 
 import { cn } from "@/lib/utils/cn";
 import { formatCountLabel, getAssetQuantityByUnit } from "@/components/user/workspace/helpers";

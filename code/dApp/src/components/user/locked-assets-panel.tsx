@@ -9,7 +9,7 @@ import { InfoHint } from "@/components/ui/info-hint";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AssetIcon } from "@/components/user/asset-icon";
 import { resolveAssetIdentity, type KnownAssetMeta } from "@/lib/cardano-assets";
-import { formatLovelaceAsAda } from "@/lib/user-flow/guided-helpers";
+import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 import type { Asset } from "@/lib/types/contracts";
 import { FUND_POOLS_HINT } from "@/components/user/workspace/mental-model-copy";
 import { formatCountLabel } from "@/components/user/workspace/helpers";

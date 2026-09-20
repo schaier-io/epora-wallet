@@ -9,7 +9,7 @@ import {
   computeStreamingPaymentLifetimeAmount,
   streamingPaymentNeedsZeroDeltaCleanup,
   streamingPaymentUnit
-} from "@/lib/user-flow/guided-helpers";
+} from "@/lib/user-flow/streaming-payment-helpers";
 import { isNonNegativeUint64Decimal } from "@/lib/contracts/on-chain-integer";
 import type { StreamingPaymentFormState } from "@/lib/contracts/state-form";
 import {

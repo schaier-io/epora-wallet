@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { computeStreamingPaymentDueAmount } from "@/lib/user-flow/guided-helpers";
+import { computeStreamingPaymentDueAmount } from "@/lib/user-flow/streaming-payment-helpers";
 import type { StreamingPaymentFormState } from "@/lib/contracts/state-form";
 import {
   deriveStreamingExpenseProjection,

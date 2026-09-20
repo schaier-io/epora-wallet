@@ -32,8 +32,7 @@ import {
   CardTitle
 } from "@/components/ui/card";
 
-import {
-  formatLovelaceAsAda } from "@/lib/user-flow/guided-helpers";
+import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 
 import { cn } from "@/lib/utils/cn";
 import { resolveAssetIdentity } from "@/lib/cardano-assets";

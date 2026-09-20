@@ -2,11 +2,9 @@ import type { UTxO } from "@meshsdk/core";
 
 import type { StreamingPaymentFormState } from "@/lib/contracts/state-form";
 import type { PayoutTransfer, WalletInputRef } from "@/lib/types/contracts";
-import {
-  computeStreamingReserveAssets,
-  requestedTransferAssets,
-  suggestLockedInputsForSpend
-} from "@/lib/user-flow/guided-helpers";
+import { requestedTransferAssets } from "@/lib/user-flow/asset-quantities";
+import { computeStreamingReserveAssets } from "@/lib/user-flow/streaming-payment-helpers";
+import { suggestLockedInputsForSpend } from "@/lib/user-flow/wallet-input-selection";
 
 export type SelectedFundPoolCoverage = "covered" | "insufficient" | "not-loaded";
 
