@@ -456,3 +456,60 @@ test("cursor pagination keeps narrowing to the filtered unit across pages", { sk
   );
   assert.equal(page2.nextCursor, null);
 });
+
+// The bare-id counterpart to the token test above: the legacy bare-id lookup
+// resolves the cursor row inside the caller's visible set narrowed by the
+// walletUnit argument (the lookup applies visibleWhere too). A bare id whose
+// row lives outside the filtered unit therefore fails to resolve, which is the
+// documented empty page, while a bare id inside the unit keeps paginating that
+// unit's rows strictly after the cursor position. Dropping the scope from the
+// lookup would re-anchor the filtered page on the out-of-unit row and surface
+// that unit's older rows.
+test("a bare-id cursor replayed under a unit filter resolves only inside that unit's rows", { skip: DB_SKIP }, async (t) => {
+  const db = getPrisma();
+  const caller = randomUUID();
+  const other = randomUUID();
+  const run = randomUUID().slice(0, 8);
+  const unitA = `${run}-ua`;
+  const unitB = `${run}-ub`;
+  const foreignUnit = `${run}-uf`;
+  t.after(() => cleanup([caller, other], [unitA, unitB, foreignUnit]));
+
+  await seedWalletWithParticipants(db, unitA, [caller, other]);
+  await seedWalletWithParticipants(db, unitB, [caller, other]);
+  // The caller is not a participant of the foreign unit.
+  await seedWalletWithParticipants(db, foreignUnit, [other]);
+  // Newest to oldest across the units: a-new, b-new, a-old, b-mid, b-old, f1.
+  await seedProposal(db, { id: `${run}-a-new`, createdAt: new Date(T0 + 5000), creator: other, walletUnit: unitA });
+  await seedProposal(db, { id: `${run}-b-new`, createdAt: new Date(T0 + 4000), creator: other, walletUnit: unitB });
+  await seedProposal(db, { id: `${run}-a-old`, createdAt: new Date(T0 + 3000), creator: other, walletUnit: unitA });
+  await seedProposal(db, { id: `${run}-b-mid`, createdAt: new Date(T0 + 2000), creator: other, walletUnit: unitB });
+  await seedProposal(db, { id: `${run}-b-old`, createdAt: new Date(T0 + 1000), creator: other, walletUnit: unitB });
+  await seedProposal(db, { id: `${run}-f1`, createdAt: new Date(T0), creator: other, walletUnit: foreignUnit });
+
+  // Fixture soundness: the caller sees both member units' rows and never the
+  // foreign one, so the empty page below is the scoped lookup's doing.
+  const unfiltered = await list(caller, { limit: 10 });
+  assert.deepEqual(
+    unfiltered.proposals.map((p) => p.id),
+    [`${run}-a-new`, `${run}-b-new`, `${run}-a-old`, `${run}-b-mid`, `${run}-b-old`]
+  );
+
+  // A bare id inside the filtered unit positions the page strictly after that
+  // row in the (createdAt desc, id desc) list order: b-mid and b-old continue,
+  // while a-old (older than b-new but outside the unit) and the foreign row
+  // never surface.
+  const inside = await list(caller, { limit: 10, cursor: `${run}-b-new` }, unitB);
+  assert.deepEqual(
+    inside.proposals.map((p) => p.id),
+    [`${run}-b-mid`, `${run}-b-old`]
+  );
+  assert.equal(inside.nextCursor, null);
+
+  // A bare id whose row lives in unit A does not resolve under the unit B
+  // filter (the scoped lookup misses), which is the documented empty page. A
+  // lookup that ignored the scope would re-anchor at a-old's position and
+  // serve b-mid and b-old here.
+  const outside = await list(caller, { limit: 10, cursor: `${run}-a-old` }, unitB);
+  assert.deepEqual(outside, { proposals: [], nextCursor: null });
+});
