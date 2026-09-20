@@ -1,14 +1,10 @@
-import { createDefaultTranslator } from "@/i18n/default-translator";
-import defaultMessages from "@/i18n/generated/default-en/LibUserFlowGuidedHelpers.json";
 import { readPositiveBigInt } from "@/lib/user-flow/asset-quantities";
 
-const i18n = createDefaultTranslator("LibUserFlowGuidedHelpers", defaultMessages);
-
 const DURATION_UNITS = [
-  { value: "days", label: i18n("days"), milliseconds: 86_400_000n },
-  { value: "hours", label: i18n("hours"), milliseconds: 3_600_000n },
-  { value: "minutes", label: i18n("minutes"), milliseconds: 60_000n },
-  { value: "milliseconds", label: i18n("milliseconds"), milliseconds: 1n }
+  { value: "days", milliseconds: 86_400_000n },
+  { value: "hours", milliseconds: 3_600_000n },
+  { value: "minutes", milliseconds: 60_000n },
+  { value: "milliseconds", milliseconds: 1n }
 ] as const;
 
 export type DurationUnit = (typeof DURATION_UNITS)[number]["value"];
