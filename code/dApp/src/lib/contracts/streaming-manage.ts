@@ -18,7 +18,9 @@ function formatEndDateFloor(endDateFloor: bigint) {
   if (!Number.isSafeInteger(timestamp) || Number.isNaN(new Date(timestamp).getTime())) {
     return i18n("theRequiredOnChainCutoff");
   }
-  return `${defaultFormatter.dateTime(timestamp, "short")} UTC`;
+  // `shortWithZone` prints the zone itself. The literal " UTC" appended to a `short`
+  // render would read "UTC UTC" the day `short` gains `timeZoneName`.
+  return defaultFormatter.dateTime(timestamp, "shortWithZone");
 }
 
 type ManagedPayment = {

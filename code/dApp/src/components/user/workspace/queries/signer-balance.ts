@@ -29,7 +29,13 @@ export const signerUtxosQueryAtom = atomWithQuery(get => {
   };
 });
 
-/** Read-only view of the shared query. Jotai never owns a second remote snapshot. */
+/**
+ * Read-only view of the shared query. Jotai never owns a second remote snapshot.
+ *
+ * This is the balance of the *connected browser wallet* (the signer's own key), not of
+ * the smart wallet the workspace has open. Every surface that renders it has to say so:
+ * the two figures sit within a screen of each other and were both labelled "wallet".
+ */
 export const walletBalanceSummaryAtom = atom<WalletBalanceSummary>(get => {
   if (!get(walletReadyAtom) || !get(activeAddressAtom)) return { assets: [], loading: false, error: null };
   const result = get(signerUtxosQueryAtom);

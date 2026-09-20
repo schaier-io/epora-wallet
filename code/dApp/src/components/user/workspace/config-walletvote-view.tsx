@@ -25,18 +25,22 @@ export function WalletVoteConfigView() {
 
       return (
         <div className="space-y-4">
-          <div className="space-y-1">
-            <Label htmlFor="userVoteJson">{i18n("voteJson")}</Label>
-            {/* The old text described the box as Mesh's "`voter` + `govActionId` +
-                `votingProcedure` (voteKind Yes/No/Abstain) structure", which names an SDK
-                and three of its field names to someone who has to fill the box by hand.
-                It also never said where the vote comes from. `govActionId` appears nowhere
-                else in this app, and `/user/proposals` holds this wallet's own co-signing
-                requests, not Cardano governance actions, so the proposal genuinely has to
-                come from somewhere else. */}
-            <p className="text-xs text-muted-foreground">
-              {i18n("aVoteSaysThreeThingsWhoIsVoting")}
-            </p>
+          {/* space-y-2 between blocks, space-y-1 inside the label group: at space-y-1
+              throughout, the gap between two blocks was half the line pitch inside one. */}
+          <div className="space-y-2">
+            <div className="space-y-1">
+              <Label htmlFor="userVoteJson">{i18n("voteJson")}</Label>
+              {/* The old text described the box as Mesh's "`voter` + `govActionId` +
+                  `votingProcedure` (voteKind Yes/No/Abstain) structure", which names an SDK
+                  and three of its field names to someone who has to fill the box by hand.
+                  It also never said where the vote comes from. `govActionId` appears nowhere
+                  else in this app, and `/user/proposals` holds this wallet's own co-signing
+                  requests, not Cardano governance actions, so the proposal genuinely has to
+                  come from somewhere else. */}
+              <p className="text-xs text-muted-foreground">
+                {i18n("aVoteSaysThreeThingsWhoIsVoting")}
+              </p>
+            </div>
             {/* The message was rendered beside the box and attached to nothing. Nothing
                 marked the box invalid either, so `Textarea`'s own
                 `aria-[invalid=true]:border-rose-500/60` never fired: the field a reader was

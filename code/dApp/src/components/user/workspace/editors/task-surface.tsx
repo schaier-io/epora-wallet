@@ -103,7 +103,13 @@ export function GuidedAdminTaskTabs({
             // read the panel underneath and infer it. `aria-current` is what the sidebar, the
             // guided action cards and the proposal list already use for the same question.
             aria-current={isActive ? "true" : undefined}
-            title={disabledReason ? i18n("value1Disabledreason", { value1: task.label, disabledReason: disabledReason }) : task.label}
+            // No `title` on an available chip. The native tooltip was measured landing on
+            // the badge below it and clipping its descenders, and it only repeated the
+            // task name: the chip shows `shortLabel`, the selected task's full `label` is
+            // in the header badge above, and `aria-label` carries the full label for every
+            // chip. A disabled chip keeps its title, because the reason it is off has no
+            // other pointer-reachable home.
+            title={disabledReason ? i18n("value1Disabledreason", { value1: task.label, disabledReason: disabledReason }) : undefined}
             className={cn(
               "user-surface user-task-chip inline-flex min-w-0 max-w-full items-center gap-2 rounded-full border px-3 py-2 text-left text-sm transition-[background-color,border-color,color,box-shadow,transform]",
               isActive
@@ -200,7 +206,7 @@ export function FocusedTaskSurface({
   return (
     <div className="space-y-4">
       <div className="user-surface user-section-panel rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
-        <div className="flex w-full flex-wrap items-start gap-x-3 gap-y-2">
+        <div className="flex w-full flex-wrap items-center gap-x-3 gap-y-2">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-3">
               <span className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-border/70 bg-background/60 text-primary">

@@ -101,13 +101,15 @@ export function PopupDialog({
                 </p>
               ) : null}
             </div>
+            {/* `-mt-1.5` against the header's `items-start`: the button box is taller than the
+                title's line box, so top-aligning it drops the glyph below the title's centre. */}
             <Button
               type="button"
               variant="ghost"
-              size="sm"
+              size="icon"
               onClick={handleClose}
               aria-label={i18n("closeDialog")}
-              className="shrink-0 px-2"
+              className="shrink-0 -mt-1.5"
             >
               <X aria-hidden="true" className="h-4 w-4" />
             </Button>

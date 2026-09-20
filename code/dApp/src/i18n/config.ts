@@ -3,6 +3,14 @@ export const locales = ["en"] as const;
 export type AppLocale = (typeof locales)[number];
 
 export const defaultLocale: AppLocale = "en";
+/**
+ * Fixed, not the reader's. The server renders the first HTML and the browser
+ * hydrates it, so a zone read from the browser would make the two disagree and
+ * React would throw a hydration mismatch. Everything formatted through
+ * `formats.dateTime` therefore lands in this zone on both sides. The cost is
+ * that a rendered time is not the reader's wall clock, which is why any time a
+ * reader has to act on uses `shortWithZone` and says which zone it is in.
+ */
 export const defaultTimeZone = "UTC";
 
 export const localeCookieName = "NEXT_LOCALE";
@@ -15,6 +23,19 @@ export const formats = {
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit"
+    },
+    // Same as `short`, plus the zone. Use this wherever the reader makes a
+    // decision on the time: a deadline, a review-rail diff, a stored timestamp
+    // echoed back beside a date and time input. Those inputs are filled and read
+    // in `defaultTimeZone`, not in the reader's own zone (see
+    // `lib/user-flow/time-inputs.ts`), so the echo has to name the zone it is on.
+    shortWithZone: {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZoneName: "short"
     },
     date: {
       year: "numeric",

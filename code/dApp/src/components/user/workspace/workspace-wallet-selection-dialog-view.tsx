@@ -146,7 +146,7 @@ export function WalletSelectionDialogView() {
                 handleFlowBranchSelect("new-wallet");
               }}
               aria-label={i18n("createNewSmartWallet")}
-              className="group relative isolate flex w-full min-w-0 items-center gap-3 overflow-hidden rounded-lg border border-emerald-400/30 bg-emerald-500/10 p-3 text-left shadow-[0_0_0_1px_rgba(45,212,191,0.08)] transition-[background-color,border-color,box-shadow,transform] duration-200 ease-out hover:-translate-y-0.5 hover:border-emerald-300/45 hover:bg-emerald-400/15 hover:shadow-[0_16px_42px_rgba(15,118,110,0.22)]"
+              className="group relative isolate flex w-full min-w-0 items-center gap-3 overflow-hidden rounded-lg border border-emerald-400/30 bg-emerald-500/10 p-3 text-left shadow-[inset_0_0_0_1px_rgba(45,212,191,0.08)] transition-[background-color,border-color,box-shadow,transform] duration-200 ease-out hover:-translate-y-0.5 hover:border-emerald-300/45 hover:bg-emerald-400/15 hover:shadow-[0_16px_42px_rgba(15,118,110,0.22)]"
             >
               <span
                 aria-hidden="true"
@@ -170,7 +170,7 @@ export function WalletSelectionDialogView() {
               <div className="min-w-0 flex-1 space-y-1">
                 <Label
                   htmlFor="walletDialogSearch"
-                  className="inline-flex items-center gap-2"
+                  className="flex items-center gap-2"
                 >
                   <Search className="h-3.5 w-3.5 text-muted-foreground" />
                   {i18n("searchSmartWallets")}
@@ -186,7 +186,7 @@ export function WalletSelectionDialogView() {
                 type="button"
                 size="sm"
                 variant="outline"
-                className="ml-auto shrink-0"
+                className="ml-auto shrink-0 sm:h-10"
                 onClick={() => {
                   void (async () => {
                     const detected = await refreshDetectedTokens();
@@ -298,7 +298,7 @@ export function WalletSelectionDialogView() {
                             ) : null}
                           </div>
                           {entry.roleBadges.length > 0 ? (
-                            <div className="mt-2 flex flex-wrap gap-2">
+                            <div className="mt-3 flex flex-wrap gap-2">
                               {entry.roleBadges.slice(0, 3).map((badge) => (
                                 <Badge
                                   key={`${entry.token.unit}-${badge}`}
@@ -311,14 +311,21 @@ export function WalletSelectionDialogView() {
                               ))}
                             </div>
                           ) : null}
-                          <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                            <span className="rounded-full border border-border/60 bg-muted/20 px-2 py-1">
+                          <div
+                            className={cn(
+                              // The two chip rows group at `mt-2`. With no badge row this is
+                              // the first row under the title, so it takes the title's `mt-3`.
+                              entry.roleBadges.length > 0 ? "mt-2" : "mt-3",
+                              "flex flex-wrap gap-2 text-xs text-muted-foreground"
+                            )}
+                          >
+                            <span className="rounded-full border border-border/60 bg-muted/20 px-2.5 py-0.5">
                               {lockedLovelace} {i18n("ada")}
                             </span>
-                            <span className="rounded-full border border-border/60 bg-muted/20 px-2 py-1">
+                            <span className="rounded-full border border-border/60 bg-muted/20 px-2.5 py-0.5">
                               {formatCountLabel(entry.lockedSummary?.lockedUtxoCount ?? 0, "fundPool")}
                             </span>
-                            <span className="rounded-full border border-border/60 bg-muted/20 px-2 py-1">
+                            <span className="rounded-full border border-border/60 bg-muted/20 px-2.5 py-0.5">
                               {formatCountLabel(nonLovelaceCount, "asset")}
                             </span>
                           </div>

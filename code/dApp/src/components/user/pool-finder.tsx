@@ -53,9 +53,11 @@ export function PoolFinder({
 
   return (
     <div className="space-y-3">
-      <div className="space-y-1">
+      {/* space-y-2 and gap-3: at space-y-1/gap-2 the input's focus ring reached closer to
+          the label, the button and the helper than its own 4px spread. */}
+      <div className="space-y-2">
         <Label htmlFor="poolFinderInput">{i18n("findYourPool")}</Label>
-        <div className="flex gap-2">
+        <div className="flex gap-3">
           <Input
             id="poolFinderInput"
             value={query}

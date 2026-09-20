@@ -253,11 +253,18 @@ export function ProposalDetail({
               <p className="mb-2 break-words text-xs text-muted-foreground">
                 {summary.headline}
               </p>
-              <dl className="grid grid-cols-1 gap-1 text-sm sm:grid-cols-2">
+              {/* `gap-y-3`, not `gap-y-1`: at 4px the space between a value and the next
+                  pair's label was smaller than the word spaces inside the value, so the
+                  summary read as one run-on string on the panel a co-signer verifies an
+                  amount and a destination in. */}
+              <dl className="grid grid-cols-1 gap-x-8 gap-y-3 text-sm sm:grid-cols-2">
                 {summary.rows.map((row, index) => (
-                  <div key={`${row.label}-${index}`} className="flex min-w-0 flex-wrap justify-between gap-2">
+                  // Grid, not `justify-between`: the value belongs next to its label. Pushed
+                  // to the far end, a truncated bech32 address welded itself to the next
+                  // row's label -- the one string a co-signer compares before signing.
+                  <div key={`${row.label}-${index}`} className="grid min-w-0 grid-cols-[auto_1fr] gap-x-3">
                     <dt className="text-muted-foreground">{row.label}</dt>
-                    <dd className="min-w-0 wrap-anywhere text-right">{row.value}</dd>
+                    <dd className="min-w-0 wrap-anywhere">{row.value}</dd>
                   </div>
                 ))}
               </dl>
@@ -327,6 +334,10 @@ export function ProposalDetail({
           {/* Only what the reader can do right now. Four buttons used to sit here, mostly
               grey, with the reason in the note above. Once enough people have signed, Submit
               is the one primary action. */}
+          {/* Rendered only when it has a button in it: unconditionally, an empty row still
+              took a `space-y-4` margin and left 16px of dead space under the panel. The
+              conditions below are unchanged; this gate only mirrors them. */}
+          {canSubmit || canSign || canRebuild || (isCreator && (isOpen || isDeletable)) ? (
           <div className="flex flex-wrap gap-2">
             {canSubmit ? (
               <Button
@@ -406,6 +417,7 @@ export function ProposalDetail({
               </Button>
             ) : null}
           </div>
+          ) : null}
         </CardContent>
       </Card>
 
