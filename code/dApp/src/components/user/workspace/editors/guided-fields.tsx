@@ -92,11 +92,19 @@ export function GuidedDateTimeField({
         {/* Datetimes here are usually "roughly when it should start/stop", and typing
             today's date plus a time into two browser pickers is the long way round a
             one-click answer. */}
+        {/* `h-auto` (plus `sm:h-auto`, a separate tailwind-merge group, or the size
+            variant's `sm:h-10` survives) keeps this button out of the row height, so the
+            label lines up with the bare one on the duration field. `-my-2 py-2` gives the
+            hit area back without giving the height back. The padding comes off whichever
+            edge meets the form column. */}
         {!disabled ? (
           <Button
             type="button"
             variant="ghost"
-            className="px-2 text-xs"
+            className={cn(
+              "-my-2 h-auto px-2 py-2 text-xs sm:h-auto",
+              stacked ? "-ml-2" : "pr-0"
+            )}
             onClick={
               shortcut
                 ? shortcut.onSelect
@@ -108,7 +116,7 @@ export function GuidedDateTimeField({
         ) : null}
       </div>
       <div
-        className={cn("grid gap-3", !stacked && "md:grid-cols-2")}
+        className={cn("grid gap-3", !stacked && "sm:grid-cols-2")}
         role="group"
         aria-labelledby={`${idPrefix}-label`}
       >
@@ -128,12 +136,16 @@ export function GuidedDateTimeField({
           disabled={disabled}
         />
       </div>
-      {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}
-      <p className="text-xs text-muted-foreground">
-        {storedTimestampLabel
-          ? i18n("thatIsStoredtimestamplabelWhereYouAre", { storedTimestampLabel: storedTimestampLabel })
-          : i18n("chooseBothADateAndTime")}
-      </p>
+      {/* Two lines of the same helper: as `space-y-1` siblings they sat a step further
+          apart than the single wrapped helper beside them. */}
+      <div className="space-y-0">
+        {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}
+        <p className="text-xs text-muted-foreground">
+          {storedTimestampLabel
+            ? i18n("thatIsStoredtimestamplabelWhereYouAre", { storedTimestampLabel: storedTimestampLabel })
+            : i18n("chooseBothADateAndTime")}
+        </p>
+      </div>
     </div>
   );
 }

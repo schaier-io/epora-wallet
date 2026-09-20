@@ -310,7 +310,9 @@ export function MultisigThresholdEditor({
                 ? i18n("nobodyCanReachNeededThePeopleWhoCan", { needed: needed, availablePower: availablePower })
                 : i18n("thisAddsUpApprovalPowerNotPeopleThe", { availablePower: availablePower })}
           </p>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          {/* A control group of its own: at the flat `space-y-1` step the sentence above
+              read as a caption for these boxes rather than for the slider. */}
+          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
             <div className="flex items-center gap-2">
               <Label
                 htmlFor={`${uid}-threshold-exact`}
@@ -322,7 +324,7 @@ export function MultisigThresholdEditor({
                 id={`${uid}-threshold-exact`}
                 inputMode="numeric"
                 autoComplete="off"
-                className="w-28 tabular-nums"
+                className="w-24 tabular-nums"
                 value={value.multiSigThreshold}
                 onChange={(event) => {
                   const multiSigThreshold = event.target.value;
