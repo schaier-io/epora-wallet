@@ -10,6 +10,7 @@ import { buildKnownAddresses, WalletHashesEditor } from "./asset-editors";
 import { ApprovalPowerSlider } from "./approval-power-slider";
 import { GuidedDateTimeField } from "./guided-fields";
 import { Button } from "@/components/ui/button";
+import { DestructiveRemoveButton } from "./destructive-remove-button";
 import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -96,9 +97,13 @@ export function BeneficiaryEditor({
     <div className="user-surface user-list-item space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <PersonHeading person={beneficiary}>{personLabel(i18n("recoveryContact"), beneficiary)}</PersonHeading>
-        <Button type="button" variant="ghost" onClick={onRemove}>
-          {i18n("removeRecoveryContact")}
-        </Button>
+        <DestructiveRemoveButton
+          label={i18n("removeRecoveryContact")}
+          confirmTitle={i18n("removeRecoveryContactConfirmTitle")}
+          confirmBody={i18n("removeRecoveryContactConfirmBody")}
+          cancelLabel={i18n("cancel")}
+          onConfirm={onRemove}
+        />
       </div>
       <div className="grid gap-3 md:grid-cols-2">
         <div className="space-y-1">

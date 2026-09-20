@@ -9,6 +9,7 @@ import { ApprovalPowerSlider } from "./approval-power-slider";
 import { GuidedDateTimeField } from "./guided-fields";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DestructiveRemoveButton } from "./destructive-remove-button";
 import { Label } from "@/components/ui/label";
 import { walletBalanceSummaryAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { activeAddressAtom, activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
@@ -143,18 +144,13 @@ export function PersonPermissionsEditor({
     <div className="user-surface user-list-item space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <PersonHeading person={user}>{personLabel("Person", user)}</PersonHeading>
-        {/* Pays back the ghost button's `px-4`, so its text box lands on the same edge as
-            the heading. It tracks the card's own `p-3 sm:p-4`: a flat `-mr-4` put the
-            button's hover fill and focus ring 4 CSS outside the card below 640. The hit
-            box is unchanged. */}
-        <Button
-          type="button"
-          variant="ghost"
-          className="-mr-3 sm:-mr-4"
-          onClick={onRemove}
-        >
-          {i18n("remove")}
-        </Button>
+        <DestructiveRemoveButton
+          label={i18n("remove")}
+          confirmTitle={i18n("removeConfirmTitle")}
+          confirmBody={i18n("removeConfirmBody")}
+          cancelLabel={i18n("cancel")}
+          onConfirm={onRemove}
+        />
       </div>
 
       <div className="space-y-2">

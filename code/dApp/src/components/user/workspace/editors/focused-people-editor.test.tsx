@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import { describe, expect, it, vi } from "vitest";
 
@@ -199,6 +199,7 @@ describe("granting permissions with chips", () => {
     renderPeople(value, onChange);
 
     fireEvent.click(screen.getAllByRole("button", { name: "Remove" })[1]);
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Remove" }));
 
     const next = onChange.mock.calls[0][0] as StateFormState;
     expect(next.users).toHaveLength(1);
@@ -458,6 +459,35 @@ describe("person wallet cap", () => {
     expect(addConnected).toBeDisabled();
     fireEvent.click(addConnected);
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("does not remove a person until the reader confirms", () => {
+    const onRemove = vi.fn();
+    const store = createStore();
+    render(
+      <Provider store={store}>
+        <PersonPermissionsEditor
+          user={person({}, "1")}
+          onChange={vi.fn()}
+          onRemove={onRemove}
+          approvalPowerCeiling={1}
+          canAddPerDayAllowanceEntry
+          canAddRemainingAllowanceEntry
+          canAddWallet
+        />
+      </Provider>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+    expect(onRemove).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" }));
+    expect(onRemove).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Remove" }));
+    expect(onRemove).toHaveBeenCalledTimes(1);
   });
 
   it.each([

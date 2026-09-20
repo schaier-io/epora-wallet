@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { OwnerAccessEditor, WalletNameEditor } from "./wallet-settings-editors";
@@ -123,5 +123,55 @@ describe("owner wallet cap", () => {
     expect(addConnected).toBeDisabled();
     fireEvent.click(addConnected);
     expect(onChange).not.toHaveBeenCalled();
+  });
+});
+
+describe("owner remove confirmation", () => {
+  function renderOwner(onRemove = vi.fn()) {
+    render(
+      <OwnerAccessEditor
+        user={createDefaultUserFormState("1")}
+        canAddWallet
+        onChange={vi.fn()}
+        onRemove={onRemove}
+      />
+    );
+    return onRemove;
+  }
+
+  it("opens the confirm dialog and does not remove yet", () => {
+    const onRemove = renderOwner();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove owner" }));
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("dialog")).getByText(
+        "This removes this owner from the wallet. This cannot be undone."
+      )
+    ).toBeInTheDocument();
+    expect(onRemove).not.toHaveBeenCalled();
+  });
+
+  it("keeps the owner when the reader cancels", () => {
+    const onRemove = renderOwner();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove owner" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" }));
+
+    expect(onRemove).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("removes the owner when the reader confirms", () => {
+    const onRemove = renderOwner();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove owner" }));
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: "Remove owner" })
+    );
+
+    expect(onRemove).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });
