@@ -279,7 +279,9 @@ export function SttSpendPayoutView() {
                         ? i18n("closingThisFinishedPayment")
                         : i18n("payThisOneNow")}
                     </label>
-                    <div className="min-w-0 wrap-anywhere rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs tabular-nums text-muted-foreground md:col-start-2 md:row-start-2">
+                    {/* min-h-10: the chip content-sizes to 34px beside the 40px amount
+                        input it shares this centred row with. */}
+                    <div className="flex min-h-10 min-w-0 items-center wrap-anywhere rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs tabular-nums text-muted-foreground md:col-start-2 md:row-start-2">
                       {i18n("dueNow")}{" "}
                       {row.unit === "lovelace"
                         ? i18n("value1Ada", { value1: formatLovelaceAsAda(row.dueAmount) })
