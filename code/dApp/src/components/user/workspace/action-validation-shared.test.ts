@@ -140,7 +140,7 @@ test("validateGovernanceVotePayload rejects the empty default the form ships wit
   validateGovernanceVotePayload(errors, "{}");
   assert.equal(
     errors["Vote JSON"]?.[0],
-    "A vote has to say who is voting, which proposal, and how you vote."
+    "This vote is missing who is voting, which proposal, or how you vote. Use a template above, or paste a whole vote."
   );
 });
 
