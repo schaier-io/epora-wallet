@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getServerEnv } from "@/lib/env/server-env";
+import { parseRetryAfterMs } from "@/lib/http/retry-after";
 import {
   mapKoiosCredentialUtxos,
   type KoiosUtxo
@@ -12,6 +13,12 @@ const KOIOS_URLS = {
   mainnet: "https://api.koios.rest/api/v1"
 } as const satisfies Record<string, string>;
 
+const LOOKUP_TIMEOUT_MS = 15_000;
+const MAX_ATTEMPTS = 3;
+const RETRY_DELAY_MS = 500;
+const MAX_RETRY_DELAY_MS = 1_000;
+const RETRYABLE_STATUSES = new Set([502, 503, 504]);
+
 export type KoiosNetwork = keyof typeof KOIOS_URLS;
 
 export function isKoiosNetwork(network: string): network is KoiosNetwork {
@@ -22,16 +29,19 @@ function koiosBaseUrl(network: KoiosNetwork): string {
   return getServerEnv().KOIOS_URL ?? KOIOS_URLS[network];
 }
 
-export function requestKoiosCredentialUtxos(
+export async function requestKoiosCredentialUtxos(
   paymentCredentialHex: string,
   network: KoiosNetwork = "preprod"
 ) {
   if (!/^[0-9a-f]{56}$/i.test(paymentCredentialHex)) {
     throw new Error("Koios payment credential must be a 56-character hex hash.");
   }
-  return fetch(`${koiosBaseUrl(network)}/credential_utxos`, {
+  const url = `${koiosBaseUrl(network)}/credential_utxos`;
+  // All attempts share the original deadline, including response body reads.
+  const signal = AbortSignal.timeout(LOOKUP_TIMEOUT_MS);
+  const options = {
     method: "POST",
-    signal: AbortSignal.timeout(15_000),
+    signal,
     headers: {
       "content-type": "application/json",
       accept: "application/json"
@@ -40,7 +50,20 @@ export function requestKoiosCredentialUtxos(
       _payment_credentials: [paymentCredentialHex],
       _extended: true
     })
-  });
+  };
+  for (let attempt = 1; ; attempt++) {
+    signal.throwIfAborted();
+    const response = await fetch(url, options);
+    const delay = parseRetryAfterMs(response.headers.get("Retry-After"))
+      ?? RETRY_DELAY_MS * attempt;
+    if (!RETRYABLE_STATUSES.has(response.status) || attempt >= MAX_ATTEMPTS
+      || delay > MAX_RETRY_DELAY_MS || signal.aborted) {
+      return response;
+    }
+    // Credential lookup is read-only. Release each discarded response before retrying.
+    await response.body?.cancel();
+    await new Promise((resolve) => setTimeout(resolve, delay));
+  }
 }
 
 export async function fetchCredentialUtxosFromKoios(
