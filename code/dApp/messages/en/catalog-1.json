@@ -471,9 +471,9 @@
     "clearFormConfirmTitle": "Clear this form?"
   },
   "ComponentsUserGuidedActionAdapters": {
-    "addAPayoutPickARecipientAndAn": "Add a payout: pick a recipient and an amount, so the app can match the correct spender.",
-    "addAPayoutPickARecipientAndAn_fc7f7e": "Add a payout: pick a recipient and an amount for this recovery withdrawal.",
-    "addAPayoutPickARecipientEnterAn": "Add a payout: pick a recipient, enter an amount, then Add payout.",
+    "addAPayoutPickARecipientAndAn": "Choose a recipient and amount so the app can match the correct spender.",
+    "addAPayoutPickARecipientAndAn_fc7f7e": "Choose a recipient and amount for this recovery withdrawal.",
+    "addAPayoutPickARecipientEnterAn": "Choose a recipient and amount, then preview your send.",
     "addAtLeastOneOwnerOrConfirmThat": "Add at least one owner, or confirm that this wallet should start without a direct owner.",
     "adjustTheSignerOrTransferAmountsUntilExactly": "Adjust the signer or transfer amounts until exactly one spender matches.",
     "asset": "asset",

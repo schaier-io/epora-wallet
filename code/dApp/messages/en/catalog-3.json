@@ -35,7 +35,7 @@
     "value1Value2": "{value1} {value2}"
   },
   "ComponentsUserWorkspaceConfigSttspendView": {
-    "addPayout": "Add payout",
+    "addPayout": "Add another recipient",
     "addrTest": "addr_test...",
     "asset": "Asset",
     "authorizationPath": "Authorization path",
@@ -61,7 +61,7 @@
     "payOutWhatYourScheduledPaymentsHaveBuilt": "Pay out what your scheduled payments have built up so far.",
     "payThisOneNow": "Pay this one now",
     "pendingPayouts": "Pending payouts",
-    "pickARecipientAndAnAmountThenAdd": "Pick a recipient and an amount, then add the payout. The app chooses which funds to spend from.",
+    "pickARecipientAndAnAmountThenAdd": "Choose a recipient and amount, then preview your send. Add another recipient for a batch payment.",
     "recentValue1": "Recent: {value1}",
     "recipient": "Recipient",
     "remove": "Remove",

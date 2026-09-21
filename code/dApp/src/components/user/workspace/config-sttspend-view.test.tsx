@@ -241,7 +241,7 @@ describe("send form intro", () => {
 
     expect(container.textContent).not.toContain("Select suggested inputs");
     expect(
-      screen.getByText(/The app chooses which funds to spend from/)
+      screen.getByText(/Choose a recipient and amount, then preview your send/)
     ).toBeInTheDocument();
   });
 });
@@ -392,7 +392,7 @@ describe("recipient rejection descriptions", () => {
         ...view
       }
     });
-    fireEvent.click(screen.getByRole("button", { name: "Add payout" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add another recipient" }));
   }
 
   function danglingDescriptions() {
