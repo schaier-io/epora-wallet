@@ -109,6 +109,22 @@ export function ToastProvider({ children }: PropsWithChildren) {
     }
   }, []);
 
+  // Whether the reader currently has the stack under the pointer or holds focus inside it.
+  // A ref, not state: `push` must see the live value without being rebuilt, and nothing
+  // about the pause is rendered.
+  const pausedRef = useRef(false);
+
+  const armTimer = useCallback(
+    (id: string, durationMs: number) => {
+      if (durationMs <= 0 || pausedRef.current || timersRef.current.has(id)) return;
+      timersRef.current.set(
+        id,
+        setTimeout(() => dismiss(id), durationMs)
+      );
+    },
+    [dismiss]
+  );
+
   const push = useCallback(
     (input: ShowToastInput): string => {
       const id = nextToastId();
@@ -122,14 +138,35 @@ export function ToastProvider({ children }: PropsWithChildren) {
         durationMs
       };
       setToasts((current) => [...current, item]);
-      if (durationMs > 0) {
-        const timer = setTimeout(() => dismiss(id), durationMs);
-        timersRef.current.set(id, timer);
-      }
+      armTimer(id, durationMs);
       return id;
     },
-    [dismiss]
+    [armTimer]
   );
+
+  // WCAG 2.2.1. Every toast hides itself on a timer -- 5.2s, or 8s for an error -- and
+  // `wallet-connect-error-bridge.tsx:36` puts the wallet's own failure string in one. That
+  // text is written nowhere else, so a reader who looked away lost it with no way back.
+  // Hovering or focusing the stack holds it; leaving it lets the timers run again.
+  const pauseTimers = useCallback(() => {
+    pausedRef.current = true;
+    timersRef.current.forEach((timer) => clearTimeout(timer));
+    timersRef.current.clear();
+  }, []);
+
+  // The full duration restarts rather than the remainder. Keeping the remainder needs a
+  // deadline per toast and buys a reader who just moved the pointer away nothing: they are
+  // done reading, and a fresh 5.2s is the more forgiving of the two.
+  //
+  // A plain function reading `toasts` from this render, not a `useCallback` over a ref: it
+  // is only ever handed to a DOM handler, which is re-attached on every render anyway, so a
+  // stable identity buys nothing and the ref version wrote to `.current` during render.
+  const resumeTimers = () => {
+    pausedRef.current = false;
+    for (const toast of toasts) {
+      armTimer(toast.id, toast.durationMs);
+    }
+  };
 
   const value = useMemo<ToastContextType>(
     () => ({
@@ -156,6 +193,12 @@ export function ToastProvider({ children }: PropsWithChildren) {
               aria-live="polite"
               aria-atomic="false"
               data-modal-passthrough=""
+              // The host is `pointer-events-none` and each toast is `pointer-events-auto`,
+              // so the toast is the event target and these fire on the way up.
+              onMouseEnter={pauseTimers}
+              onMouseLeave={resumeTimers}
+              onFocus={pauseTimers}
+              onBlur={resumeTimers}
               className="pointer-events-none fixed inset-x-4 bottom-4 z-[110] flex flex-col items-center gap-2 sm:inset-x-auto sm:right-6 sm:bottom-6 sm:items-end"
             >
               {toasts.map((toast) => {
