@@ -39,13 +39,24 @@ export function PayeeCardHeader({
             0. `space-y-1` sits here and not on `CardHeader`, which has this div as its only
             child and so matches nothing with `:not(:last-child)`. */}
         <div className="min-w-0 flex-1 space-y-1">
-          {/* The page's own heading. `/payee` holds one card and this names it, so the
+          {/* "Scheduled income", the name the top navigation uses for this destination.
+              The page said "Scheduled payments to you", which also reads a step too close
+              to the wallet's own outgoing "Scheduled payments".
+
+              The page's own heading. `/payee` holds one card and this names it, so the
               page no longer carries a hidden `h1` saying the same words at a different
               level. `pageHeadingClass` overrides the CardTitle rung: `cn` merges with
               tailwind-merge, so the page scale wins over `text-lg font-medium`. */}
           <CardTitle as="h1" className={pageHeadingClass}>
             {i18n("scheduledPaymentsToYou")}
           </CardTitle>
+          {/* Two sentences, not four. The description used to end "Shortening a payment
+              stops it building up further, and never reduces what is already owed. The
+              paying wallet's owners can change a payment later." -- two rules that only
+              apply once a payment exists, and which the shorten review states again where
+              they apply ("This stops future earnings at the time below. The unpaid amount
+              stays owed to you. The paying wallet's owners can change the schedule
+              later."). On the empty page they were rules about nothing. */}
           <CardDescription className="max-w-prose">
             {i18n("paymentsOtherWalletsSendToYouALittle")}
           </CardDescription>

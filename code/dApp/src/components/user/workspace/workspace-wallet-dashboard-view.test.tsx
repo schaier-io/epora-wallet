@@ -20,9 +20,8 @@ vi.mock("@/components/user/workspace/workspace-actions-context", () => ({
   })
 }));
 
-const { TechnicalDetail, WorkspaceWalletDashboardView } = await import(
-  "@/components/user/workspace/workspace-wallet-dashboard-view"
-);
+const { TechnicalDetail, WorkspaceWalletDashboardView, compactActivityTimestamp } =
+  await import("@/components/user/workspace/workspace-wallet-dashboard-view");
 
 describe("transactions bundle boundary", () => {
   it("does not load the transactions view with the wallet dashboard module", () => {
@@ -87,5 +86,32 @@ describe("technical detail row", () => {
 
     expect(screen.getByText("Unavailable")).toBeTruthy();
     expect(container.querySelectorAll("button")).toHaveLength(0);
+  });
+});
+
+/**
+ * `formatWalletTransactionRelative` gives up past a week and returns null, while
+ * `formatWalletTransactionTime` still has the exact date. A Home row that takes the
+ * relative label alone therefore prints "Time not available" for a month-old transaction
+ * the app can date precisely, and `recent-activity-timeline` builds that row's
+ * `aria-label` from the same string, so the loss reaches a screen reader too.
+ */
+describe("the Home activity timestamp", () => {
+  it("falls back to the exact date before it says the time is unavailable", () => {
+    expect(
+      compactActivityTimestamp(null, "Aug 22, 2026, 9:54 PM UTC", "Time not available")
+    ).toBe("Aug 22, 2026, 9:54 PM UTC");
+  });
+
+  it("prefers the relative label, so a row does not print the time twice", () => {
+    expect(
+      compactActivityTimestamp("18h ago", "Sep 20, 2026, 9:54 PM UTC", "Time not available")
+    ).toBe("18h ago");
+  });
+
+  it("says the time is unavailable only when there is no time at all", () => {
+    expect(compactActivityTimestamp(null, null, "Time not available")).toBe(
+      "Time not available"
+    );
   });
 });

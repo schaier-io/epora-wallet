@@ -112,10 +112,10 @@ describe("workspace sidebar, no wallet open", () => {
 });
 
 /**
- * `Turn on staking` and `Claim rewards` shipped inside the collapsed "Advanced" panel next to
- * `Tidy funds`, `Governance` and `Cast a vote`. Earning and collecting rewards are ordinary
- * wallet tasks, so they belong with Send and Pay; the maintenance and governance tools keep
- * the fold.
+ * `Enable staking` and `Claim rewards` shipped inside the collapsed "Advanced" panel next
+ * to `Tidy funds` and `Cast a vote`. Earning and collecting rewards are ordinary wallet
+ * tasks, so they belong with Send and Pay; the maintenance and governance tools keep the
+ * fold. The titles here are the ones `use-workspace-guided-derivations.ts` builds.
  */
 describe("workspace sidebar, wallet open", () => {
   it("lists staking and rewards with the common actions and keeps the rest advanced", async () => {
@@ -157,7 +157,7 @@ describe("workspace sidebar, wallet open", () => {
         ],
         guidedAdminGroups: [],
         guidedToolActions: [
-          { intent: "enable-staking", action: "set-intended-stake-credential", title: "Turn on staking" },
+          { intent: "enable-staking", action: "set-intended-stake-credential", title: "Enable staking" },
           { intent: "rewards", action: "wallet-withdraw", title: "Claim rewards" },
           { intent: "governance-vote", action: "wallet-vote", title: "Cast a vote" },
           { intent: "consolidate", action: "consolidate-utxo", title: "Tidy funds" }
@@ -178,7 +178,7 @@ describe("workspace sidebar, wallet open", () => {
 
     const common = screen.getByRole("list", { name: "Common actions" });
     expect(within(common).getByText("Send")).toBeTruthy();
-    expect(within(common).getByText("Turn on staking")).toBeTruthy();
+    expect(within(common).getByText("Enable staking")).toBeTruthy();
     expect(within(common).getByText("Claim rewards")).toBeTruthy();
 
     const advanced = screen.getByRole("list", { name: "Advanced actions" });
@@ -202,7 +202,7 @@ describe("workspace sidebar, wallet open", () => {
         ],
         guidedAdminGroups: [],
         guidedToolActions: [
-          { intent: "enable-staking", action: "set-intended-stake-credential", title: "Turn on staking" }
+          { intent: "enable-staking", action: "set-intended-stake-credential", title: "Enable staking" }
         ],
         hasGuidedActivityContext: false,
         isGuidedHomeSelected: true,
@@ -220,7 +220,7 @@ describe("workspace sidebar, wallet open", () => {
     const { within } = await import("@testing-library/react");
     const common = screen.getByRole("list", { name: "Common actions" });
     const scheduled = within(common).getByText("Scheduled payments");
-    const staking = within(common).getByText("Turn on staking");
+    const staking = within(common).getByText("Enable staking");
     expect(
       scheduled.compareDocumentPosition(staking) & Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();

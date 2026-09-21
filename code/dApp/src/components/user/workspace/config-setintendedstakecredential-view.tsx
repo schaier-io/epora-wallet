@@ -6,8 +6,6 @@ import { useAtomValue } from "jotai";
 
 import { PoolFinder } from "@/components/user/pool-finder";
 
-import { ConfigSection } from "@/components/user/workspace/editors";
-
 import { useWithdrawForm } from "@/components/user/workspace/forms/use-withdraw-form";
 
 export function SetIntendedStakeCredentialConfigView() {
@@ -18,15 +16,16 @@ export function SetIntendedStakeCredentialConfigView() {
 
       return (
         <div className="space-y-4">
-          {/* Not "Enable staking": that is the card's own title one line above
-              (`action-definitions.ts` label + " details"), and the card describes the action
-              twice more before this section starts. "enterprise address" and "records the
-              wallet's own on-chain script as its stake address" were the contract's words,
-              not the reader's. */}
-          <ConfigSection
-            title={i18n("whatTurningItOnDoes")}
-            description={i18n("thisWalletCannotEarnStakingRewardsYetTurning")}
-          >
+          {/* No section heading. "What turning it on does" was the third heading in a row
+              saying the same thing: the card title "Enable staking", the outcome sentence
+              under it, and the "What this does" disclosure all precede this paragraph. The
+              paragraph stays because it is the plain-English one; the heading was the only
+              part that repeated. "enterprise address" and "records the wallet's own on-chain
+              script as its stake address" were the contract's words, not the reader's. */}
+          <div className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
+            <p className="text-xs text-muted-foreground">
+              {i18n("thisWalletCannotEarnStakingRewardsYetTurning")}
+            </p>
             {isWalletStakingEnabled ? (
               <div className="mt-3 rounded-lg border border-emerald-400/40 bg-emerald-500/10 p-3 text-xs text-emerald-100">
                 {i18n("stakingIsAlreadyOnForThisWalletSending")}
@@ -51,7 +50,7 @@ export function SetIntendedStakeCredentialConfigView() {
             <div className="mt-3 rounded-lg border border-border/60 bg-muted/20 p-3 text-xs text-muted-foreground">
               {i18n("afterThisConfirmsTheWalletSExistingFunds")}
             </div>
-          </ConfigSection>
+          </div>
           {/* rounded-lg, not rounded-xl: this panel sits inside the config <Card>, which is
               itself rounded-xl, so it read as a peer of the card rather than a child. */}
           <div className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">

@@ -35,7 +35,6 @@ import { SkeletonCard } from "@/components/ui/skeleton";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle
 } from "@/components/ui/card";
@@ -138,6 +137,29 @@ export function TechnicalDetail({
   );
 }
 
+/**
+ * The one-line timestamp for a Home activity row. The relative label alone while there is
+ * one: five rows each carrying "18h ago · Sep 20, 2026, 9:54 PM UTC" said the same time
+ * twice and made the timestamp longer than the event it described. The exact date and the
+ * slot stay in that row's tooltip, and the full list behind "See all" keeps both columns.
+ *
+ * The absolute date is the fallback, not decoration. `formatWalletTransactionRelative`
+ * returns null past a week (`helpers/formatters.ts`), so without it a month-old
+ * transaction read "Time not available" while the app held the exact date, and
+ * `recent-activity-timeline` builds the row's `aria-label` from this string, so a screen
+ * reader was told the same.
+ *
+ * Exported for its test: the branch only runs deep inside the Home tree, behind a dozen
+ * atoms, and the view-level suite does not reach it.
+ */
+export function compactActivityTimestamp(
+  relativeLabel: string | null,
+  timestampLabel: string | null,
+  unavailableLabel: string
+): string {
+  return relativeLabel || timestampLabel || unavailableLabel;
+}
+
 export function WorkspaceWalletDashboardView() {
   const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceWalletDashboardView");
   const state = useWorkspaceActions();
@@ -181,14 +203,15 @@ export function WorkspaceWalletDashboardView() {
                 {resolvedGuidedOverviewSection === "home" ? (
                   <Card className="user-surface relative overflow-hidden">
                     <CardSilkBackground section="home" />
+                    {/*
+                      No CardDescription. "Balance, people, and recent activity at a glance"
+                      repeated the sidebar's own Home entry word for word, on the same screen.
+                    */}
                     <CardHeader className="relative z-10 pb-6">
                       <CardTitle className="flex items-center gap-2">
                         <House className="h-4 w-4 text-primary" />
                         {i18n("walletHome")}
                       </CardTitle>
-                      <CardDescription>
-                        {i18n("balancePeopleAndRecentActivityAtAGlance")}
-                      </CardDescription>
                     </CardHeader>
                     <CardContent className="relative z-10 space-y-4">
                       <WalletHeroCard
@@ -205,8 +228,6 @@ export function WorkspaceWalletDashboardView() {
                           totalLockedContractAssets,
                           "lovelace"
                         )}
-                        assetTypeCount={totalLockedContractAssets.length}
-                        fundingSourceCount={lockedContractUtxos.length}
                         loading={lockedContractUtxosLoading}
                         onCopyAddress={() => {
                           if (lockingContract.address) {
@@ -219,14 +240,6 @@ export function WorkspaceWalletDashboardView() {
                         addressCopied={copyFeedback === "Wallet address copied"}
                         onSend={() => openWorkspaceIntent("send", "use")}
                         onReceive={() => openWorkspaceIntent("add-funds", "lock-funds")}
-                        onActivity={() => openGuidedOverview("transactions")}
-                        onSettings={() =>
-                          openWorkspaceIntent(
-                            "wallet-settings",
-                            "update-state",
-                            "settings-wallet-name"
-                          )
-                        }
                       />
                       <LockedAssetsOverviewPanel
                         utxoCount={lockedContractUtxos.length}
@@ -266,14 +279,11 @@ export function WorkspaceWalletDashboardView() {
                             badgeClassName: activity.badgeClassName,
                             amountSummary: activity.amountSummary,
                             amountClassName: activity.amountClassName,
-                            // Not the slot: it is a chain counter the reader cannot read as a
-                            // time, and this line is where a time goes. The relative label is
-                            // the shorthand; the localized date with its timezone sits beside
-                            // it. The slot survives in the tooltip below, which is the only
-                            // place it is any use.
-                            timestampDisplay:
-                              [relativeLabel, timestampLabel].filter(Boolean).join(" · ") ||
-                              i18n("timeNotAvailable"),
+                            timestampDisplay: compactActivityTimestamp(
+                              relativeLabel,
+                              timestampLabel,
+                              i18n("timeNotAvailable")
+                            ),
                             timestampTooltip: timestampLabel
                               ? i18n("timestamplabelSlotValue2", {
                                   timestampLabel: timestampLabel,

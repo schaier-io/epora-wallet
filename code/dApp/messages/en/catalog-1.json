@@ -103,7 +103,7 @@
   },
   "AppPayeePage": {
     "preparingYourPayments": "Preparing your payments…",
-    "scheduledPaymentsToYou": "Scheduled payments to you"
+    "scheduledPaymentsToYou": "Scheduled income"
   },
   "AppSetupPage": {
     "description": "Create the shared STT reference that Epora transactions use.",
@@ -117,8 +117,8 @@
     "preparingWalletHome": "Preparing wallet home…"
   },
   "AppUserProposalsPage": {
-    "approvalRequests": "Approval requests",
-    "loadingApprovalRequests": "Loading approval requests…"
+    "approvalRequests": "Co-signing",
+    "loadingApprovalRequests": "Loading requests…"
   },
   "ComponentsErrorBoundary": {
     "ifThisKeepsHappeningReportIt": "If this keeps happening, report it on <github>GitHub</github> or <discord>Discord</discord>.",
@@ -367,14 +367,14 @@
     "onHold": "On hold",
     "owedToYouNow": "Owed to you now:",
     "paidOutSoFar": "Paid out so far: {amount} · payment #{id}",
-    "paymentsOtherWalletsSendToYouALittle": "Payments other wallets send to you a little at a time. Collect funds when they are available. Shortening a payment stops it building up further, and never reduces what is already owed. The paying wallet’s owners can change a payment later.",
+    "paymentsOtherWalletsSendToYouALittle": "Payments other wallets send to you a little at a time. Collect funds when they are available.",
     "refresh": "Refresh",
     "cancel": "Cancel",
     "continue": "Continue",
     "nothingWasSigned": "Nothing was signed.",
     "reviewTheseWarningsBeforeYouSign": "Review these warnings before you sign",
     "thePayoutIsBuiltReadEachWarning": "The payout is built. Read each warning, then choose.",
-    "scheduledPaymentsToYou": "Scheduled payments to you",
+    "scheduledPaymentsToYou": "Scheduled income",
     "sentTheListUpdatesAfterTheNextRefresh": "Sent. The list updates after the next refresh.",
     "shortened": "Shortened",
     "shortening": "Shortening…",
@@ -536,7 +536,6 @@
   },
   "ComponentsUserLockedAssetsPanel": {
     "assets": "Assets",
-    "inThisWallet": "in this wallet.",
     "native": "Native",
     "next": "Next",
     "nft": "NFT",
@@ -601,10 +600,10 @@
     "you": "(you)"
   },
   "ComponentsUserProposalsCreateProposalPanel": {
-    "backToApprovalRequests": "Back to approval requests",
+    "backToApprovalRequests": "Back to co-signing",
     "cancel": "Cancel",
     "connectTheWalletThatBuiltThisRequest": "Connect the wallet that built this request before you add co-signers.",
-    "couldNotSaveTheApprovalRequest": "Could not save the approval request.",
+    "couldNotSaveTheApprovalRequest": "Could not save the request.",
     "descriptionOptional": "Description (optional)",
     "discardDraft": "Discard draft",
     "discardDraftCancel": "Keep draft",
@@ -612,8 +611,8 @@
     "discardDraftDescription": "The saved transaction is removed from this browser. Drafts are only on your device, so nobody else is affected.",
     "discardDraftTitle": "Discard this draft?",
     "goBackToTheWalletToBuildA": "Go back to the wallet to build a transaction first.",
-    "nothingToSaveYetBuildATransactionOn": "Nothing to save yet. Build a transaction on the wallet page, then choose “Save as approval request”.",
-    "saveAsApprovalRequest": "Save as approval request",
+    "nothingToSaveYetBuildATransactionOn": "Nothing to save yet. Build a transaction on the wallet page, then choose “Save for co-signing”.",
+    "saveAsApprovalRequest": "Save for co-signing",
     "saveRequest": "Save request",
     "thePeopleWhoHaveToSignWillSee": "The people who have to sign will see this exact transaction and check it before they sign.",
     "title": "Title",

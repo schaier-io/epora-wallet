@@ -164,7 +164,7 @@ describe("saving a transaction as an approval request", () => {
     fireEvent.click(screen.getByRole("button", { name: /save request/i }));
 
     await waitFor(() =>
-      expect(screen.getByRole("alert")).toHaveTextContent("Could not save the approval request.")
+      expect(screen.getByRole("alert")).toHaveTextContent("Could not save the request.")
     );
   });
 });
@@ -178,7 +178,7 @@ describe("choosing who signs", () => {
     fireEvent.click(screen.getByRole("button", { name: /save request/i }));
 
     await waitFor(() =>
-      expect(screen.getByRole("alert")).toHaveTextContent("Could not save the approval request.")
+      expect(screen.getByRole("alert")).toHaveTextContent("Could not save the request.")
     );
     expect(client.create).not.toHaveBeenCalled();
   });

@@ -272,12 +272,22 @@ describe("what the fields mean", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("says what the tab is for before showing any field", () => {
+  /**
+   * The tab used to open with an intro paragraph. The helper on the control below said
+   * the same thing ("Check in before the date below to push it back. Miss it, and your
+   * recovery contacts can claim what is in this wallet."), and the line above the
+   * recovery-contact list said it a third time, so the tab stated one rule three times
+   * before the reader reached a field.
+   */
+  it("states the rule on the control that sets it, not in an intro above it", () => {
     renderTimer();
 
     expect(
+      screen.queryByText(/The proof of life is how long you have between check-ins/)
+    ).not.toBeInTheDocument();
+    expect(
       screen.getByText(
-        "The proof of life is how long you have between check-ins. Let it run out and your recovery contacts can claim what is in this wallet."
+        "Check in before the date below to push it back. Miss it, and your recovery contacts can claim what is in this wallet."
       )
     ).toBeInTheDocument();
   });
@@ -294,5 +304,34 @@ describe("dead chrome", () => {
 
     expect(screen.queryByText("Proof of live")).not.toBeInTheDocument();
     expect(screen.queryByText("Multisig")).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * The co-signer tab opened with "Let several people act together on this wallet, even
+ * when none of them is an owner. An owner can still act alone either way." one line above
+ * the control headed "Let several people act together", whose own helper ends "An owner
+ * can still act alone." One rule, twice, before the reader reached the slider.
+ */
+describe("the co-signer threshold tab", () => {
+  it("states the rule on the control, not in an intro above it", () => {
+    const value = createDefaultStateForm();
+    value.multiSigThresholdMode = "some";
+    value.multiSigThreshold = "2";
+    render(
+      <FocusedWalletSettingsEditor
+        value={value}
+        onChange={vi.fn()}
+        selectedTask="settings-multisig-threshold"
+        onSelectTask={vi.fn()}
+        fieldErrors={{}}
+      />
+    );
+
+    expect(
+      screen.queryByText(/even when none of them is an owner/)
+    ).not.toBeInTheDocument();
+    // The control that sets the rule is still here, with its own heading and helper.
+    expect(screen.getByText("Let several people act together")).toBeInTheDocument();
   });
 });
