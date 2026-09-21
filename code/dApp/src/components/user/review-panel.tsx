@@ -74,11 +74,6 @@ type ReviewPanelProps = {
   fieldErrors: FieldErrors;
   preview: BuildResult | null;
   previewMatchesSelectedAction: boolean;
-  /** Whose signature the tx needs: the build-time signer when the preview
-   * carries one, else the connected wallet's address. */
-  signerAddress?: string | null;
-  /** Browser-wallet lovelace from the last funds refresh; null while loading or unavailable. */
-  walletBalanceLovelace?: string | null;
   buildError: string | null;
   buildErrorExpected: boolean;
   buildDiagnosticId?: string | null;
@@ -138,8 +133,6 @@ export function UserReviewPanel({
   fieldErrors,
   preview,
   previewMatchesSelectedAction,
-  signerAddress,
-  walletBalanceLovelace,
   buildError,
   buildErrorExpected,
   buildDiagnosticId,
@@ -527,8 +520,6 @@ export function UserReviewPanel({
             preview={preview}
             previewMatchesSelectedAction={previewMatchesSelectedAction}
             lastActionLabel={lastActionLabel}
-            signerAddress={signerAddress}
-            walletBalanceLovelace={walletBalanceLovelace}
           />
         )}
       </CardContent>

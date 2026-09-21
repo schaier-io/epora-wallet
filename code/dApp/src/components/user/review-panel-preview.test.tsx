@@ -3,7 +3,6 @@ import type { ComponentProps } from "react";
 import { describe, expect, it } from "vitest";
 
 import { ReviewTransactionPreview } from "@/components/user/review-panel-preview";
-import { VALIDITY_WINDOW_FUTURE_MS } from "@/lib/mesh/transactions/internals/constants";
 import { USER_ACTION_DEFINITION_MAP } from "@/lib/user-flow/action-definitions";
 import type { BuildResult } from "@/lib/types/contracts";
 
@@ -13,53 +12,34 @@ const PREVIEW: BuildResult = {
   estimatedFeeLovelace: "424778"
 };
 
-const LONG_ADDRESS = "addr1q9grk3xs9xk2qyjs8vdnyk4v2czv57t8sn5xdjpqk6xh3g4wv";
-
 const BASE: ComponentProps<typeof ReviewTransactionPreview> = {
   definition: USER_ACTION_DEFINITION_MAP["use"],
   preview: PREVIEW,
   previewMatchesSelectedAction: true,
-  lastActionLabel: "use",
-  signerAddress: LONG_ADDRESS
+  lastActionLabel: "use"
 };
 
 describe("ReviewTransactionPreview", () => {
-  it("states the signer, the validity window, and where change goes", () => {
+  it("states the built action and its outcome beside the badge", () => {
     render(<ReviewTransactionPreview {...BASE} />);
 
-    // 424778 lovelace renders as the ADA amount beside the "Network fee" label.
-    expect(screen.getByText("0.424778 ₳")).toBeInTheDocument();
-
-    const signer = screen.getByText((_, node) => node?.textContent === "Valid for");
-    expect(signer).toHaveClass("eyebrow");
-    // Read off the builder constant, so changing the signing budget does not
-    // leave this assertion asserting a window the builder no longer sets.
-    const validityMinutes = Math.round(VALIDITY_WINDOW_FUTURE_MS / 60_000);
+    // The sentence and the outcome share one text span, so match them combined.
+    const outcome = USER_ACTION_DEFINITION_MAP["use"].outcome;
     expect(
-      screen.getByText(`${validityMinutes} minutes after it's built`)
+      screen.getByText((_, node) => node?.textContent === `Ready to sign. ${outcome}`)
     ).toBeInTheDocument();
-    expect(screen.getByText("Returns to your wallet")).toBeInTheDocument();
   });
 
   /**
-   * A bech32 address does not fit the 247px rail, so the row shows the shortened
-   * form and carries the full address on `title`, the same pattern the receipt's
-   * recipient rows use. Nothing else on the surface repeats the address.
+   * The card used to disappear entirely without a preview, so the rail lost its whole
+   * height on every tab switch and the primary button looked as ready with nothing built
+   * as it does beside a built one.
    */
-  it("shortens the signer address but keeps the full one reachable", () => {
-    render(<ReviewTransactionPreview {...BASE} />);
+  it("holds the review card open before a build", () => {
+    render(<ReviewTransactionPreview {...BASE} preview={null} />);
 
-    expect(screen.getByTitle(LONG_ADDRESS).textContent).not.toContain(LONG_ADDRESS);
-    expect(screen.queryByText(LONG_ADDRESS)).not.toBeInTheDocument();
-  });
-
-  it("hides the signer row when no wallet is connected", () => {
-    render(<ReviewTransactionPreview {...BASE} signerAddress={null} />);
-
-    expect(screen.queryByText("Connected signer")).not.toBeInTheDocument();
-    // The rows that describe every build stay.
-    expect(screen.getByText("Valid for")).toBeInTheDocument();
-    expect(screen.getByText("Change")).toBeInTheDocument();
+    expect(screen.getByText("Not built yet.")).toBeInTheDocument();
+    expect(screen.queryByText(/Ready to sign/)).not.toBeInTheDocument();
   });
 
   it("keeps the idle review quiet before clicking", () => {
@@ -68,27 +48,6 @@ describe("ReviewTransactionPreview", () => {
     expect(
       screen.queryByText("Your wallet will open automatically to sign.")
     ).not.toBeInTheDocument();
-    expect(screen.queryByText("Network fee")).not.toBeInTheDocument();
-  });
-
-  /**
-   * The card used to disappear entirely without a preview, so the rail lost its whole
-   * height on every tab switch and the primary button looked as ready with nothing built
-   * as it does beside a costed transaction.
-   */
-  it("holds the review card open before a build, without stating costs", () => {
-    render(<ReviewTransactionPreview {...BASE} preview={null} />);
-
-    expect(screen.getByText("Not built yet.")).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "The fee and your balance after it appear here once the transaction is built."
-      )
-    ).toBeInTheDocument();
-    // The rows state properties of every build, so they are true before one exists.
-    expect(screen.getByText("Valid for")).toBeInTheDocument();
-    expect(screen.getByText("Change")).toBeInTheDocument();
-    expect(screen.queryByText(/Ready to sign/)).not.toBeInTheDocument();
   });
 
   it("warns that the shown details belong to another action when they drifted", () => {
