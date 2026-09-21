@@ -73,8 +73,6 @@ function renderRail(options: {
   previewMatchesSelectedAction: boolean;
   buildSelectedActionTx: ReturnType<typeof vi.fn>;
   handleSaveProposalFromBuild: ReturnType<typeof vi.fn>;
-  activeAddress?: string | null;
-  previewSignerAddress?: string;
   refreshWorkspaceSummary?: ReturnType<typeof vi.fn>;
   seedStore?: (store: ReturnType<typeof createStore>) => void;
   signingAvailability?: typeof signingActions.value;
@@ -98,10 +96,8 @@ function renderRail(options: {
     )
   );
   store.set(previewAtom, {
-    txHex: "old-payout-tx",
-    signerAddress: options.previewSignerAddress
+    txHex: "old-payout-tx"
   } as BuildResult);
-  store.set(activeAddressAtom, options.activeAddress ?? null);
   options.seedStore?.(store);
   const selectedAction = options.selectedAction ?? "payout-streaming-payment";
 
@@ -367,32 +363,6 @@ it.each([
 });
 
 describe("context-aware signing actions", () => {
-  it("hands the connected wallet's address to the review panel as the signer", () => {
-    renderRail({
-      previewMatchesSelectedAction: true,
-      buildSelectedActionTx: vi.fn(),
-      handleSaveProposalFromBuild: vi.fn(),
-      activeAddress: "addr_test1signer"
-    });
-
-    expect(reviewPanelProps.latest.signerAddress).toBe("addr_test1signer");
-  });
-
-  // `setupTransaction` pins `setRequiredSigners` to its resolved change address,
-  // which can differ from `usedAddresses[0]`; the review must name the signer the
-  // built tx actually needs, not the address list's first entry.
-  it("prefers the build-time signer from the preview when the addresses differ", () => {
-    renderRail({
-      previewMatchesSelectedAction: true,
-      buildSelectedActionTx: vi.fn(),
-      handleSaveProposalFromBuild: vi.fn(),
-      activeAddress: "addr_test1signer",
-      previewSignerAddress: "addr_test1buildtime"
-    });
-
-    expect(reviewPanelProps.latest.signerAddress).toBe("addr_test1buildtime");
-  });
-
   it("shows direct signing first and approval saving second for a dual-role wallet", async () => {
     const buildAndSubmitSelectedActionTx = vi.fn();
     const buildSelectedActionTx = vi.fn().mockResolvedValue({ txHex: "new-payout-tx" });

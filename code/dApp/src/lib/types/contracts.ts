@@ -327,8 +327,8 @@ export type BuildResult = {
   /**
    * Address whose signature the built transaction requires, exactly as
    * `setupTransaction` resolved it for `setRequiredSigners`. This build-time
-   * change address can differ from the wallet's current `usedAddresses[0]`,
-   * so the review panel shows it instead of guessing from the address list.
+   * change address can differ from the wallet's current `usedAddresses[0]`.
+   * Also exposed on the build-result API schema for programmatic callers.
    */
   signerAddress?: string;
 };

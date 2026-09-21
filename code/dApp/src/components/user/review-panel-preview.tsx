@@ -6,36 +6,13 @@ import {
 } from "@/components/react-bits/primitives";
 import { Badge } from "@/components/ui/badge";
 import { type TaskDefinition } from "@/components/user/flow-types";
-import { ReviewCosts } from "@/components/user/review-panel-sections";
-import { buildPresignCostRows } from "@/lib/user-flow/presign-costs";
 import { cn } from "@/lib/utils/cn";
-import { shortenAddress } from "@/lib/utils/explorer";
-import { AddressCopyButton } from "@/components/ui/address-copy-button";
-// Pure constants module (no imports of its own), already imported client-side by
-// `workspace/helpers/formatters.ts`. Read directly rather than through the
-// internals barrel, which would pull server-only build code into the bundle.
-import { VALIDITY_WINDOW_FUTURE_MS } from "@/lib/mesh/transactions/internals/constants";
 
-// The transaction facts this card states are properties of EVERY build, not of one
-// transaction, so they come from where the builders get them:
-//
-// - Signer: `setupTransaction` calls `setRequiredSigners([changeAddress])`, and the
-//   change address always resolves from the connected wallet, so the connected
-//   wallet holds the tx's required signing credential.
-// - Validity: every build seeds `invalidBefore`/`invalidHereafter` from
-//   `VALIDITY_WINDOW_PAST_MS`/`VALIDITY_WINDOW_FUTURE_MS` around the build moment;
-//   the future edge lands one slot past that offset, so the rendered minutes are
-//   the window's floor, not an exact count.
-// - Change: Mesh's balanced build returns everything the explicit outputs don't
-//   spend to the change address, which is again the connected wallet.
 type ReviewTransactionPreviewProps = {
   definition: TaskDefinition;
   preview: BuildResult | null;
   previewMatchesSelectedAction: boolean;
   lastActionLabel: string;
-  signerAddress?: string | null;
-  /** Browser-wallet lovelace from the last funds refresh; null while loading or unavailable. */
-  walletBalanceLovelace?: string | null;
   compact?: boolean;
   autoSignPending?: boolean;
 };
@@ -45,20 +22,14 @@ export function ReviewTransactionPreview({
   preview,
   previewMatchesSelectedAction,
   lastActionLabel,
-  signerAddress,
-  walletBalanceLovelace,
   autoSignPending = false,
   compact = false
 }: ReviewTransactionPreviewProps) {
   const i18n = useTranslations("ComponentsUserReviewPanelPreview");
-  const validityMinutes = Math.round(VALIDITY_WINDOW_FUTURE_MS / 60_000);
 
   // No early `return null` for a missing preview. Removing the whole card collapsed the
   // rail by its full height the moment the reader switched tabs, and left the primary
-  // button looking exactly as ready with nothing built as it does beside a costed
-  // transaction. The rows below state properties of every build, so they are true before
-  // one exists; only the fee and the balance after it wait on the build, and the card
-  // says so in their place.
+  // button looking exactly as ready with nothing built as it does beside a built one.
   return (
     <AnimatedContent className={cn("space-y-4", compact && "space-y-3")} distance={18}>
       {!preview && autoSignPending ? (
@@ -99,57 +70,6 @@ export function ReviewTransactionPreview({
             )}
           </span>
         </div>
-        {preview ? (
-          <ReviewCosts
-            rows={buildPresignCostRows({
-              estimatedFeeLovelace: preview.estimatedFeeLovelace,
-              walletBalanceLovelace
-            })}
-          />
-        ) : (
-          <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-            {i18n("costsAppearAfterBuild")}
-          </p>
-        )}
-        {/* What signing commits the user to beyond the fee, in receipt-row form so the
-            card reads as one surface with the receipt above it, not a second list style. */}
-        <dl className="mt-3 divide-y divide-border/40 rounded-md border border-border/40 bg-background/30">
-          {signerAddress ? (
-            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-2 py-2">
-              <dt className="eyebrow font-medium text-muted-foreground">{i18n("signer")}</dt>
-              {/* `title` carries the full address: the shortened form scans, the hover
-                  (and screen reader) get the exact credential being asked for. */}
-              <dd
-                className="inline-flex min-w-0 items-center justify-end gap-1 break-words text-xs font-medium text-foreground"
-                title={signerAddress}
-              >
-                {shortenAddress(signerAddress)}
-                <AddressCopyButton value={signerAddress} className="inline-flex align-middle" />
-              </dd>
-              <dd className="min-w-0 basis-full break-words text-xs leading-snug text-muted-foreground">
-                {i18n("signerDetail")}
-              </dd>
-            </div>
-          ) : null}
-          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-2 py-2">
-            <dt className="eyebrow font-medium text-muted-foreground">{i18n("validity")}</dt>
-            <dd className="min-w-0 break-words text-right text-xs font-medium text-foreground">
-              {i18n("validityValue", { minutes: validityMinutes })}
-            </dd>
-            <dd className="min-w-0 basis-full break-words text-xs leading-snug text-muted-foreground">
-              {i18n("validityDetail")}
-            </dd>
-          </div>
-          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-2 py-2">
-            <dt className="eyebrow font-medium text-muted-foreground">{i18n("change")}</dt>
-            <dd className="min-w-0 break-words text-right text-xs font-medium text-foreground">
-              {i18n("changeValue")}
-            </dd>
-            <dd className="min-w-0 basis-full break-words text-xs leading-snug text-muted-foreground">
-              {i18n("changeDetail")}
-            </dd>
-          </div>
-        </dl>
       </div>
     </AnimatedContent>
   );
