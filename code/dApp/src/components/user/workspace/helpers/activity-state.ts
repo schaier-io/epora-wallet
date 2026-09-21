@@ -1,6 +1,7 @@
 import type { UTxO } from "@meshsdk/core";
 import { decodeDatumFromUtxo } from "@/lib/mesh/datum";
 import { readStateSections } from "@/lib/contracts/state-layout";
+import { stateFormFromDatum, type StreamingPaymentFormState } from "@/lib/contracts/state-form";
 import { validateStateDatum } from "@/lib/contracts/state-validation";
 import { readOptionalInteger } from "@/lib/contracts/plutus-primitives";
 
@@ -29,7 +30,19 @@ function readUniqueState(utxos: UTxO[], sttUnit: string) {
   const sections = readStateSections(datum);
   readOptionalInteger(sections.increment, "Proof-of-life increment");
   const unlockTime = readOptionalInteger(sections.unlockTime, "Proof-of-life unlock time");
-  return { ...sections, unlockTime };
+  return { ...sections, unlockTime, streams: stateFormFromDatum(datum).streamingPayments };
+}
+
+/** Shortening/removal can be cancellation or settlement; only definite rule edits are settings. */
+function hasStreamingConfigurationChange(before: StreamingPaymentFormState[], after: StreamingPaymentFormState[]) {
+  return after.some((stream) => {
+    const previous = before.find((candidate) => candidate.id === stream.id);
+    if (!previous) return true;
+    return previous.payoutAddress !== stream.payoutAddress ||
+      previous.policyId !== stream.policyId || previous.assetName !== stream.assetName ||
+      previous.amountPerDay !== stream.amountPerDay || previous.startDate !== stream.startDate ||
+      BigInt(stream.endDate) > BigInt(previous.endDate);
+  });
 }
 
 /** Unknown state changes remain neutral; payouts must not look like settings edits. */
@@ -45,7 +58,8 @@ export function classifyActivityStateChange(
     if (!equalDatum(before.access, after.access) ||
         before.walletName !== after.walletName ||
         !equalDatum(before.intendedStakeCredential, after.intendedStakeCredential) ||
-        !equalDatum(before.increment, after.increment)) return "settings";
+        !equalDatum(before.increment, after.increment) ||
+        hasStreamingConfigurationChange(before.streams, after.streams)) return "settings";
 
     // Replace only the unlock-time field. Every other field, including future fields,
     // stream counters and payout cadence, must remain equal for a check-in.

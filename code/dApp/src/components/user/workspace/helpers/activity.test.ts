@@ -496,3 +496,24 @@ test("duplicate outputs do not change the wallet amount or category", () => {
   assert.equal(event!.amountSummary, "No net balance change");
   assert.equal(event!.outputUtxos.length, 1);
 });
+
+
+test("current UTxO datum fills the same provider output without duplicating its value", () => {
+  const tx = stateChange(stateCbor(), undefined);
+  const current = { ...tx.outputs[0]!, output: {
+    ...tx.outputs[0]!.output, plutusData: stateCbor("Renamed wallet")
+  } };
+  const [event] = buildWalletActivityEvents(tx, WALLET, { sttUnit: STT, currentWalletUtxos: [current] });
+  assert.equal(event!.title, "Wallet settings updated");
+  assert.equal(event!.outputUtxos.length, 2);
+  assert.equal(tx.outputs[0]!.output.plutusData, undefined);
+});
+
+test("current UTxO datum does not overwrite an existing provider datum", () => {
+  const tx = stateChange(stateCbor(), stateCbor("Wallet", "2000"));
+  const current = { ...tx.outputs[0]!, output: {
+    ...tx.outputs[0]!.output, plutusData: stateCbor("Renamed wallet")
+  } };
+  const [event] = buildWalletActivityEvents(tx, WALLET, { sttUnit: STT, currentWalletUtxos: [current] });
+  assert.equal(event!.title, "Check-in recorded");
+});

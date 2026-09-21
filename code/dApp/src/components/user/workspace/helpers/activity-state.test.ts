@@ -84,3 +84,32 @@ test("absent or malformed proof-of-life options remain neutral", () => {
   (malformed.fields[1] as ConstrData).fields[0] = "00";
   assert.equal(classify(malformed, state(110)), "updated");
 });
+
+function scheduledState(overrides: Partial<ReturnType<typeof createDefaultStreamingPaymentFormState>> = {}) {
+  const form = createDefaultStateForm();
+  form.streamingPayments = [{ ...createDefaultStreamingPaymentFormState(),
+    payoutAddress: "addr_test1vqg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygxrcya6",
+    amountPerDay: "1000000", startDate: "0", endDate: "86400000", ...overrides }];
+  const datum = state();
+  datum.fields[2] = stateFormToDatum(form).fields[2]!;
+  return datum;
+}
+
+test("adding or extending a scheduled payment is settings", () => {
+  assert.equal(classify(state(), scheduledState()), "settings");
+  assert.equal(classify(scheduledState(), scheduledState({ endDate: "172800000" })), "settings");
+});
+
+test("scheduled payment rule changes are settings even when counters change", () => {
+  assert.equal(classify(scheduledState(), scheduledState({ amountPerDay: "2000000", paidOutAmount: "100" })), "settings");
+  assert.equal(classify(scheduledState(), scheduledState({ startDate: "1000" })), "settings");
+});
+
+test("scheduled payout, stop, cancellation, and removal remain neutral", () => {
+  assert.equal(classify(scheduledState(), scheduledState({ paidOutAmount: "100" })), "updated");
+  assert.equal(classify(scheduledState(), scheduledState({ endDate: "43200000" })), "updated");
+  const cancelled = scheduledState({ endDate: "43200000" });
+  cancelled.fields[5] = some(100);
+  assert.equal(classify(scheduledState(), cancelled), "updated");
+  assert.equal(classify(scheduledState(), state()), "updated");
+});
