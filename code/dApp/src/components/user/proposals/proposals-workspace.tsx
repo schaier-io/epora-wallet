@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CopyButton } from "@/components/ui/copy-button";
 import { pageHeadingClass } from "@/components/ui/page-heading";
+import { cn } from "@/lib/utils/cn";
 import { proposalKeys, refreshProposalBackgroundQueries } from "@/lib/proposals/query";
 import { useWalletContext } from "@/providers/wallet-provider";
 import { useProposalBackgroundVerification } from "./use-proposal-background-verification";
@@ -51,9 +52,17 @@ export function ProposalsWorkspace() {
   // instead. `walletSessionLoading` holds the gate back until the silent reconnect after a
   // reload has settled, so the gate does not flash on every load.
   const signedIn = Boolean(session.session) && !session.connectedWalletMismatch && Boolean(activeAddress);
+  // See the grid below: with nothing to list there is nothing to select from either.
   const { proposals, loading, loadingMore, hasMore, error, refresh, loadMore } =
     useProposals(signedIn, session.session?.paymentKeyHash ?? "");
   const reportById = useProposalBackgroundVerification(proposals, session.session?.paymentKeyHash ?? "", signedIn);
+  // `!selectedId` matters as much as the empty list. The detail is its own query
+  // (`use-proposal-orchestration.ts`), not a lookup into this list, so an empty list does
+  // not mean the open proposal has nothing to show. Without this term, opening
+  // `?proposal=<id>` for a request the list does not return dropped the detail column
+  // while the list column was already hidden by `selectedId`, leaving a blank page below
+  // `lg`; and signing the last open request unmounted the detail mid-flow.
+  const listOnly = proposals.length === 0 && !selectedId && !loading && !error;
   // Whether this session opened the proposal from the list. If it did, the detail's Back
   // button should retrace that step; if the user arrived on the link directly there is
   // nothing of ours behind it, and `router.back()` would leave the app.
@@ -150,7 +159,19 @@ export function ProposalsWorkspace() {
           onCancel={() => router.replace(buildUrl({ create: null }))}
         />
       ) : (
-        <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(320px,440px)_minmax(0,1fr)]">
+        /* One column while there is nothing to list. The two-column split put "No approval
+           requests yet." in a 440px pane beside a second empty pane reading "Select an
+           approval request to verify and sign it." -- an instruction to pick from a list
+           that is empty, next to the message saying it is empty. The placeholder is right
+           once requests exist and none is picked, so it stays for that case. */
+        <div
+          className={cn(
+            "grid min-h-0 gap-4",
+            // `flex-1` only when there is a list to fill the height with. Empty, it
+            // stretched one sentence inside a viewport-tall bordered box.
+            listOnly ? null : "flex-1 lg:grid-cols-[minmax(320px,440px)_minmax(0,1fr)]"
+          )}
+        >
           {/* `lg:h-full` + flex column so the list fills the pane height and scrolls inside
               it. Unconstrained, the list grew the page while the detail pane stayed a full
               height box -- two columns that disagreed about how tall the row was. */}
@@ -179,6 +200,7 @@ export function ProposalsWorkspace() {
               onLoadMore={() => void loadMore()}
             />
           </div>
+          {listOnly ? null : (
           <div className={selectedId ? "block min-w-0" : "hidden min-w-0 lg:block"}>
             {selectedId ? (
               <ProposalDetail
@@ -197,6 +219,7 @@ export function ProposalsWorkspace() {
               </Card>
             )}
           </div>
+          )}
         </div>
       )}
     </div>

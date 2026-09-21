@@ -30,9 +30,6 @@ const TASKS = [
 function renderSurface(extra: Record<string, unknown> = {}) {
   return render(
     <FocusedTaskSurface
-      title="Scheduled payments"
-      description="Short enough to render."
-      icon={Repeat}
       tasks={TASKS}
       selectedTask="streaming-payments-add"
       onSelectTask={vi.fn()}

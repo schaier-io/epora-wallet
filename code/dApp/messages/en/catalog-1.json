@@ -103,7 +103,7 @@
   },
   "AppPayeePage": {
     "preparingYourPayments": "Preparing your payments…",
-    "scheduledPaymentsToYou": "Scheduled payments to you"
+    "scheduledPaymentsToYou": "Scheduled income"
   },
   "AppSetupPage": {
     "description": "Create the shared STT reference that Epora transactions use.",
@@ -235,7 +235,7 @@
     "connectAWallet": "Connect a wallet",
     "connecting": "Connecting",
     "connectWallet": "Connect wallet",
-    "coSigning": "Co-signing",
+    "coSigning": "Approval requests",
     "disconnected": "Disconnected",
     "mainnet": "Mainnet",
     "menu": "Menu",
@@ -367,14 +367,14 @@
     "onHold": "On hold",
     "owedToYouNow": "Owed to you now:",
     "paidOutSoFar": "Paid out so far: {amount} · payment #{id}",
-    "paymentsOtherWalletsSendToYouALittle": "Payments other wallets send to you a little at a time. Collect funds when they are available. Shortening a payment stops it building up further, and never reduces what is already owed. The paying wallet’s owners can change a payment later.",
+    "paymentsOtherWalletsSendToYouALittle": "Payments other wallets send to you a little at a time. Collect funds when they are available.",
     "refresh": "Refresh",
     "cancel": "Cancel",
     "continue": "Continue",
     "nothingWasSigned": "Nothing was signed.",
     "reviewTheseWarningsBeforeYouSign": "Review these warnings before you sign",
     "thePayoutIsBuiltReadEachWarning": "The payout is built. Read each warning, then choose.",
-    "scheduledPaymentsToYou": "Scheduled payments to you",
+    "scheduledPaymentsToYou": "Scheduled income",
     "sentTheListUpdatesAfterTheNextRefresh": "Sent. The list updates after the next refresh.",
     "shortened": "Shortened",
     "shortening": "Shortening…",
@@ -536,7 +536,6 @@
   },
   "ComponentsUserLockedAssetsPanel": {
     "assets": "Assets",
-    "inThisWallet": "in this wallet.",
     "native": "Native",
     "next": "Next",
     "nft": "NFT",

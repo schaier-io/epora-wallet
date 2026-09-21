@@ -232,8 +232,13 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
   },
   {
     kind: "wallet-withdraw",
-    label: i18n("claimStakingRewards"),
-    shortLabel: i18n("staking"),
+    // "Claim rewards", the name the sidebar entry and the review receipt already used.
+    // The screen used to carry three: "Claim staking rewards" as the card title, tab
+    // title and primary button (which wrapped onto two lines), "Claim rewards" in the
+    // sidebar and on the receipt, and "Staking" as the short label, which is the name of
+    // a different action.
+    label: i18n("claimRewards"),
+    shortLabel: i18n("claimRewards"),
     description: i18n("collectAdaRewardsEarnedFromStaking"),
     outcome:
       i18n("collectsStakingRewardsWhileKeepingThisWalletS"),
@@ -298,6 +303,8 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
   },
   {
     kind: "consolidate-utxo",
+    // "Tidy funds", the name the sidebar entry and the receipt already used. On a wallet
+    // screen "wallet" in the title said nothing the page did not.
     label: i18n("tidyWalletFunds"),
     shortLabel: i18n("tidy"),
     description: i18n("mergeSmallFundPoolsIntoOneToSave"),
@@ -333,6 +340,7 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
   },
   {
     kind: "wallet-vote",
+    // "Cast a vote", the name the sidebar entry already used.
     label: i18n("castVote"),
     shortLabel: i18n("vote"),
     description: i18n("voteOnACardanoGovernanceProposal"),

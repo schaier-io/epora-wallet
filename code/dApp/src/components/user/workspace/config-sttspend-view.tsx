@@ -279,12 +279,13 @@ export function SttSpendConfigView() {
 
           {isRecipientFirstGuidedAction ? (
             <div className="space-y-4 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
-              <div className="space-y-1">
-                <Label>{i18n("sendFromThisSmartWallet")}</Label>
-                <p className="text-xs text-muted-foreground">
-                  {i18n("pickARecipientAndAnAmountThenAdd")}
-                </p>
-              </div>
+              {/*
+                No "Send from this smart wallet" heading over these fields. The card around
+                them is already titled "Send funds" and its one sentence says what the send
+                does; this was a fourth heading for one two-field form, and its hint ("Pick a
+                recipient and an amount, then add...") only named the two fields below it.
+                "Add another recipient" is the button itself.
+              */}
               <div className="space-y-1">
                 <Label htmlFor="walletRecipientSelect">{i18n("recipient")}</Label>
                 <Select

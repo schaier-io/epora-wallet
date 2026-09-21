@@ -24,7 +24,6 @@ function sendCtx(transfers: ReviewReceiptCtx["sttExtraTransfers"]): ReviewReceip
     consolidateWalletOutputs: [],
     lockFundsAssets: [],
     activeActionDefinition: { label: "Send funds" },
-    activeActionDraft: { ready: true },
     lockingContract: { address: "addr_test1_locking" },
     mintHasOwnerChoice: false,
     mintOwnerCount: 1,
@@ -128,13 +127,19 @@ test("a single recipient gets no redundant total row", () => {
   );
 });
 
-test("no recipient yet says what to do rather than reporting a count of zero", () => {
+/**
+ * A receipt says what will happen; it does not instruct. The row names the gap ("None
+ * added yet") and the rail's own Next step box carries the instruction, so the detail
+ * "Add the address you want to send to." was the same gap restated as a command.
+ */
+test("no recipient yet names the gap rather than reporting a count of zero", () => {
   const receipt = computeReviewReceipt(sendCtx([]));
 
   const recipient = receipt.items.find((item) => item.label === "Recipient");
   assert.equal(recipient?.tone, "warning");
   assert.doesNotMatch(recipient?.value ?? "", /0 recipients/);
-  assert.match(recipient?.detail ?? "", /Add the address/);
+  assert.equal(recipient?.value, "None added yet");
+  assert.equal(recipient?.detail, undefined);
 });
 
 /**
@@ -182,7 +187,7 @@ test("the claim receipt names the amount and the address the rewards come from",
   const receipt = computeReviewReceipt({
     ...sendCtx([]),
     selectedAction: "wallet-withdraw",
-    activeActionDefinition: { label: "Claim staking rewards" },
+    activeActionDefinition: { label: "Claim rewards" },
     isWalletStakingEnabled: true,
     withdrawAmount: "2500000",
     withdrawRewardAddress: ADDRESS_TWO
@@ -203,7 +208,7 @@ test("the claim receipt says there is nothing to claim when staking is off", () 
   const receipt = computeReviewReceipt({
     ...sendCtx([]),
     selectedAction: "wallet-withdraw",
-    activeActionDefinition: { label: "Claim staking rewards" },
+    activeActionDefinition: { label: "Claim rewards" },
     isWalletStakingEnabled: false,
     withdrawAmount: "1000000",
     withdrawRewardAddress: ""
@@ -212,13 +217,14 @@ test("the claim receipt says there is nothing to claim when staking is off", () 
   assert.match(receipt.summary, /earned nothing to claim/);
   assert.doesNotMatch(receipt.summary, /You are moving/);
 
-  const staking = receipt.items.find((item) => item.label === "Staking");
+  // The staking row alone. The other two described a claim that cannot be built: the
+  // amount is read from the chain once staking is on, and the reward address comes from
+  // a staking script the wallet does not have yet, so both printed placeholders.
+  assert.equal(receipt.items.length, 1);
+  const staking = receipt.items[0];
+  assert.equal(staking?.label, "Staking");
   assert.equal(staking?.value, "Not on");
   assert.equal(staking?.tone, "warning");
-  assert.equal(
-    receipt.items.find((item) => item.label === "Rewards come from")?.tone,
-    "warning"
-  );
 });
 
 test("mint receipt does not expose shared helper infrastructure", () => {
@@ -256,4 +262,21 @@ test("an update-state edit keeps the wallet-rules title", () => {
   });
 
   assert.equal(receipt.title, "Wallet update receipt");
+});
+
+/**
+ * The empty-state summaries ended with the same imperative the rail's Next step box gives
+ * a few pixels below them ("Nothing is staged yet. Pick the fund pools you want to merge."
+ * over "Next step: Choose the fund pools you want to merge."), so the rail asked for one
+ * thing twice. An empty summary renders no subtitle; the rows still say what is staged.
+ */
+test("an empty draft leaves the instruction to the Next step box", () => {
+  const receipt = computeReviewReceipt({
+    ...sendCtx([]),
+    selectedAction: "consolidate-utxo",
+    consolidateWalletInputs: []
+  });
+
+  assert.equal(receipt.summary, "");
+  assert.ok(receipt.items.length > 0);
 });

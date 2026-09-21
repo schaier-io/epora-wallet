@@ -116,6 +116,22 @@ test("requireStakingEnabled does not repeat the receipt's explanation", () => {
   assert.doesNotMatch(errors["Staking"]?.[0] ?? "", /earned nothing to claim/);
 });
 
+/**
+ * The return value gates the claim's other field checks. While staking is off the claim
+ * card renders no fields at all, so reporting "Withdrawal amount: Enter a whole number."
+ * named a control the reader could not see beside the one blocker they can act on.
+ */
+test("requireStakingEnabled reports whether the caller should run the claim's field checks", () => {
+  assert.equal(
+    requireStakingEnabled({}, stateFormWithStakeCredential(INTENDED_STAKE_CREDENTIAL_NONE)),
+    false
+  );
+  assert.equal(
+    requireStakingEnabled({}, stateFormWithStakeCredential(STAKE_CREDENTIAL_SOME)),
+    true
+  );
+});
+
 test("requireStakingEnabled passes a wallet with a stake credential", () => {
   const errors: FieldErrors = {};
   requireStakingEnabled(errors, stateFormWithStakeCredential(STAKE_CREDENTIAL_SOME));

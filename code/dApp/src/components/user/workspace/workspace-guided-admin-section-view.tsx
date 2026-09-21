@@ -31,7 +31,8 @@ import {
   guidedSidebarTextClass,
   guidedSidebarTitleClass,
   guidedSidebarDescriptionClass,
-  guidedSidebarChevronClass
+  guidedSidebarChevronClass,
+  guidedSidebarSpotlightClass
 } from "@/components/user/workspace/workspace-guided-sidebar-classes";
 
 export function GuidedAdminSectionView() {
@@ -66,7 +67,7 @@ export function GuidedAdminSectionView() {
             return (
               <SpotlightCard
                 key={group.id}
-                className="min-w-0 rounded-lg"
+                className={guidedSidebarSpotlightClass}
                 spotlightColor="rgba(82, 255, 220, 0.14)"
               >
                 {isActive ? <SidebarActiveGlow /> : null}

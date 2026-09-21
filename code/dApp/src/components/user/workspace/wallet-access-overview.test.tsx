@@ -48,7 +48,12 @@ function renderOverview(state = createDefaultStateForm()) {
 }
 
 describe("WalletAccessOverview", () => {
-  it("shows actual roles and keeps exact limits in the disclosure", () => {
+  /**
+   * The role badges are a fallback now. With a permission list under them they named the
+   * same access twice a line apart, so they render only when the list has no rows. This
+   * user can send, so the list speaks and the "Spender" badge stays off.
+   */
+  it("leaves the roles to the permission list, and keeps exact limits in the disclosure", () => {
     const state = createDefaultStateForm();
     state.users = [{
       id: "0",
@@ -65,9 +70,9 @@ describe("WalletAccessOverview", () => {
 
     renderOverview(state);
 
-    expect(screen.getByText("Spender")).toBeInTheDocument();
-    expect(screen.queryByText("Owner")).not.toBeInTheDocument();
     expect(screen.getByText("Send through your available authorization paths.")).toBeInTheDocument();
+    expect(screen.queryByText("Spender")).not.toBeInTheDocument();
+    expect(screen.queryByText("Owner")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Permission details/i }));
     expect(screen.getByText("12 ₳ per day")).toBeInTheDocument();

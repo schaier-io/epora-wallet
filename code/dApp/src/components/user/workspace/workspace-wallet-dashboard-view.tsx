@@ -35,7 +35,6 @@ import { SkeletonCard } from "@/components/ui/skeleton";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle
 } from "@/components/ui/card";
@@ -181,14 +180,15 @@ export function WorkspaceWalletDashboardView() {
                 {resolvedGuidedOverviewSection === "home" ? (
                   <Card className="user-surface relative overflow-hidden">
                     <CardSilkBackground section="home" />
+                    {/*
+                      No CardDescription. "Balance, people, and recent activity at a glance"
+                      repeated the sidebar's own Home entry word for word, on the same screen.
+                    */}
                     <CardHeader className="relative z-10 pb-6">
                       <CardTitle className="flex items-center gap-2">
                         <House className="h-4 w-4 text-primary" />
                         {i18n("walletHome")}
                       </CardTitle>
-                      <CardDescription>
-                        {i18n("balancePeopleAndRecentActivityAtAGlance")}
-                      </CardDescription>
                     </CardHeader>
                     <CardContent className="relative z-10 space-y-4">
                       <WalletHeroCard
@@ -205,8 +205,6 @@ export function WorkspaceWalletDashboardView() {
                           totalLockedContractAssets,
                           "lovelace"
                         )}
-                        assetTypeCount={totalLockedContractAssets.length}
-                        fundingSourceCount={lockedContractUtxos.length}
                         loading={lockedContractUtxosLoading}
                         onCopyAddress={() => {
                           if (lockingContract.address) {
@@ -219,14 +217,6 @@ export function WorkspaceWalletDashboardView() {
                         addressCopied={copyFeedback === "Wallet address copied"}
                         onSend={() => openWorkspaceIntent("send", "use")}
                         onReceive={() => openWorkspaceIntent("add-funds", "lock-funds")}
-                        onActivity={() => openGuidedOverview("transactions")}
-                        onSettings={() =>
-                          openWorkspaceIntent(
-                            "wallet-settings",
-                            "update-state",
-                            "settings-wallet-name"
-                          )
-                        }
                       />
                       <LockedAssetsOverviewPanel
                         utxoCount={lockedContractUtxos.length}
@@ -266,14 +256,19 @@ export function WorkspaceWalletDashboardView() {
                             badgeClassName: activity.badgeClassName,
                             amountSummary: activity.amountSummary,
                             amountClassName: activity.amountClassName,
-                            // Not the slot: it is a chain counter the reader cannot read as a
-                            // time, and this line is where a time goes. The relative label is
-                            // the shorthand; the localized date with its timezone sits beside
-                            // it. The slot survives in the tooltip below, which is the only
-                            // place it is any use.
+                            // The relative label alone, while there is one. Five rows each
+                            // carrying "18h ago · Sep 20, 2026, 9:54 PM UTC" said the same
+                            // time twice and made the timestamp longer than the event it
+                            // described. The exact date and the slot stay in the tooltip
+                            // below, and the full list behind "See all" keeps both columns.
+                            //
+                            // `formatWalletTransactionRelative` returns null past a week
+                            // (`helpers/formatters.ts`), so the absolute date must stay as
+                            // the fallback. Without it a month-old transaction read "Time
+                            // not available" while the app held the exact date, and the
+                            // row's `aria-label` said the same to a screen reader.
                             timestampDisplay:
-                              [relativeLabel, timestampLabel].filter(Boolean).join(" · ") ||
-                              i18n("timeNotAvailable"),
+                              relativeLabel || timestampLabel || i18n("timeNotAvailable"),
                             timestampTooltip: timestampLabel
                               ? i18n("timestamplabelSlotValue2", {
                                   timestampLabel: timestampLabel,

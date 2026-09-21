@@ -202,3 +202,50 @@ describe("normal beneficiary recovery entry", () => {
       .toBe(false);
   });
 });
+
+/**
+ * Each card is a door, so it has to carry the name written on the other side of it. These
+ * three did not: "Turn on staking" opened a screen headed "Enable staking", "Governance"
+ * opened "Publish certificate", and "Receive funds" opened "Add funds". The titles are
+ * built here, and the sidebar view's own test hardcodes them in a fixture, so nothing
+ * checked the real derivation.
+ */
+describe("what the tool cards are called", () => {
+  it("names each card after the screen it opens", () => {
+    const { result } = renderDerivations(
+      { ...NO_CAPABILITIES, availableOperatorPaths: ["admin"] },
+      ["set-intended-stake-credential", "consolidate-utxo", "wallet-vote"]
+    );
+
+    const titleByAction = new Map(
+      result.current.guidedToolActions.map((action) => [action.action, action.title])
+    );
+
+    expect(titleByAction.get("set-intended-stake-credential")).toBe("Enable staking");
+    expect(titleByAction.get("wallet-withdraw")).toBe("Claim rewards");
+    expect(titleByAction.get("wallet-publish")).toBe("Publish certificate");
+  });
+});
+
+/**
+ * The Edit tab on a wallet with no payments is a dead end ("Nothing to change. Add a
+ * payment on the other tab first."), which is the whole reason the card carries a `task`.
+ */
+describe("which tab the scheduled-payments card opens", () => {
+  it("sends an empty schedule to Add and an existing one to Edit", () => {
+    expect(
+      scheduledPaymentsCard({
+        ...NO_CAPABILITIES,
+        availableOperatorPaths: ["admin"]
+      })?.task
+    ).toBe("streaming-payments-add");
+
+    expect(
+      scheduledPaymentsCard({
+        ...NO_CAPABILITIES,
+        hasStreamingPayments: true,
+        availableOperatorPaths: ["admin"]
+      })?.task
+    ).toBe("streaming-payments-edit-renew");
+  });
+});

@@ -284,3 +284,46 @@ describe("the proposals shell", () => {
     expect(screen.queryByText("sign in gate")).not.toBeInTheDocument();
   });
 });
+
+/**
+ * With no requests, the two-column split put "No approval requests yet." in a 440px pane
+ * beside a second empty pane reading "Select an approval request to verify and sign it."
+ * The right pane told the reader to pick from the list the left pane had just said was
+ * empty. The placeholder is correct once requests exist and none is picked.
+ */
+describe("the empty workspace", () => {
+  it("does not offer a selection when there is nothing to select", () => {
+    list.proposals = [];
+    render(<ProposalsWorkspace />);
+
+    expect(
+      screen.queryByText("Select an approval request to verify and sign it.")
+    ).toBeNull();
+  });
+
+  /**
+   * The detail runs its own query, so an empty list says nothing about whether the open
+   * proposal loads: the list may have filtered or paged it out, and the list also empties
+   * when the last request settles while its detail is still on screen. Collapsing to one
+   * column on `proposals.length === 0` alone dropped the detail column, and the list
+   * column is already hidden whenever a proposal is selected, so the page went blank.
+   */
+  it("still renders the open proposal when the list comes back empty", () => {
+    list.proposals = [];
+    nav.params = "proposal=p1";
+    render(<ProposalsWorkspace />);
+
+    expect(screen.getByText("detail")).toBeInTheDocument();
+  });
+
+  it("keeps the placeholder once there are requests to pick from", () => {
+    list.proposals = [
+      { id: "p1", status: "pending" } as unknown as ProposalListItemDto
+    ];
+    render(<ProposalsWorkspace />);
+
+    expect(
+      screen.getByText("Select an approval request to verify and sign it.")
+    ).toBeInTheDocument();
+  });
+});

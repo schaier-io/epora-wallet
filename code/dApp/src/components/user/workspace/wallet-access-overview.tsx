@@ -83,11 +83,20 @@ export function WalletAccessOverview({
           </span>
           <div className="min-w-0 flex-1">
             <h3 className="text-sm font-semibold text-foreground">{i18n("yourAccess")}</h3>
+            {/* The role badges are a fallback, not a header. With a permission list under
+                them they named the same access twice a line apart: "Owner" and
+                "Proof-of-life renewer" over "Manage wallet rules and people." / "Send
+                through your available authorization paths." / "Renew the proof of life."
+                The list says what the reader may do, so it wins when it has rows.
+                The roles are derived separately from the permissions, so a listed user
+                with no permission of their own still gets a badge. */}
             <div className="mt-2 flex flex-wrap gap-2">
               {summary.readOnly ? <Badge variant="outline">{i18n("readOnly")}</Badge> : null}
-              {summary.roles.map((role) => (
-                <Badge key={role} variant="outline">{roleLabels[role]}</Badge>
-              ))}
+              {permissions.length === 0
+                ? summary.roles.map((role) => (
+                    <Badge key={role} variant="outline">{roleLabels[role]}</Badge>
+                  ))
+                : null}
             </div>
           </div>
         </div>

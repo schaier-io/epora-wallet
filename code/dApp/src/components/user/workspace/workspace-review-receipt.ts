@@ -45,7 +45,6 @@ export interface ReviewReceiptCtx {
   consolidateWalletOutputs: WalletScriptOutputFormState[];
   lockFundsAssets: Asset[];
   activeActionDefinition: { label: string; receiptSummary?: string };
-  activeActionDraft: { ready: boolean };
   lockingContract: { address: string | null };
   mintHasOwnerChoice: boolean;
   mintOwnerCount: number;
@@ -71,7 +70,6 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
     consolidateWalletOutputs,
     lockFundsAssets,
     activeActionDefinition,
-    activeActionDraft,
     lockingContract,
     mintHasOwnerChoice,
     mintOwnerCount,
@@ -135,12 +133,16 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
 
     if (selectedAction === "lock-funds") {
       return {
-        title: i18n("receiveFundsReceipt"),
+        // "Add funds receipt". The rail sat beside a card headed "Add funds", under a
+        // sidebar entry that now also says "Add funds", and called the same action
+        // "Receive funds". One destination, one name.
+        title: i18n("addFundsReceipt"),
         // Branch on the formatted value, not on `lockFundsAssets.length`: the editor seeds a
         // blank asset row, so the array is non-empty long before it holds an amount.
         summary: formatReceiptAmountSummary(lockFundsAssets, "")
           ? i18n("youAreAddingValue1ToTheSelectedWallet", { value1: formatReceiptAmountSummary(lockFundsAssets) })
-          : i18n("nothingIsStagedYetAddAnAmountTo"),
+          : // See the note on the empty summary below: the Next step box owns the instruction.
+            "",
         items: [
           {
             label: i18n("amount"),
@@ -182,7 +184,8 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
                 streamingPaymentPayoutTransfers.length,
                 "scheduledPayment"
               ), fundingPhrase: fundingPhrase })
-            : i18n("nothingIsStagedYetAddADuePayment"),
+            : // Same as the other empty summaries: the Next step box owns the instruction.
+              "",
         items: [
           {
             label: i18n("payments"),
@@ -228,7 +231,9 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
               {
                 label: i18n("recipient_903432"),
                 value: i18n("noneAddedYet"),
-                detail: i18n("addTheAddressYouWantToSendTo"),
+                // No "Add the address you want to send to." under "None added yet.": the
+                // detail restated the value as an instruction, and the rail's Next step
+                // box owns the instruction. Same reason the empty summary above is "".
                 tone: "warning" as const
               }
             ]
@@ -246,13 +251,20 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
 
       return {
         title: i18n("sendReceipt"),
+        // Empty, not "Choose a recipient and amount to see what this sends." The rail's
+        // own "Next step" box says "Choose a recipient and amount, then preview your
+        // send." two boxes below, and the receipt's own rows already read "None added
+        // yet" / "0 fund pools". A receipt summarises what will happen; it does not
+        // instruct.
+        // No "from 1 fund pool". Which UTxOs the wallet spends is how Cardano works, not
+        // something the reader decided about this send, and the count said nothing they
+        // could act on. See the FUNDING row below for the one case where it does.
         summary:
           sttExtraTransfers.length > 0
-            ? i18n("youAreSendingAmountFromFunding", {
-                amount: formatReceiptAmountSummary(transferAmount),
-                funding: formatCountLabel(sttWalletInputs.length, "fundPool")
+            ? i18n("youAreSendingAmount", {
+                amount: formatReceiptAmountSummary(transferAmount)
               })
-            : i18n("nothingIsStagedYetAddAPayoutTo"),
+            : "",
         items: [
           ...recipientItems,
           ...(selectedAction === "use-beneficiary" && sttBaselineStateForm?.beneficiaries.length
@@ -273,12 +285,19 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
                 }
               ]
             : []),
-          {
-            label: i18n("funding"),
-            value: formatCountLabel(sttWalletInputs.length, "fundPool"),
-            detail: i18n("theFundPoolsYouChoosePayForThis"),
-            tone: sttWalletInputs.length > 0 ? "success" : "warning"
-          }
+          // Only while there is nothing to spend from. "1 fund pool" under the detail
+          // "The fund pools you choose pay for this send." was a tautology about a number
+          // the reader cannot use: the send goes through either way, and a receipt says
+          // what will happen. At zero the row is the blocker, so it stays.
+          ...(sttWalletInputs.length === 0
+            ? [
+                {
+                  label: i18n("funding"),
+                  value: formatCountLabel(sttWalletInputs.length, "fundPool"),
+                  tone: "warning" as const
+                }
+              ]
+            : [])
         ]
       };
     }
@@ -331,7 +350,11 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
                 consolidateWalletInputs.length,
                 "fundPool"
               ) })
-            : i18n("nothingIsStagedYetPickTheFundPools"),
+            : // Empty on purpose, so the receipt shows no subtitle before anything is staged.
+              // These empty-state sentences ended with the same imperative the Next step box
+              // below them already gives ("Choose the fund pools you want to merge."), so the
+              // rail asked for one thing twice. The rows still say what is staged.
+              "",
         items: [
           {
             label: i18n("sources"),
@@ -362,14 +385,24 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
         summary: isWalletStakingEnabled
           ? i18n("youAreMovingAmountsummaryOfEarnedStakingRewards", { amountSummary: amountSummary })
           : i18n("stakingIsNotOnForThisWalletYet"),
-        items: [
+        // The staking row alone while staking is off. The two rows below describe a claim
+        // that cannot be built yet: the amount is read from the chain once staking is on,
+        // and the reward address comes from the staking script the wallet does not have.
+        items: !isWalletStakingEnabled
+          ? [
+              {
+                label: i18n("staking"),
+                value: i18n("notOn"),
+                tone: "warning",
+                detail: i18n("aWalletThatDelegatesToNothingEarnsNothing")
+              }
+            ]
+          : [
           {
             label: i18n("staking"),
-            value: isWalletStakingEnabled ? i18n("on") : i18n("notOn"),
-            tone: isWalletStakingEnabled ? "success" : "warning",
-            detail: isWalletStakingEnabled
-              ? null
-              : i18n("aWalletThatDelegatesToNothingEarnsNothing")
+            value: i18n("on"),
+            tone: "success",
+            detail: null
           },
           {
             label: i18n("amount"),
@@ -400,16 +433,12 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
       summary:
         activeActionDefinition.receiptSummary ??
         i18n("youArePreparingValue1", { value1: activeActionDefinition.label.toLowerCase() }),
-      items: [
-        {
-          label: i18n("action"),
-          value: activeActionDefinition.label
-        },
-        {
-          label: i18n("status"),
-          value: activeActionDraft.ready ? i18n("ready") : i18n("needsSetup"),
-          tone: activeActionDraft.ready ? "success" : "warning"
-        }
-      ]
+      // No rows. The two this branch used to build, ACTION and STATUS, are said again
+      // within a screen of here: the action's name heads the configuration card in the
+      // middle column and the primary button reads "Confirm <label>", and the readiness
+      // is the sentence above that button ("Ready to sign." / "Not built yet.",
+      // `review-panel-preview.tsx`). An action with real data to show has its own branch
+      // above; this fallback only had the two labels.
+      items: []
     };
 }

@@ -13,12 +13,11 @@ const { GuidedActionSectionView } = await import(
 );
 
 const ACTIONS: GuidedActionCard[] = [
-  { intent: "send", action: "use", title: "Send funds", description: "Normal wallet send." },
+  { intent: "send", action: "use", title: "Send funds" },
   {
     intent: "add-funds",
     action: "lock-funds",
-    title: "Receive funds",
-    description: "Copy address or add funds."
+    title: "Add funds"
   }
 ];
 

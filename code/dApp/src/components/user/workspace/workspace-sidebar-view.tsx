@@ -38,9 +38,9 @@ import {
   guidedSidebarIconActiveClass,
   guidedSidebarIconIdleClass,
   guidedSidebarButtonClass,
+  guidedSidebarSpotlightClass,
   guidedSidebarTextClass,
   guidedSidebarTitleClass,
-  guidedSidebarDescriptionClass,
   guidedSidebarChevronClass
 } from "@/components/user/workspace/workspace-guided-sidebar-classes";
 import { GuidedActionSectionView } from "@/components/user/workspace/workspace-guided-action-section-view";
@@ -161,7 +161,7 @@ export function WorkspaceSidebarView() {
                           reveal="mount"
                         >
                           <SpotlightCard
-                            className="min-w-0 rounded-lg"
+                            className={guidedSidebarSpotlightClass}
                             spotlightColor="rgba(82, 255, 220, 0.16)"
                           >
                             {isGuidedHomeSelected ? <SidebarActiveGlow /> : null}
@@ -176,7 +176,7 @@ export function WorkspaceSidebarView() {
                                   : guidedSidebarIdleSurfaceClass
                               )}
                             >
-                              <div className="flex min-w-0 flex-1 items-start gap-3 overflow-hidden">
+                              <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
                                 <span
                                   className={cn(
                                     guidedSidebarIconBaseClass,
@@ -190,9 +190,6 @@ export function WorkspaceSidebarView() {
                                 <div className={guidedSidebarTextClass}>
                                   <p className={guidedSidebarTitleClass}>
                                     {i18n("home")}
-                                  </p>
-                                  <p className={guidedSidebarDescriptionClass}>
-                                    {i18n("balancePeopleAndRecentActivity")}
                                   </p>
                                 </div>
                               </div>
@@ -209,7 +206,7 @@ export function WorkspaceSidebarView() {
 
                           {hasGuidedActivityContext ? (
                             <SpotlightCard
-                              className="min-w-0 rounded-lg"
+                              className={guidedSidebarSpotlightClass}
                               spotlightColor="rgba(82, 255, 220, 0.16)"
                             >
                               {isGuidedTransactionsSelected ? <SidebarActiveGlow /> : null}
@@ -224,7 +221,7 @@ export function WorkspaceSidebarView() {
                                     : guidedSidebarIdleSurfaceClass
                                 )}
                               >
-                                <div className="flex min-w-0 flex-1 items-start gap-3 overflow-hidden">
+                                <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
                                   <span
                                     className={cn(
                                       guidedSidebarIconBaseClass,
@@ -254,9 +251,6 @@ export function WorkspaceSidebarView() {
                                           : i18n("value1", { value1: recentWalletActivityEvents.length })}
                                       </Badge>
                                     </div>
-                                    <p className={guidedSidebarDescriptionClass}>
-                                      {i18n("sendsReceivesAndApprovals")}
-                                    </p>
                                   </div>
                                 </div>
                                 <ChevronRight
