@@ -1,4 +1,5 @@
 "use client";
+import { createWalletAddressMatcher } from "../helpers/activity-addresses";
 import { spendableWalletUtxosAtom } from "./workspace-spendable-utxos.atoms";
 
 import { atom } from "jotai";
@@ -158,6 +159,7 @@ export function buildAssetWealthSeries(
   currentBalance?: bigint
 ): WealthSeriesPoint[] {
   const isAda = unit === "lovelace";
+  const isWalletAddress = createWalletAddressMatcher(walletAddress);
   // The activity feed adds older anchors beyond its recent window. Their missing
   // intervening transactions prevent reconstructing balances at those anchors.
   const sorted = [...oneEventPerTransaction(events)].sort((a, b) => {
@@ -167,10 +169,10 @@ export function buildAssetWealthSeries(
   }).slice(-RECENT_WALLET_TRANSACTION_VISIBLE_LIMIT);
   const deltas = sorted.map((event) => {
     const inputSum = event.inputUtxos
-      .filter((u) => u.output?.address === walletAddress)
+      .filter((u) => isWalletAddress(u.output?.address ?? ""))
       .reduce((acc, u) => acc + BigInt(getAssetQuantityByUnit(u.output?.amount ?? [], unit) ?? "0"), 0n);
     const outputSum = event.outputUtxos
-      .filter((u) => u.output?.address === walletAddress)
+      .filter((u) => isWalletAddress(u.output?.address ?? ""))
       .reduce((acc, u) => acc + BigInt(getAssetQuantityByUnit(u.output?.amount ?? [], unit) ?? "0"), 0n);
     return outputSum - inputSum;
   });

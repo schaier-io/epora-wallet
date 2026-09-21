@@ -1,4 +1,6 @@
-import { calculateAssetDelta, collectAddressAssets, compareAssetAmounts, countAddressUtxos, countAssetUtxos, utxoContainsAsset } from "./asset-amounts";
+import { calculateAssetDelta, collectUtxoAssets, compareAssetAmounts, countAssetUtxos, utxoContainsAsset } from "./asset-amounts";
+import { createWalletAddressMatcher } from "./activity-addresses";
+import { classifyActivityStateChange } from "./activity-state";
 import { formatActivityActorDetail, formatCountLabel, formatSignedAmountSummary, formatWalletTransactionAmountSummary } from "./formatters";
 import { dedupeUtxosByRef } from "./transactions";
 import { type WalletActivityEvent } from "@/components/user/workspace/types";
@@ -130,10 +132,13 @@ export function buildWalletActivityEvents(
   // flip tidy/sent classification.
   const inputs = dedupeUtxosByRef(transaction.inputs);
   const outputUtxos = dedupeUtxosByRef([...transaction.outputs, ...currentOutputsForTx]);
-  const inputCountAtAddress = countAddressUtxos(inputs, address);
-  const outputCountAtAddress = countAddressUtxos(outputUtxos, address);
-  const inputsAtAddress = collectAddressAssets(inputs, address);
-  const outputsAtAddress = collectAddressAssets(outputUtxos, address);
+  const belongsToWallet = createWalletAddressMatcher(address);
+  const walletInputs = inputs.filter((utxo) => belongsToWallet(utxo.output.address));
+  const walletOutputs = outputUtxos.filter((utxo) => belongsToWallet(utxo.output.address));
+  const inputCountAtAddress = walletInputs.length;
+  const outputCountAtAddress = walletOutputs.length;
+  const inputsAtAddress = collectUtxoAssets(walletInputs);
+  const outputsAtAddress = collectUtxoAssets(walletOutputs);
   const spendsFromWallet = inputCountAtAddress > 0 || inputsAtAddress.length > 0;
   const sendsToWallet = outputCountAtAddress > 0 || outputsAtAddress.length > 0;
   const sttInputCount = options.sttUnit ? countAssetUtxos(inputs, options.sttUnit) : 0;
@@ -206,7 +211,7 @@ export function buildWalletActivityEvents(
   // funding output — one at this address that does not carry the state token.
   const fundingOutputCount = outputUtxos.filter(
     (utxo) =>
-      utxo?.output?.address === address &&
+      belongsToWallet(utxo.output.address) &&
       !(options.sttUnit && utxoContainsAsset(utxo, options.sttUnit))
   ).length;
   if (fundingOutputCount > 0 && sttCreated) {
@@ -241,34 +246,25 @@ export function buildWalletActivityEvents(
     return events;
   }
 
-  // State forwarding also happens during consolidation and payments. Only use the
-  // settings category when no wallet funding UTxO moves and no recipient gains value.
-  // The continuing state is this wallet's output; other script addresses can receive
-  // payments. Fee change alone does not make its address a recipient.
-  const continuingStateAddresses = new Set(
-    outputUtxos
-      .filter((utxo) => options.sttUnit && utxoContainsAsset(utxo, options.sttUnit))
-      .map((utxo) => utxo.output.address)
+  // External outputs can be the fee payer's change at a different address.
+  // State-only actions need evidence from the datum, not external balance changes.
+  const touchesWalletFunds = [...walletInputs, ...walletOutputs].some(
+    (utxo) => !(options.sttUnit && utxoContainsAsset(utxo, options.sttUnit))
   );
-  const externalOutputAddresses = new Set(
-    outputUtxos
-      .map((utxo) => utxo.output.address)
-      .filter(
-        (outputAddress) =>
-          outputAddress !== address && !continuingStateAddresses.has(outputAddress)
-      )
-  );
-  const hasExternalRecipient = [...externalOutputAddresses].some((outputAddress) =>
-    calculateAssetDelta(
-      collectAddressAssets(inputs, outputAddress),
-      collectAddressAssets(outputUtxos, outputAddress)
-    ).some((asset) => BigInt(asset.quantity) > 0n)
-  );
-  const touchesWalletFunds = [...inputs, ...outputUtxos].some(
-    (utxo) => utxo.output.address === address &&
-      !(options.sttUnit && utxoContainsAsset(utxo, options.sttUnit))
-  );
-  if (sttInputCount > 0 && sttOutputCount > 0 && !hasExternalRecipient && !touchesWalletFunds) {
+  if (options.sttUnit && sttInputCount > 0 && sttOutputCount > 0 && !touchesWalletFunds) {
+    const change = classifyActivityStateChange(inputs, outputUtxos, options.sttUnit);
+    if (change !== "settings") {
+      const checkIn = change === "check-in";
+      return [createEvent(change, {
+        label: checkIn ? i18n("checkIn") : i18n("updated"),
+        title: checkIn ? i18n("checkInRecorded") : i18n("walletUpdated"),
+        badgeClassName: "border-sky-500/30 bg-sky-500/10 text-sky-100",
+        summary: checkIn ? i18n("proofOfLifeDeadlineExtended") : i18n("walletStateContinued"),
+        amountSummary: walletChangeSummary,
+        amountClassName: "text-sky-100",
+        details: withSttDetails(baseDetails)
+      })];
+    }
     return [
       createEvent("settings-updated", {
         label: i18n("settings"),
@@ -397,23 +393,6 @@ export function buildWalletActivityEvents(
   }
 
   if (sttTouched) {
-    if (sttInputCount > 0 && sttOutputCount > 0) {
-      // The state was rewritten AND something reached an outside address: the
-      // state edit rode along with a payment (a payout pays out and records the
-      // payment in the same transaction), so the send is what the reader did.
-      return [
-        createEvent("sent", {
-          label: i18n("sent"),
-          title: i18n("fundsSent"),
-          badgeClassName: "border-rose-500/30 bg-rose-500/10 text-rose-100",
-          summary: i18n("theWalletSentFundsOutAndKeptValue1", { value1: formatWalletTransactionAmountSummary(outputsAtAddress) }),
-          amountSummary: walletChangeSummary,
-          amountClassName: "text-rose-100",
-          details: withSttDetails(baseDetails)
-        })
-      ];
-    }
-
     if (sttOutputCount > 0) {
       return [
         createEvent("wallet-ready", {

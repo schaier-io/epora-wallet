@@ -4,7 +4,9 @@ import { buildWalletActivityEvents } from "./activity";
 import { normalizeTransactionIo } from "./transactions";
 import { type Asset } from "@/lib/types/contracts";
 import { type TransactionInfo } from "@meshsdk/common";
-import { type UTxO } from "@meshsdk/core";
+import { serializeData, type UTxO } from "@meshsdk/core";
+import { createDefaultStateForm, stateFormToDatum } from "@/lib/contracts/state-form";
+import { bech32Encode } from "@/lib/bech32";
 
 const WALLET = "addr_test1walletaddress";
 const EXTERNAL = "addr_test1externaladdress";
@@ -45,6 +47,61 @@ const withStt = (quantity: string): Asset[] => [
   { unit: "lovelace", quantity },
   { unit: STT, quantity: "1" }
 ];
+
+function stateCbor(walletName = "Wallet", deadline = "1000") {
+  return serializeData(stateFormToDatum({
+    ...createDefaultStateForm(), walletName,
+    proofOfLifeUnlockTimeMode: "some", proofOfLifeUnlockTime: deadline,
+    proofOfLifeIncrementMode: "some", proofOfLifeIncrement: "1000"
+  }), "Mesh");
+}
+
+function stateChange(inputDatum: string | undefined, outputDatum: string | undefined) {
+  const tx = transaction({
+    inputs: [
+      utxo("cc".repeat(32), 0, SCRIPT, withStt("2000000")),
+      utxo("dd".repeat(32), 0, EXTERNAL, lovelace("5000000"))
+    ],
+    outputs: [
+      utxo("ab".repeat(32), 0, SCRIPT, withStt("2000000")),
+      utxo("ab".repeat(32), 1, "addr_test1differentchange", lovelace("4800000"))
+    ]
+  });
+  tx.inputs[0]!.output.plutusData = inputDatum;
+  tx.outputs[0]!.output.plutusData = outputDatum;
+  return tx;
+}
+
+test("a settings edit with a different fee-change address is not a payment", () => {
+  const [event] = buildWalletActivityEvents(stateChange(stateCbor(), stateCbor("Renamed wallet")), WALLET, { sttUnit: STT });
+  assert.equal(event!.label, "Settings");
+  assert.equal(event!.amountSummary, "No net balance change");
+});
+
+test("a proof-of-life deadline extension is a check-in even with different fee change", () => {
+  const [event] = buildWalletActivityEvents(stateChange(stateCbor(), stateCbor("Wallet", "2000")), WALLET, { sttUnit: STT });
+  assert.equal(event!.title, "Check-in recorded");
+  assert.equal(event!.label, "Check-in");
+  assert.equal(event!.amountSummary, "No net balance change");
+});
+
+test("missing state data does not turn fee change into a payment or settings claim", () => {
+  const [event] = buildWalletActivityEvents(stateChange(undefined, undefined), WALLET, { sttUnit: STT });
+  assert.equal(event!.title, "Wallet updated");
+  assert.equal(event!.label, "Updated");
+});
+
+test("migration between this wallet's stake addresses is a move with zero delta", () => {
+  const payment = new Uint8Array(28).fill(0xbb);
+  const oldAddress = bech32Encode("addr_test", Uint8Array.of(0x70, ...payment));
+  const newAddress = bech32Encode("addr_test", Uint8Array.of(0x10, ...payment, ...new Uint8Array(28).fill(0xcc)));
+  const tx = stateChange(stateCbor(), stateCbor());
+  tx.inputs.push(utxo("ee".repeat(32), 0, oldAddress, lovelace("6000000")));
+  tx.outputs.push(utxo(tx.hash, 2, newAddress, lovelace("6000000")));
+  const [event] = buildWalletActivityEvents(tx, newAddress, { sttUnit: STT });
+  assert.equal(event!.title, "Funds moved");
+  assert.equal(event!.amountSummary, "No net balance change");
+});
 
 test("returns a 'referenced' event when nothing touches the wallet", () => {
   const tx = transaction({
@@ -167,15 +224,15 @@ test("STT created alone does not invent an initial top-up", () => {
   );
 });
 
-test("STT touched on both sides (no fund flow) is 'Wallet settings updated'", () => {
+test("state continuation without datums has a neutral category", () => {
   const tx = transaction({
     inputs: [utxo("cc".repeat(32), 0, SCRIPT, withStt("2000000"))],
     outputs: [utxo("ab".repeat(32), 0, SCRIPT, withStt("2000000"))]
   });
   const events = buildWalletActivityEvents(tx, WALLET, { sttUnit: STT });
   assert.equal(events.length, 1);
-  assert.equal(events[0]!.title, "Wallet settings updated");
-  assert.equal(events[0]!.label, "Settings");
+  assert.equal(events[0]!.title, "Wallet updated");
+  assert.equal(events[0]!.label, "Updated");
 });
 
 test("actor is the connected wallet when an active address is an input", () => {
@@ -224,6 +281,7 @@ function rawStateUpdate(): TransactionInfo {
       {
         address: SCRIPT,
         amount: withStt("2000000"),
+        inline_datum: stateCbor(),
         output_index: 0,
         transaction: { hash: "cd".repeat(32), index: 0 }
       },
@@ -235,7 +293,7 @@ function rawStateUpdate(): TransactionInfo {
       }
     ] as never,
     outputs: [
-      { address: SCRIPT, amount: withStt("2000000"), output_index: 0 },
+      { address: SCRIPT, amount: withStt("2000000"), output_index: 0, inline_datum: stateCbor("Renamed wallet") },
       { address: EXTERNAL, amount: lovelace("4849905"), output_index: 1 }
     ] as never
   });
@@ -315,7 +373,9 @@ test("a current continuing STT output completes partial provider transaction dat
     ],
     outputs: [utxo("ab".repeat(32), 1, EXTERNAL, lovelace("4849905"))]
   });
+  tx.inputs[0]!.output.plutusData = stateCbor();
   const continuingState = utxo(tx.hash, 0, SCRIPT, withStt("2000000"));
+  continuingState.output.plutusData = stateCbor("Renamed wallet");
 
   const events = buildWalletActivityEvents(tx, WALLET, {
     sttUnit: STT,
@@ -326,7 +386,7 @@ test("a current continuing STT output completes partial provider transaction dat
   assert.equal(events[0]!.label, "Settings");
 });
 
-test("a state rewrite that also pays an outside address is a send, not a settings edit", () => {
+test("external outputs alone cannot prove a smart-wallet payment", () => {
   const tx = transaction({
     inputs: [utxo("cc".repeat(32), 0, SCRIPT, withStt("2000000"))],
     outputs: [
@@ -335,8 +395,8 @@ test("a state rewrite that also pays an outside address is a send, not a setting
     ]
   });
   const events = buildWalletActivityEvents(tx, WALLET, { sttUnit: STT });
-  assert.equal(events[0]!.title, "Funds sent");
-  assert.equal(events[0]!.label, "Sent");
+  assert.equal(events[0]!.title, "Wallet updated");
+  assert.equal(events[0]!.label, "Updated");
 });
 
 for (const split of [false, true]) {
@@ -382,7 +442,7 @@ test("a payment to another script wallet is a send", () => {
   assert.equal(event!.amountSummary, "-6 ₳");
 });
 
-test("adding ADA to the continuing state alone remains a settings update", () => {
+test("adding ADA to the state alone cannot prove a settings change", () => {
   const tx = transaction({
     inputs: [
       utxo("cc".repeat(32), 0, SCRIPT, withStt("2000000")),
@@ -393,10 +453,10 @@ test("adding ADA to the continuing state alone remains a settings update", () =>
       utxo("ab".repeat(32), 1, EXTERNAL, lovelace("3800000"))
     ]
   });
-  assert.equal(buildWalletActivityEvents(tx, WALLET, { sttUnit: STT })[0]!.label, "Settings");
+  assert.equal(buildWalletActivityEvents(tx, WALLET, { sttUnit: STT })[0]!.label, "Updated");
 });
 
-test("script recipients count even when only the state address spends funds", () => {
+test("script outputs alone do not identify a state-only action", () => {
   const tx = transaction({
     inputs: [utxo("cc".repeat(32), 0, SCRIPT, withStt("5000000"))],
     outputs: [
@@ -404,7 +464,7 @@ test("script recipients count even when only the state address spends funds", ()
       utxo("ab".repeat(32), 1, "addr_test1wrecipient", lovelace("2800000"))
     ]
   });
-  assert.equal(buildWalletActivityEvents(tx, WALLET, { sttUnit: STT })[0]!.label, "Sent");
+  assert.equal(buildWalletActivityEvents(tx, WALLET, { sttUnit: STT })[0]!.label, "Updated");
 });
 
 test("partial outputs and current UTxOs use one complete set for amounts and counts", () => {

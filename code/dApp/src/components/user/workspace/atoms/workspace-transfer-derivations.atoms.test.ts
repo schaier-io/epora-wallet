@@ -1,4 +1,5 @@
 import { test } from "node:test";
+import { bech32Encode } from "@/lib/bech32";
 import assert from "node:assert/strict";
 import { createStore, type Atom } from "jotai";
 
@@ -623,4 +624,20 @@ test("balance history excludes old anchors beyond the contiguous recent transact
   assert.deepEqual(series[0], { timestamp: 3 * DAY_MS, value: 51 });
   assert.deepEqual(series.at(-1), { timestamp: renderNowMs, value: 80 });
   assert.equal(series.some(point => point.timestamp === DAY_MS), false);
+});
+
+
+test("stake address migration keeps historical balance unchanged", () => {
+  const scriptHash = new Uint8Array(28).fill(0xab);
+  const oldAddress = bech32Encode("addr_test", Uint8Array.of(0x70, ...scriptHash));
+  const newAddress = bech32Encode("addr_test", Uint8Array.of(0x10, ...scriptHash, ...new Uint8Array(28).fill(0xcd)));
+  const funding = historicalChartEvent({ txHash: "funding", blockTime: 1, transactionIndex: 0, walletOutputLovelace: "6000000" });
+  funding.outputUtxos[0]!.output.address = oldAddress;
+  const migration = historicalChartEvent({ txHash: "migration", blockTime: 2, transactionIndex: 0, walletOutputLovelace: "6000000" });
+  migration.inputUtxos = funding.outputUtxos;
+  migration.outputUtxos[0]!.output.address = newAddress;
+  assert.deepEqual(
+    buildAssetWealthSeries([funding, migration], newAddress, 3000, "lovelace", undefined, 6_000_000n),
+    [{ timestamp: 1000, value: 6 }, { timestamp: 2000, value: 6 }, { timestamp: 3000, value: 6 }]
+  );
 });
