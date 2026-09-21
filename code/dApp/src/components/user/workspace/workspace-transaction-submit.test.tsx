@@ -1,5 +1,5 @@
-import { workspaceTransactionSnapshotAtom, preparedWorkspaceTransactionAtom } from "./workspace-prepared-transaction";
-import { workspaceSessionAtom, buildRunAtom, previewSignatureAtom } from "./atoms/transaction-flow.atoms";
+import { workspaceTransactionSnapshotAtom, preparedWorkspaceTransactionAtom, PREPARED_TRANSACTION_MAX_AGE_MS } from "./workspace-prepared-transaction";
+import { workspaceSessionAtom, buildRunAtom, previewSignatureAtom, buildDiagnosticIdAtom } from "./atoms/transaction-flow.atoms";
 import { lockFundsAssetsAtom } from "./atoms/forms/lock-funds-form.atoms";
 import { waitFor } from "@testing-library/react";
 import { queryClientAtom } from "jotai-tanstack-query";
@@ -25,7 +25,9 @@ import { selectedOrphanInputsAtom } from "./atoms/forms/orphan-inputs.atoms";
 import { transferRecipientModeAtom, transferCustomAddressAtom, transferDisplayAmountAtom } from "./atoms/forms/transfer-form.atoms";
 import type { BuildResult } from "@/lib/types/contracts";
 
-const mocks = vi.hoisted(() => ({ freshness: vi.fn(), signAndSubmitTx: vi.fn() }));
+const mocks = vi.hoisted(() => ({ freshness: vi.fn(), signAndSubmitTx: vi.fn(), captureClientError: vi.fn() }));
+
+vi.mock("@/lib/observability/sentry-client-forward", () => ({ captureClientError: mocks.captureClientError }));
 
 vi.mock("@/lib/mesh/transactions/prepared-transaction-freshness", () => ({ assertPreparedTransactionFresh: mocks.freshness }));
 vi.mock("@/lib/mesh/transactions", () => ({ signAndSubmitTx: mocks.signAndSubmitTx }));
@@ -87,6 +89,7 @@ beforeEach(() => {
   localStorage.clear();
   mocks.signAndSubmitTx.mockReset().mockResolvedValue(TX_HASH);
   mocks.freshness.mockReset().mockResolvedValue(undefined);
+  mocks.captureClientError.mockReset();
 });
 
 const recoveryDraft = {
@@ -456,6 +459,51 @@ function bindPreview(deps: ReturnType<typeof makeDeps>) {
   });
   store.set(previewSignatureAtom, "current");
 }
+
+it.each(["chain validation", "wallet prompt"])("EPORA-WALLET-5 treats expiration during %s as an expected rejection", async phase => {
+  vi.useFakeTimers();
+  const deps = makeDeps({ selectedAction: "mint", activeWalletName: "vespr" });
+  bindPreview(deps);
+  const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+  const broadcast = vi.fn();
+  const expire = () => vi.setSystemTime(Date.now() + PREPARED_TRANSACTION_MAX_AGE_MS);
+  if (phase === "chain validation") mocks.freshness.mockImplementationOnce(async () => { expire(); });
+  mocks.signAndSubmitTx.mockImplementationOnce(async (_wallet, _hex, options: { assertCurrent: () => Promise<void> }) => {
+    await options.assertCurrent();
+    expire();
+    await options.assertCurrent();
+    broadcast();
+    return TX_HASH;
+  });
+  try {
+    await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
+    expect(broadcast).not.toHaveBeenCalled();
+    expect(deps.setSubmitHash).not.toHaveBeenCalled();
+    expect(deps.setBuildError).toHaveBeenLastCalledWith("The transaction details are stale. Continue again to refresh them.", false);
+    expect(deps.setBuildErrorExpected).toHaveBeenLastCalledWith(true);
+    expect(deps.jotaiStore.get(preparedWorkspaceTransactionAtom)).toBeNull();
+    expect(deps.jotaiStore.get(previewSignatureAtom)).toBeNull();
+    expect(deps.jotaiStore.get(buildDiagnosticIdAtom)).toBeNull();
+    expect(deps.setMintConfirmation).toHaveBeenLastCalledWith(null);
+    expect(deps.setActiveSubmit).toHaveBeenLastCalledWith(false);
+    expect(deps.submitInFlightRef.current).toBeNull();
+    expect(mocks.captureClientError).not.toHaveBeenCalled();
+    expect(consoleError).not.toHaveBeenCalled();
+  } finally { consoleError.mockRestore(); }
+});
+
+it("still reports unexpected wallet submission failures", async () => {
+  const deps = makeDeps();
+  const error = new Error("Wallet signing failed.");
+  mocks.signAndSubmitTx.mockRejectedValueOnce(error);
+  const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+  try {
+    await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
+    expect(deps.setBuildErrorExpected).toHaveBeenLastCalledWith(false);
+    expect(mocks.captureClientError).toHaveBeenCalledWith("ui.tx_submit_failed", error, expect.objectContaining({ action: "submit" }));
+    expect(consoleError).toHaveBeenCalledOnce();
+  } finally { consoleError.mockRestore(); }
+});
 
 it("checks the live draft again after asynchronous chain validation", async () => {
   const deps = makeDeps();

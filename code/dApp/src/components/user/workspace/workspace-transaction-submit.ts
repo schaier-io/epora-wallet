@@ -29,6 +29,7 @@ import {
   SUBMIT_CONFIRMATION_POLL_MS
 } from "@/components/user/workspace/constants";
 import { formatBuildError, waitFor } from "@/components/user/workspace/helpers";
+import { OwnedMessageError } from "./helpers/build-errors";
 import type { resolveWorkspaceTransactionInputs } from "@/components/user/workspace/workspace-transaction-inputs";
 import { schedulePostSubmitRefresh } from "@/components/user/workspace/workspace-transaction-refresh";
 import type { WorkspaceTransactionsCtx } from "@/components/user/workspace/workspace-transactions-types";
@@ -243,7 +244,7 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
         if (!isCurrent() || !prepared || prepared.result !== transactionPreview ||
           jotaiStore.get(workspaceTransactionSnapshotAtom) !== snapshot ||
           !preparedWorkspaceTransactionIsCurrent(jotaiStore, prepared, Date.now(), submissionOwner)) {
-          throw new Error(i18n("theTransactionDetailsAreStaleContinueAgainTo_34b074"));
+          throw new OwnedMessageError(i18n("theTransactionDetailsAreStaleContinueAgainTo_34b074"));
         }
       };
       txHash = await signAndSubmitTx(activeWallet, transactionPreview.txHex, {
