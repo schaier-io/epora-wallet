@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { meshHttpRetryAfter, meshHttpStatus } from "./http-error";
+import { isScriptEvaluationRejection, meshHttpRetryAfter, meshHttpStatus } from "./http-error";
 
 test("HTTP metadata survives Mesh's nested JSON encoding", () => {
   const error = JSON.stringify(JSON.stringify({ status: 429, headers: { "Retry-After": "20" } }));
@@ -20,4 +20,19 @@ test("only a valid retry header leaves the provider boundary", () => {
     assert.equal(meshHttpRetryAfter({ headers: { "retry-after": value } }), null);
   }
   assert.equal(meshHttpRetryAfter({ headers: { "retry-after": "Wed, 21 Oct 2015 07:28:00 GMT" } }), "Wed, 21 Oct 2015 07:28:00 GMT");
+});
+
+test("a ScriptFailures map marks a caller-side rejection, other failure kinds do not", () => {
+  const body = (failure: unknown) => JSON.stringify(JSON.stringify({
+    type: "jsonwsp/response",
+    methodname: "EvaluateTx",
+    result: { EvaluationFailure: failure }
+  }));
+  assert.equal(isScriptEvaluationRejection(body({ ScriptFailures: {} })), true);
+  assert.equal(isScriptEvaluationRejection(body({ ScriptFailures: { "spend:0": ["boom"] } })), true);
+  assert.equal(isScriptEvaluationRejection(new Error(body({ ScriptFailures: {} }))), true);
+  assert.equal(isScriptEvaluationRejection(body({ CannotCreateEvaluationContext: { reason: "x" } })), false);
+  assert.equal(isScriptEvaluationRejection(body({ ScriptFailures: "{}" })), false);
+  assert.equal(isScriptEvaluationRejection(JSON.stringify({ status: 500 })), false);
+  assert.equal(isScriptEvaluationRejection("not json"), false);
 });

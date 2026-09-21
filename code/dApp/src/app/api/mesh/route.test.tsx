@@ -12,7 +12,7 @@ vi.mock("@/lib/mesh/blockfrost-server", async (original) => ({
 vi.mock("@/lib/http/rate-limit", () => ({ clientKey: () => "caller", rateLimit: mocks.limit }));
 vi.mock("@/lib/observability/logger", async (original) => ({
   ...await original<typeof Logger>(),
-  logger: { error: vi.fn() }
+  logger: { error: vi.fn(), warn: vi.fn() }
 }));
 vi.mock("next-intl/server", () => ({ getTranslations: async () => (key: string) => key }));
 
@@ -25,6 +25,7 @@ beforeEach(() => {
   mocks.execute.mockReset();
   mocks.limit.mockResolvedValue({ ok: true });
   vi.mocked(logger.error).mockReset();
+  vi.mocked(logger.warn).mockReset();
 });
 
 function request(body = '{"method":"fetchAddressUTxOs","args":["address"]}') {
@@ -70,4 +71,44 @@ it("preserves provider transaction failure text", async () => {
   expect(response.status).toBe(400);
   expect(JSON.stringify(await response.json())).toContain("PPViewHashesDontMatch");
   expect(vi.mocked(logger.error)).toHaveBeenCalledTimes(1);
+});
+
+// Blockfrost answers HTTP 200 for an evaluation that failed, so Mesh throws the
+// Ogmios body itself, doubly JSON-encoded.
+function ogmiosEvaluationFailure(failure: unknown) {
+  return JSON.stringify(JSON.stringify({
+    type: "jsonwsp/response",
+    version: "1.0",
+    servicename: "ogmios",
+    methodname: "EvaluateTx",
+    result: { EvaluationFailure: failure },
+    reflection: { id: "0f806463" }
+  }));
+}
+
+it.each([
+  ["an empty", {}],
+  ["a populated", { "spend:0": ["validator refused"] }]
+])("answers 422 and skips the error log for %s ScriptFailures map", async (_label, scriptFailures) => {
+  mocks.execute.mockRejectedValue(ogmiosEvaluationFailure({ ScriptFailures: scriptFailures }));
+  const response = await POST(request('{"method":"evaluateTx","args":["00"]}'));
+  expect(response.status).toBe(422);
+  // The build client classifies the rejection off this text, so it must survive.
+  expect(JSON.stringify(await response.json())).toContain("ScriptFailures");
+  expect(vi.mocked(logger.error)).not.toHaveBeenCalled();
+  expect(vi.mocked(logger.warn)).toHaveBeenCalledWith(
+    "api.mesh_script_evaluation_rejected",
+    expect.objectContaining({ method: "evaluateTx" })
+  );
+});
+
+it("keeps an evaluator failure that is not a script rejection loud", async () => {
+  mocks.execute.mockRejectedValue(ogmiosEvaluationFailure({ CannotCreateEvaluationContext: { reason: "unresolved inputs" } }));
+  const response = await POST(request('{"method":"evaluateTx","args":["00"]}'));
+  expect(response.status).toBe(500);
+  expect(vi.mocked(logger.warn)).not.toHaveBeenCalled();
+  expect(vi.mocked(logger.error)).toHaveBeenCalledWith(
+    "api.mesh_request_failed",
+    expect.objectContaining({ method: "evaluateTx" })
+  );
 });
