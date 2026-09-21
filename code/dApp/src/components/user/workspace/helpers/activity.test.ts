@@ -338,3 +338,101 @@ test("a state rewrite that also pays an outside address is a send, not a setting
   assert.equal(events[0]!.title, "Funds sent");
   assert.equal(events[0]!.label, "Sent");
 });
+
+for (const split of [false, true]) {
+  test(`state forwarding preserves the ${split ? "split" : "consolidation"} category`, () => {
+    const pools = [lovelace("3000000"), lovelace("3000000")];
+    const merged = [lovelace("6000000")];
+    const tx = transaction({
+      inputs: [
+        utxo("cc".repeat(32), 0, SCRIPT, withStt("2000000")),
+        ...(split ? merged : pools).map((assets, index) =>
+          utxo("dd".repeat(32), index, WALLET, assets)),
+        utxo("ee".repeat(32), 0, EXTERNAL, lovelace("5000000"))
+      ],
+      outputs: [
+        utxo("ab".repeat(32), 0, SCRIPT, withStt("2000000")),
+        ...(split ? pools : merged).map((assets, index) =>
+          utxo("ab".repeat(32), index + 1, WALLET, assets)),
+        utxo("ab".repeat(32), 3, EXTERNAL, lovelace("4800000"))
+      ]
+    });
+    const [event] = buildWalletActivityEvents(tx, WALLET, { sttUnit: STT });
+    assert.equal(event!.title, split ? "Funds split" : "Funds merged");
+    assert.equal(event!.amountSummary, "No net balance change");
+  });
+}
+
+test("a payment to another script wallet is a send", () => {
+  const tx = transaction({
+    inputs: [
+      utxo("cc".repeat(32), 0, SCRIPT, withStt("2000000")),
+      utxo("dd".repeat(32), 0, WALLET, lovelace("10000000")),
+      utxo("ee".repeat(32), 0, EXTERNAL, lovelace("5000000"))
+    ],
+    outputs: [
+      utxo("ab".repeat(32), 0, SCRIPT, withStt("2000000")),
+      utxo("ab".repeat(32), 1, WALLET, lovelace("4000000")),
+      utxo("ab".repeat(32), 2, "addr_test1wrecipient", lovelace("6000000")),
+      utxo("ab".repeat(32), 3, EXTERNAL, lovelace("4800000"))
+    ]
+  });
+  const [event] = buildWalletActivityEvents(tx, WALLET, { sttUnit: STT });
+  assert.equal(event!.title, "Funds sent");
+  assert.equal(event!.amountSummary, "-6 ₳");
+});
+
+test("adding ADA to the continuing state alone remains a settings update", () => {
+  const tx = transaction({
+    inputs: [
+      utxo("cc".repeat(32), 0, SCRIPT, withStt("2000000")),
+      utxo("dd".repeat(32), 0, EXTERNAL, lovelace("5000000"))
+    ],
+    outputs: [
+      utxo("ab".repeat(32), 0, SCRIPT, withStt("3000000")),
+      utxo("ab".repeat(32), 1, EXTERNAL, lovelace("3800000"))
+    ]
+  });
+  assert.equal(buildWalletActivityEvents(tx, WALLET, { sttUnit: STT })[0]!.label, "Settings");
+});
+
+test("script recipients count even when only the state address spends funds", () => {
+  const tx = transaction({
+    inputs: [utxo("cc".repeat(32), 0, SCRIPT, withStt("5000000"))],
+    outputs: [
+      utxo("ab".repeat(32), 0, SCRIPT, withStt("2000000")),
+      utxo("ab".repeat(32), 1, "addr_test1wrecipient", lovelace("2800000"))
+    ]
+  });
+  assert.equal(buildWalletActivityEvents(tx, WALLET, { sttUnit: STT })[0]!.label, "Sent");
+});
+
+test("partial outputs and current UTxOs use one complete set for amounts and counts", () => {
+  const first = utxo("ab".repeat(32), 0, WALLET, lovelace("4000000"));
+  const second = utxo("ab".repeat(32), 1, WALLET, lovelace("6000000"));
+  const unrelated = utxo("ef".repeat(32), 0, WALLET, lovelace("9000000"));
+  const tx = transaction({
+    inputs: [utxo("cc".repeat(32), 0, WALLET, lovelace("10000000"))],
+    outputs: [first]
+  });
+  const [event] = buildWalletActivityEvents(tx, WALLET, {
+    currentWalletUtxos: [first, second, unrelated]
+  });
+  assert.equal(event!.title, "Funds split");
+  assert.equal(event!.amountSummary, "No net balance change");
+  assert.equal(event!.details.find((detail) => detail.label === "Wallet funds")?.value,
+    "1 input and 2 outputs");
+  assert.deepEqual(event!.outputUtxos, [first, second]);
+});
+
+test("duplicate outputs do not change the wallet amount or category", () => {
+  const output = utxo("ab".repeat(32), 0, WALLET, lovelace("6000000"));
+  const tx = transaction({
+    inputs: [utxo("cc".repeat(32), 0, WALLET, lovelace("6000000"))],
+    outputs: [output, output]
+  });
+  const [event] = buildWalletActivityEvents(tx, WALLET);
+  assert.equal(event!.title, "Funds moved");
+  assert.equal(event!.amountSummary, "No net balance change");
+  assert.equal(event!.outputUtxos.length, 1);
+});

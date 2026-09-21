@@ -1,4 +1,4 @@
-import { calculateAssetDelta, collectAddressAssets, collectUtxoAssets, compareAssetAmounts, countAddressUtxos, countAssetUtxos, utxoContainsAsset } from "./asset-amounts";
+import { calculateAssetDelta, collectAddressAssets, compareAssetAmounts, countAddressUtxos, countAssetUtxos, utxoContainsAsset } from "./asset-amounts";
 import { formatActivityActorDetail, formatCountLabel, formatSignedAmountSummary, formatWalletTransactionAmountSummary } from "./formatters";
 import { dedupeUtxosByRef } from "./transactions";
 import { type WalletActivityEvent } from "@/components/user/workspace/types";
@@ -130,19 +130,10 @@ export function buildWalletActivityEvents(
   // flip tidy/sent classification.
   const inputs = dedupeUtxosByRef(transaction.inputs);
   const outputUtxos = dedupeUtxosByRef([...transaction.outputs, ...currentOutputsForTx]);
-  const currentWalletOutputsForTx = currentOutputsForTx.filter(
-    (utxo) => utxo.output.address === address
-  );
-  const rawOutputCountAtAddress = countAddressUtxos(transaction.outputs, address);
   const inputCountAtAddress = countAddressUtxos(inputs, address);
-  const outputCountAtAddress =
-    rawOutputCountAtAddress > 0 ? rawOutputCountAtAddress : currentWalletOutputsForTx.length;
+  const outputCountAtAddress = countAddressUtxos(outputUtxos, address);
   const inputsAtAddress = collectAddressAssets(inputs, address);
-  const rawOutputsAtAddress = collectAddressAssets(transaction.outputs, address);
-  const outputsAtAddress =
-    rawOutputsAtAddress.length > 0
-      ? rawOutputsAtAddress
-      : collectUtxoAssets(currentWalletOutputsForTx);
+  const outputsAtAddress = collectAddressAssets(outputUtxos, address);
   const spendsFromWallet = inputCountAtAddress > 0 || inputsAtAddress.length > 0;
   const sendsToWallet = outputCountAtAddress > 0 || outputsAtAddress.length > 0;
   const sttInputCount = options.sttUnit ? countAssetUtxos(inputs, options.sttUnit) : 0;
@@ -213,7 +204,7 @@ export function buildWalletActivityEvents(
   // `sendsToWallet` is true for every creation: gating on it would invent an "Initial
   // top-up" for a creation-only transaction. The top-up is earned by a separate
   // funding output — one at this address that does not carry the state token.
-  const fundingOutputCount = (transaction.outputs ?? []).filter(
+  const fundingOutputCount = outputUtxos.filter(
     (utxo) =>
       utxo?.output?.address === address &&
       !(options.sttUnit && utxoContainsAsset(utxo, options.sttUnit))
@@ -250,18 +241,21 @@ export function buildWalletActivityEvents(
     return events;
   }
 
-  // Consuming and re-creating the wallet token UTxO means the wallet's state was
-  // rewritten. A payment address can belong to another co-signer, so comparing it
-  // only with the current viewer misreads that signer's fee change as a recipient.
-  // A real recipient gains value across the transaction; a fee-change address loses
-  // value. Checked before the movement branches, which would otherwise read the state
-  // UTxO's fee as a send.
+  // State forwarding also happens during consolidation and payments. Only use the
+  // settings category when no wallet funding UTxO moves and no recipient gains value.
+  // The continuing state is this wallet's output; other script addresses can receive
+  // payments. Fee change alone does not make its address a recipient.
+  const continuingStateAddresses = new Set(
+    outputUtxos
+      .filter((utxo) => options.sttUnit && utxoContainsAsset(utxo, options.sttUnit))
+      .map((utxo) => utxo.output.address)
+  );
   const externalOutputAddresses = new Set(
     outputUtxos
       .map((utxo) => utxo.output.address)
       .filter(
         (outputAddress) =>
-          outputAddress !== address && !isLikelyScriptAddress(outputAddress)
+          outputAddress !== address && !continuingStateAddresses.has(outputAddress)
       )
   );
   const hasExternalRecipient = [...externalOutputAddresses].some((outputAddress) =>
@@ -270,7 +264,11 @@ export function buildWalletActivityEvents(
       collectAddressAssets(outputUtxos, outputAddress)
     ).some((asset) => BigInt(asset.quantity) > 0n)
   );
-  if (sttInputCount > 0 && sttOutputCount > 0 && !hasExternalRecipient) {
+  const touchesWalletFunds = [...inputs, ...outputUtxos].some(
+    (utxo) => utxo.output.address === address &&
+      !(options.sttUnit && utxoContainsAsset(utxo, options.sttUnit))
+  );
+  if (sttInputCount > 0 && sttOutputCount > 0 && !hasExternalRecipient && !touchesWalletFunds) {
     return [
       createEvent("settings-updated", {
         label: i18n("settings"),
