@@ -166,10 +166,10 @@ export function WorkspaceTransactionsView() {
                                   included. This is consistency, not a motion fix. */}
                               <div
                                 role="region"
-                                className="section-transition relative overflow-hidden rounded-lg border border-border/60 bg-background/45 p-3 sm:p-4"
+                                className="@container section-transition relative overflow-hidden rounded-lg border border-border/60 bg-background/45 p-3 sm:p-4"
                                 aria-label={i18n("value1Summary", { value1: isAda ? "ADA" : identity.symbol })}
                               >
-                                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                <div className="flex flex-col gap-4 @lg:flex-row @lg:items-start @lg:justify-between">
                                   <div className="flex min-w-0 items-center gap-3">
                                     <WalletIdentityOrb
                                       seed={assetDetailUnit}
@@ -185,7 +185,7 @@ export function WorkspaceTransactionsView() {
                                       </p>
                                     </div>
                                   </div>
-                                  <div className="flex min-w-0 flex-col items-start sm:items-end">
+                                  <div className="flex min-w-0 flex-col items-start @lg:items-end">
                                     <p className="eyebrow text-muted-foreground">
                                       {i18n("balance")}
                                     </p>
@@ -198,7 +198,7 @@ export function WorkspaceTransactionsView() {
                                   </div>
                                 </div>
                                 {assetSeries.length >= 2 ? (
-                                  <div className="mt-4 grid grid-cols-3 gap-3 border-t border-border/40 pt-3 text-xs">
+                                  <div className="mt-4 grid grid-cols-1 gap-3 wrap-anywhere border-t border-border/40 pt-3 text-xs @lg:grid-cols-3">
                                     <div>
                                       <p className="eyebrow text-muted-foreground">
                                         {i18n("change")}

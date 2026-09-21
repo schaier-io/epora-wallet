@@ -87,7 +87,7 @@ export function CoSignerPicker({ choice, chosen, onChange, disabled }: CoSignerP
         : i18n("listAtLeastOneOwner");
 
   const renderPower = (signer: RequiredSigner) => (
-    <span className="flex items-center gap-2">
+    <span className="flex min-w-0 max-w-full flex-wrap items-center gap-2 wrap-anywhere">
       {signer.isAdmin ? <Badge variant="outline">{i18n("owner")}</Badge> : null}
       {listed.threshold != null ? (
         <span className="text-muted-foreground">
@@ -98,11 +98,11 @@ export function CoSignerPicker({ choice, chosen, onChange, disabled }: CoSignerP
   );
 
   return (
-    <fieldset className="space-y-2 rounded-lg border border-border/60 bg-background/40 p-3">
+    <fieldset className="min-w-0 space-y-2 rounded-lg border border-border/60 bg-background/40 p-3">
       <legend className="text-xs font-semibold text-muted-foreground">{i18n("whoSignsThisRequest")}</legend>
       <p className="text-xs text-muted-foreground">{i18n("theTransactionListsEveryoneChosenHere")}</p>
       <ul className="space-y-1 text-xs">
-        <li className="flex items-center justify-between gap-2">
+        <li className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
           <span className="inline-flex items-center gap-2">
             <span className="font-mono">{truncateMiddle(choice.proposerKeyHash, 10, 6)}</span>
             <span className="text-muted-foreground">{i18n("you")}</span>
@@ -111,7 +111,7 @@ export function CoSignerPicker({ choice, chosen, onChange, disabled }: CoSignerP
         </li>
         {choice.candidates.map((signer) => (
           <li key={signer.keyHash}>
-            <label className="flex items-center justify-between gap-2">
+            <label className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
               <span className="inline-flex items-center gap-2">
                 <input
                   type="checkbox"
