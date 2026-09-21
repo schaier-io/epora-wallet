@@ -46,13 +46,14 @@ it("reports invalid upstream data as a gateway failure", async () => {
   expect(vi.mocked(logger.error)).toHaveBeenCalledTimes(1);
 });
 
-it("keeps expected provider 404s out of the error log", async () => {
+it.each(["fetchTxInfo", "fetchAccountInfo"])("keeps %s provider 404s out of the error log", async (method) => {
   mocks.execute.mockRejectedValue(JSON.stringify({
     status: 404,
     data: { status_code: 404, error: "Not Found", message: "The requested component has not been found." }
   }));
-  const response = await POST(request('{"method":"fetchTxInfo","args":["00"]}'));
+  const response = await POST(request(JSON.stringify({ method, args: ["00"] })));
   expect(response.status).toBe(404);
+  expect(JSON.stringify(await response.json())).toContain("The requested component has not been found.");
   expect(vi.mocked(logger.error)).not.toHaveBeenCalled();
 });
 
