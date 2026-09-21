@@ -491,3 +491,24 @@ describe("review rail CTA icons", () => {
     assertIconHidden(screen.getAllByRole("button")[1]);
   });
 });
+
+/**
+ * The build state used to render after the primary button, so the rail read "Confirm X"
+ * and only then "Ready to sign." The reader met the control before the sentence that says
+ * whether pressing it will do anything. It now closes the step block above the buttons.
+ */
+describe("where the build state sits", () => {
+  it("states what is built before the button, not after it", () => {
+    render(<UserReviewPanel {...BASE} />);
+
+    const state = screen.getByText("Not built yet.");
+    const button = screen.getByRole("button", { name: "Send funds" });
+    expect(
+      state.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    // No card of its own: the sentence reads as the last line of the step block, so it
+    // sits inside no bordered box at all. `container.querySelector` would have answered
+    // about the first bordered element anywhere in the panel, not about this sentence.
+    expect(state.closest(".rounded-lg.border")).toBeNull();
+  });
+});

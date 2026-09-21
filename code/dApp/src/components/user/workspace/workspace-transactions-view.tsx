@@ -281,9 +281,9 @@ export function WorkspaceTransactionsView() {
                           </CardDescription>
                         </div>
                         <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-2">
-                          <Badge variant="outline">
-                            {activityRangeLabel}
-                          </Badge>
+                          {activityRangeLabel ? (
+                            <Badge variant="outline">{activityRangeLabel}</Badge>
+                          ) : null}
                           <Button
                             type="button"
                             size="sm"
@@ -437,18 +437,13 @@ export function WorkspaceTransactionsView() {
                                         <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                                           {activity.summary}
                                         </p>
-                                        <p className="mt-2 text-[11px] text-muted-foreground">
-                                          {i18n("triggeredBy")}{" "}
-                                          <span className="text-foreground/90">
-                                            {activity.actorLabel}
-                                          </span>
-                                          {activity.actorDetail ? (
-                                            <span className="font-mono">
-                                              {" "}
-                                              ({activity.actorDetail})
-                                            </span>
-                                          ) : null}
-                                        </p>
+                                        {/*
+                                          No "Triggered by ..." line on the collapsed row.
+                                          `activity.details` already carries it as its first
+                                          row, one disclosure click below, and on a wallet
+                                          acting on its own state every row repeated the same
+                                          sentence. The CSV export keeps the column.
+                                        */}
                                       </div>
                                     </div>
                                     <div className="flex min-w-0 max-w-full flex-row items-center justify-between gap-3 sm:flex-col sm:items-end">

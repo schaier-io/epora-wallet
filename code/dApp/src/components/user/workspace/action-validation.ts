@@ -310,19 +310,24 @@ export function computeActionFieldErrors(
     }
 
     const withdrawErrors: FieldErrors = {};
-    requireStakingEnabled(withdrawErrors, activeInferredSttStateForm);
-    validateField(
-      withdrawErrors,
-      i18n("stakingAddress"),
-      REQUIRED_TEXT_SCHEMA,
-      withdrawRewardAddress
-    );
-    validateField(
-      withdrawErrors,
-      i18n("withdrawalAmount"),
-      NON_NEGATIVE_INTEGER_SCHEMA,
-      withdrawAmount
-    );
+    // The staking gate alone while staking is off. The claim card renders no fields in that
+    // state (the amount comes from the chain, and the reward address from the staking
+    // script), so "Withdrawal amount: Enter a whole number." named a control the reader
+    // could not see, beside the one blocker they can act on.
+    if (requireStakingEnabled(withdrawErrors, activeInferredSttStateForm)) {
+      validateField(
+        withdrawErrors,
+        i18n("stakingAddress"),
+        REQUIRED_TEXT_SCHEMA,
+        withdrawRewardAddress
+      );
+      validateField(
+        withdrawErrors,
+        i18n("withdrawalAmount"),
+        NON_NEGATIVE_INTEGER_SCHEMA,
+        withdrawAmount
+      );
+    }
     const withdrawSttRef = resolveWalletWrapperSttInputRef(
       selectedDetectedToken,
       withdrawSttInputHash,

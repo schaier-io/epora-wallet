@@ -34,3 +34,23 @@ export function meshHttpRetryAfter(error: unknown): string | null {
   const timestamp = Date.parse(value);
   return Number.isFinite(timestamp) && new Date(timestamp).toUTCString() === value ? value : null;
 }
+
+// Blockfrost's evaluate endpoint answers HTTP 200 carrying an Ogmios
+// `EvaluationFailure` body, and Mesh throws that body as its (doubly
+// JSON-encoded) text. A `ScriptFailures` map inside it, empty or not, means a
+// validator refused the caller's transaction: a caller-side condition, like a
+// 4xx, not a server fault. Every other evaluation failure kind
+// (CannotCreateEvaluationContext, AdditionalUtxoOverlap, NotEnoughSynced) says
+// the evaluator itself could not run, so it stays unclassified here and keeps
+// the error log and the 500.
+export function isScriptEvaluationRejection(error: unknown): boolean {
+  const record = errorRecord(error instanceof Error ? error.message : error);
+  const failure = asRecord(asRecord(record?.result)?.EvaluationFailure);
+  return failure !== null && asRecord(failure.ScriptFailures) !== null;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}

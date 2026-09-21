@@ -5,6 +5,8 @@ import { describe, expect, it } from "vitest";
 
 import type { TokenCapabilityMap } from "@/components/user/flow-types";
 import { useWorkspaceGuidedDerivations } from "@/components/user/workspace/use-workspace-guided-derivations";
+import { routeStateAtom } from "@/components/user/workspace/atoms/workspace-route.atoms";
+import { parseWorkspaceRouteState } from "@/components/user/workspace-controller";
 import { createDefaultStateForm } from "@/lib/contracts/state-form";
 import type { DetectedSttToken } from "@/lib/mesh/detection";
 
@@ -28,9 +30,11 @@ const EMPTY_DRAFT = { ready: false, dirty: false };
 function renderDerivations(
   capabilities: TokenCapabilityMap,
   advancedWalletActions: Parameters<typeof useWorkspaceGuidedDerivations>[0]["advancedWalletActions"] = [],
-  selectableWizardActionKinds: Parameters<typeof useWorkspaceGuidedDerivations>[0]["selectableWizardActionKinds"] = new Set()
+  selectableWizardActionKinds: Parameters<typeof useWorkspaceGuidedDerivations>[0]["selectableWizardActionKinds"] = new Set(),
+  // Seeded by the caller when the case turns on route state, which the derivations read
+  // through `routeStateAtom` rather than through these inputs.
+  store = createStore()
 ) {
-  const store = createStore();
   return renderHook(
     () =>
       useWorkspaceGuidedDerivations({
@@ -161,6 +165,29 @@ describe("workspace guided tool order", () => {
 });
 
 
+/**
+ * A cold load of `?view=activity` carries no activity context: the activity query is gated on
+ * a connected wallet with a resolved address, so at first paint nothing is in flight and no
+ * event is counted, and a wallet with an empty history never gains one. The section used to
+ * fall back to "home" in that state, so the deep link opened Wallet home while the document
+ * title, read from the same URL, said "Activity".
+ */
+describe("a deep link to the activity section", () => {
+  it("keeps the section the URL asked for when no activity context has arrived", () => {
+    const store = createStore();
+    store.set(
+      routeStateAtom,
+      parseWorkspaceRouteState(new URLSearchParams("wallet=unit&step=overview&view=activity"))
+    );
+
+    const { result } = renderDerivations(NO_CAPABILITIES, [], new Set(), store);
+
+    expect(result.current.hasGuidedActivityContext).toBe(false);
+    expect(result.current.resolvedGuidedOverviewSection).toBe("transactions");
+    expect(result.current.isGuidedTransactionsSelected).toBe(true);
+  });
+});
+
 describe("normal beneficiary recovery entry", () => {
   it("starts with withdrawal and keeps exact distribution off the everyday cards", () => {
     const { result } = renderDerivations(
@@ -173,5 +200,52 @@ describe("normal beneficiary recovery entry", () => {
       .toMatchObject({ action: "use-beneficiary" });
     expect(result.current.guidedEverydayActions.some((card) => card.action === "distribute-beneficiaries"))
       .toBe(false);
+  });
+});
+
+/**
+ * Each card is a door, so it has to carry the name written on the other side of it. These
+ * three did not: "Turn on staking" opened a screen headed "Enable staking", "Governance"
+ * opened "Publish certificate", and "Receive funds" opened "Add funds". The titles are
+ * built here, and the sidebar view's own test hardcodes them in a fixture, so nothing
+ * checked the real derivation.
+ */
+describe("what the tool cards are called", () => {
+  it("names each card after the screen it opens", () => {
+    const { result } = renderDerivations(
+      { ...NO_CAPABILITIES, availableOperatorPaths: ["admin"] },
+      ["set-intended-stake-credential", "consolidate-utxo", "wallet-vote"]
+    );
+
+    const titleByAction = new Map(
+      result.current.guidedToolActions.map((action) => [action.action, action.title])
+    );
+
+    expect(titleByAction.get("set-intended-stake-credential")).toBe("Enable staking");
+    expect(titleByAction.get("wallet-withdraw")).toBe("Claim rewards");
+    expect(titleByAction.get("wallet-publish")).toBe("Publish certificate");
+  });
+});
+
+/**
+ * The Edit tab on a wallet with no payments is a dead end ("Nothing to change. Add a
+ * payment on the other tab first."), which is the whole reason the card carries a `task`.
+ */
+describe("which tab the scheduled-payments card opens", () => {
+  it("sends an empty schedule to Add and an existing one to Edit", () => {
+    expect(
+      scheduledPaymentsCard({
+        ...NO_CAPABILITIES,
+        availableOperatorPaths: ["admin"]
+      })?.task
+    ).toBe("streaming-payments-add");
+
+    expect(
+      scheduledPaymentsCard({
+        ...NO_CAPABILITIES,
+        hasStreamingPayments: true,
+        availableOperatorPaths: ["admin"]
+      })?.task
+    ).toBe("streaming-payments-edit-renew");
   });
 });

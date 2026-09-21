@@ -13,21 +13,28 @@ const PREVIEW: BuildResult = {
 };
 
 const BASE: ComponentProps<typeof ReviewTransactionPreview> = {
-  definition: USER_ACTION_DEFINITION_MAP["use"],
   preview: PREVIEW,
   previewMatchesSelectedAction: true,
   lastActionLabel: "use"
 };
 
 describe("ReviewTransactionPreview", () => {
-  it("states the built action and its outcome beside the badge", () => {
+  /**
+   * This block used to carry two restatements of the action next to its state: the
+   * `shortLabel` badge, directly under a primary button reading "Confirm <label>", and
+   * `definition.outcome` appended to "Ready to sign.", which the configuration card in
+   * the middle column prints in full on the same screen. The state change is the news.
+   */
+  it("reports the built state alone, without the action's name or outcome", () => {
     render(<ReviewTransactionPreview {...BASE} />);
 
-    // The sentence and the outcome share one text span, so match them combined.
-    const outcome = USER_ACTION_DEFINITION_MAP["use"].outcome;
+    expect(screen.getByText("Ready to sign.")).toBeInTheDocument();
     expect(
-      screen.getByText((_, node) => node?.textContent === `Ready to sign. ${outcome}`)
-    ).toBeInTheDocument();
+      screen.queryByText(USER_ACTION_DEFINITION_MAP["use"].outcome)
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(USER_ACTION_DEFINITION_MAP["use"].shortLabel)
+    ).not.toBeInTheDocument();
   });
 
   /**

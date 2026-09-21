@@ -30,16 +30,18 @@ const NAV_LINKS = [
   // name the rest of the app already gives the third one -- the switcher button says "Smart
   // wallets", the dialog says "Choose smart wallet" -- so the label now matches it.
   { href: "/user", labelKey: "smartWallet", carriesWallet: true },
-  // "Co-signing", not "Approvals". "Approvals" read like a permissions page and was a third
-  // word for the object the destination page already names twice ("Approval requests" in its
-  // `<h1>`, "Requests" on its list column). The nav names the activity instead -- what you do
-  // there -- so it stops competing with the page's own words for the object.
+  // "Co-signing", the name the destination carries: its page heading and its tab title
+  // both say it, its empty state reads "Nothing to co-sign yet.", and the wallet's own
+  // button reads "Save for co-signing". The object those requests are is left to the
+  // list column ("Requests"), so the nav names the activity and nothing competes with it.
+  // The tab and the page disagreed twice before this: the tab said "Co-signing" over a
+  // page headed "Approval requests", then both said "Approval requests", which named the
+  // object twice and never said what the reader does there.
   { href: "/user/proposals", labelKey: "coSigning", carriesWallet: true },
-  // "Scheduled income", not "Payments to you". The page this opens heads itself "Scheduled
-  // payments to you" in both its `<h1>` and its `metadata.title`, and its own body copy
-  // addresses the reader as "you" ("...send to your connected wallet"). The label keeps the
-  // page's "scheduled" qualifier and states the direction without the person, so the nav
-  // reads as a place ("income arrives here") rather than a sentence.
+  // "Scheduled income". The page this opens now heads itself the same way, in both its
+  // `<h1>` and its `metadata.title`; it read "Scheduled payments to you", a sentence
+  // rather than a place. The label keeps the page's "scheduled" qualifier and states the
+  // direction without the person.
   { href: "/payee", labelKey: "scheduledIncome", carriesWallet: false }
 ] as const;
 
@@ -256,8 +258,7 @@ export function TopNav() {
 
           {/* `shrink-0` because these three links are the row's fixed point. As a shrinkable
               flex item the nav's floor is its min-content width, which is narrow enough to
-              break "Scheduled income" (the longest label; it wrapped as "Payments to you")
-              over two lines: at 768 the link measured 52px tall against
+              break "Scheduled income" over two lines: at 768 the link measured 52px tall against
               its two 32px siblings, inside a 64px bar. The wallet card beside it truncates by
               design, so it is the one that should give. */}
           <nav className="hidden shrink-0 items-center gap-1 md:flex" aria-label={i18n("primary")}>

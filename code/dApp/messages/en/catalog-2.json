@@ -3,7 +3,7 @@
     "cancelled": "Cancelled",
     "checking": "Checking",
     "loadMore": "Load more",
-    "noApprovalRequestsYetBuildATransactionOn": "No approval requests yet. Build a transaction on the wallet page, then choose “Save as approval request”.",
+    "noApprovalRequestsYetBuildATransactionOn": "Nothing to co-sign yet. Build a transaction on the wallet page, then choose “Save for co-signing”.",
     "notChecked": "Not checked",
     "open": "Open",
     "outOfDate": "Out of date",
@@ -20,11 +20,11 @@
     "openWallet": "Open wallet"
   },
   "ComponentsUserProposalsProposalsWorkspace": {
-    "approvalRequests": "Approval requests",
+    "approvalRequests": "Co-signing",
     "checkingYourSignIn": "Checking your sign-in…",
     "loading": "Loading…",
     "proposalsPathSearch": "{PROPOSALS_PATH}?{search}",
-    "selectAnApprovalRequestToVerifyAndSign": "Select an approval request to verify and sign it.",
+    "selectAnApprovalRequestToVerifyAndSign": "Select a request to verify and sign it.",
     "signedInAs": "Signed in as",
     "signer": "Signer",
     "signOut": "Sign out"
@@ -33,7 +33,7 @@
     "multisigRequestNote": "This rule needs {needed} approval power between the signers, and the co-signers hold {held}. You sign here; the co-signers sign on the saved request.",
     "preparesTheTransactionAndSavesItForThe": "Prepares the transaction and saves it for the other signers. Nothing is signed and nothing is sent.",
     "preparing": "Preparing…",
-    "saveAsApprovalRequest": "Save as approval request"
+    "saveAsApprovalRequest": "Save for co-signing"
   },
   "ComponentsUserProposalsSignerProgress": {
     "coSigners": "Co-signers",
@@ -45,17 +45,17 @@
     "waitingForAnOwner": "Waiting for an owner"
   },
   "ComponentsUserProposalsSignInGate": {
-    "noWalletIsConnectedYetUseThe": "Connect your wallet, then sign a message to see approval requests.",
-    "signInToSeeApprovalRequests": "Sign in to see approval requests",
+    "noWalletIsConnectedYetUseThe": "Connect your wallet, then sign a message to see requests to co-sign.",
+    "signInToSeeApprovalRequests": "Sign in to see requests to co-sign",
     "signInWithWallet": "Sign in with wallet",
     "theDemoIsReadOnlyConnectABrowser": "The demo is read-only. Connect a browser wallet to sign in.",
     "theDemoWalletCanLookButIt": "The demo wallet can look, but it cannot sign. Connect your own wallet to sign in.",
     "waitingForWallet": "Waiting for wallet…",
-    "youSignedInAsSignedInKeyAnd": "You signed in as {signedInKey}, and {connectedKey} is connected now. Sign in again to see this wallet's approval requests.",
+    "youSignedInAsSignedInKeyAnd": "You signed in as {signedInKey}, and {connectedKey} is connected now. Sign in again to see this wallet’s requests.",
     "yourWalletIsYourLoginHereItAsks": "Your wallet is your login here. It asks you to sign a short message, so we can check the key is yours. Nothing is spent and your key stays in your wallet.",
     "noWalletIsConnectedYetUseTheConnect": "No wallet is connected yet. Use the Connect button at the top of this page, then sign in here.",
     "theDemoWalletCanLookButItCannot": "The demo wallet can look, but it cannot sign. Connect your own wallet to sign in.",
-    "youSignedInAsSignedKeyAndConnectedKey": "You signed in as {signedKey}, and {connectedKey} is connected now. Sign in again to see this wallet’s approval requests.",
+    "youSignedInAsSignedKeyAndConnectedKey": "You signed in as {signedKey}, and {connectedKey} is connected now. Sign in again to see this wallet’s requests.",
     "connectWallet": "Connect wallet"
   },
   "ComponentsUserProposalsUseProposalOrchestration": {
@@ -154,21 +154,15 @@
     "couldNotCheckWhereThisWalletSFunds": "Could not check where this wallet's funds sit. Reload the page to try again."
   },
   "ComponentsUserWalletHeroCard": {
-    "acrossValue1": "across {value1}",
-    "activity": "Activity",
     "addFunds": "Add funds",
     "balance": "Balance",
     "copyWalletAddress": "Copy wallet address",
     "hideFullAddress": "Hide full address",
     "loadingAddress": "Loading address…",
-    "noFundsInThisWalletYet": "No funds in this wallet yet",
-    "onlyAdaInsideThisWallet": "Only ADA inside this wallet",
     "receive": "Receive",
     "send": "Send",
-    "settings": "Settings",
     "showFullAddress": "Show full address",
     "smartWallet": "Smart wallet",
-    "value1InsideThisWallet": "{value1} inside this wallet",
     "walletAddressCopied": "Wallet address copied"
   },
   "ComponentsUserWalletMembershipCard": {
@@ -338,7 +332,7 @@
     "description": "Delegated daily spending authority recorded in this wallet's rules.",
     "emptyHint": "Add a spender with a daily allowance to delegate a budget.",
     "emptyTitle": "No agent spending is configured",
-    "freshnessNote": "Confirmed on-chain state. A budget or access change appears here after its transaction confirms; approval requests stay in the approval queue until then.",
+    "freshnessNote": "Confirmed on-chain state. A budget or access change appears here after its transaction confirms; saved requests stay in the co-signing queue until then.",
     "openTitleOnCardanoscan": "Open transaction {hash} on Cardanoscan",
     "ownerBadge": "Owner",
     "paymentsDescription": "Confirmed payments out of this wallet, labeled by the credential that funded them.",
@@ -357,7 +351,6 @@
   },
   "ComponentsUserWorkspaceAtomsWorkspaceActivityAtoms": {
     "noneShown": "0 shown",
-    "range": "{start} to {end} of {total}",
     "refreshing": "Refreshing"
   },
   "ComponentsUserWorkspaceAtomsWorkspaceWalletDerivationsAtoms": {
@@ -452,7 +445,6 @@
     "moveAdaOrTokensFromTheWalletYou": "Move ADA or tokens from the wallet you are connected with into this one.",
     "openAddressOnCardanoscan": "Open address on Cardanoscan",
     "receiveAddress": "Receive address",
-    "setTheAdaAmountOrAddAnyTokens": "Set the ADA amount, or add any tokens the connected wallet already holds.",
     "shareThisAddressWhenSomeoneNeedsToSend": "Share this address when someone needs to send funds into this wallet.",
     "walletAddressCopied": "Wallet address copied",
     "whatToAdd": "What to add"
@@ -487,8 +479,7 @@
     "nothingIsSentWhenYouPickOneThis": "Nothing is sent when you pick one: this app cannot delegate yet.",
     "stakingAddress": "Staking address",
     "stakingIsAlreadyOnForThisWalletSending": "Staking is already on for this wallet. Sending this again changes nothing.",
-    "thisWalletCannotEarnStakingRewardsYetTurning": "This wallet cannot earn staking rewards yet. Turning staking on gives it a staking address of its own. No new keys, and only an owner can change it later.",
-    "whatTurningItOnDoes": "What turning it on does"
+    "thisWalletCannotEarnStakingRewardsYetTurning": "This wallet cannot earn staking rewards yet. Turning staking on gives it a staking address of its own. No new keys, and only an owner can change it later."
   },
   "ComponentsUserWorkspaceConfigSttspendEditorsView": {
     "addRecipient": "Add recipient",

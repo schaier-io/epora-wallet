@@ -15,10 +15,6 @@ const FULL_ADDRESS =
  * `?action=add-funds`, titles the tab "Add funds · Epora Wallet" and heads its form
  * "Add funds details". Nothing there said Receive.
  *
- * And a wallet holding nothing said "Only ADA inside this wallet" under a balance of 0.00.
- * That branch was unreachable from the app, because the dashboard clamped the asset count to
- * a minimum of one to keep the summary off "0 assets". The clamp is gone and the empty case
- * has its own sentence, so this is the test that the empty wallet tells the truth.
  */
 function renderCard(overrides: Partial<WalletHeroCardProps> = {}) {
   return render(
@@ -26,14 +22,10 @@ function renderCard(overrides: Partial<WalletHeroCardProps> = {}) {
       walletName="Smart wallet"
       address="addr_test1wr"
       balanceLovelace="8000000"
-      assetTypeCount={1}
-      fundingSourceCount={1}
       onCopyAddress={vi.fn()}
       addressCopied={false}
       onSend={vi.fn()}
       onReceive={vi.fn()}
-      onActivity={vi.fn()}
-      onSettings={vi.fn()}
       {...overrides}
     />
   );
@@ -61,11 +53,30 @@ describe("wallet hero card", () => {
     );
   });
 
-  it("does not claim an empty wallet holds ADA", () => {
-    const { container } = renderCard({ assetTypeCount: 0, balanceLovelace: "0" });
+  /**
+   * The card used to carry an asset summary under the balance: "Only ADA inside this
+   * wallet", "N assets inside this wallet", "No funds in this wallet yet". All three
+   * restated the Assets panel that sits directly below it on the dashboard, which lists
+   * the assets by name and carries its own empty state. The line is gone, so the card
+   * must not grow a replacement.
+   */
+  it("states the balance once, with no asset summary beside it", () => {
+    const { container } = renderCard({ balanceLovelace: "0" });
 
-    expect(screen.getByText("No funds in this wallet yet")).toBeTruthy();
-    expect(container.textContent).not.toMatch(/Only ADA/);
+    expect(container.textContent).not.toMatch(/inside this wallet/i);
+    expect(container.textContent).not.toMatch(/No funds in this wallet yet/i);
+  });
+
+  /**
+   * Activity and Settings used to sit here as outline buttons. They opened the same two
+   * panels as the sidebar's own `Activity` and `Wallet settings` entries, which are on
+   * screen beside this card. Only the two money moves remain.
+   */
+  it("offers the two money actions and nothing the sidebar already offers", () => {
+    renderCard();
+
+    expect(screen.queryByRole("button", { name: "Activity" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Settings" })).toBeNull();
   });
 
   it("says what the address control does, not just what it shows", () => {
@@ -127,14 +138,10 @@ describe("wallet hero card", () => {
         walletName="Smart wallet"
         address={FULL_ADDRESS}
         balanceLovelace="8000000"
-        assetTypeCount={1}
-        fundingSourceCount={1}
         onCopyAddress={vi.fn()}
         addressCopied
         onSend={vi.fn()}
         onReceive={vi.fn()}
-        onActivity={vi.fn()}
-        onSettings={vi.fn()}
       />
     );
 

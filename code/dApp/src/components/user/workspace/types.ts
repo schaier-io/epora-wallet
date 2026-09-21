@@ -179,5 +179,11 @@ export type GuidedActionCard = {
   intent: UserWorkspaceIntent;
   action: UserActionKind;
   title: string;
-  description: string;
+  /**
+   * Which tab of the destination to open. Omitted means "whatever the action defaults
+   * to". Scheduled payments needs it: its default tab is Edit, which is a dead end on a
+   * wallet with no payments yet ("Nothing to change. Add a payment on the other tab
+   * first."), so the card sends an empty schedule to Add instead.
+   */
+  task?: UserWorkspaceTask;
 };

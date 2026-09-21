@@ -4,12 +4,9 @@ import {
   AnimatedContent,
   FadeContent
 } from "@/components/react-bits/primitives";
-import { Badge } from "@/components/ui/badge";
-import { type TaskDefinition } from "@/components/user/flow-types";
 import { cn } from "@/lib/utils/cn";
 
 type ReviewTransactionPreviewProps = {
-  definition: TaskDefinition;
   preview: BuildResult | null;
   previewMatchesSelectedAction: boolean;
   lastActionLabel: string;
@@ -18,7 +15,6 @@ type ReviewTransactionPreviewProps = {
 };
 
 export function ReviewTransactionPreview({
-  definition,
   preview,
   previewMatchesSelectedAction,
   lastActionLabel,
@@ -52,22 +48,23 @@ export function ReviewTransactionPreview({
           </ul>
         </FadeContent>
       ) : null}
-      <div
-        className={cn(
-          "rounded-lg border border-border/60 bg-background/40",
-          compact ? "p-3" : "p-3 sm:p-4"
-        )}
-      >
+      {/*
+        No box of its own, and no action badge. The badge printed `definition.shortLabel`
+        under a primary button reading "Confirm <label>", under a card with the same title.
+        The box made one short sentence look like a fourth card in the rail; the sentence
+        now reads as the last line of the step block above it.
+      */}
+      <div>
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant={preview ? "secondary" : "outline"}>{definition.shortLabel}</Badge>
           <span className={cn("text-sm", preview ? "text-foreground/90" : "text-muted-foreground")}>
-            {preview ? (
-              <>
-                {i18n("readyToSign")} {definition.outcome}
-              </>
-            ) : (
-              i18n("notBuiltYet")
-            )}
+            {/*
+              "Ready to sign." on its own. It used to append `definition.outcome`, which
+              the configuration card in the middle column prints in full on the same
+              screen ("Saves the schedule. Paying what it owes is a separate step."). This
+              line's news is the state change, not the action's description, and the
+              receipt above it already lists what the built transaction does.
+            */}
+            {preview ? i18n("readyToSign") : i18n("notBuiltYet")}
           </span>
         </div>
       </div>

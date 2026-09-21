@@ -263,7 +263,7 @@ describe("where the money goes", () => {
     );
 
     expect(screen.getByText(/Your payee collects this on the/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Payments to you page." })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Scheduled income page." })).toHaveAttribute(
       "href",
       "/payee"
     );
@@ -279,7 +279,7 @@ describe("where the money goes", () => {
       />
     );
 
-    expect(screen.getByRole("link", { name: "Payments to you page." })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Scheduled income page." })).toHaveAttribute(
       "href",
       "/payee"
     );

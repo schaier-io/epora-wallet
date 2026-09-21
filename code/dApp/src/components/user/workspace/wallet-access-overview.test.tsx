@@ -48,7 +48,12 @@ function renderOverview(state = createDefaultStateForm()) {
 }
 
 describe("WalletAccessOverview", () => {
-  it("shows actual roles and keeps exact limits in the disclosure", () => {
+  /**
+   * The role badges are a fallback now. With a permission list under them they named the
+   * same access twice a line apart, so they render only when the list has no rows. This
+   * user can send, so the list speaks and the "Spender" badge stays off.
+   */
+  it("leaves the roles to the permission list, and keeps exact limits in the disclosure", () => {
     const state = createDefaultStateForm();
     state.users = [{
       id: "0",
@@ -65,9 +70,9 @@ describe("WalletAccessOverview", () => {
 
     renderOverview(state);
 
-    expect(screen.getByText("Spender")).toBeInTheDocument();
-    expect(screen.queryByText("Owner")).not.toBeInTheDocument();
     expect(screen.getByText("Send through your available authorization paths.")).toBeInTheDocument();
+    expect(screen.queryByText("Spender")).not.toBeInTheDocument();
+    expect(screen.queryByText("Owner")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Permission details/i }));
     expect(screen.getByText("12 ₳ per day")).toBeInTheDocument();
@@ -94,6 +99,36 @@ describe("WalletAccessOverview", () => {
     expect(screen.getByText("Listed user")).toBeInTheDocument();
     expect(screen.queryByText("Spender")).not.toBeInTheDocument();
     expect(screen.getByText("No active permissions are assigned to this key.")).toBeInTheDocument();
+  });
+
+  /**
+   * A co-signer's badge is the one that must survive the permission list. The summary sets
+   * both `canSend` and `canManageWallet` for a co-signer, so the list always has rows for
+   * one; suppressing every badge whenever it does meant a co-signer read exactly what an
+   * owner reads. Acting together with others appears nowhere in that list.
+   */
+  it("keeps the co-signer badge, which the permission list never states", () => {
+    const state = createDefaultStateForm();
+    state.multiSigThresholdMode = "some";
+    state.multiSigThreshold = "2";
+    state.users = [{
+      id: "0",
+      wallets: [KEY],
+      perDayAllowance: [],
+      remainingAllowance: [],
+      nextAllowanceReset: "0",
+      canRenewProofOfLife: false,
+      multiSigPowerMode: "some",
+      multiSigPower: "1",
+      isAdmin: false,
+      preset: "custom"
+    }];
+
+    renderOverview(state);
+
+    expect(screen.getByText("Manage wallet rules and people.")).toBeInTheDocument();
+    expect(screen.getByText("Co-signer")).toBeInTheDocument();
+    expect(screen.queryByText("Owner")).not.toBeInTheDocument();
   });
 
   it("describes an owner's direct approval power", () => {

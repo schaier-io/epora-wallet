@@ -119,21 +119,21 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
       ? {
           intent: "send" as const,
           action: defaultSendAction,
-          title: i18n("sendFunds"),
-          description:
-            defaultSendAction === "use-allowance"
-              ? i18n("useYourAllowance")
-              : defaultSendAction === "use-beneficiary"
-                ? i18n("useRecoveryContactAccess")
-                : i18n("normalWalletSend")
+          title: i18n("sendFunds")
         }
       : null,
     selectedDetectedToken
       ? {
           intent: "add-funds" as const,
           action: "lock-funds" as const,
-          title: i18n("receiveFunds"),
-          description: i18n("copyAddressOrAddFunds")
+          // "Add funds", the name its destination already carries: the screen is
+          // `?action=lock-funds`, its heading is "Add funds" and its tab title is
+          // "Add funds · Epora Wallet". `workspace-transactions-view.test.tsx` settled
+          // this rule for the asset drill-down button and named this card as the last
+          // place still saying "Receive funds". It also covers more of the screen than
+          // "Receive" does: the page shows the receive address AND moves funds in from
+          // the connected wallet.
+          title: i18n("addFunds"),
         }
       : null,
     // Sits above the staking tools: scheduling a payment is an everyday act on a
@@ -153,8 +153,31 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
           action: flowAvailability.canManageStreamingPayments
             ? ("manage-streaming-payments" as const)
             : ("payout-streaming-payment" as const),
+          // Without this the card landed on the Edit tab, which on a wallet with no
+          // payments yet is a dead end: "Nothing to change. Add a payment on the other
+          // tab first." The Home dashboard tile already picks Add in that case; this
+          // makes the sidebar entry agree with it.
+          //
+          // "Has schedules" is read off the same capability map as the rest of this card
+          // (`canPayStreamingPayments` is `hasStreamingPayments`, `guided-helpers.ts`)
+          // rather than off `activeInferredSttStateForm`, so one source answers every
+          // question the card asks.
+          //
+          // Correction, because an earlier version of this comment claimed otherwise:
+          // the two are NOT a loading race. `activeInferredSttStateFormAtom` returns
+          // `selectedDetectedTokenStateFormAtom` whenever a token is selected
+          // (`queries/wallet-identity.atoms.ts`), which is the same state
+          // `resolveTokenCapabilityMap` reads, and with no token selected both
+          // `canManageStreamingPayments` and `canPayStreamingPayments` are false
+          // (`guided-helpers.ts:111`) so this card does not render. The two spellings
+          // always agreed. `workspace-navigation.ts` and the Home schedules tile still
+          // count the form directly, and are correct for the same reason.
+          task: flowAvailability.canManageStreamingPayments
+            ? flowAvailability.canPayStreamingPayments
+              ? ("streaming-payments-edit-renew" as const)
+              : ("streaming-payments-add" as const)
+            : ("streaming-payments-pay-due" as const),
           title: i18n("scheduledPayments"),
-          description: i18n("addChangeOrPayAScheduledPayment")
         }
       : null
   ];
@@ -236,8 +259,7 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
       ? {
           intent: "enable-staking" as const,
           action: "set-intended-stake-credential" as const,
-          title: i18n("turnOnStaking"),
-          description: i18n("letThisWalletSFundsEarnStakingRewards")
+          title: i18n("enableStaking"),
         }
       : null,
     selectedDetectedToken && advancedWalletActions.includes("consolidate-utxo")
@@ -245,7 +267,6 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
           intent: "consolidate" as const,
           action: "consolidate-utxo" as const,
           title: i18n("tidyFunds"),
-          description: i18n("mergeFundPools")
         }
       : null,
     selectedDetectedToken && selectedTokenCapabilityMap?.availableOperatorPaths.length
@@ -253,15 +274,13 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
           intent: "rewards" as const,
           action: "wallet-withdraw" as const,
           title: i18n("claimRewards"),
-          description: i18n("collectStakingRewards")
         }
       : null,
     selectedDetectedToken && selectedTokenCapabilityMap?.availableOperatorPaths.length
       ? {
           intent: "governance-publish" as const,
           action: "wallet-publish" as const,
-          title: i18n("governance"),
-          description: i18n("advancedCertificates")
+          title: i18n("publishCertificate"),
         }
       : null,
     selectedDetectedToken && advancedWalletActions.includes("wallet-vote")
@@ -269,7 +288,6 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
           intent: "governance-vote" as const,
           action: "wallet-vote" as const,
           title: i18n("castAVote"),
-          description: i18n("voteOnACardanoGovernanceAction")
         }
       : null,
     selectedDetectedToken && advancedWalletActions.includes("renew-proof-of-life")
@@ -277,7 +295,6 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
           intent: "manual-tools" as const,
           action: "renew-proof-of-life" as const,
           title: i18n("refreshTimer"),
-          description: i18n("refreshProofOfLife")
         }
       : null
   ];
@@ -308,10 +325,16 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
     walletTransactions.loading ||
     Boolean(walletTransactions.error) ||
     recentWalletActivityEvents.length > 0;
-  const resolvedGuidedOverviewSection =
-    guidedOverviewSection === "transactions" && !hasGuidedActivityContext
-      ? "home"
-      : guidedOverviewSection;
+  // The URL wins. This used to fall back to "home" whenever `hasGuidedActivityContext` was
+  // false, which threw away `?view=activity` on every cold load of a deep link: the activity
+  // query only runs once the wallet is connected AND its address is resolved, so at first
+  // paint there is neither a load in flight nor an event to count, and a wallet whose history
+  // is empty never gains one. The title (from the same URL) read "Activity" while the panel
+  // showed Wallet home. Clicking Activity still cannot land on an empty tab: the sidebar
+  // entry only renders with `hasGuidedActivityContext`, and `openGuidedOverview` clamps the
+  // section before it writes the URL, so nothing puts "transactions" in the URL by accident.
+  // Asking for it explicitly is answered by the view's own "No activity yet" state.
+  const resolvedGuidedOverviewSection = guidedOverviewSection;
   const activeAdminGroupId: GuidedAdminGroupId | null =
     selectedIntent === "manage-people" || selectedIntent === "wallet-settings"
       ? "wallet-settings"

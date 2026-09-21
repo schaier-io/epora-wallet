@@ -231,18 +231,23 @@ describe("signing path selection", () => {
 });
 
 /**
- * The intro was four steps in one sentence and ended by naming "Select suggested inputs", a
- * button that lives inside a collapsed Advanced section the reader cannot see yet. The app
- * picks the fund pools on its own, so the last two steps are not the reader's to take.
+ * The form used to open with its own heading, "Send from this smart wallet", over a hint
+ * that named the two fields below it. The card around this form is already titled "Send
+ * funds" and carries the one sentence that says what a send does, so the heading was a
+ * fourth title for one two-field form. The review rail's "Next step" box still tells the
+ * reader what to do next.
+ *
+ * The earlier version of this test also guarded the hint against naming "Select suggested
+ * inputs", a button inside a collapsed Advanced section. That guard stays: the form must
+ * not point at controls the reader cannot see.
  */
 describe("send form intro", () => {
-  it("does not name a control the reader cannot see", () => {
+  it("opens on the fields, with no heading of its own", () => {
     const { container } = renderView();
 
     expect(container.textContent).not.toContain("Select suggested inputs");
-    expect(
-      screen.getByText(/Choose a recipient and amount, then preview your send/)
-    ).toBeInTheDocument();
+    expect(screen.queryByText("Send from this smart wallet")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Recipient")).toBeInTheDocument();
   });
 });
 

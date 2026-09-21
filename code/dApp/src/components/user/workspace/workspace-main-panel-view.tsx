@@ -66,7 +66,6 @@ export function WorkspaceMainPanelView() {
     activeActionDefinition,
     clearActionDraft,
     resetActionDraft,
-    selectedActionRouteExplanation,
     sendRouteExplanation,
     hasActiveComposer,
   } = state;
@@ -129,7 +128,10 @@ export function WorkspaceMainPanelView() {
                             // "Create new wallet") read as two headings for one screen.
                             // The card names the form, not the job.
                             i18n("walletSetup")
-                          : i18n("value1Details", { value1: activeActionDefinition.label })
+                          : // The action's own name, not "<name> details". The breadcrumb
+                            // above the panel and the sidebar entry that opened it both say
+                            // "Send funds"; "details" was the only word this heading added.
+                            activeActionDefinition.label
                       }
                       description={
                         userFlowBranch === "new-wallet"
@@ -137,7 +139,14 @@ export function WorkspaceMainPanelView() {
                             // choose who can use it, and add its first funds."), so this says what the
                             // thing is instead. Same promise the celebration overlay confirms at the end.
                             i18n("oneSharedCardanoWalletWithKeyRecoveryNo")
-                          : selectedActionRouteExplanation
+                          : // Empty on purpose, so the card renders no subtitle. The route
+                            // explanation ("This is the normal send flow for this wallet.")
+                            // sat one line above `definition.outcome` ("Sends selected funds
+                            // to a recipient while keeping wallet rules unchanged."), which
+                            // says the same thing and says it concretely. One sentence, not
+                            // two. An empty string suppresses the fallback to
+                            // `definition.description`, which is a third phrasing again.
+                            ""
                       }
                       selectedAction={selectedAction}
                       selectedDetectedToken={Boolean(selectedDetectedToken)}

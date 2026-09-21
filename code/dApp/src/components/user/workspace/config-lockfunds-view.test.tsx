@@ -132,9 +132,12 @@ describe("adding funds yourself", () => {
       screen.getByText("Move ADA or tokens from the wallet you are connected with into this one.")
     ).toBeInTheDocument();
     expect(screen.getByText("What to add")).toBeInTheDocument();
+    // The asset group's helper is gone: it said the same thing as the section heading
+    // asserted above, over fields already labelled "How much (ADA)" and "Asset". The
+    // label stays, because it is the group's accessible name.
     expect(
-      screen.getByText("Set the ADA amount, or add any tokens the connected wallet already holds.")
-    ).toBeInTheDocument();
+      screen.queryByText("Set the ADA amount, or add any tokens the connected wallet already holds.")
+    ).not.toBeInTheDocument();
   });
 
   it("drops the lock-and-asset-row vocabulary", () => {

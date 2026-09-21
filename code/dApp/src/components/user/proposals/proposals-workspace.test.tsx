@@ -21,6 +21,7 @@ const session = vi.hoisted(() => ({
 const wallet = vi.hoisted(() => ({ value: { walletSessionLoading: false } }));
 const list = vi.hoisted(() => ({
   proposals: [] as ProposalListItemDto[],
+  error: null as string | null,
   enabled: null as boolean | null
 }));
 const client = vi.hoisted(() => ({ fetch: vi.fn() }));
@@ -40,7 +41,7 @@ vi.mock("./use-proposals", () => ({
       loading: false,
       loadingMore: false,
       hasMore: false,
-      error: null,
+      error: list.error,
       refresh: vi.fn(),
       loadMore: vi.fn()
     };
@@ -93,6 +94,7 @@ const report = async () =>
 
 beforeEach(() => {
   nav.params = "";
+  list.error = null;
   session.value = {
     session: { paymentKeyHash: "cc".repeat(28) },
     activeAddress: "addr_test1qqnuqpkw339ylpxvkmxf56d6vygcjejen3evkm8ahnfksyq070e4uyvacq",
@@ -280,7 +282,60 @@ describe("the proposals shell", () => {
     render(<ProposalsWorkspace />);
 
     expect(screen.getByRole("alert")).toHaveTextContent("Could not sign out. Try again.");
-    expect(screen.getByRole("heading", { name: "Approval requests" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Co-signing" })).toBeInTheDocument();
     expect(screen.queryByText("sign in gate")).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * With no requests, the two-column split put "No approval requests yet." in a 440px pane
+ * beside a second empty pane reading "Select a request to verify and sign it."
+ * The right pane told the reader to pick from the list the left pane had just said was
+ * empty. The placeholder is correct once requests exist and none is picked.
+ */
+describe("the empty workspace", () => {
+  it("does not offer a selection when there is nothing to select", () => {
+    list.proposals = [];
+    render(<ProposalsWorkspace />);
+
+    expect(
+      screen.queryByText("Select a request to verify and sign it.")
+    ).toBeNull();
+  });
+
+  /**
+   * The detail runs its own query, so an empty list says nothing about whether the open
+   * proposal loads: the list may have filtered or paged it out, and the list also empties
+   * when the last request settles while its detail is still on screen. Collapsing to one
+   * column on `proposals.length === 0` alone dropped the detail column, and the list
+   * column is already hidden whenever a proposal is selected, so the page went blank.
+   */
+  it("still renders the open proposal when the list comes back empty", () => {
+    list.proposals = [];
+    nav.params = "proposal=p1";
+    render(<ProposalsWorkspace />);
+
+    expect(screen.getByText("detail")).toBeInTheDocument();
+  });
+
+  it("does not tell the reader to pick from a list that failed to load", () => {
+    list.proposals = [];
+    list.error = "Could not load approval requests.";
+    render(<ProposalsWorkspace />);
+
+    expect(
+      screen.queryByText("Select a request to verify and sign it.")
+    ).toBeNull();
+  });
+
+  it("keeps the placeholder once there are requests to pick from", () => {
+    list.proposals = [
+      { id: "p1", status: "pending" } as unknown as ProposalListItemDto
+    ];
+    render(<ProposalsWorkspace />);
+
+    expect(
+      screen.getByText("Select a request to verify and sign it.")
+    ).toBeInTheDocument();
   });
 });

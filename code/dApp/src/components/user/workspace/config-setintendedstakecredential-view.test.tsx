@@ -46,11 +46,20 @@ function renderView({ stakingEnabled = false } = {}) {
 }
 
 describe("section heading and description", () => {
-  it("does not repeat the card title above it", () => {
+  /**
+   * The section used to carry the heading "What turning it on does". By the time the
+   * reader reaches it they have already read the card title "Enable staking", the
+   * outcome sentence under it, and the "What this does" disclosure. Three headings for
+   * one explanation. The explanation itself stays; the heading is gone.
+   */
+  it("explains without a fourth heading, and without repeating the card title", () => {
     renderView();
 
-    expect(screen.getByText("What turning it on does")).toBeInTheDocument();
+    expect(screen.queryByText("What turning it on does")).not.toBeInTheDocument();
     expect(screen.queryByText("Enable staking")).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/This wallet cannot earn staking rewards yet/)
+    ).toBeInTheDocument();
   });
 
   it("drops the contract's vocabulary for the reader's", () => {

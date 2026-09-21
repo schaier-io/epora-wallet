@@ -83,15 +83,21 @@ describe("locked assets panel", () => {
     expect(container.textContent).not.toMatch(/Nothing inside this wallet yet/);
   });
 
-  it("counts the assets it actually lists", () => {
-    render(
+  /**
+   * The heading used to carry "N assets in this wallet." under it. The rows below are the
+   * count, and on an ADA-only wallet that line was the third statement on the dashboard
+   * that the wallet holds one asset, after the hero balance and the single row itself.
+   */
+  it("lists the assets without counting them in a sentence", () => {
+    const { container } = render(
       <LockedAssetsOverviewPanel
         utxoCount={1}
         assets={[{ unit: "lovelace", quantity: "8000000" }]}
       />
     );
 
-    expect(screen.getByText("1 asset in this wallet.")).toBeTruthy();
+    expect(container.textContent).not.toMatch(/in this wallet\./);
+    expect(screen.getByText("ADA")).toBeTruthy();
   });
 });
 

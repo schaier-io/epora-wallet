@@ -51,7 +51,7 @@ describe("proposals sign-in gate", () => {
     render(<SignInGate session={controller()} />);
 
     const heading = screen.getByRole("heading", { level: 1 });
-    expect(heading).toHaveTextContent(/sign in to see approval requests/i);
+    expect(heading).toHaveTextContent(/sign in to see requests to co-sign/i);
   });
 
   /**
