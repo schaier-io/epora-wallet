@@ -4,11 +4,6 @@ import { cn } from "@/lib/utils/cn";
 import { CopyButton } from "@/components/ui/copy-button";
 import { type TaskDefinition } from "@/components/user/flow-types";
 import type { ReviewReceiptItem } from "@/components/user/review-panel";
-import {
-  type PresignCostRow,
-  type PresignCostRowId
-} from "@/lib/user-flow/presign-costs";
-import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 import { AddressCopyButton } from "@/components/ui/address-copy-button";
 
 // Presentational sections lifted out of `UserReviewPanel` to keep that file
@@ -200,80 +195,6 @@ export function ReviewActionExplainer({
         </p>
         <p className="mt-1.5 text-foreground">{definition.startingPoint}</p>
       </div>
-    </div>
-  );
-}
-
-// Which money moves before and when this transaction signs, in the order a reader
-// asks about it: what the network charges, what the protocol holds aside, what the
-// connected (browser) wallet holds now, and what is left. The balance rows are the
-// signer's own connected wallet -- the one that pays the fee -- never the smart
-// wallet's funds, so every balance label names it. Rows exist only for amounts a caller actually
-// produced (see `buildPresignCostRows`): a missing deposit or minimum-UTxO figure is
-// a row that does not render, never a guessed number.
-const COST_ROW_LABEL_KEYS: Record<
-  PresignCostRowId,
-  "networkFee" | "minimumUtxo" | "deposit" | "refund" | "walletBalance" | "walletBalanceAfterFee"
-> = {
-  fee: "networkFee",
-  minimumUtxo: "minimumUtxo",
-  deposit: "deposit",
-  refund: "refund",
-  balance: "walletBalance",
-  balanceAfterFee: "walletBalanceAfterFee"
-};
-
-/**
- * What this transaction costs and what the wallet keeps, shown before the sign
- * button. Estimated rows (the fee, and anything derived from it) carry an
- * "estimated" tag; the final charge is fixed by the wallet at signing. Exact rows
- * (the refreshed balance) carry none. Renders nothing when no amount is available,
- * so an unbuilt transaction shows no fake costs.
- */
-export function ReviewCosts({ rows }: { rows: PresignCostRow[] }) {
-  const i18n = useTranslations("ComponentsUserReviewPanelSections");
-  if (rows.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className="mt-3 rounded-lg border border-border/60 bg-background/40 p-3">
-      <dl>
-        {rows.map((row, index) => (
-          <div
-            key={row.id}
-            className={cn(
-              "flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1",
-              index > 0 && "mt-2"
-            )}
-          >
-            <dt className="eyebrow text-muted-foreground">
-              {i18n(COST_ROW_LABEL_KEYS[row.id])}
-            </dt>
-            {/* `tabular-nums`: these are the amounts the reader compares down the
-                column before signing, and proportional digits shift the decimal
-                point from row to row. */}
-            <dd className="flex items-baseline gap-1.5 text-sm font-medium tabular-nums text-foreground">
-              {formatLovelaceAsAda(row.lovelace)} ₳
-              {row.precision === "estimated" ? (
-                <span className="eyebrow rounded border border-border/60 px-1">
-                  {i18n("estimated")}
-                </span>
-              ) : null}
-            </dd>
-            {row.id === "fee" ? (
-              <dd className="basis-full text-xs leading-snug text-muted-foreground">
-                {i18n("paidToTheCardanoNetworkOnTopOf")}
-              </dd>
-            ) : null}
-            {row.id === "balanceAfterFee" ? (
-              <dd className="basis-full text-xs leading-snug text-muted-foreground">
-                {i18n("balanceAfterFeeDetail")}
-              </dd>
-            ) : null}
-          </div>
-        ))}
-      </dl>
     </div>
   );
 }

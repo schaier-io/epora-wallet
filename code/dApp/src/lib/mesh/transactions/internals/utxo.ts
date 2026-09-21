@@ -252,6 +252,18 @@ export async function resolveWalletUtxos(
   diagnostics.fallbackUtxoCount = dedupedUtxos.length;
 
   if (dedupedUtxos.length === 0) {
+    // Provider lookups failing for every address is an outage, not an empty
+    // wallet, so it gets its own message. It stays machine-shaped and
+    // unexpected: the build-error mapping only owns the truly-empty message
+    // below, and an outage must keep its console diagnostic and Sentry signal.
+    if (fetchAddressErrors.length > 0) {
+      throw createStageError(
+        "setup:getUtxos:fallback",
+        new Error("Wallet fallback address lookups failed and no UTxOs could be resolved"),
+        diagnostics
+      );
+    }
+
     throw createStageError(
       "setup:getUtxos:fallback",
       new Error("Unable to resolve wallet UTxOs from fallback addresses."),

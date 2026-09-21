@@ -36,9 +36,9 @@ function assetAmount(asset: AgentBudgetAsset, value: string) {
 
 function AgentBudgetRow({ label, amount }: { label: string; amount: string }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 text-sm">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="min-w-0 text-right font-medium tabular-nums text-foreground">{amount}</dd>
+    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-sm">
+      <dt className="shrink-0 text-muted-foreground">{label}</dt>
+      <dd className="ml-auto min-w-0 max-w-full wrap-anywhere text-right font-medium tabular-nums text-foreground">{amount}</dd>
     </div>
   );
 }
@@ -257,7 +257,7 @@ export function AgentSpendingConsole({
 
         <p className="text-xs text-muted-foreground">{i18n("freshnessNote")}</p>
 
-          <div className="grid gap-3 lg:grid-cols-[repeat(auto-fit,minmax(20rem,1fr))]">
+          <div className="grid gap-3 lg:grid-cols-[repeat(auto-fit,minmax(min(20rem,100%),1fr))]">
             {budgets.map((budget) => (
               <AgentBudgetCard key={`${budget.recordIndex}-${budget.userId}`} budget={budget} />
             ))}

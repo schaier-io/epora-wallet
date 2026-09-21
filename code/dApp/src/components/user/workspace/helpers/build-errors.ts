@@ -236,6 +236,30 @@ function resolveBuildErrorOutcome(
     return ["Your connected wallet needs one holding with about 6 ADA in it, a little more if that holding also carries tokens. Cardano sets 5 ADA aside as a deposit while a smart wallet transaction runs, and returns it when the transaction succeeds. Tokens in that holding come back to you, so it does not have to be a token-free holding. Add ADA to the wallet, then try again. You do not need to set collateral in your wallet app.", true];
   }
 
+  // The wallet answered every CIP-30 read with nothing: no UTxOs and not even a
+  // change address. A funded wallet always has a change address, so this is a
+  // wallet-side connection or extension failure (seen live from VESPR), not a
+  // build failure. A retry after reconnecting is the reader's way out.
+  if (
+    allMessages.some((message) =>
+      message.includes("Wallet returned no UTxOs and no fallback addresses")
+    )
+  ) {
+    return ["The connected wallet returned no addresses or spendable UTxOs. Unlock the wallet, refresh the page, and connect it again, then try this action once more. If the wallet is new, fund it with some ADA first.", true];
+  }
+
+  // The wallet named its addresses and every chain lookup succeeded, yet none
+  // of them holds a spendable UTxO: an empty wallet, or a just-funded one the
+  // indexer has not caught up with. The provider-outage variant of this throw
+  // ("Wallet fallback address lookups failed...") deliberately stays unexpected.
+  if (
+    allMessages.some((message) =>
+      message.includes("Unable to resolve wallet UTxOs from fallback addresses")
+    )
+  ) {
+    return ["The wallet has no spendable UTxOs right now. Fund it with some ADA and try again. If you funded it moments ago, wait a little for the chain to catch up.", true];
+  }
+
   if (allMessages.some((message) => message.includes("BabbageOutputTooSmallUTxO"))) {
     return ["Cardano rejected this transaction because one of its payments holds less ADA than the network allows. If you staged a very small payout, raise it and try again.", true];
   }

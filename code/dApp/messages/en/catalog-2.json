@@ -137,33 +137,15 @@
     "viewTransactionHashOnCardanoscan": "View transaction on Cardanoscan: {hash}"
   },
   "ComponentsUserReviewPanelPreview": {
-    "change": "Change",
-    "changeDetail": "Funds the transaction doesn't spend go back to the wallet that signs.",
-    "changeValue": "Returns to your wallet",
     "continueAgainToRefreshThemForThisAction": ". Continue again to refresh them for this action.",
-    "costsAppearAfterBuild": "The fee and your balance after it appear here once the transaction is built.",
     "headsUpBeforeYouSign": "Heads up before you sign",
     "notBuiltYet": "Not built yet.",
     "readyToSign": "Ready to sign.",
-    "signer": "Connected signer",
-    "signerDetail": "Only this wallet can approve the transaction.",
     "theSavedTransactionDetailsBelongTo": "The saved transaction details belong to",
-    "validity": "Valid for",
-    "validityDetail": "Past that the chain rejects it. Build again for a fresh window.",
-    "validityValue": "{minutes} minutes after it's built",
     "yourWalletWillOpenAutomaticallyToSign": "Your wallet will open automatically to sign."
   },
   "ComponentsUserReviewPanelSections": {
-    "balanceAfterFeeDetail": "Your connected wallet balance minus the estimated fee. This is the wallet you sign with, not the smart wallet. What this action moves is listed above.",
-    "deposit": "Deposit set aside",
-    "estimated": "estimated",
     "firstStep": "First step",
-    "minimumUtxo": "Minimum ADA on outputs",
-    "networkFee": "Network fee",
-    "paidToTheCardanoNetworkOnTopOf": "Paid to the Cardano network, on top of the amount above. Estimated now; the final charge is fixed when you sign.",
-    "refund": "Deposit returned",
-    "walletBalance": "Connected wallet balance now",
-    "walletBalanceAfterFee": "Connected wallet balance after the fee",
     "whatChanges": "What changes",
     "whatThisDoes": "What this does",
     "whenToUseIt": "When to use it"
