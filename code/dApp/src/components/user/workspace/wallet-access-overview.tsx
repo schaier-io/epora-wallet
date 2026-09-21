@@ -39,12 +39,36 @@ export function WalletAccessOverview({
     recovery: i18n("recoveryContact"),
     "listed-user": i18n("listedUser")
   };
+  /**
+   * Roles the permission list below already states in full, so a badge for one would name
+   * the same access twice a line apart: "Owner" over "Manage wallet rules and people.",
+   * "Spender" over "Send through your available authorization paths.".
+   *
+   * `co-signer` is deliberately absent. `wallet-access-summary.ts` sets both `canSend` and
+   * `canManageWallet` for a co-signer, so the list always has rows for one, and gating the
+   * whole badge row on an empty list meant a co-signer read exactly what an owner reads.
+   * Acting together with others is not in the list at all; it is a line inside the
+   * collapsed "Permission details" disclosure. `listed-user` only exists when all four
+   * permissions are false, so its badge survives on its own.
+   */
+  const rolesStatedByPermissionList = new Set<WalletAccessRole>([
+    "owner",
+    "spender",
+    "proof-of-life",
+    "recovery"
+  ]);
   const permissions = [
     summary.canManageWallet ? i18n("managePermission") : null,
     summary.canSend ? i18n("sendPermission") : null,
     summary.canRenewProofOfLife ? i18n("renewPermission") : null,
     summary.recoveryAccess.length > 0 ? i18n("recoveryPermission") : null
   ].filter((value): value is string => Boolean(value));
+  // With no permission rows at all, every role is news, including the ones the list would
+  // otherwise have stated.
+  const badgeRoles =
+    permissions.length === 0
+      ? summary.roles
+      : summary.roles.filter((role) => !rolesStatedByPermissionList.has(role));
   const approvalPower = [
     summary.roles.includes("owner") ? i18n("ownerApproval") : null,
     summary.approvalPowers.length > 0 && summary.approvalThreshold
@@ -83,21 +107,17 @@ export function WalletAccessOverview({
           </span>
           <div className="min-w-0 flex-1">
             <h3 className="text-sm font-semibold text-foreground">{i18n("yourAccess")}</h3>
-            {/* The role badges are a fallback, not a header. With a permission list under
-                them they named the same access twice a line apart: "Owner" and
-                "Proof-of-life renewer" over "Manage wallet rules and people." / "Send
-                through your available authorization paths." / "Renew the proof of life."
-                The list says what the reader may do, so it wins when it has rows.
-                The roles are derived separately from the permissions, so a listed user
-                with no permission of their own still gets a badge. */}
-            <div className="mt-2 flex flex-wrap gap-2">
-              {summary.readOnly ? <Badge variant="outline">{i18n("readOnly")}</Badge> : null}
-              {permissions.length === 0
-                ? summary.roles.map((role) => (
-                    <Badge key={role} variant="outline">{roleLabels[role]}</Badge>
-                  ))
-                : null}
-            </div>
+            {/* Only the roles the list under this does not already state. See
+                `rolesStatedByPermissionList`. The row renders nothing rather than an empty
+                flex box, which left 8px of dead space under the heading. */}
+            {summary.readOnly || badgeRoles.length > 0 ? (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {summary.readOnly ? <Badge variant="outline">{i18n("readOnly")}</Badge> : null}
+                {badgeRoles.map((role) => (
+                  <Badge key={role} variant="outline">{roleLabels[role]}</Badge>
+                ))}
+              </div>
+            ) : null}
           </div>
         </div>
 

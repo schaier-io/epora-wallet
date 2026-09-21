@@ -79,7 +79,12 @@ export function GuidedAdminSectionView() {
                   // globals.css.
                   data-expanded={isActive ? "true" : undefined}
                   className={cn(
-                    "user-surface user-card-lift user-sidebar-card relative z-10 min-w-0 overflow-hidden rounded-lg border p-3 transition-[background-color,border-color,box-shadow,transform]",
+                    // No `user-card-lift` and no `transform` here. The lift belongs to the
+                    // `SpotlightCard` wrapper (`guidedSidebarSpotlightClass`), which is the
+                    // element that clips. Lifting this div as well moved the card 4px
+                    // against the 2px of the action cards beside it, and sent this div's
+                    // own top border under the wrapper's `overflow-hidden`.
+                    "user-surface user-sidebar-card relative z-10 min-w-0 overflow-hidden rounded-lg border p-3 transition-[background-color,border-color,box-shadow]",
                     isActive ? guidedSidebarActiveSurfaceClass : guidedSidebarIdleSurfaceClass
                   )}
                 >

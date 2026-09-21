@@ -21,6 +21,7 @@ const session = vi.hoisted(() => ({
 const wallet = vi.hoisted(() => ({ value: { walletSessionLoading: false } }));
 const list = vi.hoisted(() => ({
   proposals: [] as ProposalListItemDto[],
+  error: null as string | null,
   enabled: null as boolean | null
 }));
 const client = vi.hoisted(() => ({ fetch: vi.fn() }));
@@ -40,7 +41,7 @@ vi.mock("./use-proposals", () => ({
       loading: false,
       loadingMore: false,
       hasMore: false,
-      error: null,
+      error: list.error,
       refresh: vi.fn(),
       loadMore: vi.fn()
     };
@@ -93,6 +94,7 @@ const report = async () =>
 
 beforeEach(() => {
   nav.params = "";
+  list.error = null;
   session.value = {
     session: { paymentKeyHash: "cc".repeat(28) },
     activeAddress: "addr_test1qqnuqpkw339ylpxvkmxf56d6vygcjejen3evkm8ahnfksyq070e4uyvacq",
@@ -314,6 +316,16 @@ describe("the empty workspace", () => {
     render(<ProposalsWorkspace />);
 
     expect(screen.getByText("detail")).toBeInTheDocument();
+  });
+
+  it("does not tell the reader to pick from a list that failed to load", () => {
+    list.proposals = [];
+    list.error = "Could not load approval requests.";
+    render(<ProposalsWorkspace />);
+
+    expect(
+      screen.queryByText("Select an approval request to verify and sign it.")
+    ).toBeNull();
   });
 
   it("keeps the placeholder once there are requests to pick from", () => {

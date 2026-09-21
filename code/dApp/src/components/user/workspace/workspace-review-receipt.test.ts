@@ -280,3 +280,30 @@ test("an empty draft leaves the instruction to the Next step box", () => {
   assert.equal(receipt.summary, "");
   assert.ok(receipt.items.length > 0);
 });
+
+/**
+ * Which UTxOs fund a send is how Cardano works, not something the reader chose, and the
+ * row's detail ("The fund pools you choose pay for this send.") restated the row above it.
+ * At zero pools the count stops being trivia and becomes the blocker, so the row appears
+ * exactly there. The summary drops the count for the same reason.
+ */
+test("the send receipt counts fund pools only when there are none to spend", () => {
+  const withPools = computeReviewReceipt(sendCtx([transfer(ADDRESS_ONE, "5000000")]));
+
+  assert.equal(
+    withPools.items.find((item) => item.label === "Funding"),
+    undefined
+  );
+  assert.doesNotMatch(withPools.summary, /fund pool/);
+  assert.match(withPools.summary, /5 ₳/);
+
+  const withoutPools = computeReviewReceipt({
+    ...sendCtx([transfer(ADDRESS_ONE, "5000000")]),
+    sttWalletInputs: []
+  });
+  const funding = withoutPools.items.find((item) => item.label === "Funding");
+
+  assert.equal(funding?.value, "0 fund pools");
+  assert.equal(funding?.tone, "warning");
+  assert.equal(funding?.detail, undefined);
+});

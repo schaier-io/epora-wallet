@@ -84,6 +84,20 @@ describe("a tab chip's accessible name", () => {
       screen.getByRole("button", { name: "Add a scheduled payment. Create" })
     ).toBeInTheDocument();
   });
+
+  /**
+   * The chip shows a truncated `shortLabel`, and the header row that once printed the
+   * selected task's full `label` as a badge is gone. Without a `title` the full name is in
+   * `aria-label` alone, which a sighted pointer user never reaches.
+   */
+  it("gives a sighted reader the full label too", () => {
+    renderSurface();
+
+    expect(screen.getByRole("button", { name: "Add a scheduled payment. Create" })).toHaveAttribute(
+      "title",
+      "Add a scheduled payment"
+    );
+  });
 });
 
 describe("radius rungs", () => {

@@ -22,7 +22,10 @@ export const guidedSidebarSpotlightClass =
 // title and nothing else. They kept the height and the top alignment of the three-line
 // cards they used to be, which left a single line of text sitting high in a 64px box.
 // `workspace-guided-admin-section-view.tsx` still renders title, badges and a description,
-// and overrides the padding and alignment itself.
+// so it writes its own padding and alignment instead of using this. It takes the lift from
+// `guidedSidebarSpotlightClass` above like every other card list, and must not carry
+// `user-card-lift` itself: two lifts on nested elements double the travel and put the inner
+// border back under the clip.
 export const guidedSidebarButtonClass =
     "user-surface user-sidebar-card relative z-10 flex w-full min-w-0 items-center justify-between gap-3 overflow-hidden rounded-lg border px-3 py-2.5 text-left transition-[background-color,border-color,box-shadow]";
 export const guidedSidebarTextClass = "min-w-0 flex-1 overflow-hidden";

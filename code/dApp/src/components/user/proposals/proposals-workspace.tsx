@@ -62,7 +62,13 @@ export function ProposalsWorkspace() {
   // `?proposal=<id>` for a request the list does not return dropped the detail column
   // while the list column was already hidden by `selectedId`, leaving a blank page below
   // `lg`; and signing the last open request unmounted the detail mid-flow.
-  const listOnly = proposals.length === 0 && !selectedId && !loading && !error;
+  //
+  // A failed load collapses too. With `!error` in here, an error in the list column sat
+  // beside a pane reading "Select an approval request to verify and sign it." -- an
+  // instruction to pick from a list that had just failed to load. `loading` is the one
+  // state that keeps both columns: a wallet with requests is the common case, and holding
+  // the grid avoids a column appearing under the reader as the rows arrive.
+  const listOnly = proposals.length === 0 && !selectedId && !loading;
   // Whether this session opened the proposal from the list. If it did, the detail's Back
   // button should retrace that step; if the user arrived on the link directly there is
   // nothing of ours behind it, and `router.back()` would leave the app.

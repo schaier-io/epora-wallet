@@ -99,10 +99,13 @@ export const activityVisibleEndAtom = atom((get) =>
 );
 
 /**
- * Loading and empty only. This used to fall through to "1 to 5 of 19", which the paging
- * row under the list already states as "Showing 1-5 of 19" next to the Previous/Next
- * buttons it belongs to. Two spellings of one range, a card apart. `null` means the header
- * shows no badge.
+ * Loading and empty only. This used to fall through to "1 to 5 of 19", which the paging row
+ * under the list states as "Showing 1-5 of 19" beside the Previous/Next buttons it belongs
+ * to: two spellings of one range, a card apart. `null` means the header shows no badge.
+ *
+ * Below `WALLET_ACTIVITY_PAGE_SIZE` there is no paging row either, and no range is stated
+ * anywhere. That is deliberate: every row is on screen, so the reader can see how many
+ * there are without being told.
  */
 export const activityRangeLabelAtom = atom((get) => {
   if (get(walletTransactionsAtom).loading) return i18n("refreshing");

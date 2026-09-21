@@ -137,6 +137,29 @@ export function TechnicalDetail({
   );
 }
 
+/**
+ * The one-line timestamp for a Home activity row. The relative label alone while there is
+ * one: five rows each carrying "18h ago · Sep 20, 2026, 9:54 PM UTC" said the same time
+ * twice and made the timestamp longer than the event it described. The exact date and the
+ * slot stay in that row's tooltip, and the full list behind "See all" keeps both columns.
+ *
+ * The absolute date is the fallback, not decoration. `formatWalletTransactionRelative`
+ * returns null past a week (`helpers/formatters.ts`), so without it a month-old
+ * transaction read "Time not available" while the app held the exact date, and
+ * `recent-activity-timeline` builds the row's `aria-label` from this string, so a screen
+ * reader was told the same.
+ *
+ * Exported for its test: the branch only runs deep inside the Home tree, behind a dozen
+ * atoms, and the view-level suite does not reach it.
+ */
+export function compactActivityTimestamp(
+  relativeLabel: string | null,
+  timestampLabel: string | null,
+  unavailableLabel: string
+): string {
+  return relativeLabel || timestampLabel || unavailableLabel;
+}
+
 export function WorkspaceWalletDashboardView() {
   const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceWalletDashboardView");
   const state = useWorkspaceActions();
@@ -256,19 +279,11 @@ export function WorkspaceWalletDashboardView() {
                             badgeClassName: activity.badgeClassName,
                             amountSummary: activity.amountSummary,
                             amountClassName: activity.amountClassName,
-                            // The relative label alone, while there is one. Five rows each
-                            // carrying "18h ago · Sep 20, 2026, 9:54 PM UTC" said the same
-                            // time twice and made the timestamp longer than the event it
-                            // described. The exact date and the slot stay in the tooltip
-                            // below, and the full list behind "See all" keeps both columns.
-                            //
-                            // `formatWalletTransactionRelative` returns null past a week
-                            // (`helpers/formatters.ts`), so the absolute date must stay as
-                            // the fallback. Without it a month-old transaction read "Time
-                            // not available" while the app held the exact date, and the
-                            // row's `aria-label` said the same to a screen reader.
-                            timestampDisplay:
-                              relativeLabel || timestampLabel || i18n("timeNotAvailable"),
+                            timestampDisplay: compactActivityTimestamp(
+                              relativeLabel,
+                              timestampLabel,
+                              i18n("timeNotAvailable")
+                            ),
                             timestampTooltip: timestampLabel
                               ? i18n("timestamplabelSlotValue2", {
                                   timestampLabel: timestampLabel,
