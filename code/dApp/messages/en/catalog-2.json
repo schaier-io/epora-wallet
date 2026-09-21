@@ -17,7 +17,8 @@
     "walletId": "Wallet ID",
     "message_1PersonStillToSign": "1 person still to sign.",
     "outstandingPeopleStillToSign": "{outstanding} people still to sign.",
-    "openWallet": "Open wallet"
+    "openWallet": "Open wallet",
+    "lookingForApprovalRequests": "Looking for approval requests…"
   },
   "ComponentsUserProposalsProposalsWorkspace": {
     "approvalRequests": "Approval requests",
