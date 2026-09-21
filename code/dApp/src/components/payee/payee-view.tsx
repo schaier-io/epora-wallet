@@ -12,7 +12,7 @@ import { defaultFormatter } from "@/i18n/default-translator";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAtomValue, useSetAtom } from "jotai";
-import { CircleSlash, HandCoins, Loader2, Wallet } from "lucide-react";
+import { AlertCircle, CircleSlash, HandCoins, Loader2, Wallet } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -419,9 +419,17 @@ export function PayeeView() {
               {i18n("lookingForPaymentsScheduledToYou")}
             </div>
           ) : loadError ? (
-            <p role="alert" className="text-sm text-rose-300">
-              {loadError}
-            </p>
+            // The same panel shape its two sibling states use, in the rose the rest of the
+            // app gives a failure. As bare `text-rose-300` the failure was the quietest of
+            // the three: the benign "nothing scheduled to you" result got a bordered panel
+            // and an icon, and the one state the reader has to act on got neither.
+            <div
+              role="alert"
+              className="flex items-start gap-3 rounded-lg border border-rose-500/40 bg-rose-500/10 p-3 text-sm text-rose-100"
+            >
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>{loadError}</span>
+            </div>
           ) : myPayments.length === 0 ? (
             <div
               role="status"
