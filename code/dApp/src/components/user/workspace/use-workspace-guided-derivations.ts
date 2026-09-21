@@ -308,10 +308,16 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
     walletTransactions.loading ||
     Boolean(walletTransactions.error) ||
     recentWalletActivityEvents.length > 0;
-  const resolvedGuidedOverviewSection =
-    guidedOverviewSection === "transactions" && !hasGuidedActivityContext
-      ? "home"
-      : guidedOverviewSection;
+  // The URL wins. This used to fall back to "home" whenever `hasGuidedActivityContext` was
+  // false, which threw away `?view=activity` on every cold load of a deep link: the activity
+  // query only runs once the wallet is connected AND its address is resolved, so at first
+  // paint there is neither a load in flight nor an event to count, and a wallet whose history
+  // is empty never gains one. The title (from the same URL) read "Activity" while the panel
+  // showed Wallet home. Clicking Activity still cannot land on an empty tab: the sidebar
+  // entry only renders with `hasGuidedActivityContext`, and `openGuidedOverview` clamps the
+  // section before it writes the URL, so nothing puts "transactions" in the URL by accident.
+  // Asking for it explicitly is answered by the view's own "No activity yet" state.
+  const resolvedGuidedOverviewSection = guidedOverviewSection;
   const activeAdminGroupId: GuidedAdminGroupId | null =
     selectedIntent === "manage-people" || selectedIntent === "wallet-settings"
       ? "wallet-settings"

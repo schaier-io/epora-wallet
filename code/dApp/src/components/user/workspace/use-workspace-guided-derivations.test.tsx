@@ -5,6 +5,8 @@ import { describe, expect, it } from "vitest";
 
 import type { TokenCapabilityMap } from "@/components/user/flow-types";
 import { useWorkspaceGuidedDerivations } from "@/components/user/workspace/use-workspace-guided-derivations";
+import { routeStateAtom } from "@/components/user/workspace/atoms/workspace-route.atoms";
+import { parseWorkspaceRouteState } from "@/components/user/workspace-controller";
 import { createDefaultStateForm } from "@/lib/contracts/state-form";
 import type { DetectedSttToken } from "@/lib/mesh/detection";
 
@@ -28,9 +30,11 @@ const EMPTY_DRAFT = { ready: false, dirty: false };
 function renderDerivations(
   capabilities: TokenCapabilityMap,
   advancedWalletActions: Parameters<typeof useWorkspaceGuidedDerivations>[0]["advancedWalletActions"] = [],
-  selectableWizardActionKinds: Parameters<typeof useWorkspaceGuidedDerivations>[0]["selectableWizardActionKinds"] = new Set()
+  selectableWizardActionKinds: Parameters<typeof useWorkspaceGuidedDerivations>[0]["selectableWizardActionKinds"] = new Set(),
+  // Seeded by the caller when the case turns on route state, which the derivations read
+  // through `routeStateAtom` rather than through these inputs.
+  store = createStore()
 ) {
-  const store = createStore();
   return renderHook(
     () =>
       useWorkspaceGuidedDerivations({
@@ -160,6 +164,29 @@ describe("workspace guided tool order", () => {
   });
 });
 
+
+/**
+ * A cold load of `?view=activity` carries no activity context: the activity query is gated on
+ * a connected wallet with a resolved address, so at first paint nothing is in flight and no
+ * event is counted, and a wallet with an empty history never gains one. The section used to
+ * fall back to "home" in that state, so the deep link opened Wallet home while the document
+ * title, read from the same URL, said "Activity".
+ */
+describe("a deep link to the activity section", () => {
+  it("keeps the section the URL asked for when no activity context has arrived", () => {
+    const store = createStore();
+    store.set(
+      routeStateAtom,
+      parseWorkspaceRouteState(new URLSearchParams("wallet=unit&step=overview&view=activity"))
+    );
+
+    const { result } = renderDerivations(NO_CAPABILITIES, [], new Set(), store);
+
+    expect(result.current.hasGuidedActivityContext).toBe(false);
+    expect(result.current.resolvedGuidedOverviewSection).toBe("transactions");
+    expect(result.current.isGuidedTransactionsSelected).toBe(true);
+  });
+});
 
 describe("normal beneficiary recovery entry", () => {
   it("starts with withdrawal and keeps exact distribution off the everyday cards", () => {
