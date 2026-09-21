@@ -261,9 +261,9 @@ export function useWorkspaceSttEditors(ctx: WorkspaceSttEditorsCtx) {
     setTransferDisplayAmount("");
     if (transferRecipientMode === "custom") {
       rememberRecipient(address);
-      setTransferCustomAddress("");
-      setTransferRecipientMode("");
     }
+    setTransferCustomAddress("");
+    setTransferRecipientMode("");
     setBuildError(null);
     setBuildErrorExpected(false);
     return null;

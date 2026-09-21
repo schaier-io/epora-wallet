@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SignInGate } from "./sign-in-gate";
@@ -12,6 +12,10 @@ const wallet = vi.hoisted(() => ({
 
 vi.mock("@/providers/wallet-provider", () => ({
   useWalletContext: () => wallet
+}));
+
+vi.mock("@/components/layout/wallet-panel", () => ({
+  WalletConnectionDialog: ({ open }: { open: boolean }) => open ? <div>Wallet chooser</div> : null
 }));
 
 function controller(
@@ -58,9 +62,11 @@ describe("proposals sign-in gate", () => {
     render(<SignInGate session={controller()} />);
 
     expect(
-      screen.getByText(/Use the Connect button at the top of this page/)
+      screen.getByText(/Connect your wallet, then sign a message/)
     ).toBeInTheDocument();
-    expect(signInButton()).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /sign in with wallet/i })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Connect wallet" }));
+    expect(screen.getByText("Wallet chooser")).toBeInTheDocument();
   });
 
   it("says the demo wallet cannot sign", () => {
@@ -69,7 +75,9 @@ describe("proposals sign-in gate", () => {
     render(<SignInGate session={controller()} />);
 
     expect(screen.getByText(/demo wallet can look, but it cannot sign/)).toBeInTheDocument();
-    expect(signInButton()).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /sign in with wallet/i })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Connect wallet" }));
+    expect(screen.getByText("Wallet chooser")).toBeInTheDocument();
   });
 
   /** One slot, one chrome: whichever reason applies renders in the same bordered callout. */

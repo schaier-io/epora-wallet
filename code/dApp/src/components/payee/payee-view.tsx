@@ -51,6 +51,8 @@ import {
   releasePayeeInputActionAtom
 } from "@/components/payee/payee-pending-inputs.atoms";
 
+import { planPayeeStop } from "./payee-stop-plan";
+
 import { usePayeeInventory } from "./use-payee-inventory";
 
 type RowActionState =
@@ -130,6 +132,24 @@ export function PayeeView() {
   const { tokens, loading, fetching, error: inventoryError, refresh: loadTokens } =
     usePayeeInventory(Boolean(activeAddress));
   const loadError = inventoryError ? i18n("unableToLoadScheduledPayments") : null;
+  const [stopReview, setStopReview] = useState<(ReturnType<typeof planPayeeStop> & { warnings?: string[] }) | null>(null);
+  const stopReviewRef = useRef<((approved: boolean) => void) | null>(null);
+  const settleStopReview = useCallback((approved: boolean) => {
+    const resolve = stopReviewRef.current;
+    stopReviewRef.current = null;
+    setStopReview(null);
+    resolve?.(approved);
+  }, []);
+  const stopSessionRef = useRef<object | null>(null);
+  useEffect(() => {
+    const session = {};
+    stopSessionRef.current = session;
+    return () => {
+      stopSessionRef.current = null;
+      settleStopReview(false);
+    };
+  }, [activeWallet, activeAddress, activePaymentKeyHash, isDemoWallet, networkId, settleStopReview]);
+
   const [shortenStates, setShortenStates] = useState<Record<string, RowActionState>>({});
   const [collectStates, setCollectStates] = useState<Record<string, RowActionState>>({});
   const [actionAnnouncement, setActionAnnouncement] = useState("");
@@ -206,7 +226,7 @@ export function PayeeView() {
             // The dialog is modal, so a second review can only come from a
             // racing action on another row. Decline it quietly instead of
             // queueing a second modal over the first.
-            if (warningReviewRef.current) {
+            if (warningReviewRef.current || stopReviewRef.current) {
               return Promise.resolve(false);
             }
             return new Promise<boolean>((resolve) => {
@@ -277,10 +297,15 @@ export function PayeeView() {
         return;
       }
       let submitted = false;
+      const session = stopSessionRef.current;
       setActionAnnouncement("");
       setShortenStates((prev) => ({ ...prev, [key]: { status: "submitting" } }));
       try {
         const validityWindowReferenceTimeMs = Date.now();
+        const validityWindow = getValidityWindow(validityWindowReferenceTimeMs);
+        const token = tokens.find((candidate) => detectedStateInputKey(candidate) === stateInputKey(payment));
+        if (!token?.datum) throw new Error(i18n("theWalletHoldingThisPaymentCouldNotBe"));
+        const plan = planPayeeStop(token.datum, payment.streamingPaymentId, validityWindow);
         const config: ContractConfig = {
           ...EMPTY_CONTRACT_CONFIG,
           walletPolicyId: payment.sttPolicyId,
@@ -297,6 +322,20 @@ export function PayeeView() {
           outputAssets: [],
           validityWindowReferenceTimeMs
         });
+        if (stopSessionRef.current !== session || !session) return;
+        if (stopReviewRef.current || warningReviewRef.current) return;
+        const approved = await new Promise<boolean>((resolve) => {
+          stopReviewRef.current = resolve;
+          setStopReview({ ...plan, warnings: build.warnings });
+        });
+        if (!approved || stopSessionRef.current !== session) {
+          setShortenStates((prev) => ({ ...prev, [key]: { status: "idle" } }));
+          return;
+        }
+        if (Date.now() >= validityWindow.latestTimeMs) {
+          setShortenStates((prev) => ({ ...prev, [key]: { status: "error", message: i18n("stopReviewExpired") } }));
+          return;
+        }
         const txHash = await signAndSubmitTx(activeWallet, build.txHex);
         submitted = true;
         markStateInputSubmitted({ key: inputKey, txHash });
@@ -318,11 +357,14 @@ export function PayeeView() {
       } finally {
         if (!submitted) {
           endStateInputAction(inputKey);
+          setShortenStates((prev) => prev[key]?.status === "submitting"
+            ? { ...prev, [key]: { status: "idle" } } : prev);
         }
       }
     },
     [
       activeWallet,
+      tokens,
       loadTokens,
       i18n,
       beginStateInputAction,
@@ -585,6 +627,34 @@ export function PayeeView() {
           )}
         </CardContent>
       </Card>
+      <PopupDialog
+        open={stopReview !== null}
+        onOpenChange={(open) => { if (!open) settleStopReview(false); }}
+        title={i18n("stopReviewTitle")}
+        description={i18n("stopReviewDescription")}
+      >
+        {stopReview ? (
+          <div className="space-y-4">
+            <dl className="space-y-3 text-sm">
+              <div><dt className="text-muted-foreground">{i18n("stopTime")}</dt>
+                <dd className="break-words font-mono">{new Date(stopReview.cutoff).toISOString()}</dd></div>
+              <div><dt className="text-muted-foreground">{i18n("retainedDebt")}</dt>
+                <dd>{i18n("amount", {
+                  amount: stopReview.policyId === "" && stopReview.assetName === ""
+                    ? formatLovelaceAsAda(stopReview.retainedDebt) : stopReview.retainedDebt,
+                  asset: assetLabel(stopReview.policyId, stopReview.assetName)
+                })}</dd></div>
+            </dl>
+            {stopReview.warnings?.length ? <ul className="space-y-2 text-sm">
+              {stopReview.warnings.map((warning, index) => <li key={index}>{warning}</li>)}
+            </ul> : null}
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => settleStopReview(false)}>{i18n("cancel")}</Button>
+              <Button type="button" variant="destructive" onClick={() => settleStopReview(true)}>{i18n("confirmStop")}</Button>
+            </div>
+          </div>
+        ) : null}
+      </PopupDialog>
       {/* The builder found something the reader should see before the wallet asks
           for a signature. Each warning is one bordered row, in the page's warning
           amber, so a list reads as a list rather than one truncated sentence. */}

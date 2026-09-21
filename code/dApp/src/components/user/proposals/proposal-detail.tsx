@@ -236,7 +236,21 @@ export function ProposalDetail({
           ) : null}
         </CardHeader>
         <CardContent className="space-y-4">
+          <EffectSection verification={verification} />
           {detail.status === "OPEN" ? <StateTransitionReview transition={verification?.stateTransition ?? null} /> : null}
+
+          <SignersSection verification={verification} />
+
+          {verification && verification.reasons.length > 0 ? (
+            <section className="space-y-1 rounded-lg border border-amber-400/30 bg-amber-500/10 p-3 sm:p-4 text-sm text-amber-100">
+              <p className="font-semibold">{i18n("whatTheCheckFound")}</p>
+              <ul className="list-inside list-disc">
+                {verification.reasons.map((reason, index) => (
+                  <li key={index}>{reason}</li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
 
           {summary ? (
             <section className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
@@ -271,19 +285,6 @@ export function ProposalDetail({
             </section>
           ) : null}
 
-          <EffectSection verification={verification} />
-          <SignersSection verification={verification} />
-
-          {verification && verification.reasons.length > 0 ? (
-            <section className="space-y-1 rounded-lg border border-amber-400/30 bg-amber-500/10 p-3 sm:p-4 text-sm text-amber-100">
-              <p className="font-semibold">{i18n("whatTheCheckFound")}</p>
-              <ul className="list-inside list-disc">
-                {verification.reasons.map((reason, index) => (
-                  <li key={index}>{reason}</li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
 
           {actionError ? (
             <p role="alert" className="text-sm text-rose-300">

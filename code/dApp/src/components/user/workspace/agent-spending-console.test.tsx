@@ -105,7 +105,9 @@ describe("AgentSpendingConsole", () => {
     renderConsole({ onChangeAccess });
 
     expect(screen.getByText("No agent spending is configured")).toBeInTheDocument();
-    const button = screen.getByRole("button", { name: "Change limits or remove access" });
+    expect(screen.queryByRole("button", { name: "Set up agent spending" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Agent spending/ }));
+    const button = screen.getByRole("button", { name: "Set up agent spending" });
     fireEvent.click(button);
     expect(onChangeAccess).toHaveBeenCalledTimes(1);
   });
@@ -201,6 +203,7 @@ describe("AgentSpendingConsole", () => {
 
   it("shows the loading state while payment history loads", () => {
     renderConsole({ eventsLoading: true });
+    fireEvent.click(screen.getByRole("button", { name: /Agent spending/ }));
 
     fireEvent.click(screen.getByText("Attributed payments"));
     expect(screen.getByText("Loading payment history.")).toBeInTheDocument();

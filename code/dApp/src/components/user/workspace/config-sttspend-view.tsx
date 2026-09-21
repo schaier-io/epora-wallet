@@ -281,10 +281,6 @@ export function SttSpendConfigView() {
             <div className="space-y-4 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
               <div className="space-y-1">
                 <Label>{i18n("sendFromThisSmartWallet")}</Label>
-                {/* Was four steps in one sentence, ending in a parenthetical that named
-                    "Select suggested inputs", a button inside a collapsed Advanced section the
-                    reader cannot see yet. The app picks the fund pools on its own, so the last
-                    two steps are not the reader's to take. */}
                 <p className="text-xs text-muted-foreground">
                   {i18n("pickARecipientAndAnAmountThenAdd")}
                 </p>
@@ -340,11 +336,6 @@ export function SttSpendConfigView() {
                 </div>
               ) : transferRecipientMode ? (
                 <div className="flex flex-wrap items-center gap-x-1.5 rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-                  {/* "Will send to", not "Sending to". This box renders from the recipient
-                      dropdown alone and never consults `sttExtraTransfers`, so it was
-                      stating a send was under way while the review rail beside it read
-                      "Recipient: None added yet". It is also skipped entirely while no
-                      recipient is chosen, which is now the starting state. */}
                   {i18n("willSendTo")}{" "}
                   {/* `title` carries the untruncated address, the way the review card
                       does (`review-panel-preview.tsx:98-101`). A middle-truncated
@@ -475,14 +466,6 @@ export function SttSpendConfigView() {
                 /* The wallet is connected and has been read, and it is empty: the reader
                    needs test funds before anything on this screen can move. */
                 <PreprodFaucetHint />
-              ) : null}
-              {availableLockedTransferAssets.length > 0 && sttExtraTransfers.length === 0 ? (
-                /* The review rail beside this already says "Add a payout before you send. Pick a
-                   recipient, enter an amount, then Add payout." This kept only the part it does
-                   not say: why the receipt still looks empty. */
-                <p className="text-[11px] text-muted-foreground">
-                  {i18n("theReceiptFillsInOnceYouAddA")}
-                </p>
               ) : null}
               {sttExtraTransfers.length > 0 ? (
                 <div className="space-y-2">

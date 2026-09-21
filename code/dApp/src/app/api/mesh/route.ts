@@ -77,7 +77,13 @@ export async function POST(request: Request) {
     }
     const upstreamStatus = meshHttpStatus(error);
     const retryAfter = meshHttpRetryAfter(error);
-    logger.error("api.mesh_request_failed", { err: serializeError(error) });
+    // Blockfrost answers 404 for a tx hash it has not indexed yet, and the
+    // browser polls pending submissions every 2 seconds: without this skip,
+    // every poll becomes a Sentry event. The 404 response below already
+    // carries the status and detail; every other status keeps its error log.
+    if (upstreamStatus !== 404) {
+      logger.error("api.mesh_request_failed", { err: serializeError(error) });
+    }
     // The build client's error mapper (workspace build-errors.ts) classifies
     // ledger failures — PPViewHashesDontMatch, BabbageOutputTooSmallUTxO, an
     // empty Ogmios ScriptFailures map — by the provider's own response text.

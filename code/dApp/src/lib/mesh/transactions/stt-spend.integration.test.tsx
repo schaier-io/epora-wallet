@@ -1316,6 +1316,7 @@ it("returns the actual deployed reference output index without store discovery",
   const result = await buildDeploySharedSttReferenceTx(wallet);
   const outputs = deserializeTx(result.txHex).body().outputs() as CstTransactionOutput[];
   expect(Number.isSafeInteger(result.referenceScriptOutputIndex)).toBe(true);
+  expect(result.referenceScriptLockedLovelace).toBe(outputs[result.referenceScriptOutputIndex!]!.amount().coin().toString());
   expect(outputs[result.referenceScriptOutputIndex!]!.address().toBech32().toString())
     .toBe(resolveSttReferenceStoreAddress());
 });

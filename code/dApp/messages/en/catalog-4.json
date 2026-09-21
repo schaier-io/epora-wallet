@@ -60,7 +60,12 @@
     "walletReferenced": "Wallet referenced",
     "walletSettingsUpdated": "Wallet settings updated",
     "walletToken": "Wallet token",
-    "walletTokenMoved": "Wallet token moved"
+    "walletTokenMoved": "Wallet token moved",
+    "checkIn": "Check-in",
+    "checkInRecorded": "Check-in recorded",
+    "proofOfLifeDeadlineExtended": "The proof-of-life deadline was extended.",
+    "walletStateContinued": "The wallet recorded this transaction.",
+    "walletUpdated": "Wallet updated"
   },
   "ComponentsUserWorkspaceHelpersBuildErrors": {
     "failedToBuildTransaction": "Failed to build transaction",
@@ -460,14 +465,14 @@
     "walletSetup": "Wallet setup"
   },
   "ComponentsUserWorkspaceWorkspaceOnboardingView": {
-    "automationBuiltIn": "Automation built in.",
+    "automationBuiltIn": "Scheduled payments.",
     "connectCardanoWallet": "Connect Cardano wallet",
     "connectingLetsEporaReadYourAddressAndBalance": "Connecting lets Epora read your address and balance, and ask your wallet to sign. It cannot move funds on its own. Every transaction needs your signature, in your own wallet, and you see what it does before you approve it. Epora is free. You pay only the ordinary Cardano network fee, in test ADA on Preprod.",
     "oneWalletManyKeys": "One wallet, many keys.",
     "ownersControlTheRulesSpendersPayWithinDaily": "Owners set the rules. Spenders pay within the daily limits.",
     "recoveryContactsCanStepInOnlyAfterA": "Recovery contacts can step in only after a proof of life expires. No one else can let them in.",
     "recoveryWithoutBackdoors": "Recovery without backdoors.",
-    "scheduledPaymentsLeaveOnTimeMultiSignatureWhen": "Scheduled payments leave on time. Payments above your threshold wait for a co-signer.",
+    "scheduledPaymentsLeaveOnTimeMultiSignatureWhen": "Amounts accrue on a schedule. Recipients collect available funds. Co-signers approve transactions when the wallet rules require them.",
     "worksWithLaceEternlVesprAndOtherWallets": "Works with Lace, Eternl, Vespr, and other wallets on Preprod."
   },
   "ComponentsUserWorkspaceWorkspaceProofOfLifeAlerts": {
@@ -534,7 +539,7 @@
     "newFundPools": "New fund pools",
     "nothingIsStagedYetAddADuePayment": "Nothing is staged yet. Add a due payment to see what this pays.",
     "nothingIsStagedYetAddAnAmountTo": "Nothing is staged yet. Add an amount to see what this adds.",
-    "nothingIsStagedYetAddAPayoutTo": "Nothing is staged yet. Add a payout to see what this sends.",
+    "nothingIsStagedYetAddAPayoutTo": "Choose a recipient and amount to see what this sends.",
     "nothingIsStagedYetPickTheFundPools": "Nothing is staged yet. Pick the fund pools you want to merge.",
     "noValueTransfer": "No value transfer",
     "on": "On",

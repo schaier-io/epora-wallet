@@ -37,7 +37,7 @@ import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 import { cn } from "@/lib/utils/cn";
 import { resolveAssetIdentity } from "@/lib/cardano-assets";
 import { WALLET_ACTIVITY_PAGE_SIZE } from "@/components/user/workspace/constants";
-import { ActivityUtxoList } from "@/components/user/workspace/editors";
+import { ActivityUtxoList, DisclosureSection } from "@/components/user/workspace/editors";
 import { buildActivityCsv, buildCardanoscanTransactionUrl, approximateBlockTimeMsFromSlot, formatCompactHash, formatWalletTransactionRelative, formatWalletTransactionTime, normalizeBlockTimeMs } from "@/components/user/workspace/helpers";
 
 import { useWorkspaceActivityState } from "@/components/user/workspace/use-workspace-activity-state";
@@ -268,20 +268,8 @@ export function WorkspaceTransactionsView() {
                             </div>
                           );
                         })()
-                      ) : lockingContract.address && wealthSeries.length > 0 ? (
-                        <WalletBalanceChartSection />
                       ) : null}
 
-                      {/*
-                        The Activity heading sits under the balance chart, directly above the
-                        list it names: the chart is the page's opening view, and a heading at
-                        the very top read as if it belonged to the chart rather than to the
-                        transaction list scrolling beneath it.
-                      */}
-                      {/* Asymmetric on purpose: `space-y-4` put an equal 16px on both sides,
-                          which read as a heading floating between the chart and the list.
-                          `pt-2` adds to the stack gap above (padding does not collapse);
-                          `mb-2` beats the zero-specificity `space-y-4` rule below it. */}
                       <div className="flex w-full flex-wrap items-start gap-x-3 gap-y-2 pt-2 mb-2">
                         <div className="min-w-0 flex-1 space-y-1">
                           <CardTitle className="flex items-center gap-2">
@@ -325,15 +313,6 @@ export function WorkspaceTransactionsView() {
                           </Button>
                         </div>
                       </div>
-
-                      {/* Accruing scheduled-payment expenses, projected from the
-                          stream terms. Sits above the event list because it moves
-                          with time, not with transactions; it renders even while
-                          the history loads, since it reads the wallet state, not
-                          the transaction feed. */}
-                      {lockingContract.address ? (
-                        <WorkspaceStreamingExpenseProjectionsView />
-                      ) : null}
 
                       {walletTransactions.error ? (
                         // `role="alert"`: the fetch the reader just asked for failed, and the
@@ -638,6 +617,15 @@ export function WorkspaceTransactionsView() {
                         </AnimatedList>
                       ) : null}
 
+                      {lockingContract.address && !assetDetailUnit && wealthSeries.length > 0 ? (
+                        <DisclosureSection
+                          title={i18n("balanceHistory")}
+                          description={i18n("balanceHistoryDescription")}
+                        >
+                          <WalletBalanceChartSection />
+                        </DisclosureSection>
+                      ) : null}
+                      {lockingContract.address ? <WorkspaceStreamingExpenseProjectionsView /> : null}
                     </CardContent>
                   </Card>
   );

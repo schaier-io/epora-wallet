@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { useState } from "react";
 import { execFileSync } from "node:child_process";
@@ -214,7 +214,7 @@ describe("create flow", () => {
       return <StateFormEditor label="Wallet rules" value={value} onChange={onChange} moreSettingsCollapsed />;
     }
     render(<CreateForm />);
-    fireEvent.click(screen.getByRole("button", { name: /More settings/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Recovery.*Choose recovery contacts/ }));
     fireEvent.click(screen.getByRole("button", { name: "Add recovery contact" }));
 
     expect(() => stateFormToDatum(draft)).toThrow("Beneficiary 1 requires a payout address.");
@@ -245,7 +245,7 @@ describe("create flow", () => {
     }]);
   });
 
-  it("keeps the owners in view and folds the rest behind More settings", () => {
+  it("keeps the owners in view with separate optional sections", () => {
     render(
       <StateFormEditor
         label="Wallet rules"
@@ -258,12 +258,12 @@ describe("create flow", () => {
     expect(screen.getByText("Who can manage this wallet")).toBeInTheDocument();
     expect(screen.queryByText("Recovery contacts")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /More settings/ }));
-    expect(screen.getByText("Recovery contacts")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Spending and scheduled payments/ }));
+    expect(screen.queryByText("Recovery contacts")).not.toBeInTheDocument();
     expect(screen.getByText("Scheduled payments")).toBeInTheDocument();
   });
 
-  it("opens More settings on its own when the draft already uses one of them", () => {
+  it("opens recovery when the draft already uses it", () => {
     const value = withRecoveryContactAdded(createDefaultStateForm(), Date.now());
     render(
       <StateFormEditor label="Wallet rules" value={value} onChange={() => {}} moreSettingsCollapsed />
@@ -285,7 +285,7 @@ describe("create flow", () => {
         moreSettingsCollapsed
       />
     );
-    fireEvent.click(screen.getByRole("button", { name: /More settings/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Spending and scheduled payments/ }));
 
     expect(screen.queryByText("Co-signer threshold")).not.toBeInTheDocument();
   });
@@ -317,5 +317,20 @@ describe("descriptions the reader can actually see", () => {
       expect(text.length).toBeLessThanOrEqual(78);
       expect(screen.getByText(text)).toBeInTheDocument();
     }
+  });
+});
+
+
+describe("create wallet recovery section", () => {
+  it("keeps recovery separate from optional spending settings", () => {
+    render(<StateFormEditor label="Wallet rules" value={createDefaultStateForm()} onChange={() => {}} moreSettingsCollapsed />);
+    const recovery = screen.getByRole("button", { name: /Recovery.*Choose recovery contacts/ });
+    const spending = screen.getByRole("button", { name: /Spending and scheduled payments/ });
+    expect(spending).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(recovery);
+    const content = screen.getByRole("region", { name: /Recovery.*Choose recovery contacts/ });
+    expect(within(content).getByRole("button", { name: "Add recovery contact" })).toBeInTheDocument();
+    expect(spending).toHaveAttribute("aria-expanded", "false");
+    expect(within(content).queryByRole("button", { name: "Add spender" })).not.toBeInTheDocument();
   });
 });

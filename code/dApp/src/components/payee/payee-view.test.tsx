@@ -29,8 +29,11 @@ const actions = vi.hoisted(() => ({
   build: vi.fn(),
   collect: vi.fn(),
   submit: vi.fn(),
+  stopPlan: vi.fn(),
   copy: vi.fn()
 }));
+
+vi.mock("@/components/payee/payee-stop-plan", () => ({ planPayeeStop: actions.stopPlan }));
 
 vi.mock("@/lib/utils/clipboard", () => ({ copyTextToClipboard: actions.copy }));
 
@@ -207,6 +210,8 @@ beforeEach(() => {
   chain.scan.mockReturnValue(scanOf([]));
   chain.due.mockReset();
   chain.due.mockReturnValue(1_000_000n);
+  actions.stopPlan.mockReset();
+  actions.stopPlan.mockReturnValue({ cutoff: NOW + 60_000, retainedDebt: "5003472", policyId: "", assetName: "" });
   actions.build.mockReset();
   actions.build.mockResolvedValue({ txHex: "84a0" });
   actions.collect.mockReset();
@@ -225,12 +230,18 @@ async function renderView() {
   return result;
 }
 
+async function approveStop(button: HTMLElement) {
+  await act(async () => { fireEvent.click(button); });
+  const confirm = screen.queryByRole("button", { name: "Confirm stop" });
+  if (confirm) await act(async () => { fireEvent.click(confirm); });
+}
+
 describe("who this page is for", () => {
   /** The description named one of the page's two actions. Collect is the first button. */
   it("names both things the reader can do", async () => {
     await renderView();
 
-    expect(screen.getByText(/Collect what you are owed whenever you like/)).toBeInTheDocument();
+    expect(screen.getByText(/Collect funds when they are available/)).toBeInTheDocument();
     expect(screen.getByText(/never reduces what is already owed/)).toBeInTheDocument();
   });
 
@@ -323,7 +334,7 @@ describe("a payment the reader cannot act on yet", () => {
     await renderView();
 
     expect(screen.getByRole("button", { name: "Collect payment" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Shorten payment" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Review payment stop" })).toBeDisabled();
     expect(screen.queryByText("On hold")).toBeNull();
   });
 
@@ -415,7 +426,7 @@ describe("the demo wallet", () => {
     expect(screen.getAllByText(/demo wallet cannot sign/)).toHaveLength(1);
     expect(screen.getByText(/From Alice/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Collect payment" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Shorten payment" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Review payment stop" })).toBeDisabled();
   });
 
   it("still sees the empty state", async () => {
@@ -432,7 +443,7 @@ describe("a row", () => {
     chain.scan.mockReturnValue(scanOf([payment()]));
     await renderView();
 
-    const shorten = screen.getByRole("button", { name: "Shorten payment" });
+    const shorten = screen.getByRole("button", { name: "Review payment stop" });
     expect(shorten.className).not.toMatch(/destructive/);
     expect(shorten.className).toMatch(/underline/);
   });
@@ -445,9 +456,7 @@ describe("a row", () => {
     });
     await renderView();
 
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Shorten payment" }));
-    });
+    await approveStop(screen.getByRole("button", { name: "Review payment stop" }));
 
     expect(actions.build).toHaveBeenCalledWith(
       wallet.value.activeWallet,
@@ -499,7 +508,7 @@ describe("a row", () => {
     await renderView();
 
     expect(screen.getByRole("button", { name: /Collecting/ })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Shorten payment" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Review payment stop" })).toBeDisabled();
     expect(actions.collect).toHaveBeenCalledTimes(1);
 
     await act(async () => pending.resolve(submittedCollect("ab".repeat(32))));
@@ -519,11 +528,11 @@ describe("a row", () => {
     fireEvent.click(screen.getByRole("button", { name: "Collect payment" }));
     firstVisit.unmount();
     await renderView();
-    expect(screen.getByRole("button", { name: "Shorten payment" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Review payment stop" })).toBeDisabled();
 
     await act(async () => pending.reject(new Error("user declined sign tx")));
     expect(screen.getByRole("button", { name: "Collect payment" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Shorten payment" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Review payment stop" })).toBeEnabled();
     expect(chain.detect).toHaveBeenCalledTimes(1);
   });
 
@@ -535,9 +544,7 @@ describe("a row", () => {
     actions.submit.mockReturnValue(pending.promise);
     const firstVisit = await renderView();
 
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Shorten payment" }));
-    });
+    await approveStop(screen.getByRole("button", { name: "Review payment stop" }));
     firstVisit.unmount();
     wallet.value = { ...wallet.value, activeWallet: {}, activePaymentKeyHash: "bb".repeat(28) };
     await renderView();
@@ -567,17 +574,17 @@ describe("a row", () => {
     await act(async () => { await queryTest.queryClient.cancelQueries({ queryKey: ["chain", "preprod", "stt-inventory"] }); });
     await renderView();
     expect(screen.getByRole("button", { name: "Collected" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Shorten payment" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Review payment stop" })).toBeDisabled();
 
     await act(async () => staleScan.resolve({ tokens: [] }));
-    expect(screen.getByRole("button", { name: "Shorten payment" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Review payment stop" })).toBeDisabled();
 
     chain.detect.mockResolvedValueOnce({ tokens: [] });
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
     });
     expect(screen.getByRole("button", { name: "Collect payment" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Shorten payment" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Review payment stop" })).toBeEnabled();
   });
 
   it("blocks Shorten while Collect spends the same State UTxO", async () => {
@@ -589,7 +596,7 @@ describe("a row", () => {
     await renderView();
 
     fireEvent.click(screen.getByRole("button", { name: "Collect payment" }));
-    fireEvent.click(screen.getByRole("button", { name: "Shorten payment" }));
+    await approveStop(screen.getByRole("button", { name: "Review payment stop" }));
 
     expect(actions.collect).toHaveBeenCalledTimes(1);
     expect(actions.build).not.toHaveBeenCalled();
@@ -702,7 +709,7 @@ describe("a row", () => {
     await renderView();
 
     fireEvent.click(screen.getAllByRole("button", { name: "Collect payment" })[0]!);
-    fireEvent.click(screen.getAllByRole("button", { name: "Shorten payment" })[1]!);
+    await approveStop(screen.getAllByRole("button", { name: "Review payment stop" })[1]!);
 
     // The collect settles first and starts the reload that the next one supersedes.
     await act(async () => collectDone.resolve(submittedCollect("ab".repeat(32))));
@@ -746,9 +753,7 @@ describe("a row", () => {
       .mockRejectedValue(new Error("provider timeout"));
     await renderView();
 
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Shorten payment" }));
-    });
+    await approveStop(screen.getByRole("button", { name: "Review payment stop" }));
 
     expect(screen.getByRole("status")).toHaveTextContent(
       "Sent. The list updates after the next refresh."
@@ -801,7 +806,7 @@ describe("a row", () => {
     await renderView();
 
     fireEvent.click(screen.getAllByRole("button", { name: "Collect payment" })[0]!);
-    fireEvent.click(screen.getAllByRole("button", { name: "Shorten payment" })[1]!);
+    await approveStop(screen.getAllByRole("button", { name: "Review payment stop" })[1]!);
 
     await act(async () => collectDone.resolve(submittedCollect("ab".repeat(32))));
     await act(async () => submitDone.resolve("cd".repeat(32)));
@@ -809,8 +814,8 @@ describe("a row", () => {
 
     // Row 1 is still listed. Its collect button carries the post-action label.
     expect(screen.getByRole("button", { name: "Collected" })).toBeInTheDocument();
-    // Row 2's link reads "Shortened", so the only "Shorten payment" left is row 1's.
-    const shorten = screen.getAllByRole("button", { name: "Shorten payment" });
+    // Row 2's link reads "Shortened", so the only "Review payment stop" left is row 1's.
+    const shorten = screen.getAllByRole("button", { name: "Review payment stop" });
     expect(shorten).toHaveLength(1);
     expect(shorten[0]).toBeDisabled();
   });
@@ -960,7 +965,7 @@ describe("a row", () => {
     await renderView();
 
     expect(screen.getByRole("button", { name: "Collect payment" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Shorten payment" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Review payment stop" })).toBeEnabled();
   });
 
   it("keeps an unknown collection failure generic", async () => {
@@ -1007,9 +1012,7 @@ describe("a row", () => {
     );
     await renderView();
 
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Shorten payment" }));
-    });
+    await approveStop(screen.getByRole("button", { name: "Review payment stop" }));
 
     expect(screen.getByRole("alert")).toHaveTextContent(
       "The request was cancelled in your wallet. Nothing was submitted."
@@ -1083,5 +1086,84 @@ describe("the page heading", () => {
     const named = screen.getAllByRole("heading", { name: "Scheduled payments to you" });
     expect(named).toHaveLength(1);
     expect(named[0]!.tagName).toBe("H1");
+  });
+});
+
+
+describe("payment stop review", () => {
+  async function openReview() {
+    const current = payment();
+    chain.scan.mockReturnValue(scanOf([current]));
+    chain.detect.mockResolvedValue({ tokens: [detectedTokenFor(current)] });
+    const view = await renderView();
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Review payment stop" })); });
+    return view;
+  }
+
+  it("shows the exact frozen cutoff and retained debt before any signature", async () => {
+    await openReview();
+    expect(screen.getByText(new Date(NOW + 60_000).toISOString())).toBeInTheDocument();
+    expect(screen.getByText("5.003472 ADA")).toBeInTheDocument();
+    expect(actions.submit).not.toHaveBeenCalled();
+    vi.setSystemTime(NOW + 20_000);
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Confirm stop" })); });
+    expect(actions.build).toHaveBeenCalledTimes(1);
+    expect(actions.build).toHaveBeenCalledWith(expect.anything(), expect.anything(), "cancel-streaming-payment",
+      expect.objectContaining({ validityWindowReferenceTimeMs: NOW }));
+    expect(actions.submit).toHaveBeenCalledWith(wallet.value.activeWallet, "84a0");
+  });
+
+  it("cancels without signing and releases the input lease", async () => {
+    await openReview();
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Cancel" })); });
+    expect(actions.submit).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Review payment stop" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Collect payment" })).toBeEnabled();
+  });
+
+  it("declines on unmount without signing", async () => {
+    const view = await openReview();
+    await act(async () => { view.unmount(); });
+    expect(actions.submit).not.toHaveBeenCalled();
+  });
+
+  it("declines when the connected account changes", async () => {
+    const view = await openReview();
+    wallet.value = { ...wallet.value, activeAddress: "addr_test1other" };
+    await act(async () => { view.rerender(<PayeeView />); });
+    expect(screen.queryByRole("button", { name: "Confirm stop" })).toBeNull();
+    expect(actions.submit).not.toHaveBeenCalled();
+  });
+
+  it("does not open a late review after the wallet changes during building", async () => {
+    const pending = deferred<{ txHex: string }>();
+    actions.build.mockReturnValue(pending.promise);
+    const current = payment();
+    chain.scan.mockReturnValue(scanOf([current]));
+    chain.detect.mockResolvedValue({ tokens: [detectedTokenFor(current)] });
+    const view = await renderView();
+    fireEvent.click(screen.getByRole("button", { name: "Review payment stop" }));
+    wallet.value = { ...wallet.value, activeAddress: "addr_test1other" };
+    await act(async () => { view.rerender(<PayeeView />); });
+    await act(async () => { pending.resolve({ txHex: "84a0" }); });
+    expect(screen.queryByRole("button", { name: "Confirm stop" })).toBeNull();
+    expect(actions.submit).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Review payment stop" })).toBeEnabled();
+  });
+
+  it("shows builder warnings before confirmation", async () => {
+    actions.build.mockResolvedValue({ txHex: "84a0", warnings: ["A fee will be charged."] });
+    await openReview();
+    expect(screen.getByRole("dialog")).toHaveTextContent("A fee will be charged.");
+    expect(actions.submit).not.toHaveBeenCalled();
+  });
+
+  it("rejects an expired review without signing", async () => {
+    await openReview();
+    vi.setSystemTime(NOW + 60_000);
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Confirm stop" })); });
+    expect(actions.submit).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent("This review expired");
+    expect(screen.getByRole("button", { name: "Review payment stop" })).toBeEnabled();
   });
 });

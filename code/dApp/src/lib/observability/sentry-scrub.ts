@@ -7,6 +7,11 @@
 // hash becomes "[REDACTED]" too. Losing a hex string from an error report is
 // recoverable; leaking a wallet address is not.
 
+import { isBrowserExtensionNoise } from "./extension-noise-filter";
+import {
+  collectEventMessagesWithoutBreadcrumbs,
+  eventMessageText
+} from "./sentry-event-text";
 import { isWalletRejectionMessage } from "@/lib/utils/wallet-rejection-patterns";
 
 const REDACTED = "[REDACTED]";
@@ -79,8 +84,13 @@ export interface SentryBreadcrumbLike {
 export interface SentryEventLike {
   type?: string;
   message?: string | { formatted?: string };
+  stacktrace?: { frames?: Array<{ filename?: string }> };
   exception?: {
-    values?: Array<{ value?: string; type?: string }>;
+    values?: Array<{
+      value?: string;
+      type?: string;
+      stacktrace?: { frames?: Array<{ filename?: string }> };
+    }>;
   };
   request?: unknown;
   user?: unknown;
@@ -91,34 +101,14 @@ export interface SentryEventLike {
   breadcrumbs?: SentryBreadcrumbLike[];
 }
 
-function eventMessageText(message: SentryEventLike["message"]): string | undefined {
-  if (typeof message === "string") {
-    return message;
-  }
-  return message?.formatted;
-}
-
 /** Collect every message-like string an event carries, for rejection matching. */
 export function collectEventMessages(event: SentryEventLike): string[] {
-  const messages: string[] = [];
-  const main = eventMessageText(event.message);
-  if (main) {
-    messages.push(main);
-  }
-  for (const entry of event.exception?.values ?? []) {
-    if (entry?.value) {
-      messages.push(entry.value);
-    }
-    if (entry?.type) {
-      messages.push(entry.type);
-    }
-  }
-  for (const breadcrumb of event.breadcrumbs ?? []) {
-    if (breadcrumb.message) {
-      messages.push(breadcrumb.message);
-    }
-  }
-  return messages;
+  return [
+    ...collectEventMessagesWithoutBreadcrumbs(event),
+    ...(event.breadcrumbs ?? []).flatMap((breadcrumb) =>
+      breadcrumb.message ? [breadcrumb.message] : []
+    )
+  ];
 }
 
 /**
@@ -152,8 +142,10 @@ export function scrubSentryBreadcrumb<Breadcrumb extends SentryBreadcrumbLike>(
 
 /**
  * The `beforeSend` filter. Returns `null` for routine wallet rejections (the
- * user declined to sign, so there is nothing to diagnose); otherwise strips
- * secrets (cookies, authorization headers), request/response payloads, and
+ * user declined to sign, so there is nothing to diagnose) and for
+ * browser-extension noise (an injected extension failing inside its own
+ * script, see `extension-noise-filter.ts`); otherwise strips secrets
+ * (cookies, authorization headers), request/response payloads, and
  * wallet addresses / transaction hashes from messages, extras, and contexts.
  * Deduplication itself is left to the SDK (`dedupeIntegration`, wired in the
  * init files) and to the single-report design: API routes report through
@@ -161,6 +153,10 @@ export function scrubSentryBreadcrumb<Breadcrumb extends SentryBreadcrumbLike>(
  */
 export function scrubSentryEvent<T extends SentryEventLike>(event: T): T | null {
   if (isRoutineWalletRejection(event)) {
+    return null;
+  }
+
+  if (isBrowserExtensionNoise(event)) {
     return null;
   }
 

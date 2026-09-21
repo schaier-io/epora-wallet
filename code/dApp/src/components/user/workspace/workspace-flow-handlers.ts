@@ -38,6 +38,7 @@ import { type useWalletActivity } from "@/components/user/workspace/use-wallet-a
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceWorkspaceFlowHandlers.json";
 import { resolveWalletContinuingOutputAddressFromState } from "@/lib/contracts/blueprint";
+import { captureClientError } from "@/lib/observability/sentry-client-forward";
 
 import { getSpentSttInput } from "./helpers/build-errors";
 import { routeStateAtom } from "./atoms/workspace-route.atoms";
@@ -200,6 +201,11 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
           // reader and stay out of the console; only the genuinely unexpected get logged.
           if (!parsed.expected) {
             console.error(`[build:${label}]`, parsed.diagnosticId, parsed.details);
+            captureClientError("ui.tx_build_failed", error, {
+              action: label,
+              wallet: activeWalletName,
+              diagnosticId: parsed.diagnosticId
+            });
           }
         }
         return null;

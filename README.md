@@ -32,6 +32,10 @@ The [whitepaper](whitepaper/whitepaper.pdf) develops all of this in full: design
 
 By using this software you acknowledge and accept these risks. See the [LICENSE](./LICENSE) for the full legal terms.
 
+## Error reporting
+
+The hosted deployment reports application errors to Sentry (EU region). A report carries the error message, stack trace, and request metadata. Wallet addresses, transaction hashes, cookies, and authorization headers are removed before upload, on both the browser and the server. Declining a signature in your wallet is never reported. Session replay and performance tracing are off. A self-hosted instance with no Sentry environment variables initializes no error reporting and sends nothing.
+
 ## Documentation
 
 ### Wallet UI walkthrough ([MP4 source](docs/assets/wallet-ui.mp4?raw=1))

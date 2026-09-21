@@ -120,9 +120,7 @@ export function StateFormEditor({
     countWalletEntries(value.users) < MAX_TOTAL_USER_WALLETS;
   const hasMoreSettings =
     spendingUsers.length > 0 ||
-    value.beneficiaries.length > 0 ||
     value.streamingPayments.length > 0 ||
-    safetyEnabled ||
     hasCoSigners;
   const helperIsLong = Boolean(helper && helper.length > LONG_DESCRIPTION_LIMIT);
 
@@ -188,57 +186,8 @@ export function StateFormEditor({
     onChange(withSafetyTimerEnabled(value, checked, Date.now()));
   }
 
-  const moreSettings = (
+  const recoverySettings = (
     <>
-      <WalletRuleSection
-        icon={UsersRound}
-        title={i18n("spenders")}
-        description={i18n("aSpenderCanSendFundsUpToA")}
-        action={
-          <Button type="button" variant="outline" onClick={addSpendingPerson} disabled={peopleAtCap}>
-            {i18n("addSpender")}
-          </Button>
-        }
-      >
-        {spendingUsers.length === 0 ? (
-          <TaskEmptyState
-            icon={UsersRound}
-            title={i18n("noSpendersYet")}
-            description={i18n("wantSomeoneElseToSpendUpToA")}
-          />
-        ) : (
-          <div className="space-y-4">
-            {spendingUsers.map(({ user, index }) => (
-              <SpendingAccessEditor
-                key={`spending-${index}-${user.id}`}
-                user={user}
-                connectedPaymentKeyHash={normalizedConnectedHash}
-                connectedAddress={connectedAddress}
-                onChange={(nextUser) => updateUser(index, nextUser)}
-                onRemove={() => removeUser(index)}
-                canAddAllowanceEntry={canAddAllowanceEntryInStateForm(
-                  value,
-                  index,
-                  "perDayAllowance",
-                  MAX_TOTAL_ALLOWANCE_ENTRIES
-                )}
-                canAddWallet={
-                  canAddUserWalletEntry &&
-                  user.wallets.length < MAX_WALLETS_PER_USER
-                }
-              />
-            ))}
-          </div>
-        )}
-        {peopleAtCap ? (
-          <p className="text-xs text-muted-foreground">
-            {accessRecordsAtCap && value.users.length < MAX_USERS
-              ? i18n("thisWalletAlreadyHoldsMaxAccessRecords", { max: MAX_ACCESS_RECORDS })
-              : i18n("thisWalletAlreadyHoldsMaxPeople", { max: MAX_USERS })}
-          </p>
-        ) : null}
-      </WalletRuleSection>
-
       <WalletRuleSection
         icon={Clock3}
         title={i18n("proofOfLife")}
@@ -325,6 +274,60 @@ export function StateFormEditor({
               : i18n("thisWalletAlreadyHoldsMaxRecoveryContacts", {
                   max: MAX_BENEFICIARIES
                 })}
+          </p>
+        ) : null}
+      </WalletRuleSection>
+
+    </>
+  );
+
+  const moreSettings = (
+    <>
+      <WalletRuleSection
+        icon={UsersRound}
+        title={i18n("spenders")}
+        description={i18n("aSpenderCanSendFundsUpToA")}
+        action={
+          <Button type="button" variant="outline" onClick={addSpendingPerson} disabled={peopleAtCap}>
+            {i18n("addSpender")}
+          </Button>
+        }
+      >
+        {spendingUsers.length === 0 ? (
+          <TaskEmptyState
+            icon={UsersRound}
+            title={i18n("noSpendersYet")}
+            description={i18n("wantSomeoneElseToSpendUpToA")}
+          />
+        ) : (
+          <div className="space-y-4">
+            {spendingUsers.map(({ user, index }) => (
+              <SpendingAccessEditor
+                key={`spending-${index}-${user.id}`}
+                user={user}
+                connectedPaymentKeyHash={normalizedConnectedHash}
+                connectedAddress={connectedAddress}
+                onChange={(nextUser) => updateUser(index, nextUser)}
+                onRemove={() => removeUser(index)}
+                canAddAllowanceEntry={canAddAllowanceEntryInStateForm(
+                  value,
+                  index,
+                  "perDayAllowance",
+                  MAX_TOTAL_ALLOWANCE_ENTRIES
+                )}
+                canAddWallet={
+                  canAddUserWalletEntry &&
+                  user.wallets.length < MAX_WALLETS_PER_USER
+                }
+              />
+            ))}
+          </div>
+        )}
+        {peopleAtCap ? (
+          <p className="text-xs text-muted-foreground">
+            {accessRecordsAtCap && value.users.length < MAX_USERS
+              ? i18n("thisWalletAlreadyHoldsMaxAccessRecords", { max: MAX_ACCESS_RECORDS })
+              : i18n("thisWalletAlreadyHoldsMaxPeople", { max: MAX_USERS })}
           </p>
         ) : null}
       </WalletRuleSection>
@@ -559,6 +562,16 @@ export function StateFormEditor({
           </p>
         ) : null}
       </WalletRuleSection>
+
+      {moreSettingsCollapsed ? (
+        <DisclosureSection
+          title={i18n("recovery")}
+          description={i18n("recoveryDescription")}
+          defaultOpen={safetyEnabled || value.beneficiaries.length > 0}
+        >
+          {recoverySettings}
+        </DisclosureSection>
+      ) : recoverySettings}
 
       {moreSettingsCollapsed ? (
         <DisclosureSection

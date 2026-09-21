@@ -48,8 +48,8 @@
   "ComponentsUserWorkspaceWorkspaceSttEditors": {
     "addTheRecipientAndPayoutAmountsFirstThen": "Add the recipient and payout amounts first, then the app can suggest which fund pools to use.",
     "chooseARecipientBeforeAddingAPayout": "Choose a recipient before adding a payout.",
-    "enterAPositiveAdaAmountBeforeAddingThe": "Enter a positive ADA amount before adding the payout.",
-    "enterAPositiveAssetAmountBeforeAddingThe": "Enter a positive asset amount before adding the payout.",
+    "enterAPositiveAdaAmountBeforeAddingThe": "Enter an ADA amount greater than zero.",
+    "enterAPositiveAssetAmountBeforeAddingThe": "Enter an asset amount greater than zero.",
     "enterARecipientAddressBeforeAddingAForwarded": "Enter a recipient address before adding a forwarded output.",
     "noCombinationOfCurrentlyLoadedLockedUtxosCan": "The loaded fund pools cannot cover this payout while preserving the required scheduled-payment reserve. Refresh the wallet, lower the payout, or add funds.",
     "noPayoutAssetIsAvailableYetRefreshThe": "No payout asset is available yet. Refresh the wallet or choose fund pools first.",
@@ -122,7 +122,9 @@
     "value1Balance": "{value1} balance",
     "value1Summary": "{value1} summary",
     "walletBalance": "Wallet balance",
-    "showingRangeOfTotal": "Showing {start}-{end} of {total}"
+    "showingRangeOfTotal": "Showing {start}-{end} of {total}",
+    "balanceHistory": "Balance history",
+    "balanceHistoryDescription": "View the wallet balance over time."
   },
   "ComponentsUserWorkspaceWorkspaceView": {
     "chooseSmartWallet": "Choose smart wallet",

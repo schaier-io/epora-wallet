@@ -59,5 +59,10 @@
   "walletReferenced": "Wallet referenced",
   "walletSettingsUpdated": "Wallet settings updated",
   "walletToken": "Wallet token",
-  "walletTokenMoved": "Wallet token moved"
+  "walletTokenMoved": "Wallet token moved",
+  "checkIn": "Check-in",
+  "checkInRecorded": "Check-in recorded",
+  "proofOfLifeDeadlineExtended": "The proof-of-life deadline was extended.",
+  "walletStateContinued": "The wallet recorded this transaction.",
+  "walletUpdated": "Wallet updated"
 }

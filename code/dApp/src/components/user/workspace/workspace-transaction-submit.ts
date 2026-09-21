@@ -34,6 +34,7 @@ import { schedulePostSubmitRefresh } from "@/components/user/workspace/workspace
 import type { WorkspaceTransactionsCtx } from "@/components/user/workspace/workspace-transactions-types";
 import { normalizeWalletName } from "@/lib/contracts/state-wallet-name";
 import { signAndSubmitTx } from "@/lib/mesh/transactions";
+import { captureClientError } from "@/lib/observability/sentry-client-forward";
 import type { BuildResult } from "@/lib/types/contracts";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceWorkspaceTransactions.json";
@@ -294,6 +295,11 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
       // reader and stay out of the console; only the genuinely unexpected get logged.
       if (!parsed.expected) {
         console.error("[submit]", parsed.diagnosticId, parsed.details);
+        captureClientError("ui.tx_submit_failed", error, {
+          action: "submit",
+          wallet: activeWalletName,
+          diagnosticId: parsed.diagnosticId
+        });
       }
       return;
     } finally {

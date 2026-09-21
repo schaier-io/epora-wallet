@@ -1,4 +1,5 @@
 "use client";
+import { stagedSttTransfersAtom } from "./atoms/forms/stt-spend-form.atoms";
 // State-acquisition hook for SttSpendConfigView: performs every atom
 // subscription and form-hook read the view needs and returns them as one
 // named object, keeping the view itself presentation-only.
@@ -48,7 +49,8 @@ export function useConfigSttSpendState() {
     handleFocusedTaskSelect,
     openWorkspaceIntent
   } = state;
-  const { consolidateAuthorityPath, setConsolidateAuthorityPath, setStreamingPaymentPayoutAmounts, setSttAuthorityPath, setSttExtraTransfers, setSttStateForm, setSttZeroAdminConfirmed, sttAuthorityPath, sttExtraTransfers, sttStateForm, sttWalletInputs, sttZeroAdminConfirmed } = useSttSpendForm();
+  const { consolidateAuthorityPath, setConsolidateAuthorityPath, setStreamingPaymentPayoutAmounts, setSttAuthorityPath, setSttExtraTransfers, setSttStateForm, setSttZeroAdminConfirmed, sttAuthorityPath, sttStateForm, sttWalletInputs, sttZeroAdminConfirmed } = useSttSpendForm();
+  const stagedTransfers = useAtomValue(stagedSttTransfersAtom);
   const { setTransferCustomAddress, setTransferDisplayAmount, setTransferRecipientMode, setTransferSelectedUnit, transferCustomAddress, transferDisplayAmount, transferRecipientMode, transferSelectedUnit } = useTransferForm();
 
   return {
@@ -86,7 +88,7 @@ export function useConfigSttSpendState() {
     setSttStateForm,
     setSttZeroAdminConfirmed,
     sttAuthorityPath,
-    sttExtraTransfers,
+    sttExtraTransfers: stagedTransfers,
     sttStateForm,
     sttWalletInputs,
     sttZeroAdminConfirmed,

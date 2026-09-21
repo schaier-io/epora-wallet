@@ -199,16 +199,26 @@ export function getUtxoRefKey(utxo: UTxO) {
 }
 
 export function dedupeUtxosByRef(utxos: UTxO[]) {
-  const seen = new Set<string>();
+  const indices = new Map<string, number>();
   const result: UTxO[] = [];
 
   utxos.forEach((utxo) => {
     if (!utxo) return;
     const key = getUtxoRefKey(utxo);
-    if (!key || seen.has(key)) {
+    if (!key) return;
+    const index = indices.get(key);
+    if (index !== undefined) {
+      const existing = result[index]!;
+      // Provider history can omit inline data available on the current UTxO.
+      // Fill only that missing field; preserve the first entry's value and address.
+      if (!existing.output.plutusData && utxo.output.plutusData) {
+        result[index] = { ...existing, output: {
+          ...existing.output, plutusData: utxo.output.plutusData
+        } };
+      }
       return;
     }
-    seen.add(key);
+    indices.set(key, result.length);
     result.push(utxo);
   });
 

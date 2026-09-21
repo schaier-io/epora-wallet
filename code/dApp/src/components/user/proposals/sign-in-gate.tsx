@@ -1,4 +1,6 @@
 "use client";
+import { useState } from "react";
+import { WalletConnectionDialog } from "@/components/layout/wallet-panel";
 import { useTranslations } from "next-intl";
 
 import { KeyRound, Loader2, ShieldCheck, Wallet } from "lucide-react";
@@ -15,6 +17,7 @@ import type { ProposalSessionController } from "./use-proposal-session";
 export function SignInGate({ session }: { session: ProposalSessionController }) {
   const i18n = useTranslations("ComponentsUserProposalsSignInGate");
   const { activeAddress, activePaymentKeyHash, isDemoWallet } = useWalletContext();
+  const [connectOpen, setConnectOpen] = useState(false);
   const canSignIn = Boolean(activeAddress) && !isDemoWallet;
   // Every reason this page is not showing a list, in one slot with one chrome. They used to
   // render as two unrelated shapes, a bordered callout and a bare amber line, although they
@@ -69,6 +72,12 @@ export function SignInGate({ session }: { session: ProposalSessionController }) 
             </p>
           ) : null}
 
+          {!canSignIn ? (
+            <Button className="w-full" onClick={() => setConnectOpen(true)}>
+              <Wallet className="h-4 w-4" aria-hidden="true" />
+              {i18n("connectWallet")}
+            </Button>
+          ) : (
           <Button
             type="button"
             className="w-full"
@@ -83,6 +92,8 @@ export function SignInGate({ session }: { session: ProposalSessionController }) 
             )}
             {session.signingIn ? i18n("waitingForWallet") : i18n("signInWithWallet")}
           </Button>
+          )}
+          <WalletConnectionDialog open={connectOpen} onOpenChange={setConnectOpen} />
         </CardContent>
       </Card>
     </div>
