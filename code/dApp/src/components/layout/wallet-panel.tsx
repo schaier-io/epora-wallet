@@ -287,7 +287,12 @@ export function WalletConnectionDialog({
             </p>
           </div>
 
-            <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-muted/25 to-background/40 p-3 sm:p-4 shadow-sm">
+            {/* No surface of its own. This wraps the whole browser-wallet region inside a
+                dialog that is already a bordered, shadowed panel, so its border, gradient
+                and `shadow-sm` built a card inside a card and a second shadow inside the
+                one DESIGN.md's shadow vocabulary allows. The wallet tiles below carry
+                their own borders and remain the only cards in here. */}
+            <div>
             <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
                 {networkBadge}

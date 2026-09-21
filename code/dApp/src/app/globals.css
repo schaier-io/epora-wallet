@@ -2,6 +2,7 @@
 /* motion + reduced-motion pass: live status dot, global RM safety net */
 @import "tw-animate-css";
 @import "./wallet-created-overlay.css";
+@import "./form-controls.css";
 
 @custom-variant dark (&:is(.dark *));
 @config "../../tailwind.config.mjs";

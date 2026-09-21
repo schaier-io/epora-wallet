@@ -72,7 +72,12 @@ export function AssetListEditor({
   return (
     <div className="@container space-y-3" role="group" aria-labelledby={`${uid}-group-label`} tabIndex={-1}>
       <div className="flex w-full min-w-0 flex-wrap items-center gap-3 rounded-lg border border-border/60 bg-muted/15 p-3">
-        <div className="min-w-0 flex-1 space-y-1">
+        {/* `basis-64` is what makes the row's `flex-wrap` do anything. With `flex-1` and
+            `min-w-0` alone this column shrank without limit instead of wrapping, so on a
+            375px screen the helper line ran at roughly fifteen characters beside the
+            button. It now wraps the button underneath once the text cannot hold 16rem,
+            and `min-w-0` still lets it shrink below that after it has wrapped. */}
+        <div className="min-w-0 flex-1 basis-64 space-y-1">
           <p id={`${uid}-group-label`} className="text-sm font-medium leading-none">
             {label}
           </p>

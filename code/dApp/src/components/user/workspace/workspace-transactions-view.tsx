@@ -99,7 +99,7 @@ export function WorkspaceTransactionsView() {
                     <CardContent className="relative z-10 space-y-4">
                       {!lockingContract.address ? (
                         <div className="flex min-h-[min(320px,45vh)] flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border/60 bg-muted/10 p-3 text-center sm:p-4">
-                          <div className="flex h-14 w-14 items-center justify-center rounded-md border border-border/60 bg-background/60 shadow-sm">
+                          <div className="flex h-14 w-14 items-center justify-center rounded-md border border-border/60 bg-background/60">
                             <Settings2 className="h-7 w-7 text-muted-foreground" aria-hidden="true" />
                           </div>
                           <div className="max-w-sm space-y-2">
@@ -361,7 +361,7 @@ export function WorkspaceTransactionsView() {
                           role="status"
                           className="flex min-h-[min(320px,45vh)] flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border/60 bg-muted/10 p-3 text-center sm:p-4"
                         >
-                          <div className="flex h-14 w-14 items-center justify-center rounded-md border border-border/60 bg-background/60 shadow-sm">
+                          <div className="flex h-14 w-14 items-center justify-center rounded-md border border-border/60 bg-background/60">
                             <Inbox className="h-7 w-7 text-muted-foreground" aria-hidden="true" />
                           </div>
                           <div className="max-w-sm space-y-2">

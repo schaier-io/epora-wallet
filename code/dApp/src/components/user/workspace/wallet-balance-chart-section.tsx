@@ -199,7 +199,7 @@ export function WalletBalanceChartSection() {
           <label className="flex items-start gap-2 text-xs text-muted-foreground">
             <input
               type="checkbox"
-              className="mt-0.5 accent-[hsl(var(--brand-teal))]"
+              className="mt-0.5"
               checked={showAvailable}
               onChange={(event) => setShowAvailable(event.target.checked)}
             />
