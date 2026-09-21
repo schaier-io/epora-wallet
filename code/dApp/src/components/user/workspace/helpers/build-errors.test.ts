@@ -82,6 +82,59 @@ test("maps missing collateral to the collateral guidance", () => {
   assert.match(message, /one holding with about 6 ADA/);
 });
 
+// EPORA-WALLET-7: VESPR answered every CIP-30 read with nothing, and the raw
+// stage error reached the reader and paged Sentry as an unexpected build failure.
+test("maps an unresponsive wallet to reconnect guidance", () => {
+  const error = new Error(
+    "[setup:getUtxos] Wallet returned no UTxOs and no fallback addresses."
+  );
+  error.name = "MeshBuildError";
+  const result = parse(error);
+  assert.match(result.message, /refresh the page, and connect it again/);
+  assert.equal(result.expected, true);
+  assert.equal(result.diagnosticId, null);
+});
+
+test("maps a wallet without spendable UTxOs to funding guidance", () => {
+  const result = parse(
+    new Error(
+      "[setup:getUtxos:fallback] Unable to resolve wallet UTxOs from fallback addresses."
+    )
+  );
+  assert.match(result.message, /Fund it with some ADA and try again/);
+  assert.equal(result.expected, true);
+  assert.equal(result.diagnosticId, null);
+});
+
+// The same throw also fires when every provider lookup errors (an outage), so
+// utxo.ts splits that case onto its own machine-shaped message. It must stay
+// unexpected and keep the generic sentence plus its Sentry signal. The generic
+// match doubles as a pin on the message staying punctuation-free: a period
+// would make it read as a sentence and surface raw to the reader.
+test("a failed fallback provider lookup stays an unexpected outage", () => {
+  const result = parse(
+    new Error(
+      "[setup:getUtxos:fallback] Wallet fallback address lookups failed and no UTxOs could be resolved"
+    )
+  );
+  assert.match(result.message, /Something went wrong while preparing this transaction/);
+  assert.equal(result.expected, false);
+  assert.notEqual(result.diagnosticId, null);
+});
+
+test("matches the unresponsive wallet through the wrapped stage-error shape", () => {
+  const wrapped = new Error(
+    "[setup:getUtxos] Wallet returned no UTxOs and no fallback addresses."
+  ) as Error & { details?: unknown };
+  wrapped.details = {
+    walletGetUtxosEmpty: true,
+    sourceError: { name: "Error", message: "Wallet returned no UTxOs and no fallback addresses." }
+  };
+  const result = parse(wrapped);
+  assert.match(result.message, /refresh the page, and connect it again/);
+  assert.equal(result.expected, true);
+});
+
 test("maps BabbageOutputTooSmallUTxO to the min-lovelace guidance", () => {
   const { message } = parse(new Error("BabbageOutputTooSmallUTxO detected"));
   assert.match(message, /holds less ADA than the network allows/);
