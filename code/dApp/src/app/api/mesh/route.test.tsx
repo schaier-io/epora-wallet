@@ -19,10 +19,12 @@ vi.mock("next-intl/server", () => ({ getTranslations: async () => (key: string) 
 import { POST } from "./route";
 import { BlockfrostResponseError } from "@/lib/mesh/blockfrost-reads";
 import { MeshRpcInputError } from "@/lib/mesh/blockfrost-server";
+import { logger } from "@/lib/observability/logger";
 
 beforeEach(() => {
   mocks.execute.mockReset();
   mocks.limit.mockResolvedValue({ ok: true });
+  vi.mocked(logger.error).mockReset();
 });
 
 function request(body = '{"method":"fetchAddressUTxOs","args":["address"]}') {
@@ -35,11 +37,23 @@ it("preserves provider rate limits and the retry header", async () => {
   expect(response.status).toBe(429);
   expect(response.headers.get("Retry-After")).toBe("17");
   expect(JSON.stringify(await response.json())).toContain("Too many requests");
+  expect(vi.mocked(logger.error)).toHaveBeenCalledTimes(1);
 });
 
 it("reports invalid upstream data as a gateway failure", async () => {
   mocks.execute.mockRejectedValue(new BlockfrostResponseError("addresses/utxos", new Error("invalid payload")));
   expect((await POST(request())).status).toBe(502);
+  expect(vi.mocked(logger.error)).toHaveBeenCalledTimes(1);
+});
+
+it("keeps expected provider 404s out of the error log", async () => {
+  mocks.execute.mockRejectedValue(JSON.stringify({
+    status: 404,
+    data: { status_code: 404, error: "Not Found", message: "The requested component has not been found." }
+  }));
+  const response = await POST(request('{"method":"fetchTxInfo","args":["00"]}'));
+  expect(response.status).toBe(404);
+  expect(vi.mocked(logger.error)).not.toHaveBeenCalled();
 });
 
 it("keeps input errors out of retryable server failures", async () => {
@@ -54,4 +68,5 @@ it("preserves provider transaction failure text", async () => {
   const response = await POST(request('{"method":"submitTx","args":["00"]}'));
   expect(response.status).toBe(400);
   expect(JSON.stringify(await response.json())).toContain("PPViewHashesDontMatch");
+  expect(vi.mocked(logger.error)).toHaveBeenCalledTimes(1);
 });
