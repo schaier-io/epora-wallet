@@ -1,4 +1,5 @@
 "use client";
+import { createWalletAddressMatcher } from "../helpers/activity-addresses";
 import { spendableWalletUtxosAtom } from "./workspace-spendable-utxos.atoms";
 
 import { atom } from "jotai";
@@ -48,6 +49,8 @@ import {
   lockingContractAtom,
   totalLockedContractAssetsAtom
 } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
+import { lockedUtxosEnabledAtom, lockedUtxosQueryAtom } from "../queries/locked-utxos.atoms";
+import { RECENT_WALLET_TRANSACTION_VISIBLE_LIMIT } from "../constants";
 import { selectedDetectedTokenAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 
 /**
@@ -124,29 +127,16 @@ function oneEventPerTransaction(events: WalletActivityEvent[]) {
   });
 }
 
-export const wealthSeriesAtom = atom<WealthSeriesPoint[]>((get) => {
-  const walletAddress = get(lockingContractAtom).address;
-  const events = oneEventPerTransaction(get(recentWalletActivityEventsAtom));
-  if (!walletAddress || events.length === 0) return [];
-  const renderNowMs = get(renderNowMsAtom);
-  const sorted = [...events].sort(
-    (a, b) => (a.transaction.blockTime ?? 0) - (b.transaction.blockTime ?? 0)
-  );
-  let running = 0n;
-  const series: WealthSeriesPoint[] = [];
-  for (const event of sorted) {
-    const inputSum = event.inputUtxos
-      .filter((u) => u.output?.address === walletAddress)
-      .reduce((acc, u) => acc + BigInt(getAssetQuantityByUnit(u.output?.amount ?? [], "lovelace") ?? "0"), 0n);
-    const outputSum = event.outputUtxos
-      .filter((u) => u.output?.address === walletAddress)
-      .reduce((acc, u) => acc + BigInt(getAssetQuantityByUnit(u.output?.amount ?? [], "lovelace") ?? "0"), 0n);
-    running += outputSum - inputSum;
-    const ts = seriesPointTimestampMs(event.transaction, renderNowMs);
-    series.push({ timestamp: ts, value: lovelaceToAdaNumber(running) });
-  }
-  return withCurrentBalanceHeld(series, renderNowMs);
-});
+export const wealthSeriesAtom = atom<WealthSeriesPoint[]>((get) =>
+  get(wealthSeriesForAssetAtom)("lovelace")
+);
+
+// An empty loaded result means zero funds. A pending or disabled query does not.
+const chartCurrentAssetsAtom = atom((get) =>
+  get(lockedUtxosEnabledAtom) && get(lockedUtxosQueryAtom).data !== undefined
+    ? get(totalLockedContractAssetsAtom)
+    : null
+);
 
 /**
  * Walk the wallet's activity once for `unit` and return the running-balance series in
@@ -166,27 +156,40 @@ export function buildAssetWealthSeries(
     running: bigint,
     timestampMs: number,
     event: WalletActivityEvent | null
-  ) => bigint
+  ) => bigint,
+  currentBalance?: bigint
 ): WealthSeriesPoint[] {
   const isAda = unit === "lovelace";
+  const isWalletAddress = createWalletAddressMatcher(walletAddress);
+  // The activity feed adds older anchors beyond its recent window. Their missing
+  // intervening transactions prevent reconstructing balances at those anchors.
   const sorted = [...oneEventPerTransaction(events)].sort((a, b) => {
-    const blockTimeDifference =
-      (a.transaction.blockTime ?? 0) - (b.transaction.blockTime ?? 0);
-    return blockTimeDifference || (a.transaction.index ?? 0) - (b.transaction.index ?? 0);
-  });
-  let running = 0n;
-  const series: WealthSeriesPoint[] = [];
-  for (const event of sorted) {
+    const timeDifference = seriesPointTimestampMs(a.transaction, renderNowMs)
+      - seriesPointTimestampMs(b.transaction, renderNowMs);
+    return timeDifference || (a.transaction.index ?? 0) - (b.transaction.index ?? 0);
+  }).slice(-RECENT_WALLET_TRANSACTION_VISIBLE_LIMIT);
+  const deltas = sorted.map((event) => {
     const inputSum = event.inputUtxos
-      .filter((u) => u.output?.address === walletAddress)
+      .filter((u) => isWalletAddress(u.output?.address ?? ""))
       .reduce((acc, u) => acc + BigInt(getAssetQuantityByUnit(u.output?.amount ?? [], unit) ?? "0"), 0n);
     const outputSum = event.outputUtxos
-      .filter((u) => u.output?.address === walletAddress)
+      .filter((u) => isWalletAddress(u.output?.address ?? ""))
       .reduce((acc, u) => acc + BigInt(getAssetQuantityByUnit(u.output?.amount ?? [], unit) ?? "0"), 0n);
-    running += outputSum - inputSum;
+    return outputSum - inputSum;
+  });
+  // Recent history can omit the original funding. Recover its opening balance from
+  // today's holdings instead of assuming the visible history starts at zero.
+  let running = currentBalance === undefined
+    ? 0n
+    : currentBalance - deltas.reduce((total, delta) => total + delta, 0n);
+  const series: WealthSeriesPoint[] = [];
+  for (const [index, event] of sorted.entries()) {
+    running += deltas[index]!;
     const ts = seriesPointTimestampMs(event.transaction, renderNowMs);
     const recorded = adjustRunning ? adjustRunning(running, ts, event) : running;
-    series.push({ timestamp: ts, value: isAda ? lovelaceToAdaNumber(recorded) : Number(recorded) });
+    const point = { timestamp: ts, value: isAda ? lovelaceToAdaNumber(recorded) : Number(recorded) };
+    if (series.at(-1)?.timestamp === ts) series[series.length - 1] = point;
+    else series.push(point);
   }
   return withCurrentBalanceHeld(series, renderNowMs, adjustRunning
     ? () => {
@@ -200,9 +203,11 @@ export const wealthSeriesForAssetAtom = atom<(unit: string) => WealthSeriesPoint
   const walletAddress = get(lockingContractAtom).address;
   const events = get(recentWalletActivityEventsAtom);
   const renderNowMs = get(renderNowMsAtom);
+  const currentAssets = get(chartCurrentAssetsAtom);
   return (unit: string) => {
-    if (!walletAddress || events.length === 0) return [];
-    return buildAssetWealthSeries(events, walletAddress, renderNowMs, unit);
+    if (!walletAddress || events.length === 0 || !currentAssets) return [];
+    const currentBalance = BigInt(getAssetQuantityByUnit(currentAssets, unit) ?? "0");
+    return buildAssetWealthSeries(events, walletAddress, renderNowMs, unit, undefined, currentBalance);
   };
 });
 
@@ -254,7 +259,8 @@ export function buildAvailableAssetWealthSeries(
   renderNowMs: number,
   unit: string,
   sttUnit: string,
-  currentStreams: readonly StreamingPaymentFormState[]
+  currentStreams: readonly StreamingPaymentFormState[],
+  currentBalance?: bigint
 ): WealthSeriesPoint[] {
   let historicalStreams: StreamingPaymentFormState[] | null = null;
   return buildAssetWealthSeries(
@@ -273,7 +279,8 @@ export function buildAvailableAssetWealthSeries(
         return running < 0n ? running : 0n;
       }
       return subtractAccruedScheduledPayments(running, historicalStreams, unit, timestampMs);
-    }
+    },
+    currentBalance
   );
 }
 
@@ -288,15 +295,17 @@ export const availableWealthSeriesForAssetAtom = atom<(unit: string) => WealthSe
   const renderNowMs = get(renderNowMsAtom);
   const streams = get(activeInferredSttStateFormAtom).streamingPayments;
   const sttUnit = get(selectedDetectedTokenAtom)?.unit ?? null;
+  const currentAssets = get(chartCurrentAssetsAtom);
   return (unit: string) => {
-    if (!walletAddress || events.length === 0 || !sttUnit) return [];
+    if (!walletAddress || events.length === 0 || !sttUnit || !currentAssets) return [];
     return buildAvailableAssetWealthSeries(
       events,
       walletAddress,
       renderNowMs,
       unit,
       sttUnit,
-      streams
+      streams,
+      BigInt(getAssetQuantityByUnit(currentAssets, unit) ?? "0")
     );
   };
 });

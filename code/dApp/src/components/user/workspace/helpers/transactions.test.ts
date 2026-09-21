@@ -257,3 +257,16 @@ test("an equally complete newer payload still replaces the older one", () => {
 
   assert.equal(merged!.blockTime, 1_700_000_200);
 });
+
+
+test("duplicate UTxOs fill missing datum while preserving first values and input objects", () => {
+  const first = normalizeTransactionIo(rawTransaction()).outputs[0]!;
+  const duplicate = { ...first, output: { ...first.output,
+    amount: [{ unit: "lovelace", quantity: "999" }], plutusData: "d87980"
+  } };
+  const [merged] = dedupeUtxosByRef([first, duplicate]);
+  assert.equal(merged!.output.plutusData, "d87980");
+  assert.deepEqual(merged!.output.amount, first.output.amount);
+  assert.equal(first.output.plutusData, undefined);
+  assert.equal(dedupeUtxosByRef([duplicate, first]).length, 1);
+});

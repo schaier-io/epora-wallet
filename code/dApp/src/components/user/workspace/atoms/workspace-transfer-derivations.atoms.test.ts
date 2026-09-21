@@ -1,6 +1,7 @@
 import { test } from "node:test";
+import { bech32Encode } from "@/lib/bech32";
 import assert from "node:assert/strict";
-import { createStore } from "jotai";
+import { createStore, type Atom } from "jotai";
 
 import {
   buildAvailableAssetWealthSeries,
@@ -8,7 +9,10 @@ import {
   seriesPointTimestampMs,
   streamingPaymentPayoutRowsAtom,
   subtractAccruedScheduledPayments,
-  withCurrentBalanceHeld
+  withCurrentBalanceHeld,
+  wealthSeriesAtom,
+  wealthSeriesForAssetAtom,
+  availableWealthSeriesForAssetAtom
 } from "./workspace-transfer-derivations.atoms";
 import { sttStateFormAtom } from "./forms/stt-spend-form.atoms";
 import { renderNowMsAtom } from "./workspace-ui.atoms";
@@ -21,6 +25,11 @@ import {
 import { lovelaceToAdaNumber } from "@/lib/units/lovelace";
 import { type WalletActivityEvent } from "@/components/user/workspace/types";
 import { serializeData } from "@meshsdk/core";
+import { lockingContractAtom, totalLockedContractAssetsAtom, activeInferredSttStateFormAtom } from "./workspace-wallet-derivations.atoms";
+import { recentWalletActivityEventsAtom } from "./workspace-activity.atoms";
+import { selectedDetectedTokenAtom } from "./workspace-detected-token.atoms";
+import { lockedUtxosEnabledAtom, lockedUtxosQueryAtom } from "../queries/locked-utxos.atoms";
+import { RECENT_WALLET_TRANSACTION_VISIBLE_LIMIT } from "../constants";
 
 /**
  * The wealth chart plots one point per activity event, and this decides where on the time axis
@@ -503,4 +512,132 @@ test("the available line's held point is adjusted at render time, not at the las
   assert.equal(series[0]!.value, lovelaceToAdaNumber(99_999_990n));
   assert.equal(series[1]!.timestamp, RENDER_NOW_MS);
   assert.equal(series[1]!.value, lovelaceToAdaNumber(99_999_980n));
+});
+
+
+// Read the production selectors with explicit data boundaries, without starting chain requests.
+function chartSeries({ loaded = true, enabled = true, assets = [{ unit: "lovelace", quantity: "90000000" }] } = {}) {
+  const event = historicalChartEvent({
+    txHash: "chart-spend", blockTime: DAY_MS / 1000, transactionIndex: 0,
+    walletOutputLovelace: "90000000", state: createDefaultStateForm()
+  });
+  event.inputUtxos = [{
+    input: { txHash: "older-funding", outputIndex: 0 },
+    output: { address: CHART_WALLET_ADDRESS, amount: [{ unit: "lovelace", quantity: "100000000" }] }
+  }];
+  const values = new Map<Atom<unknown>, unknown>([
+    [lockingContractAtom, { address: CHART_WALLET_ADDRESS }],
+    [recentWalletActivityEventsAtom, [event]],
+    [renderNowMsAtom, 2 * DAY_MS],
+    [totalLockedContractAssetsAtom, assets],
+    [activeInferredSttStateFormAtom, createDefaultStateForm()],
+    [selectedDetectedTokenAtom, { unit: CHART_STT_UNIT }],
+    [lockedUtxosEnabledAtom, enabled],
+    [lockedUtxosQueryAtom, { data: loaded ? [] : undefined }]
+  ]);
+  const options = { signal: new AbortController().signal };
+  const get = <Value,>(target: Atom<Value>): Value => values.has(target)
+    ? values.get(target) as Value : target.read(get, options);
+  return [get(wealthSeriesAtom), get(wealthSeriesForAssetAtom)("lovelace"), get(availableWealthSeriesForAssetAtom)("lovelace")];
+}
+
+test("all balance selectors anchor truncated history to current wallet funds", () => {
+  for (const series of chartSeries()) {
+    assert.deepEqual(series.map(point => point.value), [90, 90]);
+  }
+});
+
+test("balance selectors wait for funds instead of treating unloaded data as zero", () => {
+  assert.deepEqual(chartSeries({ loaded: false }), [[], [], []]);
+  assert.deepEqual(chartSeries({ enabled: false }), [[], [], []]);
+});
+
+test("loaded empty funds are a confirmed zero balance", () => {
+  for (const series of chartSeries({ assets: [] })) {
+    assert.equal(series.at(-1)?.value, 0);
+  }
+});
+
+test("token history uses current holdings and counts duplicate events once", () => {
+  const event = historicalChartEvent({ txHash: "token-spend", blockTime: DAY_MS / 1000, transactionIndex: 0 });
+  event.inputUtxos = [{ input: { txHash: "older", outputIndex: 0 }, output: { address: CHART_WALLET_ADDRESS, amount: [{ unit: CHART_STT_UNIT, quantity: "100" }] } }];
+  event.outputUtxos = [{ input: { txHash: "token-spend", outputIndex: 0 }, output: { address: CHART_WALLET_ADDRESS, amount: [{ unit: CHART_STT_UNIT, quantity: "90" }] } }];
+  const series = buildAssetWealthSeries([event, { ...event, id: "duplicate" }], CHART_WALLET_ADDRESS, 2 * DAY_MS, CHART_STT_UNIT, undefined, 90n);
+  assert.deepEqual(series.map(point => point.value), [90, 90]);
+});
+
+test("untimed events follow timed events on the chart axis", () => {
+  const series = buildAssetWealthSeries([
+    historicalChartEvent({ txHash: "untimed", transactionIndex: 0, walletOutputLovelace: "1000000" }),
+    historicalChartEvent({ txHash: "timed", blockTime: DAY_MS / 1000, transactionIndex: 0, walletOutputLovelace: "5000000" })
+  ], CHART_WALLET_ADDRESS, 2 * DAY_MS, "lovelace", undefined, 6_000_000n);
+  assert.deepEqual(series, [{ timestamp: DAY_MS, value: 5 }, { timestamp: 2 * DAY_MS, value: 6 }]);
+});
+
+
+test("same-time transactions keep the final balance at that chart timestamp", () => {
+  const series = buildAssetWealthSeries([
+    historicalChartEvent({ txHash: "second", blockTime: DAY_MS / 1000, transactionIndex: 1, walletOutputLovelace: "2000000" }),
+    historicalChartEvent({ txHash: "first", blockTime: DAY_MS / 1000, transactionIndex: 0, walletOutputLovelace: "5000000" })
+  ], CHART_WALLET_ADDRESS, 2 * DAY_MS, "lovelace", undefined, 7_000_000n);
+  assert.deepEqual(series, [{ timestamp: DAY_MS, value: 7 }, { timestamp: 2 * DAY_MS, value: 7 }]);
+});
+
+
+test("truncated available history keeps historical accrual and recomputes today's accrual", () => {
+  const state = chartState("0");
+  const event = historicalChartEvent({
+    txHash: "stream-spend", blockTime: DAY_MS / 1000, transactionIndex: 0,
+    walletOutputLovelace: "90000000", state
+  });
+  event.inputUtxos = [{
+    input: { txHash: "older-funding", outputIndex: 0 },
+    output: { address: CHART_WALLET_ADDRESS, amount: [{ unit: "lovelace", quantity: "100000000" }] }
+  }];
+  const series = buildAvailableAssetWealthSeries(
+    [event], CHART_WALLET_ADDRESS, 2 * DAY_MS, "lovelace", CHART_STT_UNIT,
+    state.streamingPayments, 90_000_000n
+  );
+  assert.deepEqual(series, [{ timestamp: DAY_MS, value: 89 }, { timestamp: 2 * DAY_MS, value: 88 }]);
+});
+
+
+test("balance history excludes old anchors beyond the contiguous recent transactions", () => {
+  const anchor = historicalChartEvent({
+    txHash: "creation-anchor", blockTime: DAY_MS / 1000, transactionIndex: 0,
+    walletOutputLovelace: "100000000"
+  });
+  // A 50 ADA spend on day two is outside the visible 30 transactions.
+  const recent = Array.from({ length: RECENT_WALLET_TRANSACTION_VISIBLE_LIMIT }, (_, index) =>
+    historicalChartEvent({
+      txHash: `recent-${index}`, blockTime: ((index + 3) * DAY_MS) / 1000,
+      transactionIndex: 0, walletOutputLovelace: "1000000"
+    })
+  );
+  const events = [...recent.toReversed(), anchor, { ...recent[0]!, id: "duplicate-event" }];
+  const renderNowMs = 40 * DAY_MS;
+  const currentBalance = 80_000_000n;
+  const series = buildAssetWealthSeries(
+    events, CHART_WALLET_ADDRESS, renderNowMs, "lovelace", undefined, currentBalance
+  );
+  assert.equal(series.length, RECENT_WALLET_TRANSACTION_VISIBLE_LIMIT + 1);
+  assert.deepEqual(series[0], { timestamp: 3 * DAY_MS, value: 51 });
+  assert.deepEqual(series.at(-1), { timestamp: renderNowMs, value: 80 });
+  assert.equal(series.some(point => point.timestamp === DAY_MS), false);
+});
+
+
+test("stake address migration keeps historical balance unchanged", () => {
+  const scriptHash = new Uint8Array(28).fill(0xab);
+  const oldAddress = bech32Encode("addr_test", Uint8Array.of(0x70, ...scriptHash));
+  const newAddress = bech32Encode("addr_test", Uint8Array.of(0x10, ...scriptHash, ...new Uint8Array(28).fill(0xcd)));
+  const funding = historicalChartEvent({ txHash: "funding", blockTime: 1, transactionIndex: 0, walletOutputLovelace: "6000000" });
+  funding.outputUtxos[0]!.output.address = oldAddress;
+  const migration = historicalChartEvent({ txHash: "migration", blockTime: 2, transactionIndex: 0, walletOutputLovelace: "6000000" });
+  migration.inputUtxos = funding.outputUtxos;
+  migration.outputUtxos[0]!.output.address = newAddress;
+  assert.deepEqual(
+    buildAssetWealthSeries([funding, migration], newAddress, 3000, "lovelace", undefined, 6_000_000n),
+    [{ timestamp: 1000, value: 6 }, { timestamp: 2000, value: 6 }, { timestamp: 3000, value: 6 }]
+  );
 });
