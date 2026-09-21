@@ -1,0 +1,56 @@
+/*
+ * Typography primitives: the display face, the eyebrow rung, and the mono stack.
+ *
+ * Split out of `globals.css`, which had reached the repo's 750-line cap. One concern per
+ * file: these three rules decide how text is set, and nothing here paints a surface.
+ *
+ * Every rule in this file is UNLAYERED, so it outranks Tailwind's layered utilities without
+ * `!important`. That is the whole hazard these rules keep tripping over: any property set
+ * here silently beats the same property written as a utility at the call site. Set only what
+ * every call site must have, and leave the rest to the class list.
+ */
+
+/*
+ * Font weight is deliberately NOT set here, for the reason spelled out under `.eyebrow`
+ * below: rules in this file are unlayered, so they outrank Tailwind's layered utilities
+ * without `!important`. A `font-weight: 500` here silently beat every weight class at the
+ * call site. Every element carrying `.font-display` also writes its own weight, and all but
+ * one wrote `font-medium`, so the override was invisible -- except on `pageHeadingClass`
+ * (`components/ui/page-heading.ts:4`), which asks for `font-semibold` and rendered at 500.
+ * That is the Headline rung, used by every page title in the app, and DESIGN.md sets it at
+ * 1.5rem/600.
+ *
+ * `letter-spacing` has the same hazard and is still set: `card.tsx:49` and three spots in
+ * `wallet-hero-card.tsx` ask for -0.02em / -0.015em and get -0.025em. Left alone here
+ * because those surfaces need chain data to render and the change could not be measured.
+ */
+.font-display {
+  font-family: var(--font-heading);
+  letter-spacing: -0.025em;
+}
+
+/*
+ * Eyebrow: the small uppercase label above a title, a stat, or a section.
+ *
+ * This replaced 46 hand-written variants across 25 files: 4 sizes (`text-xs`,
+ * `text-[11px]`, `text-[10px]`, `text-[0.58rem]`) crossed with 5 trackings
+ * (0.12 / 0.14 / 0.16 / 0.18 / 0.2em). 11px is the eyebrow rung, below caption:
+ * uppercase text with wide tracking reads larger than its nominal size, so it
+ * has to sit a rung down to look like the same size as the caption next to it.
+ *
+ * Font weight is deliberately NOT set here. Rules in this file are unlayered,
+ * so they outrank Tailwind's layered utilities without `!important`. Setting a
+ * weight would silently beat every `font-semibold` at the call site. The 14
+ * sites that want emphasis keep their own weight class; the rest inherit 400.
+ */
+.eyebrow {
+  font-size: 0.6875rem;
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+
+.mono, code, kbd, samp, pre, .font-mono {
+  font-family: var(--font-mono);
+  font-feature-settings: "ss01", "ss02", "cv01";
+}
