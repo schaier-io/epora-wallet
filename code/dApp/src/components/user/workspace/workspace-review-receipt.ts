@@ -200,9 +200,14 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
           {
             label: i18n("funding"),
             value: fundingSummary,
+            // No detail for the smart-wallet branch. It read "Selected smart-wallet funds
+            // pay the due scheduled payments." beside a row labelled FUNDING on a receipt
+            // headed "Scheduled payment receipt": the pools you picked pay for the thing
+            // you are paying. The other two branches each say something the row does not:
+            // that smart-wallet funds are NOT spent, and which records get removed.
             detail:
               sttWalletInputs.length > 0
-                ? i18n("selectedSmartWalletFundsPayTheDueScheduled")
+                ? undefined
                 : streamingPaymentPayoutTransfers.length > 0
                   ? i18n("theConnectedWalletFundsTheTaggedOutputsSmart")
                   : i18n("onlyFullySettledScheduleRecordsAreRemoved"),
