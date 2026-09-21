@@ -67,6 +67,27 @@ describe("wallet connection dialog", () => {
     expect(document.body.textContent).toContain("such as Lace, Eternl, or Vespr.");
   });
 
+  // The badge describes a network, and before any wallet connects none has answered,
+  // so there is nothing to describe: no chip at all, not a "Network unknown" fault.
+  it("shows no network badge while an extension is listed but not connected", () => {
+    ctx.walletsLoaded = true;
+    ctx.installedWallets = [eternl];
+    render(<WalletConnectionDialog open onOpenChange={() => {}} />);
+
+    expect(screen.queryByText("Network unknown")).toBeNull();
+    expect(screen.queryByText("Preprod / Testnet")).toBeNull();
+    expect(screen.getByRole("button", { name: "Refresh list" })).toBeTruthy();
+  });
+
+  it("names the connected wallet's network once it has answered", () => {
+    ctx.walletsLoaded = true;
+    ctx.installedWallets = [eternl];
+    ctx.activeWalletName = "eternl";
+    render(<WalletConnectionDialog open onOpenChange={() => {}} />);
+
+    expect(screen.getByText("Preprod / Testnet")).toBeTruthy();
+  });
+
   it("never announces the connect button as a toggle", () => {
     ctx.walletsLoaded = true;
     ctx.installedWallets = [demoWallet];
