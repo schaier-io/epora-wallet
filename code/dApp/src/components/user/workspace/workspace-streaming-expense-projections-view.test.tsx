@@ -1,5 +1,5 @@
 import "@/test/mock-workspace-queries";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -51,6 +51,16 @@ function renderView() {
   );
 }
 
+function renderExpandedView() {
+  const view = renderView();
+  const toggle = screen.getByRole("button", { name: /^Streaming expenses/ });
+  expect(toggle).toHaveAttribute("aria-expanded", "false");
+  expect(screen.queryByText("Scheduled payment 1")).not.toBeInTheDocument();
+  fireEvent.click(toggle);
+  expect(toggle).toHaveAttribute("aria-expanded", "true");
+  return view;
+}
+
 // The display clock seeds from Date.now() at first render, so the fixture
 // dates are pinned to a fixed system time: without this the accrued figure
 // would drift with the wall clock between the fixture and the render.
@@ -71,9 +81,9 @@ describe("streaming expense projections in Activity", () => {
 
   it("labels the accrual as a projection and identifies the stream and payee", () => {
     streamsFixture.value = [stream()];
-    renderView();
+    renderExpandedView();
 
-    expect(screen.getByRole("region", { name: "Streaming expense projections" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /^Streaming expenses/ })).toBeInTheDocument();
     expect(screen.getAllByText("Projected").length).toBeGreaterThan(0);
     expect(screen.getByText("Scheduled payment 1")).toBeInTheDocument();
     expect(screen.getByText("addr_test1payee")).toBeInTheDocument();
@@ -85,7 +95,7 @@ describe("streaming expense projections in Activity", () => {
 
   it("carries no transaction hash, fee, or confirmation status", () => {
     streamsFixture.value = [stream()];
-    const { container } = renderView();
+    const { container } = renderExpandedView();
 
     expect(container.querySelector("a")).toBeNull();
     expect(screen.queryByText("Fee")).not.toBeInTheDocument();
@@ -96,7 +106,7 @@ describe("streaming expense projections in Activity", () => {
     streamsFixture.value = [
       stream({ startDate: String(NOW + 2 * DAY_MS), endDate: String(NOW + 9 * DAY_MS) })
     ];
-    renderView();
+    renderExpandedView();
 
     expect(screen.getByText("Not started")).toBeInTheDocument();
     expect(screen.getByText("Unpaid now 0 ADA")).toBeInTheDocument();
@@ -110,7 +120,7 @@ describe("streaming expense projections in Activity", () => {
         paidOutAmount: "3000000"
       })
     ];
-    renderView();
+    renderExpandedView();
 
     expect(screen.getByText("Ended")).toBeInTheDocument();
     // 8 ADA accrued, 3 ADA settled.
@@ -125,7 +135,7 @@ describe("streaming expense projections in Activity", () => {
         paidOutAmount: "10000000"
       })
     ];
-    renderView();
+    renderExpandedView();
 
     expect(screen.getByText("Finished")).toBeInTheDocument();
     expect(screen.getByText("Unpaid now 0 ADA")).toBeInTheDocument();
@@ -137,7 +147,7 @@ describe("streaming expense projections in Activity", () => {
    */
   it("uses the alert colour only when the stream actually owes money", () => {
     streamsFixture.value = [stream()];
-    const { unmount } = renderView();
+    const { unmount } = renderExpandedView();
 
     expect(screen.getByText("Unpaid now 3 ADA").className).toContain("text-amber-100");
 
@@ -145,7 +155,7 @@ describe("streaming expense projections in Activity", () => {
     streamsFixture.value = [
       stream({ startDate: String(NOW + 2 * DAY_MS), endDate: String(NOW + 9 * DAY_MS) })
     ];
-    renderView();
+    renderExpandedView();
 
     const settled = screen.getByText("Unpaid now 0 ADA");
     expect(settled.className).not.toContain("text-amber-100");
@@ -160,7 +170,7 @@ describe("streaming expense projections in Activity", () => {
         amountPerDay: "25"
       })
     ];
-    renderView();
+    renderExpandedView();
 
     // 3 whole days at 25 units/day, shown beside the decoded symbol, not ADA.
     expect(screen.getByText("Unpaid now 75 TKN")).toBeInTheDocument();
