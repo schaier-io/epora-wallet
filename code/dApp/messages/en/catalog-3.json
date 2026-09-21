@@ -414,7 +414,7 @@
     "ifYouEverLoseYourKeysRecoveryContacts": "If you ever lose your keys, recovery contacts can step in. They wait behind your proof of life.",
     "iUnderstandThisWalletHasNoDirectOwner": "I understand this wallet has no direct owner.",
     "moreAboutLabel": "More about {label}",
-    "moreSettings": "More settings",
+    "moreSettings": "Spending and scheduled payments",
     "nobodyHoldsACosignerChipYetSo": "Nobody holds a Co-signer chip yet, so only the owners can act. Add a co-signer to turn the rule on.",
     "noDirectOwnerYet": "No direct owner yet",
     "noOwnerAdded": "No owner added",
@@ -432,7 +432,7 @@
     "requireProofOfLife": "Require proof of life",
     "scheduledPayments": "Scheduled payments",
     "spenders": "Spenders",
-    "spendersProofOfLifeRecoveryContactsScheduled": "Spenders, proof of life, recovery contacts, and scheduled payments.",
+    "spendersProofOfLifeRecoveryContactsScheduled": "Set spending limits and optional payment schedules.",
     "theWalletActsOnceApprovingPeopleHoldEnough": "The wallet acts once approving people hold enough power between them.",
     "thisWalletAlreadyHoldsMaxAccessRecords": "This wallet already holds {max} owners, spenders, and recovery contacts in total. Remove one to add another.",
     "thisWalletAlreadyHoldsMaxPeople": "This wallet already holds {max} people, owners and spenders together. Remove one to add another.",
@@ -449,7 +449,9 @@
     "wakeUpTimer": "Proof of life",
     "wantSomeoneElseToSpendUpToA": "Want someone else to spend up to a daily limit? Add them here.",
     "whoCanManageThisWallet": "Who can manage this wallet",
-    "youCanAlwaysSendManuallySchedulesJustSave": "You can always send manually. Schedules just save you the click."
+    "youCanAlwaysSendManuallySchedulesJustSave": "You can always send manually. Schedules just save you the click.",
+    "recovery": "Recovery",
+    "recoveryDescription": "Choose recovery contacts and set their waiting period."
   },
   "ComponentsUserWorkspaceEditorsStreamingEditors": {
     "ada": " (ADA)",

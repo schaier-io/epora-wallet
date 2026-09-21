@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import type { TransactionInfo } from "@meshsdk/common";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -13,6 +13,10 @@ const { createDefaultStateForm } = await import("@/lib/contracts/state-form");
 // The silk layer is a WebGL canvas loaded through `next/dynamic`. It draws decoration only.
 vi.mock("@/components/user/card-silk-background", () => ({
   CardSilkBackground: () => null
+}));
+
+vi.mock("@/components/user/workspace/wallet-balance-chart-section", () => ({
+  WalletBalanceChartSection: () => <div>Balance chart</div>
 }));
 
 vi.mock("@/components/user/workspace/use-workspace-activity-state", () => ({
@@ -273,13 +277,14 @@ describe("activity streaming-expense projections", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("shows the accruing projection above the transaction list", () => {
+  it("keeps transactions before the collapsed projections", () => {
     streamingPayments.value = [activeStream()];
     renderView();
 
-    expect(
-      screen.getByRole("region", { name: "Streaming expense projections" })
-    ).toBeInTheDocument();
+    const toggle = screen.getByRole("button", { name: /Streaming expenses/ });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByText("No activity yet").compareDocumentPosition(toggle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    fireEvent.click(toggle);
     expect(screen.getByText("Scheduled payment 1")).toBeInTheDocument();
     expect(screen.getByText("Unpaid now 3 ADA")).toBeInTheDocument();
     expect(screen.getAllByText("Projected").length).toBeGreaterThan(0);
@@ -289,7 +294,7 @@ describe("activity streaming-expense projections", () => {
     streamingPayments.value = [activeStream()];
     renderView();
 
-    expect(screen.getByRole("region", { name: "Streaming expense projections" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Streaming expenses/ })).toBeInTheDocument();
     expect(screen.getByText("No activity yet")).toBeInTheDocument();
   });
 
@@ -301,4 +306,24 @@ describe("activity streaming-expense projections", () => {
       screen.queryByRole("region", { name: "Streaming expense projections" })
     ).not.toBeInTheDocument();
   });
+});
+
+
+it("shows recent transactions before optional balance history", () => {
+  const event = activityEvent();
+  renderView({ wealthSeries: [{ timestamp: 1, value: 8 }], recentWalletActivityEvents: [event], paginatedWalletActivityEvents: [event] });
+  const toggle = screen.getByRole("button", { name: /Balance history/ });
+  expect(toggle).toHaveAttribute("aria-expanded", "false");
+  expect(screen.queryByText("Balance chart")).not.toBeInTheDocument();
+  expect(screen.getByText("Funds added").compareDocumentPosition(toggle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  fireEvent.click(toggle);
+  expect(screen.getByText("Balance chart")).toBeInTheDocument();
+});
+
+
+it("opens the selected asset before the transaction list", () => {
+  const event = activityEvent();
+  renderView({ assetDetailUnit: "lovelace", recentWalletActivityEvents: [event], paginatedWalletActivityEvents: [event] });
+  expect(screen.getByRole("region", { name: "ADA summary" }).compareDocumentPosition(screen.getByText("Funds added")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /Balance history/ })).not.toBeInTheDocument();
 });

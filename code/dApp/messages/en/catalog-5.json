@@ -122,7 +122,9 @@
     "value1Balance": "{value1} balance",
     "value1Summary": "{value1} summary",
     "walletBalance": "Wallet balance",
-    "showingRangeOfTotal": "Showing {start}-{end} of {total}"
+    "showingRangeOfTotal": "Showing {start}-{end} of {total}",
+    "balanceHistory": "Balance history",
+    "balanceHistoryDescription": "View the wallet balance over time."
   },
   "ComponentsUserWorkspaceWorkspaceView": {
     "chooseSmartWallet": "Choose smart wallet",

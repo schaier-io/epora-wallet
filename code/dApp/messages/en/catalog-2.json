@@ -456,7 +456,8 @@
     "statusAvailable": "Available",
     "statusExhausted": "Budget spent",
     "timeNotAvailable": "Time not available",
-    "title": "Agent spending"
+    "title": "Agent spending",
+    "setUpAgentSpending": "Set up agent spending"
   },
   "ComponentsUserWorkspaceAtomsWorkspaceActivityAtoms": {
     "noneShown": "0 shown",

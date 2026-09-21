@@ -409,7 +409,7 @@
     "connected": "Connected",
     "demoUnsupported": "The demo wallet cannot sign. Connect a browser wallet.",
     "deploy": "Sign and deploy",
-    "description": "Create one permanent reference output for the current STT contract. Epora will use it for minting and every later STT transaction.",
+    "description": "Create the permanent contract reference that this network uses for wallet transactions.",
     "estimatedFee": "Estimated network fee: {lovelace} lovelace.",
     "eyebrow": "One-time network setup",
     "missingOutputIndex": "The setup transaction did not contain its reference output index.",
@@ -422,11 +422,15 @@
     "storeAddress": "Permanent store: {address}",
     "submitFailed": "Could not submit or confirm the setup transaction.",
     "submitting": "Waiting for your signature…",
-    "title": "Set up the shared STT reference",
+    "title": "Set up the network reference",
     "unknown": "unknown",
     "walletNeeded": "Connect a browser wallet to continue.",
     "walletReady": "The connected wallet will fund the permanent output and network fee.",
-    "working": "The setup transaction is in progress. Keep this page open."
+    "working": "The setup transaction is in progress. Keep this page open.",
+    "permanentlyLocked": "Permanently locked",
+    "estimatedNetworkFee": "Estimated network fee",
+    "amountAda": "{amount} ADA",
+    "technicalDetails": "Contract details"
   },
   "ComponentsUiCopyButton": {
     "copied": "Copied",

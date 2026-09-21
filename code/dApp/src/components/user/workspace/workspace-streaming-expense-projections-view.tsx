@@ -8,7 +8,7 @@
 import { useEffect, useState } from "react";
 import { useAtomValue } from "jotai";
 import { useTranslations } from "next-intl";
-import { Repeat } from "lucide-react";
+import { DisclosureSection } from "@/components/user/workspace/editors";
 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils/cn";
@@ -65,18 +65,7 @@ export function WorkspaceStreamingExpenseProjectionsView() {
   const projections = deriveStreamingExpenseProjections(streamingPayments, nowMs);
 
   return (
-    <section
-      aria-label={i18n("streamingExpenseProjections")}
-      className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4"
-    >
-      <div className="flex flex-wrap items-center gap-2">
-        <Repeat className="h-4 w-4 text-primary" aria-hidden="true" />
-        <p className="text-sm font-semibold text-foreground">{i18n("title")}</p>
-        <Badge variant="secondary">{i18n("projectedBadge")}</Badge>
-      </div>
-      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-        {i18n("description")}
-      </p>
+    <DisclosureSection title={i18n("title")} description={i18n("description")}>
       <div className="mt-3 space-y-2">
         {projections.map((projection, index) => (
           <ProjectionRow
@@ -86,7 +75,7 @@ export function WorkspaceStreamingExpenseProjectionsView() {
           />
         ))}
       </div>
-    </section>
+    </DisclosureSection>
   );
 }
 

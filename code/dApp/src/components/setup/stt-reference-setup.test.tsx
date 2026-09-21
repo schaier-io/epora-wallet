@@ -25,7 +25,7 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: mocks.replace })
 }));
 vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string) => ({
+  useTranslations: () => (key: string, values?: { amount?: string }) => key === "amountAda" ? `${values?.amount} ADA` : ({
     build: "Build setup transaction",
     building: "Building…",
     checkAgain: "Check again",
@@ -117,6 +117,7 @@ describe("STT reference setup", () => {
   it("builds for review, then signs and redirects only after confirmation", async () => {
     vi.useFakeTimers();
     mocks.build.mockResolvedValue({
+      referenceScriptLockedLovelace: "7354321",
       estimatedFeeLovelace: "190000",
       preview: { summary: "Deploy reference with 5 ADA" },
       referenceScriptOutputIndex: 0,
@@ -138,7 +139,8 @@ describe("STT reference setup", () => {
     fireEvent.click(screen.getByRole("button", { name: "Build setup transaction" }));
     await act(async () => undefined);
 
-    expect(screen.getByText("Deploy reference with 5 ADA")).toBeInTheDocument();
+    expect(screen.getByText("7.354321 ADA")).toBeInTheDocument();
+    expect(screen.getByText("0.19 ADA")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Build setup transaction" })).not.toBeInTheDocument();
     expect(mocks.signAndSubmit).not.toHaveBeenCalled();
 
@@ -254,7 +256,8 @@ describe("STT reference setup", () => {
 
     await act(async () => {
       resolveBuild({
-        estimatedFeeLovelace: "190000",
+        referenceScriptLockedLovelace: "7354321",
+      estimatedFeeLovelace: "190000",
         preview: { summary: "Deploy reference with 5 ADA" },
         referenceScriptOutputIndex: 0,
         signerAddress: "addr_test1_signer",
@@ -270,6 +273,7 @@ describe("STT reference setup", () => {
   it("keeps the confirming label while the submitted reference is being confirmed", async () => {
     mocks.detect.mockImplementation(() => new Promise(() => undefined));
     mocks.build.mockResolvedValue({
+      referenceScriptLockedLovelace: "7354321",
       estimatedFeeLovelace: "190000",
       preview: { summary: "Deploy reference with 5 ADA" },
       referenceScriptOutputIndex: 0,

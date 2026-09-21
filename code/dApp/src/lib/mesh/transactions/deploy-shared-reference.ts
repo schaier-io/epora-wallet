@@ -123,6 +123,7 @@ export async function buildDeploySharedSttReferenceTx(
 
   return {
     referenceScriptOutputIndex: references[0]!,
+    referenceScriptLockedLovelace: appliedLockedLovelace,
     txHex: prepared.txHex,
     preview: createTxPreview(
       "setup-stt-reference",

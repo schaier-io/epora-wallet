@@ -7,6 +7,7 @@ import { AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
 import { WalletConnectionDialog } from "@/components/layout/wallet-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 import { pageHeadingClass } from "@/components/ui/page-heading";
 import {
   SUBMIT_CONFIRMATION_INITIAL_DELAY_MS,
@@ -224,10 +225,24 @@ export function SttReferenceSetup({
                 <CheckCircle2 className="h-4 w-4 text-emerald-300" aria-hidden="true" />
                 {i18n("ready")}
               </p>
-              <p className="mt-2 text-sm text-muted-foreground">{preview.preview.summary}</p>
-              <p className="mt-2 text-xs text-muted-foreground">
-                {i18n("estimatedFee", { lovelace: preview.estimatedFeeLovelace ?? i18n("unknown") })}
-              </p>
+              <dl className="mt-3 space-y-2 text-sm">
+                <div className="flex flex-wrap justify-between gap-2">
+                  <dt>{i18n("permanentlyLocked")}</dt>
+                  <dd className="font-medium tabular-nums">{preview.referenceScriptLockedLovelace
+                    ? i18n("amountAda", { amount: formatLovelaceAsAda(preview.referenceScriptLockedLovelace) })
+                    : i18n("unknown")}</dd>
+                </div>
+                <div className="flex flex-wrap justify-between gap-2">
+                  <dt>{i18n("estimatedNetworkFee")}</dt>
+                  <dd className="tabular-nums">{preview.estimatedFeeLovelace
+                    ? i18n("amountAda", { amount: formatLovelaceAsAda(preview.estimatedFeeLovelace) })
+                    : i18n("unknown")}</dd>
+                </div>
+              </dl>
+              <details className="mt-3 text-xs text-muted-foreground">
+                <summary className="cursor-pointer">{i18n("technicalDetails")}</summary>
+                <p className="mt-2 break-words">{preview.preview.summary}</p>
+              </details>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button type="button" onClick={() => void submitPreview()}>{i18n("deploy")}</Button>
