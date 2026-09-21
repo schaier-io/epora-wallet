@@ -1,5 +1,5 @@
 import { useTranslations } from "next-intl";
-import { CheckCircle2, ChevronRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { CopyButton } from "@/components/ui/copy-button";
 import { type TaskDefinition } from "@/components/user/flow-types";
@@ -27,10 +27,13 @@ export function ReviewReceiptCard({
         compact ? "p-3" : "p-4"
       )}
     >
-      <div className="flex items-center gap-2">
-        <CheckCircle2 className="h-4 w-4 text-primary" />
-        <p className="text-sm font-medium text-foreground">{receiptTitle}</p>
-      </div>
+      {/* No check mark. This card previews what a transaction WILL do, and it renders
+          the same whether the action is ready or blocked: the create-wallet rail showed a
+          teal `CheckCircle2` beside "Create wallet" while the same panel said "Add at least
+          one owner", the form said "Needs review" and Create said "Not built yet". A tick in
+          the colour DESIGN.md reserves for "confirmed safe progress" is the one mark that
+          must never appear before the thing is confirmed. The title carries the meaning. */}
+      <p className="text-sm font-medium text-foreground">{receiptTitle}</p>
       {receiptSummary ? (
         <p
           className={cn(
