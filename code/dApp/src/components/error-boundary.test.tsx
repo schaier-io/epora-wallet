@@ -48,6 +48,21 @@ describe("error boundary fallback", () => {
     );
   });
 
+  // The fallback replaces the whole of `#main`, so the page's own `h1` is gone with it and
+  // neither `TopNav` nor `SiteFooter` carries a heading. Without this the errored page had
+  // no heading at all for heading navigation to land on.
+  it("names the failure with a level-1 heading", () => {
+    render(
+      <ErrorBoundary>
+        <Boom />
+      </ErrorBoundary>
+    );
+
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+      "Something went wrong"
+    );
+  });
+
   it("keeps a focusable main target when the page fails", () => {
     render(
       <ErrorBoundary>

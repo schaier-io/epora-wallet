@@ -52,7 +52,14 @@ function ErrorFallback({ onReset, onReload }: { onReset: () => void; onReload: (
       >
         <div className="inline-flex items-center gap-2 text-rose-200">
           <AlertOctagon className="h-5 w-5" aria-hidden="true" />
-          <p className="eyebrow font-semibold">{i18n("somethingWentWrong")}</p>
+          {/* `h1`, not `p`. This fallback replaces everything the boundary wraps, which is
+              the whole of `#main` (`app/layout.tsx:212`), and the page's own `h1` goes with
+              it. Only `TopNav` and `SiteFooter` survive, and neither carries a heading, so
+              the errored page offered heading navigation nothing at all to land on. Preflight
+              resets `h1`-`h6` to `font-size: inherit` and `margin: 0`
+              (`tailwindcss/preflight.css:78`), so `.eyebrow` still decides how it looks and
+              nothing moves. */}
+          <h1 className="eyebrow font-semibold">{i18n("somethingWentWrong")}</h1>
         </div>
         <p className="text-sm text-muted-foreground">
           {i18n("thisPartOfThePageStoppedWorking")}
