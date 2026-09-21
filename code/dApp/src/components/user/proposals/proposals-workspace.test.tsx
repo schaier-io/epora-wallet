@@ -282,14 +282,14 @@ describe("the proposals shell", () => {
     render(<ProposalsWorkspace />);
 
     expect(screen.getByRole("alert")).toHaveTextContent("Could not sign out. Try again.");
-    expect(screen.getByRole("heading", { name: "Approval requests" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Co-signing" })).toBeInTheDocument();
     expect(screen.queryByText("sign in gate")).not.toBeInTheDocument();
   });
 });
 
 /**
  * With no requests, the two-column split put "No approval requests yet." in a 440px pane
- * beside a second empty pane reading "Select an approval request to verify and sign it."
+ * beside a second empty pane reading "Select a request to verify and sign it."
  * The right pane told the reader to pick from the list the left pane had just said was
  * empty. The placeholder is correct once requests exist and none is picked.
  */
@@ -299,7 +299,7 @@ describe("the empty workspace", () => {
     render(<ProposalsWorkspace />);
 
     expect(
-      screen.queryByText("Select an approval request to verify and sign it.")
+      screen.queryByText("Select a request to verify and sign it.")
     ).toBeNull();
   });
 
@@ -324,7 +324,7 @@ describe("the empty workspace", () => {
     render(<ProposalsWorkspace />);
 
     expect(
-      screen.queryByText("Select an approval request to verify and sign it.")
+      screen.queryByText("Select a request to verify and sign it.")
     ).toBeNull();
   });
 
@@ -335,7 +335,7 @@ describe("the empty workspace", () => {
     render(<ProposalsWorkspace />);
 
     expect(
-      screen.getByText("Select an approval request to verify and sign it.")
+      screen.getByText("Select a request to verify and sign it.")
     ).toBeInTheDocument();
   });
 });

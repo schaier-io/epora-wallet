@@ -97,9 +97,9 @@ describe("the approval queue row", () => {
 
 describe("the approval queue column", () => {
   /**
-   * The page `<h1>` and the nav tab both say "Approval requests", and this list column says
-   * "Requests", the same noun shortened for a column head. A heading here calling the same
-   * things "Proposals" would put two object vocabularies on one screen.
+   * The page `<h1>` and the nav tab both say "Co-signing", the activity; this list column
+   * says "Requests", the object. A heading here calling the same things "Proposals" would
+   * put two object vocabularies on one screen.
    */
   it("does not introduce a second name for approval requests", () => {
     renderList();

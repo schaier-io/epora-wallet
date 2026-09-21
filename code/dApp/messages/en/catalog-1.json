@@ -117,8 +117,8 @@
     "preparingWalletHome": "Preparing wallet home…"
   },
   "AppUserProposalsPage": {
-    "approvalRequests": "Approval requests",
-    "loadingApprovalRequests": "Loading approval requests…"
+    "approvalRequests": "Co-signing",
+    "loadingApprovalRequests": "Loading requests…"
   },
   "ComponentsErrorBoundary": {
     "ifThisKeepsHappeningReportIt": "If this keeps happening, report it on <github>GitHub</github> or <discord>Discord</discord>.",
@@ -235,7 +235,7 @@
     "connectAWallet": "Connect a wallet",
     "connecting": "Connecting",
     "connectWallet": "Connect wallet",
-    "coSigning": "Approval requests",
+    "coSigning": "Co-signing",
     "disconnected": "Disconnected",
     "mainnet": "Mainnet",
     "menu": "Menu",
@@ -600,10 +600,10 @@
     "you": "(you)"
   },
   "ComponentsUserProposalsCreateProposalPanel": {
-    "backToApprovalRequests": "Back to approval requests",
+    "backToApprovalRequests": "Back to co-signing",
     "cancel": "Cancel",
     "connectTheWalletThatBuiltThisRequest": "Connect the wallet that built this request before you add co-signers.",
-    "couldNotSaveTheApprovalRequest": "Could not save the approval request.",
+    "couldNotSaveTheApprovalRequest": "Could not save the request.",
     "descriptionOptional": "Description (optional)",
     "discardDraft": "Discard draft",
     "discardDraftCancel": "Keep draft",
@@ -611,8 +611,8 @@
     "discardDraftDescription": "The saved transaction is removed from this browser. Drafts are only on your device, so nobody else is affected.",
     "discardDraftTitle": "Discard this draft?",
     "goBackToTheWalletToBuildA": "Go back to the wallet to build a transaction first.",
-    "nothingToSaveYetBuildATransactionOn": "Nothing to save yet. Build a transaction on the wallet page, then choose “Save as approval request”.",
-    "saveAsApprovalRequest": "Save as approval request",
+    "nothingToSaveYetBuildATransactionOn": "Nothing to save yet. Build a transaction on the wallet page, then choose “Save for co-signing”.",
+    "saveAsApprovalRequest": "Save for co-signing",
     "saveRequest": "Save request",
     "thePeopleWhoHaveToSignWillSee": "The people who have to sign will see this exact transaction and check it before they sign.",
     "title": "Title",

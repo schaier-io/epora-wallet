@@ -472,7 +472,7 @@
     "refreshProofOfLifeFor": "Refresh proof of life for {wallet}"
   },
   "ComponentsUserWorkspaceWorkspaceReviewRailView": {
-    "approvalRequestsCannotRenameThisWallet": "Approval requests cannot rename this wallet. Restore the current name first.",
+    "approvalRequestsCannotRenameThisWallet": "A saved request cannot rename this wallet. Restore the current name first.",
     "updatingWalletState": "Updating wallet state…",
     "approvalRuleNeedsPower": "This rule needs {approvalThreshold} approval power between the co-signers.",
     "fixHighlightedFieldsBeforeSaving": "Some fields still need a value or a correction. Fix them first. Then this can be saved for the other signers.",

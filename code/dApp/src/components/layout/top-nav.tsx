@@ -30,10 +30,13 @@ const NAV_LINKS = [
   // name the rest of the app already gives the third one -- the switcher button says "Smart
   // wallets", the dialog says "Choose smart wallet" -- so the label now matches it.
   { href: "/user", labelKey: "smartWallet", carriesWallet: true },
-  // "Approval requests", the name the destination carries: its page heading, its tab
-  // title, its empty state and the wallet's own "Save as approval request" button all
-  // say it. The tab read "Co-signing", a fourth word for the same object, so the reader
-  // clicked one word and landed on another.
+  // "Co-signing", the name the destination carries: its page heading and its tab title
+  // both say it, its empty state reads "Nothing to co-sign yet.", and the wallet's own
+  // button reads "Save for co-signing". The object those requests are is left to the
+  // list column ("Requests"), so the nav names the activity and nothing competes with it.
+  // The tab and the page disagreed twice before this: the tab said "Co-signing" over a
+  // page headed "Approval requests", then both said "Approval requests", which named the
+  // object twice and never said what the reader does there.
   { href: "/user/proposals", labelKey: "coSigning", carriesWallet: true },
   // "Scheduled income". The page this opens now heads itself the same way, in both its
   // `<h1>` and its `metadata.title`; it read "Scheduled payments to you", a sentence

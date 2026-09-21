@@ -159,9 +159,19 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
           // makes the sidebar entry agree with it.
           //
           // "Has schedules" is read off the same capability map as the rest of this card
-          // (`canPayStreamingPayments` is `hasStreamingPayments`, `guided-helpers.ts`),
-          // not off `activeInferredSttStateForm`. That form loads separately, and while
-          // it was still empty the card sent a wallet that does have payments to Add.
+          // (`canPayStreamingPayments` is `hasStreamingPayments`, `guided-helpers.ts`)
+          // rather than off `activeInferredSttStateForm`, so one source answers every
+          // question the card asks.
+          //
+          // Correction, because an earlier version of this comment claimed otherwise:
+          // the two are NOT a loading race. `activeInferredSttStateFormAtom` returns
+          // `selectedDetectedTokenStateFormAtom` whenever a token is selected
+          // (`queries/wallet-identity.atoms.ts`), which is the same state
+          // `resolveTokenCapabilityMap` reads, and with no token selected both
+          // `canManageStreamingPayments` and `canPayStreamingPayments` are false
+          // (`guided-helpers.ts:111`) so this card does not render. The two spellings
+          // always agreed. `workspace-navigation.ts` and the Home schedules tile still
+          // count the form directly, and are correct for the same reason.
           task: flowAvailability.canManageStreamingPayments
             ? flowAvailability.canPayStreamingPayments
               ? ("streaming-payments-edit-renew" as const)

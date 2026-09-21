@@ -26,7 +26,7 @@ describe("the save-as-request dock", () => {
   it("carries its reassurance in the button's own description", () => {
     renderDock();
 
-    expect(screen.getByRole("button", { name: "Save as approval request" })).toHaveAccessibleDescription(
+    expect(screen.getByRole("button", { name: "Save for co-signing" })).toHaveAccessibleDescription(
       "Prepares the transaction and saves it for the other signers. Nothing is signed and nothing is sent."
     );
   });
@@ -34,7 +34,7 @@ describe("the save-as-request dock", () => {
   it("puts the blocking reason in the same place when there is one", () => {
     renderDock({ blockedReason: "Choose who to pay first. Then this can be saved for the other signers." });
 
-    const button = screen.getByRole("button", { name: "Save as approval request" });
+    const button = screen.getByRole("button", { name: "Save for co-signing" });
     expect(button).toBeDisabled();
     expect(button).toHaveAccessibleDescription(
       "Choose who to pay first. Then this can be saved for the other signers."
@@ -49,7 +49,7 @@ describe("the save-as-request dock", () => {
   it("promotes itself and names the rule's arithmetic on the multisig path", () => {
     renderDock({ emphasized: true, approvalNeeded: 2, approvalHeld: 3 });
 
-    const button = screen.getByRole("button", { name: "Save as approval request" });
+    const button = screen.getByRole("button", { name: "Save for co-signing" });
     expect(button).toHaveAccessibleDescription(
       "This rule needs 2 approval power between the signers, and the co-signers hold 3. You sign here; the co-signers sign on the saved request."
     );
@@ -58,7 +58,7 @@ describe("the save-as-request dock", () => {
   it("keeps the default wording when emphasized without a rule to name", () => {
     renderDock({ emphasized: true });
 
-    expect(screen.getByRole("button", { name: "Save as approval request" })).toHaveAccessibleDescription(
+    expect(screen.getByRole("button", { name: "Save for co-signing" })).toHaveAccessibleDescription(
       "Prepares the transaction and saves it for the other signers. Nothing is signed and nothing is sent."
     );
   });

@@ -379,7 +379,7 @@ describe("context-aware signing actions", () => {
     expect(buildAndSubmitSelectedActionTx).toHaveBeenCalledWith("admin");
 
     expect(reviewPanelProps.latest.primaryActionLabel).toBe("Continue");
-    expect(reviewPanelProps.latest.secondaryActionLabel).toBe("Save as approval request");
+    expect(reviewPanelProps.latest.secondaryActionLabel).toBe("Save for co-signing");
     expect(reviewPanelProps.latest.approvalActionNote).toBe(
       "This rule needs 2 approval power between the co-signers."
     );
@@ -405,7 +405,7 @@ describe("context-aware signing actions", () => {
       }
     });
 
-    expect(reviewPanelProps.latest.primaryActionLabel).toBe("Save as approval request");
+    expect(reviewPanelProps.latest.primaryActionLabel).toBe("Save for co-signing");
     expect(reviewPanelProps.latest.primaryActionKind).toBe("approval");
     expect(reviewPanelProps.latest.secondaryActionLabel).toBeNull();
 
@@ -458,7 +458,7 @@ describe("context-aware signing actions", () => {
 
   // The display gate (S1-L) hides field errors on a form the user has not touched. The
   // approval CTA must keep reading the RAW pair, or an untouched invalid draft would arm
-  // "Save as approval request" with nothing on screen to say why it should not.
+  // "Save for co-signing" with nothing on screen to say why it should not.
   it("still blocks the approval action on a pristine invalid draft", () => {
     const buildSelectedActionTx = vi.fn();
     const handleSaveProposalFromBuild = vi.fn();
@@ -532,7 +532,7 @@ describe("context-aware signing actions", () => {
     expect(reviewPanelProps.latest.primaryActionDisabled).toBe(false);
     expect(reviewPanelProps.latest.secondaryActionDisabled).toBe(true);
     expect(reviewPanelProps.latest.approvalActionNote).toBe(
-      "Approval requests cannot rename this wallet. Restore the current name first."
+      "A saved request cannot rename this wallet. Restore the current name first."
     );
   });
 });
