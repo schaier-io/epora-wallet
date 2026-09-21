@@ -497,6 +497,9 @@ describe("the words on the approval request detail", () => {
     ).toBeInTheDocument();
     expect(screen.queryByText(/Nobody has checked it/)).toBeNull();
     expect(screen.getByText("Send 5 ADA to addr_test1qq")).toBeInTheDocument();
+    const summary = screen.getByText("Send 5 ADA to addr_test1qq");
+    expect(screen.getByText("What this transaction does").compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByText("Wallet State changes").compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(container.textContent).not.toMatch(/[—–]/);
   });
 
@@ -515,7 +518,7 @@ describe("the words on the approval request detail", () => {
     expect(screen.getByText("Where the money goes")).toBeInTheDocument();
     expect(screen.queryByText(/decoded from the bytes/)).toBeNull();
     expect(
-      screen.getByText("Read from the transaction itself, not from the note above it.")
+      screen.getByText("Decoded from the transaction. Check these effects before signing.")
     ).toBeInTheDocument();
   });
 

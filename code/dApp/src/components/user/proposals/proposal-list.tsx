@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 
 import {
@@ -11,7 +12,7 @@ import {
   Users
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
 import type {
   ProposalListItemDto,
@@ -135,6 +136,7 @@ export function ProposalList({
           <p>
             {i18n("noApprovalRequestsYetBuildATransactionOn")}
           </p>
+          <Link href="/user" className={buttonVariants({ variant: "outline" })}>{i18n("openWallet")}</Link>
         </div>
       ) : null}
 

@@ -64,6 +64,10 @@ function renderList(
 }
 
 describe("the approval queue row", () => {
+  it("links an empty queue to the wallet", () => {
+    renderList(undefined, { proposals: [] });
+    expect(screen.getByRole("link", { name: "Open wallet" })).toHaveAttribute("href", "/user");
+  });
   it("marks a request that is on its way to the chain", () => {
     // The row stays SUBMITTING when the chain accepted the tx but the record did
     // not finish; "Open" would invite the proposer to make a new version.
