@@ -5,17 +5,15 @@ import { useTranslations } from "next-intl";
 
 import { activeBuildAtom, activeSubmitAtom, buildDiagnosticIdAtom, buildErrorAtom, buildErrorExpectedAtom, buildErrorStaleInputsAtom, previewAtom, submitConfirmedAtom, submitHashAtom, workspaceSessionAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { activeSttStateFormAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
-import { walletBalanceSummaryAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { activeInferredSttStateFormAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import { selectedWizardActionDescriptorAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { selectedActionAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
 import { selectedSigningActionAvailabilityAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
 import { walletStateUpdatingAtom } from "@/components/user/workspace/atoms/wallet-state-update.atoms";
-import { activeAddressAtom } from "@/providers/wallet.atoms";
 import { useAtomValue } from "jotai";
 import { useState } from "react";
 
-import { getAssetQuantityByUnit, hasFieldErrors } from "@/components/user/workspace/helpers";
+import { hasFieldErrors } from "@/components/user/workspace/helpers";
 import { Button } from "@/components/ui/button";
 import { normalizeWalletName } from "@/lib/contracts/state-wallet-name";
 import {
@@ -43,7 +41,6 @@ export function WorkspaceReviewRailView() {
   const buildErrorStaleInputs = useAtomValue(buildErrorStaleInputsAtom);
   const preview = useAtomValue(previewAtom);
   const activeInferredSttStateForm = useAtomValue(activeInferredSttStateFormAtom);
-  const walletBalanceSummary = useAtomValue(walletBalanceSummaryAtom);
   const selectedAction = useAtomValue(selectedActionAtom);
   const preparationActive = preparationEnabled && selectedAction === "consolidate-utxo";
   const selectedWizardActionDescriptor = useAtomValue(selectedWizardActionDescriptorAtom);
@@ -52,12 +49,6 @@ export function WorkspaceReviewRailView() {
   const sttStateForm = useAtomValue(activeSttStateFormAtom);
   const submitConfirmed = useAtomValue(submitConfirmedAtom);
   const walletStateUpdating = useAtomValue(walletStateUpdatingAtom);
-  // The review tells the user whose signature the built tx needs. The builders pin
-  // it to the change address `setupTransaction` resolved (`setRequiredSigners`),
-  // which can differ from `usedAddresses[0]`; before a build exists, the connected
-  // address is the best available answer.
-  const activeAddress = useAtomValue(activeAddressAtom);
-  const previewSignerAddress = preview?.signerAddress ?? activeAddress;
   const {
     actionDrafts,
     activeActionDefinition,
@@ -79,11 +70,6 @@ export function WorkspaceReviewRailView() {
     reviewPrimaryActionLabel,
     reviewPrimaryActionDisabled,
   } = state;
-  // Same gating as the header funds pill: a loading or failed refresh leaves the cost
-  // rows without a balance figure instead of showing a stale or zero one.
-  const walletBalanceLovelace = walletBalanceSummary.loading || walletBalanceSummary.error
-    ? null
-    : getAssetQuantityByUnit(walletBalanceSummary.assets, "lovelace");
   const [preparingProposal, setPreparingProposal] = useState(false);
   const [clickedAction, setClickedAction] = useState<{
     action: typeof selectedAction; session: typeof session;
@@ -260,8 +246,6 @@ export function WorkspaceReviewRailView() {
                     fieldErrors={activeFieldErrors}
                     preview={preview}
                     previewMatchesSelectedAction={previewMatchesSelectedAction}
-                    signerAddress={previewSignerAddress}
-                    walletBalanceLovelace={walletBalanceLovelace}
                     buildError={buildError}
                     buildErrorExpected={buildErrorExpected}
                     buildDiagnosticId={buildDiagnosticId}
