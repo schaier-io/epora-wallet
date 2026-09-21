@@ -33,6 +33,7 @@ import { decodeDatumFromUtxo } from "@/lib/mesh/datum";
 import {
   streamingPaymentPayoutAmountsAtom,
   sttExtraTransfersAtom,
+  stagedSttTransfersAtom,
   sttInputOutputIndexAtom,
   sttInputTxHashAtom,
   sttWalletInputsAtom,
@@ -315,7 +316,7 @@ export const selectedLockedContractAssetsAtom = atom((get) => {
 export const allocatedLockedContractAssetsAtom = atom((get) =>
   mergeAmountLists([
     ...get(sttWalletOutputsAtom).map((output) => output.amount),
-    ...get(sttExtraTransfersAtom).map((transfer) => transfer.amount)
+    ...get(stagedSttTransfersAtom).map((transfer) => transfer.amount)
   ])
 );
 

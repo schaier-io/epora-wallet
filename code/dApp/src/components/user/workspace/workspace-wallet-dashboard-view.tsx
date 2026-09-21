@@ -228,21 +228,6 @@ export function WorkspaceWalletDashboardView() {
                           )
                         }
                       />
-                      <WalletAccessOverview
-                        state={activeInferredSttStateForm}
-                        paymentKeyHash={activePaymentKeyHash}
-                      />
-                      <AgentSpendingConsole
-                        state={activeInferredSttStateForm}
-                        events={recentWalletActivityEvents}
-                        eventsLoading={walletTransactions.loading}
-                        walletAddress={lockingContract.address}
-                        ownerAddress={activeAddress}
-                        nowMs={nowMs}
-                        onChangeAccess={() =>
-                          openWorkspaceIntent("wallet-settings", "update-state", "settings-people")
-                        }
-                      />
                       <LockedAssetsOverviewPanel
                         utxoCount={lockedContractUtxos.length}
                         assets={totalLockedContractAssets}
@@ -260,6 +245,63 @@ export function WorkspaceWalletDashboardView() {
                         }}
                       />
 
+                      <RecentActivityTimeline
+                        events={recentWalletActivityEvents.slice(0, 5).map((activity) => {
+                          const tx = activity.transaction;
+                          // Freshly submitted txs read back without a block time; the slot
+                          // converts close enough that "just now" beats "Time not available".
+                          const blockTime =
+                            normalizeBlockTimeMs(tx.blockTime) ??
+                            approximateBlockTimeMsFromSlot(tx.slot);
+                          const timestampLabel = formatWalletTransactionTime(
+                            blockTime ?? undefined
+                          );
+                          const relativeLabel = formatWalletTransactionRelative(
+                            blockTime ?? undefined
+                          );
+                          return {
+                            id: activity.id,
+                            title: activity.title,
+                            label: activity.label,
+                            badgeClassName: activity.badgeClassName,
+                            amountSummary: activity.amountSummary,
+                            amountClassName: activity.amountClassName,
+                            // Not the slot: it is a chain counter the reader cannot read as a
+                            // time, and this line is where a time goes. The relative label is
+                            // the shorthand; the localized date with its timezone sits beside
+                            // it. The slot survives in the tooltip below, which is the only
+                            // place it is any use.
+                            timestampDisplay:
+                              [relativeLabel, timestampLabel].filter(Boolean).join(" · ") ||
+                              i18n("timeNotAvailable"),
+                            timestampTooltip: timestampLabel
+                              ? i18n("timestamplabelSlotValue2", {
+                                  timestampLabel: timestampLabel,
+                                  value2: tx.slot
+                                })
+                              : i18n("slotValue1", { value1: tx.slot })
+                          };
+                        })}
+                        loading={walletTransactions.loading}
+                        onSeeAll={() => openGuidedOverview("transactions")}
+                        onEventClick={() => openGuidedOverview("transactions")}
+                      />
+
+                      <WalletAccessOverview
+                        state={activeInferredSttStateForm}
+                        paymentKeyHash={activePaymentKeyHash}
+                      />
+                      <AgentSpendingConsole
+                        state={activeInferredSttStateForm}
+                        events={recentWalletActivityEvents}
+                        eventsLoading={walletTransactions.loading}
+                        walletAddress={lockingContract.address}
+                        ownerAddress={activeAddress}
+                        nowMs={nowMs}
+                        onChangeAccess={() =>
+                          openWorkspaceIntent("wallet-settings", "update-state", "settings-people")
+                        }
+                      />
                       {(() => {
                         const ownerCount = countAdminUsersInStateForm(activeInferredSttStateForm);
                         const backupCount = activeInferredSttStateForm.beneficiaries.length;
@@ -454,48 +496,6 @@ export function WorkspaceWalletDashboardView() {
                           </p>
                         </FadeContent>
                       ) : null}
-
-                      <RecentActivityTimeline
-                        events={recentWalletActivityEvents.slice(0, 5).map((activity) => {
-                          const tx = activity.transaction;
-                          // Freshly submitted txs read back without a block time; the slot
-                          // converts close enough that "just now" beats "Time not available".
-                          const blockTime =
-                            normalizeBlockTimeMs(tx.blockTime) ??
-                            approximateBlockTimeMsFromSlot(tx.slot);
-                          const timestampLabel = formatWalletTransactionTime(
-                            blockTime ?? undefined
-                          );
-                          const relativeLabel = formatWalletTransactionRelative(
-                            blockTime ?? undefined
-                          );
-                          return {
-                            id: activity.id,
-                            title: activity.title,
-                            label: activity.label,
-                            badgeClassName: activity.badgeClassName,
-                            amountSummary: activity.amountSummary,
-                            amountClassName: activity.amountClassName,
-                            // Not the slot: it is a chain counter the reader cannot read as a
-                            // time, and this line is where a time goes. The relative label is
-                            // the shorthand; the localized date with its timezone sits beside
-                            // it. The slot survives in the tooltip below, which is the only
-                            // place it is any use.
-                            timestampDisplay:
-                              [relativeLabel, timestampLabel].filter(Boolean).join(" · ") ||
-                              i18n("timeNotAvailable"),
-                            timestampTooltip: timestampLabel
-                              ? i18n("timestamplabelSlotValue2", {
-                                  timestampLabel: timestampLabel,
-                                  value2: tx.slot
-                                })
-                              : i18n("slotValue1", { value1: tx.slot })
-                          };
-                        })}
-                        loading={walletTransactions.loading}
-                        onSeeAll={() => openGuidedOverview("transactions")}
-                        onEventClick={() => openGuidedOverview("transactions")}
-                      />
 
                       <DisclosureSection
                         title={i18n("advancedWalletDetails")}

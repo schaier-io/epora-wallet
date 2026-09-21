@@ -28,7 +28,7 @@
   "newFundPools": "New fund pools",
   "nothingIsStagedYetAddADuePayment": "Nothing is staged yet. Add a due payment to see what this pays.",
   "nothingIsStagedYetAddAnAmountTo": "Nothing is staged yet. Add an amount to see what this adds.",
-  "nothingIsStagedYetAddAPayoutTo": "Nothing is staged yet. Add a payout to see what this sends.",
+  "nothingIsStagedYetAddAPayoutTo": "Choose a recipient and amount to see what this sends.",
   "nothingIsStagedYetPickTheFundPools": "Nothing is staged yet. Pick the fund pools you want to merge.",
   "noValueTransfer": "No value transfer",
   "on": "On",
