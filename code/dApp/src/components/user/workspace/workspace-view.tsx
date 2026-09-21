@@ -16,6 +16,8 @@ import {
 import { useEffect } from "react";
 
 import { WalletConnectionDialog } from "@/components/layout/wallet-panel";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 
 import { MintCelebrationOverlay, WalletCreationFullscreenProgress } from "@/components/user/workspace/editors";
 
@@ -174,14 +176,38 @@ export function WorkspaceView() {
         {!walletReady ? (
           <WorkspaceOnboardingView />
         ) : routeState.workspaceMode === "landing" && detectedSttTokensLoading ? (
-          <div className="flex min-h-0 flex-1 items-center justify-center p-6">
-            <div role="status" aria-live="polite" className="flex max-w-sm items-center gap-3 rounded-xl border border-border/60 bg-card/60 px-4 py-4">
-              <Loader2 className="h-5 w-5 shrink-0 motion-safe:animate-spin text-primary" aria-hidden="true" />
-              <div>
-                <p className="text-sm font-medium text-foreground">{i18n("detectingWallets")}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{i18n("lookingUpSmartWalletsForThisSignerOn")}</p>
-              </div>
-            </div>
+          // The shape `WorkspaceLandingView` is about to render, not a spinner parked
+          // somewhere else. `flex-1 items-center justify-center` centred one small box in
+          // the whole remaining viewport, and the two cards it resolved into then appeared
+          // at the top: the thing the reader was watching moved roughly 200px up the page
+          // the moment it finished. Same grid, same gap, same two columns, so nothing moves.
+          <div role="status" className="grid items-start gap-4 lg:grid-cols-2">
+            <Card className="user-surface">
+              <CardContent className="space-y-3">
+                {/* The status line takes the slot the left card's title and description will
+                    take, so resolving swaps the contents of a card that was already there. */}
+                <p className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <Loader2
+                    className="h-4 w-4 shrink-0 text-primary motion-safe:animate-spin"
+                    aria-hidden="true"
+                  />
+                  {i18n("detectingWallets")}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {i18n("lookingUpSmartWalletsForThisSignerOn")}
+                </p>
+                <Skeleton className="h-10 w-full" aria-hidden="true" />
+                <Skeleton className="h-3 w-44 max-w-full" aria-hidden="true" />
+              </CardContent>
+            </Card>
+            <Card className="user-surface" aria-hidden="true">
+              <CardContent className="space-y-3">
+                <Skeleton className="h-5 w-40 max-w-full" />
+                <Skeleton className="h-3 w-64 max-w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-3 w-44 max-w-full" />
+              </CardContent>
+            </Card>
           </div>
         ) : shouldForwardToWalletSelection({
             workspaceMode: routeState.workspaceMode,
