@@ -21,11 +21,18 @@ const mocks = vi.hoisted(() => ({
   }
 }));
 
+// One router object, for the same reason as the translator below: the real `useRouter`
+// returns a stable instance, so a fresh object per render would re-run every effect that
+// depends on it.
+const router = { replace: mocks.replace };
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ replace: mocks.replace })
+  useRouter: () => router
 }));
-vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string, values?: { amount?: string }) => key === "amountAda" ? `${values?.amount} ADA` : ({
+// One translator instance, not a fresh closure per render. Real `useTranslations` memoises
+// over the intl context (`use-intl/dist/esm/development/react.js:88`), so a component may
+// list it as an effect dependency. A per-render mock would re-run those effects on every
+// render and hide that.
+const translate = (key: string, values?: { amount?: string }) => key === "amountAda" ? `${values?.amount} ADA` : ({
     build: "Build setup transaction",
     building: "Building…",
     checkAgain: "Check again",
@@ -36,7 +43,9 @@ vi.mock("next-intl", () => ({
     ready: "Setup transaction ready",
     submitting: "Waiting for your signature…",
     title: "Set up the shared STT reference"
-  })[key] ?? key
+  })[key] ?? key;
+vi.mock("next-intl", () => ({
+  useTranslations: () => translate
 }));
 vi.mock("@/providers/wallet-provider", () => ({
   useWalletContext: () => mocks.walletContext
@@ -291,5 +300,24 @@ describe("STT reference setup", () => {
     });
 
     expect(screen.getByRole("button", { name: "Confirming on-chain…" })).toBeDisabled();
+  });
+
+  // The detection runs in an effect whose other dependencies never change. Without the
+  // retry, a rejected detection left the page showing a sentence and no control that could
+  // re-check: Connect, Build, Deploy and Discard all act on a store that was never found.
+  it("re-runs the failed check when the reader asks for another attempt", async () => {
+    mocks.detect.mockRejectedValueOnce(new Error("network down"));
+    render(<SttReferenceSetup initialStore={null} />);
+
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("checkFailed"));
+    expect(mocks.detect).toHaveBeenCalledTimes(1);
+
+    mocks.detect.mockResolvedValueOnce(missingStore);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Check again" }));
+    });
+
+    expect(mocks.detect).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
   });
 });
