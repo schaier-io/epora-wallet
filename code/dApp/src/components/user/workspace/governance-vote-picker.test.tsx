@@ -83,6 +83,20 @@ describe("finding the action", () => {
     expect(screen.getByText("Voting closes after epoch 240")).toBeInTheDocument();
   });
 
+  it("links the mainnet governance explorers and says a preprod app cannot find their ids", () => {
+    render(<GovernanceVotePicker />);
+
+    expect(screen.getByRole("link", { name: "GovTool" })).toHaveAttribute(
+      "href",
+      "https://gov.tools/governance_actions"
+    );
+    expect(screen.getByRole("link", { name: "Cardanoscan" })).toHaveAttribute(
+      "href",
+      "https://cardanoscan.io/govActions"
+    );
+    expect(screen.getByText(/This app runs on preprod, which has only test actions/)).toBeInTheDocument();
+  });
+
   it("says so when the pasted text holds no action id, without calling the server", () => {
     const fetchMock = stubLookup(ACTION);
     render(<GovernanceVotePicker />);

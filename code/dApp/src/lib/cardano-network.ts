@@ -43,3 +43,17 @@ export function cardanoscanAddressUrl(
 ): string {
   return `${CARDANOSCAN_HOSTS[network]}/address/${address}`;
 }
+
+// The explorers a reader browses to find a pool or a governance action id to paste. They
+// point at mainnet on every network, because the test-network explorers list only test
+// pools and actions, and GovTool has no preprod site. Off mainnet the screens say that a
+// mainnet id finds nothing here.
+export const POOL_EXPLORER_URLS = {
+  cardanoscan: "https://cardanoscan.io/pools",
+  adastat: "https://adastat.net/pools"
+} as const;
+
+export const GOVERNANCE_EXPLORER_URLS = {
+  govtool: "https://gov.tools/governance_actions",
+  cardanoscan: "https://cardanoscan.io/govActions"
+} as const;

@@ -141,14 +141,16 @@ describe("lookup", () => {
 
     const input = screen.getByLabelText("Find your pool");
     expect(input).toHaveAttribute("placeholder", "pool1…");
-    expect(screen.getByRole("link", { name: "pool.pm" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Cardanoscan" })).toHaveAttribute(
       "href",
-      "https://pool.pm/"
+      "https://cardanoscan.io/pools"
     );
-    expect(screen.getByRole("link", { name: "cexplorer.io" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "AdaStat" })).toHaveAttribute(
       "href",
-      "https://cexplorer.io/pool"
+      "https://adastat.net/pools"
     );
+    // The links go to mainnet, so a preprod reader is told a mainnet id finds nothing here.
+    expect(screen.getByText(/This app runs on preprod, which has only test pools/)).toBeInTheDocument();
   });
 });
 
