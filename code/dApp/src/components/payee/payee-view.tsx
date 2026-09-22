@@ -20,6 +20,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { CopyButton } from "@/components/ui/copy-button";
 import { PopupDialog } from "@/components/ui/popup-dialog";
 import { PayeeCardHeader } from "@/components/payee/payee-card-header";
+import { WalletConnectionDialog } from "@/components/layout/wallet-panel";
 import { type DetectedSttToken } from "@/lib/mesh/detection";
 import { buildSttSpendTx, getValidityWindow, signAndSubmitTx } from "@/lib/mesh/transactions";
 import {
@@ -153,6 +154,7 @@ export function PayeeView() {
   const [shortenStates, setShortenStates] = useState<Record<string, RowActionState>>({});
   const [collectStates, setCollectStates] = useState<Record<string, RowActionState>>({});
   const [actionAnnouncement, setActionAnnouncement] = useState("");
+  const [connectOpen, setConnectOpen] = useState(false);
   // The warning review dialog. The ref holds the pending promise's resolve so the
   // suspended collect resumes with the reader's answer, and the state mirrors the
   // warnings for the render. Unmounting settles the review as a decline, so the
@@ -391,9 +393,27 @@ export function PayeeView() {
             {actionAnnouncement}
           </p>
           {!activeAddress ? (
-            <div className="flex items-start gap-3 rounded-lg border border-border/60 bg-background/40 p-3 text-sm text-muted-foreground">
-              <Wallet className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-              <span>{i18n("noWalletIsConnectedYetUseTheConnect")}</span>
+            // The empty state carries the control, it does not point at one. This used to read
+            // "Use the Connect button at the top of this page", which asked the reader to find
+            // a control elsewhere on a page that had nothing else to offer: the only other
+            // button in the card, Refresh, is disabled while no wallet is connected. The
+            // sibling page already does it this way (`proposals/sign-in-gate.tsx:84`), and the
+            // dialog here is the one the header button opens, so there is still one flow.
+            <div className="flex flex-col items-start gap-3 rounded-lg border border-border/60 bg-background/40 p-3 text-sm text-muted-foreground sm:flex-row sm:items-center">
+              <div className="flex items-start gap-3">
+                <Wallet className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                <span>{i18n("noWalletIsConnectedYet")}</span>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="shrink-0 sm:ml-auto"
+                onClick={() => setConnectOpen(true)}
+              >
+                <Wallet className="h-4 w-4" aria-hidden="true" />
+                {i18n("connectWallet")}
+              </Button>
             </div>
           ) : networkId !== null && networkId !== 0 ? (
             // `/user` refuses to build on the wrong network in two places; this page had no
@@ -710,6 +730,8 @@ export function PayeeView() {
           </div>
         ) : null}
       </PopupDialog>
+
+      <WalletConnectionDialog open={connectOpen} onOpenChange={setConnectOpen} />
     </div>
   );
 }

@@ -38,6 +38,13 @@ vi.mock("@/components/payee/payee-stop-plan", () => ({ planPayeeStop: actions.st
 vi.mock("@/lib/utils/clipboard", () => ({ copyTextToClipboard: actions.copy }));
 
 vi.mock("@/providers/wallet-provider", () => ({ useWalletContext: () => wallet.value }));
+// The wallet chooser reads the full wallet context (`wallet-panel.tsx:193`), which this
+// file's `wallet` stub does not carry. The same stand-in the setup page's tests use
+// (`setup/stt-reference-setup.test.tsx:42`): the subject here is the empty state's control,
+// not the chooser it opens.
+vi.mock("@/components/layout/wallet-panel", () => ({
+  WalletConnectionDialog: ({ open }: { open: boolean }) => open ? <div>Wallet chooser</div> : null
+}));
 vi.mock("@/lib/contracts/blueprint", async (importOriginal) => ({
   ...await importOriginal<typeof Blueprint>(),
   getSttMintPolicyId: () => "aa".repeat(28)
@@ -245,15 +252,20 @@ describe("who this page is for", () => {
     expect(screen.getByText(/never reduces what is already owed/)).toBeInTheDocument();
   });
 
-  /** There is no menu in the top-right. There is a button, and it says Connect. */
-  it("names the control that connects a wallet", async () => {
+  /**
+   * There is no menu in the top-right, and the page no longer points at a control somewhere
+   * else either: the empty state carries the connect control itself. Refresh, the card's only
+   * other button, is disabled while no wallet is connected, so without this the disconnected
+   * page offered the reader nothing to press.
+   */
+  it("offers the control that connects a wallet", async () => {
     wallet.value = { ...wallet.value, activeAddress: null };
     await renderView();
 
-    expect(
-      screen.getByText(/Use the Connect button at the top of this page/)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/No wallet is connected yet/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Connect wallet/ })).toBeInTheDocument();
     expect(screen.queryByText(/top-right/)).toBeNull();
+    expect(screen.queryByText(/at the top of this page/)).toBeNull();
   });
 
   /**

@@ -26,6 +26,9 @@ vi.mock("@/lib/contracts/blueprint", () => ({
 vi.mock("@/providers/wallet-provider", () => ({
   useWalletContext: () => ({
     activeWallet: {}, activeAddress: "addr_test1payee", activePaymentKeyHash: "bb".repeat(28),
+    // The view mounts the wallet chooser, which reads this list on every render
+    // (`wallet-panel.tsx:193`). The real context always supplies it; this stub did not.
+    installedWallets: [],
     isDemoWallet: false, networkId: 0
   })
 }));
