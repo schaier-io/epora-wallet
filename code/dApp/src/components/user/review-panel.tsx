@@ -29,7 +29,6 @@ import {
   CardHeader,
   CardTitle
 } from "@/components/ui/card";
-import { InfoHint } from "@/components/ui/info-hint";
 import {
   isImplicitLockedInputSurfaceLabel,
   type FieldErrors,
@@ -181,7 +180,6 @@ export function UserReviewPanel({
   ];
   const primaryActionBusy = isBuilding || isSubmitting;
   const approvalActionNoteId = useId();
-  const descriptionIsLong = Boolean(resolvedDescription && resolvedDescription.length > 78);
   const hasReceipt = Boolean(receiptSummary || receiptItems.length > 0);
   const completionProgress = completion
     ? Math.max(0, Math.min(100, completion.progress))
@@ -195,13 +193,13 @@ export function UserReviewPanel({
             <ActionIcon className="h-4.5 w-4.5" />
           </span>
           {resolvedTitle}
-          {resolvedDescription && descriptionIsLong ? (
-            <InfoHint label={i18n("moreAboutTitle", { title: resolvedTitle })} contentClassName="max-w-sm">
-              {resolvedDescription}
-            </InfoHint>
-          ) : null}
         </CardTitle>
-        {resolvedDescription && !descriptionIsLong ? (
+        {/* Shown at any length. Over 78 characters this went into an ⓘ popover beside the
+            title and appeared nowhere else, so the description never rendered: every caller
+            passes one over 78, and only the 55-character fallback was ever short enough.
+            The longest is the stop-payment review at 140, which is the consequence copy a
+            reader needs before stopping a payment. */}
+        {resolvedDescription ? (
           <CardDescription>{resolvedDescription}</CardDescription>
         ) : null}
       </CardHeader>
