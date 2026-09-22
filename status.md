@@ -1,7 +1,7 @@
 # Mainnet beta preparation
 
 Owner: release coordinator
-Status: In Progress
+Status: Local preparation complete; deployment pending
 
 ## Scope
 
@@ -56,9 +56,10 @@ Status: In Progress
 
 ## Next action
 
-The network layer is ready for its local commit. Complete the consent layer,
-combine the layers, then run application build and integration checks.
-Deployment and real-funds testing require a separate release decision.
+VERIFIED: The network layer is committed as `3c51eb7f`. The consent layer is
+rebased onto it. Final validation is recorded in `docs/mainnet-beta-release.md`.
+The earlier next-action entry described the state before integration.
+Deployment and real-funds testing still require a separate release decision.
 
 ## Least confident decisions
 

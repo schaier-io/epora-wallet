@@ -1,0 +1,22 @@
+{
+  "title": "Epora Wallet beta: accept the risks",
+  "mainnet": "You are entering Cardano mainnet. Real funds are at risk.",
+  "testnet": "You are entering Cardano {network}, a test network. Do not use real funds.",
+  "operator": "Operated by {company}.",
+  "disclosure": "Epora Wallet and its smart contracts are experimental beta software. No independent security audit has been completed. Bugs, attacks, wallet errors, or unexpected contract behavior can cause permanent loss of all funds and assets. Recovery is not guaranteed. Use only funds you can afford to lose.",
+  "beta": "I understand that this is experimental beta software.",
+  "unaudited": "I understand that no independent security audit has been completed.",
+  "totalLoss": "I understand and accept the risks of using this software, including permanent loss of all my funds and assets.",
+  "terms": "I have read and accept the Terms of Use.",
+  "termsLink": "Terms of Use",
+  "privacyLink": "Privacy Policy",
+  "legalLink": "Company details",
+  "privacyNotice": "The Privacy Policy explains how data is used. This acknowledgement is not consent to optional data processing.",
+  "continue": "Accept risks and continue",
+  "pending": "Saving acknowledgement…",
+  "error": "Could not save your acknowledgement. Allow this site's session cookies, then try again.",
+  "back": "Back to Epora Wallet",
+  "faucet": "Cardano testnet faucet",
+  "required": "Could not verify beta acceptance. Reload and accept the current risks and terms before signing.",
+  "wrongNetwork": "Switch your connected wallet to Cardano {network} before signing."
+}

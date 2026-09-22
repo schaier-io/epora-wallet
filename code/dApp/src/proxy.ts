@@ -1,8 +1,23 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import { BETA_CONSENT_COOKIE, BETA_CONSENT_HEADER, betaConsentValue, hasBetaConsent, requiresBetaConsent } from "@/lib/legal/beta-consent";
 import { buildContentSecurityPolicy } from "@/lib/http/content-security-policy";
 
 export function proxy(request: NextRequest) {
+  if (request.nextUrl.pathname.startsWith("/api/")) {
+    if (requiresBetaConsent(request.method, request.nextUrl.pathname) &&
+      !hasBetaConsent(request.cookies.get(BETA_CONSENT_COOKIE)?.value) &&
+      !hasBetaConsent(request.headers.get(BETA_CONSENT_HEADER))) {
+      return NextResponse.json({
+        error: "Explicit acceptance of the unaudited beta risks and terms is required.",
+        code: "BETA_CONSENT_REQUIRED",
+        acknowledgement: betaConsentValue(),
+        terms: "/terms",
+        privacy: "/privacy"
+      }, { status: 403, headers: { "Cache-Control": "no-store" } });
+    }
+    return NextResponse.next();
+  }
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const contentSecurityPolicy = buildContentSecurityPolicy(
     nonce,
@@ -24,6 +39,7 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
+    "/api/:path*",
     {
       source: "/((?!api|_next/static|_next/image|favicon.ico).*)",
       missing: [

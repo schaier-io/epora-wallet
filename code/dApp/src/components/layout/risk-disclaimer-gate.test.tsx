@@ -1,152 +1,90 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { renderToString } from "react-dom/server";
+import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
+import { BetaConsentBoundary } from "./beta-consent-boundary";
+import { CARDANO_NETWORK } from "@/lib/cardano-network";
+import { LEGAL_VERSION } from "@/lib/legal";
 
-import { RiskDisclaimerGate } from "@/components/layout/risk-disclaimer-gate";
-import { cardanoFaucetUrl } from "@/lib/cardano-network";
-
-/**
- * The gate had `role="alertdialog"` and `aria-modal` and nothing behind them. The overlay
- * stopped the mouse and only the mouse: one Tab reached the header logo, and a screen reader
- * could walk the whole page underneath.
- */
-function mountPageBehind() {
-  const page = document.createElement("main");
-  page.dataset.testPage = "";
-  page.innerHTML = '<button type="button">Behind the gate</button>';
-  document.body.appendChild(page);
-  return page;
+const pathname = vi.hoisted(() => ({ value: "/user" }));
+vi.mock("next/navigation", () => ({ usePathname: () => pathname.value }));
+const mounted = vi.fn();
+function Providers() { mounted(); return <p>Wallet application</p>; }
+function Gate({ accepted = false }: { accepted?: boolean }) {
+  return <BetaConsentBoundary initialAccepted={accepted} legalContent={<h1>Public legal document</h1>}><Providers /></BetaConsentBoundary>;
 }
+function checkAll() { for (const input of screen.getAllByRole("checkbox")) fireEvent.click(input); }
 
-// Remove only what this file added. Clearing `document.body` would take Testing Library's
-// own container with it, and its cleanup then throws before any assertion is read.
-// Storage is cleared too, so the session-scoped acceptance never leaks between tests.
-afterEach(() => {
-  for (const page of Array.from(document.querySelectorAll("main[data-test-page]"))) {
-    page.remove();
-  }
-  window.sessionStorage.clear();
-});
+beforeEach(() => { pathname.value = "/user"; mounted.mockClear(); });
+afterEach(() => { vi.unstubAllGlobals(); });
 
-describe("risk disclaimer gate", () => {
-  // The one sentence a stranger has to act on is "do not use it with real funds". It used to
-  // sit third, under two paragraphs of warranty and liability language. jsdom has no layout,
-  // so the reachability half of this surface's fix cannot be asserted here -- only the order.
-  it("leads with the sentence the reader has to act on", () => {
-    render(<RiskDisclaimerGate />);
-
-    const paragraphs = Array.from(
-      document.querySelectorAll("#risk-disclaimer-body p")
-    ).map((p) => p.textContent ?? "");
-
-    expect(paragraphs).toHaveLength(4);
-    expect(paragraphs[0]).toContain("Cardano Preprod test network");
-    expect(paragraphs[0]).toContain("Do not use it with real funds");
+describe("beta consent boundary", () => {
+  it("renders the risk disclosure on the server and withholds wallet providers", () => {
+    const html = renderToString(<Gate />);
+    expect(html).toContain("No independent security audit");
+    expect(html).toContain("permanent loss of all funds");
+    expect(html).not.toContain("Wallet application");
+    expect(mounted).not.toHaveBeenCalled();
   });
 
-  // Onboarding needs a way to get spendable test ADA. The comment here used to read "There
-  // is no faucet URL in the repo to link to", which was wrong: `PreprodFaucetHint` has
-  // always held one. The first screen every reader meets named a site the app already knew
-  // the address of and made them go find it.
-  it("takes the reader to where test ADA comes from", () => {
-    render(<RiskDisclaimerGate />);
-
-    const body = document.querySelector("#risk-disclaimer-body");
-    const paragraphs = Array.from(body?.querySelectorAll("p") ?? []).map(
-      (p) => p.textContent ?? ""
-    );
-    expect(paragraphs[3]).toContain("request test ADA from the Cardano Preprod faucet");
-
-    const link = body?.querySelector("a");
-    expect(link).toHaveTextContent("Cardano Preprod faucet");
-    expect(link).toHaveAttribute("href", cardanoFaucetUrl() ?? "");
-    // A new tab needs both: `noopener` so the opened page cannot reach back through
-    // `window.opener`, `noreferrer` so it is not told where the reader came from.
-    expect(link).toHaveAttribute("target", "_blank");
-    expect(link?.getAttribute("rel")).toContain("noopener");
-    expect(link?.getAttribute("rel")).toContain("noreferrer");
+  it("requires four separate unchecked acknowledgements", () => {
+    render(<Gate />);
+    expect(screen.getAllByRole("main")).toHaveLength(1);
+    const inputs = screen.getAllByRole("checkbox");
+    expect(inputs).toHaveLength(4);
+    for (const input of inputs) expect(input).not.toBeChecked();
+    expect(screen.getByRole("button", { name: "Accept risks and continue" })).toBeDisabled();
+    for (const input of inputs.slice(0, 3)) fireEvent.click(input);
+    expect(screen.getByRole("button", { name: "Accept risks and continue" })).toBeDisabled();
+    fireEvent.click(inputs[3]!);
+    expect(screen.getByRole("button", { name: "Accept risks and continue" })).toBeEnabled();
+    expect(mounted).not.toHaveBeenCalled();
   });
 
-  it("makes everything behind it inert", () => {
-    const page = mountPageBehind();
-
-    render(<RiskDisclaimerGate />);
-
-    expect(page.hasAttribute("inert")).toBe(true);
+  it.each(["/terms", "/privacy", "/legal", "/terms/"])("keeps %s readable without mounting providers", (path) => {
+    pathname.value = path;
+    render(<Gate />);
+    expect(screen.getByRole("heading", { name: "Public legal document" })).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("No independent security audit");
+    expect(mounted).not.toHaveBeenCalled();
   });
 
-  it("leaves itself reachable", () => {
-    mountPageBehind();
-
-    render(<RiskDisclaimerGate />);
-
-    const gate = screen.getByRole("alertdialog");
-    expect(gate.hasAttribute("inert")).toBe(false);
-    expect(
-      screen.getByRole("button", { name: "I understand and accept the risks" })
-    ).toBeInTheDocument();
+  it("links the terms and privacy before any acceptance", () => {
+    render(<Gate />);
+    expect(screen.getByRole("link", { name: "Terms of Use" })).toHaveAttribute("href", "/terms");
+    expect(screen.getByRole("link", { name: "Privacy Policy" })).toHaveAttribute("href", "/privacy");
   });
 
-  it("opens on the notice, not on the button that accepts it", () => {
-    // `autoFocus` sat on "I understand and accept the risks", so a screen reader read
-    // that button and nothing else: the notice it accepts is the container's
-    // `aria-describedby`, and Enter was armed on acceptance before a word of it had
-    // been heard.
-    mountPageBehind();
-
-    render(<RiskDisclaimerGate />);
-
-    const gate = screen.getByRole("alertdialog");
-    expect(document.activeElement).toBe(gate);
-    expect(gate).toHaveAttribute("aria-describedby", "risk-disclaimer-body");
-    expect(gate).toHaveAttribute("aria-labelledby", "risk-disclaimer-title");
+  it("mounts providers only after the server confirms the retained current cookie", async () => {
+    const fetcher = vi.fn().mockResolvedValueOnce({ ok: true }).mockResolvedValueOnce({ ok: true, json: async () => ({ accepted: true, network: CARDANO_NETWORK, version: LEGAL_VERSION }) });
+    vi.stubGlobal("fetch", fetcher);
+    render(<Gate />);
+    checkAll();
+    fireEvent.click(screen.getByRole("button", { name: "Accept risks and continue" }));
+    await screen.findByText("Wallet application");
+    expect(JSON.parse((fetcher.mock.calls[0]![1] as RequestInit).body as string)).toEqual({ beta: true, unaudited: true, totalLoss: true, terms: true, network: CARDANO_NETWORK, version: LEGAL_VERSION });
+    expect(fetcher).toHaveBeenCalledTimes(2);
   });
 
-  it("hands the page back once the risk is accepted", () => {
-    const page = mountPageBehind();
-
-    render(<RiskDisclaimerGate />);
-    fireEvent.click(
-      screen.getByRole("button", { name: "I understand and accept the risks" })
-    );
-
-    expect(page.hasAttribute("inert")).toBe(false);
-    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  it.each([false, "old"])("keeps providers blocked for a rejected or stale receipt (%s)", async (receipt) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce({ ok: true }).mockResolvedValueOnce({ ok: true, json: async () => ({ accepted: receipt !== false, network: CARDANO_NETWORK, version: receipt === "old" ? "old" : LEGAL_VERSION }) }));
+    render(<Gate />);
+    checkAll();
+    fireEvent.click(screen.getByRole("button", { name: "Accept risks and continue" }));
+    await screen.findByRole("alert");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Accept risks and continue" })).toBeEnabled());
+    expect(mounted).not.toHaveBeenCalled();
   });
 
-  it("records acceptance only once the button is clicked", () => {
-    render(<RiskDisclaimerGate />);
-
-    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
-    expect(window.sessionStorage.getItem("permission-wallet:risk-acknowledgement")).toBeNull();
+  it("ignores the former unversioned sessionStorage acceptance", () => {
+    sessionStorage.setItem("permission-wallet:risk-acknowledgement", "accepted");
+    render(<Gate />);
+    expect(screen.getAllByRole("checkbox")).toHaveLength(4);
+    expect(mounted).not.toHaveBeenCalled();
+    sessionStorage.clear();
   });
 
-  // The old gate held acceptance in React state, so every full reload asked again. It now
-  // survives reloads within one browser session: a second mount in the same session (what a
-  // reload produces) must stay dismissed.
-  it("stays dismissed for the rest of the browser session", () => {
-    const first = render(<RiskDisclaimerGate />);
-    fireEvent.click(
-      screen.getByRole("button", { name: "I understand and accept the risks" })
-    );
-    first.unmount();
-
-    render(<RiskDisclaimerGate />);
-
-    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
-  });
-
-  // Session-scoped, not permanent: wiping the session (what a new browser session is) must
-  // bring the mandatory acknowledgement back.
-  it("asks again in a new browser session", () => {
-    const first = render(<RiskDisclaimerGate />);
-    fireEvent.click(
-      screen.getByRole("button", { name: "I understand and accept the risks" })
-    );
-    first.unmount();
-
-    window.sessionStorage.clear();
-    render(<RiskDisclaimerGate />);
-
-    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+  it("honors the current server-verified cookie", () => {
+    render(<Gate accepted />);
+    expect(screen.getByText("Wallet application")).toBeInTheDocument();
   });
 });

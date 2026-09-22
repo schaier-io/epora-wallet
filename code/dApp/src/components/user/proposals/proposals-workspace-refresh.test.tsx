@@ -1,3 +1,4 @@
+import { cardanoNetworkId } from "@/lib/cardano-network";
 import { createQueryTestWrapper } from "@/test/query-client";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
@@ -7,7 +8,7 @@ import type * as ProposalClient from "@/lib/proposals/client";
 const api = vi.hoisted(() => ({
   session: vi.fn(), list: vi.fn(), detail: vi.fn(), verify: vi.fn(), sign: vi.fn()
 }));
-const wallet = vi.hoisted(() => ({ signTx: vi.fn() }));
+const wallet = vi.hoisted(() => ({ signTx: vi.fn(), getNetworkId: vi.fn() }));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn() }),
@@ -75,6 +76,7 @@ beforeEach(() => {
   api.detail.mockImplementation(async () => ({ ...record }));
   api.verify.mockImplementation(async (detail: ProposalDetailDto) => verification(detail));
   wallet.signTx.mockResolvedValue("wallet-witness");
+  wallet.getNetworkId.mockResolvedValue(cardanoNetworkId());
   api.sign.mockImplementation(async () => ({ ...record }));
 });
 

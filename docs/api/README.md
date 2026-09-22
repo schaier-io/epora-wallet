@@ -6,7 +6,8 @@ state, and build transactions against its smart contracts.
 **The server never holds a key and never signs.** Every active transaction build route
 takes an address, returns an unsigned transaction as CBOR hex, and leaves
 signing and submission to you. There is no account to create, no API key to
-obtain, and nothing to authenticate. Every route below is public.
+obtain, and no wallet login for the public routes below. Mainnet POST requests
+require explicit beta acknowledgement, as described below.
 
 The machine-readable contract is the OpenAPI 3.1 document. This guide is the
 on-ramp: it shows the calls, the shapes, and the one flow that matters.
@@ -18,8 +19,10 @@ on-ramp: it shows the calls, the shapes, and the one flow that matters.
 
 ## Network and base URL
 
-Preprod only. Addresses must start with `addr_test1`. A mainnet address is
-rejected before any chain call.
+The deployment selects its network with `NEXT_PUBLIC_CARDANO_NETWORK` at build
+time. The default is Preprod. Mainnet payment addresses use `addr1`; test networks
+use `addr_test1`. The server checks the decoded network before provider calls.
+The examples below remain Preprod examples. Use actual mainnet values on mainnet.
 
 The examples use `$BASE` for the deployment you are calling. Running the
 reference app locally, that is the dev server's own origin:
@@ -31,6 +34,28 @@ BASE=http://localhost:3000
 Two kinds of code block appear below. A `bash` block is a command you can paste
 and run as it stands. A `json` block is a request body or a response, and it
 abbreviates long hashes with `...`, so fill those in from your own lookup.
+
+## Mainnet beta acknowledgement
+
+Before making POST requests on mainnet, read the deployment's `/terms` and
+`/privacy`. Explicitly accept the beta risks, including no security audit and
+possible permanent loss of all funds. Only after that acceptance, include:
+
+```http
+X-Epora-Beta-Consent: mainnet:epora-beta-1
+```
+
+This also applies to POST-based reads such as `/api/v1/stt/lookup`. GET requests
+remain available without this acknowledgement. The current version appears in
+the live OpenAPI document. A version change requires renewed acceptance. Do not
+make a client silently acknowledge risks or automatically retry a rejection with
+the version returned by the server.
+
+A missing, stale, or wrong-network acknowledgement returns HTTP 403 with
+`code: "BETA_CONSENT_REQUIRED"`. Browser users accept through the beta form; its
+host-only session cookie is also accepted. The browser-only `/api/beta-consent`
+endpoint sets and checks that cookie. API callers should use the explicit header.
+Neither mechanism authenticates a wallet or retains a signed acceptance record.
 
 ## Reads
 

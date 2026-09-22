@@ -2,6 +2,8 @@
 import { useTranslations } from "next-intl";
 
 
+import { CARDANO_NETWORK } from "@/lib/cardano-network";
+import Link from "next/link";
 import { useAtom } from "jotai";
 import { ShieldAlert } from "lucide-react";
 import { shortcutsHelpOpenAtom } from "@/components/layout/shortcuts-help.atoms";
@@ -20,6 +22,7 @@ function FooterSeparator() {
 
 export function SiteFooter() {
   const i18n = useTranslations("ComponentsLayoutSiteFooter");
+  const beta = useTranslations("BetaFooter");
   // The one pointer/touch path to the shortcuts dialog. The `?` key answers only to a
   // keyboard, so without this button touch users could never see the shortcut list at all.
   const [, setShortcutsHelpOpen] = useAtom(shortcutsHelpOpenAtom);
@@ -29,7 +32,7 @@ export function SiteFooter() {
       <div className="container flex flex-col gap-3 py-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between md:py-4">
         <p className="flex items-center gap-2">
           <ShieldAlert className="h-3.5 w-3.5 text-amber-300" aria-hidden="true" />
-          {i18n("preprodTestNetwork")}
+          {CARDANO_NETWORK === "mainnet" ? beta("mainnet") : beta("testnet", { network: CARDANO_NETWORK })}
         </p>
         {/* `-my-1` absorbs the children's `py-1`: the targets reach 24px without the
             footer getting taller. `gap-x-4` outside plus `gap-2` inside is what makes
@@ -58,6 +61,9 @@ export function SiteFooter() {
             {i18n("forShortcuts")}
           </button>
           <div className="flex flex-wrap items-center gap-2">
+          <Link href="/terms" className={FOOTER_LINK_CLASS}>{beta("terms")}</Link>
+          <Link href="/privacy" className={FOOTER_LINK_CLASS}>{beta("privacy")}</Link>
+          <Link href="/legal" className={FOOTER_LINK_CLASS}>{beta("legal")}</Link>
           <a
             href={DISCORD_INVITE_URL}
             target="_blank"

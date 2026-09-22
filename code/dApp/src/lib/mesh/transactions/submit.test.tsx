@@ -4,6 +4,7 @@ import type * as MeshCst from "@/lib/mesh/cst";
 import { beforeEach, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  requireBetaConsent: vi.fn(),
   assertSerializedTransactionSizeIsBounded: vi.fn(),
   addVKeyWitnessSetToTransaction: vi.fn().mockReturnValue("signed-transaction"),
   providerSubmitTx: vi.fn(),
@@ -13,6 +14,8 @@ const mocks = vi.hoisted(() => ({
   isLikelyTransactionCbor: vi.fn(),
   readScriptDataHash: vi.fn()
 }));
+
+vi.mock("@/lib/legal/browser-beta-consent", () => ({ requireBrowserBetaConsent: mocks.requireBetaConsent }));
 
 vi.mock("./internals", () => ({
   assertSerializedTransactionSizeIsBounded: mocks.assertSerializedTransactionSizeIsBounded,
@@ -42,6 +45,7 @@ import { createVKeyWitnessSetHex } from "@/lib/mesh/cst";
 import { signAndSubmitTx } from "./submit";
 
 beforeEach(() => {
+  mocks.requireBetaConsent.mockReset().mockResolvedValue(undefined);
   mocks.assertSerializedTransactionSizeIsBounded.mockReset();
   mocks.extractIntegrity.mockReset().mockReturnValue(null);
   mocks.providerSubmitTx.mockReset();
@@ -226,5 +230,22 @@ it("does not broadcast if the wallet changes network during signing", async () =
   await expect(signAndSubmitTx(wallet as never, "tx")).rejects.toThrow("must use preprod");
   expect(wallet.signTx).toHaveBeenCalledOnce();
   expect(wallet.submitTx).not.toHaveBeenCalled();
+  expect(mocks.providerSubmitTx).not.toHaveBeenCalled();
+});
+
+
+it.each([1, 2, 3, 4])("blocks signing or broadcast when consent check %s fails", async (failAt) => {
+  let checks = 0;
+  mocks.requireBetaConsent.mockImplementation(async () => {
+    if (++checks === failAt) throw new Error("Beta consent required");
+  });
+  const wallet = {
+    getNetworkId: vi.fn().mockResolvedValue(0),
+    signTx: vi.fn().mockResolvedValue(VERIFYING_WALLET_PAYLOAD),
+    submitTx: vi.fn().mockRejectedValue(new Error("wallet relay unavailable"))
+  };
+  await expect(signAndSubmitTx(wallet as never, "tx")).rejects.toThrow("Beta consent required");
+  expect(wallet.signTx).toHaveBeenCalledTimes(failAt > 2 ? 1 : 0);
+  expect(wallet.submitTx).toHaveBeenCalledTimes(failAt > 3 ? 1 : 0);
   expect(mocks.providerSubmitTx).not.toHaveBeenCalled();
 });

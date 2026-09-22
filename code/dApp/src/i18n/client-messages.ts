@@ -5,6 +5,9 @@ export type MessageNamespace = keyof MessageCatalog;
 
 export const ROOT_CLIENT_NAMESPACES = [
   "Counts",
+  "BetaConsent",
+  "BetaStatus",
+  "BetaFooter",
   "AppLoading",
   "AppNotFound",
   "ComponentsErrorBoundary",

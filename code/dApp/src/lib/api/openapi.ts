@@ -1,4 +1,5 @@
 import { CARDANO_NETWORK } from "@/lib/cardano-network";
+import { BETA_CONSENT_HEADER, betaConsentValue } from "@/lib/legal/beta-consent";
 import "zod-openapi";
 import { createDocument, type ZodOpenApiOperationObject } from "zod-openapi";
 import { z } from "zod";
@@ -78,6 +79,25 @@ const tooManyRequests = (
   content: { "application/json": { schema: ApiErrorSchema } }
 });
 
+const betaConsentParameters = [{
+  in: "header" as const,
+  name: BETA_CONSENT_HEADER,
+  required: CARDANO_NETWORK === "mainnet",
+  schema: { type: "string" as const, enum: [betaConsentValue()] },
+  description: "On mainnet, explicitly acknowledge the current beta risks and terms. A current browser consent cookie is an alternative. This is not authentication. Do not send this header before the caller accepts /terms and the risks of unaudited beta software, including loss of all funds."
+}];
+
+const betaConsentResponse = {
+  description: "Mainnet beta acknowledgement is absent, stale, or for another network. Read /terms and /privacy before accepting; do not automatically retry with the returned value.",
+  content: { "application/json": { schema: z.object({
+    error: z.string(),
+    code: z.literal("BETA_CONSENT_REQUIRED"),
+    acknowledgement: z.string(),
+    terms: z.literal("/terms"),
+    privacy: z.literal("/privacy")
+  }) } }
+};
+
 /** Every build route answers the same set of failures. */
 const txResponses = {
   "200": {
@@ -87,6 +107,7 @@ const txResponses = {
   "400": jsonError(
     "The request is invalid, or the action is not allowed by the wallet's current on-chain state. The message names what to fix."
   ),
+  "403": betaConsentResponse,
   "413": jsonError("The request body is larger than 32 KB."),
   "429": tooManyRequests(
     RATE_LIMITS.tx,
@@ -108,6 +129,7 @@ function txOperation(
     summary,
     description,
     tags: ["Transactions"],
+    parameters: betaConsentParameters,
     requestBody: { content: { "application/json": { schema } } },
     responses: txResponses
   };
@@ -188,6 +210,12 @@ to the caller.
 
 **Network.** ${CARDANO_NETWORK}. Addresses must match this deployment network.
 
+**Beta consent.** On mainnet, unsafe HTTP methods require explicit acceptance of the
+beta risks and current terms, including no security audit and possible loss of all funds.
+Send \`${BETA_CONSENT_HEADER}: ${betaConsentValue()}\` only after acceptance.
+A current browser consent cookie is also accepted. Missing acknowledgement returns 403
+with \`BETA_CONSENT_REQUIRED\`. Read /terms and /privacy before accepting.
+
 **Versioning.** \`v1\` describes the current shape of the API. The compatibility promise
 starts at the mainnet beta: until then a \`v1\` route may change without a version bump,
 and this document is the record of what it does today. After the beta, breaking changes
@@ -222,9 +250,8 @@ export function buildOpenApiDocument() {
       license: { name: "Apache-2.0", identifier: "Apache-2.0" }
     },
     servers: [{ url: "/", description: "The deployment serving this document." }],
-    // No authentication today: every route is public and rate-limited by client
-    // address. An empty requirement says that explicitly rather than leaving it
-    // unstated. Wallet-signature login is a separate, later piece of work.
+    // These public routes do not require wallet authentication. Mainnet consent
+    // is documented separately as a request acknowledgement header.
     security: [],
     tags: [
       { name: "Transactions", description: "Build unsigned transactions. The caller signs them." },
@@ -298,6 +325,7 @@ export function buildOpenApiDocument() {
           description:
             "List the wallets an address or payment key hash participates in, with each wallet's current state summary and recent transactions. Reads the indexer's cache, so it costs no chain provider request.",
           tags: ["Wallets"],
+          parameters: betaConsentParameters,
           requestBody: { content: { "application/json": { schema: SttLookupRequestSchema } } },
           responses: {
             "200": {
@@ -305,6 +333,7 @@ export function buildOpenApiDocument() {
               content: { "application/json": { schema: SttLookupResponseSchema } }
             },
             "400": jsonError("The request body is invalid, or the address cannot be parsed."),
+            "403": betaConsentResponse,
             "413": jsonError("The request body is larger than 4 KB."),
             "429": tooManyRequests(RATE_LIMITS.sttLookup),
             "500": jsonError("Unexpected server error.")
@@ -318,8 +347,10 @@ export function buildOpenApiDocument() {
           description:
             "This route is retired because a valid wallet spend must also forward the State Thread Token. Use `/api/v1/tx/stt-spend` with action `use`.",
           deprecated: true,
+          parameters: betaConsentParameters,
           tags: ["Transactions"],
           responses: {
+            "403": betaConsentResponse,
             "410": jsonError(
               "This endpoint is retired. Use `/api/v1/tx/stt-spend` with action `use`."
             )

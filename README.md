@@ -21,16 +21,30 @@ Architecturally, the entire configuration lives in a single `State` datum carrie
 
 The [whitepaper](whitepaper/whitepaper.pdf) develops all of this in full: design goals, threat model, system architecture, the permission and recovery model, a formal model with proof sketches, an asset-based security analysis, and the design's limitations and trust assumptions.
 
-## Disclaimer — Use at Your Own Risk
+## Beta risks and legal terms
 
-**This software is provided "as is", without warranty of any kind.** The code has **not been audited**. It is experimental, in active development, and may contain bugs, security vulnerabilities, or breaking changes at any time.
+**Epora is experimental beta software. No security audit has been completed. You
+can permanently lose all funds or other assets used with it.** Internal testing
+and code reviews do not constitute an independent security audit.
 
-- **No guarantees.** There is no guarantee of correctness, security, availability, or fitness for any purpose.
-- **You are solely responsible.** Any use of this software — including interacting with the smart contracts or running the frontend — is entirely at your own risk.
-- **Lost or stolen funds are on the user.** The authors and contributors accept **no liability** for any loss of funds, assets, or data, on testnet or mainnet, arising from the use, misuse, or malfunction of this software.
-- The wallet currently targets the **Cardano Preprod test network**. Do not use it with real funds.
+Use only funds you can afford to lose. Bugs, attacks, lost keys, incorrect
+permissions, failed recovery rules, or unavailable services can cause loss or
+permanently lock assets. No recovery outcome is guaranteed.
 
-By using this software you acknowledge and accept these risks. See the [LICENSE](./LICENSE) for the full legal terms.
+The application requires explicit acknowledgement of beta status, no audit,
+total-loss risk, and the current terms before it starts wallet connections.
+Mainnet also requires a current acknowledgement on hosted API mutation requests.
+The notice preserves rights that applicable law does not permit users to waive.
+
+The default deployment network remains Preprod. A separate mainnet build requires
+`NEXT_PUBLIC_CARDANO_NETWORK=mainnet` and a mainnet provider key. Network changes
+require a rebuild. See [mainnet release preparation](docs/mainnet-beta-release.md)
+for configuration, evidence, and the remaining deployment conditions.
+
+The hosted service operator is **41BIT LLC**. Contact **info@41bit.io** for legal
+and privacy requests. The application provides `/terms`, `/privacy`, and `/legal`
+without requiring wallet connection or beta acceptance. The repository's [MIT
+license](LICENSE) continues to govern the source code.
 
 ## Error reporting
 
@@ -50,7 +64,7 @@ https://github.com/user-attachments/assets/0b5dd0e9-7e10-4ad4-982e-8d14b23ad96f
 - [Testnet feedback](docs/testnet-feedback.md) — categorized Preprod reports (`feasible`, `fixed`, `next`, `not-a-bug`) for Milestone 4.
 - [Public API](docs/api/README.md): the developer guide covers reads, nine active transaction-build routes, errors, and rate limits. The [OpenAPI 3.1 document](docs/api/openapi.json) is served at `/api/v1/openapi.json`. The interactive reference is at `/api/v1/docs`.
 
-The API builds unsigned transactions and returns them. It never holds a key and never signs. It targets Preprod, and its compatibility promise starts at the mainnet beta (see the roadmap below).
+The API builds unsigned transactions and returns them. It never holds a key and never signs. Its network follows the deployment configuration, and its compatibility promise starts at the mainnet beta (see the roadmap below).
 
 ## Structure
 
@@ -88,7 +102,7 @@ Current focus: **Preprod validation and testnet feedback**. The public site is a
 
 ## Contributing
 
-*The project is not yet near a beta phase or release; it currently serves mainly to illustrate progress. Code and features may change without notice before a full release.*
+*The project is experimental beta software. Code and behavior may change before a full release.*
 
 We encourage discussions and ideas, but prioritize the modules stated in the Catalyst proposal first.
 
