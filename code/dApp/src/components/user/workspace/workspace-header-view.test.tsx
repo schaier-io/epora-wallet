@@ -117,6 +117,16 @@ describe("workspace header", () => {
     expect(label.closest("span[title]")).toBeNull();
   });
 
+  it("marks an empty or unreadable balance amber, not green", () => {
+    const pillIcon = () => screen.getByText(/^Connected wallet/).parentElement!.querySelector("svg")!;
+    const { unmount } = renderWith({ assets: [], loading: false, error: null });
+    expect(pillIcon().getAttribute("class")).toContain("amber");
+    unmount();
+
+    renderWith({ assets: [], loading: false, error: "offline" });
+    expect(pillIcon().getAttribute("class")).toContain("amber");
+  });
+
   it("still says it is checking while the balance is loading", () => {
     renderWith({ assets: [], loading: true, error: null });
 

@@ -218,6 +218,9 @@ export function WorkspaceHeaderView() {
         >
           {browserWalletFundsPending ? (
             <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden="true" />
+          ) : walletBalanceSummary.error || browserWalletFundsEmpty ? (
+            // A wallet with no ADA cannot pay a fee: a problem, so it is not green.
+            <AlertCircle className="h-3.5 w-3.5 shrink-0 text-amber-300" aria-hidden="true" />
           ) : (
             <Sparkles className="h-3.5 w-3.5 shrink-0 text-emerald-300" aria-hidden="true" />
           )}
