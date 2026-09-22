@@ -134,6 +134,21 @@
     "withdrawRequestConfirm": "Withdraw request",
     "withdrawRequestCancel": "Keep it open"
   },
+  "ComponentsUserWorkspaceWorkspaceView": {
+    "chooseSmartWallet": "Choose smart wallet",
+    "createAnotherWallet": "Create another wallet",
+    "detectingWallets": "Detecting wallets…",
+    "itIsReadOnlyItHoldsNo": "It is read only. It holds no keys and no funds, so there is nothing to look up on Preprod.",
+    "liveOnChainSaveOrShareYourCard": "Live on-chain. Save or share your card, then open it when ready.",
+    "lookingUpSmartWalletsForThisSignerOn": "Looking up smart wallets for this signer on Preprod.",
+    "openWallet": "Open wallet",
+    "pickWhichWalletToOpenOrStartA": "Pick which wallet to open, or start a new one.",
+    "sendingToTheNetwork": "Sending to the network…",
+    "stillWaitingThisCanTakeAnotherBlock": "Still waiting. This can take another block.",
+    "theDemoWalletCannotOpenSmartWallets": "The demo wallet cannot open smart wallets",
+    "thisUsuallyTakesAFewSecondsTheSetup": "This usually takes a few seconds. The setup or wallet picker will appear once detection finishes.",
+    "walletWorkspace": "Wallet workspace"
+  },
   "LibUserFlowProofOfLife": {
     "checkInNow": "Check in now",
     "dayCount": "{count, plural, one {# day} other {# days}}",

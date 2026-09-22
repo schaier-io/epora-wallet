@@ -6,7 +6,7 @@ import { dismissedSubmitHashAtom, mintCelebrationAtom, mintConfirmationAtom, min
 import { routeStateAtom } from "@/components/user/workspace/atoms/workspace-route.atoms";
 import { selectedTokenCapabilityMapAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { holdsAnyRole } from "@/components/user/wizard-capabilities";
-import { walletReadyAtom } from "@/providers/wallet.atoms";
+import { isDemoWalletAtom, walletReadyAtom } from "@/providers/wallet.atoms";
 import { detectedSttTokensAtom, detectedSttTokensLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { useAtomValue, useSetAtom } from "jotai";
 import { walletConnectionDialogMountedAtom, walletConnectionDialogOpenAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
@@ -30,7 +30,7 @@ import { WorkspaceOnboardingView } from "@/components/user/workspace/workspace-o
 import { WorkspaceLandingView } from "@/components/user/workspace/workspace-landing-view";
 import { WorkspaceLayoutView } from "@/components/user/workspace/workspace-layout-view";
 import { WalletSelectionDialogView } from "@/components/user/workspace/workspace-wallet-selection-dialog-view";
-import { shouldForwardToWalletSelection } from "@/components/user/workspace/workspace-view-routing";
+import { shouldForwardToWalletSelection, shouldShowDemoLookupLimit } from "@/components/user/workspace/workspace-view-routing";
 import { useWalletContext } from "@/providers/wallet-provider";
 
 export function WorkspaceView() {
@@ -46,6 +46,7 @@ export function WorkspaceView() {
   const routeState = useAtomValue(routeStateAtom);
   const submitHash = useAtomValue(submitHashAtom);
   const walletReady = useAtomValue(walletReadyAtom);
+  const isDemoWallet = useAtomValue(isDemoWalletAtom);
   const detectedSttTokens = useAtomValue(detectedSttTokensAtom);
   const detectedSttTokensLoading = useAtomValue(detectedSttTokensLoadingAtom);
   const selectedTokenCapabilityMap = useAtomValue(selectedTokenCapabilityMapAtom);
@@ -175,6 +176,36 @@ export function WorkspaceView() {
 
         {!walletReady ? (
           <WorkspaceOnboardingView />
+        ) : shouldShowDemoLookupLimit({
+            workspaceMode: routeState.workspaceMode,
+            detectedSttTokensLoading,
+            isDemoWallet
+          }) ? (
+          /* The demo wallet holds no keys and no funds, so the lookup below never
+             resolves: measured on /user with the demo wallet connected, the spinner ran
+             for minutes with no network request at all and no error. The connect dialog
+             offers the demo to "browse the app without a wallet extension", so landing
+             on a permanent "Detecting wallets…" is the one state this path can reach and
+             never leave. One card, not the two-card skeleton grid: nothing is coming, so
+             a placeholder for it would be a second false promise.
+
+             No button: the obvious one would open `walletConnectionDialogOpenAtom`, and
+             from a connected demo that atom reaches "Choose smart wallet", not the browser
+             wallet chooser. The top nav's own "Change wallet" calls the same atom, so it
+             lands in the same place. A button labelled for the browser chooser would name
+             something this state cannot reach. */
+          <div className="grid items-start gap-4 lg:grid-cols-2">
+            <Card className="user-surface">
+              <CardContent className="space-y-3">
+                <p className="text-sm font-medium text-foreground">
+                  {i18n("theDemoWalletCannotOpenSmartWallets")}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {i18n("itIsReadOnlyItHoldsNo")}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
         ) : routeState.workspaceMode === "landing" && detectedSttTokensLoading ? (
           // The shape `WorkspaceLandingView` is about to render, not a spinner parked
           // somewhere else. `flex-1 items-center justify-center` centred one small box in
