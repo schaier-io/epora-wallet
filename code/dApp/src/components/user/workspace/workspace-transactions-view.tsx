@@ -7,7 +7,6 @@ import {
   ChevronRight,
   Copy,
   Download,
-  ExternalLink,
   Inbox,
   Loader2,
   RefreshCw,
@@ -478,21 +477,6 @@ export function WorkspaceTransactionsView() {
                                       </p>
                                     </div>
                                     <div className="flex shrink-0 items-center gap-1.5">
-                                      <a
-                                        href={cardanoscanUrl}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border/60 bg-background/50 text-muted-foreground transition-colors hover:text-foreground"
-                                        // Same string for both, and the same string the
-                                        // sibling link 23 lines up already uses. The tooltip
-                                        // read "Open on Cardanoscan" while the accessible
-                                        // name read "Open transaction on Cardanoscan", so a
-                                        // speech-input user could not say what they saw.
-                                        title={i18n("openTransactionOnCardanoscan")}
-                                        aria-label={i18n("openTransactionOnCardanoscan")}
-                                      >
-                                        <ExternalLink className="h-3.5 w-3.5" />
-                                      </a>
                                       <button
                                         type="button"
                                         onClick={() =>

@@ -622,7 +622,6 @@
   "ComponentsUserWorkspaceWorkspaceStreamingExpenseProjectionsView": {
     "streamingExpenseProjections": "Streaming expense projections",
     "title": "Streaming expenses",
-    "projectedBadge": "Projected",
     "description": "Scheduled payments accrue between payouts. These running totals are projections, not settled payouts.",
     "scheduledPaymentValue1": "Scheduled payment {value1}",
     "nobodyToPay": "Nobody to pay",

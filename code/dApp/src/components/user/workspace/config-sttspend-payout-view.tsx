@@ -239,7 +239,6 @@ export function SttSpendPayoutView() {
                                 : i18n("active")}
                         </Badge>
                       ) : null}
-                      {isSelected ? <Badge variant="secondary">{i18n("payingNow")}</Badge> : null}
                     </div>
                   </div>
                   <div className="mt-3 grid gap-3 tabular-nums md:grid-cols-2">
