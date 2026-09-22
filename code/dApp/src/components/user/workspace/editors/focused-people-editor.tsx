@@ -130,6 +130,17 @@ export function FocusedPeopleEditor({
               {i18n("addPerson")}
             </Button>
           </div>
+          {/* The same rule that empties this button says why, as it already does in the
+              full editor (`state-form-editor.tsx:326`). Without it the control simply went
+              dead: nothing on the screen named the cap, and nothing said that removing
+              somebody is what frees a slot. */}
+          {peopleAtCap ? (
+            <p className="text-xs text-muted-foreground">
+              {value.users.length < MAX_USERS
+                ? i18n("thisWalletAlreadyHoldsMaxAccessRecords", { max: MAX_ACCESS_RECORDS })
+                : i18n("thisWalletAlreadyHoldsMaxPeople", { max: MAX_USERS })}
+            </p>
+          ) : null}
           {value.users.map((user, index) => (
             <PersonPermissionsEditor
               key={`person-${index}-${user.id}`}

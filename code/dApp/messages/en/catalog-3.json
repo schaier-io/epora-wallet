@@ -259,7 +259,9 @@
     "useTheWalletIAmSignedInWith": "Use the wallet I am signed in with",
     "walletsThisPersonSignsWith": "Wallets this person signs with",
     "whatIsLeftOfTheDailyLimitRight": "What is left of the daily limit right now. It goes back to the full limit on the first payment made after the reset time above.",
-    "yes": "Yes"
+    "yes": "Yes",
+    "thisWalletAlreadyHoldsMaxAccessRecords": "This wallet already holds {max} owners, spenders, and recovery contacts in total. Remove one to add another.",
+    "thisWalletAlreadyHoldsMaxPeople": "This wallet already holds {max} people, owners and spenders together. Remove one to add another."
   },
   "ComponentsUserWorkspaceEditorsFocusedWalletSettingsEditor": {
     "addRecoveryContact": "Add recovery contact",
@@ -290,7 +292,9 @@
     "value1Value2": "{value1} · {value2}",
     "wakeUpTimer": "Proof of life",
     "walletSettings": "Wallet settings",
-    "yes": "Yes"
+    "yes": "Yes",
+    "thisWalletAlreadyHoldsMaxAccessRecords": "This wallet already holds {max} owners, spenders, and recovery contacts in total. Remove one to add another.",
+    "thisWalletAlreadyHoldsMaxRecoveryContacts": "This wallet already holds {max} recovery contacts. Remove one to add another."
   },
   "ComponentsUserWorkspaceEditorsGuidedFields": {
     "available": "Available",
@@ -361,7 +365,9 @@
     "payoutAndSigningWalletHelp": "This address receives exact distributions. Its payment key also signs for this recovery contact.",
     "payoutAddressNeedsPaymentKey": "Use a Cardano wallet address with a payment key. A script address cannot sign for recovery.",
     "payoutAddressPlaceholder": "addr_test1...",
-    "recoveryContact": "Recovery contact"
+    "recoveryContact": "Recovery contact",
+    "thisWalletAlreadyHoldsMaxAccessRecords": "This wallet already holds {max} owners, spenders, and recovery contacts in total. Remove one to add another.",
+    "thisWalletAlreadyHoldsMaxPeople": "This wallet already holds {max} people, owners and spenders together. Remove one to add another."
   },
   "ComponentsUserWorkspaceEditorsPrimitives": {
     "chooseAnAsset": "Choose an asset",

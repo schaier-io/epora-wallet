@@ -468,6 +468,17 @@ export function MultisigThresholdEditor({
           >
             {i18n("addACosigner")}
           </Button>
+          {/* The same rule that empties this button says why, as it already does in the
+              full editor (`state-form-editor.tsx:326`). Without it the control simply went
+              dead: nothing on the screen named the cap, and nothing said that removing
+              somebody is what frees a slot. */}
+          {peopleAtCap ? (
+            <p className="mt-2 text-xs text-muted-foreground">
+              {value.users.length < MAX_USERS
+                ? i18n("thisWalletAlreadyHoldsMaxAccessRecords", { max: MAX_ACCESS_RECORDS })
+                : i18n("thisWalletAlreadyHoldsMaxPeople", { max: MAX_USERS })}
+            </p>
+          ) : null}
         </div>
         </section>
       ) : null}

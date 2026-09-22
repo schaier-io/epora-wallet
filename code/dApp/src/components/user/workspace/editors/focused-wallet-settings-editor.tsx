@@ -153,6 +153,17 @@ function RecoveryContactsSection({
           {i18n("addRecoveryContact")}
         </Button>
       </div>
+      {/* The same rule that empties this button says why, as it already does in the full
+          editor (`state-form-editor.tsx:270`). Without it the control simply went dead:
+          nothing on the screen named the cap, and nothing said that removing somebody is
+          what frees a slot. */}
+      {recoveryAtCap ? (
+        <p className="text-xs text-muted-foreground">
+          {value.beneficiaries.length < MAX_BENEFICIARIES
+            ? i18n("thisWalletAlreadyHoldsMaxAccessRecords", { max: MAX_ACCESS_RECORDS })
+            : i18n("thisWalletAlreadyHoldsMaxRecoveryContacts", { max: MAX_BENEFICIARIES })}
+        </p>
+      ) : null}
       {value.beneficiaries.length === 0 ? (
         <TaskEmptyState
           icon={HandHeart}

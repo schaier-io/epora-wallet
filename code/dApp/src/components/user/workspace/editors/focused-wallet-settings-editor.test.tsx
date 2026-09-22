@@ -8,7 +8,7 @@ import {
   createDefaultStateForm,
   createDefaultUserFormState
 } from "@/lib/contracts/state-form";
-import { MAX_ACCESS_RECORDS } from "@/lib/contracts/state-validation";
+import { MAX_ACCESS_RECORDS, MAX_BENEFICIARIES } from "@/lib/contracts/state-validation";
 
 function timerForm(enabled: boolean): StateFormState {
   const value = createDefaultStateForm();
@@ -61,6 +61,29 @@ describe("adding a recovery contact", () => {
     expect(add).toBeDisabled();
     fireEvent.click(add);
     expect(onChange).not.toHaveBeenCalled();
+    // A dead button and nothing else was the whole message here. The full editor has always
+    // named the cap (`state-form-editor.tsx:270`); this tab did not.
+    expect(
+      screen.getByText(
+        `This wallet already holds ${MAX_ACCESS_RECORDS} owners, spenders, and recovery contacts in total. Remove one to add another.`
+      )
+    ).toBeInTheDocument();
+  });
+
+  it("names the recovery-contacts cap when that is the one it hit", () => {
+    const value = timerForm(true);
+    value.beneficiaries = Array.from(
+      { length: MAX_BENEFICIARIES },
+      (_, index) => createDefaultBeneficiaryFormState(String(index))
+    );
+    renderTimer(value);
+
+    expect(screen.getByRole("button", { name: "Add recovery contact" })).toBeDisabled();
+    expect(
+      screen.getByText(
+        `This wallet already holds ${MAX_BENEFICIARIES} recovery contacts. Remove one to add another.`
+      )
+    ).toBeInTheDocument();
   });
 });
 
