@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cardanoFaucetUrl } from "@/lib/cardano-network";
 
 // Returns false during SSR / first paint, true once mounted on the client,
 // without a setState-in-effect cascade. Server snapshot is constant, client
@@ -46,6 +47,7 @@ function readSessionAcceptance(): boolean {
  */
 export function RiskDisclaimerGate() {
   const i18n = useTranslations("ComponentsLayoutRiskDisclaimerGate");
+  const faucetUrl = cardanoFaucetUrl();
   const [accepted, setAccepted] = useState(readSessionAcceptance);
   const mounted = useMounted();
   const gateRef = useRef<HTMLDivElement | null>(null);
@@ -130,7 +132,32 @@ export function RiskDisclaimerGate() {
               strong: (children) => <strong className="text-foreground">{children}</strong>
             })}
           </p>
-          <p>{i18n("forTestFundsRequestTestAdaFromTheCardanoPreprodFaucet")}</p>
+          {/* The faucet is now reachable, not merely named. This line used to be plain
+              text, and this file's test recorded the reason: "There is no faucet URL in the
+              repo to link to, so the guidance names the faucet without inventing one." The
+              repo does hold one, in `PreprodFaucetHint`, so the first screen every reader
+              meets was sending them to find a site it already knew the address of. Both
+              places now read it from `cardano-network.ts`, which exists to keep the
+              network-keyed endpoints together. On a network with no faucet the sentence
+              falls back to the plain words rather than a dead link. */}
+          <p>
+            {faucetUrl
+              ? i18n.rich("forTestFundsRequestTestAdaFromTheCardanoPreprodFaucet", {
+                  link: (children) => (
+                    <a
+                      href={faucetUrl}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="font-medium text-foreground underline decoration-border underline-offset-2 hover:decoration-foreground"
+                    >
+                      {children}
+                    </a>
+                  )
+                })
+              : i18n.rich("forTestFundsRequestTestAdaFromTheCardanoPreprodFaucet", {
+                  link: (children) => <>{children}</>
+                })}
+          </p>
         </div>
 
         <Button

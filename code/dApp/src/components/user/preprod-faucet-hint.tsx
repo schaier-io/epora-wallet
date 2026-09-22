@@ -1,7 +1,7 @@
 "use client";
 import { useTranslations } from "next-intl";
 
-import { CARDANO_NETWORK } from "@/lib/cardano-network";
+import { CARDANO_NETWORK, cardanoFaucetUrl } from "@/lib/cardano-network";
 
 // Shown where a reader hits an empty test wallet. Gated on the deployment's
 // network constant (cardano-network.ts is the single source of truth). Only
@@ -18,7 +18,7 @@ export function PreprodFaucetHint() {
     <div className="rounded-md border border-border/60 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
       <p>{i18n("thisAppRunsOnPreprodCardanoSTestNetwork")}</p>
       <a
-        href="https://docs.cardano.org/cardano-testnets/tools/faucet/"
+        href={cardanoFaucetUrl() ?? undefined}
         target="_blank"
         rel="noreferrer noopener"
         className="font-medium text-foreground underline decoration-border underline-offset-2 hover:decoration-foreground"

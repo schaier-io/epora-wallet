@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { RiskDisclaimerGate } from "@/components/layout/risk-disclaimer-gate";
+import { cardanoFaucetUrl } from "@/lib/cardano-network";
 
 /**
  * The gate had `role="alertdialog"` and `aria-modal` and nothing behind them. The overlay
@@ -42,17 +43,27 @@ describe("risk disclaimer gate", () => {
     expect(paragraphs[0]).toContain("Do not use it with real funds");
   });
 
-  // Onboarding needs a way to get spendable test ADA. There is no faucet URL in the repo to
-  // link to, so the guidance names the faucet without inventing one.
-  it("tells the reader where test ADA comes from", () => {
+  // Onboarding needs a way to get spendable test ADA. The comment here used to read "There
+  // is no faucet URL in the repo to link to", which was wrong: `PreprodFaucetHint` has
+  // always held one. The first screen every reader meets named a site the app already knew
+  // the address of and made them go find it.
+  it("takes the reader to where test ADA comes from", () => {
     render(<RiskDisclaimerGate />);
 
-    const paragraphs = Array.from(
-      document.querySelectorAll("#risk-disclaimer-body p")
-    ).map((p) => p.textContent ?? "");
-
+    const body = document.querySelector("#risk-disclaimer-body");
+    const paragraphs = Array.from(body?.querySelectorAll("p") ?? []).map(
+      (p) => p.textContent ?? ""
+    );
     expect(paragraphs[3]).toContain("request test ADA from the Cardano Preprod faucet");
-    expect(paragraphs[3]).not.toContain("http");
+
+    const link = body?.querySelector("a");
+    expect(link).toHaveTextContent("Cardano Preprod faucet");
+    expect(link).toHaveAttribute("href", cardanoFaucetUrl() ?? "");
+    // A new tab needs both: `noopener` so the opened page cannot reach back through
+    // `window.opener`, `noreferrer` so it is not told where the reader came from.
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link?.getAttribute("rel")).toContain("noopener");
+    expect(link?.getAttribute("rel")).toContain("noreferrer");
   });
 
   it("makes everything behind it inert", () => {

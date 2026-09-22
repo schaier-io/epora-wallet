@@ -140,7 +140,7 @@
     "doNotUseItWithRealFunds": ". Do not use it with real funds.",
     "experimentalUnauditedSoftware": "experimental, unaudited software",
     "forAnyUseOfThisWalletTheAuthors": "for any use of this wallet. The authors and contributors accept",
-    "forTestFundsRequestTestAdaFromTheCardanoPreprodFaucet": "For test funds, request test ADA from the Cardano Preprod faucet.",
+    "forTestFundsRequestTestAdaFromTheCardanoPreprodFaucet": "For test funds, request test ADA from the <link>Cardano Preprod faucet</link>.",
     "iUnderstandAndAcceptTheRisks": "I understand and accept the risks",
     "liabilityRiskWarning": "You are <strong>solely responsible</strong> for any use of this wallet. The authors and contributors accept <strong>no liability for any loss of funds</strong>, assets, or data, on testnet or mainnet, arising from its use, misuse, or malfunction.",
     "ldquoAsIsRdquo": "“as is”",
