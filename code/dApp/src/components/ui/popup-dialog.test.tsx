@@ -203,3 +203,37 @@ describe("popup dialog focus across parent renders", () => {
     }
   });
 });
+
+/**
+ * Initial focus used to land on the first focusable descendant, which is the header's X in
+ * every dialog. A screen reader heard "Close dialog, button" in place of the title and the
+ * description, and Enter dismissed the dialog before it said what it was for.
+ */
+describe("popup dialog initial focus", () => {
+  it("lands on the dialog itself, not on the close button", () => {
+    vi.useFakeTimers();
+    try {
+      render(
+        <PopupDialog
+          open
+          onOpenChange={() => {}}
+          title="Connect a wallet"
+          description="What connecting grants."
+        >
+          <button type="button">Inside first</button>
+        </PopupDialog>
+      );
+      act(() => {
+        vi.runOnlyPendingTimers();
+      });
+
+      const dialog = screen.getByRole("dialog");
+      expect(document.activeElement).toBe(dialog);
+      expect(document.activeElement).not.toBe(
+        screen.getByRole("button", { name: "Close dialog" })
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
