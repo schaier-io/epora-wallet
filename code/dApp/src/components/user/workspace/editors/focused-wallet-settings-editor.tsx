@@ -168,8 +168,6 @@ function RecoveryContactsSection({
         <TaskEmptyState
           icon={HandHeart}
           title={i18n("nobodyCanRecoverThisWallet")}
-          // Kept under LONG_DESCRIPTION_LIMIT (78) so `TaskEmptyState` renders it as
-          // visible text rather than folding it into an InfoHint.
           description={i18n("addSomeoneWhoCanClaimWhatIsHere")}
         />
       ) : (

@@ -14,7 +14,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { InfoHint } from "@/components/ui/info-hint";
 import { Label } from "@/components/ui/label";
-import { LONG_DESCRIPTION_LIMIT } from "@/components/user/workspace/constants";
 import {
   approvalThresholdCeiling,
   formatCompactHash,
@@ -122,7 +121,6 @@ export function StateFormEditor({
     spendingUsers.length > 0 ||
     value.streamingPayments.length > 0 ||
     hasCoSigners;
-  const helperIsLong = Boolean(helper && helper.length > LONG_DESCRIPTION_LIMIT);
 
   function updateUser(index: number, nextUser: UserFormState) {
     onChange({ ...value, users: replaceAt(value.users, index, nextUser) });
@@ -440,17 +438,14 @@ export function StateFormEditor({
     <div className="space-y-4 rounded-xl border border-border/70 bg-background/40 p-3 sm:p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
-          <div className="flex items-center gap-2">
-            {/* Not a <label>: this heads the whole panel and points at no single
-                control, so it named nothing and clicked through to nothing. */}
-            <p className="text-sm font-medium leading-none">{label}</p>
-            {helperIsLong ? (
-              <InfoHint label={i18n("moreAboutLabel", { label: label })} contentClassName="max-w-sm">
-                {helper}
-              </InfoHint>
-            ) : null}
-          </div>
-          {helper && !helperIsLong ? (
+          {/* Not a <label>: this heads the whole panel and points at no single
+              control, so it named nothing and clicked through to nothing. */}
+          <p className="text-sm font-medium leading-none">{label}</p>
+          {/* Shown at any length. Over 78 characters the helper went into an ⓘ tooltip
+              and appeared nowhere else, which hid the wallet-creation guidance: 127
+              characters, on the panel that builds the wallet. Seven of the other helpers
+              sit at 75 to 77, written to duck under the same limit. */}
+          {helper ? (
             <p className="text-xs leading-snug text-muted-foreground">{helper}</p>
           ) : null}
           <p className="text-xs leading-snug text-muted-foreground">

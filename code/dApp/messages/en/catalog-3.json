@@ -424,7 +424,6 @@
     "howLongYouHaveBetweenCheckInsBefore": "How long you have between check-ins before recovery contacts can act.",
     "ifYouEverLoseYourKeysRecoveryContacts": "If you ever lose your keys, recovery contacts can step in. They wait behind your proof of life.",
     "iUnderstandThisWalletHasNoDirectOwner": "I understand this wallet has no direct owner.",
-    "moreAboutLabel": "More about {label}",
     "moreSettings": "Spending and scheduled payments",
     "nobodyHoldsACosignerChipYetSo": "Nobody holds a Co-signer chip yet, so only the owners can act. Add a co-signer to turn the rule on.",
     "noDirectOwnerYet": "No direct owner yet",

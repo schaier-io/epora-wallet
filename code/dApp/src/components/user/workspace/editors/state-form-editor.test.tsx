@@ -334,3 +334,31 @@ describe("create wallet recovery section", () => {
     expect(within(content).queryByRole("button", { name: "Add spender" })).not.toBeInTheDocument();
   });
 });
+
+/**
+ * A helper over 78 characters used to go into an ⓘ popover and appear nowhere else. The
+ * wallet-creation helper is 127 characters, so the guidance for the panel that builds the
+ * wallet was one discovered interaction away instead of on the page.
+ *
+ * Not because the popover is broken. `info-hint.test.tsx` passes and `InfoHint` opens on
+ * click, tap and Enter alike. Two comments in this repository said InfoHints were "blocked
+ * until backlog 19c is fixed"; 19c is what built the component, as
+ * `locked-assets-panel.test.tsx` records.
+ */
+describe("a helper longer than the old limit", () => {
+  const LONG =
+    "Start with the connected wallet as an owner, then add recovery contacts or scheduled payments only when this wallet needs them.";
+
+  it("renders on the page instead of folding into a hint", () => {
+    render(
+      <StateFormEditor
+        label="Wallet rules"
+        helper={LONG}
+        value={createDefaultStateForm()}
+        onChange={() => {}}
+      />
+    );
+
+    expect(screen.getByText(LONG)).toBeInTheDocument();
+  });
+});
