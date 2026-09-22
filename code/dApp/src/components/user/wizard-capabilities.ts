@@ -202,10 +202,9 @@ export function buildAdvancedWizardActions(
     );
   }
 
-  if (
-    capabilityMap.availableConsolidatePaths.length > 0 &&
-    capabilityMap.hasLockedUtxos
-  ) {
+  // Funds at a previous stake address do not count toward hasLockedUtxos.
+  // Keep consolidation reachable so discovery can supply those inputs (#561).
+  if (capabilityMap.availableConsolidatePaths.length > 0) {
     actions.push("consolidate-utxo");
   }
 
