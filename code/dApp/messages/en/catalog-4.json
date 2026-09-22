@@ -367,7 +367,7 @@
     "availableOnlyHelper": "Accrued unpaid scheduled payments are subtracted at each point. Future amounts are not included.",
     "chartPickerLabel": "Pick the assets to chart",
     "noStreamsPayingTheChartedAssets": "No scheduled payment pays the charted assets, so total and available are the same.",
-    "value1": "{value1}",
+    "value1": " {value1}",
     "value1Balance": "{value1} balance",
     "walletBalance": "Wallet balance"
   },
@@ -431,8 +431,9 @@
     "smartWalletsValue1SwitchOrCreateOne": "Smart wallets, {value1}. Switch or create one.",
     "value1AdaAvailable": "Connected wallet: {value1} ADA",
     "walletBalanceUnavailable": "Connected wallet balance unavailable",
-    "walletCouldNotLoad": "Wallet could not load",
-    "welcomeToEporaWallet": "Welcome to Epora Wallet"
+    "walletCouldNotLoad": "Could not load your smart wallets",
+    "welcomeToEporaWallet": "Welcome to Epora Wallet",
+    "walletCouldNotRefresh": "Could not refresh your smart wallets"
   },
   "ComponentsUserWorkspaceWorkspaceLandingView": {
     "chooseSmartWallet": "Choose smart wallet",
@@ -447,7 +448,6 @@
   },
   "ComponentsUserWorkspaceWorkspaceMainPanelView": {
     "coSignerPowerRatio": "{label} · {needed}/{available} power",
-    "couldNotLoadThisWallet": "Could not load this wallet. Use Refresh to try again.",
     "oneSharedCardanoWalletWithKeyRecoveryNo": "One shared Cardano wallet with key recovery. No new seed phrase: you sign with the wallet you already use.",
     "walletSetup": "Wallet setup"
   },
@@ -589,10 +589,10 @@
     "connectAWalletFirst": "Connect a wallet first",
     "moreAboutSetupHelper": "More about setup helper",
     "oneTimeSetupNeeded": "Service temporarily unavailable",
-    "switchToPreprod_803db8": "Switch to preprod",
+    "switchToPreprod_803db8": "Switch to Preprod",
     "theWalletYouConnectedIsOnADifferent": "The wallet you connected is on a different network. Switch it to Preprod, then try again.",
     "thisActionSpendsFromTheWalletSoIt": "This action spends from the wallet, so it opens once the funds are read.",
-    "thisActionSpendsFromTheWalletSoIt_bbbd72": "This action spends from the wallet, so it needs money in it first. Choose Receive funds to add some.",
+    "thisActionSpendsFromTheWalletSoIt_bbbd72": "This action spends from the wallet, so it needs money in it first. Choose Add funds to add some.",
     "thisWalletHasNoFundsYet": "This wallet has no funds yet",
     "thisWalletNeedsItsSharedSetupHelperBefore": "Epora must finish checking service availability before this action can continue. Please try again shortly.",
     "yourWalletWillOpenToApproveThisHelper": "Your wallet will open to approve this helper.",
@@ -617,7 +617,6 @@
     "theWalletYouConnectedCannotManageThisSmart": "The wallet you connected cannot manage this smart wallet.",
     "value1": "{value1}",
     "wallet": "Wallet",
-    "walletCouldNotLoad": "Wallet could not load",
     "walletNavigation": "Wallet navigation"
   }
 }

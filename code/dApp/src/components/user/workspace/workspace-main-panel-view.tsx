@@ -1,7 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
 
-import { detectedSttTokensErrorAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { selectedDetectedTokenAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { selectedActionAtom, userFlowBranchAtom, wizardSelectedActionAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
 import {
@@ -54,7 +53,6 @@ export function WorkspaceMainPanelView() {
   const state = useWorkspaceActions();
   const selectedAction = useAtomValue(selectedActionAtom);
   const selectedDetectedToken = useAtomValue(selectedDetectedTokenAtom);
-  const detectedSttTokensError = useAtomValue(detectedSttTokensErrorAtom);
   const userFlowBranch = useAtomValue(userFlowBranchAtom);
   const wizardSelectedAction = useAtomValue(wizardSelectedActionAtom);
   const sttAuthorityPath = useAtomValue(sttAuthorityPathAtom);
@@ -155,15 +153,9 @@ export function WorkspaceMainPanelView() {
                     >
                       <div ref={actionConfigurationRef}><WorkspaceActionConfigView /></div>
                     </UserActionConfigurationCard>
-                  ) : detectedSttTokensError ? (
-                    // The link names a wallet, but the wallet list never loaded, so nothing can
-                    // match it. Say that, rather than letting the sidebar's "not one of yours"
-                    // stand alone as if the wallet had been checked and rejected.
-                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 sm:p-4">
-                      <p className="text-sm font-medium text-foreground">{i18n("couldNotLoadThisWallet")}</p>
-                      <p className="mt-2 text-sm text-muted-foreground">{detectedSttTokensError}</p>
-                    </div>
-                  ) : // No wallet is open and no form is staged. The sidebar already explains how
+                  ) : // A failed wallet-list lookup is reported once: the header carries the
+                    // error and the sidebar says "No wallet open / Could not load this wallet".
+                    // No wallet is open and no form is staged. The sidebar already explains how
                     // to pick a wallet; a "Choose an action" card here pointed at an action rail
                     // that is not on screen in this state.
                     null}

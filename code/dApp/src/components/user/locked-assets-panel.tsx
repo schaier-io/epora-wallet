@@ -3,7 +3,7 @@ import { useFormatter, useTranslations } from "next-intl";
 
 
 import { useId, useMemo, useState } from "react";
-import { Coins, Download, Gem, Sparkles, type LucideIcon } from "lucide-react";
+import { Coins, Gem, Sparkles, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { InfoHint } from "@/components/ui/info-hint";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -167,8 +167,6 @@ export type LockedAssetsOverviewPanelProps = {
   onAssetClick?: (unit: string) => void;
   /** Optional per-asset spark series. Returns null if no series available. */
   getSparkSeries?: (unit: string) => number[] | null;
-  /** Optional CTA shown inside the empty state (e.g. "Add funds"). */
-  emptyCta?: { label: string; onClick: () => void } | null;
 };
 
 export function LockedAssetsOverviewPanel({
@@ -181,8 +179,7 @@ export function LockedAssetsOverviewPanel({
   emptyHint,
   listPreviewLimit = LOCKED_ASSETS_LIST_PREVIEW,
   onAssetClick,
-  getSparkSeries,
-  emptyCta
+  getSparkSeries
 }: LockedAssetsOverviewPanelProps) {
   const i18n = useTranslations("ComponentsUserLockedAssetsPanel");
   const format = useFormatter();
@@ -288,18 +285,6 @@ export function LockedAssetsOverviewPanel({
               </p>
               {emptyHint ? (
                 <p className="text-xs leading-relaxed text-muted-foreground">{emptyHint}</p>
-              ) : null}
-              {emptyCta ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={emptyCta.onClick}
-                  className="px-2 text-xs"
-                >
-                  <Download className="h-3 w-3" />
-                  {emptyCta.label}
-                </Button>
               ) : null}
             </div>
           </div>

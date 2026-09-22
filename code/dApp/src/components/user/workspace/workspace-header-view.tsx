@@ -8,6 +8,8 @@ import { wizardSelectedActionAtom } from "@/components/user/workspace/atoms/work
 import { walletReadyAtom } from "@/providers/wallet.atoms";
 import { detectedSttTokensErrorAtom, detectedSttTokensLoadingAtom, lockedContractUtxosLoadingAtom, permissionWalletSummariesLoadingAtom, walletBalanceSummaryAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { useSetAtom, useAtomValue } from "jotai";
+import { activeInferredSttStateFormAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
+import { normalizeWalletName } from "@/lib/contracts/state-wallet-name";
 import { walletConnectionDialogOpenAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
 import {
   AlertCircle,
@@ -46,6 +48,7 @@ export function WorkspaceHeaderView() {
   const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceHeaderView");
   const state = useWorkspaceActions();
   const walletTransactions = useAtomValue(walletTransactionsAtom);
+  const activeInferredSttStateForm = useAtomValue(activeInferredSttStateFormAtom);
   const routeState = useAtomValue(routeStateAtom);
   const selectedDetectedToken = useAtomValue(selectedDetectedTokenAtom);
   const detectedSttTokensError = useAtomValue(detectedSttTokensErrorAtom);
@@ -71,7 +74,6 @@ export function WorkspaceHeaderView() {
     refreshDetectedTokens,
     refreshPermissionWalletSummaries,
     refreshWorkspaceSummary,
-    selectedActionDefinition,
   } = state;
 
     // The summaries are built from the detected-token list, so the re-scan has to finish
@@ -131,13 +133,15 @@ export function WorkspaceHeaderView() {
     const guidedWorkspaceTitle: string | null = !walletReady
       ? i18n("welcomeToEporaWallet")
       : walletLookupFailed
-        ? i18n("walletCouldNotLoad")
+        ? selectedDetectedToken
+          ? i18n("walletCouldNotRefresh") // a cached wallet is still open below
+          : i18n("walletCouldNotLoad")
         : routeState.workspaceMode === "new-wallet"
           ? i18n("createWallet")
           : routeState.workspaceMode === "landing"
             ? i18n("chooseYourNextStep")
             : selectedDetectedToken
-              ? null // top nav pill already shows the wallet name; avoid triplication
+              ? null // the home card and, during an action, the description name the wallet
               : i18n("openAWallet");
     const guidedWorkspaceDescription = !walletReady
       ? i18n("shareOneNonCustodialCardanoWalletAcrossOwners")
@@ -149,15 +153,18 @@ export function WorkspaceHeaderView() {
             ? i18n("createANewSmartWalletOrOpenOne")
             : selectedDetectedToken
               ? wizardSelectedAction
-                ? selectedActionDefinition.label
+                // The smart wallet the action runs against. This was the action's label,
+                // which the card below already carries as its title, while no other surface
+                // named the smart wallet during an action: the top nav names the browser one.
+                ? normalizeWalletName(activeInferredSttStateForm.walletName)
                 : null
               : i18n("chooseTheSmartWalletThisSessionShouldUse");
 
   // Two shapes, decided by whether there is anything to name. With a title the card is a
   // header: icon, title, description, and the status pills opposite them. Without one it is a
   // toolbar. The app spends most of its life in that second state -- a wallet open, no action
-  // started -- where the title and description are both deliberately null, because the top nav
-  // already names the wallet. It still drew the full card: a 40px icon badging nothing, 899px
+  // started -- where the title and description are both deliberately null, because the home
+  // card below names the smart wallet. It still drew the full card: a 40px icon badging nothing, 899px
   // of empty card, then the pills. Measured at 1440px wide.
   const hasWorkspaceIdentity = Boolean(guidedWorkspaceTitle || guidedWorkspaceDescription);
 

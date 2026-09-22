@@ -82,9 +82,8 @@ describe("workspace header", () => {
   });
 
   /**
-   * Two load errors tell the reader to "Use Refresh to try again"
-   * (`WorkspaceMainPanelView.couldNotLoadThisWallet`,
-   * `WorkspaceSidebarView.couldNotLoadThisWalletReloadThePage`). This button is the
+   * A load error tells the reader to "Use Refresh to try again"
+   * (`WorkspaceSidebarView.couldNotLoadThisWalletReloadThePage`). This button is the
    * control they mean, and it carries no visible text, so its accessible name is the
    * only name a reader has for it. It used to say "Reload…" while its own tooltip said
    * "Refresh wallet data": one control, two verbs, and neither was the word the copy
@@ -104,6 +103,9 @@ describe("workspace header", () => {
   it("shows scan errors while a cached wallet remains open", () => {
     renderWith({ assets: [], loading: false, error: null }, false, "Inventory refresh failed.", true);
     expect(screen.getByText("Inventory refresh failed.")).toBeInTheDocument();
+    // The wallet is still open below, so this was a refresh, not a first load.
+    expect(screen.getByText("Could not refresh your smart wallets")).toBeInTheDocument();
+    expect(screen.queryByText("Could not load your smart wallets")).toBeNull();
   });
 
   it("says the wallet is empty instead of checking forever", () => {
@@ -154,7 +156,7 @@ describe("workspace header", () => {
       "Could not check the chain for smart wallets."
     );
 
-    expect(screen.getByText("Wallet could not load")).toBeTruthy();
+    expect(screen.getByText("Could not load your smart wallets")).toBeTruthy();
     expect(screen.queryByText("Open a wallet")).toBeNull();
   });
 

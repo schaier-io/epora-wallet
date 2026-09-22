@@ -60,7 +60,6 @@ export function WorkspaceSidebarView() {
   const detectedSttTokensLoading = useAtomValue(detectedSttTokensLoadingAtom);
   const walletIsResolving =
     !selectedDetectedToken && detectedSttTokensLoading && !detectedSttTokensError;
-  const walletLookupFailed = Boolean(detectedSttTokensError);
   const {
     dispatchWorkspaceAction,
     handleConsolidateOrphans,
@@ -102,17 +101,14 @@ export function WorkspaceSidebarView() {
             <Card className="user-surface order-2 flex min-h-0 flex-col p-0 sm:p-0 lg:sticky lg:top-20 lg:order-1 lg:max-h-[calc(100dvh-5.5rem)] lg:self-start">
               <CardContent className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4">
                 {walletIsResolving ? (
-                  <div role="status" aria-label={i18n("loadingYourWallet")} className="space-y-3">
+                  // Not a live region: the header's skeleton announces the same load, so two
+                  // `role="status"` regions read "Loading your wallet…" twice.
+                  <div className="space-y-3">
                     <p className="text-sm text-muted-foreground">{i18n("loadingYourWallet")}</p>
                     <Skeleton className="h-4 w-24" aria-hidden="true" />
                     <Skeleton className="h-16 w-full rounded-lg" aria-hidden="true" />
                     <Skeleton className="h-16 w-full rounded-lg" aria-hidden="true" />
                     <Skeleton className="h-9 w-full rounded-md" aria-hidden="true" />
-                  </div>
-                ) : walletLookupFailed ? (
-                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm">
-                    <p className="font-medium text-foreground">{i18n("walletCouldNotLoad")}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{detectedSttTokensError}</p>
                   </div>
                 ) : !selectedDetectedToken ? (
                   <div className="rounded-lg border border-border/60 bg-background/40 p-4 text-sm text-muted-foreground">

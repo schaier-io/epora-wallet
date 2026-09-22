@@ -229,7 +229,9 @@ export function WalletSelectionDialogView() {
             />
 
             <div className="user-scrollbar max-h-[420px] overflow-y-auto">
-              {filteredPermissionWalletCards.length === 0 ? (
+              {/* A failed lookup has its own alert above; "no smart wallets for this key" under
+                  it would contradict it. */}
+              {permissionWalletCards.length === 0 && detectedSttTokensError ? null : filteredPermissionWalletCards.length === 0 ? (
                 // `role="status"`: typing in the search box swaps the whole list for this
                 // message with no other cue, so a screen-reader user got no answer at all
                 // when a query matched nothing.

@@ -126,7 +126,6 @@
   },
   "ComponentsUserWorkspaceWorkspaceWalletDashboardView": {
     "addAScheduledPayment": "Add a scheduled payment",
-    "addFunds": "Add funds",
     "addRecoveryContact": "Add recovery contact",
     "addressCopied": "Address copied",
     "advancedWalletDetails": "Advanced wallet details",
