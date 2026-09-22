@@ -75,19 +75,19 @@ function stateChange(inputDatum: string | undefined, outputDatum: string | undef
 test("a settings edit with a different fee-change address is not a payment", () => {
   const [event] = buildWalletActivityEvents(stateChange(stateCbor(), stateCbor("Renamed wallet")), WALLET, { sttUnit: STT });
   assert.equal(event!.label, "Settings");
-  assert.equal(event!.amountSummary, "No net balance change");
+  assert.equal(event!.amountSummary, "No balance change");
 });
 
 test("a proof-of-life deadline extension is a check-in even with different fee change", () => {
   const [event] = buildWalletActivityEvents(stateChange(stateCbor(), stateCbor("Wallet", "2000")), WALLET, { sttUnit: STT });
   assert.equal(event!.title, "Check-in recorded");
   assert.equal(event!.label, "Check-in");
-  assert.equal(event!.amountSummary, "No net balance change");
+  assert.equal(event!.amountSummary, "No balance change");
 });
 
 test("missing state data does not turn fee change into a payment or settings claim", () => {
   const [event] = buildWalletActivityEvents(stateChange(undefined, undefined), WALLET, { sttUnit: STT });
-  assert.equal(event!.title, "Wallet updated");
+  assert.equal(event!.title, "Wallet state updated");
   assert.equal(event!.label, "Updated");
 });
 
@@ -100,7 +100,7 @@ test("migration between this wallet's stake addresses is a move with zero delta"
   tx.outputs.push(utxo(tx.hash, 2, newAddress, lovelace("6000000")));
   const [event] = buildWalletActivityEvents(tx, newAddress, { sttUnit: STT });
   assert.equal(event!.title, "Funds moved");
-  assert.equal(event!.amountSummary, "No net balance change");
+  assert.equal(event!.amountSummary, "No balance change");
 });
 
 test("returns a 'referenced' event when nothing touches the wallet", () => {
@@ -231,7 +231,7 @@ test("state continuation without datums has a neutral category", () => {
   });
   const events = buildWalletActivityEvents(tx, WALLET, { sttUnit: STT });
   assert.equal(events.length, 1);
-  assert.equal(events[0]!.title, "Wallet updated");
+  assert.equal(events[0]!.title, "Wallet state updated");
   assert.equal(events[0]!.label, "Updated");
 });
 
@@ -320,7 +320,7 @@ test("a repeated wallet-owned UTxO counts once, for sums, tallies, and classific
   // One pool split into two at equal value. Before the dedupe, the doubled input
   // read as a value increase and pushed this to "Sent".
   assert.equal(events[0]!.label, "Split");
-  assert.equal(events[0]!.amountSummary, "No net balance change");
+  assert.equal(events[0]!.amountSummary, "No balance change");
   // The expanded "Inputs used" list carries the entry once, and the tally names one
   // input, not two.
   const refs = events[0]!.inputUtxos.map((u) => `${u.input.txHash}#${u.input.outputIndex}`);
@@ -395,7 +395,7 @@ test("external outputs alone cannot prove a smart-wallet payment", () => {
     ]
   });
   const events = buildWalletActivityEvents(tx, WALLET, { sttUnit: STT });
-  assert.equal(events[0]!.title, "Wallet updated");
+  assert.equal(events[0]!.title, "Wallet state updated");
   assert.equal(events[0]!.label, "Updated");
 });
 
@@ -419,7 +419,7 @@ for (const split of [false, true]) {
     });
     const [event] = buildWalletActivityEvents(tx, WALLET, { sttUnit: STT });
     assert.equal(event!.title, split ? "Funds split" : "Funds merged");
-    assert.equal(event!.amountSummary, "No net balance change");
+    assert.equal(event!.amountSummary, "No balance change");
   });
 }
 
@@ -479,7 +479,7 @@ test("partial outputs and current UTxOs use one complete set for amounts and cou
     currentWalletUtxos: [first, second, unrelated]
   });
   assert.equal(event!.title, "Funds split");
-  assert.equal(event!.amountSummary, "No net balance change");
+  assert.equal(event!.amountSummary, "No balance change");
   assert.equal(event!.details.find((detail) => detail.label === "Wallet funds")?.value,
     "1 input and 2 outputs");
   assert.deepEqual(event!.outputUtxos, [first, second]);
@@ -493,7 +493,7 @@ test("duplicate outputs do not change the wallet amount or category", () => {
   });
   const [event] = buildWalletActivityEvents(tx, WALLET);
   assert.equal(event!.title, "Funds moved");
-  assert.equal(event!.amountSummary, "No net balance change");
+  assert.equal(event!.amountSummary, "No balance change");
   assert.equal(event!.outputUtxos.length, 1);
 });
 

@@ -174,7 +174,7 @@ export function RecentActivityTimeline({
                   // indistinguishable from a mouse hover and had no ring at all. The ring
                   // carries no offset because the `ol` above is `overflow-hidden`, and an
                   // offset ring would be clipped by it.
-                  className="group -mx-2 flex w-[calc(100%+1rem)] items-start gap-3 rounded-md px-2 py-1.5 text-left transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-background/65 focus-visible:bg-background/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="group -mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-md px-2 py-1.5 text-left transition-colors duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:bg-background/65 focus-visible:bg-background/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex min-w-0 items-center gap-2">
@@ -198,9 +198,9 @@ export function RecentActivityTimeline({
                   </div>
                   <p
                     className={cn(
-                      // `leading-5` matches the title's line box, so with `items-start`
-                      // on the row the amount shares the title's baseline.
-                      "shrink-0 text-right text-sm leading-5 tabular-nums",
+                      // Centred on the two-line row with the chevron beside it. Pinned to
+                      // the title line, the amount sat higher than the centred chevron.
+                      "shrink-0 text-right text-sm tabular-nums",
                       event.amountClassName
                     )}
                   >
@@ -213,7 +213,7 @@ export function RecentActivityTimeline({
                     and slides in on hover and keyboard focus.
                   */}
                   <ChevronRight
-                    className="h-3.5 w-3.5 shrink-0 self-center -translate-x-1 text-muted-foreground/50 transition-[transform,color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:translate-x-0 group-hover:text-muted-foreground/80 group-focus-visible:translate-x-0 group-focus-visible:text-muted-foreground/80"
+                    className="h-3.5 w-3.5 shrink-0 -translate-x-1 text-muted-foreground/50 transition-[transform,color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:translate-x-0 group-hover:text-muted-foreground/80 group-focus-visible:translate-x-0 group-focus-visible:text-muted-foreground/80"
                     aria-hidden="true"
                   />
                 </button>
