@@ -156,3 +156,11 @@ describe("wallet hero card", () => {
     expect(screen.queryByRole("heading", { name: "Household", level: 2 })).toBeNull();
   });
 });
+
+it("names the wait where the balance will be", () => {
+  // `Skeleton` is `aria-hidden`, so the "Balance" label was followed by nothing at all.
+  // The address beside it already names its own wait.
+  renderCard({ loading: true });
+
+  expect(screen.getByText("Loading balance…")).toBeInTheDocument();
+});

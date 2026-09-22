@@ -215,7 +215,15 @@ export function WalletHeroCard({
           </p>
           <div className="flex min-w-0 max-w-full flex-wrap items-baseline gap-1">
             {loading ? (
-              <Skeleton className="h-10 w-32" />
+              <>
+                {/* `Skeleton` is `aria-hidden`, so a reader heard the "Balance" label above
+                    and then nothing at all, with no word for why the number was missing.
+                    The address beside it already names its own wait (`loadingAddress`);
+                    that one is visible text, and this one stays `sr-only` so the block
+                    keeps the height the balance lands at. */}
+                <span className="sr-only">{i18n("loadingBalance")}</span>
+                <Skeleton className="h-10 w-32" />
+              </>
             ) : (
               <>
                 <CountUp

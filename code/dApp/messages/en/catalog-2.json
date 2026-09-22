@@ -161,6 +161,7 @@
     "copyWalletAddress": "Copy wallet address",
     "hideFullAddress": "Hide full address",
     "loadingAddress": "Loading address…",
+    "loadingBalance": "Loading balance…",
     "noFundsInThisWalletYet": "No funds in this wallet yet",
     "onlyAdaInsideThisWallet": "Only ADA inside this wallet",
     "receive": "Receive",
