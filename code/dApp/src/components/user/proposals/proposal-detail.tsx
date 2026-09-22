@@ -126,7 +126,11 @@ export function ProposalDetail({
         if (rebuildNeedsProposer) return i18n("thisRequestIsOutOfDateOnlyTheProposer");
         return i18n("thisRequestIsOutOfDateItUses_1ec8c3");
       }
-      return null;
+      // Still say what a rebuild costs and who may do it: the button clears signatures
+      // with no confirm step.
+      if (canRebuild) return i18n("thisRequestCannotGoThroughMakingANewVersion");
+      if (rebuildNeedsProposer) return i18n("thisRequestCannotGoThroughOnlyTheProposer");
+      return i18n("thisRequestCannotGoThroughBuildItAgain");
     }
     if (!verification) {
       return i18n("theCheckDidNotFinishSoSigningIs");

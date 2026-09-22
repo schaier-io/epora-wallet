@@ -482,6 +482,18 @@ describe("what the buttons are waiting for", () => {
     expect(screen.queryByText(/funds that have since moved/)).toBeNull();
   });
 
+  it("still warns that a new version clears signatures when no funds moved", async () => {
+    verify.proposal.mockResolvedValue(
+      verification({ validity: "invalid", reasons: ["A stored signature does not match."] })
+    );
+    vi.mocked(parseProposalBuildContext).mockReturnValue({ builder: "use" } as never);
+    vi.mocked(isAutoRebuildable).mockReturnValue(true);
+    renderAs(detail.createdByKeyHash);
+
+    expect(await screen.findByText(/clears every signature it already has/)).toBeInTheDocument();
+    expect(screen.queryByText(/funds that have since moved/)).toBeNull();
+  });
+
   it("says the request is ready once enough people have signed", async () => {
     verify.proposal.mockResolvedValue(
       verification({
