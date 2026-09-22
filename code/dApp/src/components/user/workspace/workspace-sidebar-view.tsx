@@ -263,18 +263,8 @@ export function WorkspaceSidebarView() {
 
                         </AnimatedList>
                       </div>
-                      {everydayActions.length > 0 ? (
-                        <GuidedActionSectionView title={i18n("commonActions")} actions={everydayActions} />
-                      ) : (
-                        <div className="rounded-lg border border-border/60 bg-background/30 p-3">
-                          <p className="text-sm font-medium text-foreground">
-                            {i18n("noDailyActionsYet")}
-                          </p>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            {i18n("addFundsOrAdjustWalletAccessToUnlock")}
-                          </p>
-                        </div>
-                      )}
+                      {/* Never empty: an open wallet always offers Add funds. */}
+                      <GuidedActionSectionView title={i18n("commonActions")} actions={everydayActions} />
                       {guidedAdminGroups.length > 0 ? (
                         <GuidedAdminSectionView />
                       ) : (
