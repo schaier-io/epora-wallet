@@ -551,6 +551,7 @@
     "whatAFundPoolIs": "What a fund pool is"
   },
   "ComponentsUserOrphanUtxoNotice": {
+    "checking": "Checking…",
     "dismiss": "Dismiss",
     "moveItBack": "Move it back",
     "moving": "Moving…",

@@ -14,6 +14,7 @@ const holder = vi.hoisted(() => ({
   },
   noticeProps: null as null | {
     actionsDisabled?: boolean;
+    checking?: boolean;
     onRecover?: (orphans: DiscoveredUtxo[]) => void;
   }
 }));
@@ -137,4 +138,15 @@ it("shows a failed refresh and disables actions on retained outputs", () => {
   expect(screen.getByRole("alert")).toHaveTextContent("Could not check");
   expect(holder.noticeProps?.actionsDisabled).toBe(true);
   expect(screen.getByTestId("orphan-notice")).toBeInTheDocument();
+});
+
+/**
+ * `loading` is one of the three causes of `actionsDisabled`, and the only one with
+ * nothing else on screen explaining it: an error prints its own paragraph above,
+ * and `!canCheck` yields no orphans so the notice never renders.
+ */
+it("tells the notice a check is running, not only that actions are off", () => {
+  renderPanel({ loading: true, orphans: [{ txHash: "aa", outputIndex: 0 } as DiscoveredUtxo], orphanLovelace: 5_000_000n });
+  expect(holder.noticeProps?.actionsDisabled).toBe(true);
+  expect(holder.noticeProps?.checking).toBe(true);
 });
