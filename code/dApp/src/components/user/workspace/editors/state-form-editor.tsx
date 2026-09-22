@@ -427,6 +427,16 @@ export function StateFormEditor({
             >
               {i18n("addACosigner")}
             </Button>
+            {/* The other four cap-disabled buttons in this file each sit above this
+                sentence. This one did not, so the only control in the branch went
+                grey with nothing on screen saying why. */}
+            {peopleAtCap ? (
+              <p className="text-xs text-muted-foreground">
+                {accessRecordsAtCap && value.users.length < MAX_USERS
+                  ? i18n("thisWalletAlreadyHoldsMaxAccessRecords", { max: MAX_ACCESS_RECORDS })
+                  : i18n("thisWalletAlreadyHoldsMaxPeople", { max: MAX_USERS })}
+              </p>
+            ) : null}
           </div>
         )}
       </DisclosureSection>

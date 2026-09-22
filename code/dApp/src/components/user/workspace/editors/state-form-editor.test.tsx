@@ -362,3 +362,36 @@ describe("a helper longer than the old limit", () => {
     expect(screen.getByText(LONG)).toBeInTheDocument();
   });
 });
+
+/**
+ * Five buttons in this file go dead on a cap. Four sit directly above the sentence
+ * naming that cap; these two did not.
+ *
+ * The co-signer one is a click away, not hidden: its DisclosureSection is
+ * `defaultOpen={hasCoSigners}`, so a wallet with no co-signers starts collapsed.
+ * Open it at the people cap and the branch held one control, disabled, with the
+ * only copy on screen being "Add a co-signer to turn the rule on."
+ */
+describe("a capped button says which cap stopped it", () => {
+  function atPeopleCap() {
+    let value = createDefaultStateForm();
+    for (let index = 0; index < MAX_USERS; index += 1) {
+      value = withUserAdded(value, "admin");
+    }
+    return value;
+  }
+
+  it("names the cap inside the co-signer branch, not only in the sections above", () => {
+    render(<StateFormEditor label="Wallet rules" value={atPeopleCap()} onChange={() => {}} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Co-signer threshold/ }));
+    const addCoSigner = screen.getByRole("button", { name: "Add a co-signer" });
+    expect(addCoSigner).toBeDisabled();
+
+    const branch = addCoSigner.parentElement;
+    expect(branch).not.toBeNull();
+    expect(branch).toHaveTextContent(
+      `This wallet already holds ${MAX_USERS} people, owners and spenders together.`
+    );
+  });
+});
