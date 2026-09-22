@@ -124,7 +124,7 @@ export function RecentActivityTimeline({
           {/* Vertical rail: 25.5px + the ol 1px border centres it on the dots at 27px. */}
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute bottom-3 left-[25.5px] top-3 w-px bg-gradient-to-b from-border/0 via-border/70 to-border/0"
+            className="timeline-rail-draw pointer-events-none absolute bottom-3 left-[25.5px] top-3 w-px bg-gradient-to-b from-border/0 via-border/70 to-border/0"
           />
           {sliced.map((event, index) => {
             const isFirst = index === 0;
@@ -145,7 +145,7 @@ export function RecentActivityTimeline({
                 <span
                   aria-hidden="true"
                   className={cn(
-                    "absolute left-[0.6875rem] top-[0.8125rem] block h-1.5 w-1.5 rounded-full ring-2 ring-background",
+                    "timeline-dot-pop absolute left-[0.6875rem] top-[0.8125rem] block h-1.5 w-1.5 rounded-full ring-2 ring-background",
                     dotToneClass(event.amountClassName)
                   )}
                 />

@@ -576,3 +576,31 @@ svg.lucide {
     animation: none;
   }
 }
+
+/* Activity timeline (components/user/recent-activity-timeline.tsx): the rail draws downward
+   in reading order and each event's dot lands on it as its row arrives (the row's own
+   `list-stagger-item` delay is inherited through `animation-delay: inherit`). */
+.timeline-rail-draw {
+  transform-origin: top;
+  animation: timeline-rail-draw 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.timeline-dot-pop {
+  animation: timeline-dot-pop 360ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation-delay: inherit;
+}
+
+@keyframes timeline-rail-draw {
+  from { scale: 1 0; }
+}
+
+@keyframes timeline-dot-pop {
+  from { scale: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .timeline-rail-draw,
+  .timeline-dot-pop {
+    animation: none;
+  }
+}
