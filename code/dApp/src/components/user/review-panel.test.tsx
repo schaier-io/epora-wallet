@@ -399,12 +399,12 @@ describe("review rail live regions", () => {
   });
 
   /**
-   * The rail used to print the primary issue's description twice: once as the "Next step",
-   * once in the attention box right below it. On the send page with nothing staged the
-   * same "Add a payout…" sentence then appeared a third time as the section's inline
-   * hint. The draft's authored step owns "what to do next"; the box owns "what is wrong".
+   * The rail used to stack two boxes that said the same thing: a "Next step" line
+   * ("Choose the fund pools you want to merge.") directly above an attention box
+   * ("Selected fund pools: Select at least one fund pool."). Only one of them shows
+   * now. The box owns the blocked state; the line owns the unblocked one.
    */
-  it("gives the next-step line to the draft and the issue description to the box", () => {
+  it("drops the next-step line while the attention box is showing", () => {
     render(
       <UserReviewPanel
         {...BASE}
@@ -421,7 +421,8 @@ describe("review rail live regions", () => {
       />
     );
 
-    expect(screen.getByText("Add a payout: pick a recipient and an amount.")).toBeInTheDocument();
+    expect(screen.queryByText("Next step")).toBeNull();
+    expect(screen.queryByText("Add a payout: pick a recipient and an amount.")).toBeNull();
     expect(screen.getAllByText("No payout is staged yet.")).toHaveLength(1);
   });
 });
