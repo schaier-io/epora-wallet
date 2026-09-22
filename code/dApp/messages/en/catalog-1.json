@@ -537,17 +537,18 @@
   "ComponentsUserLockedAssetsPanel": {
     "assets": "Assets",
     "inThisWallet": "in this wallet.",
+    "loadingTheAssetsInThisWallet": "Loading the assets in this wallet…",
     "native": "Native",
     "next": "Next",
     "nft": "NFT",
     "previous": "Previous",
+    "rangeOfTotal": "{start}-{end} of {total}",
     "stablecoin": "Stablecoin",
     "token": "Token",
     "value1RecentBalanceTrend": "{value1} recent balance trend",
     "walletAssets": "Wallet assets",
     "walletReadyFundItToBegin": "Wallet ready. Fund it to begin.",
-    "whatAFundPoolIs": "What a fund pool is",
-    "rangeOfTotal": "{start}-{end} of {total}"
+    "whatAFundPoolIs": "What a fund pool is"
   },
   "ComponentsUserOrphanUtxoNotice": {
     "dismiss": "Dismiss",
@@ -643,8 +644,5 @@
     "ended": "Ended",
     "notStarted": "Not started",
     "active": "Active"
-  },
-  "ComponentsUiLazyChunkFallback": {
-    "loadingThisSection": "Loading this section…"
   }
 }

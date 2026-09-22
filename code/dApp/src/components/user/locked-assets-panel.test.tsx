@@ -83,6 +83,16 @@ describe("locked assets panel", () => {
     expect(container.textContent).not.toMatch(/Nothing inside this wallet yet/);
   });
 
+  it("says it is loading, rather than updating a region holding nothing", () => {
+    // `Skeleton` is `aria-hidden`, so the `aria-live` region here announced an update and
+    // then held nothing to read. Same fix as `app/user/loading.tsx`.
+    render(<LockedAssetsOverviewPanel utxoCount={0} assets={[]} loading />);
+
+    const region = screen.getByRole("status");
+    expect(region).toHaveAttribute("aria-busy", "true");
+    expect(region).toHaveTextContent("Loading the assets in this wallet…");
+  });
+
   it("counts the assets it actually lists", () => {
     render(
       <LockedAssetsOverviewPanel
