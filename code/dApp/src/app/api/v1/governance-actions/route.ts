@@ -92,7 +92,13 @@ export async function GET(request: Request) {
     const path = governanceActionPath(parsed.data);
     const [proposalRaw, metadataRaw] = (await Promise.all([
       provider.get(path).catch(nullIfNotFound),
-      provider.get(`${path}/metadata`).catch(nullIfNotFound)
+      // The title is optional: a metadata failure must not hide an action that exists.
+      provider.get(`${path}/metadata`).catch((error: unknown) => {
+        if (meshHttpStatus(error) !== 404) {
+          logger.warn("api.governance_action_metadata_failed", { err: serializeError(error) });
+        }
+        return null;
+      })
     ])) as [unknown, unknown];
 
     const proposal = asRecord(proposalRaw) as RawProposal | null;

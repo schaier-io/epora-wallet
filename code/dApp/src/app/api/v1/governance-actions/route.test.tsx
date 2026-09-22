@@ -85,6 +85,18 @@ it("reports a closed action as closed, not active", async () => {
   expect((await actionOf(await get(GOV_ACTION_ID))).status).toBe("expired");
 });
 
+it("still returns the action when only its metadata request fails", async () => {
+  mocks.get.mockImplementation(async (url: string) => {
+    if (url.endsWith("/metadata")) throw meshHttpError(503);
+    return PROPOSAL;
+  });
+
+  const response = await get(GOV_ACTION_ID);
+
+  expect(response.status).toBe(200);
+  expect(await actionOf(response)).toMatchObject({ txHash: TX_HASH, title: null, abstract: null });
+});
+
 it("answers 404 only when Blockfrost has no such action", async () => {
   mocks.get.mockRejectedValue(meshHttpError(404));
 
