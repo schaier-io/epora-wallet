@@ -157,7 +157,11 @@ export function MobileWalletSection({ variant = "secondary" }: MobileWalletSecti
               >
                 <WalletConnectQr uri={wc.uri} size={248} className="shrink-0" />
               </motion.div>
-              <div className="min-w-0 flex-1 space-y-3 text-center sm:text-left">
+              {/* Left-aligned at every width. Centring below `sm` centred each `<li>`'s
+                  flex row as a unit, so the numbered step badges sat at a different x on
+                  every line and the sequence was hard to follow. The QR above stays
+                  centred: the parent keeps `items-center`. */}
+              <div className="min-w-0 flex-1 space-y-3">
                 <div className="space-y-1">
                   <p className="eyebrow inline-flex items-center gap-2 font-semibold text-[#9bd0ff]">
                     <span aria-hidden="true" className="relative flex h-2 w-2">
