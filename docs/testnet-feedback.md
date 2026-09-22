@@ -4,7 +4,7 @@ Categorized reports from the Preprod prototype at [epora.io](https://epora.io).
 This page is the Catalyst evidence link for "gathered and categorized feedback".
 Every row links the GitHub issue and the pull request that answers it.
 
-**Snapshot:** 2026-09-22. Covers every issue on the tracker (49 in total, none open). Every issue carries its bucket label plus the e2e notes in [`e2e-findings-2026-09-02.md`](../e2e-findings-2026-09-02.md).
+**Snapshot:** 2026-09-22. Covers every issue on the tracker (49 in total, none open), plus the e2e notes in [`e2e-findings-2026-09-02.md`](../e2e-findings-2026-09-02.md). Every issue carries its bucket label.
 
 **Buckets** (tracker labels):
 
