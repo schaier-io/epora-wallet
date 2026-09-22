@@ -82,6 +82,11 @@ describe("the approval queue row", () => {
     expect(screen.getByText("2 people still to sign.")).toBeTruthy();
   });
 
+  it("draws no progress ring in the list, which re-checks every poll", () => {
+    const { container } = renderList({ validity: "valid", signers: SIGNERS });
+    expect(container.querySelector(".signer-ring")).toBeNull();
+  });
+
   it("names the path in the words the rest of the app uses", () => {
     renderList({ validity: "valid", signers: SIGNERS });
     expect(screen.getByText("Co-signers")).toBeTruthy();

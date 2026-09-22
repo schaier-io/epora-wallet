@@ -29,6 +29,7 @@ import type { ProposalVerification } from "@/lib/proposals/types";
 import { AddressCopyButton } from "@/components/ui/address-copy-button";
 import { actionKindLabel, lovelaceToAda, truncateMiddle } from "./format";
 import { authorityPathLabel, describeSignerProgress } from "./signer-progress";
+import { SignerRing } from "./signer-ring";
 import { ProposalSummaryRows } from "./proposal-summary-rows";
 import { ProposalVoteEffect } from "./proposal-vote-effect";
 import { buildProposalShareUrl } from "./share-link";
@@ -589,7 +590,13 @@ function SignersSection({ verification }: { verification: ProposalVerification |
     <section className="space-y-2">
       <div className="flex items-center justify-between text-sm font-semibold">
         <span>{i18n("whoMustSign")} {authorityPathLabel(signers.authorityPath)}</span>
-        <span className={progress.tone === "ready" ? "text-emerald-300" : "text-amber-200"}>
+        <span
+          className={cn(
+            "inline-flex items-center gap-1.5",
+            progress.tone === "ready" ? "text-emerald-300" : "text-amber-200"
+          )}
+        >
+          <SignerRing fraction={progress.fraction} />
           {progress.label}
         </span>
       </div>
