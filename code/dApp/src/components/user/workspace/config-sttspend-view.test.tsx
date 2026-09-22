@@ -1,7 +1,9 @@
 import "@/test/mock-workspace-queries";
 import { lockedContractUtxosErrorAtom, lockedContractUtxosLoadingAtom } from "@/test/workspace-query-fixtures";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { Provider, createStore } from "jotai";
+import { createStore } from "jotai";
+
+import { TestProviders } from "@/test/query-client";
 import type { PropsWithChildren } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -142,9 +144,9 @@ function renderView({
   store.set(lockedContractUtxosErrorAtom, utxoError);
   return {
     ...render(
-      <Provider store={store}>
+      <TestProviders store={store}>
         <SttSpendConfigView />
-      </Provider>
+      </TestProviders>
     ),
     store
   };
@@ -156,9 +158,9 @@ function rerenderView(
   store: ReturnType<typeof createStore>
 ) {
   rerender(
-    <Provider store={store}>
+    <TestProviders store={store}>
       <SttSpendConfigView />
-    </Provider>
+    </TestProviders>
   );
 }
 

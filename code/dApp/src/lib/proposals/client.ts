@@ -73,6 +73,23 @@ export async function fetchProposalSession(options: ProposalReadOptions = {}): P
   return response.json() as Promise<ProposalSessionInfo>;
 }
 
+/**
+ * Which of a wallet's indexed participants have completed the sign-in, i.e. finished
+ * registering. Only a participant of the wallet may ask, so a caller who is not signed
+ * in gets an empty list rather than an error: the owner should still see the invite
+ * controls, just without a status they have not earned the right to read.
+ */
+export async function fetchRegisteredWalletSigners(
+  walletUnit: string,
+  options: ProposalReadOptions = {}
+): Promise<string[]> {
+  const { registered } = await getJson<{ registered: string[] }>(
+    `/api/proposals/wallets/${encodeURIComponent(walletUnit)}/signers`,
+    options
+  );
+  return registered;
+}
+
 export async function requestSignInNonce(address: string): Promise<string> {
   const { nonce } = await sendJson<{ nonce: string }>("/api/proposals/auth/nonce", "POST", {
     address

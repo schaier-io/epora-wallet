@@ -1,5 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { Provider, createStore } from "jotai";
+import { createStore } from "jotai";
+
+import { TestProviders } from "@/test/query-client";
 import { describe, expect, it, vi } from "vitest";
 
 import { activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
@@ -43,13 +45,13 @@ function renderPeople(value: StateFormState = formWithUsers(person({})), onChang
   return {
     onChange,
     ...render(
-      <Provider store={store}>
+      <TestProviders store={store}>
         <FocusedPeopleEditor
           value={value}
           onChange={onChange}
           fieldErrors={{}}
         />
-      </Provider>
+      </TestProviders>
     )
   };
 }
@@ -338,13 +340,13 @@ describe("editing what a held permission means", () => {
     store.set(resolvedWalletAddressesAtom, { [TEST2_HASH]: TEST2_ADDRESS });
 
     render(
-      <Provider store={store}>
+      <TestProviders store={store}>
         <FocusedPeopleEditor
           value={formWithUsers(person({ wallets: [TEST2_HASH] }, "1"))}
           onChange={vi.fn()}
           fieldErrors={{}}
         />
-      </Provider>
+      </TestProviders>
     );
 
     const field = screen.getByLabelText("Wallets this person signs with, wallet 1");
@@ -440,7 +442,7 @@ describe("person wallet cap", () => {
     store.set(activePaymentKeyHashAtom, "dd".repeat(28));
     const onChange = vi.fn();
     render(
-      <Provider store={store}>
+      <TestProviders store={store}>
         <PersonPermissionsEditor
           user={person({}, "1")}
           onChange={onChange}
@@ -450,7 +452,7 @@ describe("person wallet cap", () => {
           canAddRemainingAllowanceEntry
           canAddWallet={false}
         />
-      </Provider>
+      </TestProviders>
     );
 
     const addConnected = screen.getByRole("button", {
@@ -501,7 +503,7 @@ describe("person wallet cap", () => {
     const onRemove = vi.fn();
     const store = createStore();
     render(
-      <Provider store={store}>
+      <TestProviders store={store}>
         <PersonPermissionsEditor
           user={person({}, "1")}
           onChange={vi.fn()}
@@ -511,7 +513,7 @@ describe("person wallet cap", () => {
           canAddRemainingAllowanceEntry
           canAddWallet
         />
-      </Provider>
+      </TestProviders>
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Remove" }));
