@@ -1,42 +1,21 @@
 "use client";
 import { useTranslations } from "next-intl";
 
-import { walletRewardAddressAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
-import { useAtomValue } from "jotai";
-
 import { Button } from "@/components/ui/button";
 
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
+import { GovernanceVotePicker } from "@/components/user/workspace/governance-vote-picker";
 import { InlineFieldError } from "@/components/user/workspace/editors";
 import { getFirstFieldError } from "@/components/user/workspace/helpers";
 
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 import { useVoteForm } from "@/components/user/workspace/forms/use-vote-form";
 
-/**
- * Mesh `VoteType` (`@meshsdk/common` `VoteType`): `voter` + `govActionId` +
- * `votingProcedure`. `toCardanoVoter` is a switch with no default branch, so
- * `voter.type` must be exactly `DRep`, `StakingPool`, or `ConstitutionalCommittee`.
- * `voteKind` must be exactly `Yes`, `No`, or `Abstain`.
- */
-function voteTemplateJson(voteKind: "Yes" | "No" | "Abstain"): string {
-  return JSON.stringify(
-    {
-      voter: { type: "DRep", drepId: "" },
-      govActionId: { txHash: "", txIndex: 0 },
-      votingProcedure: { voteKind }
-    },
-    null,
-    2
-  );
-}
-
 export function WalletVoteConfigView() {
   const i18n = useTranslations("ComponentsUserWorkspaceConfigWalletvoteView");
   const state = useWorkspaceActions();
-  const walletRewardAddress = useAtomValue(walletRewardAddressAtom);
   const {
     activeFieldErrors,
   } = state;
@@ -46,77 +25,33 @@ export function WalletVoteConfigView() {
   const voteJsonError =
     getFirstFieldError(activeFieldErrors, "Vote JSON") ??
     getFirstFieldError(activeFieldErrors, "Vote");
+  // An untouched box means nothing was picked yet: the picker is where to fix that, so the
+  // error shows there. A hand-edited box keeps its error on the box itself.
+  const jsonEdited = !["", "{}"].includes(voteJson.trim());
 
       return (
         <div className="space-y-4">
-          {/* space-y-2 between blocks, space-y-1 inside the label group: at space-y-1
-              throughout, the gap between two blocks was half the line pitch inside one. */}
-          <div className="space-y-2">
-            <div className="space-y-1">
+          <GovernanceVotePicker error={jsonEdited ? null : voteJsonError} />
+          {/* The raw payload stays reachable for votes the picker cannot express. It opens
+              by itself when validation rejects it, so the reader lands on the reason. */}
+          <details className="space-y-2" open={voteJsonError && jsonEdited ? true : undefined}>
+            <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+              {i18n("editAsJson")}
+            </summary>
+            <div className="mt-2 space-y-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <Label htmlFor="userVoteJson">{i18n("voteJson")}</Label>
-                <div className="flex flex-wrap gap-1.5">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="px-2 text-xs"
-                    disabled={!walletRewardAddress}
-                    onClick={() => setVoteJson(voteTemplateJson("Yes"))}
-                  >
-                    {i18n("yes")}
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="px-2 text-xs"
-                    disabled={!walletRewardAddress}
-                    onClick={() => setVoteJson(voteTemplateJson("No"))}
-                  >
-                    {i18n("no")}
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="px-2 text-xs"
-                    disabled={!walletRewardAddress}
-                    onClick={() => setVoteJson(voteTemplateJson("Abstain"))}
-                  >
-                    {i18n("abstain")}
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    className="px-2 text-xs"
-                    onClick={() => setVoteJson("{}")}
-                  >
-                    {i18n("clear")}
-                  </Button>
-                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="px-2 text-xs"
+                  onClick={() => setVoteJson("{}")}
+                >
+                  {i18n("clear")}
+                </Button>
               </div>
-              {/* The old text described the box as Mesh's "`voter` + `govActionId` +
-                  `votingProcedure` (voteKind Yes/No/Abstain) structure", which names an SDK
-                  and three of its field names to someone who has to fill the box by hand.
-                  It also never said where the vote comes from. `govActionId` appears nowhere
-                  else in this app, and `/user/proposals` holds this wallet's own co-signing
-                  requests, not Cardano governance actions, so the proposal genuinely has to
-                  come from somewhere else. */}
-              <p className="text-xs text-muted-foreground">
-                {i18n("aVoteSaysThreeThingsWhoIsVoting")}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {walletRewardAddress
-                  ? i18n("yesNoAndAbstainFillHowYouVote")
-                  : i18n("theTemplatesNeedThisWalletSStakingAddress")}
-              </p>
-            </div>
-            {/* The message was rendered beside the box and attached to nothing. Nothing
-                marked the box invalid either, so `Textarea`'s own
-                `aria-[invalid=true]:border-rose-500/60` never fired: the field a reader was
-                sent back to looked and sounded exactly like a field that had passed. */}
+              <p className="text-xs text-muted-foreground">{i18n("jsonExplanation")}</p>
             <Textarea
               id="userVoteJson"
               value={voteJson}
@@ -132,7 +67,8 @@ export function WalletVoteConfigView() {
               aria-describedby={voteJsonError ? "userVoteJson-error" : undefined}
             />
             <InlineFieldError id="userVoteJson-error" message={voteJsonError} />
-          </div>
+            </div>
+          </details>
         </div>
       );
 }

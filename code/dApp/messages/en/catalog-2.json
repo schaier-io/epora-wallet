@@ -263,7 +263,7 @@
     "voteJson": "Vote JSON"
   },
   "ComponentsUserWorkspaceActionValidationShared": {
-    "thisVoteIsMissingWhoIsVoting": "This vote is missing who is voting, which proposal, or how you vote. Use a template above, or paste a whole vote.",
+    "thisVoteIsMissingWhoIsVoting": "Pick a governance action and choose Yes, No or Abstain.",
     "chooseAValidLocalDateAndTime": "Choose a valid local date and time.",
     "confirmThatThisWalletWillHaveNoOwner": "Confirm that this wallet will have no owner before you continue.",
     "noDirectOwner": "No direct owner",

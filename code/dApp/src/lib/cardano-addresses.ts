@@ -15,6 +15,9 @@ const SCRIPT_HASH_HEX_LENGTH = SCRIPT_HASH_BYTE_LENGTH * 2;
 const REWARD_SCRIPT_HEADER = 0xf0;
 const MAINNET_NETWORK_ID = 1;
 const STAKE_HRP = { testnet: "stake_test", mainnet: "stake" } as const;
+/** CIP-129 DRep id: key type 0b0010 (DRep), credential type 0b0011 (script). Same HRP on every network. */
+const DREP_SCRIPT_HEADER = 0x23;
+const DREP_HRP = "drep";
 const PAYMENT_ADDRESS_TESTNET_HRP = "addr_test";
 const TESTNET_NETWORK_ID = 0;
 /** CIP-19 header: high nibble = address type; 0-7 carry a payment credential, 8+ do not. */
@@ -40,6 +43,14 @@ export function serializeScriptRewardAddress(scriptHash: string, networkId: 0 | 
   const header = REWARD_SCRIPT_HEADER | networkId;
   const bytes = Uint8Array.of(header, ...decodeHash28Hex(scriptHash));
   return bech32Encode(networkId === MAINNET_NETWORK_ID ? STAKE_HRP.mainnet : STAKE_HRP.testnet, bytes);
+}
+
+/**
+ * The CIP-129 DRep id of a script DRep, e.g. the wallet voting under its own script hash.
+ * Throws on a malformed hash.
+ */
+export function serializeScriptDrepId(scriptHash: string): string {
+  return bech32Encode(DREP_HRP, Uint8Array.of(DREP_SCRIPT_HEADER, ...decodeHash28Hex(scriptHash)));
 }
 
 /**
