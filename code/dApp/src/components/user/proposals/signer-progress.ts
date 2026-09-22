@@ -17,6 +17,8 @@ export type SignerProgress = {
   label: string;
   /** `ready` = nothing else is needed, the request can be submitted. */
   tone: "ready" | "pending";
+  /** How full the progress ring is, 0 to 1. Null while the total is unknown. */
+  fraction: number | null;
 };
 
 /** The two operator paths, in the words the rest of the app uses (audit-copy.md §3.2 B, E). */
@@ -39,7 +41,8 @@ export function describeSignerProgress(
   if (!signers) {
     return {
       label: signatureCount === 1 ? i18n("message_1Signature") : i18n("signaturecountSignatures", { signatureCount: signatureCount }),
-      tone: "pending"
+      tone: "pending",
+      fraction: null
     };
   }
 
@@ -51,13 +54,16 @@ export function describeSignerProgress(
         value1: signers.satisfiedPower.toString(),
         value2: signers.threshold.toString()
       }),
-      tone: signers.satisfied ? "ready" : "pending"
+      tone: signers.satisfied ? "ready" : "pending",
+      fraction: signers.satisfied
+        ? 1
+        : Math.min(1, Number(signers.satisfiedPower) / Math.max(1, Number(signers.threshold)))
     };
   }
 
   return signers.satisfied
-    ? { label: i18n("signedByAnOwner"), tone: "ready" }
-    : { label: i18n("waitingForAnOwner"), tone: "pending" };
+    ? { label: i18n("signedByAnOwner"), tone: "ready", fraction: 1 }
+    : { label: i18n("waitingForAnOwner"), tone: "pending", fraction: 0 };
 }
 
 /** How many of the required signers have not signed yet. Null when the set is unknown. */

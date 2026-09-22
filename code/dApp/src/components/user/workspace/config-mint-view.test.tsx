@@ -108,6 +108,6 @@ describe("mint configuration view", () => {
 
     const helper = screen.getByTestId("assets").textContent ?? "";
     expect(helper).not.toContain("token rows");
-    expect(helper).toContain("any tokens you want in the wallet from the start");
+    expect(helper).toContain("add tokens the connected wallet already holds");
   });
 });

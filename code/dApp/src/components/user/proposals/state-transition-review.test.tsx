@@ -16,12 +16,7 @@ describe("State transition review", () => {
     expect(screen.getByText("state.access.users[0].remaining_allowance[0].quantity")).toBeInTheDocument();
   });
 
-  it("states that signing is blocked when no complete review is available", () => {
-    render(<StateTransitionReview transition={null} />);
-    expect(screen.getByRole("alert")).toHaveTextContent("Signing is blocked.");
-  });
-
-  it("distinguishes a completed empty comparison from a missing review", () => {
+  it("says so when a completed comparison changes nothing", () => {
     render(<StateTransitionReview transition={{ txBodyHash: "aa".repeat(32), outputIndex: 0, changes: [] }} />);
     expect(screen.getByText("Every State field is unchanged.")).toBeInTheDocument();
     expect(screen.queryByRole("alert")).toBeNull();

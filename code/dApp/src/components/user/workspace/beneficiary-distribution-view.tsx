@@ -10,15 +10,13 @@ export function BeneficiaryDistributionView() {
   const model = useBeneficiaryDistribution();
   return <section className="space-y-4 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4" aria-label={i18n("title")}>
     <h3 className="font-medium">{i18n("title")}</h3>
-    <p className="text-sm text-muted-foreground">{i18n("description")}</p>
-    <p className="text-xs text-muted-foreground">{i18n("rights")}</p>
     <p className="text-xs text-muted-foreground">{i18n("scriptDatum")}</p>
     <p className="text-xs text-muted-foreground">{i18n("funding")}</p>
     <p className="text-xs text-muted-foreground">{i18n("topups")}</p>
     {model.loading ? <p role="status">{i18n("loading")}</p> : null}
     <GuidedLockedUtxoSelector utxos={model.utxos} selectedRefs={model.selectedRefs}
       onChange={model.setSelectedRefs} selectionMode="single" helper={i18n("picker")}
-      error={model.discoveryError} onRefresh={model.refreshFunds} />
+      error={model.discoveryError} />
     {model.error ? <p role="status" className="text-sm text-amber-700 dark:text-amber-200">{model.error}</p> : null}
     {model.details?.payouts.map((payout) => <div key={String(payout.beneficiaryId)} className="space-y-2 rounded-md border border-border/60 p-3">
       <p className="font-medium">{i18n("recipient", { id: String(payout.beneficiaryId) })}</p>

@@ -64,15 +64,10 @@ describe("main panel with a wallet in the link that is not in the detected list"
     expect(container.textContent).toBe("");
   });
 
-  it("says the wallet could not load when detection failed", () => {
-    // The sentence used to end "Reload the page to try again", which contradicted the
-    // provider's own line right under it ("Wait a moment, then try again") and named the
-    // one recovery that costs something: `activeWalletAtom` starts null on every page
-    // load, so reloading disconnects the wallet. Refresh is on this screen already
-    // (`workspace-header-view.tsx:254`).
-    renderWithWalletInUrl("Too many requests. Wait a moment, then try again.");
+  it("leaves a failed lookup to the header and sidebar", () => {
+    // It printed the same error a third time, below the header's and the sidebar's.
+    const { container } = renderWithWalletInUrl("Too many requests. Wait a moment, then try again.");
 
-    expect(screen.getByText("Could not load this wallet. Use Refresh to try again.")).toBeInTheDocument();
-    expect(screen.getByText("Too many requests. Wait a moment, then try again.")).toBeInTheDocument();
+    expect(container.textContent).toBe("");
   });
 });

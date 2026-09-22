@@ -38,6 +38,8 @@ type RecentActivityTimelineProps = {
   onEventClick?: (event: TimelineEvent) => void;
   /** Loading + error states drive the inner placeholder. */
   loading?: boolean;
+  /** A failed read. Without it an empty list read "No activity yet" when the fetch failed. */
+  error?: string | null;
 };
 
 function dotToneClass(amountClassName?: string) {
@@ -52,7 +54,8 @@ export function RecentActivityTimeline({
   limit = 5,
   onSeeAll,
   onEventClick,
-  loading
+  loading,
+  error
 }: RecentActivityTimelineProps) {
   const i18n = useTranslations("ComponentsUserRecentActivityTimeline");
   const sliced = events.slice(0, limit);
@@ -89,6 +92,13 @@ export function RecentActivityTimeline({
           />
           {i18n("loadingRecentActivity")}
         </div>
+      ) : events.length === 0 && error ? (
+        <p
+          role="alert"
+          className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-xs leading-relaxed text-rose-100"
+        >
+          {error}
+        </p>
       ) : events.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border/60 bg-background/30 p-3">
           <div className="flex items-start gap-3">
@@ -114,7 +124,7 @@ export function RecentActivityTimeline({
           {/* Vertical rail: 25.5px + the ol 1px border centres it on the dots at 27px. */}
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute bottom-3 left-[25.5px] top-3 w-px bg-gradient-to-b from-border/0 via-border/70 to-border/0"
+            className="timeline-rail-draw pointer-events-none absolute bottom-3 left-[25.5px] top-3 w-px bg-gradient-to-b from-border/0 via-border/70 to-border/0"
           />
           {sliced.map((event, index) => {
             const isFirst = index === 0;
@@ -135,7 +145,7 @@ export function RecentActivityTimeline({
                 <span
                   aria-hidden="true"
                   className={cn(
-                    "absolute left-[0.6875rem] top-[0.8125rem] block h-1.5 w-1.5 rounded-full ring-2 ring-background",
+                    "timeline-dot-pop absolute left-[0.6875rem] top-[0.8125rem] block h-1.5 w-1.5 rounded-full ring-2 ring-background",
                     dotToneClass(event.amountClassName)
                   )}
                 />

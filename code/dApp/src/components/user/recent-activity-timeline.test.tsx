@@ -55,4 +55,20 @@ describe("recent activity timeline", () => {
     expect(screen.getByText("No activity yet")).toBeTruthy();
     expect(container.querySelector("ol")).toBeNull();
   });
+
+  it("reports a failed read instead of claiming there is no activity", () => {
+    render(<RecentActivityTimeline events={[]} error="Couldn't load recent wallet activity." />);
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Couldn't load recent wallet activity.");
+    // An error, so danger red (DESIGN.md), the same as the Activity tab shows it.
+    expect(screen.getByRole("alert").className).toContain("rose");
+    expect(screen.queryByText("No activity yet")).toBeNull();
+  });
+
+  it("keeps the rows it has when a later refresh fails", () => {
+    render(<RecentActivityTimeline events={[EVENT]} error="Couldn't load recent wallet activity." />);
+
+    expect(screen.getByRole("button", { name: /Funds added/ })).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
 });

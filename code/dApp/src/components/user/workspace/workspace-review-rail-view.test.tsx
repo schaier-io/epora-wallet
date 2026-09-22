@@ -567,6 +567,21 @@ describe("stale fund-pool recovery", () => {
     expect(buildSelectedActionTx).not.toHaveBeenCalled();
   });
 
+  it("adds only what the kept error does not say", () => {
+    renderRail({
+      previewMatchesSelectedAction: false,
+      buildSelectedActionTx: vi.fn(),
+      handleSaveProposalFromBuild: vi.fn(),
+      refreshWorkspaceSummary: vi.fn(),
+      seedStore: seedStaleError
+    });
+
+    // The error already names the spent pool and says to reload. The notice must not
+    // restate that, and must not claim a fund pool when other spent money caused it.
+    expect(screen.getByText("Nothing you entered was discarded, and nothing was sent.")).toBeInTheDocument();
+    expect(screen.queryByText(/no longer spendable/)).not.toBeInTheDocument();
+  });
+
   it("reports a rejected refresh with the retry message and keeps the button available", async () => {
     const refreshWorkspaceSummary = vi.fn().mockRejectedValue(new Error("network down"));
     renderRail({

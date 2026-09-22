@@ -166,6 +166,9 @@ describe("review rail live regions", () => {
     expect(status).toHaveTextContent("Transaction confirmed");
     expect(status).not.toHaveTextContent("Waiting for confirmation");
     expect(status.querySelector(".animate-spin")).toBeNull();
+    // The check draws itself and the panel pulses once: the moment the state turns final.
+    expect(status.querySelector("svg.confirmed-check")).not.toBeNull();
+    expect(status).toHaveClass("confirmed-pulse");
   });
 
   /**

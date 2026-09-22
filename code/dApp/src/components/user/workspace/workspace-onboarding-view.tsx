@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/card";
 
 import { ProductFaqList } from "@/components/user/product-faq-list";
+import { OnboardingGlyph } from "@/components/user/workspace/onboarding-glyphs";
 
 export function WorkspaceOnboardingView() {
   const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceOnboardingView");
@@ -40,18 +41,21 @@ export function WorkspaceOnboardingView() {
                     {[
                       {
                         n: "01",
+                        glyph: "keys" as const,
                         title: i18n("oneWalletManyKeys"),
                         body:
                           i18n("ownersControlTheRulesSpendersPayWithinDaily")
                       },
                       {
                         n: "02",
+                        glyph: "schedule" as const,
                         title: i18n("automationBuiltIn"),
                         body:
                           i18n("scheduledPaymentsLeaveOnTimeMultiSignatureWhen")
                       },
                       {
                         n: "03",
+                        glyph: "recovery" as const,
                         title: i18n("recoveryWithoutBackdoors"),
                         body:
                           i18n("recoveryContactsCanStepInOnlyAfterA")
@@ -63,19 +67,12 @@ export function WorkspaceOnboardingView() {
                         style={{ animationDelay: `${index * 110}ms` }}
                       >
                         {/*
-                          A marker, not a display numeral. At `text-4xl md:text-5xl` these three
-                          digits were the largest thing on the route -- 48px against the welcome
-                          header's own `h2` at 16px -- so the screen led with its decoration and
-                          the connect button, the only thing here to act on, ranked below it. A
-                          24px badge still counts the steps and still owns its gutter, which a
-                          shrunken bare numeral would not.
+                          A marker, not a display numeral: at `text-4xl` the old digits were
+                          the largest thing on the route and outranked the connect button.
+                          The marker now draws its step instead of counting it, still in a
+                          small tile that owns the gutter. It starts once the row has entered.
                         */}
-                        <span
-                          aria-hidden="true"
-                          className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-primary/25 bg-primary/10 text-xs font-semibold text-primary tabular-nums"
-                        >
-                          {row.n}
-                        </span>
+                        <OnboardingGlyph kind={row.glyph} delayMs={index * 110 + 200} />
                         <div className="space-y-1">
                           {/* DESIGN.md's Title rung, 1rem: "section and editor titles". These
                               were `text-lg md:text-xl`, louder than the `h2` heading the

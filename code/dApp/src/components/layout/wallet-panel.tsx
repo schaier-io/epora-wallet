@@ -280,11 +280,6 @@ export function WalletConnectionDialog({
             <p className="eyebrow font-semibold text-muted-foreground">
               {i18n("browserWallet")}
             </p>
-            <p className="text-sm leading-relaxed text-muted-foreground">
-              {guidedSteps
-                ? i18n("useACardanoBrowserWalletHereToApprove")
-                : i18n("connectABrowserWalletToCreateAndConfirm")}
-            </p>
           </div>
 
             {/* No surface of its own. This wraps the whole browser-wallet region inside a
@@ -296,7 +291,6 @@ export function WalletConnectionDialog({
             <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
                 {networkBadge}
-                {isDemoWallet ? <Badge variant="outline">{i18n("demoReadOnly")}</Badge> : null}
               </div>
               <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
                 {noExtension ? null : (
@@ -380,7 +374,9 @@ export function WalletConnectionDialog({
                       vespr: VesprWalletLink
                     })}
                   </p>
-                  {installedWallets.length > 0 ? (
+                  {/* Hidden once the demo is open: its own tile then says so, and the
+                      nav card reads "Read-only mode". */}
+                  {installedWallets.length > 0 && !isDemoWallet ? (
                     <p className="text-sm leading-relaxed text-muted-foreground">
                       {i18n("youCanOpenTheDemoWalletToBrowse")}
                     </p>
@@ -445,11 +441,10 @@ export function WalletConnectionDialog({
                                 : i18n("connect")}
                         </Badge>
                       </div>
-                      {/* Per-card captions carry per-card state. The idle caption repeated the
-                          section subtitle above ("...approve wallet actions") once per wallet,
-                          so N idle wallets read the same sentence N times; idle cards now have
-                          no caption at all. */}
-                      {active || connecting || isDemoOption ? (
+                      {/* Per-card captions carry per-card state. The idle caption repeated one
+                          sentence once per wallet, so idle cards have no caption, and a
+                          connecting card relies on its "Connecting" badge. */}
+                      {active || isDemoOption ? (
                         <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
                           {connecting ? (
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -462,7 +457,7 @@ export function WalletConnectionDialog({
                               : i18n("activeForThisSession")
                             : isDemoOption
                               ? i18n("browseTheAppWithoutAWalletExtension")
-                              : i18n("useToConfirmWalletActions")}
+                              : null}
                         </div>
                       ) : null}
                     </button>

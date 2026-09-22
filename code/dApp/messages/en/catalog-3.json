@@ -15,7 +15,6 @@
     "nothingOwedYetValue1": "Nothing is owed yet. Payouts can start on {value1}.",
     "paidSoFar": "Paid so far:",
     "payOutWhatHasBuiltUp": "Pay out what has built up",
-    "payingNow": "Paying now",
     "payThisOneNow": "Pay this one now",
     "payoutAmount": "Payout amount",
     "payoutAmountAda": "Payout amount (ADA)",
@@ -119,7 +118,7 @@
     "stakingIsOffForThisWalletSoIt": "This wallet cannot claim rewards while staking is off. Turn it on, then choose a pool.",
     "theClaimWillCollectTheFullAvailableReward": "The claim will collect the full available reward balance.",
     "thisWalletIsNotDelegatedToAStake": "This wallet is not delegated to a stake pool.",
-    "value1AdaAvailableToClaim": "{value1} ADA available to claim"
+    "value1AdaAvailableToClaim": "{value1} ADA"
   },
   "ComponentsUserWorkspaceConstants": {
     "enterAWholeNumber": "Enter a whole number.",
@@ -403,7 +402,6 @@
     "approvalPowerNeeded": "Approval power needed",
     "approvalsNeeded": "Approvals needed",
     "aSpenderCanSendFundsUpToA": "A spender can send funds up to a daily limit, and change nothing else.",
-    "buildTheWalletAroundTheJobsItNeeds": "Build the wallet around the jobs it needs to do: manage, spend, recover, and send scheduled payments.",
     "checkingInMovesTheDateBesideThisTo": "Checking in moves the date beside this to that far from now, and no further.",
     "connectedValue1": "Connected {value1}",
     "connectedWalletId": "Connected wallet ID",

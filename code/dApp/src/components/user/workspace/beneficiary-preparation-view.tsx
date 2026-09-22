@@ -16,7 +16,7 @@ export function BeneficiaryPreparationView() {
     <p className="text-sm text-muted-foreground">{i18n("description")}</p>
     <p className="text-xs text-muted-foreground">{i18n("rights")}</p>
     <p className="text-xs text-muted-foreground">{i18n("funding")}</p>
-    <GuidedLockedUtxoSelector utxos={model.utxos} selectedRefs={model.selectedRefs} onChange={model.setSelectedRefs} helper={i18n("selection")} error={model.discoveryError} onRefresh={model.refresh} />
+    <GuidedLockedUtxoSelector utxos={model.utxos} selectedRefs={model.selectedRefs} onChange={model.setSelectedRefs} helper={i18n("selection")} error={model.discoveryError} />
     <AssetListEditor label={i18n("assets")} helper={i18n("assetsHelp")} value={model.poolAssets} onChange={model.setPoolAssets} availableAssets={model.selectedAmount} />
     {model.loading ? <p role="status">{i18n("loading")}</p> : null}
     {model.error ? <p role="status" className="text-sm text-amber-700 dark:text-amber-200">{model.error}</p> : null}

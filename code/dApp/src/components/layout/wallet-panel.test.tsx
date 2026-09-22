@@ -9,6 +9,7 @@ const ctx = vi.hoisted(() => ({
   installedWallets: [] as Array<{ id: string; name: string; icon: string; version: string }>,
   walletsLoaded: false,
   activeWalletName: null as string | null,
+  connectingWalletName: null as string | null,
   disconnectWallet: vi.fn()
 }));
 
@@ -18,7 +19,7 @@ vi.mock("@/providers/wallet-provider", () => ({
     installedWallets: ctx.installedWallets,
     walletsLoaded: ctx.walletsLoaded,
     activeWalletName: ctx.activeWalletName,
-    connectingWalletName: null,
+    connectingWalletName: ctx.connectingWalletName,
     networkId: ctx.activeWalletName ? 0 : null,
     isConnecting: false,
     isDemoWallet: false,
@@ -36,6 +37,7 @@ describe("wallet connection dialog", () => {
     ctx.installedWallets = [];
     ctx.walletsLoaded = false;
     ctx.activeWalletName = null;
+    ctx.connectingWalletName = null;
     ctx.disconnectWallet.mockClear();
   });
 
@@ -177,5 +179,15 @@ describe("wallet connection dialog", () => {
     render(<WalletConnectionDialog open onOpenChange={() => {}} />);
 
     expect(screen.getAllByRole("button", { name: /Disconnect/ })).toHaveLength(1);
+  });
+
+  it("leaves no bare spinner under a wallet while it connects", () => {
+    ctx.walletsLoaded = true;
+    ctx.installedWallets = [eternl];
+    ctx.connectingWalletName = "eternl";
+    render(<WalletConnectionDialog open onOpenChange={() => {}} />);
+
+    // The badge already says it is connecting; a caption row with only a spinner adds nothing.
+    expect(document.body.querySelectorAll(".animate-spin")).toHaveLength(0);
   });
 });

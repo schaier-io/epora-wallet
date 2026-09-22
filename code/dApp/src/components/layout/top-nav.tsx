@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, ViewTransition } from "react";
 import { useAtom, useAtomValue } from "jotai";
 import { Loader2, PlugZap, Wallet2 } from "lucide-react";
 import { WalletSessionProfileCard } from "@/components/user/wallet-session-profile-card";
@@ -59,11 +59,21 @@ export function isNavLinkActive(pathname: string, href: string): boolean {
   return href === "/user" ? pathname === "/user" || pathname === "/" : pathname.startsWith(href);
 }
 
-function PrimaryNavLinks({ pathname, walletUnit }: { pathname: string; walletUnit: string | null }) {
+function PrimaryNavLinks({
+  pathname,
+  walletUnit,
+  pillName
+}: {
+  pathname: string;
+  walletUnit: string | null;
+  /** Names the current-page chip so it glides to the next tab on navigation. One per nav. */
+  pillName?: string;
+}) {
   const i18n = useTranslations("ComponentsLayoutTopNav");
+  const activeIndex = NAV_LINKS.findIndex((link) => isNavLinkActive(pathname, link.href));
 
-  return NAV_LINKS.map((link) => {
-    const active = isNavLinkActive(pathname, link.href);
+  return NAV_LINKS.map((link, index) => {
+    const active = index === activeIndex;
     const href = link.carriesWallet ? withWallet(link.href, walletUnit) : link.href;
 
     return (
@@ -71,7 +81,12 @@ function PrimaryNavLinks({ pathname, walletUnit }: { pathname: string; walletUni
         key={link.href}
         href={href}
         aria-current={active ? "page" : undefined}
+        // The three pages are peers in a row, so the page slides the way the tab lies: a tab
+        // to the right brings the next page in from the right. See `.nav-forward` in
+        // globals/motion.css.
+        transitionTypes={active ? undefined : [index > activeIndex ? "nav-forward" : "nav-back"]}
         className={cn(
+          "relative",
           // `min-h-11`, dropping to `min-h-9` where there is a mouse. `py-1.5` around a 20px
           // line is a 32px target, and below `md` these three links are the whole primary
           // navigation, sitting on their own row on a phone. The horizontal padding is
@@ -89,13 +104,25 @@ function PrimaryNavLinks({ pathname, walletUnit }: { pathname: string; walletUni
             // a grey patch on a teal-black bar and the current page read as a smudge -- hence
             // the brand token directly. The hairline is a shadow rather than a border, so the
             // pill does not change width when it lights up.
-            ? "bg-[hsl(var(--brand-teal)/0.14)] text-foreground shadow-[inset_0_0_0_1px_hsl(var(--brand-teal)/0.32)]"
+            ? pillName
+              ? "text-foreground"
+              : "bg-[hsl(var(--brand-teal)/0.14)] text-foreground shadow-[inset_0_0_0_1px_hsl(var(--brand-teal)/0.32)]"
             // The idle links answered hover with colour only, so two of the three had no
             // surface under the pointer while the third sat in a permanent pill.
             : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
         )}
       >
-        {i18n(link.labelKey)}
+        {active && pillName ? (
+          // The chip as its own element, so the browser can move it from the old tab to the
+          // new one: the reader sees where they went instead of one pill vanishing.
+          <ViewTransition name={pillName} share="nav-pill" default="none">
+            <span
+              aria-hidden="true"
+              className="absolute inset-0 rounded-md bg-[hsl(var(--brand-teal)/0.14)] shadow-[inset_0_0_0_1px_hsl(var(--brand-teal)/0.32)]"
+            />
+          </ViewTransition>
+        ) : null}
+        <span className="relative">{i18n(link.labelKey)}</span>
       </Link>
     );
   });
@@ -106,9 +133,9 @@ function PrimaryNavLinks({ pathname, walletUnit }: { pathname: string; walletUni
  * Suspense boundary contains it, and this nav sits in the root layout. The fallback is the
  * same nav without the wallet carried over, so the links never disappear.
  */
-function PrimaryNavWithWallet({ pathname }: { pathname: string }) {
+function PrimaryNavWithWallet({ pathname, pillName }: { pathname: string; pillName?: string }) {
   const walletUnit = useSearchParams().get("wallet");
-  return <PrimaryNavLinks pathname={pathname} walletUnit={walletUnit} />;
+  return <PrimaryNavLinks pathname={pathname} walletUnit={walletUnit} pillName={pillName} />;
 }
 
 function BrandLink({ walletUnit }: { walletUnit: string | null }) {
@@ -241,7 +268,12 @@ export function TopNav() {
           scrolled content passes underneath instead of showing through. `z-20` stays
           below tooltips (`z-50`), dialogs (`z-[100]`), toasts (`z-[110]`) and the
           disclaimer gate (`z-[200]`). */}
-      <header className="sticky top-0 z-20 border-b border-border/60 bg-[#091215] shadow-[inset_0_-1px_0_#2b464666]">
+      {/* Named so a page transition leaves it still: the content slides, the bar stays put.
+          See `::view-transition-group(site-header)` in globals/motion.css. */}
+      <header
+        className="sticky top-0 z-20 border-b border-border/60 bg-[#091215] shadow-[inset_0_-1px_0_#2b464666]"
+        style={{ viewTransitionName: "site-header" }}
+      >
         {/* `gap-6`, not `gap-3`. The links carry `px-2.5` and sit `gap-1` apart, so at 12px the
             wordmark ended 28px from "Wallet" against 24px between the links themselves, and the
             brand read as a fourth nav item. At 24px that separation is 40px. The row still fits:
@@ -262,8 +294,8 @@ export function TopNav() {
               its two 32px siblings, inside a 64px bar. The wallet card beside it truncates by
               design, so it is the one that should give. */}
           <nav className="hidden shrink-0 items-center gap-1 md:flex" aria-label={i18n("primary")}>
-            <Suspense fallback={<PrimaryNavLinks pathname={pathname} walletUnit={null} />}>
-              <PrimaryNavWithWallet pathname={pathname} />
+            <Suspense fallback={<PrimaryNavLinks pathname={pathname} walletUnit={null} pillName="nav-pill" />}>
+              <PrimaryNavWithWallet pathname={pathname} pillName="nav-pill" />
             </Suspense>
           </nav>
 

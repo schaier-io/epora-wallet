@@ -458,9 +458,6 @@ export function StateFormEditor({
           {helper ? (
             <p className="text-xs leading-snug text-muted-foreground">{helper}</p>
           ) : null}
-          <p className="text-xs leading-snug text-muted-foreground">
-            {i18n("buildTheWalletAroundTheJobsItNeeds")}
-          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {normalizedConnectedHash ? (

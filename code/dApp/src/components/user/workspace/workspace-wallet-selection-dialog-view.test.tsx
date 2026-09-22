@@ -1,5 +1,5 @@
 import "@/test/mock-workspace-queries";
-import { detectedSttTokensLoadingAtom, permissionWalletSummariesLoadingAtom } from "@/test/workspace-query-fixtures";
+import { detectedSttTokensErrorAtom, detectedSttTokensLoadingAtom, permissionWalletSummariesLoadingAtom } from "@/test/workspace-query-fixtures";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import type { BrowserWallet } from "@meshsdk/core";
@@ -24,6 +24,8 @@ const cards: Array<{
   };
   capabilityMap: { hasDirectProofOfLifeRenewalMatch: boolean };
 }> = [];
+// What the search leaves; `null` means the search matches every card.
+const filtered: { cards: typeof cards | null } = { cards: null };
 
 const actions = vi.hoisted(() => ({
   refreshDetectedTokens: vi.fn(),
@@ -35,7 +37,9 @@ const actions = vi.hoisted(() => ({
 vi.mock("@/components/user/workspace/workspace-actions-context", () => ({
   useWorkspaceActions: () => ({
     autoOpenDetectedWalletUnit: null,
-    filteredPermissionWalletCards: cards,
+    get filteredPermissionWalletCards() {
+      return filtered.cards ?? cards;
+    },
     handleDetectedTokenChange: actions.handleDetectedTokenChange,
     handleFlowBranchSelect: vi.fn(),
     openWorkspaceIntent: actions.openWorkspaceIntent,
@@ -80,6 +84,7 @@ function renderWith(network: number | null, connected: boolean) {
 describe("wallet selection dialog", () => {
   beforeEach(() => {
     cards.length = 0;
+    filtered.cards = null;
     actions.refreshDetectedTokens.mockReset();
     actions.refreshPermissionWalletSummaries.mockReset();
     actions.handleDetectedTokenChange.mockReset();
@@ -103,6 +108,25 @@ describe("wallet selection dialog", () => {
     const { container } = renderWith(1, true);
 
     expect(container.textContent).not.toMatch(/step 1/i);
+  });
+
+  it("still says a search matched nothing while a refresh has failed", async () => {
+    cards.push({
+      token: { unit: "unit-1" },
+      primaryLabel: "Family",
+      secondaryLabel: "f8482092d1",
+      roleBadges: [],
+      lockedSummary: undefined,
+      warning: null,
+      state: { proofOfLifeUnlockTimeMode: "none", proofOfLifeUnlockTime: "" },
+      capabilityMap: { hasDirectProofOfLifeRenewalMatch: false }
+    });
+    filtered.cards = [];
+    const { store } = renderWith(0, true);
+    store.set(detectedSttTokensErrorAtom, "Could not check the chain for smart wallets.");
+
+    await screen.findByRole("alert");
+    expect(screen.getByText("No wallets match that search.")).toBeInTheDocument();
   });
 
   it("names each wallet card, explains its badges, and drops the transaction subtitle", () => {

@@ -216,7 +216,7 @@ describe("on-chain links", () => {
     );
 
     const link = await screen.findByTitle("Open transaction on Cardanoscan");
-    expect(screen.getByText("Submitted. Waiting for confirmation.")).toBeInTheDocument();
+    expect(screen.getByText("Waiting for confirmation.")).toBeInTheDocument();
     expect(link).toHaveAttribute(
       "href",
       `https://preprod.cardanoscan.io/transaction/${submittedHash}`
@@ -373,6 +373,13 @@ describe("what the buttons are waiting for", () => {
     };
   }
 
+  // A request whose fund pool has been spent since it was built.
+  const movedFunds = {
+    inputs: [{ txHash: "11".repeat(32), outputIndex: 0, live: false, isSttState: true }],
+    outputs: [],
+    feeLovelace: "200000"
+  };
+
   function renderAs(sessionKeyHash = "dd".repeat(28)) {
     return renderDetail(
       <ProposalDetail
@@ -405,7 +412,7 @@ describe("what the buttons are waiting for", () => {
    * point every co-signer's signature was already gone.
    */
   it("warns that a new version clears the signatures before it is pressed", async () => {
-    verify.proposal.mockResolvedValue(verification({ validity: "invalid" }));
+    verify.proposal.mockResolvedValue(verification({ validity: "invalid", effect: movedFunds }));
     vi.mocked(parseProposalBuildContext).mockReturnValue({ builder: "use" } as never);
     vi.mocked(isAutoRebuildable).mockReturnValue(true);
     renderAs(detail.createdByKeyHash);
@@ -417,7 +424,7 @@ describe("what the buttons are waiting for", () => {
   it("tells a co-signer that only the proposer can make a new version", async () => {
     // The server answers 403 to anyone but the proposer, so the button must not
     // drive a co-signer's wallet through a rebuild first.
-    verify.proposal.mockResolvedValue(verification({ validity: "invalid" }));
+    verify.proposal.mockResolvedValue(verification({ validity: "invalid", effect: movedFunds }));
     vi.mocked(parseProposalBuildContext).mockReturnValue({ builder: "use" } as never);
     vi.mocked(isAutoRebuildable).mockReturnValue(true);
     renderAs();
@@ -441,7 +448,7 @@ describe("what the buttons are waiting for", () => {
     // finish. The live check then sees spent inputs, and the out-of-date note would
     // send the proposer off to build the same transfer a second time.
     vi.mocked(fetchProposal).mockResolvedValue({ ...detail, status: "SUBMITTING" });
-    verify.proposal.mockResolvedValue(verification({ validity: "invalid" }));
+    verify.proposal.mockResolvedValue(verification({ validity: "invalid", effect: movedFunds }));
     renderAs(detail.createdByKeyHash);
 
     expect(await screen.findByText(/is being sent to the blockchain/)).toBeInTheDocument();
@@ -451,13 +458,40 @@ describe("what the buttons are waiting for", () => {
   });
 
   it("says where to go when the request cannot be remade here", async () => {
-    verify.proposal.mockResolvedValue(verification({ validity: "invalid" }));
+    verify.proposal.mockResolvedValue(verification({ validity: "invalid", effect: movedFunds }));
     renderAs();
 
     expect(
       await screen.findByText(/build it again from the wallet page/)
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /make a new version/i })).toBeNull();
+  });
+
+  /**
+   * Every invalid request used to read "It uses funds that have since moved", even when the
+   * inputs listed on the same screen were all still there and the real reason was something
+   * else, such as a bad stored signature.
+   */
+  it("does not blame moved funds when every input is still there", async () => {
+    verify.proposal.mockResolvedValue(
+      verification({ validity: "invalid", reasons: ["A stored signature does not match."] })
+    );
+    renderAs();
+
+    expect(await screen.findByText("A stored signature does not match.")).toBeInTheDocument();
+    expect(screen.queryByText(/funds that have since moved/)).toBeNull();
+  });
+
+  it("still warns that a new version clears signatures when no funds moved", async () => {
+    verify.proposal.mockResolvedValue(
+      verification({ validity: "invalid", reasons: ["A stored signature does not match."] })
+    );
+    vi.mocked(parseProposalBuildContext).mockReturnValue({ builder: "use" } as never);
+    vi.mocked(isAutoRebuildable).mockReturnValue(true);
+    renderAs(detail.createdByKeyHash);
+
+    expect(await screen.findByText(/clears every signature it already has/)).toBeInTheDocument();
+    expect(screen.queryByText(/funds that have since moved/)).toBeNull();
   });
 
   it("says the request is ready once enough people have signed", async () => {

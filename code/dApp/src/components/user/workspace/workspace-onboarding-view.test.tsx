@@ -29,4 +29,14 @@ describe("workspace onboarding, before hydration", () => {
 
     expect(markup).toContain("section-transition");
   });
+
+  it("draws each step's glyph from the stylesheet, hidden from assistive tech", () => {
+    const markup = renderToStaticMarkup(<WorkspaceOnboardingView />);
+    const glyphs = markup.match(/<span aria-hidden="true" class="onboarding-glyph/g) ?? [];
+
+    expect(glyphs).toHaveLength(3);
+    for (const part of ["glyph-key", "glyph-sweep", "glyph-pulse"]) {
+      expect(markup).toContain(part);
+    }
+  });
 });

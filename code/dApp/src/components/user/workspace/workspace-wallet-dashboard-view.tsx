@@ -252,10 +252,8 @@ export function WorkspaceWalletDashboardView() {
                           const series = wealthSeriesForAsset(unit);
                           return series.length >= 2 ? series.map((p) => p.value) : null;
                         }}
-                        emptyCta={{
-                          label: i18n("addFunds"),
-                          onClick: () => openWorkspaceIntent("add-funds", "lock-funds")
-                        }}
+                        // No empty-state "Add funds" here: the hero card above carries the
+                        // same button on the same screen.
                       />
 
                       <RecentActivityTimeline
@@ -293,6 +291,7 @@ export function WorkspaceWalletDashboardView() {
                           };
                         })}
                         loading={walletTransactions.loading}
+                        error={walletTransactions.error}
                         onSeeAll={() => openGuidedOverview("transactions")}
                         onEventClick={() => openGuidedOverview("transactions")}
                       />

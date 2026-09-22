@@ -2,7 +2,6 @@ import { useTranslations } from "next-intl";
 import {
   AlertCircle,
   ArrowRight,
-  CheckCircle2,
   ExternalLink,
   Info,
   Loader2,
@@ -36,6 +35,7 @@ import {
   type TaskDefinition
 } from "@/components/user/flow-types";
 import { cn } from "@/lib/utils/cn";
+import { ConfirmedCheck } from "@/components/ui/confirmed-check";
 import {
   ReviewActionExplainer,
   ReviewReceiptCard
@@ -426,11 +426,14 @@ export function UserReviewPanel({
           <FadeContent
             role="status"
             aria-live="polite"
-            className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 sm:p-4 text-sm text-emerald-100"
+            className={cn(
+              "rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 sm:p-4 text-sm text-emerald-100",
+              submitConfirmed && "confirmed-pulse"
+            )}
           >
             <div className="flex min-w-0 items-start gap-2.5">
               {submitConfirmed ? (
-                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
+                <ConfirmedCheck className="mt-0.5 text-emerald-300" />
               ) : (
                 <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-emerald-300" />
               )}

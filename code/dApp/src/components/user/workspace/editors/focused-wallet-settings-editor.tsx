@@ -139,9 +139,13 @@ function RecoveryContactsSection({
             a recovery contact is for or when one may act. Both gates matter:
             `smart-contract/lib/state/types.ak:39-41` requires the wallet's
             proof-of-life window AND the contact's own `unlock_after` to have passed. */}
-        <p className="text-sm text-muted-foreground">
-          {i18n("ifYouStopCheckingInAndTheProof")}
-        </p>
+        {/* Only once there are contacts ("these people"). With none, the empty state below
+            says the same thing: "Add someone who can claim what is here if…". */}
+        {value.beneficiaries.length > 0 ? (
+          <p className="text-sm text-muted-foreground">
+            {i18n("ifYouStopCheckingInAndTheProof")}
+          </p>
+        ) : null}
         <Button
           type="button"
           variant="secondary"
@@ -248,11 +252,15 @@ export function FocusedWalletSettingsEditor({
       }}
       issueCount={issueCount}
     >
-      <ZeroAdminConfirmationCallout
-        adminCount={adminCount}
-        zeroAdminConfirmed={zeroAdminConfirmed}
-        onZeroAdminConfirmedChange={onZeroAdminConfirmedChange}
-      />
+      {/* The People tab carries this callout itself, next to the owners it counts.
+          Rendering it here as well put two identical confirmations on that tab. */}
+      {selectedTask !== "settings-people" ? (
+        <ZeroAdminConfirmationCallout
+          adminCount={adminCount}
+          zeroAdminConfirmed={zeroAdminConfirmed}
+          onZeroAdminConfirmedChange={onZeroAdminConfirmedChange}
+        />
+      ) : null}
       {selectedTask === "settings-people" ? (
         // The People page, merged in as the first tab: one update-state form was
         // reachable through two sidebar entries, and "who can act" is answered
