@@ -4,7 +4,7 @@ Categorized reports from the Preprod prototype at [epora.io](https://epora.io).
 This page is the Catalyst evidence link for "gathered and categorized feedback".
 Every row links the GitHub issue and the pull request that answers it.
 
-**Snapshot:** 2026-09-22. Covers every issue on the tracker (49 in total) plus the e2e notes in [`e2e-findings-2026-09-02.md`](../e2e-findings-2026-09-02.md).
+**Snapshot:** 2026-09-22. Covers every issue on the tracker (49 in total, none open), plus the e2e notes in [`e2e-findings-2026-09-02.md`](../e2e-findings-2026-09-02.md). Every issue carries its bucket label.
 
 **Buckets** (tracker labels):
 
@@ -114,7 +114,7 @@ Work that came out of running the public prototype.
 | --- | --- | --- |
 | [#388](https://github.com/schaier-io/epora-wallet/issues/388) | Sentry error monitoring | [#481](https://github.com/schaier-io/epora-wallet/pull/481), [#487](https://github.com/schaier-io/epora-wallet/pull/487) |
 | [#393](https://github.com/schaier-io/epora-wallet/issues/393) | Enforce the 750-line file limit in CI | [#451](https://github.com/schaier-io/epora-wallet/pull/451) |
-| [#394](https://github.com/schaier-io/epora-wallet/issues/394) | Stalled-indexer detection in `/api/health` (label still says `next`) | [#472](https://github.com/schaier-io/epora-wallet/pull/472), [#490](https://github.com/schaier-io/epora-wallet/pull/490) |
+| [#394](https://github.com/schaier-io/epora-wallet/issues/394) | Stalled-indexer detection in `/api/health` | [#472](https://github.com/schaier-io/epora-wallet/pull/472), [#490](https://github.com/schaier-io/epora-wallet/pull/490) |
 | [#395](https://github.com/schaier-io/epora-wallet/issues/395) | GitHub issue forms for bugs and feedback | [#473](https://github.com/schaier-io/epora-wallet/pull/473) |
 | [#503](https://github.com/schaier-io/epora-wallet/issues/503) | Repair the user-flow helper script | [#510](https://github.com/schaier-io/epora-wallet/pull/510) |
 | [#504](https://github.com/schaier-io/epora-wallet/issues/504) | Make agent rules current | [#511](https://github.com/schaier-io/epora-wallet/pull/511) |
@@ -138,7 +138,7 @@ From the e2e notes, still worth a ticket if it reproduces on today's build: dust
 
 | Item | Why |
 | --- | --- |
-| [#422](https://github.com/schaier-io/epora-wallet/issues/422) | Animated background glows are the intended design (label still says `fixed`). |
+| [#422](https://github.com/schaier-io/epora-wallet/issues/422) | Animated background glows are the intended design. |
 | [#533](https://github.com/schaier-io/epora-wallet/issues/533) | "Failed to connect to MetaMask" comes from the MetaMask extension script, not epora. Filtered in [#536](https://github.com/schaier-io/epora-wallet/pull/536). |
 | One-off proposal DELETE ~3 s after create (3 Sep session) | Not reproduced. Likely a stray Withdraw click in another tab. |
 | "Audit wallet" left the smart-wallet list (4 Sep) | Cause not observed. User action, recovery, or indexer closure are all possible. |
@@ -152,4 +152,4 @@ From the e2e notes, still worth a ticket if it reproduces on today's build: dust
   - STT mint/spend: `0dac00be80879dcf585cdb9d0acf6e0ecf52c417ded30d8b72d0ebf1`
   - STT reference store: `fc20070d1e5379403add6acbf77b233b2f8240821c187b398525de28`
   - Wallet (unparameterized): `5f8f25f5b598548b224efba3082ffbdd33f46ec58274282b63d0d701`
-- Production spend on Preprod (4 Sep 2026, epora.io, 2-of-2 send): [`64c01da1705083a6565b0f6a56cc5674396757e45426e3f80dbca3def0a6f731`](https://preprod.cardanoscan.io/transaction/64c01da1705083a6565b0f6a56cc5674396757e45426e3f80dbca3def0a6f731)
+- Wallet setup on Preprod (7 Sep 2026, block 5149161): [`676af5c757bc5fea1fa4d9e54a59ff20ba96b98eb452b40a4dda195f8424b709`](https://preprod.cardanoscan.io/transaction/676af5c757bc5fea1fa4d9e54a59ff20ba96b98eb452b40a4dda195f8424b709). It mints one STT under the STT mint policy above and locks it with an inline datum at the STT script address.
