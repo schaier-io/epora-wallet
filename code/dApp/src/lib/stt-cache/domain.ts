@@ -1,7 +1,8 @@
+import { CARDANO_NETWORK } from "@/lib/cardano-network";
 import type { Asset, TransactionInfo, UTxO } from "@meshsdk/common";
 import { getSttMintPolicyId, getSttSpendScript, resolveScriptAddress, resolveWalletSpendAddress } from "@/lib/contracts/blueprint";
 
-export const STT_CACHE_NETWORK = "preprod";
+export const STT_CACHE_NETWORK = CARDANO_NETWORK;
 export const STT_SYNC_CURSOR_KEYS = {
   recentHead: "recent-head",
   historyBackfill: "history-backfill",

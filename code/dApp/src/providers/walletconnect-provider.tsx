@@ -1,4 +1,5 @@
 "use client";
+import { CARDANO_NETWORK } from "@/lib/cardano-network";
 import { useTranslations } from "next-intl";
 
 
@@ -48,7 +49,7 @@ const DEFAULT_STATE: WalletConnectState = {
   uri: null,
   session: null,
   error: null,
-  network: "preprod",
+  network: CARDANO_NETWORK,
   available: false
 };
 

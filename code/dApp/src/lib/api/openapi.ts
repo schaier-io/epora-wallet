@@ -1,3 +1,4 @@
+import { CARDANO_NETWORK } from "@/lib/cardano-network";
 import "zod-openapi";
 import { createDocument, type ZodOpenApiOperationObject } from "zod-openapi";
 import { z } from "zod";
@@ -185,7 +186,7 @@ build transactions against its smart contracts.
 address, returns an unsigned transaction as CBOR hex, and leaves signing and submission
 to the caller.
 
-**Network.** Preprod only. Addresses must be \`addr_test1...\`.
+**Network.** ${CARDANO_NETWORK}. Addresses must match this deployment network.
 
 **Versioning.** \`v1\` describes the current shape of the API. The compatibility promise
 starts at the mainnet beta: until then a \`v1\` route may change without a version bump,

@@ -1,3 +1,4 @@
+import { CARDANO_NETWORK, cardanoscanAddressUrl } from "@/lib/cardano-network";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { getTranslations } from "next-intl/server";
@@ -90,7 +91,7 @@ export default async function OpengraphImage() {
             <img src={logoSrc} width={LOGO_WIDTH} height={LOGO_HEIGHT} alt="" />
             <div style={{ display: "flex", flexDirection: "column", lineHeight: 1 }}>
               <span style={{ fontSize: 28, color: "#7DD3CB", letterSpacing: "0.18em", textTransform: "uppercase" }}>
-                {i18n("cardanoPreprod")}
+                {i18n("cardanoPreprod", { network: CARDANO_NETWORK })}
               </span>
               <span style={{ fontSize: 56, fontWeight: 700, marginTop: 12 }}>
                 {i18n("eporaWallet")}
@@ -128,7 +129,7 @@ export default async function OpengraphImage() {
                   background: "#37D4CB"
                 }}
               />
-              preprod.cardanoscan.io
+              {new URL(cardanoscanAddressUrl("")).hostname}
             </span>
             <span>{i18n("catalystProposalSelfHostable")}</span>
           </div>

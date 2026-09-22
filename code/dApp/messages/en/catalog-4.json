@@ -169,7 +169,7 @@
     "liveOnChainSaveOrShareYourCard": "Live on-chain. Save or share your card, then open it when ready.",
     "sendingToTheNetwork": "Sending to the network…",
     "submittedWaitingForConfirmation": "Submitted. Waiting for confirmation.",
-    "yourSmartWalletIsLiveOnCardanoPreprod": "Your smart wallet is live on Cardano Preprod. Save or share your membership card below, then open your wallet whenever you're ready.",
+    "yourSmartWalletIsLiveOnCardanoPreprod": "Your smart wallet is live on Cardano. Save or share your membership card below, then open your wallet whenever you are ready.",
     "yourTransactionIsOnTheNetwork": "Your transaction is on the network. This usually takes a block or two."
   },
   "ComponentsUserWorkspaceRecoveryFallbackView": {
@@ -292,7 +292,7 @@
     "preparing": "Preparing…"
   },
   "ComponentsUserWorkspaceUseSharedSttReference": {
-    "connectAPreprodWalletBeforeStartingTheOne": "Connect a Preprod wallet before starting the one-time setup.",
+    "connectAPreprodWalletBeforeStartingTheOne": "Connect a wallet on the same network as this app before starting the one-time setup.",
     "couldNotCheckTheOneTimeSetup": "Could not check the one-time setup.",
     "couldNotCompleteTheOneTimeSetup": "Could not complete the one-time setup.",
     "theDemoIsReadOnlyConnectABrowser": "The demo is read-only. Connect a browser wallet before starting the one-time setup."
@@ -383,7 +383,7 @@
   },
   "ComponentsUserWorkspaceWorkspaceFlowHandlers": {
     "connectABrowserWalletBeforeContinuing": "Connect a browser wallet before continuing.",
-    "connectedWalletIsNotOnPreprodSwitchNetworks": "Connected wallet is not on Preprod. Switch networks and try again.",
+    "connectedWalletIsNotOnPreprodSwitchNetworks": "Connected wallet is on a different network. Switch to the network shown by this app and try again.",
     "demoWalletIsReadOnlyConnectABrowser": "Demo wallet is read-only. Connect a browser wallet before continuing.",
     "updatingWalletState": "Updating wallet state…"
   },
@@ -406,12 +406,12 @@
     "createItOnceIfNeeded": "Epora maintains the helper. Check again if it is unavailable.",
     "owner": "Owner",
     "peopleAreSet": "People are set.",
-    "readyOnPreprod": "Ready on Preprod.",
+    "readyOnPreprod": "Ready on the configured Cardano network.",
     "recoveryContact": "Recovery contact",
     "ruleDriven": "Rule-driven",
     "reviewThenContinueInYourWallet": "Review, then continue in your wallet.",
     "spender": "Spender",
-    "useAPreprodBrowserWallet": "Use a Preprod browser wallet.",
+    "useAPreprodBrowserWallet": "Use a browser wallet on the same network as this app.",
     "walletSigner": "Wallet signer"
   },
   "ComponentsUserWorkspaceWorkspaceHeaderView": {
@@ -460,7 +460,7 @@
     "recoveryContactsCanStepInOnlyAfterA": "Recovery contacts can step in only after a proof of life expires. No one else can let them in.",
     "recoveryWithoutBackdoors": "Recovery without backdoors.",
     "scheduledPaymentsLeaveOnTimeMultiSignatureWhen": "Amounts accrue on a schedule. Recipients collect available funds. Co-signers approve transactions when the wallet rules require them.",
-    "worksWithLaceEternlVesprAndOtherWallets": "Works with Lace, Eternl, Vespr, and other wallets on Preprod."
+    "worksWithLaceEternlVesprAndOtherWallets": "Works with Lace, Eternl, Vespr, and other Cardano wallets."
   },
   "ComponentsUserWorkspaceWorkspaceProofOfLifeAlerts": {
     "proofOfLifeDeadlines": "Proof-of-life deadlines",
@@ -585,12 +585,12 @@
   },
   "ComponentsUserWorkspaceWorkspaceSetupCheckpointView": {
     "checkingThisWalletSFunds": "Checking this wallet's funds…",
-    "connectACardanoWalletOnPreprodSoEpora": "Connect a Cardano wallet on Preprod so Epora can find your smart wallets and prepare actions.",
+    "connectACardanoWalletOnPreprodSoEpora": "Connect a Cardano wallet on the same network as this app so Epora can find your smart wallets and prepare actions.",
     "connectAWalletFirst": "Connect a wallet first",
     "moreAboutSetupHelper": "More about setup helper",
     "oneTimeSetupNeeded": "Service temporarily unavailable",
-    "switchToPreprod_803db8": "Switch to Preprod",
-    "theWalletYouConnectedIsOnADifferent": "The wallet you connected is on a different network. Switch it to Preprod, then try again.",
+    "switchToPreprod_803db8": "Switch wallet network",
+    "theWalletYouConnectedIsOnADifferent": "The wallet you connected is on a different network. Select the network shown by this app, then try again.",
     "thisActionSpendsFromTheWalletSoIt": "This action spends from the wallet, so it opens once the funds are read.",
     "thisActionSpendsFromTheWalletSoIt_bbbd72": "This action spends from the wallet, so it needs money in it first. Choose Add funds to add some.",
     "thisWalletHasNoFundsYet": "This wallet has no funds yet",

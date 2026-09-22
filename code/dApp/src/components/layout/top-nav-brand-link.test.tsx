@@ -38,3 +38,16 @@ describe("header brand link", () => {
     }
   });
 });
+
+
+it("renders network status without missing interpolation values", () => {
+  const error = vi.spyOn(console, "error").mockImplementation(() => {});
+  try {
+    render(<TopNav />);
+    expect(screen.getByText("Network status:")).toBeInTheDocument();
+    expect(screen.getByText("preprod · Disconnected")).toBeInTheDocument();
+    expect(error).not.toHaveBeenCalled();
+  } finally {
+    error.mockRestore();
+  }
+});

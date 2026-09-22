@@ -370,7 +370,7 @@
     "creatingWallet": "Creating wallet",
     "done": "done",
     "isLive": "is live",
-    "itLivesOnCardanoPreprodThereIsNo": "It lives on Cardano Preprod. There is no new seed phrase: you sign with the wallet you already use. Save your membership card, then open it.",
+    "itLivesOnCardanoPreprodThereIsNo": "It lives on Cardano. There is no new seed phrase: you sign with the wallet you already use. Save your membership card, then open it.",
     "noMatchingAssets": "No matching assets.",
     "notInYourWalletYet": "Not in your wallet yet",
     "openWallet": "Open wallet",

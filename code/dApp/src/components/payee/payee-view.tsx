@@ -1,4 +1,5 @@
 "use client";
+import { cardanoNetworkId } from "@/lib/cardano-network";
 import { useTranslations } from "next-intl";
 import { resolveAssetIdentity } from "@/lib/cardano-assets";
 import { formatLovelaceAsAda } from "@/lib/units/lovelace";
@@ -387,8 +388,8 @@ export function PayeeView() {
           refreshing={fetching}
           disabled={loading || fetching}
           // Only while there is something to rescan: with no wallet the query is off, and on
-          // mainnet a rescan reads Preprod again and cannot change the answer.
-          onRefresh={activeAddress && (networkId === null || networkId === 0) ? () => void loadTokens() : undefined}
+          // another network a rescan reads this app's network again and cannot change the answer.
+          onRefresh={activeAddress && (networkId === null || networkId === cardanoNetworkId()) ? () => void loadTokens() : undefined}
         />
         <CardContent className="flex flex-col gap-4">
           <p role="status" aria-live="polite" className="sr-only">
@@ -417,7 +418,7 @@ export function PayeeView() {
                 {i18n("connectWallet")}
               </Button>
             </div>
-          ) : networkId !== null && networkId !== 0 ? (
+          ) : networkId !== null && networkId !== cardanoNetworkId() ? (
             // `/user` refuses to build on the wrong network in two places; this page had no
             // check at all. It reads Preprod state, so a mainnet wallet's key hash can never
             // match. Without this it would report "no payments to you" and sound definitive.

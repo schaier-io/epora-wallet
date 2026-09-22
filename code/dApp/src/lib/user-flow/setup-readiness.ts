@@ -1,3 +1,4 @@
+import { cardanoNetworkId } from "@/lib/cardano-network";
 import type { ReadinessIssue, SetupState } from "@/components/user/flow-types";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/LibUserFlowSetupReadiness.json";
@@ -48,7 +49,7 @@ export function buildSetupReadinessIssues(setupState: SetupState): ReadinessIssu
           status: "warning",
           blocking: true
         }
-      : setupState.networkId === 0
+      : setupState.networkId === cardanoNetworkId()
         ? {
             id: "preprod",
             key: "preprod",

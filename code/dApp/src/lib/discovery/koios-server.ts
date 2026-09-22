@@ -1,3 +1,4 @@
+import { CARDANO_NETWORK } from "@/lib/cardano-network";
 import "server-only";
 
 import { getServerEnv } from "@/lib/env/server-env";
@@ -31,7 +32,7 @@ function koiosBaseUrl(network: KoiosNetwork): string {
 
 export async function requestKoiosCredentialUtxos(
   paymentCredentialHex: string,
-  network: KoiosNetwork = "preprod"
+  network: KoiosNetwork = CARDANO_NETWORK
 ) {
   if (!/^[0-9a-f]{56}$/i.test(paymentCredentialHex)) {
     throw new Error("Koios payment credential must be a 56-character hex hash.");
@@ -68,7 +69,7 @@ export async function requestKoiosCredentialUtxos(
 
 export async function fetchCredentialUtxosFromKoios(
   paymentCredentialHex: string,
-  network: KoiosNetwork = "preprod"
+  network: KoiosNetwork = CARDANO_NETWORK
 ) {
   const response = await requestKoiosCredentialUtxos(paymentCredentialHex, network);
   const text = await response.text();

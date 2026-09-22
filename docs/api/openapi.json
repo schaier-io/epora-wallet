@@ -3,7 +3,7 @@
   "info": {
     "title": "Epora permission wallet API",
     "version": "1.0.0",
-    "description": "HTTP access to the Epora permission wallet: read its indexed on-chain state, and\nbuild transactions against its smart contracts.\n\n**The server never holds a key and never signs.** Every active transaction build route takes an\naddress, returns an unsigned transaction as CBOR hex, and leaves signing and submission\nto the caller.\n\n**Network.** Preprod only. Addresses must be `addr_test1...`.\n\n**Versioning.** `v1` describes the current shape of the API. The compatibility promise\nstarts at the mainnet beta: until then a `v1` route may change without a version bump,\nand this document is the record of what it does today. After the beta, breaking changes\nget a new version prefix.\n\n**Errors.** Every failure returns the same body, `{ \"error\": \"...\" }`. A `400` carries a\nmessage naming what to fix. A `502` means the chain data provider is unreachable, and\nnever carries the provider's own text.\n\n**Rate limits.** Per client address: 5 requests per\n60s across all transaction builds together,\n600 per 60s for wallet lookups,\n300 per 60s for pool lookups,\n300 per 60s for governance action lookups. Builds also\nshare a deployment-wide cap of 25 per\n60s, because one build costs the chain provider tens of\nrequests. Each declared wallet input also consumes one weighted unit. The default client bucket\nholds 40 units per 60s,\nand the deployment bucket holds 120 units per\n60s. Every `429` carries `Retry-After`.\nDeployments may set their own caps.\n\nSee [the developer guide](https://github.com/schaier-io/epora-wallet/blob/main/docs/api/README.md).",
+    "description": "HTTP access to the Epora permission wallet: read its indexed on-chain state, and\nbuild transactions against its smart contracts.\n\n**The server never holds a key and never signs.** Every active transaction build route takes an\naddress, returns an unsigned transaction as CBOR hex, and leaves signing and submission\nto the caller.\n\n**Network.** preprod. Addresses must match this deployment network.\n\n**Versioning.** `v1` describes the current shape of the API. The compatibility promise\nstarts at the mainnet beta: until then a `v1` route may change without a version bump,\nand this document is the record of what it does today. After the beta, breaking changes\nget a new version prefix.\n\n**Errors.** Every failure returns the same body, `{ \"error\": \"...\" }`. A `400` carries a\nmessage naming what to fix. A `502` means the chain data provider is unreachable, and\nnever carries the provider's own text.\n\n**Rate limits.** Per client address: 5 requests per\n60s across all transaction builds together,\n600 per 60s for wallet lookups,\n300 per 60s for pool lookups,\n300 per 60s for governance action lookups. Builds also\nshare a deployment-wide cap of 25 per\n60s, because one build costs the chain provider tens of\nrequests. Each declared wallet input also consumes one weighted unit. The default client bucket\nholds 40 units per 60s,\nand the deployment bucket holds 120 units per\n60s. Every `429` carries `Retry-After`.\nDeployments may set their own caps.\n\nSee [the developer guide](https://github.com/schaier-io/epora-wallet/blob/main/docs/api/README.md).",
     "license": {
       "name": "Apache-2.0",
       "identifier": "Apache-2.0"
@@ -1264,7 +1264,7 @@
         "type": "string",
         "pattern": "^addr_test1[0-9a-z]{20,}$",
         "description": "A preprod bech32 payment address. The transaction is built to spend from it, and the caller signs the result.",
-        "example": "addr_test1qz7r704wjqh275anmzsln4ad9e4nwrutnmyvnd32jpzy2kal8d9m8yxj9gwg0ddh4nhj6zqwad8px7u45ljczt4ajfps72xr59"
+        "example": "addr_test1vqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd9tg5t"
       },
       "ConstrData": {
         "type": "object",
@@ -2553,7 +2553,7 @@
             "type": "string",
             "minLength": 1,
             "description": "The bech32 address that receives this transfer.",
-            "example": "addr_test1qz7r704wjqh275anmzsln4ad9e4nwrutnmyvnd32jpzy2kal8d9m8yxj9gwg0ddh4nhj6zqwad8px7u45ljczt4ajfps72xr59"
+            "example": "addr_test1vqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd9tg5t"
           },
           "amount": {
             "type": "array",
@@ -2625,7 +2625,7 @@
           "rewardAddress": {
             "type": "string",
             "minLength": 1,
-            "description": "The wallet's reward address. Its credential is the wallet's own staking script, so this is a script reward address (`stake_test17...`), not a key one.",
+            "description": "The wallet's reward address. Its credential is the wallet's own staking script, so this is a script reward address, not a key one.",
             "example": "stake_test17r5ae0uf55xpmph3jmxmfayr6f0up2hvquwjn929zmgvlxqhfkys0"
           },
           "amountLovelace": {

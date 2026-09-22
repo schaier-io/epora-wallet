@@ -77,7 +77,7 @@ describe("wallet connection dialog", () => {
     render(<WalletConnectionDialog open onOpenChange={() => {}} />);
 
     expect(screen.queryByText("Network unknown")).toBeNull();
-    expect(screen.queryByText("Preprod / Testnet")).toBeNull();
+    expect(screen.queryByText("Testnet")).toBeNull();
     expect(screen.getByRole("button", { name: "Refresh list" })).toBeTruthy();
   });
 
@@ -87,7 +87,7 @@ describe("wallet connection dialog", () => {
     ctx.activeWalletName = "eternl";
     render(<WalletConnectionDialog open onOpenChange={() => {}} />);
 
-    expect(screen.getByText("Preprod / Testnet")).toBeTruthy();
+    expect(screen.getByText("Testnet")).toBeTruthy();
   });
 
   it("never announces the connect button as a toggle", () => {

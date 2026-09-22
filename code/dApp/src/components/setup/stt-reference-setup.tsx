@@ -1,4 +1,5 @@
 "use client";
+import { cardanoNetworkId } from "@/lib/cardano-network";
 
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
@@ -95,7 +96,7 @@ export function SttReferenceSetup({
   }, [detectAttempt, i18n, initialStore, router, store]);
 
   const connected = Boolean(activeWallet && activeAddress);
-  const canBuild = connected && !isDemoWallet && networkId === 0 && phase === "idle" && !submittedReference;
+  const canBuild = connected && !isDemoWallet && networkId === cardanoNetworkId() && phase === "idle" && !submittedReference;
   const busy = phase === "checking" || phase === "building" || phase === "submitting" || phase === "confirming";
   // "checking" is the page's own lookup of the network, not a transaction. Reporting it as
   // "The setup transaction is in progress" told a reader with no wallet connected that a
@@ -103,7 +104,7 @@ export function SttReferenceSetup({
   const transactionBusy = busy && phase !== "checking";
   // Only a wallet that can sign here funds the transaction; the demo wallet or a wallet on
   // another network gets its own explanation below instead.
-  const walletCanFund = connected && !isDemoWallet && networkId === 0;
+  const walletCanFund = connected && !isDemoWallet && networkId === cardanoNetworkId();
 
   async function buildPreview() {
     if (!activeWallet || !canBuild || inFlight.current) return;
@@ -229,7 +230,7 @@ export function SttReferenceSetup({
               </p>
             ) : null}
           </div>
-          <Badge variant={connected && networkId === 0 ? "secondary" : "warning"}>
+          <Badge variant={connected && networkId === cardanoNetworkId() ? "secondary" : "warning"}>
             {connected ? i18n("connected") : i18n("notConnected")}
           </Badge>
         </div>
@@ -238,7 +239,7 @@ export function SttReferenceSetup({
           <Button type="button" onClick={() => setConnectionOpen(true)}>{i18n("connect")}</Button>
         ) : isDemoWallet ? (
           <p className="text-sm text-amber-200">{i18n("demoUnsupported")}</p>
-        ) : networkId !== 0 ? (
+        ) : networkId !== cardanoNetworkId() ? (
           <p className="text-sm text-amber-200">{i18n("preprodRequired")}</p>
         ) : phase === "review" && preview ? (
           <div className="space-y-3">

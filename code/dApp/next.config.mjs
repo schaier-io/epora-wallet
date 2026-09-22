@@ -1,6 +1,11 @@
 import { withSentryConfig } from "@sentry/nextjs";
 import createNextIntlPlugin from "next-intl/plugin";
 
+const cardanoNetwork = process.env.NEXT_PUBLIC_CARDANO_NETWORK?.trim() || "preprod";
+if (!["preprod", "preview", "mainnet"].includes(cardanoNetwork)) {
+  throw new Error("NEXT_PUBLIC_CARDANO_NETWORK must be preprod, preview, or mainnet.");
+}
+
 const securityHeaders = [
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -16,6 +21,7 @@ const nextConfig = {
   // lucide-react tree-shakes fine without it, and the production build never
   // relied on it.
   poweredByHeader: false,
+  env: { NEXT_PUBLIC_CARDANO_NETWORK: cardanoNetwork },
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
   }
@@ -43,7 +49,7 @@ function buildConfig() {
   // release identifier the server uses (client code cannot read
   // VERCEL_GIT_COMMIT_SHA at runtime).
   const withReleaseId = sentryRelease
-    ? { ...base, env: { NEXT_PUBLIC_SENTRY_RELEASE: sentryRelease } }
+    ? { ...base, env: { ...base.env, NEXT_PUBLIC_SENTRY_RELEASE: sentryRelease } }
     : base;
   return withSentryConfig(withReleaseId, {
     authToken: process.env.SENTRY_AUTH_TOKEN,

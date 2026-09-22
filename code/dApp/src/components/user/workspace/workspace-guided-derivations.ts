@@ -1,4 +1,5 @@
 "use client";
+import { cardanoNetworkId } from "@/lib/cardano-network";
 
 import type {
   UserActionKind
@@ -105,7 +106,7 @@ export function computeMintSetupSteps(ctx: MintSetupStepsCtx): SetupProgressStep
   } = ctx;
     const walletStepStatus: SetupProgressStep["status"] = walletReady
       ? "done"
-      : activeWallet && networkId !== 0
+      : activeWallet && networkId !== cardanoNetworkId()
         ? "blocked"
         : "active";
     const peopleStatus: SetupProgressStep["status"] = mintHasOwnerChoice

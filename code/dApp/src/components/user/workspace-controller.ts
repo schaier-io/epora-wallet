@@ -1,3 +1,4 @@
+import { cardanoNetworkId } from "@/lib/cardano-network";
 import { USER_ACTION_DEFINITION_MAP } from "@/lib/user-flow/action-definitions";
 import type {
   ReadinessKey,
@@ -378,7 +379,7 @@ export function resolveSetupCheckpoint({
     return "wallet";
   }
 
-  if (networkId !== 0) {
+  if (networkId !== cardanoNetworkId()) {
     return "network";
   }
 

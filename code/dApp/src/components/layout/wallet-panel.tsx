@@ -1,4 +1,5 @@
 "use client";
+import { cardanoNetworkId } from "@/lib/cardano-network";
 import { useTranslations } from "next-intl";
 
 
@@ -254,7 +255,7 @@ export function WalletConnectionDialog({
   // as a fault in the connector, sitting right above a Connect button that works.
   const networkBadge =
     networkId === null ? null : (
-      <Badge variant={networkId === 0 ? "secondary" : "warning"}>
+      <Badge variant={networkId === cardanoNetworkId() ? "secondary" : "warning"}>
         {networkId === 0 ? i18n("preprodTestnet") : i18n("mainnet")}
       </Badge>
     );
