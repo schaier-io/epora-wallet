@@ -114,7 +114,14 @@ export function SttSpendEditorsView() {
                 <p className="text-xs text-muted-foreground">{lockingContract.error}</p>
               )}
               {lockedContractUtxosError ? (
-                <p className="text-xs text-rose-300">{lockedContractUtxosError}</p>
+                /* `role="alert"`, the same choice pool-finder.tsx makes for its own
+                   on-demand lookup: nothing else in this file is a live region, so a
+                   failure after "Refresh funds" reached a screen reader as silence. The
+                   polite regions in review-panel.tsx are for readiness recomputed on every
+                   keystroke; a failed chain read is an event, not a running total. */
+                <p role="alert" className="text-xs text-rose-300">
+                  {lockedContractUtxosError}
+                </p>
               ) : null}
               {lockingContract.address ? (
                 lockedContractUtxos.length > 0 ? (
