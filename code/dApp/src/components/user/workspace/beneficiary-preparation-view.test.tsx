@@ -33,3 +33,8 @@ it("uses the planner's full ADA allocation to remove an otherwise tiny remainder
   fireEvent.click(screen.getByRole("button", { name: "Set the divisible pool to 6 ADA" }));
   expect(model.correctAda).toHaveBeenCalledOnce();
 });
+it("offers one Refresh when fund discovery fails", () => {
+  mocks.model.mockReturnValue({ ...fixture(), discoveryError: "Could not read funds." });
+  render(<BeneficiaryPreparationView />);
+  expect(screen.getAllByRole("button", { name: /refresh/i })).toHaveLength(1);
+});

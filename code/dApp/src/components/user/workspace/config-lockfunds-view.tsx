@@ -68,15 +68,11 @@ export function LockFundsConfigView() {
               <div className="flex flex-col">
                 <div className="flex min-w-0 flex-1 items-center gap-2 rounded-md border border-border/60 bg-background/50 p-3">
                   {lockingContract.address ? (
-                    <a
-                      href={buildCardanoscanAddressUrl(walletReceiveAddress ?? lockingContract.address)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="min-w-0 flex-1 break-all select-all font-mono text-xs leading-relaxed tracking-tight text-foreground underline-offset-4 hover:underline"
-                      title={i18n("clickToViewOnCardanoscanTripleClickTo")}
-                    >
+                    // Plain text, not a link: a click selects the address to copy instead of
+                    // leaving the page. The icon beside it still opens Cardanoscan.
+                    <p className="min-w-0 flex-1 break-all select-all font-mono text-xs leading-relaxed tracking-tight text-foreground">
                       {walletReceiveAddress ?? lockingContract.address}
-                    </a>
+                    </p>
                   ) : (
                     <p className="text-xs text-muted-foreground">{lockingContract.error}</p>
                   )}
