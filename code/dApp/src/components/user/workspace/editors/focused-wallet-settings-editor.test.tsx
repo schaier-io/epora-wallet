@@ -256,6 +256,23 @@ describe("the People tab inside Wallet settings", () => {
     expect(screen.getByRole("button", { name: /add person/i })).toBeInTheDocument();
   });
 
+  it("asks to confirm an ownerless wallet once, not twice", () => {
+    render(
+      <FocusedWalletSettingsEditor
+        value={createDefaultStateForm()}
+        onChange={vi.fn()}
+        selectedTask="settings-people"
+        onSelectTask={vi.fn()}
+        fieldErrors={{}}
+        zeroAdminConfirmed={false}
+        onZeroAdminConfirmedChange={vi.fn()}
+      />
+    );
+
+    expect(screen.getAllByText("This wallet would have no owner")).toHaveLength(1);
+    expect(screen.getAllByRole("checkbox")).toHaveLength(1);
+  });
+
   it("adds a person through the same form", () => {
     const { onChange } = renderPeopleTab();
 

@@ -252,11 +252,15 @@ export function FocusedWalletSettingsEditor({
       }}
       issueCount={issueCount}
     >
-      <ZeroAdminConfirmationCallout
-        adminCount={adminCount}
-        zeroAdminConfirmed={zeroAdminConfirmed}
-        onZeroAdminConfirmedChange={onZeroAdminConfirmedChange}
-      />
+      {/* The People tab carries this callout itself, next to the owners it counts.
+          Rendering it here as well put two identical confirmations on that tab. */}
+      {selectedTask !== "settings-people" ? (
+        <ZeroAdminConfirmationCallout
+          adminCount={adminCount}
+          zeroAdminConfirmed={zeroAdminConfirmed}
+          onZeroAdminConfirmedChange={onZeroAdminConfirmedChange}
+        />
+      ) : null}
       {selectedTask === "settings-people" ? (
         // The People page, merged in as the first tab: one update-state form was
         // reachable through two sidebar entries, and "who can act" is answered
