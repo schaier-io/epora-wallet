@@ -21,7 +21,7 @@
   "inputAndOutputCounts": "{inputs} and {outputs}",
   "moved": "Moved",
   "newWallet": "New wallet",
-  "noNetBalanceChange": "No net balance change",
+  "noNetBalanceChange": "No balance change",
   "noWalletFundPoolsChanged": "No wallet fund pools changed",
   "output": "output",
   "ready": "Ready",
@@ -64,5 +64,5 @@
   "checkInRecorded": "Check-in recorded",
   "proofOfLifeDeadlineExtended": "The proof-of-life deadline was extended.",
   "walletStateContinued": "The wallet recorded this transaction.",
-  "walletUpdated": "Wallet updated"
+  "walletUpdated": "Wallet state updated"
 }
