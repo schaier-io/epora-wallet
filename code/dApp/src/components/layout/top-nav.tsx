@@ -83,7 +83,7 @@ function PrimaryNavLinks({
         aria-current={active ? "page" : undefined}
         // The three pages are peers in a row, so the page slides the way the tab lies: a tab
         // to the right brings the next page in from the right. See `.nav-forward` in
-        // globals/animations.css.
+        // globals/motion.css.
         transitionTypes={active ? undefined : [index > activeIndex ? "nav-forward" : "nav-back"]}
         className={cn(
           "relative",
@@ -269,7 +269,7 @@ export function TopNav() {
           below tooltips (`z-50`), dialogs (`z-[100]`), toasts (`z-[110]`) and the
           disclaimer gate (`z-[200]`). */}
       {/* Named so a page transition leaves it still: the content slides, the bar stays put.
-          See `::view-transition-group(site-header)` in globals/animations.css. */}
+          See `::view-transition-group(site-header)` in globals/motion.css. */}
       <header
         className="sticky top-0 z-20 border-b border-border/60 bg-[#091215] shadow-[inset_0_-1px_0_#2b464666]"
         style={{ viewTransitionName: "site-header" }}

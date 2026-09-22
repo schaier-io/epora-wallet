@@ -10,6 +10,7 @@ import {
 import { COPY } from "@/lib/copy";
 import "@/app/globals.css";
 import "@/app/globals/animations.css";
+import "@/app/globals/motion.css";
 import { MotionConfig } from "motion/react";
 import "@/components/ProfileCard.css";
 import { QueryProvider } from "@/providers/query-provider";
