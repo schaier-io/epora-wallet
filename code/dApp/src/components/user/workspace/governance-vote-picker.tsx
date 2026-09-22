@@ -51,16 +51,21 @@ export function GovernanceVotePicker({ error: validationError = null }: { error?
   );
 
   const error = failure?.kind === "unrecognised" ? i18n("unrecognisedId")
-    : failure?.kind === "response" ? failure.message ?? i18n("lookupFailed")
+    : failure?.kind === "response"
+      ? failure.status === 404 ? i18n("notFound")
+        : failure.status === 400 ? i18n("invalidId")
+        : failure.status === 429 ? i18n("tooManyLookups")
+        : i18n("lookupFailed")
     : failure?.kind === "network" ? i18n("lookupUnreachable")
     : null;
 
   // The saved vote counts as this card's choice only when it names this action and this
-  // wallet's DRep. Anything else is a vote on something the card does not show, and it is
-  // named even when no card shows (a failed lookup), because Build would still cast it.
+  // wallet's DRep; an unknown DRep, before the wallet opens, is not a mismatch. Anything else
+  // is a vote on something the card does not show, and it is named even when no card shows
+  // (a failed lookup), because Build would still cast it.
   const savedMatchesCard =
     !!result && !!current && current.txHash === result.txHash && current.txIndex === result.index &&
-    current.drepId === drepId;
+    (drepId === null || current.drepId === drepId);
   const chosen = savedMatchesCard ? current.voteKind : null;
   const savedElsewhere = !!current && !savedMatchesCard && !loading;
   const choiceError = chosen ? null : validationError;
@@ -106,7 +111,11 @@ export function GovernanceVotePicker({ error: validationError = null }: { error?
       ) : null}
 
       {savedElsewhere ? (
-        <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+        // `role="status"`: it appears after a lookup the reader started, and it says the vote
+        // Build would cast is not the one on screen.
+        <p
+          role="status"
+          className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
           {i18n("savedVoteElsewhere", {
             vote: i18n(VOTE_LABEL_KEYS[current.voteKind]),
             action: `${shortenIdentifier(current.txHash, 8, 4)}#${current.txIndex}`,

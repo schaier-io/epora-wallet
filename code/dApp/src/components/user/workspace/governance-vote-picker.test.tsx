@@ -152,8 +152,19 @@ describe("a saved vote the card does not show", () => {
     fireEvent.change(screen.getByLabelText("Governance action"), { target: { value: `${"ef".repeat(32)}#1` } });
     fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
 
-    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/not found/));
-    expect(screen.getByText(/The vote saved now is Yes on action 0ecc74fe/)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/No governance action/));
+    expect(screen.getByRole("status")).toHaveTextContent(/The vote saved now is Yes on action 0ecc74fe/);
+  });
+
+  it("does not call the wallet's own vote foreign before its DRep id is known", async () => {
+    holder.voteJson = savedOn(TX_HASH, "drep1y05ae0uf55xpmph3jmxmfayr6f0up2hvquwjn929zmgvlxqdjsap6");
+    holder.drepId = null;
+    stubLookup(ACTION);
+
+    render(<GovernanceVotePicker />);
+
+    await waitFor(() => expect(screen.getByText("Fund the node")).toBeInTheDocument());
+    expect(screen.queryByText(/The vote saved now/)).not.toBeInTheDocument();
   });
 });
 
@@ -170,7 +181,8 @@ describe("a lookup the server refused", () => {
     fireEvent.change(screen.getByLabelText("Governance action"), { target: { value: `${TX_HASH}#0` } });
     fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
 
-    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Governance action not found on this network."));
+    // The reader's own language, not the server's English text.
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("No governance action with that id on this network."));
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

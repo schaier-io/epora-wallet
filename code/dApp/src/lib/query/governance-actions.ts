@@ -39,7 +39,8 @@ export const governanceActionQueryOptions = (id: string) => queryOptions({
   }
 });
 
-type LookupFailure = { kind: "unrecognised" | "network" } | { kind: "response"; message: string | null };
+// The status, not the server's English text, picks the message the reader sees.
+type LookupFailure = { kind: "unrecognised" | "network" } | { kind: "response"; status: number };
 
 /**
  * Only the pasted text is local; the response belongs to Query. `initialId` re-shows the
@@ -60,7 +61,7 @@ export function useGovernanceActionLookup(initialId: string | null) {
   };
   const failure: LookupFailure | null = unrecognised ? { kind: "unrecognised" }
     : action.isFetching || !action.error ? null
-    : action.error instanceof GovernanceActionLookupError ? { kind: "response", message: action.error.serverMessage }
+    : action.error instanceof GovernanceActionLookupError ? { kind: "response", status: action.error.status }
     : { kind: "network" };
   return { query, setQuery, result: action.data ?? null, loading: action.isFetching, failure, lookup };
 }

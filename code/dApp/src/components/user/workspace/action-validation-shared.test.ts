@@ -156,7 +156,7 @@ test("validateGovernanceVotePayload rejects the empty default the form ships wit
   validateGovernanceVotePayload(errors, "{}");
   assert.equal(
     errors["Vote JSON"]?.[0],
-    "Pick a governance action and choose Yes, No or Abstain."
+    "Pick a governance action and choose Yes, No or Abstain. A pasted vote needs a voter, an action and a vote."
   );
 });
 
