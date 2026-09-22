@@ -1,6 +1,15 @@
 /** Shared Tailwind class strings for the guided sidebar/section cards. */
+// The selected ring is `inset`. Every card carrying this class fills a `SpotlightCard`,
+// which is `relative overflow-hidden` so the spotlight stays inside the rounded rect. The
+// card is `w-full` inside that wrapper, so its border box IS the clip rect: an outset
+// `0 0 0 1px` ring paints entirely outside the clip and never reaches the screen. That left
+// the selected card wearing `border-emerald-400/35` alone -- a 35%-alpha line over its own
+// near-opaque gradient -- which read as no border at all next to the idle
+// `border-border/55` cards. An inset ring paints inside the border box, so it survives.
+// `workspace-wallet-selection-dialog-view.tsx:149` rings its own `overflow-hidden` card the
+// same way.
 export const guidedSidebarActiveSurfaceClass =
-    "border-emerald-400/35 bg-[linear-gradient(135deg,rgba(15,23,42,0.94),rgba(14,116,144,0.24),rgba(16,185,129,0.18))] shadow-[0_0_0_1px_rgba(45,212,191,0.14)]";
+    "border-emerald-400/35 bg-[linear-gradient(135deg,rgba(15,23,42,0.94),rgba(14,116,144,0.24),rgba(16,185,129,0.18))] shadow-[inset_0_0_0_1px_rgba(45,212,191,0.14)]";
 export const guidedSidebarIdleSurfaceClass =
     "border-border/55 bg-background/20 hover:border-emerald-400/20 hover:bg-background/65";
 export const guidedSidebarIconBaseClass =
