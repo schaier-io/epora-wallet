@@ -139,11 +139,34 @@ test("AdaAmountInput says why it rejected the text it cannot parse", () => {
   const box = screen.getByLabelText("Amount") as HTMLInputElement;
   fireEvent.focus(box);
   fireEvent.change(box, { target: { value: "one and a half" } });
+  // On blur, not on the keystroke: the test below measures why.
+  fireEvent.blur(box);
 
   const message = screen.getByRole("alert");
   assert.match(message.textContent ?? "", /Enter an ADA amount/);
   assert.equal(box.getAttribute("aria-invalid"), "true");
   assert.equal(box.getAttribute("aria-describedby"), message.getAttribute("id"));
+});
+
+test("AdaAmountInput stays quiet while a valid amount is still being typed", () => {
+  // `parseAdaToLovelace` rejects the prefixes of a thousands-grouped amount the app
+  // itself accepts. Measured: "1"=ok "1,"=INVALID "1,0"=INVALID "1,00"=INVALID
+  // "1,000"=ok. Reporting per keystroke turned the box red and named a format error
+  // three times on the way to a valid number.
+  render(<AdaAmountInput id="pay-amount" aria-label="Amount" value="" onChange={vi.fn()} />);
+  const box = screen.getByLabelText("Amount") as HTMLInputElement;
+  fireEvent.focus(box);
+
+  for (const typed of ["1", "1,", "1,0", "1,00", "1,000"]) {
+    fireEvent.change(box, { target: { value: typed } });
+    assert.equal(screen.queryByRole("alert"), null);
+    assert.equal(box.getAttribute("aria-invalid"), null);
+  }
+
+  // The same text after blur is still judged, so nothing unparseable slips through.
+  fireEvent.change(box, { target: { value: "1," } });
+  fireEvent.blur(box);
+  assert.equal(box.getAttribute("aria-invalid"), "true");
 });
 
 test("AdaAmountInput shows no format message once the text parses", () => {

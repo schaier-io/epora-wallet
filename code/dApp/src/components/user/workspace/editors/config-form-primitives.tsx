@@ -160,10 +160,18 @@ export function AdaAmountInput({
   // parse turned the border red and set `aria-invalid` with no message anywhere on the
   // screen and none for a screen reader. The message is this component's to give, because
   // it is the only place that knows the text failed to parse.
+  // Reported on blur, not on every keystroke. `parseAdaToLovelace` rejects the prefixes of
+  // a thousands-grouped amount the app itself accepts: typing "1,000" measures as
+  // "1"=ok "1,"=INVALID "1,0"=INVALID "1,00"=INVALID "1,000"=ok, so the box turned red and
+  // named a format error three times on the way to a valid number. ".5" does the same on
+  // its first keystroke. `invalid` itself stays ungated: the blur handler below uses it to
+  // decide whether to keep unparseable text on screen.
+  const reportInvalid = invalid && !focused;
   const formatErrorId = inputProps.id ? `${inputProps.id}-ada-format` : undefined;
   const describedBy =
-    [inputProps["aria-describedby"], invalid ? formatErrorId : null].filter(Boolean).join(" ") ||
-    undefined;
+    [inputProps["aria-describedby"], reportInvalid ? formatErrorId : null]
+      .filter(Boolean)
+      .join(" ") || undefined;
 
   return (
     <>
@@ -171,7 +179,7 @@ export function AdaAmountInput({
       {...inputProps}
       inputMode="decimal"
       aria-describedby={describedBy}
-      aria-invalid={invalid || inputProps["aria-invalid"] || undefined}
+      aria-invalid={reportInvalid || inputProps["aria-invalid"] || undefined}
       value={draft ?? stored}
       onFocus={(event) => {
         setFocused(true);
@@ -188,7 +196,10 @@ export function AdaAmountInput({
         onChange(event.target.value);
       }}
     />
-    <InlineFieldError id={formatErrorId} message={invalid ? i18n("enterAnAdaAmountLike") : null} />
+    <InlineFieldError
+      id={formatErrorId}
+      message={reportInvalid ? i18n("enterAnAdaAmountLike") : null}
+    />
     </>
   );
 }
