@@ -454,7 +454,7 @@
   "ComponentsUserWorkspaceWorkspaceOnboardingView": {
     "automationBuiltIn": "Scheduled payments.",
     "connectCardanoWallet": "Connect Cardano wallet",
-    "connectingLetsEporaReadYourAddressAndBalance": "Connecting lets Epora read your address and balance, and ask your wallet to sign. It cannot move funds on its own. Every transaction needs your signature, in your own wallet, and you see what it does before you approve it. Epora is free. You pay only the ordinary Cardano network fee, in test ADA on Preprod.",
+    "connectingLetsEporaReadYourAddressAndBalance": "Connecting lets Epora read your address and balance, and ask your wallet to sign. It cannot move funds on its own. Every transaction needs your signature, in your own wallet, and you see what it does before you approve it.",
     "oneWalletManyKeys": "One wallet, many keys.",
     "ownersControlTheRulesSpendersPayWithinDaily": "Owners set the rules. Spenders pay within the daily limits.",
     "recoveryContactsCanStepInOnlyAfterA": "Recovery contacts can step in only after a proof of life expires. No one else can let them in.",

@@ -2,8 +2,6 @@
 import { useTranslations } from "next-intl";
 
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useAtom } from "jotai";
 import { ShieldAlert } from "lucide-react";
 import { shortcutsHelpOpenAtom } from "@/components/layout/shortcuts-help.atoms";
@@ -22,8 +20,6 @@ function FooterSeparator() {
 
 export function SiteFooter() {
   const i18n = useTranslations("ComponentsLayoutSiteFooter");
-  const pathname = usePathname();
-  const showWalletHomeLink = pathname !== "/user";
   // The one pointer/touch path to the shortcuts dialog. The `?` key answers only to a
   // keyboard, so without this button touch users could never see the shortcut list at all.
   const [, setShortcutsHelpOpen] = useAtom(shortcutsHelpOpenAtom);
@@ -62,21 +58,6 @@ export function SiteFooter() {
             {i18n("forShortcuts")}
           </button>
           <div className="flex flex-wrap items-center gap-2">
-          {showWalletHomeLink ? (
-            <>
-              {/*
-                The ring the rest of the shell uses, not `outline-none` plus an underline.
-                `focus-visible:outline-none` removed the user agent's own indicator and put
-                back a 1px line, which is neither a 2px perimeter nor an equivalent area,
-                so the footer was the one place in the chrome where a keyboard user lost the
-                focus ring. `rounded-sm` keeps the ring off the glyphs.
-              */}
-              <Link href="/user" className={FOOTER_LINK_CLASS}>
-                {i18n("walletHome")}
-              </Link>
-              <FooterSeparator />
-            </>
-          ) : null}
           <a
             href={DISCORD_INVITE_URL}
             target="_blank"

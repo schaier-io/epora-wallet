@@ -178,8 +178,7 @@
     "forShortcuts": "for shortcuts",
     "preprodTestNetwork": "Preprod test network.",
     "press": "Press",
-    "reportAnIssue": "Report an issue",
-    "walletHome": "Wallet home"
+    "reportAnIssue": "Report an issue"
   },
   "ComponentsLayoutSparkleEasterEgg": {
     "accessGranted": "access granted ✓",
@@ -305,13 +304,11 @@
     "checkWalletExtension": "Check the {wallet} extension popup and approve the connection.",
     "chooseTheBrowserWalletToUseHereConnecting": "Choose the browser wallet to use here. Connecting lets Epora read your address and balance, and ask your wallet to sign. It cannot move funds on its own: every transaction needs your signature.",
     "connect": "Connect",
-    "connectABrowserWalletToCreateAndConfirm": "Connect a browser wallet to create and confirm wallet actions.",
     "connected": "Connected",
     "connecting": "Connecting",
     "connectionHelp": "Connection help",
     "connectWallet": "Connect wallet",
     "demoModeIsActiveConfirmingActionsStaysDisabled": "Demo mode is active. Confirming actions stays disabled.",
-    "demoReadOnly": "Demo read-only",
     "disconnect": "Disconnect",
     "eternl": "Eternl",
     "installACardanoWalletForYourBrowserSuchAs": "Install a Cardano wallet for your browser, such as",
@@ -325,12 +322,10 @@
     "preprodTestnet": "Preprod / Testnet",
     "refreshList": "Refresh list",
     "unlockTheExtensionThenClickItsBrowserToolbar": "Unlock the extension, then click its browser-toolbar icon if no popup opens.",
-    "useACardanoBrowserWalletHereToApprove": "Use a Cardano browser wallet here to approve wallet actions.",
-    "useToConfirmWalletActions": "Use to confirm wallet actions.",
     "value1Icon": "{value1} icon",
     "vespr": "Vespr",
     "wallet": "wallet",
-    "youCanOpenTheDemoWalletToBrowse": "You can open the demo wallet to browse the interface without an extension. Creating and confirming wallet actions still needs a real browser wallet.",
+    "youCanOpenTheDemoWalletToBrowse": "Creating and confirming wallet actions needs a real browser wallet.",
     "cancel": "Cancel",
     "checkTheWalletnameExtensionPopupAndApprove": "Check the {walletName} extension popup and approve the connection."
   },
