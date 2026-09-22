@@ -5,7 +5,6 @@ import { effectiveWalletAssetNameHexAtom } from "@/components/user/workspace/ato
 import { activeAddressAtom, activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
 
 
-import { InfoHint } from "@/components/ui/info-hint";
 
 import { AssetListEditor, InlineFieldError, SetupProgressStepper, StateFormEditor, WalletNameEditor } from "@/components/user/workspace/editors";
 import { formatReceiptAmountSummary, getFirstFieldError } from "@/components/user/workspace/helpers";
@@ -52,12 +51,7 @@ export function MintConfigView() {
               rendered at 65% width on md+ with the other 35% permanently empty. */}
           <div className="space-y-3 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
             <div>
-              <div className="flex items-center gap-2">
-                <p className="text-sm font-medium text-foreground">{i18n("starterBalance")}</p>
-                <InfoHint label={i18n("moreAboutStarterBalance")} contentClassName="max-w-sm">
-                  {i18n("addTheFundsThisWalletShouldHoldRight")}
-                </InfoHint>
-              </div>
+              <p className="text-sm font-medium text-foreground">{i18n("starterBalance")}</p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {i18n("createTheWalletAndPlace")} {formatReceiptAmountSummary(mintStarterAssets)} {i18n("insideIt")}
               </p>

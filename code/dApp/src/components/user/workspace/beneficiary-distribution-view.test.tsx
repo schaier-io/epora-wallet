@@ -17,7 +17,9 @@ it("shows fixed exact quantities, full asset identities and full destinations", 
   expect(screen.getByText(/9007199254740993/)).toBeInTheDocument();
   expect(screen.getByText("2.000001 ₳")).toBeInTheDocument();
   expect(screen.getByText("Share: 1 of 3")).toBeInTheDocument();
-  expect(screen.getByText(/keep their recovery rights/)).toBeInTheDocument();
+  // The card's outcome line says the contacts keep their recovery rights; this panel no
+  // longer repeats it.
+  expect(screen.queryByText(/keep their recovery rights/)).not.toBeInTheDocument();
   expect(screen.getByText(/existing payout datum/)).toBeInTheDocument();
   expect(screen.getByText(/funds transaction fees/)).toBeInTheDocument();
   expect(screen.queryByRole("textbox")).not.toBeInTheDocument();

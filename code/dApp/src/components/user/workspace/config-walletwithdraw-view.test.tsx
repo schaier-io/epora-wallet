@@ -154,7 +154,8 @@ describe("automatic claim details", () => {
   it("shows the exact maximum and removes manual claim fields", () => {
     renderView({ stakingEnabled: true });
 
-    expect(screen.getByText("2.5 ADA available to claim")).toBeInTheDocument();
+    // The eyebrow above says "Available to claim"; the figure is just the amount.
+    expect(screen.getByText("2.5 ADA")).toBeInTheDocument();
     expect(screen.getByText("stake_test1derived")).toBeInTheDocument();
     expect(screen.getByText("pool1example")).toBeInTheDocument();
     expect(

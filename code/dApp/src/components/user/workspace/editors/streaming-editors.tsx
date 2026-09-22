@@ -484,11 +484,15 @@ export function FocusedStreamingPaymentRulesEditor({
       issueCount={issueCount}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">
-          {adding
-            ? i18n("moneyBuildsUpForThePersonYouName")
-            : i18n("changeAPaymentYouAlreadySetUpOnly")}
-        </p>
+        {/* Not on an empty Add tab: the empty state below explains the same idea in its own
+            words ("Money builds up for somebody over time…"), directly under this line. */}
+        {adding && shownPayments.length === 0 ? null : (
+          <p className="text-sm text-muted-foreground">
+            {adding
+              ? i18n("moneyBuildsUpForThePersonYouName")
+              : i18n("changeAPaymentYouAlreadySetUpOnly")}
+          </p>
+        )}
         {/* Not while the empty state carries the same button: it owns this exact label and
             handler, so the toolbar copy was a second identical button. At the cap the empty
             state drops its CTA, so the disabled toolbar one is what remains; the line below
