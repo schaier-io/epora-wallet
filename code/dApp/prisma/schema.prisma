@@ -194,3 +194,19 @@ model ProposalSignature {
   @@unique([proposalId, signerKeyHash])
   @@index([proposalId])
 }
+
+/// One wallet key that has completed the CIP-30 sign-in at least once.
+///
+/// This is the only durable record that a co-signer finished registering. The
+/// session itself is a stateless signed cookie, so without this row the app
+/// cannot tell "never signed in" from "signed in on a device we cannot see",
+/// and the wallet owner has no way to know whether their co-signer is ready.
+///
+/// Deliberately holds no address and no wallet link: the key hash is already
+/// indexed in SttParticipant, and joining through it keeps this table from
+/// answering questions about keys that share no wallet with the caller.
+model SignerRegistration {
+  paymentKeyHash String   @id
+  firstSignInAt  DateTime @default(now())
+  lastSignInAt   DateTime
+}

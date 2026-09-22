@@ -12,6 +12,7 @@ import {
 } from "@/lib/proposals/auth";
 import { consumeStoredNonce } from "@/lib/proposals/auth-store";
 import { paymentKeyHashFromCoseKey } from "@/lib/proposals/cose-key";
+import { rememberSignerSignIn } from "@/lib/proposals/signer-registration-store";
 import { logger, serializeError } from "@/lib/observability/logger";
 import { getTranslations } from "next-intl/server";
 
@@ -109,6 +110,16 @@ export async function POST(request: Request) {
 
     if (!(await consumeStoredNonce(nonceCheck))) {
       return jsonError(i18n("signInNonceAlreadyUsedOrExpired"), 409);
+    }
+
+    // Remember that this key registered. The nonce is already spent by now, so a
+    // failure here must not turn a completed sign-in into a 500 the caller cannot
+    // retry: the cookie is minted either way and the operator gets the signal.
+    // This is a convenience signal for wallet owners, never an access control.
+    try {
+      await rememberSignerSignIn(paymentKeyHash);
+    } catch (error) {
+      logger.error("api.proposal_auth_registration_record_failed", { err: serializeError(error) });
     }
 
     const response = NextResponse.json({ paymentKeyHash, address: body.address });

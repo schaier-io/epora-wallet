@@ -1,4 +1,9 @@
 {
+  "AppApiProposalsWallets[unit]SignersRoute": {
+    "tooManySignerRequestsTryAgainShortly": "Too many signer requests. Try again shortly.",
+    "walletunitIsTooLong": "walletUnit is too long.",
+    "youAreNotAParticipantOfThisWallet": "You are not a participant of this wallet."
+  },
   "ComponentsUiLazyChunkFallback": {
     "loadingThisSection": "Loading this section…"
   },
