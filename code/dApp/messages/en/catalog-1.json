@@ -643,5 +643,8 @@
     "ended": "Ended",
     "notStarted": "Not started",
     "active": "Active"
+  },
+  "ComponentsUiLazyChunkFallback": {
+    "loadingThisSection": "Loading this section…"
   }
 }
