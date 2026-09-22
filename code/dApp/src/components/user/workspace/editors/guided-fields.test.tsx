@@ -482,3 +482,50 @@ it("single fund-pool selection replaces the prior input and offers no automatic 
   fireEvent.click(rows[1]!);
   expect(rows[1]).toHaveAttribute("aria-pressed", "false");
 });
+
+/**
+ * The ref used to render in full under `truncate`. It is 436px wide in this font at 11px,
+ * so the column always clipped it, and CSS truncation cuts the tail: the `#outputIndex`
+ * that is the only difference between two outputs of one transaction holding the same
+ * amount.
+ */
+describe("telling two fund pools of one transaction apart", () => {
+  const txHash = "aa".repeat(32);
+  const sameTxTwice = [
+    {
+      input: { txHash, outputIndex: 0 },
+      output: { address: "addr_test1x", amount: [{ unit: "lovelace", quantity: "5000000" }] }
+    },
+    {
+      input: { txHash, outputIndex: 1 },
+      output: { address: "addr_test1x", amount: [{ unit: "lovelace", quantity: "5000000" }] }
+    }
+  ];
+
+  /*
+   * Asserted on the rendered string, not on visibility: jsdom has no layout, so CSS
+   * `truncate` is invisible to it and the old markup still put the whole ref in
+   * `textContent`. Shortening in the JSX is what a test can see.
+   */
+  it("shortens the hash itself so each output index survives", () => {
+    render(
+      <GuidedLockedUtxoSelector
+        utxos={sameTxTwice as never}
+        selectedRefs={[]}
+        onChange={vi.fn()}
+        onSuggest={vi.fn()}
+        helper="Add each fund pool you want to include."
+      />
+    );
+
+    // The ref line carries the full value as its `title`, so it identifies itself.
+    const first = screen.getByTitle(`${txHash}#0`);
+    const second = screen.getByTitle(`${txHash}#1`);
+
+    expect(first.textContent).toMatch(/#0$/);
+    expect(second.textContent).toMatch(/#1$/);
+    // The whole 64-character hash is what used to be rendered and then clipped.
+    expect(first.textContent).not.toContain(txHash);
+    expect(second.textContent).not.toContain(txHash);
+  });
+});

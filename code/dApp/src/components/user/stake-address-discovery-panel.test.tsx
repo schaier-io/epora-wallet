@@ -14,6 +14,7 @@ const holder = vi.hoisted(() => ({
   },
   noticeProps: null as null | {
     actionsDisabled?: boolean;
+    checking?: boolean;
     onRecover?: (orphans: DiscoveredUtxo[]) => void;
   }
 }));
@@ -90,11 +91,18 @@ describe("nothing to act on renders nothing", () => {
 });
 
 describe("a failed check", () => {
+  /**
+   * Still one plain line, and still no button: `use-orphan-wallet-utxos.ts:35` sets
+   * `refetchInterval: queryPolicy.activePollMs` (30 seconds), so the check retries on
+   * its own and the reader has nothing to do. The line used to end "Reload the page to
+   * try again", which named the one recovery that costs something: `activeWalletAtom`
+   * starts null on every page load, so reloading disconnects the wallet.
+   */
   it("says so in one plain line", () => {
     renderPanel({ error: "Discovery failed" });
 
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "Could not check where this wallet's funds sit. Reload the page to try again."
+      "Could not check where this wallet's funds sit. The app keeps trying."
     );
     expect(screen.queryByText(/Re-check/)).not.toBeInTheDocument();
     expect(screen.queryByText(/—/)).not.toBeInTheDocument();
@@ -130,4 +138,15 @@ it("shows a failed refresh and disables actions on retained outputs", () => {
   expect(screen.getByRole("alert")).toHaveTextContent("Could not check");
   expect(holder.noticeProps?.actionsDisabled).toBe(true);
   expect(screen.getByTestId("orphan-notice")).toBeInTheDocument();
+});
+
+/**
+ * `loading` is one of the three causes of `actionsDisabled`, and the only one with
+ * nothing else on screen explaining it: an error prints its own paragraph above,
+ * and `!canCheck` yields no orphans so the notice never renders.
+ */
+it("tells the notice a check is running, not only that actions are off", () => {
+  renderPanel({ loading: true, orphans: [{ txHash: "aa", outputIndex: 0 } as DiscoveredUtxo], orphanLovelace: 5_000_000n });
+  expect(holder.noticeProps?.actionsDisabled).toBe(true);
+  expect(holder.noticeProps?.checking).toBe(true);
 });

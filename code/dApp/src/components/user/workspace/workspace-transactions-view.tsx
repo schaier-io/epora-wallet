@@ -99,7 +99,7 @@ export function WorkspaceTransactionsView() {
                     <CardContent className="relative z-10 space-y-4">
                       {!lockingContract.address ? (
                         <div className="flex min-h-[min(320px,45vh)] flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border/60 bg-muted/10 p-3 text-center sm:p-4">
-                          <div className="flex h-14 w-14 items-center justify-center rounded-md border border-border/60 bg-background/60 shadow-sm">
+                          <div className="flex h-14 w-14 items-center justify-center rounded-md border border-border/60 bg-background/60">
                             <Settings2 className="h-7 w-7 text-muted-foreground" aria-hidden="true" />
                           </div>
                           <div className="max-w-sm space-y-2">
@@ -361,7 +361,7 @@ export function WorkspaceTransactionsView() {
                           role="status"
                           className="flex min-h-[min(320px,45vh)] flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border/60 bg-muted/10 p-3 text-center sm:p-4"
                         >
-                          <div className="flex h-14 w-14 items-center justify-center rounded-md border border-border/60 bg-background/60 shadow-sm">
+                          <div className="flex h-14 w-14 items-center justify-center rounded-md border border-border/60 bg-background/60">
                             <Inbox className="h-7 w-7 text-muted-foreground" aria-hidden="true" />
                           </div>
                           <div className="max-w-sm space-y-2">
@@ -483,7 +483,12 @@ export function WorkspaceTransactionsView() {
                                         target="_blank"
                                         rel="noreferrer"
                                         className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border/60 bg-background/50 text-muted-foreground transition-colors hover:text-foreground"
-                                        title={i18n("openOnCardanoscan")}
+                                        // Same string for both, and the same string the
+                                        // sibling link 23 lines up already uses. The tooltip
+                                        // read "Open on Cardanoscan" while the accessible
+                                        // name read "Open transaction on Cardanoscan", so a
+                                        // speech-input user could not say what they saw.
+                                        title={i18n("openTransactionOnCardanoscan")}
                                         aria-label={i18n("openTransactionOnCardanoscan")}
                                       >
                                         <ExternalLink className="h-3.5 w-3.5" />

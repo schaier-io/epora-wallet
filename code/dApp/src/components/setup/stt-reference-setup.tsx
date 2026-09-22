@@ -53,6 +53,10 @@ export function SttReferenceSetup({
   const [submittedReference, setSubmittedReference] = useState<string | null>(null);
   const [phase, setPhase] = useState<SetupPhase>(initialStore ? "idle" : "checking");
   const [error, setError] = useState<string | null>(null);
+  // Bumped by the retry in the error panel. The detection effect below runs once and its
+  // other dependencies never change, so without a dependency the caller can move, a failed
+  // detection could only be retried by reloading the page.
+  const [detectAttempt, setDetectAttempt] = useState(0);
   const mounted = useRef(true);
   const inFlight = useRef(false);
 
@@ -88,7 +92,7 @@ export function SttReferenceSetup({
     return () => {
       cancelled = true;
     };
-  }, [i18n, initialStore, router, store]);
+  }, [detectAttempt, i18n, initialStore, router, store]);
 
   const connected = Boolean(activeWallet && activeAddress);
   const canBuild = connected && !isDemoWallet && networkId === 0 && phase === "idle" && !submittedReference;
@@ -197,7 +201,10 @@ export function SttReferenceSetup({
         <div className="flex gap-3">
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" aria-hidden="true" />
           <div className="space-y-1">
-            <p className="text-sm font-medium text-foreground">{i18n("permanentTitle")}</p>
+            {/* `h2`, not `p`: this titles the warning block under the page's only `h1`.
+                Preflight resets `h1`-`h6` to `font-size: inherit` and `font-weight:
+                inherit`, so the classes still decide how it looks. */}
+            <h2 className="text-sm font-medium text-foreground">{i18n("permanentTitle")}</h2>
             <p className="text-xs leading-relaxed text-muted-foreground">{i18n("permanentDescription")}</p>
           </div>
         </div>
@@ -206,7 +213,7 @@ export function SttReferenceSetup({
       <div className="space-y-4 rounded-xl border border-border/60 bg-background/40 p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-medium text-foreground">{i18n("statusTitle")}</p>
+            <h2 className="text-sm font-medium text-foreground">{i18n("statusTitle")}</h2>
             <p className="mt-1 text-xs text-muted-foreground">
               {busy ? i18n("working") : connected ? i18n("walletReady") : i18n("walletNeeded")}
             </p>
@@ -270,9 +277,35 @@ export function SttReferenceSetup({
           </Button>
         )}
 
+        {/* The detection that fills this page runs once, in an effect whose other
+            dependencies never change, so a failure used to leave the reader with a sentence
+            and no way forward: none of Connect, Build, Deploy or Discard re-checks, and the
+            only remaining move was to reload. The retry re-runs that detection.
+
+            It renders only while nothing has been detected. Once `store` is set the error
+            came from building or submitting instead, and re-running detection would not
+            address it. `Check again` is the label the page already uses for the same idea. */}
         {error ? (
-          <div role="alert" className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-100">
-            {error}
+          <div
+            role="alert"
+            className="space-y-3 rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-100"
+          >
+            <p>{error}</p>
+            {!store && !initialStore ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={busy}
+                onClick={() => {
+                  setError(null);
+                  setPhase("checking");
+                  setDetectAttempt((attempt) => attempt + 1);
+                }}
+              >
+                {i18n("checkAgain")}
+              </Button>
+            ) : null}
           </div>
         ) : null}
       </div>

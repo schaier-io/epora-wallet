@@ -1,8 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Loader2 } from "lucide-react";
-import { SkeletonCard } from "@/components/ui/skeleton";
+import { LazyChunkFallback } from "@/components/ui/lazy-chunk-fallback";
 
 /**
  * The proposals workspace's module graph reaches the Cardano serialisation stack
@@ -21,12 +20,7 @@ const LazyProposalsWorkspace = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="space-y-4" aria-busy="true">
-        <div className="inline-flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-        </div>
-        <SkeletonCard />
-      </div>
+      <LazyChunkFallback />
     )
   }
 );

@@ -37,8 +37,15 @@ export function PayeeCardHeader({
             this div's max-content width, so it overflowed the line and pushed Refresh onto a
             second flex row where `justify-between` never applied. `flex-1` puts the basis at
             0. `space-y-1` sits here and not on `CardHeader`, which has this div as its only
-            child and so matches nothing with `:not(:last-child)`. */}
-        <div className="min-w-0 flex-1 space-y-1">
+            child and so matches nothing with `:not(:last-child)`.
+
+            `basis-64` because a basis of 0 shrinks instead of wrapping, so the row's own
+            `flex-wrap` could never fire: at a 320px viewport this column was 140px of a
+            254px row and the 24px heading broke over three lines beside a 102px Refresh
+            button. 256px is a bounded basis, so the max-content overflow the comment above
+            describes does not come back, and `flex-1` still grows the column on a wide
+            card. Below 268px of row the button now takes its own line. */}
+        <div className="min-w-0 flex-1 basis-64 space-y-1">
           {/* "Scheduled income", the name the top navigation uses for this destination.
               The page said "Scheduled payments to you", which also reads a step too close
               to the wallet's own outgoing "Scheduled payments".

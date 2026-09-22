@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { KeyRound, Loader2, ShieldCheck, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { pageHeadingClass } from "@/components/ui/page-heading";
 import { useWalletContext } from "@/providers/wallet-provider";
 import { truncateMiddle } from "./format";
 import type { ProposalSessionController } from "./use-proposal-session";
@@ -47,8 +48,15 @@ export function SignInGate({ session }: { session: ProposalSessionController }) 
           {/* The gate replaces the whole page while nobody is signed in, and the `h1` it
               stands in for lives in the signed-in view. Left at the default `h3` the route
               had no page heading at all in the state most first visits land in, so a screen
-              reader jumping by heading found nothing to say what this page is. */}
-          <CardTitle as="h1">{i18n("signInToSeeApprovalRequests")}</CardTitle>
+              reader jumping by heading found nothing to say what this page is.
+
+              `pageHeadingClass` for the same reason `/payee` carries it on its own
+              `CardTitle as="h1"`: a card title standing in for the page heading should
+              read at the page rung. Without it this route rendered its `h1` at 18px/500
+              while the signed-in view of the same route renders one at 24px/600. */}
+          <CardTitle as="h1" className={pageHeadingClass}>
+            {i18n("signInToSeeApprovalRequests")}
+          </CardTitle>
           <CardDescription>
             {i18n("yourWalletIsYourLoginHereItAsks")}
           </CardDescription>

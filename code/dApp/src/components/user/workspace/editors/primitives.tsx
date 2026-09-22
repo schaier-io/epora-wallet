@@ -245,14 +245,20 @@ export function SetupProgressStepper({ steps }: { steps: SetupProgressStep[] }) 
     // rounded-lg, not rounded-xl: this sits inside the config <Card> (rounded-xl / 14px) and
     // beside the mint view's other rounded-lg panels. rounded-xl here tied the card's own
     // radius and made this one panel read as a peer of the card rather than a child of it.
-    <div className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
+    <div className="@container rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-medium text-foreground">{i18n("setupPath")}</p>
         <Badge variant="outline">
           {steps.filter((step) => step.status === "done").length}/{steps.length} {i18n("done")}
         </Badge>
       </div>
-      <ol className="mt-4 grid gap-3 sm:grid-cols-3">
+      {/* A container query, because the viewport is not what decides this. `sm:grid-cols-3`
+          split into three columns from 640px of *viewport*, while this panel sits in the
+          config card inside the workspace's left column: measured at a 640px viewport the
+          panel is 540px wide, so each step got 161px and "Review, then continue in your
+          wallet." ran at about twenty characters over three lines. `@2xl` (42rem) is the
+          width at which three steps have room; below it they stack. */}
+      <ol className="mt-4 grid gap-3 @2xl:grid-cols-3">
         {steps.map((step, index) => {
           const isDone = step.status === "done";
           const isActive = step.status === "active";

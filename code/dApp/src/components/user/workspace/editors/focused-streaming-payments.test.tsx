@@ -137,6 +137,13 @@ describe("a payment being added", () => {
     expect(add).toBeDisabled();
     fireEvent.click(add);
     expect(onChange).not.toHaveBeenCalled();
+    // At the cap the empty state drops its own button, so this dead one was the only cue
+    // the reader got. The full editor has always named the cap (`state-form-editor.tsx:379`).
+    expect(
+      screen.getByText(
+        `This wallet already holds ${MAX_STREAMING_PAYMENTS} scheduled payments. Remove one to add another.`
+      )
+    ).toBeInTheDocument();
   });
 
   it("stores a weekly ADA rate as the equivalent daily lovelace", () => {

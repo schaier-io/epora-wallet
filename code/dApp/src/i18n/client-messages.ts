@@ -21,6 +21,9 @@ export const ROOT_CLIENT_NAMESPACES = [
   "ComponentsProfileCard",
   "ComponentsUiCopyButton",
   "ComponentsUiInfoHint",
+  // Three `dynamic()` boundaries on three different routes show this fallback, so it
+  // is loaded at the root rather than added to each page's provider prefixes.
+  "ComponentsUiLazyChunkFallback",
   "ComponentsUiPopupDialog",
   "ComponentsUserWalletMembershipCard",
   "ComponentsUserWalletSessionProfileCard",

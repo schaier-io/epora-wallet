@@ -100,7 +100,6 @@
     "noActivityYet": "No activity yet",
     "noInputDetailsWereReturnedForThisTransaction": "No input details were returned for this transaction.",
     "noOutputDetailsWereReturnedForThisTransaction": "No output details were returned for this transaction.",
-    "openOnCardanoscan": "Open on Cardanoscan",
     "openTransactionOnCardanoscan": "Open transaction on Cardanoscan",
     "outputsCreated": "Outputs created",
     "previous": "Previous",
@@ -124,19 +123,6 @@
     "showingRangeOfTotal": "Showing {start}-{end} of {total}",
     "balanceHistory": "Balance history",
     "balanceHistoryDescription": "View the wallet balance over time."
-  },
-  "ComponentsUserWorkspaceWorkspaceView": {
-    "chooseSmartWallet": "Choose smart wallet",
-    "createAnotherWallet": "Create another wallet",
-    "detectingWallets": "Detecting wallets…",
-    "liveOnChainSaveOrShareYourCard": "Live on-chain. Save or share your card, then open it when ready.",
-    "lookingUpSmartWalletsForThisSignerOn": "Looking up smart wallets for this signer on Preprod.",
-    "openWallet": "Open wallet",
-    "pickWhichWalletToOpenOrStartA": "Pick which wallet to open, or start a new one.",
-    "sendingToTheNetwork": "Sending to the network…",
-    "stillWaitingThisCanTakeAnotherBlock": "Still waiting. This can take another block.",
-    "thisUsuallyTakesAFewSecondsTheSetup": "This usually takes a few seconds. The setup or wallet picker will appear once detection finishes.",
-    "walletWorkspace": "Wallet workspace"
   },
   "ComponentsUserWorkspaceWorkspaceWalletDashboardView": {
     "addAScheduledPayment": "Add a scheduled payment",

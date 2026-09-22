@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { MAX_TOTAL_USER_WALLETS } from "@/lib/contracts/state-validation";
 
 import { OwnerAccessEditor, WalletNameEditor } from "./wallet-settings-editors";
 import { MAX_WALLET_NAME_BYTES, clampWalletNameInput } from "@/lib/contracts/state-wallet-name";
@@ -123,6 +124,12 @@ describe("owner wallet cap", () => {
     expect(addConnected).toBeDisabled();
     fireEvent.click(addConnected);
     expect(onChange).not.toHaveBeenCalled();
+    // This owner holds no wallets, so the block came from the wallet-wide total.
+    expect(
+      screen.getByText(
+        `This wallet already links ${MAX_TOTAL_USER_WALLETS} wallets across everyone in it. Remove one from somebody to add another.`
+      )
+    ).toBeInTheDocument();
   });
 });
 

@@ -83,6 +83,16 @@ describe("locked assets panel", () => {
     expect(container.textContent).not.toMatch(/Nothing inside this wallet yet/);
   });
 
+  it("says it is loading, rather than updating a region holding nothing", () => {
+    // `Skeleton` is `aria-hidden`, so the `aria-live` region here announced an update and
+    // then held nothing to read. Same fix as `app/user/loading.tsx`.
+    render(<LockedAssetsOverviewPanel utxoCount={0} assets={[]} loading />);
+
+    const region = screen.getByRole("status");
+    expect(region).toHaveAttribute("aria-busy", "true");
+    expect(region).toHaveTextContent("Loading the assets in this wallet…");
+  });
+
   /**
    * The heading used to carry "N assets in this wallet." under it. The rows below are the
    * count, and on an ADA-only wallet that line was the third statement on the dashboard

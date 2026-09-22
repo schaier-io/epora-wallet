@@ -170,7 +170,9 @@
     "oneAdaIsAMillionLovelace": "1 ADA is 1,000,000 lovelace.",
     "removeFundPoolNumber": "Remove fund pool {number}",
     "removeTokenNumber": "Remove token {number}",
-    "removeWalletNumber": "Remove wallet {number}"
+    "removeWalletNumber": "Remove wallet {number}",
+    "thisPersonAlreadyHasMaxLimits": "This person already has {max} spending limits. Remove one to add another.",
+    "thisWalletAlreadyHasMaxLimits": "This wallet already has {max} spending limits across everyone in it. Remove one to add another."
   },
   "ComponentsUserWorkspaceEditorsAssetListEditor": {
     "adaOrTokenPolicyAsset": "ADA or token policy+asset",
@@ -189,7 +191,8 @@
   },
   "ComponentsUserWorkspaceEditorsConfigFormPrimitives": {
     "signAs": "Sign as",
-    "signingAs": "Signing as:"
+    "signingAs": "Signing as:",
+    "enterAnAdaAmountLike": "Enter an ADA amount, for example 1.5."
   },
   "ComponentsUserWorkspaceEditorsFocusedPeopleEditor": {
     "aCardanoWalletHasToBeLinkedTo": "A Cardano wallet has to be linked to a person before they can use this smart wallet.",
@@ -254,7 +257,12 @@
     "useTheWalletIAmSignedInWith": "Use the wallet I am signed in with",
     "walletsThisPersonSignsWith": "Wallets this person signs with",
     "whatIsLeftOfTheDailyLimitRight": "What is left of the daily limit right now. It goes back to the full limit on the first payment made after the reset time above.",
-    "yes": "Yes"
+    "yes": "Yes",
+    "thisWalletAlreadyHoldsMaxAccessRecords": "This wallet already holds {max} owners, spenders, and recovery contacts in total. Remove one to add another.",
+    "thisWalletAlreadyHoldsMaxPeople": "This wallet already holds {max} people, owners and spenders together. Remove one to add another.",
+    "thisPersonAlreadyHasMaxWallets": "This person already has {max} wallets. Remove one to add another.",
+    "thisWalletAlreadyHasMaxLimits": "This wallet already has {max} spending limits across everyone in it. Remove one to add another.",
+    "thisWalletAlreadyLinksMaxWallets": "This wallet already links {max} wallets across everyone in it. Remove one from somebody to add another."
   },
   "ComponentsUserWorkspaceEditorsFocusedWalletSettingsEditor": {
     "addRecoveryContact": "Add recovery contact",
@@ -282,7 +290,9 @@
     "value1Value2": "{value1} · {value2}",
     "wakeUpTimer": "Proof of life",
     "walletSettings": "Wallet settings",
-    "yes": "Yes"
+    "yes": "Yes",
+    "thisWalletAlreadyHoldsMaxAccessRecords": "This wallet already holds {max} owners, spenders, and recovery contacts in total. Remove one to add another.",
+    "thisWalletAlreadyHoldsMaxRecoveryContacts": "This wallet already holds {max} recovery contacts. Remove one to add another."
   },
   "ComponentsUserWorkspaceEditorsGuidedFields": {
     "available": "Available",
@@ -353,7 +363,9 @@
     "payoutAndSigningWalletHelp": "This address receives exact distributions. Its payment key also signs for this recovery contact.",
     "payoutAddressNeedsPaymentKey": "Use a Cardano wallet address with a payment key. A script address cannot sign for recovery.",
     "payoutAddressPlaceholder": "addr_test1...",
-    "recoveryContact": "Recovery contact"
+    "recoveryContact": "Recovery contact",
+    "thisWalletAlreadyHoldsMaxAccessRecords": "This wallet already holds {max} owners, spenders, and recovery contacts in total. Remove one to add another.",
+    "thisWalletAlreadyHoldsMaxPeople": "This wallet already holds {max} people, owners and spenders together. Remove one to add another."
   },
   "ComponentsUserWorkspaceEditorsPrimitives": {
     "chooseAnAsset": "Choose an asset",
@@ -406,7 +418,6 @@
     "howLongYouHaveBetweenCheckInsBefore": "How long you have between check-ins before recovery contacts can act.",
     "ifYouEverLoseYourKeysRecoveryContacts": "If you ever lose your keys, recovery contacts can step in. They wait behind your proof of life.",
     "iUnderstandThisWalletHasNoDirectOwner": "I understand this wallet has no direct owner.",
-    "moreAboutLabel": "More about {label}",
     "moreSettings": "Spending and scheduled payments",
     "nobodyHoldsACosignerChipYetSo": "Nobody holds a Co-signer chip yet, so only the owners can act. Add a co-signer to turn the rule on.",
     "noDirectOwnerYet": "No direct owner yet",
@@ -502,11 +513,11 @@
     "thisPaymentIsAlreadyRunningYouCanOnly": "This payment is already running. You can only change when it stops. To stop it, select Stop as soon as possible. Whatever has already built up stays theirs.",
     "value1Ada": "{value1} ADA",
     "yourPayeeCollectsThisOnThe": "Your payee collects this on the",
-    "scheduledIncomePage": "Scheduled income page."
+    "scheduledIncomePage": "Scheduled income page.",
+    "thisWalletAlreadyHoldsMaxScheduledPayments": "This wallet already holds {max} scheduled payments. Remove one to add another."
   },
   "ComponentsUserWorkspaceEditorsTaskSurface": {
     "iUnderstandAndWantThisWalletToHave": "I understand, and want this wallet to have no owner.",
-    "moreAboutTitle": "More about {title}",
     "nobodyCouldChangeItDirectlyOnlyTheRecovery": "Nobody could change it directly. Only the recovery contacts and spending limits already saved would still work. Confirm that is what you want.",
     "noDirectOwner": "No direct owner",
     "noIssues": "No issues",
@@ -525,7 +536,6 @@
     "chooseTheEarliestLocalDateAndTimeThis_de24bc": "Choose the earliest local date and time this person may use recovery.",
     "dailySpendingLimit": "Daily spending limit",
     "higherWeightMeansALargerOneTimeShare": "Higher weight means a larger proportional share while several recovery contacts remain. Earlier recovery contacts withdraw once and are removed. The final recovery contact stays available for other fund pools and funds sent later. Whole number, 1 or more.",
-    "moreAboutTitle": "More about {title}",
     "moreAboutWalletNames": "More about wallet names",
     "mostWalletsCanRelyOnTheSharedProof": "Most wallets can rely on the shared proof of life. Add a personal wait date only when this recovery contact should be blocked until a later date.",
     "noDate": "No date",
@@ -560,7 +570,9 @@
     "walletName": "Wallet name",
     "walletNameAtLimit": "That is as long as a wallet name can be. Emoji and accented letters take up more room than plain letters.",
     "walletNamePreview": "This wallet will show as <strong>{name}</strong>.",
-    "spender": "Spender"
+    "spender": "Spender",
+    "thisPersonAlreadyHasMaxWallets": "This person already has {max} wallets. Remove one to add another.",
+    "thisWalletAlreadyLinksMaxWallets": "This wallet already links {max} wallets across everyone in it. Remove one from somebody to add another."
   },
   "ComponentsUserWorkspaceGuidedAdminCatalog": {
     "add": "Add",

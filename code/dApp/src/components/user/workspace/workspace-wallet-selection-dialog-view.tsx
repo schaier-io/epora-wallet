@@ -128,7 +128,7 @@ export function WalletSelectionDialogView() {
             blur
             className="flex flex-col items-center gap-4 rounded-lg border border-dashed border-border/70 bg-muted/15 p-3 sm:p-4 text-center"
           >
-            <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-border/60 bg-background/70 shadow-sm">
+            <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-border/60 bg-background/70">
               <Wallet2 className="h-7 w-7 text-muted-foreground" aria-hidden="true" />
             </div>
             <div className="max-w-md space-y-2">

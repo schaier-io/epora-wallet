@@ -20,6 +20,7 @@ import { useWalletContext } from "@/providers/wallet-provider";
 import { applyCoSigners, CoSignerPicker, describeCoSignerChoice } from "./cosigner-picker";
 import { actionKindLabel } from "./format";
 import { authorityPathLabel } from "./signer-progress";
+import { ProposalSummaryRows } from "./proposal-summary-rows";
 import { clearProposalDraft, readProposalDraft } from "./stash";
 
 type CreateProposalPanelProps = {
@@ -206,14 +207,7 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
             <p className="mb-1 break-words text-xs text-muted-foreground">
               {draft.summary.headline}
             </p>
-            <dl className="grid grid-cols-1 gap-1 text-sm sm:grid-cols-2">
-              {draft.summary.rows.map((row, index) => (
-                <div key={`${row.label}-${index}`} className="flex min-w-0 flex-wrap justify-between gap-2">
-                  <dt className="text-muted-foreground">{row.label}</dt>
-                  <dd className="min-w-0 wrap-anywhere text-right">{row.value}</dd>
-                </div>
-              ))}
-            </dl>
+            <ProposalSummaryRows rows={draft.summary.rows} />
           </section>
         ) : null}
 

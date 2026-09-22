@@ -77,8 +77,12 @@ export function WorkspaceOnboardingView() {
                           {row.n}
                         </span>
                         <div className="space-y-1">
-                          {/* One rung under the old `text-lg md:text-xl`, which put these three
-                              above the `h2` that heads the screen. They now match it.
+                          {/* DESIGN.md's Title rung, 1rem: "section and editor titles". These
+                              were `text-lg md:text-xl`, louder than the `h2` heading the
+                              screen; then `text-base md:text-lg`, which at `md` rendered 18px
+                              -- the h2's exact size and weight, so neither one ranked. The h2
+                              now carries the Headline rung and these carry Title, one flat
+                              value, so the ladder holds at every width: 24 / 16 / 14.
 
                               `h3`, not `p`: these are the three sections of the only screen a
                               visitor sees before connecting, and as paragraphs they were
@@ -87,7 +91,7 @@ export function WorkspaceOnboardingView() {
                               resets `h1`-`h6` to `font-size: inherit` and `margin: 0`
                               (`tailwindcss/preflight.css:78`), so the classes still decide
                               how it looks and nothing moves. */}
-                          <h3 className="font-sans text-base font-semibold leading-snug tracking-[-0.02em] text-foreground md:text-lg">
+                          <h3 className="font-sans text-base font-semibold leading-snug tracking-[-0.02em] text-foreground">
                             {row.title}
                           </h3>
                           <p className="max-w-[46ch] text-sm leading-relaxed text-muted-foreground">

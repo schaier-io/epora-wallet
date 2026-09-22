@@ -5,7 +5,10 @@ import { describe, expect, it, vi } from "vitest";
 import { getDefaultStore } from "jotai";
 import { useState } from "react";
 import { resolvedWalletAddressesAtom } from "@/providers/wallet-address-book";
-import { MAX_ALLOWANCE_ENTRIES } from "@/lib/contracts/state-validation";
+import {
+  MAX_ALLOWANCE_ENTRIES,
+  MAX_TOTAL_ALLOWANCE_ENTRIES
+} from "@/lib/contracts/state-validation";
 import { createDefaultStateForm, createDefaultUserFormState, stateFormToDatum, type StateAssetAmountForm } from "@/lib/contracts/state-form";
 import { readStateSections } from "@/lib/contracts/state-layout";
 import { parseValueData } from "@/lib/contracts/value-data";
@@ -158,6 +161,13 @@ describe("a list of token amounts", () => {
     expect(add).toBeDisabled();
     fireEvent.click(add);
     expect(onChange).not.toHaveBeenCalled();
+    // A dead button and no number was the whole message. Two different caps can empty it,
+    // so the line has to say which one, not merely that something is full.
+    expect(
+      screen.getByText(
+        `This person already has ${MAX_ALLOWANCE_ENTRIES} spending limits. Remove one to add another.`
+      )
+    ).toBeInTheDocument();
   });
 
   it("lets the parent stop adds at the total allowance cap", () => {
@@ -175,6 +185,11 @@ describe("a list of token amounts", () => {
     expect(add).toBeDisabled();
     fireEvent.click(add);
     expect(onChange).not.toHaveBeenCalled();
+    expect(
+      screen.getByText(
+        `This wallet already has ${MAX_TOTAL_ALLOWANCE_ENTRIES} spending limits across everyone in it. Remove one to add another.`
+      )
+    ).toBeInTheDocument();
   });
 
   it("gives two lists with the same label distinct control ids", () => {
@@ -395,6 +410,48 @@ describe("a list of wallet ids", () => {
     expect(
       screen.getByLabelText("Wallets this person signs with, wallet 1")
     ).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("says nothing about the row being typed in, and still judges its neighbour", () => {
+    // `malformed` is true for anything that is not yet a 56-character hash, so it fired
+    // on the first keystroke of every id and stayed on until the last one landed. These
+    // rows render in a map, so the row with focus is tracked by index rather than by the
+    // hook the single address fields use.
+    renderList(["abc", "def"]);
+    const firstRow = screen.getByLabelText("Wallets this person signs with, wallet 1");
+    const secondRow = screen.getByLabelText("Wallets this person signs with, wallet 2");
+
+    fireEvent.focus(firstRow);
+    expect(firstRow).not.toHaveAttribute("aria-invalid");
+    // Only the row with focus goes quiet; the other one is not being typed in.
+    expect(secondRow).toHaveAttribute("aria-invalid", "true");
+
+    fireEvent.blur(firstRow);
+    expect(firstRow).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("puts the cursor in the row it just added", () => {
+    // The Add button sits in the header above the list, so the next Tab after adding
+    // went to the FIRST row: reaching the new last one meant tabbing past every row
+    // already there. The list is controlled, so this holds its own state; with a spy
+    // for `onChange` no second row is ever rendered and the test proves nothing.
+    function StatefulList() {
+      const [wallets, setWallets] = useState<string[]>(["abc"]);
+      return (
+        <WalletHashesEditor
+          label="Wallets this person signs with"
+          value={wallets}
+          onChange={setWallets}
+        />
+      );
+    }
+    render(<StatefulList />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Add a wallet" }));
+
+    expect(document.activeElement).toBe(
+      screen.getByLabelText("Wallets this person signs with, wallet 2")
+    );
   });
 
   it("stores the wallet id when a Cardano address is pasted", () => {

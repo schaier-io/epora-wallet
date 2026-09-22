@@ -249,18 +249,15 @@ export function WalletConnectionDialog({
     (headerFromCaller ? description : undefined) ??
     i18n("chooseTheBrowserWalletToUseHereConnecting");
 
-  const networkBadgeVariant =
-    networkId === null ? "outline" : networkId === 0 ? "secondary" : "warning";
-  const networkBadgeLabel =
-    // "Network unknown", not "Disconnected": this badge describes the network, and with no
-    // wallet resolved there is no network to describe. "Disconnected" read as a statement
-    // about the wallet -- directly above a list headed "Browser wallet" -- and contradicted
-    // the "Connected" badges on the cards below it.
-    networkId === null
-      ? i18n("networkUnknown")
-      : networkId === 0
-        ? i18n("preprodTestnet")
-        : i18n("mainnet");
+  // The badge describes the connected wallet's network, so it only exists once a wallet
+  // has answered. Before that there is nothing to describe: a "Network unknown" chip read
+  // as a fault in the connector, sitting right above a Connect button that works.
+  const networkBadge =
+    networkId === null ? null : (
+      <Badge variant={networkId === 0 ? "secondary" : "warning"}>
+        {networkId === 0 ? i18n("preprodTestnet") : i18n("mainnet")}
+      </Badge>
+    );
 
   return (
     <PopupDialog
@@ -290,10 +287,15 @@ export function WalletConnectionDialog({
             </p>
           </div>
 
-            <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-muted/25 to-background/40 p-3 sm:p-4 shadow-sm">
+            {/* No surface of its own. This wraps the whole browser-wallet region inside a
+                dialog that is already a bordered, shadowed panel, so its border, gradient
+                and `shadow-sm` built a card inside a card and a second shadow inside the
+                one DESIGN.md's shadow vocabulary allows. The wallet tiles below carry
+                their own borders and remain the only cards in here. */}
+            <div>
             <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
-                {noExtension ? null : <Badge variant={networkBadgeVariant}>{networkBadgeLabel}</Badge>}
+                {networkBadge}
                 {isDemoWallet ? <Badge variant="outline">{i18n("demoReadOnly")}</Badge> : null}
               </div>
               <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
@@ -361,10 +363,15 @@ export function WalletConnectionDialog({
                 so this notice sits above its tile and points at the real wallets to install. */}
             {noExtension ? (
               <div className="mt-4 flex flex-col gap-3 rounded-xl border border-dashed border-border/70 bg-background/45 p-3 sm:flex-row sm:items-start sm:gap-4">
-                <div className="mx-auto flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-muted/35 sm:mx-0">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-muted/35">
                   <Wallet2 className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
                 </div>
-                <div className="min-w-0 space-y-2 text-center sm:text-left">
+                {/* Left-aligned at every width. `text-center sm:text-left` centred the copy only
+                    below `sm`, which is exactly where it hurts: at 320px these two paragraphs
+                    run five and six lines, so every line started at a different x. The icon
+                    above them dropped its `mx-auto` for the same reason, so the stacked
+                    layout has one alignment. */}
+                <div className="min-w-0 space-y-2">
                   <p className="text-sm font-semibold text-foreground">{i18n("noExtensionDetected")}</p>
                   <p className="text-sm leading-relaxed text-muted-foreground">
                     {i18n.rich("installCardanoWallet", {

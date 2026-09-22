@@ -11,6 +11,10 @@ type OrphanUtxoNoticeProps = {
   orphanLovelace: bigint;
   busy?: boolean;
   actionsDisabled?: boolean;
+  /// A discovery re-check is in flight. It is what turns `actionsDisabled` on
+  /// most of the time, so the Re-check button has to say so: otherwise the two
+  /// action buttons grey out with nothing on screen explaining why.
+  checking?: boolean;
   onConsolidate: (orphans: DiscoveredUtxo[]) => void;
   onRecover?: (orphans: DiscoveredUtxo[]) => void;
   onDismiss?: () => void;
@@ -27,6 +31,7 @@ export function OrphanUtxoNotice({
   orphanLovelace,
   busy = false,
   actionsDisabled = false,
+  checking = false,
   onConsolidate,
   onRecover,
   onDismiss,
@@ -91,10 +96,11 @@ export function OrphanUtxoNotice({
             type="button"
             size="sm"
             variant="outline"
-            disabled={busy}
+            disabled={busy || checking}
+            aria-busy={checking}
             onClick={onRefresh}
           >
-            {i18n("reCheck")}
+            {checking ? i18n("checking") : i18n("reCheck")}
           </Button>
         ) : null}
         {onDismiss ? (

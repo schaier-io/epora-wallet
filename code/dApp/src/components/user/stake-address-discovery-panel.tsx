@@ -53,6 +53,7 @@ export function StakeAddressDiscoveryPanel({
           orphanLovelace={orphanLovelace}
           busy={busy}
           actionsDisabled={loading || Boolean(error) || !canCheck}
+          checking={loading}
           onConsolidate={onConsolidate}
           onRecover={onRecover}
           onRefresh={() => void refetch()}

@@ -1,5 +1,6 @@
 "use client";
 import { type ComponentProps, type ReactNode, useState } from "react";
+import { useTranslations } from "next-intl";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -138,6 +139,7 @@ export function AdaAmountInput({
   /** Receives the raw text; the caller parses it with parseAdaToLovelace. */
   onChange: (text: string) => void;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsConfigFormPrimitives");
   const [draft, setDraft] = useState<string | null>(null);
   const [focused, setFocused] = useState(false);
   const stored = value.trim() ? formatLovelaceAsAda(value) : "";
@@ -152,11 +154,32 @@ export function AdaAmountInput({
     if (!focused) setDraft(null);
   }
 
+  // The box flagged itself and said nothing. `invalid` above is this component's own
+  // judgement, not the caller's: three of the four call sites pass no error of their own
+  // (`asset-list-editor.tsx:149`, `streaming-editors.tsx:163,351`), so text that does not
+  // parse turned the border red and set `aria-invalid` with no message anywhere on the
+  // screen and none for a screen reader. The message is this component's to give, because
+  // it is the only place that knows the text failed to parse.
+  // Reported on blur, not on every keystroke. `parseAdaToLovelace` rejects the prefixes of
+  // a thousands-grouped amount the app itself accepts: typing "1,000" measures as
+  // "1"=ok "1,"=INVALID "1,0"=INVALID "1,00"=INVALID "1,000"=ok, so the box turned red and
+  // named a format error three times on the way to a valid number. ".5" does the same on
+  // its first keystroke. `invalid` itself stays ungated: the blur handler below uses it to
+  // decide whether to keep unparseable text on screen.
+  const reportInvalid = invalid && !focused;
+  const formatErrorId = inputProps.id ? `${inputProps.id}-ada-format` : undefined;
+  const describedBy =
+    [inputProps["aria-describedby"], reportInvalid ? formatErrorId : null]
+      .filter(Boolean)
+      .join(" ") || undefined;
+
   return (
+    <>
     <Input
       {...inputProps}
       inputMode="decimal"
-      aria-invalid={invalid || inputProps["aria-invalid"] || undefined}
+      aria-describedby={describedBy}
+      aria-invalid={reportInvalid || inputProps["aria-invalid"] || undefined}
       value={draft ?? stored}
       onFocus={(event) => {
         setFocused(true);
@@ -173,5 +196,10 @@ export function AdaAmountInput({
         onChange(event.target.value);
       }}
     />
+    <InlineFieldError
+      id={formatErrorId}
+      message={reportInvalid ? i18n("enterAnAdaAmountLike") : null}
+    />
+    </>
   );
 }
