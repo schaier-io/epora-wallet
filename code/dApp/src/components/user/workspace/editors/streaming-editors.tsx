@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 
 import { AdaAmountInput } from "./config-form-primitives";
 import { GuidedDateTimeField } from "./guided-fields";
+import { useBlurReportedError } from "./field-error-timing";
 import { DisclosureSection, InlineFieldError } from "./primitives";
 import { FocusedTaskSurface, TaskEmptyState } from "./task-surface";
 import { Badge } from "@/components/ui/badge";
@@ -74,10 +75,13 @@ function PayeeCollectsHint() {
 }
 
 /**
- * A live inline reason the scheduled-payment destination cannot be paid to, or `null`.
- * Gated like the destinations editor: only a value that starts with a bech32 header gets
- * a reason, so an empty field or a plain label is not flagged while the user types. An
- * empty address stays the submit path's problem, as before.
+ * A reason the scheduled-payment destination cannot be paid to, or `null`.
+ * Only a value that starts with a bech32 header gets a reason, so an empty field or a
+ * plain label is never flagged. That header gate alone did not keep the reason away
+ * while the user typed: it opens at "addr_test", nine characters into a 108-character
+ * address, and nothing parses until the last one lands, so 99 keystrokes of one valid
+ * address were flagged. `useBlurReportedError` holds the reason back until focus
+ * leaves. An empty address stays the submit path's problem, as before.
  */
 function payoutAddressProblem(value: string): string | null {
   return looksLikeCardanoAddress(value) ? describeAddressProblem(value) : null;
@@ -105,7 +109,9 @@ export function StreamingPaymentEditor({
   const uid = useId();
   const [rateDays, setRateDays] = useState(1);
   const ada = isAdaScheduledPayment(streamingPayment);
-  const payoutAddressError = payoutAddressProblem(streamingPayment.payoutAddress);
+  const { reportedError: payoutAddressError, focusHandlers } = useBlurReportedError(
+    payoutAddressProblem(streamingPayment.payoutAddress)
+  );
   // Stored per-day → scaled up to the chosen period for display.
   const perPeriod = scheduledPaymentRateForPeriod(streamingPayment, rateDays);
   const ratePeriod = RATE_PERIODS.find((period) => period.days === rateDays) ?? RATE_PERIODS[0];
@@ -220,6 +226,7 @@ export function StreamingPaymentEditor({
             onChange={(event) =>
               onChange({ ...streamingPayment, payoutAddress: event.target.value })
             }
+            {...focusHandlers}
             placeholder={i18n("addrTest")}
             aria-invalid={payoutAddressError ? true : undefined}
             aria-describedby={payoutAddressError ? `${uid}-payout-address-error` : undefined}
@@ -306,7 +313,9 @@ export function ScheduledPaymentEditor({
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsStreamingEditors");
   const uid = useId();
-  const payoutAddressError = payoutAddressProblem(streamingPayment.payoutAddress);
+  const { reportedError: payoutAddressError, focusHandlers } = useBlurReportedError(
+    payoutAddressProblem(streamingPayment.payoutAddress)
+  );
 
   return (
     <fieldset disabled={readOnly} className="space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
@@ -336,6 +345,7 @@ export function ScheduledPaymentEditor({
             onChange={(event) =>
               onChange({ ...streamingPayment, payoutAddress: event.target.value })
             }
+            {...focusHandlers}
             placeholder={i18n("addrTest")}
             aria-invalid={payoutAddressError ? true : undefined}
             aria-describedby={payoutAddressError ? `${uid}-send-to-error` : undefined}

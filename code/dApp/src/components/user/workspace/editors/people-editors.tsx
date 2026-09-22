@@ -14,6 +14,7 @@ import { DestructiveRemoveButton } from "./destructive-remove-button";
 import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useBlurReportedError } from "./field-error-timing";
 import { InlineFieldError } from "./primitives";
 import { describeAddressProblem, looksLikeCardanoAddress, paymentKeyHashFromAddress } from "@/lib/contracts/payout-address";
 import {
@@ -47,10 +48,15 @@ export function BeneficiaryPayoutAddressEditor({
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsPeopleEditors");
   const uid = useId();
-  const payoutAddressError = looksLikeCardanoAddress(value)
-    ? describeAddressProblem(value) ??
-      (paymentKeyHashFromAddress(value) ? null : i18n("payoutAddressNeedsPaymentKey"))
-    : null;
+  // Reported on blur. The `looksLikeCardanoAddress` gate opens at "addr_test", nine
+  // characters into a 108-character address, and nothing parses until the last one
+  // lands: 99 of those keystrokes were flagged while typing one valid address.
+  const { reportedError: payoutAddressError, focusHandlers } = useBlurReportedError(
+    looksLikeCardanoAddress(value)
+      ? describeAddressProblem(value) ??
+          (paymentKeyHashFromAddress(value) ? null : i18n("payoutAddressNeedsPaymentKey"))
+      : null
+  );
 
   return (
     <div className="space-y-1">
@@ -59,6 +65,7 @@ export function BeneficiaryPayoutAddressEditor({
         id={`${uid}-payout-address`}
         value={value}
         onChange={(event) => onChange(event.target.value)}
+        {...focusHandlers}
         placeholder={i18n("payoutAddressPlaceholder")}
         aria-invalid={payoutAddressError ? true : undefined}
         aria-describedby={`${uid}-payout-address-help${payoutAddressError ? ` ${uid}-payout-address-error` : ""}`}

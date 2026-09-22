@@ -141,6 +141,24 @@ describe("the configured payout address", () => {
     expect(screen.getByLabelText("Payout and signing wallet")).toHaveAttribute("aria-invalid", "true");
     expect(screen.getByText(/script address cannot sign for recovery/i)).toBeInTheDocument();
   });
+
+  it("says nothing about the address while it is still being typed", () => {
+    // `looksLikeCardanoAddress` opens the reason gate at "addr_test", nine characters
+    // into a 108-character address, and nothing parses until the last one lands.
+    // Measured on one valid preprod address: 99 of its keystrokes were flagged.
+    // The prop carries the half-typed text, because `onChange` here does not store it.
+    renderContact({ payoutAddress: address.slice(0, 60) });
+    const input = screen.getByLabelText("Payout and signing wallet");
+
+    fireEvent.focus(input);
+    expect(input).not.toHaveAttribute("aria-invalid");
+    expect(screen.queryByText(/not a valid Cardano address/i)).not.toBeInTheDocument();
+
+    // Left half-typed, it is judged the moment focus goes.
+    fireEvent.blur(input);
+    expect(input).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByText(/not a valid Cardano address/i)).toBeInTheDocument();
+  });
 });
 
 describe("recovery contact remove confirmation", () => {

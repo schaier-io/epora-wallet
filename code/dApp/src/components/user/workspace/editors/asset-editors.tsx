@@ -2,7 +2,7 @@
 import { useTranslations } from "next-intl";
 
 
-import { useId, useMemo, useRef } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { useAtom, useAtomValue } from "jotai";
 
 import { testnetPaymentCredentialHash } from "@/lib/cardano-addresses";
@@ -305,6 +305,12 @@ export function WalletHashesEditor({
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsAssetEditors");
   const uid = useId();
   const addButtonRef = useRef<HTMLButtonElement | null>(null);
+  // Which row is being typed in. A row's own reason is held back while it has
+  // focus: `malformed` is true for every value that is not yet a 56-character
+  // hash, so it fired on the first keystroke of every address and stayed on
+  // until the last. The hook the other address fields use takes no index, and
+  // these rows render in a map, where one hook per row is not allowed.
+  const [focusedWalletIndex, setFocusedWalletIndex] = useState<number | null>(null);
   const connectedHash = useAtomValue(activePaymentKeyHashAtom)?.trim().toLowerCase();
   // A pasted Cardano address is stored as the wallet id (payment key hash) the contract
   // actually compares against; remembering the pairs lets the field keep showing the
@@ -375,7 +381,8 @@ export function WalletHashesEditor({
             const isConnectedWallet = storedHash !== null && storedHash.toLowerCase() === connectedHash;
             const connectedWalletId = `${uid}-connected-wallet-${index}`;
             const knownAddress = storedHash ? known[storedHash.toLowerCase()] : undefined;
-            const malformed = typedLength > 0 && storedHash === null;
+            const malformed =
+              typedLength > 0 && storedHash === null && focusedWalletIndex !== index;
             // A mainnet or broken address deserves its own reason (the lib's messages cover
             // both); anything else that is not a valid wallet id falls back to the format hint.
             const problem =
@@ -406,6 +413,10 @@ export function WalletHashesEditor({
                       }
                       value={knownAddress ?? wallet}
                       onChange={(event) => handleChange(index, event.target.value)}
+                      onFocus={() => setFocusedWalletIndex(index)}
+                      onBlur={() =>
+                        setFocusedWalletIndex((current) => (current === index ? null : current))
+                      }
                       placeholder={placeholder ?? i18n("walletIdOrAddress")}
                       className={knownAddress ? "font-mono text-xs" : undefined}
                     />

@@ -412,6 +412,24 @@ describe("a list of wallet ids", () => {
     ).toHaveAttribute("aria-invalid", "true");
   });
 
+  it("says nothing about the row being typed in, and still judges its neighbour", () => {
+    // `malformed` is true for anything that is not yet a 56-character hash, so it fired
+    // on the first keystroke of every id and stayed on until the last one landed. These
+    // rows render in a map, so the row with focus is tracked by index rather than by the
+    // hook the single address fields use.
+    renderList(["abc", "def"]);
+    const firstRow = screen.getByLabelText("Wallets this person signs with, wallet 1");
+    const secondRow = screen.getByLabelText("Wallets this person signs with, wallet 2");
+
+    fireEvent.focus(firstRow);
+    expect(firstRow).not.toHaveAttribute("aria-invalid");
+    // Only the row with focus goes quiet; the other one is not being typed in.
+    expect(secondRow).toHaveAttribute("aria-invalid", "true");
+
+    fireEvent.blur(firstRow);
+    expect(firstRow).toHaveAttribute("aria-invalid", "true");
+  });
+
   it("stores the wallet id when a Cardano address is pasted", () => {
     // Built by the local bech32 encoder, so the address carries a real checksum.
     const { onChange } = renderList([""]);

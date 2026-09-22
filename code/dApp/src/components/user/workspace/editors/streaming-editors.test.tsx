@@ -213,6 +213,27 @@ describe("scheduled payment destination addresses", () => {
     expect(input.getAttribute("aria-describedby")).toBeTruthy();
   });
 
+  it("holds the reason back while either address field is being typed in", () => {
+    // The bech32-header gate opens at "addr_test", nine characters into a 108-character
+    // address, and nothing parses until the last one lands. Measured on one valid
+    // preprod address: 99 of its keystrokes were flagged.
+    const half = PREPROD_ADDRESS.slice(0, 60);
+
+    const scheduled = renderScheduledEditor(half);
+    expect(scheduled).toBeInvalid();
+    fireEvent.focus(scheduled);
+    expect(scheduled).toBeValid();
+    expect(screen.queryByText(/not a valid Cardano address/)).not.toBeInTheDocument();
+    fireEvent.blur(scheduled);
+    expect(scheduled).toBeInvalid();
+
+    const created = renderCreateEditor(half);
+    fireEvent.focus(created);
+    expect(created).toBeValid();
+    fireEvent.blur(created);
+    expect(created).toBeInvalid();
+  });
+
   it("flags a malformed testnet address without leaking the bech32 wording", () => {
     renderScheduledEditor("addr_test1_not_a_real_address_zzz");
 
