@@ -3,6 +3,7 @@ import { createDocument, type ZodOpenApiOperationObject } from "zod-openapi";
 import { z } from "zod";
 import { ApiErrorSchema } from "./errors";
 import { HealthResponseSchema } from "./health";
+import { GovernanceActionsQuerySchema, GovernanceActionsResponseSchema } from "./governance-actions";
 import { PoolsQuerySchema, PoolsResponseSchema } from "./pools";
 import { SttLookupRequestSchema, SttLookupResponseSchema } from "./stt-lookup";
 import { BuildResultSchema } from "./tx-result";
@@ -31,6 +32,7 @@ export const API_VERSION = "1.0.0";
 // environment: a deployment override must not change the committed document.
 const RATE_LIMITS = {
   pools: { requests: 300, windowSeconds: 60 },
+  governanceActions: { requests: 300, windowSeconds: 60 },
   sttLookup: { requests: 600, windowSeconds: 60 },
   tx: {
     requests: TX_RATE_LIMIT_DEFAULTS.perClientRequests,
@@ -197,7 +199,8 @@ never carries the provider's own text.
 **Rate limits.** Per client address: ${RATE_LIMITS.tx.requests} requests per
 ${RATE_LIMITS.tx.windowSeconds}s across all transaction builds together,
 ${RATE_LIMITS.sttLookup.requests} per ${RATE_LIMITS.sttLookup.windowSeconds}s for wallet lookups,
-${RATE_LIMITS.pools.requests} per ${RATE_LIMITS.pools.windowSeconds}s for pool lookups. Builds also
+${RATE_LIMITS.pools.requests} per ${RATE_LIMITS.pools.windowSeconds}s for pool lookups,
+${RATE_LIMITS.governanceActions.requests} per ${RATE_LIMITS.governanceActions.windowSeconds}s for governance action lookups. Builds also
 share a deployment-wide cap of ${RATE_LIMITS.txGlobal.requests} per
 ${RATE_LIMITS.txGlobal.windowSeconds}s, because one build costs the chain provider tens of
 requests. Each declared wallet input also consumes one weighted unit. The default client bucket
@@ -264,6 +267,25 @@ export function buildOpenApiDocument() {
             "400": jsonError("The pool id is missing or malformed."),
             "404": jsonError("No pool exists with that id."),
             "429": tooManyRequests(RATE_LIMITS.pools),
+            "500": jsonError("Unexpected server error.")
+          }
+        }
+      },
+      "/api/v1/governance-actions": {
+        get: {
+          operationId: "getGovernanceAction",
+          summary: "Look up a governance action",
+          description: "Fetch one Cardano governance action, with its CIP-108 title and abstract when published, by id.",
+          tags: ["Chain"],
+          requestParams: { query: GovernanceActionsQuerySchema },
+          responses: {
+            "200": {
+              description: "The governance action.",
+              content: { "application/json": { schema: GovernanceActionsResponseSchema } }
+            },
+            "400": jsonError("The governance action id is missing or malformed."),
+            "404": jsonError("No governance action exists with that id."),
+            "429": tooManyRequests(RATE_LIMITS.governanceActions),
             "500": jsonError("Unexpected server error.")
           }
         }

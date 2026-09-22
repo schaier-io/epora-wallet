@@ -250,5 +250,15 @@
     "youCanInviteThemOnceThisWalletExists": "You can invite them once this wallet exists on-chain.",
     "theyCanScanThisInsteadOfOpening": "They can scan this instead of opening the link.",
     "theySignedInAndCanCoSignRequests": "They signed in, so they can approve requests for this wallet."
+  },
+  "ComponentsUserProposalsProposalVoteEffect": {
+    "governanceAction": "Governance action",
+    "governanceVote": "Governance vote",
+    "voteAbstain": "Abstains",
+    "voteNo": "Votes No",
+    "voteUnknown": "Unrecognised vote",
+    "voteYes": "Votes Yes",
+    "votesAsDrep": "Cast as DRep {drepId}",
+    "votesAsOther": "Cast by voter {voter}"
   }
 }

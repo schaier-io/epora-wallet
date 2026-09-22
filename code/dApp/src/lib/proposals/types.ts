@@ -162,6 +162,17 @@ export type ProposalOutputView = {
   hasInlineDatum: boolean;
 };
 
+export type ProposalVoteView = {
+  // cardano-sdk `VoterType`, e.g. `dRepScriptHash` for a smart wallet voting as a DRep.
+  voterType: string;
+  // CIP-129 `drep1…` for a script DRep; the credential hash for any other voter.
+  voterId: string;
+  actionTxHash: string;
+  actionIndex: number;
+  // null when the body carries a vote code outside Yes/No/Abstain.
+  vote: "Yes" | "No" | "Abstain" | null;
+};
+
 export type ProposalEffect = {
   inputs: ProposalInputRef[];
   outputs: ProposalOutputView[];
@@ -169,6 +180,8 @@ export type ProposalEffect = {
   // Start of the body's `invalid_hereafter` slot in ms, or null when the body
   // has no upper validity bound. The chain rejects the transaction from then on.
   validUntilMs: number | null;
+  // Governance votes the body casts. Absent when it could not be decoded.
+  votes?: ProposalVoteView[];
   // Net lovelace leaving the wallet's script address (negative = inflow).
   decodeError?: string;
 };

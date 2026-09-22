@@ -13,6 +13,7 @@ import { parseProposalBuildContext } from "./client";
 import { resolveProposalBodyHash } from "./serialization";
 import { assertProposalWalletBinding, proposalActionKind } from "./validation";
 import { assertProposalTransactionBinding } from "./transaction-binding";
+import { decodeVotes } from "./decode-votes";
 import { reviewStateTransition, type ProposalStateTransition } from "./state-transition";
 import { validateVKeyWitnessSet } from "./witness-validation";
 import { proposalCopy } from "./copy";
@@ -164,7 +165,7 @@ export function decodeEffect(txHex: string): ProposalEffect {
         ? null
         : slotToBeginUnixTime(Number(ttl), SLOT_CONFIG_NETWORK[NETWORK]);
 
-    return { inputs, outputs, feeLovelace: body.fee().toString(), validUntilMs };
+    return { inputs, outputs, feeLovelace: body.fee().toString(), validUntilMs, votes: decodeVotes(body) };
   } catch {
     return {
       inputs: [],

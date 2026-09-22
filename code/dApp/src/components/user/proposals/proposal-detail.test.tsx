@@ -150,6 +150,43 @@ describe("ProposalDetail signing gate", () => {
     expect(await screen.findByText(address)).toBeInTheDocument();
     expect(screen.getByText(`${unit}: 42`)).toBeInTheDocument();
   });
+
+  it("shows the governance vote the body casts, so a co-signer knows what they sign", async () => {
+    // The title lookup is not what this test checks; it may fail without hiding the vote.
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 404 })));
+    verify.proposal.mockResolvedValue({
+      validity: "valid",
+      reasons: [],
+      bodyHashMatches: true,
+      stateTransition: null,
+      effect: {
+        inputs: [],
+        outputs: [],
+        feeLovelace: "200000",
+        votes: [{
+          voterType: "dRepScriptHash",
+          voterId: "drep1y05ae0uf55xpmph3jmxmfayr6f0up2hvquwjn929zmgvlxqdjsap6",
+          actionTxHash: "cc".repeat(32),
+          actionIndex: 2,
+          vote: "Yes"
+        }]
+      },
+      signers: null
+    });
+
+    renderDetail(
+      <ProposalDetail
+        proposalId={detail.id}
+        sessionKeyHash={"dd".repeat(28)}
+        onChanged={() => undefined}
+        onBack={() => undefined}
+      />
+    );
+
+    expect(await screen.findByText("Votes Yes")).toBeInTheDocument();
+    expect(screen.getByText("Governance vote")).toBeInTheDocument();
+    vi.unstubAllGlobals();
+  });
 });
 
 describe("on-chain links", () => {
