@@ -313,7 +313,14 @@ export function WorkspaceSidebarView() {
                             <ChevronRight className="expand-chevron h-4 w-4 shrink-0" aria-hidden="true" />
                             {i18n("advanced")}
                           </summary>
-                          <div className="mt-2">
+                          {/* `pt-1` keeps the first card inside the clip. The expand animation
+                              (`globals/animations.css`, `details::details-content`) sets
+                              `overflow-y: clip`, and the `mt-2` collapses out of that box, so its
+                              top edge was the first card's top border: the 2px hover lift pushed
+                              the border above it. Padding does not collapse, so the card sits 4px
+                              inside the clip. Measured at 3x: without it the border row reads as
+                              background on hover. */}
+                          <div className="mt-2 pt-1">
                             <GuidedActionSectionView title={null} actions={advancedActions} />
                           </div>
                         </details>
