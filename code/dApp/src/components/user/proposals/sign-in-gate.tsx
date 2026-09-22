@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { WalletConnectionDialog } from "@/components/layout/wallet-panel";
 import { useTranslations } from "next-intl";
 
@@ -20,6 +20,26 @@ export function SignInGate({ session }: { session: ProposalSessionController }) 
   const { activeAddress, activePaymentKeyHash, isDemoWallet } = useWalletContext();
   const [connectOpen, setConnectOpen] = useState(false);
   const canSignIn = Boolean(activeAddress) && !isDemoWallet;
+
+  // Connecting and signing in were two presses with a modal between them, and the second
+  // one is the only one that does anything here: registering as a signer IS the sign-in,
+  // and the cookie it mints then lasts a week. So the press that opens the chooser also
+  // arms the sign-in, and the wallet popup follows the connection without a second trip
+  // to this card.
+  //
+  // A ref, not state: this is a latch the effect reads and clears, and clearing it through
+  // setState inside the effect would be a cascading render. It also holds while the chooser
+  // is open, so cancelling the connect simply never fires it.
+  const signInWhenConnected = useRef(false);
+
+  useEffect(() => {
+    if (!signInWhenConnected.current) return;
+    // Not armed again until the next press: a failed sign-in must leave the button as the
+    // way to retry rather than re-opening the wallet popup on every render.
+    if (!canSignIn || session.session || session.signingIn) return;
+    signInWhenConnected.current = false;
+    void session.signIn();
+  }, [canSignIn, session]);
   // Every reason this page is not showing a list, in one slot with one chrome. They used to
   // render as two unrelated shapes, a bordered callout and a bare amber line, although they
   // answer the same question: what has to happen before this button works?
@@ -81,9 +101,15 @@ export function SignInGate({ session }: { session: ProposalSessionController }) 
           ) : null}
 
           {!canSignIn ? (
-            <Button className="w-full" onClick={() => setConnectOpen(true)}>
+            <Button
+              className="w-full"
+              onClick={() => {
+                signInWhenConnected.current = true;
+                setConnectOpen(true);
+              }}
+            >
               <Wallet className="h-4 w-4" aria-hidden="true" />
-              {i18n("connectWallet")}
+              {i18n("connectWalletAndSignIn")}
             </Button>
           ) : (
           <Button

@@ -35,6 +35,7 @@ function controller(
 }
 
 const signInButton = () => screen.getByRole("button", { name: /sign in with wallet/i });
+const connectLabel = "Connect wallet and sign in";
 
 beforeEach(() => {
   wallet.activeAddress = null;
@@ -65,7 +66,7 @@ describe("proposals sign-in gate", () => {
       screen.getByText(/Connect your wallet, then sign a message/)
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /sign in with wallet/i })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Connect wallet" }));
+    fireEvent.click(screen.getByRole("button", { name: connectLabel }));
     expect(screen.getByText("Wallet chooser")).toBeInTheDocument();
   });
 
@@ -76,7 +77,7 @@ describe("proposals sign-in gate", () => {
 
     expect(screen.getByText(/demo wallet can look, but it cannot sign/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /sign in with wallet/i })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Connect wallet" }));
+    fireEvent.click(screen.getByRole("button", { name: connectLabel }));
     expect(screen.getByText("Wallet chooser")).toBeInTheDocument();
   });
 
@@ -145,5 +146,56 @@ describe("proposals sign-in gate", () => {
     const button = screen.getByRole("button", { name: /waiting for wallet/i });
     expect(button).toBeDisabled();
     expect(button).toHaveAttribute("aria-busy", "true");
+  });
+
+  /**
+   * Connecting and signing in used to be two presses with a modal between them, and only
+   * the second one registers the signer. An invited co-signer arrives here to do exactly
+   * one thing, so the press that opens the chooser arms the sign-in too.
+   */
+  it("signs in as soon as the wallet connects, without a second press", () => {
+    const session = controller();
+    const { rerender } = render(<SignInGate session={session} />);
+
+    fireEvent.click(screen.getByRole("button", { name: connectLabel }));
+    expect(session.signIn).not.toHaveBeenCalled();
+
+    wallet.activeAddress = "addr_test1real";
+    rerender(<SignInGate session={session} />);
+
+    expect(session.signIn).toHaveBeenCalledTimes(1);
+
+    // And exactly once. A re-fire would re-open the wallet popup on every render.
+    rerender(<SignInGate session={session} />);
+    expect(session.signIn).toHaveBeenCalledTimes(1);
+  });
+
+  // A signData popup with no press behind it is a popup the user did not ask for, and
+  // some wallets refuse one without a user gesture anyway.
+  it("never opens the wallet popup on its own", () => {
+    wallet.activeAddress = "addr_test1real";
+    const session = controller();
+    render(<SignInGate session={session} />);
+
+    expect(session.signIn).not.toHaveBeenCalled();
+  });
+
+  // The demo wallet cannot sign, so arming must not turn into a call it will reject.
+  it("stays armed rather than signing in with the demo wallet", () => {
+    const session = controller();
+    const { rerender } = render(<SignInGate session={session} />);
+
+    fireEvent.click(screen.getByRole("button", { name: connectLabel }));
+    wallet.activeAddress = "addr_test1demo";
+    wallet.isDemoWallet = true;
+    rerender(<SignInGate session={session} />);
+
+    expect(session.signIn).not.toHaveBeenCalled();
+
+    wallet.activeAddress = "addr_test1real";
+    wallet.isDemoWallet = false;
+    rerender(<SignInGate session={session} />);
+
+    expect(session.signIn).toHaveBeenCalledTimes(1);
   });
 });
