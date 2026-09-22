@@ -193,7 +193,8 @@
   },
   "ComponentsUserWorkspaceEditorsConfigFormPrimitives": {
     "signAs": "Sign as",
-    "signingAs": "Signing as:"
+    "signingAs": "Signing as:",
+    "enterAnAdaAmountLike": "Enter an ADA amount, for example 1.5."
   },
   "ComponentsUserWorkspaceEditorsFocusedPeopleEditor": {
     "aCardanoWalletHasToBeLinkedTo": "A Cardano wallet has to be linked to a person before they can use this smart wallet.",

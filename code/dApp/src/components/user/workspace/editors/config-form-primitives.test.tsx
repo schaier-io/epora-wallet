@@ -130,3 +130,28 @@ test("AdaAmountInput preserves a validation error supplied by its caller", () =>
   render(<AdaAmountInput aria-label="Amount" value="2000000" onChange={vi.fn()} aria-invalid />);
   assert.equal(screen.getByLabelText("Amount").getAttribute("aria-invalid"), "true");
 });
+
+// Three of the four call sites pass no error of their own, so when the typed text does not
+// parse the box used to flag itself and say nothing: a red border and `aria-invalid`, with
+// no message on the screen and none for a screen reader.
+test("AdaAmountInput says why it rejected the text it cannot parse", () => {
+  render(<AdaAmountInput id="pay-amount" aria-label="Amount" value="" onChange={vi.fn()} />);
+  const box = screen.getByLabelText("Amount") as HTMLInputElement;
+  fireEvent.focus(box);
+  fireEvent.change(box, { target: { value: "one and a half" } });
+
+  const message = screen.getByRole("alert");
+  assert.match(message.textContent ?? "", /Enter an ADA amount/);
+  assert.equal(box.getAttribute("aria-invalid"), "true");
+  assert.equal(box.getAttribute("aria-describedby"), message.getAttribute("id"));
+});
+
+test("AdaAmountInput shows no format message once the text parses", () => {
+  render(<AdaAmountInput id="pay-amount" aria-label="Amount" value="" onChange={vi.fn()} />);
+  const box = screen.getByLabelText("Amount") as HTMLInputElement;
+  fireEvent.focus(box);
+  fireEvent.change(box, { target: { value: "1.5" } });
+
+  assert.equal(screen.queryByRole("alert"), null);
+  assert.equal(box.getAttribute("aria-invalid"), null);
+});
