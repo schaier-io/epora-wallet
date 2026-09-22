@@ -12,7 +12,7 @@ import { resolveAssetIdentity } from "@/lib/cardano-assets";
 import { type Asset } from "@/lib/types/contracts";
 import { parseAdaToLovelace } from "@/lib/units/lovelace";
 import { Plus } from "lucide-react";
-import { useId, useMemo, useRef } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 
 export function AssetListEditor({
   label,
@@ -52,11 +52,16 @@ export function AssetListEditor({
     );
   }
 
+  // Same reason as the other list editors: the Add button sits over the rows, so
+  // after adding one the next Tab went to the first row, not the new last one.
+  const [addedAssetIndex, setAddedAssetIndex] = useState<number | null>(null);
+
   function addAssetRow() {
     const nextAvailableOption = availableOptions.find(
       (option) => !value.some((asset) => asset.unit === option.unit)
     );
 
+    setAddedAssetIndex(value.length);
     onChange([
       ...value,
       {
@@ -191,6 +196,7 @@ export function AssetListEditor({
                   <Label htmlFor={`${uid}-unit-${index}`}>{i18n("asset")}</Label>
                   {hasAvailableOptions ? (
                     <SearchableAssetUnitDropdown
+                      autoFocus={index === addedAssetIndex}
                       id={`${uid}-unit-${index}`}
                       value={asset.unit}
                       options={rowOptions}

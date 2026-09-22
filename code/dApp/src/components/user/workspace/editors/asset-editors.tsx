@@ -72,8 +72,12 @@ export function StateAssetAmountListEditor({
   const uid = useId();
   const addButtonRef = useRef<HTMLButtonElement | null>(null);
   const addDisabled = !canAdd || value.length >= MAX_ALLOWANCE_ENTRIES;
+  // Same reason as the wallet list below: the Add button sits over the rows, so after
+  // adding one the next Tab went to the first row rather than the new last one.
+  const [addedItemIndex, setAddedItemIndex] = useState<number | null>(null);
   function addItem() {
     if (!addDisabled) {
+      setAddedItemIndex(value.length);
       onChange([...value, createDefaultStateAssetAmountForm()]);
     }
   }
@@ -187,6 +191,7 @@ export function StateAssetAmountListEditor({
                     <Label htmlFor={`${uid}-unit-${index}`}>{i18n("asset")}</Label>
                     {hasWalletOptions ? (
                       <SearchableAssetUnitDropdown
+                        autoFocus={index === addedItemIndex}
                         id={`${uid}-unit-${index}`}
                         value={isKnownUnit ? unit : CUSTOM_ASSET_UNIT}
                         options={[...rowOptions, customOption]}
@@ -311,6 +316,12 @@ export function WalletHashesEditor({
   // until the last. The hook the other address fields use takes no index, and
   // these rows render in a map, where one hook per row is not allowed.
   const [focusedWalletIndex, setFocusedWalletIndex] = useState<number | null>(null);
+  // The row to put the cursor in once it mounts. The Add button sits in the header
+  // above the list, so after adding a row the next Tab went to the FIRST row, and
+  // reaching the new last one meant tabbing past every row already there (up to
+  // MAX_WALLETS_PER_USER of them). `autoFocus` fires on mount, which is exactly when
+  // the new row appears, so this needs no ref and no effect.
+  const [addedWalletIndex, setAddedWalletIndex] = useState<number | null>(null);
   const connectedHash = useAtomValue(activePaymentKeyHashAtom)?.trim().toLowerCase();
   // A pasted Cardano address is stored as the wallet id (payment key hash) the contract
   // actually compares against; remembering the pairs lets the field keep showing the
@@ -359,6 +370,7 @@ export function WalletHashesEditor({
           disabled={!canAdd}
           onClick={() => {
             if (canAdd) {
+              setAddedWalletIndex(value.length);
               onChange([...value, ""]);
             }
           }}
@@ -413,6 +425,7 @@ export function WalletHashesEditor({
                       }
                       value={knownAddress ?? wallet}
                       onChange={(event) => handleChange(index, event.target.value)}
+                      autoFocus={index === addedWalletIndex}
                       onFocus={() => setFocusedWalletIndex(index)}
                       onBlur={() =>
                         setFocusedWalletIndex((current) => (current === index ? null : current))
@@ -489,6 +502,9 @@ export function WalletInputRefsEditor({
   // Removing a row unmounts the focused button and drops focus on <body>; the add
   // button is the one control this list always has.
   const addButtonRef = useRef<HTMLButtonElement | null>(null);
+  // Same reason as the wallet list above: the Add button sits over the rows, so after
+  // adding one the next Tab went to the first row rather than the new last one.
+  const [addedRefIndex, setAddedRefIndex] = useState<number | null>(null);
   function updateRef(index: number, patch: Partial<WalletInputRef>) {
     onChange(
       value.map((entry, entryIndex) =>
@@ -516,7 +532,10 @@ export function WalletInputRefsEditor({
           ref={addButtonRef}
           type="button"
           variant="secondary"
-          onClick={() => onChange([...value, createDefaultWalletInputRef()])}
+          onClick={() => {
+            setAddedRefIndex(value.length);
+            onChange([...value, createDefaultWalletInputRef()]);
+          }}
         >
           {i18n("addFundPool")}
         </Button>
@@ -536,6 +555,7 @@ export function WalletInputRefsEditor({
                 <Label htmlFor={`${label}-tx-${index}`}>{i18n("txHash")}</Label>
                 <Input
                   id={`${label}-tx-${index}`}
+                  autoFocus={index === addedRefIndex}
                   value={entry.txHash}
                   onChange={(event) => updateRef(index, { txHash: event.target.value })}
                   placeholder={i18n("txHash_deff4e")}

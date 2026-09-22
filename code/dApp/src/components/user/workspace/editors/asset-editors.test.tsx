@@ -430,6 +430,30 @@ describe("a list of wallet ids", () => {
     expect(firstRow).toHaveAttribute("aria-invalid", "true");
   });
 
+  it("puts the cursor in the row it just added", () => {
+    // The Add button sits in the header above the list, so the next Tab after adding
+    // went to the FIRST row: reaching the new last one meant tabbing past every row
+    // already there. The list is controlled, so this holds its own state; with a spy
+    // for `onChange` no second row is ever rendered and the test proves nothing.
+    function StatefulList() {
+      const [wallets, setWallets] = useState<string[]>(["abc"]);
+      return (
+        <WalletHashesEditor
+          label="Wallets this person signs with"
+          value={wallets}
+          onChange={setWallets}
+        />
+      );
+    }
+    render(<StatefulList />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Add a wallet" }));
+
+    expect(document.activeElement).toBe(
+      screen.getByLabelText("Wallets this person signs with, wallet 2")
+    );
+  });
+
   it("stores the wallet id when a Cardano address is pasted", () => {
     // Built by the local bech32 encoder, so the address carries a real checksum.
     const { onChange } = renderList([""]);
