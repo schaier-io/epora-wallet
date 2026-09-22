@@ -474,7 +474,7 @@ describe("person wallet cap", () => {
     const store = createStore();
     store.set(activePaymentKeyHashAtom, "dd".repeat(28));
     render(
-      <Provider store={store}>
+      <TestProviders store={store}>
         <PersonPermissionsEditor
           user={{
             ...person({}, "1"),
@@ -489,7 +489,7 @@ describe("person wallet cap", () => {
           canAddRemainingAllowanceEntry
           canAddWallet={false}
         />
-      </Provider>
+      </TestProviders>
     );
 
     expect(
@@ -573,7 +573,7 @@ describe("what a permission chip grants", () => {
   it("reaches a screen reader through a description, with the name left alone", () => {
     const store = createStore();
     render(
-      <Provider store={store}>
+      <TestProviders store={store}>
         <PersonPermissionsEditor
           user={person({}, "1")}
           onChange={vi.fn()}
@@ -583,7 +583,7 @@ describe("what a permission chip grants", () => {
           canAddRemainingAllowanceEntry
           canAddWallet
         />
-      </Provider>
+      </TestProviders>
     );
 
     const owner = screen.getByRole("button", { name: "Owner" });
@@ -604,7 +604,7 @@ describe("why the spender chip is off", () => {
   function renderAtAllowanceCap() {
     const store = createStore();
     return render(
-      <Provider store={store}>
+      <TestProviders store={store}>
         <PersonPermissionsEditor
           user={person({}, "1")}
           onChange={vi.fn()}
@@ -614,7 +614,7 @@ describe("why the spender chip is off", () => {
           canAddRemainingAllowanceEntry={false}
           canAddWallet
         />
-      </Provider>
+      </TestProviders>
     );
   }
 
