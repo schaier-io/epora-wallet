@@ -8,6 +8,7 @@ export const ROOT_CLIENT_NAMESPACES = [
   "BetaConsent",
   "BetaStatus",
   "BetaFooter",
+  "NetworkSwitch",
   "AppLoading",
   "AppNotFound",
   "ComponentsErrorBoundary",

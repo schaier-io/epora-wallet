@@ -31,6 +31,7 @@ describe("beta consent boundary", () => {
     render(<Gate />);
     expect(screen.getAllByRole("main")).toHaveLength(1);
     const inputs = screen.getAllByRole("checkbox");
+    expect(screen.getByRole("navigation", { name: "Choose Cardano network" })).toBeInTheDocument();
     expect(inputs).toHaveLength(5);
     expect(inputs[0]).toHaveAccessibleName("I have read and accept the Terms of Use.");
     for (const input of inputs) expect(input).not.toBeChecked();

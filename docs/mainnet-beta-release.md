@@ -3,6 +3,9 @@
 This record distinguishes source preparation from permission to deploy.
 It does not certify contract safety or legal compliance.
 
+For two live networks and the visitor switch, follow the
+[parallel deployment setup](parallel-networks.md).
+
 ## Operator and legal documents
 
 REPORTED by the operator in this task:

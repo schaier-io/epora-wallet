@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { CARDANO_NETWORK, cardanoFaucetUrl } from "@/lib/cardano-network";
 import { LEGAL_OPERATOR, MIT_LICENSE_URL } from "@/lib/legal";
 import { BETA_ACKNOWLEDGEMENTS } from "@/lib/legal/beta-consent";
+import { NetworkSwitch } from "./network-switch";
 import type { useBetaConsent } from "./use-beta-consent";
 
 type ConsentModel = ReturnType<typeof useBetaConsent>;
@@ -28,6 +29,7 @@ export function RiskDisclaimerGate({ model }: { model: ConsentModel }) {
           <a href={MIT_LICENSE_URL}>{i18n("licenseLink")}</a>
           {faucet ? <a href={faucet} target="_blank" rel="noopener noreferrer">{i18n("faucet")}</a> : null}
         </nav>
+        <NetworkSwitch />
         <form onSubmit={(event) => { event.preventDefault(); void model.accept(); }} className="space-y-4">
           {BETA_ACKNOWLEDGEMENTS.map((key) => (
             <label key={key} className="flex cursor-pointer items-start gap-3 text-sm leading-relaxed">

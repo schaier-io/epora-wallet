@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { isLegalPath } from "@/lib/legal";
 import { RiskDisclaimerGate } from "./risk-disclaimer-gate";
+import { NetworkSwitch } from "./network-switch";
 import { BetaNotice } from "./beta-notice";
 import { useBetaConsent } from "./use-beta-consent";
 
@@ -17,7 +18,7 @@ export function BetaConsentBoundary({ children, legalContent, initialAccepted }:
   const i18n = useTranslations("BetaConsent");
   const model = useBetaConsent(initialAccepted);
   if (isLegalPath(pathname)) {
-    return <><BetaNotice /><div className="container py-8"><a href="/user" className="text-sm underline underline-offset-4">{i18n("back")}</a>{legalContent}</div></>;
+    return <><BetaNotice /><div className="container space-y-4 py-8"><NetworkSwitch /><a href="/user" className="text-sm underline underline-offset-4">{i18n("back")}</a>{legalContent}</div></>;
   }
   return model.accepted ? children : <RiskDisclaimerGate model={model} />;
 }

@@ -40,5 +40,14 @@
     "sameOrigin": "Same-origin acceptance required.",
     "allRisks": "Accept every beta risk and the current terms for this network.",
     "invalid": "Invalid beta acceptance request."
+  },
+  "NetworkSwitch": {
+    "label": "Choose Cardano network",
+    "mainnet": "Mainnet",
+    "preprod": "Preprod",
+    "preview": "Preview testnet",
+    "realFunds": "Real funds",
+    "testFunds": "Test funds",
+    "unavailable": "Unavailable"
   }
 }

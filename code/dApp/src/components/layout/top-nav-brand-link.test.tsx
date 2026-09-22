@@ -31,6 +31,7 @@ describe("header brand link", () => {
   it("carries the active wallet, like the nav links do", () => {
     render(<TopNav />);
 
+    expect(screen.getByRole("navigation", { name: "Choose Cardano network" })).toBeInTheDocument();
     const brand = screen.getAllByRole("link", { name: /home/i });
     expect(brand.length).toBeGreaterThan(0);
     for (const link of brand) {
