@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getBlockfrostProvider } from "@/lib/mesh/blockfrost-server";
 import {
+  GOV_ACTION_ID_INVALID_MESSAGE,
   GOV_ACTION_ID_MISSING_MESSAGE,
   GovernanceActionIdSchema,
   governanceActionPath,
@@ -124,6 +125,10 @@ export async function GET(request: Request) {
     };
     return NextResponse.json(body);
   } catch (error) {
+    // The shape check cannot verify a bech32 checksum; Blockfrost's 400 is the verdict on it.
+    if (meshHttpStatus(error) === 400) {
+      return NextResponse.json({ error: GOV_ACTION_ID_INVALID_MESSAGE }, { status: 400 });
+    }
     logger.error("api.governance_action_lookup_failed", { err: serializeError(error) });
     return NextResponse.json({ error: "Governance action lookup failed." }, { status: 500 });
   }

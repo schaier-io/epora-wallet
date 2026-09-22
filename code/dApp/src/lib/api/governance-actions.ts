@@ -1,7 +1,8 @@
 import { z } from "zod";
 
 // CIP-129 governance action id, or the ledger's own `txHash#index` form.
-const GOV_ACTION_BECH32_PATTERN = /^gov_action1[0-9a-z]+$/;
+// Bech32 data charset (no 1, b, i, o).
+const GOV_ACTION_BECH32_PATTERN = /^gov_action1[02-9ac-hj-np-z]+$/;
 const GOV_ACTION_TX_REF_PATTERN = /^([0-9a-f]{64})#(\d{1,5})$/i;
 
 export const GOV_ACTION_ID_MISSING_MESSAGE =

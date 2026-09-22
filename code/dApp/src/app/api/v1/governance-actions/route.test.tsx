@@ -97,6 +97,14 @@ it("still returns the action when only its metadata request fails", async () => 
   expect(await actionOf(response)).toMatchObject({ txHash: TX_HASH, title: null, abstract: null });
 });
 
+it("answers a malformed id Blockfrost rejected as a caller error, not a server failure", async () => {
+  mocks.get.mockRejectedValue(meshHttpError(400));
+
+  const response = await get(GOV_ACTION_ID);
+
+  expect(response.status).toBe(400);
+});
+
 it("answers 404 only when Blockfrost has no such action", async () => {
   mocks.get.mockRejectedValue(meshHttpError(404));
 
