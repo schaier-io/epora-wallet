@@ -1,4 +1,9 @@
 {
+  "AppApiProposalsWallets[unit]SignersRoute": {
+    "tooManySignerRequestsTryAgainShortly": "Too many signer requests. Try again shortly.",
+    "walletunitIsTooLong": "walletUnit is too long.",
+    "youAreNotAParticipantOfThisWallet": "You are not a participant of this wallet."
+  },
   "ComponentsUiLazyChunkFallback": {
     "loadingThisSection": "Loading this section…"
   },
@@ -224,5 +229,26 @@
     "couldNotRestoreMobileWalletPairing": "Could not restore the previous mobile-wallet pairing. Start a new pairing.",
     "mobileWalletPairingIsUnavailableInThisBuild": "Mobile wallet pairing is unavailable in this build. Use a browser wallet instead.",
     "userDisconnected": "User disconnected"
+  },
+  "ComponentsUserWorkspaceEditorsSignerInvite": {
+    "addTheirWalletIdBelowToInviteThem": "Add their wallet ID below, then you can invite them.",
+    "askThisPersonForTheirWalletIdFirst": "Ask this person for their wallet ID first, then add it below.",
+    "copyLink": "Copy link",
+    "email": "Email",
+    "hasNotSignedInYet": "Has not signed in yet",
+    "hideQrCode": "Hide QR code",
+    "inviteToCoSign": "Invite to co-sign",
+    "linkCopied": "Invite link copied",
+    "mailBody": "I added you as a co-signer on my Epora wallet. Open this link and sign in once with your wallet, then you can approve requests: {link}",
+    "mailSubject": "Co-sign with me on Epora",
+    "noWalletIdYet": "No wallet ID yet",
+    "readyToCoSign": "Ready to co-sign",
+    "sendThemThisLinkTheySignInOnce": "Send them this link. They sign in once with the wallet you added, then they can approve requests.",
+    "share": "Share",
+    "showQrCode": "Show QR code",
+    "text": "Text",
+    "youCanInviteThemOnceThisWalletExists": "You can invite them once this wallet exists on-chain.",
+    "theyCanScanThisInsteadOfOpening": "They can scan this instead of opening the link.",
+    "theySignedInAndCanCoSignRequests": "They signed in, so they can approve requests for this wallet."
   }
 }

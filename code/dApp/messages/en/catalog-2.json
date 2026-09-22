@@ -57,7 +57,7 @@
     "noWalletIsConnectedYetUseTheConnect": "No wallet is connected yet. Use the Connect button at the top of this page, then sign in here.",
     "theDemoWalletCanLookButItCannot": "The demo wallet can look, but it cannot sign. Connect your own wallet to sign in.",
     "youSignedInAsSignedKeyAndConnectedKey": "You signed in as {signedKey}, and {connectedKey} is connected now. Sign in again to see this wallet’s requests.",
-    "connectWallet": "Connect wallet"
+    "connectWalletAndSignIn": "Connect wallet and sign in"
   },
   "ComponentsUserProposalsUseProposalOrchestration": {
     "connectABrowserWalletNotTheDemoWallet": "Connect a browser wallet (not the demo wallet) to continue.",

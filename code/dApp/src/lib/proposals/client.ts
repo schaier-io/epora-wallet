@@ -73,6 +73,27 @@ export async function fetchProposalSession(options: ProposalReadOptions = {}): P
   return response.json() as Promise<ProposalSessionInfo>;
 }
 
+/**
+ * Which of a wallet's indexed participants have completed the sign-in, i.e. finished
+ * registering.
+ *
+ * Only a participant of the wallet may ask, and this REJECTS when they may not: the route
+ * answers 401 without a session and 403 for a non-participant, and `getJson` turns both
+ * into a ProposalRequestError. Callers must treat a rejection as "not known" rather than
+ * as an empty list, because "nobody has registered" is a different claim from "you were
+ * not allowed to ask".
+ */
+export async function fetchRegisteredWalletSigners(
+  walletUnit: string,
+  options: ProposalReadOptions = {}
+): Promise<string[]> {
+  const { registered } = await getJson<{ registered: string[] }>(
+    `/api/proposals/wallets/${encodeURIComponent(walletUnit)}/signers`,
+    options
+  );
+  return registered;
+}
+
 export async function requestSignInNonce(address: string): Promise<string> {
   const { nonce } = await sendJson<{ nonce: string }>("/api/proposals/auth/nonce", "POST", {
     address
