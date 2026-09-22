@@ -165,6 +165,16 @@ describe("workspace header", () => {
     expect(button.textContent).toContain("Smart wallets");
   });
 
+  it("gives the refresh control one name, not a different tooltip", () => {
+    renderWith({ assets: [], loading: false, error: null });
+
+    // A speech-input user says the name they can see. The tooltip read "Refresh wallet data"
+    // while the accessible name read "Refresh the smart wallet list", so the only visible
+    // name named nothing the control answers to.
+    const button = screen.getByRole("button", { name: "Refresh the smart wallet list" });
+    expect(button.getAttribute("title")).toBe("Refresh the smart wallet list");
+  });
+
   it("does not refresh summaries from an invalidated smart-wallet scan", async () => {
     actions.refreshDetectedTokens.mockResolvedValue(null);
     renderWith({ assets: [], loading: false, error: null });

@@ -435,7 +435,6 @@
     "nameTheWalletChooseWhoCanUseIt": "Name the wallet, choose who can use it, and add its first funds.",
     "noAdaAvailable": "Connected wallet: no ADA",
     "openAWallet": "Open a wallet",
-    "refreshWalletData": "Refresh wallet data",
     "reloadTheSmartWalletList": "Refresh the smart wallet list",
     "reloadWalletFundsSummariesAndRecentActivity": "Refresh wallet funds, summaries, and recent activity",
     "shareOneNonCustodialCardanoWalletAcrossOwners": "Share one non-custodial Cardano wallet across owners and spenders. Cardano smart contracts hold the funds and enforce every rule on-chain.",

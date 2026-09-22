@@ -185,6 +185,14 @@ export function WorkspaceHeaderView() {
 
   // Every control below is gated on `walletReady`, so signed out this div rendered empty and
   // still took a `gap-3` slot beside the header text.
+  // One name for the refresh control, used for both the tooltip and the accessible name.
+  // They used to differ: the tooltip read "Refresh wallet data" while the accessible name
+  // read "Refresh the smart wallet list" (or the funds sentence in the other branch), so the
+  // only name a sighted mouse user could read was not a name a speech-input user could say.
+  const refreshLabel = selectedDetectedToken
+    ? i18n("reloadWalletFundsSummariesAndRecentActivity")
+    : i18n("reloadTheSmartWalletList");
+
   const statusControls = !walletReady ? null : (
     <div
       className={cn(
@@ -249,12 +257,8 @@ export function WorkspaceHeaderView() {
             walletTransactions.loading
           }
           className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/60 bg-background/45 text-muted-foreground transition-colors hover:border-sky-300/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-          aria-label={
-            selectedDetectedToken
-              ? i18n("reloadWalletFundsSummariesAndRecentActivity")
-              : i18n("reloadTheSmartWalletList")
-          }
-          title={i18n("refreshWalletData")}
+          aria-label={refreshLabel}
+          title={refreshLabel}
         >
           <RefreshCw
             className={cn(
