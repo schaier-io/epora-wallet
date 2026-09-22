@@ -244,12 +244,17 @@ async function approveStop(button: HTMLElement) {
 }
 
 describe("who this page is for", () => {
-  /** The description named one of the page's two actions. Collect is the first button. */
-  it("names both things the reader can do", async () => {
+  /**
+   * The description named one of the page's two actions. Collect is the first button.
+   *
+   * It no longer carries the shortening rules. Those apply to a payment the reader is
+   * looking at, not to the page, and the shorten review states them where they apply.
+   */
+  it("names what the page is for, and leaves the shortening rules to the shorten review", async () => {
     await renderView();
 
     expect(screen.getByText(/Collect funds when they are available/)).toBeInTheDocument();
-    expect(screen.getByText(/never reduces what is already owed/)).toBeInTheDocument();
+    expect(screen.queryByText(/never reduces what is already owed/)).toBeNull();
   });
 
   /**
@@ -1087,7 +1092,7 @@ describe("a row", () => {
 
 /**
  * `/payee` holds one card, and its title names the page. The page used to add a hidden `h1`
- * with the same words above it, so a screen reader announced "Scheduled payments to you" at
+ * with the same words above it, so a screen reader announced the page name at
  * level 1 and again at level 3, with level 2 missing in between.
  */
 describe("the page heading", () => {
@@ -1095,7 +1100,7 @@ describe("the page heading", () => {
     chain.scan.mockReturnValue({ payments: [], errors: [] });
     render(<PayeeView />, { wrapper: queryTest.wrapper });
 
-    const named = screen.getAllByRole("heading", { name: "Scheduled payments to you" });
+    const named = screen.getAllByRole("heading", { name: "Scheduled income" });
     expect(named).toHaveLength(1);
     expect(named[0]!.tagName).toBe("H1");
   });

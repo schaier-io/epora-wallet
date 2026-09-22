@@ -46,13 +46,24 @@ export function PayeeCardHeader({
             describes does not come back, and `flex-1` still grows the column on a wide
             card. Below 268px of row the button now takes its own line. */}
         <div className="min-w-0 flex-1 basis-64 space-y-1">
-          {/* The page's own heading. `/payee` holds one card and this names it, so the
+          {/* "Scheduled income", the name the top navigation uses for this destination.
+              The page said "Scheduled payments to you", which also reads a step too close
+              to the wallet's own outgoing "Scheduled payments".
+
+              The page's own heading. `/payee` holds one card and this names it, so the
               page no longer carries a hidden `h1` saying the same words at a different
               level. `pageHeadingClass` overrides the CardTitle rung: `cn` merges with
               tailwind-merge, so the page scale wins over `text-lg font-medium`. */}
           <CardTitle as="h1" className={pageHeadingClass}>
             {i18n("scheduledPaymentsToYou")}
           </CardTitle>
+          {/* Two sentences, not four. The description used to end "Shortening a payment
+              stops it building up further, and never reduces what is already owed. The
+              paying wallet's owners can change a payment later." -- two rules that only
+              apply once a payment exists, and which the shorten review states again where
+              they apply ("This stops future earnings at the time below. The unpaid amount
+              stays owed to you. The paying wallet's owners can change the schedule
+              later."). On the empty page they were rules about nothing. */}
           <CardDescription className="max-w-prose">
             {i18n("paymentsOtherWalletsSendToYouALittle")}
           </CardDescription>

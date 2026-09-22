@@ -28,7 +28,7 @@ import {
   MAX_ACCESS_RECORDS,
   MAX_BENEFICIARIES
 } from "@/lib/contracts/state-validation";
-import { HandHeart, Plus, Settings2 } from "lucide-react";
+import { HandHeart, Plus } from "lucide-react";
 
 function ProofOfLifeSettingsEditor({
   label,
@@ -229,9 +229,6 @@ export function FocusedWalletSettingsEditor({
 
   return (
     <FocusedTaskSurface
-      title={i18n("walletSettings")}
-      description={i18n("editRecoveryContactsProofOfLifeAndApprovals")}
-      icon={Settings2}
       tasks={tasks}
       selectedTask={selectedTask}
       onSelectTask={onSelectTask}
@@ -277,11 +274,11 @@ export function FocusedWalletSettingsEditor({
       ) : null}
       {selectedTask === "settings-proof-of-life" ? (
         <>
-          {/* The tab went straight into the fields with no word about what the timer is
-              for. It is the only thing that lets a recovery contact ever act. */}
-          <p className="text-sm text-muted-foreground">
-            {i18n("theProofOfLifeIsHowLongYou")}
-          </p>
+          {/* No tab intro. It read "The proof of life is how long you have between
+              check-ins. Let it run out and your recovery contacts can claim what is in
+              this wallet.", which the helper on the Require proof of life control below
+              says in full, on the control that sets it, and the recovery-contact list
+              under it says a third time. */}
           <ProofOfLifeSettingsEditor label={i18n("walletSettings")} value={value} onChange={onChange} />
           {/* The timer names recovery contacts in every helper, yet the tab showed
               neither them nor a way to add one. Listed underneath, the two halves of
@@ -291,11 +288,10 @@ export function FocusedWalletSettingsEditor({
       ) : null}
       {selectedTask === "settings-multisig-threshold" ? (
         <>
-          {/* Like the timer tab, this one opened straight onto two boxes with no word
-              about what they do or who they affect. */}
-          <p className="text-sm text-muted-foreground">
-            {i18n("letSeveralPeopleActTogetherOnThisWallet")}
-          </p>
+          {/* No tab intro. It read "Let several people act together on this wallet, even
+              when none of them is an owner. An owner can still act alone either way.",
+              one line above the control headed "Let several people act together" whose
+              own helper ends "An owner can still act alone." */}
           <MultisigThresholdEditor value={value} onChange={onChange} />
         </>
       ) : null}

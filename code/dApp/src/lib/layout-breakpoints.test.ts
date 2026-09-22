@@ -482,8 +482,12 @@ test("no scroller reserves 4px on its right", () => {
 // appears and the wallet card is still shown. The status group held its full 338.7px against a
 // 720px content box, so the row measured 774.9px and the whole page scrolled sideways by 6.9px;
 // and the nav, being shrinkable, dropped to its min-content width and broke "Scheduled income"
-// (the longest label; it wrapped back when it read "Payments to you")
-// over two lines, 52px tall against its two 32px siblings inside a 64px bar.
+// over two lines, 52px tall against its two 32px siblings inside a 64px bar. Re-measured at
+// 768 with the labels as they were measured: "Scheduled income" 141.1px, "Approval
+// requests" 139.1px, "Smart wallet" 103.4px, nav 36px tall on one line,
+// `document.documentElement.scrollWidth` 768. "Scheduled income" is still the widest. The
+// middle tab has since been renamed to "Co-signing", which is shorter, so the measured
+// worst case stands.
 //
 // So the contract is explicit on both: the nav is the fixed point, and the status group gives,
 // because the wallet card inside it already truncates its label and carries the full name in a

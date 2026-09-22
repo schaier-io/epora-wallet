@@ -87,10 +87,10 @@ function renderView({
 }
 
 /**
- * `UserActionConfigurationCard` renders "Claim staking rewards details" directly above this
- * view (the label is "Claim staking rewards", `action-definitions.ts:258`), and describes the
- * action three more times through routeExplanation, outcome, and the "What this does" panel.
- * The section heading here was the same words a fifth time.
+ * `UserActionConfigurationCard` renders the action's own heading directly above this view
+ * (the label is "Claim rewards", `action-definitions.ts:240`), and describes the action
+ * again through routeExplanation, outcome, and the "What this does" panel. The section
+ * heading here was the same words once more.
  */
 describe("section heading", () => {
   it("leaves approval routing to the review rail", () => {
@@ -98,7 +98,7 @@ describe("section heading", () => {
 
     expect(screen.queryByText("Who approves this claim")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Sign as")).not.toBeInTheDocument();
-    expect(screen.queryByText("Claim staking rewards")).not.toBeInTheDocument();
+    expect(screen.queryByText("Claim rewards")).not.toBeInTheDocument();
     expect(
       screen.queryByText(/Moves rewards already earned by this wallet's stake address/)
     ).not.toBeInTheDocument();
@@ -110,10 +110,12 @@ describe("section heading", () => {
  * control that does either. The app has the action; the reader had to go and find it.
  */
 describe("staking is off", () => {
+  // The button carries the destination's own name. It read "Turn on staking" while the
+  // page it opens is titled "Enable staking" in its card, tab title and confirm button.
   it("offers the fix instead of naming a task with no control", async () => {
     renderView();
 
-    const button = screen.getByRole("button", { name: "Turn on staking" });
+    const button = screen.getByRole("button", { name: "Enable staking" });
     button.click();
 
     expect(holder.openWorkspaceIntent).toHaveBeenCalledWith(

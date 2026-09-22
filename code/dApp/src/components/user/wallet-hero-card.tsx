@@ -8,16 +8,13 @@ import {
   ChevronUp,
   Copy,
   Download,
-  History,
-  Send,
-  Settings2
+  Send
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CountUp, SoftAurora } from "@/components/react-bits/primitives";
 import { shortenAddress } from "@/lib/utils/explorer";
 import { formatLovelaceAsAda } from "@/lib/units/lovelace";
-import { formatCountLabel } from "@/components/user/workspace/helpers";
 import { walletIdentityPalette } from "@/providers/smart-wallet-display";
 import { cn } from "@/lib/utils/cn";
 import { useId, useState } from "react";
@@ -67,15 +64,11 @@ export type WalletHeroCardProps = {
   walletName: string;
   address: string | null;
   balanceLovelace: string;
-  assetTypeCount: number;
-  fundingSourceCount: number;
   loading?: boolean;
   onCopyAddress: () => void;
   addressCopied: boolean;
   onSend: () => void;
   onReceive: () => void;
-  onActivity: () => void;
-  onSettings: () => void;
   /** Deterministic seed for the identity orb. Usually the locking address. */
   identitySeed?: string | null;
 };
@@ -84,15 +77,11 @@ export function WalletHeroCard({
   walletName,
   address,
   balanceLovelace,
-  assetTypeCount,
-  fundingSourceCount,
   loading,
   onCopyAddress,
   addressCopied,
   onSend,
   onReceive,
-  onActivity,
-  onSettings,
   identitySeed
 }: WalletHeroCardProps) {
   const i18n = useTranslations("ComponentsUserWalletHeroCard");
@@ -108,20 +97,6 @@ export function WalletHeroCard({
   const [wholeAda, fractionAdaRaw = "00"] = formattedBalance.split(".");
   const fractionAda = fractionAdaRaw.padEnd(2, "0");
   const wholeNumber = Number((wholeAda || "0").replace(/[^0-9-]/g, "")) || 0;
-  // A wallet holding nothing used to say "Only ADA inside this wallet" under a balance of
-  // 0.00, because the caller clamped the count to 1 to keep this branch off "0 assets". The
-  // empty case now has its own sentence, so the caller can pass the real count.
-  const assetSummary =
-    assetTypeCount === 0
-      ? i18n("noFundsInThisWalletYet")
-      : assetTypeCount === 1
-        ? i18n("onlyAdaInsideThisWallet")
-        : i18n("value1InsideThisWallet", { value1: formatCountLabel(assetTypeCount, "asset") });
-  const fundingSummary =
-    fundingSourceCount > 1
-      ? i18n("acrossValue1", { value1: formatCountLabel(fundingSourceCount, "fundPool") })
-      : "";
-
   return (
     <div
       className="@container relative overflow-hidden rounded-lg border border-primary/20 p-3 sm:p-4 shadow-[0_18px_42px_-28px_hsl(var(--brand-teal)/0.42)]"
@@ -241,12 +216,14 @@ export function WalletHeroCard({
               </>
             )}
           </div>
-          <p className="text-xs text-muted-foreground/90">
-            {assetSummary}
-            {fundingSummary}
-          </p>
         </div>
       </div>
+      {/*
+        Two buttons, not four. Activity and Settings opened the same panels as the
+        `Activity` and `Wallet settings` entries in the sidebar, which is on screen beside
+        this card. Send and Add funds stay because they are the two money moves and this
+        is where the balance is.
+      */}
       <div className="relative z-10 mt-4 grid grid-cols-1 gap-2 @xs:grid-cols-2">
         <Button type="button" onClick={onSend} className="justify-center">
           <Send className="h-4 w-4" />
@@ -255,14 +232,6 @@ export function WalletHeroCard({
         <Button type="button" variant="outline" onClick={onReceive} className="justify-center">
           <Download className="h-4 w-4" />
           {i18n("addFunds")}
-        </Button>
-        <Button type="button" variant="outline" onClick={onActivity} className="justify-center">
-          <History className="h-4 w-4" />
-          {i18n("activity")}
-        </Button>
-        <Button type="button" variant="outline" onClick={onSettings} className="justify-center">
-          <Settings2 className="h-4 w-4" />
-          {i18n("settings")}
         </Button>
       </div>
     </div>

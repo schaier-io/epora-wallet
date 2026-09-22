@@ -25,9 +25,9 @@ import {
   guidedSidebarIconActiveClass,
   guidedSidebarIconIdleClass,
   guidedSidebarButtonClass,
+  guidedSidebarSpotlightClass,
   guidedSidebarTextClass,
   guidedSidebarTitleClass,
-  guidedSidebarDescriptionClass,
   guidedSidebarChevronClass
 } from "@/components/user/workspace/workspace-guided-sidebar-classes";
 
@@ -62,20 +62,20 @@ export function GuidedActionSectionView({ title, actions }: { title: string | nu
             return (
               <SpotlightCard
                 key={`${entry.intent}-${entry.action}`}
-                className="min-w-0 rounded-lg"
+                className={guidedSidebarSpotlightClass}
                 spotlightColor="rgba(82, 255, 220, 0.16)"
               >
                 {isActive ? <SidebarActiveGlow /> : null}
                 <button
                   type="button"
-                  onClick={() => openWorkspaceIntent(entry.intent, entry.action)}
+                  onClick={() => openWorkspaceIntent(entry.intent, entry.action, entry.task)}
                   aria-current={isActive ? "true" : undefined}
                   className={cn(
                     guidedSidebarButtonClass,
                     isActive ? guidedSidebarActiveSurfaceClass : guidedSidebarIdleSurfaceClass
                   )}
                 >
-                  <div className="flex min-w-0 flex-1 items-start gap-3 overflow-hidden">
+                  <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
                     <span
                       className={cn(
                         guidedSidebarIconBaseClass,
@@ -85,8 +85,12 @@ export function GuidedActionSectionView({ title, actions }: { title: string | nu
                       <DefinitionIcon className="h-4 w-4" />
                     </span>
                     <div className={guidedSidebarTextClass}>
+                      {/*
+                        Title only. Every entry here carried a sentence that restated its
+                        own label ("Send funds" / "Normal wallet send."), which tripled the
+                        height of the action list for no information.
+                      */}
                       <p className={guidedSidebarTitleClass}>{entry.title}</p>
-                      <p className={guidedSidebarDescriptionClass}>{entry.description}</p>
                     </div>
                   </div>
                   <ChevronRight

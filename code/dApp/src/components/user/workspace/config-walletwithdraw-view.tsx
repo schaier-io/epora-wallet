@@ -58,11 +58,13 @@ export function WalletWithdrawConfigView() {
             type="button"
             variant="secondary"
             className="mt-3"
+            // The destination's own name. This button said "Turn on staking" while the
+            // page it opens is titled "Enable staking" everywhere.
             onClick={() =>
               openWorkspaceIntent("enable-staking", "set-intended-stake-credential")
             }
           >
-            {i18n("turnOnStaking")}
+            {i18n("enableStaking")}
           </Button>
         </div>
       ) : null}

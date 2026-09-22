@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { executeMeshMethod, getBlockfrostProvider, METHOD_VALUES, MeshRpcInputError } from "@/lib/mesh/blockfrost-server";
-import { meshHttpRetryAfter, meshHttpStatus } from "@/lib/mesh/http-error";
+import { isScriptEvaluationRejection, meshHttpRetryAfter, meshHttpStatus } from "@/lib/mesh/http-error";
 import { clientKey, rateLimit } from "@/lib/http/rate-limit";
 import { InvalidJsonError, readBoundedJson, RequestBodyTooDeepError, RequestBodyTooLargeError } from "@/lib/http/request-body";
 import { logger, serializeError, serializeErrorDetail } from "@/lib/observability/logger";
@@ -48,9 +48,14 @@ export async function POST(request: Request) {
     );
   }
 
+  // Named outside the try so the catch can say WHICH call failed: the thrown
+  // provider text alone never identifies the method.
+  let method: string | undefined;
+
   try {
     const payloadUnknown: unknown = await readBoundedJson(request, MAX_MESH_REQUEST_BYTES);
     const payload = RequestSchema.parse(payloadUnknown);
+    method = payload.method;
     if (payload.method === "evaluateTx" || payload.method === "submitTx") {
       const methodLimit = await rateLimit(
         `${callerKey}:${payload.method}`,
@@ -77,12 +82,20 @@ export async function POST(request: Request) {
     }
     const upstreamStatus = meshHttpStatus(error);
     const retryAfter = meshHttpRetryAfter(error);
+    // A validator refusing the caller's transaction is a caller-side outcome,
+    // not a server fault: it must not raise an error event, and the response
+    // must not claim 500. The warn line keeps the pattern visible in the
+    // platform logs, and `method` makes a genuine evaluator regression
+    // diagnosable.
+    const scriptRejection = isScriptEvaluationRejection(error);
+    if (scriptRejection) {
+      logger.warn("api.mesh_script_evaluation_rejected", { method, err: serializeError(error) });
     // Blockfrost answers 404 for a tx hash it has not indexed yet, and the
     // browser polls pending submissions every 2 seconds: without this skip,
     // every poll becomes a Sentry event. The 404 response below already
     // carries the status and detail; every other status keeps its error log.
-    if (upstreamStatus !== 404) {
-      logger.error("api.mesh_request_failed", { err: serializeError(error) });
+    } else if (upstreamStatus !== 404) {
+      logger.error("api.mesh_request_failed", { method, err: serializeError(error) });
     }
     // The build client's error mapper (workspace build-errors.ts) classifies
     // ledger failures — PPViewHashesDontMatch, BabbageOutputTooSmallUTxO, an
@@ -95,7 +108,10 @@ export async function POST(request: Request) {
     // stack's server file paths must not leave the server.
     return NextResponse.json(
       { error: i18n("meshRequestFailed"), details: serializeErrorDetail(error) },
-      { status: upstreamStatus ?? 500, ...(retryAfter ? { headers: { "Retry-After": retryAfter } } : {}) }
+      {
+        status: upstreamStatus ?? (scriptRejection ? 422 : 500),
+        ...(retryAfter ? { headers: { "Retry-After": retryAfter } } : {})
+      }
     );
   }
 }

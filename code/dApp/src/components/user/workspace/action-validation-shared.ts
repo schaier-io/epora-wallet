@@ -73,14 +73,17 @@ export function requireZeroAdminConfirmation(
  * staking first, then delegate to a pool." used to print verbatim in both. The receipt
  * and the claim card carry the why; this line only has to name the blocker.
  */
-export function requireStakingEnabled(errors: FieldErrors, stateForm: StateFormState): void {
-  if (!hasIntendedStakeCredential(stateForm.intendedStakeCredential)) {
-    pushFieldError(
-      errors,
-      i18n("staking"),
-      i18n("turnOnStakingBeforeYouClaim")
-    );
+/** Returns true when staking is on, so the caller can skip checks that only apply then. */
+export function requireStakingEnabled(errors: FieldErrors, stateForm: StateFormState): boolean {
+  if (hasIntendedStakeCredential(stateForm.intendedStakeCredential)) {
+    return true;
   }
+  pushFieldError(
+    errors,
+    i18n("staking"),
+    i18n("turnOnStakingBeforeYouClaim")
+  );
+  return false;
 }
 
 /** The "specific" proof of life override needs a whole-number local timestamp. */

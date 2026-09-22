@@ -1,6 +1,6 @@
 "use client";
 import { useAtomValue } from "jotai";
-import { Loader2, Repeat } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Badge } from "@/components/ui/badge";
@@ -143,9 +143,6 @@ export function SttSpendPayoutView() {
 
   return (
     <FocusedTaskSurface
-      title={i18n("scheduledPayments")}
-      description={i18n("payOutWhatYourScheduledPaymentsHaveBuilt")}
-      icon={Repeat}
       tasks={GUIDED_ADMIN_TASKS.filter((task) => task.group === "streamingPayments")}
       selectedTask={resolvedSelectedTask}
       onSelectTask={handleFocusedTaskSelect}

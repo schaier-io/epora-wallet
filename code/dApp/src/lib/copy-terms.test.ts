@@ -14,10 +14,10 @@ import { join } from "node:path";
  * Correction: three of those four were settled, not all four. `Payments to me` survived in
  * `top-nav.tsx` until the A10 pass found it. None of the patterns below match it, because it
  * is not a banned *term*: it is a link that changed person between its label and the
- * heading it opens. It now reads `Payments to you`, matching the page's `<h1>`, its
- * `metadata.title` and its own body copy. No pattern here would have caught it, and none is
- * added: nav labels legitimately compress (`Approvals` for `Approval requests`), and `/user`
- * builds its title dynamically, so there is no title to compare a label against.
+ * heading it opens. It now reads `Scheduled income`, matching the page's `<h1>` and its
+ * `metadata.title`; it passed through `Payments to you` on the way. No pattern here would
+ * have caught it, and none is added: `/user` builds its title dynamically, so there is no
+ * title to compare a label against.
  *
  * `streaming` survives in code identifiers (`streamingPayments`, `manage-streaming-payments`,
  * the on-chain action names), which is why this looks for the two-word phrase: an identifier

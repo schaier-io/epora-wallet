@@ -229,11 +229,11 @@ export function LockedAssetsOverviewPanel({
             <Coins className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
             {i18n("assets")}
           </p>
-          {sortedAssets.length > 0 ? (
-            <p className="mt-1 text-xs text-muted-foreground">
-              {formatCountLabel(sortedAssets.length, "asset")} {i18n("inThisWallet")}
-            </p>
-          ) : null}
+          {/*
+            No "N assets in this wallet" line. The rows under this heading are the count,
+            and on an ADA-only wallet it was the third place on the page to say the wallet
+            holds one asset, after the balance and the single row itself.
+          */}
         </div>
         {utxoCount > 1 ? (
           <span className="flex shrink-0 items-center gap-2 self-start">

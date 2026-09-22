@@ -181,9 +181,9 @@ describe("activity row timestamp", () => {
 });
 
 /**
- * Three names shipped for one destination: the sidebar card says "Receive funds", the hero
- * card says "Add funds", and this button said "Receive". The destination's own heading is
- * `${definition.label} details` = "Add funds details", so that is the name that wins here.
+ * Three names shipped for one destination: the sidebar card said "Receive funds", the hero
+ * card said "Add funds", and this button said "Receive". "Add funds" is the one the
+ * destination now carries, on its own heading and on the sidebar card, so it wins here.
  */
 describe("asset drill-down actions", () => {
   it("names the add-funds button after the screen it opens", () => {

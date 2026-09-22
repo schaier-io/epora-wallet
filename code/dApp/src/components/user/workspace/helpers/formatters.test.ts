@@ -129,6 +129,20 @@ test("formatWalletTransactionRelative buckets recent times and returns null when
   assert.equal(formatWalletTransactionRelative(undefined), null);
 });
 
+/**
+ * Why the dashboard's compact timestamp cannot use the relative label alone. Past a week
+ * this returns null while `formatWalletTransactionTime` still has the exact date, so a
+ * caller that drops the absolute fallback prints "Time not available" for a transaction
+ * whose date the app is holding. `recent-activity-timeline` builds each row's
+ * `aria-label` from that string, so the loss reaches a screen reader too.
+ */
+test("the absolute date is available exactly where the relative label gives up", () => {
+  const monthAgo = Date.now() - 30 * 86_400_000;
+
+  assert.equal(formatWalletTransactionRelative(monthAgo), null);
+  assert.ok(formatWalletTransactionTime(monthAgo));
+});
+
 test("formatTimestampLabel names the moment, not the stored millisecond value", () => {
   const label = formatTimestampLabel(1_700_000_000_000);
   assert.doesNotMatch(label, /1700000000000/);

@@ -32,7 +32,10 @@ export function TaskEmptyState({
         <Icon className="h-5 w-5" />
       </div>
       <p className="mt-3 text-sm font-medium text-foreground">{title}</p>
-      {/* Shown at any length: see the note in `FocusedTaskSurface` below. */}
+      {/* Shown at any length. Over 78 characters this went into an ⓘ popover and was
+          never rendered visibly, so the recovery-contacts empty state, whose only job is
+          to explain recovery contacts to a reader who has none, showed nothing at all.
+          `PopupDialog` dropped the same mechanism for the same reason. */}
       <p className="mt-1 text-xs text-muted-foreground">{description}</p>
       {actionLabel && onAction ? (
         <div className="mt-4">
@@ -90,13 +93,14 @@ export function GuidedAdminTaskTabs({
             // read the panel underneath and infer it. `aria-current` is what the sidebar, the
             // guided action cards and the proposal list already use for the same question.
             aria-current={isActive ? "true" : undefined}
-            // No `title` on an available chip. The native tooltip was measured landing on
-            // the badge below it and clipping its descenders, and it only repeated the
-            // task name: the chip shows `shortLabel`, the selected task's full `label` is
-            // in the header badge above, and `aria-label` carries the full label for every
-            // chip. A disabled chip keeps its title, because the reason it is off has no
-            // other pointer-reachable home.
-            title={disabledReason ? i18n("value1Disabledreason", { value1: task.label, disabledReason: disabledReason }) : undefined}
+            // Every chip carries its full `label`. The chip itself shows `shortLabel` and
+            // truncates it, and the header badge that used to print the open task's full
+            // label is gone, so without this a sighted pointer user has no way to read a
+            // long task name: `aria-label` reaches a screen reader only. The tooltip was
+            // once dropped because it landed on the badge below and clipped its
+            // descenders, which is a cost worth paying for the only visible copy of the
+            // name. A disabled chip appends the reason it is off.
+            title={disabledReason ? i18n("value1Disabledreason", { value1: task.label, disabledReason: disabledReason }) : task.label}
             className={cn(
               "user-surface user-task-chip inline-flex min-w-0 max-w-full items-center gap-2 rounded-full border px-3 py-2 text-left text-sm transition-[background-color,border-color,color,box-shadow,transform]",
               isActive
@@ -160,10 +164,16 @@ export function ZeroAdminConfirmationCallout({
   );
 }
 
+/**
+ * The tab strip for a group of related tasks, plus the group's issue count.
+ *
+ * No heading row. It used to carry an icon, the group's title and its description
+ * ("Wallet settings" / "Edit recovery contacts, proof of life, and approvals."), which the
+ * action card directly above prints in its own words ("Update wallet settings" / "Saves
+ * changes to people, recovery contacts, approvals, or the proof of life."), and a badge
+ * naming the selected task, which is the highlighted tab a few pixels below it.
+ */
 export function FocusedTaskSurface({
-  title,
-  description,
-  icon: Icon,
   tasks,
   selectedTask,
   onSelectTask,
@@ -173,9 +183,6 @@ export function FocusedTaskSurface({
   issueCount,
   children
 }: {
-  title: string;
-  description: string;
-  icon: LucideIcon;
   tasks: GuidedAdminTaskDefinition[];
   selectedTask: UserWorkspaceTask | null;
   onSelectTask: (task: UserWorkspaceTask) => void;
@@ -186,43 +193,18 @@ export function FocusedTaskSurface({
   children: ReactNode;
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsTaskSurface");
-  const activeTask = tasks.find((task) => task.id === selectedTask) ?? tasks[0]!;
-  const ActiveIcon = activeTask.icon;
 
   return (
     <div className="space-y-4">
       <div className="user-surface user-section-panel rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
-        <div className="flex w-full flex-wrap items-center gap-x-3 gap-y-2">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-3">
-              <span className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-border/70 bg-background/60 text-primary">
-                <Icon className="h-5 w-5" />
-              </span>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-foreground">{title}</p>
-                {/* Shown at any length. Over 78 characters this went into an ⓘ popover
-                    and was never rendered visibly, so the two descriptions that exceed
-                    78 were invisible: the recovery-contacts empty state, whose only job
-                    is to explain recovery contacts to a reader who has none, and the
-                    streaming-payments header. `PopupDialog` dropped the same mechanism
-                    for the same reason. */}
-                <p className="mt-1 text-xs text-muted-foreground">{description}</p>
-              </div>
-            </div>
-          </div>
-          <div className="ml-auto flex shrink-0 flex-wrap justify-end gap-2">
-            <Badge variant="secondary" className="inline-flex items-center gap-1.5">
-              <ActiveIcon className="h-3.5 w-3.5" />
-              {activeTask.label}
+        {typeof issueCount === "number" ? (
+          <div className="mb-3 flex justify-end">
+            <Badge variant={issueCount > 0 ? "warning" : "outline"} className="whitespace-nowrap">
+              {issueCount > 0 ? formatCountLabel(issueCount, "issue") : i18n("noIssues")}
             </Badge>
-            {typeof issueCount === "number" ? (
-              <Badge variant={issueCount > 0 ? "warning" : "outline"} className="whitespace-nowrap">
-                {issueCount > 0 ? formatCountLabel(issueCount, "issue") : i18n("noIssues")}
-              </Badge>
-            ) : null}
           </div>
-        </div>
-        <div className="mt-4">
+        ) : null}
+        <div>
           <GuidedAdminTaskTabs
             tasks={tasks}
             selectedTask={selectedTask}

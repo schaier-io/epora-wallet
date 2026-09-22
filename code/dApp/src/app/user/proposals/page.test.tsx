@@ -23,6 +23,6 @@ describe("proposals page loading fallback", () => {
   it("announces that approval requests are loading", () => {
     render(<ProposalsPage />);
 
-    expect(screen.getByRole("status")).toHaveTextContent("Loading approval requests…");
+    expect(screen.getByRole("status")).toHaveTextContent("Loading requests…");
   });
 });

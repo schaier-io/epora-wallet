@@ -143,9 +143,14 @@ export function LockFundsConfigView() {
                 prints `walletReceiveAddress ?? lockingContract.address`, so one screen showed the
                 same wallet under two labels from two different derivations, and only the first
                 copy had the copy button and the explorer link. */}
+            {/* No `helper` here. "Set the ADA amount, or add any tokens the connected
+                wallet already holds." said what the section heading two lines above
+                already says ("Move ADA or tokens from the wallet you are connected with
+                into this one."), over fields that are themselves labelled "How much
+                (ADA)" and "Asset". The `label` stays: it is this group's accessible
+                name via `aria-labelledby`. */}
             <AssetListEditor
               label={i18n("whatToAdd")}
-              helper={i18n("setTheAdaAmountOrAddAnyTokens")}
               value={lockFundsAssets}
               onChange={setLockFundsAssets}
               availableAssets={walletBalanceSummary.assets}

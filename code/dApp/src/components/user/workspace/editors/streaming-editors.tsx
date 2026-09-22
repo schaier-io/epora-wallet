@@ -27,7 +27,7 @@ import { MAX_STREAMING_PAYMENTS } from "@/lib/contracts/state-validation";
 import { describeAddressProblem, looksLikeCardanoAddress } from "@/lib/contracts/payout-address";
 import { VALIDITY_WINDOW_FUTURE_MS } from "@/lib/mesh/transactions/internals/constants";
 import { formatLovelaceAsAda } from "@/lib/units/lovelace";
-import { CalendarPlus2, CalendarSearch, Plus, Repeat } from "lucide-react";
+import { CalendarPlus2, CalendarSearch, Plus } from "lucide-react";
 import Link from "next/link";
 import { useId, useState } from "react";
 
@@ -68,7 +68,9 @@ function PayeeCollectsHint() {
     <p className="text-xs text-muted-foreground">
       {i18n("yourPayeeCollectsThisOnThe")}{" "}
       <Link href="/payee" className="underline underline-offset-2 hover:text-foreground">
-        {i18n("paymentsToYouPage")}
+        {/* The destination's own name. The link read "Payments to you page." while the
+            page it opens heads itself "Scheduled income". */}
+        {i18n("scheduledIncomePage")}
       </Link>
     </p>
   );
@@ -467,9 +469,6 @@ export function FocusedStreamingPaymentRulesEditor({
 
   return (
     <FocusedTaskSurface
-      title={i18n("scheduledPayments")}
-      description={i18n("setUpAPaymentThatBuildsUpOver")}
-      icon={Repeat}
       tasks={tasks}
       selectedTask={selectedTask}
       onSelectTask={onSelectTask}

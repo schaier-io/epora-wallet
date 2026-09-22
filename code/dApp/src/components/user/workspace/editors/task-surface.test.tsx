@@ -30,9 +30,6 @@ const TASKS = [
 function renderSurface(extra: Record<string, unknown> = {}) {
   return render(
     <FocusedTaskSurface
-      title="Scheduled payments"
-      description="Short enough to render."
-      icon={Repeat}
       tasks={TASKS}
       selectedTask="streaming-payments-add"
       onSelectTask={vi.fn()}
@@ -86,6 +83,20 @@ describe("a tab chip's accessible name", () => {
     expect(
       screen.getByRole("button", { name: "Add a scheduled payment. Create" })
     ).toBeInTheDocument();
+  });
+
+  /**
+   * The chip shows a truncated `shortLabel`, and the header row that once printed the
+   * selected task's full `label` as a badge is gone. Without a `title` the full name is in
+   * `aria-label` alone, which a sighted pointer user never reaches.
+   */
+  it("gives a sighted reader the full label too", () => {
+    renderSurface();
+
+    expect(screen.getByRole("button", { name: "Add a scheduled payment. Create" })).toHaveAttribute(
+      "title",
+      "Add a scheduled payment"
+    );
   });
 });
 
@@ -221,9 +232,8 @@ describe("a description longer than the old limit", () => {
     expect(screen.getByText(LONG)).toBeInTheDocument();
   });
 
-  it("is visible in a task surface header", () => {
-    renderSurface({ description: LONG });
-
-    expect(screen.getByText(LONG)).toBeInTheDocument();
-  });
+  // No companion test for `FocusedTaskSurface`. It had the same 78-character hint gate and
+  // the same fix, but the header that carried the description is gone: the action card
+  // directly above it already prints the group's title and description in its own words,
+  // so the row repeated them. `TaskEmptyState` keeps its description and keeps this test.
 });

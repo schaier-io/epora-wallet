@@ -15,7 +15,7 @@ describe("PayeeCardFallback", () => {
     render(<PayeeCardFallback />);
 
     expect(
-      screen.getByRole("heading", { level: 1, name: "Scheduled payments to you" })
+      screen.getByRole("heading", { level: 1, name: "Scheduled income" })
     ).toBeInTheDocument();
     expect(
       screen.getByText(/Payments other wallets send to you a little at a time/)

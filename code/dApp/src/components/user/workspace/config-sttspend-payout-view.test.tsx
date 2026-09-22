@@ -17,17 +17,23 @@ const state = vi.hoisted(() => ({
 vi.mock("@/components/user/workspace/editors", async () => ({
   FocusedPeopleEditor: () => null,
   FocusedStreamingPaymentRulesEditor: () => null,
+  // The mock renders whatever heading props it is handed, so "describes the task once,
+  // below the tabs" below is answered by the view's own call and not by the mock. A mock
+  // that dropped `title`/`description` would have made that assertion pass on a revert.
   FocusedTaskSurface: ({
+    title,
     description,
     issueCount,
     children
   }: {
+    title?: string;
     description?: string;
     issueCount?: number;
     children?: ReactNode;
   }) => (
     <div>
-      <p>{description}</p>
+      {title ? <h3>{title}</h3> : null}
+      {description ? <p>{description}</p> : null}
       <span data-testid="issue-count">{issueCount}</span>
       {children}
     </div>
@@ -237,12 +243,19 @@ function renderPayout(
 }
 
 describe("what the pay-due surface says it is for", () => {
-  it("describes the task rather than the implementation", () => {
+  /**
+   * The tab strip used to sit under its own heading, "Scheduled payments" plus a
+   * description, which restated the action card printed directly above it. The section
+   * below the tabs carries the sentence that matters, so the heading was a second title
+   * for one screen.
+   */
+  it("describes the task once, below the tabs", () => {
     renderPayout([payoutRow()]);
 
     expect(
-      screen.getByText("Pay out what your scheduled payments have built up so far.")
-    ).toBeInTheDocument();
+      screen.queryByText("Pay out what your scheduled payments have built up so far.")
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("Pay out what has built up")).toBeInTheDocument();
     expect(screen.queryByText(/grouped scheduled payment surface/)).not.toBeInTheDocument();
     expect(screen.queryByText(/guided workspace/)).not.toBeInTheDocument();
   });

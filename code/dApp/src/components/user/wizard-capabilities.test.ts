@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildAvailableWizardActions,
+  buildAdvancedWizardActions,
   holdsAnyRole,
   resolveTokenCapabilityMap
 } from "@/components/user/wizard-capabilities";
@@ -173,4 +174,25 @@ test("a co-signer with approval power keeps the co-signer path", () => {
     capabilitiesFor(STRANGER_KEY_HASH, users, multisig).availableOperatorPaths,
     ["multisig"]
   );
+});
+
+// Issue #561: authorized consolidation must remain reachable with no canonical funds.
+test("orphan consolidation stays selectable when the current wallet address is empty", () => {
+  const state = { ...createDefaultStateForm(), users: [user({ isAdmin: true, wallets: [OWNER_KEY_HASH] })] };
+  for (const lockedUtxoCount of [0, 1]) {
+    const capabilities = resolveTokenCapabilityMap({
+      state, paymentKeyHash: OWNER_KEY_HASH, lockedUtxoCount, lockedUtxosLoading: false
+    });
+    assert.deepEqual(capabilities.availableConsolidatePaths, ["admin"]);
+    assert.equal(buildAdvancedWizardActions(capabilities).includes("consolidate-utxo"), true);
+  }
+});
+
+test("an empty current address does not grant consolidation authority to a stranger", () => {
+  const capabilities = resolveTokenCapabilityMap({
+    state: { ...createDefaultStateForm(), users: [user({ isAdmin: true, wallets: [OWNER_KEY_HASH] })] },
+    paymentKeyHash: STRANGER_KEY_HASH, lockedUtxoCount: 0, lockedUtxosLoading: false
+  });
+  assert.deepEqual(capabilities.availableConsolidatePaths, []);
+  assert.equal(buildAdvancedWizardActions(capabilities).includes("consolidate-utxo"), false);
 });

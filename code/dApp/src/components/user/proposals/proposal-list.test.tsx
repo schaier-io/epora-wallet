@@ -97,9 +97,9 @@ describe("the approval queue row", () => {
 
 describe("the approval queue column", () => {
   /**
-   * The page `<h1>` already says "Approval requests" and this list column says "Requests";
-   * the nav deliberately names the activity ("Co-signing") instead of the object. A heading
-   * here calling the same things "Proposals" would put two object vocabularies on one screen.
+   * The page `<h1>` and the nav tab both say "Co-signing", the activity; this list column
+   * says "Requests", the object. A heading here calling the same things "Proposals" would
+   * put two object vocabularies on one screen.
    */
   it("does not introduce a second name for approval requests", () => {
     renderList();
@@ -185,13 +185,13 @@ describe("the approval queue before anything has loaded", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Looking for approval requests");
     // The empty state is a different claim -- that there is nothing to show -- and must not
     // appear before the answer is known.
-    expect(screen.queryByText(/No approval requests yet/)).toBeNull();
+    expect(screen.queryByText(/Build a transaction on the wallet page/)).toBeNull();
   });
 
   it("swaps to the empty state once the load finishes with nothing", () => {
     renderList(undefined, { proposals: [], loading: false });
 
     expect(screen.queryByRole("status")).toBeNull();
-    expect(screen.getByText(/No approval requests yet/)).toBeTruthy();
+    expect(screen.getByText(/Build a transaction on the wallet page/)).toBeTruthy();
   });
 });

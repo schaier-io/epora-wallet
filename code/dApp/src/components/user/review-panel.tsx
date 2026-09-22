@@ -462,6 +462,16 @@ export function UserReviewPanel({
           </FadeContent>
         ) : null}
 
+        {submitHash ? null : (
+          <ReviewTransactionPreview
+            compact={compact}
+            autoSignPending={autoSignPending}
+            preview={preview}
+            previewMatchesSelectedAction={previewMatchesSelectedAction}
+            lastActionLabel={lastActionLabel}
+          />
+        )}
+
         <div className="flex flex-col gap-2">
           <Button
             type="button"
@@ -510,16 +520,6 @@ export function UserReviewPanel({
           ) : null}
         </div>
 
-        {submitHash ? null : (
-          <ReviewTransactionPreview
-            compact={compact}
-            autoSignPending={autoSignPending}
-            definition={definition}
-            preview={preview}
-            previewMatchesSelectedAction={previewMatchesSelectedAction}
-            lastActionLabel={lastActionLabel}
-          />
-        )}
       </CardContent>
     </Card>
   );

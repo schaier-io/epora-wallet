@@ -234,7 +234,7 @@ describe("proposal lifecycle Model", () => {
       await second.promise.catch(() => undefined);
     });
     await waitFor(() =>
-      expect(result.current.loadError).toBe("Could not load this approval request.")
+      expect(result.current.loadError).toBe("Could not load this request.")
     );
 
     expect(result.current.detail).toBeNull();
@@ -273,7 +273,7 @@ describe("proposal lifecycle Model", () => {
     );
 
     await waitFor(() =>
-      expect(result.current.loadError).toBe("Could not load this approval request.")
+      expect(result.current.loadError).toBe("Could not load this request.")
     );
     rerender({ proposalId: "proposal-2" });
 
