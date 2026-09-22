@@ -53,12 +53,12 @@ Feedback from people outside the team. Both reports led to code changes.
 | Issue | Reporter | Report | Category | Fix |
 | --- | --- | --- | --- | --- |
 | [#561](https://github.com/schaier-io/epora-wallet/issues/561) | Isaac ([`bytegen-dev`](https://github.com/bytegen-dev)), GitHub bug form, Vespr on Preprod | "Move it back" from a previous stake address failed with no feedback | Fixed | [#562](https://github.com/schaier-io/epora-wallet/pull/562): consolidation no longer needs funds at the current address. On `main`. |
-| [#565](https://github.com/schaier-io/epora-wallet/issues/565) | Bee (`opacular`), Discord | Owner has no way to tell the other co-signer to finish registration | Fixed | Stack [#568](https://github.com/schaier-io/epora-wallet/pull/568), [#569](https://github.com/schaier-io/epora-wallet/pull/569), [#570](https://github.com/schaier-io/epora-wallet/pull/570), [#571](https://github.com/schaier-io/epora-wallet/pull/571): invite link (share sheet, copy, mail, text, QR) and a per-co-signer "signed in" status. |
+| [#565](https://github.com/schaier-io/epora-wallet/issues/565) | Bee (`opacular`), Discord | Owner has no way to tell the other co-signer to finish registration | Fixed | Stack [#568](https://github.com/schaier-io/epora-wallet/pull/568), [#569](https://github.com/schaier-io/epora-wallet/pull/569), [#570](https://github.com/schaier-io/epora-wallet/pull/570), [#571](https://github.com/schaier-io/epora-wallet/pull/571): invite link (share sheet, copy, mail, text, QR) and a per-co-signer "signed in" status. On `main`. |
 
 Notes on these two rows:
 
 - #561: the fix removes the availability gate that hid the action. A live Vespr retest by the reporter is still open. If it still fails, the reporter is asked for the transaction hash.
-- #565: the app has no mail or push channel. The notification is a link that the owner sends. Bee gets an update when the stack is on `main`.
+- #565: the app has no mail or push channel. The notification is a link that the owner sends. The stack is on `main` (merged via [#575](https://github.com/schaier-io/epora-wallet/pull/575)). Bee gets an update that it shipped.
 
 ## Fixed: bugs
 
