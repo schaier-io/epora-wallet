@@ -564,7 +564,8 @@
   "ComponentsUserPoolFinder": {
     "clear": "Clear",
     "couldnTReachThePoolLookupTryAgain_fb9241": "Couldn't reach the pool lookup. Try again.",
-    "donTHaveOneBrowsePoolsOnPool_b446d3": "Don't have one? Browse pools on <poolPm>pool.pm</poolPm> or <cexplorer>cexplorer.io</cexplorer> and paste the pool id.",
+    "donTHaveOneBrowsePoolsOnPool_b446d3": "Don't have one? Browse pools on <cardanoscan>Cardanoscan</cardanoscan> or <adastat>AdaStat</adastat> and paste the pool id.",
+    "testNetworkPoolsNote": "These explorers show mainnet pools. This app runs on {network}, which has only test pools, so a mainnet pool id is not found here.",
     "findYourPool": "Find your pool",
     "fixedFee": "Fixed fee",
     "liveStake": "Live stake",

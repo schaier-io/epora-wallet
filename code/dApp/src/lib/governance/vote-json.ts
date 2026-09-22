@@ -51,11 +51,14 @@ export function readVoteJson(json: string): SavedVote | null {
 
 /**
  * The governance action id inside whatever the user pasted: a bare `gov_action1…` id, a
- * `<tx hash>#<index>` pair, or an explorer link that contains either one.
+ * `<tx hash>#<index>` pair, or an explorer link that contains either one. AdaStat links
+ * carry the CIP-129 hex form instead: the tx hash followed by the index as one hex byte.
  */
 export function extractGovernanceActionId(text: string): string | null {
   const bech32 = /gov_action1[02-9ac-hj-np-z]+/.exec(text.toLowerCase());
   if (bech32) return bech32[0];
   const txRef = /([0-9a-f]{64})(?:#|%23)(\d{1,5})/i.exec(text);
-  return txRef ? `${txRef[1].toLowerCase()}#${Number(txRef[2])}` : null;
+  if (txRef) return `${txRef[1].toLowerCase()}#${Number(txRef[2])}`;
+  const cip129Hex = /(?<![0-9a-f])([0-9a-f]{64})([0-9a-f]{2})(?![0-9a-f])/i.exec(text);
+  return cip129Hex ? `${cip129Hex[1].toLowerCase()}#${parseInt(cip129Hex[2], 16)}` : null;
 }
