@@ -97,6 +97,13 @@ export function SttReferenceSetup({
   const connected = Boolean(activeWallet && activeAddress);
   const canBuild = connected && !isDemoWallet && networkId === 0 && phase === "idle" && !submittedReference;
   const busy = phase === "checking" || phase === "building" || phase === "submitting" || phase === "confirming";
+  // "checking" is the page's own lookup of the network, not a transaction. Reporting it as
+  // "The setup transaction is in progress" told a reader with no wallet connected that a
+  // transaction was already running.
+  const transactionBusy = busy && phase !== "checking";
+  // Only a wallet that can sign here funds the transaction; the demo wallet or a wallet on
+  // another network gets its own explanation below instead.
+  const walletCanFund = connected && !isDemoWallet && networkId === 0;
 
   async function buildPreview() {
     if (!activeWallet || !canBuild || inFlight.current) return;
@@ -214,9 +221,13 @@ export function SttReferenceSetup({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-sm font-medium text-foreground">{i18n("statusTitle")}</h2>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {busy ? i18n("working") : connected ? i18n("walletReady") : i18n("walletNeeded")}
-            </p>
+            {/* No line while disconnected: the "Not connected" badge and the Connect button
+                beside it already say both the state and the next step. */}
+            {transactionBusy || walletCanFund ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {transactionBusy ? i18n("working") : i18n("walletReady")}
+              </p>
+            ) : null}
           </div>
           <Badge variant={connected && networkId === 0 ? "secondary" : "warning"}>
             {connected ? i18n("connected") : i18n("notConnected")}
