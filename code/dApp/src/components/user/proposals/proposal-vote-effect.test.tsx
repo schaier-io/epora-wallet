@@ -3,6 +3,7 @@ import { render as renderUI, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createQueryTestWrapper } from "@/test/query-client";
 import type { ProposalVoteView } from "@/lib/proposals/types";
+import { queryKeys } from "@/lib/query/keys";
 import { ProposalVoteEffect } from "./proposal-vote-effect";
 
 const VOTE: ProposalVoteView = {
@@ -51,7 +52,10 @@ it("keeps the vote readable when the title lookup fails", async () => {
 
   render(<ProposalVoteEffect votes={[{ ...VOTE, vote: null }]} />);
 
+  // Settle the failed lookup first: before it settles the fallback shows trivially.
+  const key = queryKeys.governanceAction(`${VOTE.actionTxHash}#2`);
+  await waitFor(() => expect(context.queryClient.getQueryState(key)?.status).toBe("error"));
   expect(screen.getByText("Unrecognised vote")).toBeInTheDocument();
   expect(screen.getByText("Governance action")).toBeInTheDocument();
-  await waitFor(() => expect(screen.getByText(/#2$/)).toBeInTheDocument());
+  expect(screen.getByText(/#2$/)).toBeInTheDocument();
 });
