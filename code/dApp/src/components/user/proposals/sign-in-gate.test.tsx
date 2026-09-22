@@ -59,12 +59,10 @@ describe("proposals sign-in gate", () => {
    * The button is disabled in exactly two situations, and a disabled button is not
    * focusable, so the reason has to be on the page beside it rather than on the control.
    */
-  it("names the control to use when no wallet is connected", () => {
+  it("offers one connect control, with no line repeating it, when no wallet is connected", () => {
     render(<SignInGate session={controller()} />);
 
-    expect(
-      screen.getByText(/Connect your wallet, then sign a message/)
-    ).toBeInTheDocument();
+    expect(screen.queryByText(/Connect your wallet, then sign a message/)).toBeNull();
     expect(screen.queryByRole("button", { name: /sign in with wallet/i })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: connectLabel }));
     expect(screen.getByText("Wallet chooser")).toBeInTheDocument();
@@ -83,14 +81,23 @@ describe("proposals sign-in gate", () => {
 
   /** One slot, one chrome: whichever reason applies renders in the same bordered callout. */
   it("renders both reasons in the same callout", () => {
-    const { container, rerender } = render(<SignInGate session={controller()} />);
-    const disconnected = container.querySelector("div.rounded-lg.border")?.className;
-
     wallet.activeAddress = "addr_test1demo";
     wallet.isDemoWallet = true;
-    rerender(<SignInGate session={controller()} />);
+    const { container, rerender } = render(<SignInGate session={controller()} />);
+    const demo = container.querySelector("div.rounded-lg.border")?.className;
+    expect(demo).toBeTruthy();
 
-    expect(container.querySelector("div.rounded-lg.border")?.className).toBe(disconnected);
+    wallet.isDemoWallet = false;
+    rerender(
+      <SignInGate
+        session={controller({
+          session: { paymentKeyHash: "bc".repeat(28), address: "addr_test1old" },
+          connectedWalletMismatch: true
+        })}
+      />
+    );
+
+    expect(container.querySelector("div.rounded-lg.border")?.className).toBe(demo);
   });
 
   it("drops the callout and enables the button for a signing wallet", () => {

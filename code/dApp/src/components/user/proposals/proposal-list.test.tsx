@@ -109,12 +109,12 @@ describe("the approval queue column", () => {
 
   /**
    * The badge read "Invalid — rebuild": an em dash, plus the word for what an engineer does
-   * about it rather than what happened. What happened is that the transaction spends funds
-   * that have since moved, so it can no longer be submitted.
+   * about it rather than what happened. It now says what the reader can no longer do; the
+   * detail view says why.
    */
-  it("says an unusable request is out of date, without jargon or a dash", () => {
+  it("says an unusable request cannot be signed, without jargon or a dash", () => {
     const { container } = renderList({ validity: "invalid", signers: SIGNERS });
-    expect(screen.getByText("Out of date")).toBeTruthy();
+    expect(screen.getByText("Cannot be signed")).toBeTruthy();
     expect(screen.queryByText(/rebuild/i)).toBeNull();
     expect(container.textContent).not.toMatch(/[—–]/);
   });
@@ -161,7 +161,7 @@ describe("the approval queue column", () => {
   it("does not paint a verdict on a request it could not check", () => {
     renderList({ validity: "unknown", signers: null });
     expect(screen.getByText("Not checked")).toBeTruthy();
-    expect(screen.queryByText("Out of date")).toBeNull();
+    expect(screen.queryByText("Cannot be signed")).toBeNull();
     expect(screen.queryByText("Checking")).toBeNull();
   });
 

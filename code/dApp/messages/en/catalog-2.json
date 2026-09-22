@@ -1,12 +1,12 @@
 {
   "ComponentsUserProposalsProposalList": {
-    "cancelled": "Cancelled",
+    "cancelled": "Withdrawn",
     "checking": "Checking",
     "loadMore": "Load more",
     "noApprovalRequestsYetBuildATransactionOn": "Nothing to co-sign yet. Build a transaction on the wallet page, then choose “Save for co-signing”.",
     "notChecked": "Not checked",
     "open": "Open",
-    "outOfDate": "Out of date",
+    "outOfDate": "Cannot be signed",
     "refresh": "Refresh",
     "requests": "Requests",
     "sending": "Sending",
@@ -46,7 +46,6 @@
     "waitingForAnOwner": "Waiting for an owner"
   },
   "ComponentsUserProposalsSignInGate": {
-    "noWalletIsConnectedYetUseThe": "Connect your wallet, then sign a message to see requests to co-sign.",
     "signInToSeeApprovalRequests": "Sign in to see requests to co-sign",
     "signInWithWallet": "Sign in with wallet",
     "theDemoIsReadOnlyConnectABrowser": "The demo is read-only. Connect a browser wallet to sign in.",

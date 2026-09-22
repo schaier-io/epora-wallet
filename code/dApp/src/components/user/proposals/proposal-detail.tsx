@@ -117,9 +117,15 @@ export function ProposalDetail({
       if (!verification?.stateTransition && verification?.effect.inputs.every((input) => input.live === true)) {
         return i18n("stateChangesUnavailable");
       }
-      if (canRebuild) return i18n("thisRequestIsOutOfDateItUses");
-      if (rebuildNeedsProposer) return i18n("thisRequestIsOutOfDateOnlyTheProposer");
-      return i18n("thisRequestIsOutOfDateItUses_1ec8c3");
+      // "Funds have since moved" only when a spent input says so. A bad stored signature or
+      // signers who cannot pass used to land here too, beside inputs marked "Still there";
+      // the "What the check found" list names those reasons.
+      if (verification?.effect.inputs.some((input) => input.live === false)) {
+        if (canRebuild) return i18n("thisRequestIsOutOfDateItUses");
+        if (rebuildNeedsProposer) return i18n("thisRequestIsOutOfDateOnlyTheProposer");
+        return i18n("thisRequestIsOutOfDateItUses_1ec8c3");
+      }
+      return null;
     }
     if (!verification) {
       return i18n("theCheckDidNotFinishSoSigningIs");
@@ -241,7 +247,12 @@ export function ProposalDetail({
         </CardHeader>
         <CardContent className="space-y-4">
           <EffectSection verification={verification} />
-          {detail.status === "OPEN" ? <StateTransitionReview transition={verification?.stateTransition ?? null} /> : null}
+          {/* Only once there are changes to show. While the check runs, or when it could not
+              resolve them, the status line and the reasons list already say signing is
+              blocked; this section used to add a third alert, even mid-check. */}
+          {detail.status === "OPEN" && verification?.stateTransition ? (
+            <StateTransitionReview transition={verification.stateTransition} />
+          ) : null}
 
           <SignersSection verification={verification} />
 
@@ -566,12 +577,9 @@ function SignersSection({ verification }: { verification: ProposalVerification |
     return null;
   }
   const signers = verification.signers;
+  // Unread signers make the request invalid, and the reasons list already says so.
   if (!signers) {
-    return (
-      <section className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4 text-sm text-muted-foreground">
-        {i18n("whoHasToSignCouldNotBeRead_46e9bc")}
-      </section>
-    );
+    return null;
   }
 
   const signed = new Set(signers.signedKeyHashes);
