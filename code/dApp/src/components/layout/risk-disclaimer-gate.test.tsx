@@ -86,6 +86,21 @@ describe("risk disclaimer gate", () => {
     ).toBeInTheDocument();
   });
 
+  it("opens on the notice, not on the button that accepts it", () => {
+    // `autoFocus` sat on "I understand and accept the risks", so a screen reader read
+    // that button and nothing else: the notice it accepts is the container's
+    // `aria-describedby`, and Enter was armed on acceptance before a word of it had
+    // been heard.
+    mountPageBehind();
+
+    render(<RiskDisclaimerGate />);
+
+    const gate = screen.getByRole("alertdialog");
+    expect(document.activeElement).toBe(gate);
+    expect(gate).toHaveAttribute("aria-describedby", "risk-disclaimer-body");
+    expect(gate).toHaveAttribute("aria-labelledby", "risk-disclaimer-title");
+  });
+
   it("hands the page back once the risk is accepted", () => {
     const page = mountPageBehind();
 

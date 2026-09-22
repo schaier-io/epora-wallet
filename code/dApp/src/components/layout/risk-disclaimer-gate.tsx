@@ -81,6 +81,14 @@ export function RiskDisclaimerGate() {
       marked.push(child);
     }
 
+    // Focus the gate itself, not the button inside it. `autoFocus` used to sit on
+    // "I understand and accept the risks", so a screen reader read that button and
+    // nothing else: the notice it accepts is the container's `aria-describedby`, and
+    // Enter was armed on acceptance before a word of it had been heard. Landing on the
+    // container reads the title and the body out, which is the same reason
+    // `popup-dialog.tsx` names its own container as the initial focus target.
+    gate.focus({ preventScroll: true });
+
     return () => {
       for (const element of marked) {
         element.removeAttribute("inert");
@@ -100,6 +108,8 @@ export function RiskDisclaimerGate() {
   return createPortal(
     <div
       ref={gateRef}
+      // Focusable only by script: the effect above puts initial focus here.
+      tabIndex={-1}
       role="alertdialog"
       aria-modal="true"
       aria-labelledby="risk-disclaimer-title"
@@ -162,7 +172,6 @@ export function RiskDisclaimerGate() {
 
         <Button
           type="button"
-          autoFocus
           onClick={() => {
             try {
               window.sessionStorage.setItem(ACCEPTANCE_STORAGE_KEY, ACCEPTANCE_STORAGE_VALUE);
