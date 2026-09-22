@@ -152,4 +152,4 @@ From the e2e notes, still worth a ticket if it reproduces on today's build: dust
   - STT mint/spend: `0dac00be80879dcf585cdb9d0acf6e0ecf52c417ded30d8b72d0ebf1`
   - STT reference store: `fc20070d1e5379403add6acbf77b233b2f8240821c187b398525de28`
   - Wallet (unparameterized): `5f8f25f5b598548b224efba3082ffbdd33f46ec58274282b63d0d701`
-- Production spend on Preprod (4 Sep 2026, epora.io, 2-of-2 send): [`64c01da1705083a6565b0f6a56cc5674396757e45426e3f80dbca3def0a6f731`](https://preprod.cardanoscan.io/transaction/64c01da1705083a6565b0f6a56cc5674396757e45426e3f80dbca3def0a6f731)
+- Wallet setup on Preprod (7 Sep 2026, block 5149161): [`676af5c757bc5fea1fa4d9e54a59ff20ba96b98eb452b40a4dda195f8424b709`](https://preprod.cardanoscan.io/transaction/676af5c757bc5fea1fa4d9e54a59ff20ba96b98eb452b40a4dda195f8424b709). It mints one STT under the STT mint policy above and locks it with an inline datum at the STT script address.
