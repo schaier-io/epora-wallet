@@ -46,11 +46,21 @@ function PermissionChip({
   title?: string;
   onClick: () => void;
 }) {
+  const descriptionId = useId();
+
   return (
+    <>
     <button
       type="button"
       aria-pressed={pressed}
       disabled={disabled}
+      // What the permission grants used to live only in `title`, which no touch user can
+      // open and which assistive tech announces inconsistently. It is a description of a
+      // chip already named "Owner", not part of that name, so it goes in the sr-only span
+      // below rather than into `aria-label`: extending the name would make these four
+      // toggles announce a sentence each before saying which one they are.
+      aria-describedby={title ? descriptionId : undefined}
+      // Kept as the pointer route to the same sentence.
       title={title}
       onClick={onClick}
       className={cn(
@@ -71,6 +81,13 @@ function PermissionChip({
       )}
       {label}
     </button>
+    {/* `sr-only` is `position: absolute`, so this adds no flex item to the chip row. */}
+    {title ? (
+      <span id={descriptionId} className="sr-only">
+        {title}
+      </span>
+    ) : null}
+    </>
   );
 }
 

@@ -559,3 +559,36 @@ describe("an empty wallet", () => {
     expect(screen.getByRole("button", { name: /add person/i })).toBeInTheDocument();
   });
 });
+
+/**
+ * Each permission chip shows one word. What the permission grants lived only in a native
+ * `title`, which no touch user can open and which assistive tech announces inconsistently.
+ * It is a description of a chip already named "Owner", so it belongs in a description, not
+ * in the name: extending the name would make these four toggles announce a sentence each
+ * before saying which one they are.
+ */
+describe("what a permission chip grants", () => {
+  it("reaches a screen reader through a description, with the name left alone", () => {
+    const store = createStore();
+    render(
+      <Provider store={store}>
+        <PersonPermissionsEditor
+          user={person({}, "1")}
+          onChange={vi.fn()}
+          onRemove={vi.fn()}
+          approvalPowerCeiling={1}
+          canAddPerDayAllowanceEntry
+          canAddRemainingAllowanceEntry
+          canAddWallet
+        />
+      </Provider>
+    );
+
+    const owner = screen.getByRole("button", { name: "Owner" });
+    const describedBy = owner.getAttribute("aria-describedby");
+    expect(describedBy).toBeTruthy();
+    expect(document.getElementById(describedBy!)?.textContent).toMatch(
+      /owner can change every wallet setting/i
+    );
+  });
+});
