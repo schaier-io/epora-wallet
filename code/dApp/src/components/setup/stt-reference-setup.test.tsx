@@ -292,4 +292,35 @@ describe("STT reference setup", () => {
 
     expect(screen.getByRole("button", { name: "Confirming on-chain…" })).toBeDisabled();
   });
+
+  // The confirmation poll sleeps between attempts, so the reader can leave mid-sleep. A poll
+  // that woke up anyway queried the provider for a page that no longer exists. Every test in
+  // this file shares one `detect` mock, so that stray call also lands on whichever test runs
+  // next, and a call-count assertion there fails for a reason nothing in it explains.
+  it("stops the confirmation poll when the reader leaves mid-attempt", async () => {
+    vi.useFakeTimers();
+    mocks.build.mockResolvedValue({
+      preview: { summary: "Deploy reference with 5 ADA" },
+      referenceScriptOutputIndex: 0,
+      signerAddress: "addr_test1_signer",
+      txHex: "84a400"
+    });
+    mocks.signAndSubmit.mockResolvedValue("ef".repeat(32));
+    mocks.detect.mockResolvedValue(missingStore);
+
+    const { unmount } = render(<SttReferenceSetup initialStore={missingStore} />);
+    fireEvent.click(screen.getByRole("button", { name: "Build setup transaction" }));
+    await act(async () => undefined);
+    fireEvent.click(screen.getByRole("button", { name: "Sign and deploy" }));
+    await act(async () => undefined);
+
+    expect(screen.getByRole("button", { name: "Confirming on-chain…" })).toBeDisabled();
+    unmount();
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+
+    expect(mocks.detect).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
 });
