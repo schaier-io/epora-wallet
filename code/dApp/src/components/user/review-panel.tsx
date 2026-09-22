@@ -245,18 +245,18 @@ export function UserReviewPanel({
               ))}
           </dl>
         ) : null}
-        <div className="rounded-lg border border-border/50 bg-muted/10 p-3">
-          <p className="eyebrow font-medium text-muted-foreground">
-            {i18n("nextStep")}
-          </p>
-          <p className="mt-1 min-w-0 break-words text-sm text-foreground">
-            {/* The draft's own step, not the blocking issue's description: with nothing
-                staged both lines said "Add a payout…" -- the same sentence twice in one
-                rail, and a third time as the section's inline hint. The attention box
-                below owns what is wrong; this line owns what to do about it. */}
-            {draftNextStep || primaryBlockingIssue?.description}
-          </p>
-        </div>
+        {/* Only when the attention box below stays hidden. With issues staged the two
+            boxes said the same thing twice: "Next step: Choose the fund pools you want to
+            merge." directly above "Selected fund pools: Select at least one fund pool."
+            The attention box owns the blocked state; this line owns the unblocked one. */}
+        {issues.length === 0 || submitHash ? (
+          <div className="rounded-lg border border-border/50 bg-muted/10 p-3">
+            <p className="eyebrow font-medium text-muted-foreground">{i18n("nextStep")}</p>
+            <p className="mt-1 min-w-0 break-words text-sm text-foreground">
+              {draftNextStep || primaryBlockingIssue?.description}
+            </p>
+          </div>
+        ) : null}
         {!hasReceipt ? (
           <ReviewActionExplainer definition={definition} compact={compact} />
         ) : null}
