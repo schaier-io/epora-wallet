@@ -49,3 +49,23 @@ test("only the clipping wrapper carries the sidebar hover lift", () => {
     `${OWNER} owns user-card-lift. Take the lift from guidedSidebarSpotlightClass instead of writing the class here: ${offenders.join(", ")}`
   );
 });
+
+/**
+ * The same clip decides what a box-shadow ring can paint. A guided sidebar card is `w-full`
+ * inside its `SpotlightCard`, so its border box is exactly the clip rect, and an outset
+ * `0 0 0 1px` ring sits entirely outside it. The selected card shipped one: the ring never
+ * reached the screen, leaving `border-emerald-400/35` over a near-opaque gradient as the only
+ * edge, which read as no border beside the idle cards. Rings on these surfaces must be `inset`.
+ */
+test("the sidebar surface classes ring inside the clip", () => {
+  const source = readFileSync(`${workspaceDir}${OWNER}`, "utf8");
+  const outsetRings = source
+    .split("\n")
+    .filter((line) => /shadow-\[(?!inset)/.test(line) && !line.trimStart().startsWith("//"));
+
+  assert.deepEqual(
+    outsetRings,
+    [],
+    `A shadow outside the card's border box is clipped by the SpotlightCard. Use shadow-[inset_...]: ${outsetRings.join(", ")}`
+  );
+});
