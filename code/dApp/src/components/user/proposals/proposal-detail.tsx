@@ -26,6 +26,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils/cn";
 import type { ProposalVerification } from "@/lib/proposals/types";
+import { AddressCopyButton } from "@/components/ui/address-copy-button";
 import { actionKindLabel, lovelaceToAda, truncateMiddle } from "./format";
 import { authorityPathLabel, describeSignerProgress } from "./signer-progress";
 import { ProposalSummaryRows } from "./proposal-summary-rows";
@@ -590,9 +591,16 @@ function SignersSection({ verification }: { verification: ProposalVerification |
               className="flex items-center justify-between gap-2"
             >
               {/* A signer checks this list for their own key hash, so the truncated form
-                  has to lead back to the full value. */}
-              <span className="font-mono" title={signer.keyHash}>
-                {truncateMiddle(signer.keyHash, 10, 6)}
+                  has to lead back to the full value. The `title` alone did not: it opens on
+                  hover and nowhere else, so a touch or keyboard user had no route to it.
+                  Unlike the two transaction hashes above, this one is not a Cardanoscan
+                  link either. The copy button is the route; the `title` stays as the
+                  shortcut for a mouse. */}
+              <span className="flex min-w-0 items-center gap-1">
+                <span className="font-mono" title={signer.keyHash}>
+                  {truncateMiddle(signer.keyHash, 10, 6)}
+                </span>
+                <AddressCopyButton value={signer.keyHash} />
               </span>
               <span className="flex items-center gap-2">
                 {signer.isAdmin ? <Badge variant="outline">{i18n("owner_89ff31")}</Badge> : null}

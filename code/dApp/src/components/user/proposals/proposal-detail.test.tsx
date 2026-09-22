@@ -674,3 +674,51 @@ describe("withdrawing an open request", () => {
     expect(cancelProposal).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * The signer list's own comment says a signer checks it for their own key hash, so the
+ * truncated form has to lead back to the full value. A native `title` was the only route,
+ * and it opens on hover and nowhere else, so a touch or keyboard user had none. Unlike the
+ * transaction hashes on this page, a key hash is not a Cardanoscan link either.
+ */
+describe("the required-signer key hash", () => {
+  const signerKeyHash = "ee".repeat(28);
+
+  beforeEach(() => {
+    verify.proposal.mockReset();
+    verify.proposal.mockResolvedValue({
+      validity: "valid",
+      reasons: [],
+      bodyHashMatches: true,
+      stateTransition: { txBodyHash: detail.txBodyHash, outputIndex: 0, changes: [] },
+      effect: {
+        inputs: [],
+        outputs: [],
+        feeLovelace: "200000"
+      },
+      signers: {
+        authorityPath: "multisig",
+        requiredSigners: [{ keyHash: signerKeyHash, isAdmin: false, power: 1 }],
+        signedKeyHashes: [],
+        satisfiedPower: 0,
+        threshold: 1,
+        satisfied: false
+      }
+    });
+  });
+
+  it("carries a copy control, not only a hover title", async () => {
+    renderDetail(
+      <ProposalDetail
+        proposalId={detail.id}
+        sessionKeyHash={"dd".repeat(28)}
+        onChanged={() => undefined}
+        onBack={() => undefined}
+      />
+    );
+
+    const truncated = await screen.findByTitle(signerKeyHash);
+    const row = truncated.closest("li")!;
+    expect(within(row).getByRole("button", { name: /copy/i })).toBeInTheDocument();
+  });
+});
