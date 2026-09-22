@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cardanoFaucetUrl } from "@/lib/cardano-network";
 
 // Returns false during SSR / first paint, true once mounted on the client,
 // without a setState-in-effect cascade. Server snapshot is constant, client
@@ -46,6 +47,7 @@ function readSessionAcceptance(): boolean {
  */
 export function RiskDisclaimerGate() {
   const i18n = useTranslations("ComponentsLayoutRiskDisclaimerGate");
+  const faucetUrl = cardanoFaucetUrl();
   const [accepted, setAccepted] = useState(readSessionAcceptance);
   const mounted = useMounted();
   const gateRef = useRef<HTMLDivElement | null>(null);
@@ -79,6 +81,14 @@ export function RiskDisclaimerGate() {
       marked.push(child);
     }
 
+    // Focus the gate itself, not the button inside it. `autoFocus` used to sit on
+    // "I understand and accept the risks", so a screen reader read that button and
+    // nothing else: the notice it accepts is the container's `aria-describedby`, and
+    // Enter was armed on acceptance before a word of it had been heard. Landing on the
+    // container reads the title and the body out, which is the same reason
+    // `popup-dialog.tsx` names its own container as the initial focus target.
+    gate.focus({ preventScroll: true });
+
     return () => {
       for (const element of marked) {
         element.removeAttribute("inert");
@@ -98,6 +108,8 @@ export function RiskDisclaimerGate() {
   return createPortal(
     <div
       ref={gateRef}
+      // Focusable only by script: the effect above puts initial focus here.
+      tabIndex={-1}
       role="alertdialog"
       aria-modal="true"
       aria-labelledby="risk-disclaimer-title"
@@ -130,12 +142,36 @@ export function RiskDisclaimerGate() {
               strong: (children) => <strong className="text-foreground">{children}</strong>
             })}
           </p>
-          <p>{i18n("forTestFundsRequestTestAdaFromTheCardanoPreprodFaucet")}</p>
+          {/* The faucet is now reachable, not merely named. This line used to be plain
+              text, and this file's test recorded the reason: "There is no faucet URL in the
+              repo to link to, so the guidance names the faucet without inventing one." The
+              repo does hold one, in `PreprodFaucetHint`, so the first screen every reader
+              meets was sending them to find a site it already knew the address of. Both
+              places now read it from `cardano-network.ts`, which exists to keep the
+              network-keyed endpoints together. On a network with no faucet the sentence
+              falls back to the plain words rather than a dead link. */}
+          <p>
+            {faucetUrl
+              ? i18n.rich("forTestFundsRequestTestAdaFromTheCardanoPreprodFaucet", {
+                  link: (children) => (
+                    <a
+                      href={faucetUrl}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="font-medium text-foreground underline decoration-border underline-offset-2 hover:decoration-foreground"
+                    >
+                      {children}
+                    </a>
+                  )
+                })
+              : i18n.rich("forTestFundsRequestTestAdaFromTheCardanoPreprodFaucet", {
+                  link: (children) => <>{children}</>
+                })}
+          </p>
         </div>
 
         <Button
           type="button"
-          autoFocus
           onClick={() => {
             try {
               window.sessionStorage.setItem(ACCEPTANCE_STORAGE_KEY, ACCEPTANCE_STORAGE_VALUE);

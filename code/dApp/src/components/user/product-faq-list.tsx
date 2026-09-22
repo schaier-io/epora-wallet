@@ -15,12 +15,26 @@ export function ProductFaqList() {
   const i18n = useTranslations("ComponentsUserProductFaqList");
   return (
     <section aria-labelledby="product-faq-heading" className="space-y-2">
-      <h2
+      {/* `h3` at the Title rung, matching the three step headings this card already
+          renders (`workspace-onboarding-view.tsx:94`).
+
+          It was an `h2` carrying `.eyebrow`: 11px/500, measured on `/user` at 320px. Two
+          things were wrong with that. The level claimed to be a peer of the page's own
+          "Welcome to Epora Wallet" `h2` while sitting inside the card that heading
+          introduces, and it followed three `h3`s, so the outline ran 24 / 16 / 16 / 16 / 11
+          with the level going back UP at the smallest size on the screen. The eyebrow rung
+          is for a label above a title, not for the title itself, and 11px is below the 14px
+          body rung: this section heading was the least readable text on the first screen of
+          the product.
+
+          The FAQ is a section of the same card as the three steps, so it is their peer at
+          their size. */}
+      <h3
         id="product-faq-heading"
-        className="eyebrow font-medium text-muted-foreground"
+        className="font-sans text-base font-semibold leading-snug tracking-[-0.02em] text-foreground"
       >
         {i18n("beforeYouConnect")}
-      </h2>
+      </h3>
       {/*
         No box of its own. A `rounded-lg border` panel with `px-3` inside it held every question
         13px in from the rail the rest of the card sits on: measured at 1440x900, the questions

@@ -284,7 +284,7 @@
     "couldnTLoadThisSmartWalletSBalance": "Could not load this smart wallet’s balance. Refresh and try again."
   },
   "ComponentsUserWorkspaceUseLockedContractUtxos": {
-    "couldNotLoadThisWalletSFunds": "Could not load this wallet's funds. Reload to try again."
+    "couldNotLoadThisWalletSFunds": "Could not load this wallet's funds. The app keeps trying. Use Refresh to try now."
   },
   "ComponentsUserWorkspaceUsePermissionWalletWorkspaceState": {
     "confirming": "Confirming…",
@@ -424,9 +424,8 @@
     "nameTheWalletChooseWhoCanUseIt": "Name the wallet, choose who can use it, and add its first funds.",
     "noAdaAvailable": "Connected wallet: no ADA",
     "openAWallet": "Open a wallet",
-    "refreshWalletData": "Refresh wallet data",
-    "reloadTheSmartWalletList": "Reload the smart wallet list",
-    "reloadWalletFundsSummariesAndRecentActivity": "Reload wallet funds, summaries, and recent activity",
+    "reloadTheSmartWalletList": "Refresh the smart wallet list",
+    "reloadWalletFundsSummariesAndRecentActivity": "Refresh wallet funds, summaries, and recent activity",
     "shareOneNonCustodialCardanoWalletAcrossOwners": "Share one non-custodial Cardano wallet across owners and spenders. Cardano smart contracts hold the funds and enforce every rule on-chain.",
     "smartWallets": "Smart wallets",
     "smartWalletsValue1SwitchOrCreateOne": "Smart wallets, {value1}. Switch or create one.",
@@ -448,7 +447,7 @@
   },
   "ComponentsUserWorkspaceWorkspaceMainPanelView": {
     "coSignerPowerRatio": "{label} · {needed}/{available} power",
-    "couldNotLoadThisWallet": "Could not load this wallet. Reload the page to try again.",
+    "couldNotLoadThisWallet": "Could not load this wallet. Use Refresh to try again.",
     "oneSharedCardanoWalletWithKeyRecoveryNo": "One shared Cardano wallet with key recovery. No new seed phrase: you sign with the wallet you already use.",
     "walletSetup": "Wallet setup"
   },
@@ -607,7 +606,7 @@
     "advanced": "Advanced",
     "chooseAWallet": "Choose a wallet",
     "commonActions": "Common actions",
-    "couldNotLoadThisWalletReloadThePage": "Could not load this wallet. Reload the page to try again.",
+    "couldNotLoadThisWalletReloadThePage": "Could not load this wallet. Use Refresh to try again.",
     "home": "Home",
     "loadingYourWallet": "Loading your wallet…",
     "noDailyActionsYet": "No daily actions yet",

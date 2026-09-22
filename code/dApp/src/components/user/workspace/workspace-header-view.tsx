@@ -30,6 +30,7 @@ import {
   CardContent
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { pageHeadingClass } from "@/components/ui/page-heading";
 
 import {
   formatLovelaceAsAda,
@@ -184,6 +185,14 @@ export function WorkspaceHeaderView() {
 
   // Every control below is gated on `walletReady`, so signed out this div rendered empty and
   // still took a `gap-3` slot beside the header text.
+  // One name for the refresh control, used for both the tooltip and the accessible name.
+  // They used to differ: the tooltip read "Refresh wallet data" while the accessible name
+  // read "Refresh the smart wallet list" (or the funds sentence in the other branch), so the
+  // only name a sighted mouse user could read was not a name a speech-input user could say.
+  const refreshLabel = selectedDetectedToken
+    ? i18n("reloadWalletFundsSummariesAndRecentActivity")
+    : i18n("reloadTheSmartWalletList");
+
   const statusControls = !walletReady ? null : (
     <div
       className={cn(
@@ -248,12 +257,8 @@ export function WorkspaceHeaderView() {
             walletTransactions.loading
           }
           className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/60 bg-background/45 text-muted-foreground transition-colors hover:border-sky-300/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-          aria-label={
-            selectedDetectedToken
-              ? i18n("reloadWalletFundsSummariesAndRecentActivity")
-              : i18n("reloadTheSmartWalletList")
-          }
-          title={i18n("refreshWalletData")}
+          aria-label={refreshLabel}
+          title={refreshLabel}
         >
           <RefreshCw
             className={cn(
@@ -288,17 +293,15 @@ export function WorkspaceHeaderView() {
       <SoftAurora className="opacity-85" />
       <CardContent className="relative z-10">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          {/* Top-anchored only while there are two lines to anchor to. A 40px tile cannot be
-              centred on a 20px first line without a negative margin that would lift it out of
-              the card, so `items-start` plus `mt-0.5` does the achievable thing: the tile's top
-              edge sits on the title's em box, which caps the drop at ~12px instead of letting it
-              grow with the description. It grew: title (20px, 22.5px at `md`) + `space-y-1` (4px)
-              + description (19.5px, 22.75px at `md`) makes the block 43.5px / 49.25px, and a
-              wrapped description takes it past 63px, where `items-center` sat the tile 21.5px
-              below the heading it labels.
-              With only one of the two, the block is shorter than the tile and `items-start`
-              would strand that single line at the top of a 42px row, so that state keeps
-              `items-center` -- which is exactly right when the tile is the tallest item. */}
+          {/* Top-anchored only while there are two lines to anchor to. `items-start` plus
+              `mt-0.5` puts the tile's top edge on the title's em box, so its offset from the
+              heading it labels never grows with the description. Measured at 1440px on the
+              pre-connect state: title 28.8px, `space-y-1` 4px, a two-line description 45.5px,
+              so the block runs 78.3px against a 42px tile -- `items-center` would sit the
+              tile 18px below the heading, and further still as the description wraps.
+              With only one of the two, the block (28.8px) is shorter than the tile and
+              `items-start` would strand that single line at the top of a 42px row, so that
+              state keeps `items-center` -- which is exactly right when the tile is tallest. */}
           <div
             className={cn(
               "flex min-w-0 gap-3",
@@ -310,12 +313,26 @@ export function WorkspaceHeaderView() {
             </span>
             <div className="min-w-0 space-y-1">
               {guidedWorkspaceTitle ? (
-                <h2 className="truncate text-base font-semibold leading-tight tracking-tight md:text-lg">
+                // `pageHeadingClass`, not a local size. Every title this header renders --
+                // "Create wallet", "Choose your next step", "Welcome to Epora Wallet" -- is
+                // DESIGN.md's Headline rung, "page task and major workflow state", and
+                // /setup, /payee and the proposals workspace already render that rung at
+                // 1.5rem through this same class. At `text-base md:text-lg` this header
+                // instead rendered 18px, the exact size and weight of the `h3`s in the card
+                // below it, so the screen's own name carried no more weight than the items
+                // under it. The five surfaces now agree.
+                // It wraps, it does not `truncate`. At the Headline rung "Welcome to Epora
+                // Wallet" needs 268px and this column offers 257px at 375px wide, so the
+                // screen's own name would have been cut with no way to read the rest. A page
+                // heading on two lines costs one line; a clipped one costs the sentence.
+                <h2 className={pageHeadingClass}>
                   {guidedWorkspaceTitle}
                 </h2>
               ) : null}
               {guidedWorkspaceDescription ? (
-                <p className="max-w-2xl text-xs leading-relaxed text-muted-foreground md:text-sm">
+                // Body rung, at every width. A 12px line under a 24px headline is two rungs
+                // of the scale in one step.
+                <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
                   {guidedWorkspaceDescription}
                 </p>
               ) : null}

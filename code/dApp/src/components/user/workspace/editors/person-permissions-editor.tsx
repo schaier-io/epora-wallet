@@ -20,6 +20,11 @@ import {
 } from "@/components/user/workspace/helpers";
 import { PersonHeading } from "@/components/user/workspace/editors/person-heading";
 import { personLabel } from "@/lib/contracts/person-label";
+import {
+  MAX_TOTAL_ALLOWANCE_ENTRIES,
+  MAX_TOTAL_USER_WALLETS,
+  MAX_WALLETS_PER_USER
+} from "@/lib/contracts/state-validation";
 import { type UserFormState } from "@/lib/contracts/state-form";
 import { Check, Plus } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
@@ -42,11 +47,21 @@ function PermissionChip({
   title?: string;
   onClick: () => void;
 }) {
+  const descriptionId = useId();
+
   return (
+    <>
     <button
       type="button"
       aria-pressed={pressed}
       disabled={disabled}
+      // What the permission grants used to live only in `title`, which no touch user can
+      // open and which assistive tech announces inconsistently. It is a description of a
+      // chip already named "Owner", not part of that name, so it goes in the sr-only span
+      // below rather than into `aria-label`: extending the name would make these four
+      // toggles announce a sentence each before saying which one they are.
+      aria-describedby={title ? descriptionId : undefined}
+      // Kept as the pointer route to the same sentence.
       title={title}
       onClick={onClick}
       className={cn(
@@ -67,6 +82,13 @@ function PermissionChip({
       )}
       {label}
     </button>
+    {/* `sr-only` is `position: absolute`, so this adds no flex item to the chip row. */}
+    {title ? (
+      <span id={descriptionId} className="sr-only">
+        {title}
+      </span>
+    ) : null}
+    </>
   );
 }
 
@@ -190,6 +212,16 @@ export function PersonPermissionsEditor({
         {user.isAdmin ? (
           <p className="text-xs text-muted-foreground">{i18n("everyOwnerCanCheckIn")}</p>
         ) : null}
+        {/* The Spender chip goes dead on two conditions. `user.isAdmin` says why in the
+            line above and in the chip's own description. The wallet-wide allowance budget
+            said nothing: the chip simply stopped responding, with no number and no way to
+            learn which limit was reached. `asset-editors.tsx:155` names the same cap for
+            the Add button inside the limits list. */}
+        {!user.isAdmin && !isSpender && !canAddPerDayAllowanceEntry ? (
+          <p className="text-xs text-muted-foreground">
+            {i18n("thisWalletAlreadyHasMaxLimits", { max: MAX_TOTAL_ALLOWANCE_ENTRIES })}
+          </p>
+        ) : null}
         <div className="flex flex-wrap gap-2">
           <Badge variant="outline">
             {formatCountLabel(user.wallets.length, "linkedWallet")}
@@ -282,6 +314,17 @@ export function PersonPermissionsEditor({
               : i18n("addsTheIdOfTheWalletYouAre")}
         </p>
       </div>
+      {/* Two caps empty the Add above and the button beside it: this person's own wallet
+          list (`MAX_WALLETS_PER_USER`) and the wallet-wide total every caller folds into
+          `canAddWallet` (`state-form-editor.tsx:318`). The remedy differs, so the line has
+          to say which one: remove a wallet from this person, or from somebody else. */}
+      {!canAddWallet ? (
+        <p className="text-xs text-muted-foreground">
+          {user.wallets.length >= MAX_WALLETS_PER_USER
+            ? i18n("thisPersonAlreadyHasMaxWallets", { max: MAX_WALLETS_PER_USER })
+            : i18n("thisWalletAlreadyLinksMaxWallets", { max: MAX_TOTAL_USER_WALLETS })}
+        </p>
+      ) : null}
     </div>
   );
 }

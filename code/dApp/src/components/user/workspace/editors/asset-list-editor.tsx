@@ -12,7 +12,7 @@ import { resolveAssetIdentity } from "@/lib/cardano-assets";
 import { type Asset } from "@/lib/types/contracts";
 import { parseAdaToLovelace } from "@/lib/units/lovelace";
 import { Plus } from "lucide-react";
-import { useId, useMemo, useRef } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 
 export function AssetListEditor({
   label,
@@ -52,11 +52,16 @@ export function AssetListEditor({
     );
   }
 
+  // Same reason as the other list editors: the Add button sits over the rows, so
+  // after adding one the next Tab went to the first row, not the new last one.
+  const [addedAssetIndex, setAddedAssetIndex] = useState<number | null>(null);
+
   function addAssetRow() {
     const nextAvailableOption = availableOptions.find(
       (option) => !value.some((asset) => asset.unit === option.unit)
     );
 
+    setAddedAssetIndex(value.length);
     onChange([
       ...value,
       {
@@ -72,7 +77,12 @@ export function AssetListEditor({
   return (
     <div className="@container space-y-3" role="group" aria-labelledby={`${uid}-group-label`} tabIndex={-1}>
       <div className="flex w-full min-w-0 flex-wrap items-center gap-3 rounded-lg border border-border/60 bg-muted/15 p-3">
-        <div className="min-w-0 flex-1 space-y-1">
+        {/* `basis-64` is what makes the row's `flex-wrap` do anything. With `flex-1` and
+            `min-w-0` alone this column shrank without limit instead of wrapping, so on a
+            375px screen the helper line ran at roughly fifteen characters beside the
+            button. It now wraps the button underneath once the text cannot hold 16rem,
+            and `min-w-0` still lets it shrink below that after it has wrapped. */}
+        <div className="min-w-0 flex-1 basis-64 space-y-1">
           <p id={`${uid}-group-label`} className="text-sm font-medium leading-none">
             {label}
           </p>
@@ -186,6 +196,7 @@ export function AssetListEditor({
                   <Label htmlFor={`${uid}-unit-${index}`}>{i18n("asset")}</Label>
                   {hasAvailableOptions ? (
                     <SearchableAssetUnitDropdown
+                      autoFocus={index === addedAssetIndex}
                       id={`${uid}-unit-${index}`}
                       value={asset.unit}
                       options={rowOptions}

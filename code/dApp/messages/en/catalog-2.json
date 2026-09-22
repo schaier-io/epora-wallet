@@ -17,7 +17,8 @@
     "walletId": "Wallet ID",
     "message_1PersonStillToSign": "1 person still to sign.",
     "outstandingPeopleStillToSign": "{outstanding} people still to sign.",
-    "openWallet": "Open wallet"
+    "openWallet": "Open wallet",
+    "lookingForApprovalRequests": "Looking for approval requests…"
   },
   "ComponentsUserProposalsProposalsWorkspace": {
     "approvalRequests": "Co-signing",
@@ -125,7 +126,6 @@
     "fieldWalletRules": "Wallet rules",
     "fieldWalletSettings": "Wallet settings",
     "fieldWithdrawalAmount": "Withdrawal amount",
-    "moreAboutTitle": "More about {title}",
     "nextStep": "Next step",
     "review": "Review",
     "somethingNeedsAttention": "Something needs attention",
@@ -151,7 +151,7 @@
     "whenToUseIt": "When to use it"
   },
   "ComponentsUserStakeAddressDiscoveryPanel": {
-    "couldNotCheckWhereThisWalletSFunds": "Could not check where this wallet's funds sit. Reload the page to try again."
+    "couldNotCheckWhereThisWalletSFunds": "Could not check where this wallet's funds sit. The app keeps trying."
   },
   "ComponentsUserWalletHeroCard": {
     "addFunds": "Add funds",
@@ -159,6 +159,7 @@
     "copyWalletAddress": "Copy wallet address",
     "hideFullAddress": "Hide full address",
     "loadingAddress": "Loading address…",
+    "loadingBalance": "Loading balance…",
     "receive": "Receive",
     "send": "Send",
     "showFullAddress": "Show full address",

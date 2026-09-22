@@ -459,6 +459,42 @@ describe("person wallet cap", () => {
     expect(addConnected).toBeDisabled();
     fireEvent.click(addConnected);
     expect(onChange).not.toHaveBeenCalled();
+    // This person holds no wallets, so the block came from the wallet-wide total. Saying
+    // "full" without saying which list is full leaves the reader with nowhere to go.
+    expect(
+      screen.getByText(
+        `This wallet already links ${MAX_TOTAL_USER_WALLETS} wallets across everyone in it. Remove one from somebody to add another.`
+      )
+    ).toBeInTheDocument();
+  });
+
+  it("names this person's own wallet cap when that is the one it hit", () => {
+    const store = createStore();
+    store.set(activePaymentKeyHashAtom, "dd".repeat(28));
+    render(
+      <Provider store={store}>
+        <PersonPermissionsEditor
+          user={{
+            ...person({}, "1"),
+            wallets: Array.from({ length: MAX_WALLETS_PER_USER }, (_, index) =>
+              String(index).padStart(2, "0").repeat(28)
+            )
+          }}
+          onChange={vi.fn()}
+          onRemove={vi.fn()}
+          approvalPowerCeiling={1}
+          canAddPerDayAllowanceEntry
+          canAddRemainingAllowanceEntry
+          canAddWallet={false}
+        />
+      </Provider>
+    );
+
+    expect(
+      screen.getByText(
+        `This person already has ${MAX_WALLETS_PER_USER} wallets. Remove one to add another.`
+      )
+    ).toBeInTheDocument();
   });
 
   it("does not remove a person until the reader confirms", () => {
@@ -521,5 +557,71 @@ describe("an empty wallet", () => {
 
     expect(screen.getByText("Nobody is in this wallet yet")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /add person/i })).toBeInTheDocument();
+  });
+});
+
+/**
+ * Each permission chip shows one word. What the permission grants lived only in a native
+ * `title`, which no touch user can open and which assistive tech announces inconsistently.
+ * It is a description of a chip already named "Owner", so it belongs in a description, not
+ * in the name: extending the name would make these four toggles announce a sentence each
+ * before saying which one they are.
+ */
+describe("what a permission chip grants", () => {
+  it("reaches a screen reader through a description, with the name left alone", () => {
+    const store = createStore();
+    render(
+      <Provider store={store}>
+        <PersonPermissionsEditor
+          user={person({}, "1")}
+          onChange={vi.fn()}
+          onRemove={vi.fn()}
+          approvalPowerCeiling={1}
+          canAddPerDayAllowanceEntry
+          canAddRemainingAllowanceEntry
+          canAddWallet
+        />
+      </Provider>
+    );
+
+    const owner = screen.getByRole("button", { name: "Owner" });
+    const describedBy = owner.getAttribute("aria-describedby");
+    expect(describedBy).toBeTruthy();
+    expect(document.getElementById(describedBy!)?.textContent).toMatch(
+      /owner can change every wallet setting/i
+    );
+  });
+});
+
+/**
+ * The Spender chip goes dead on two conditions. `user.isAdmin` already says why, in the
+ * line under the row and in the chip's own description. The wallet-wide allowance budget
+ * said nothing at all: the chip simply stopped responding.
+ */
+describe("why the spender chip is off", () => {
+  function renderAtAllowanceCap() {
+    const store = createStore();
+    return render(
+      <Provider store={store}>
+        <PersonPermissionsEditor
+          user={person({}, "1")}
+          onChange={vi.fn()}
+          onRemove={vi.fn()}
+          approvalPowerCeiling={1}
+          canAddPerDayAllowanceEntry={false}
+          canAddRemainingAllowanceEntry={false}
+          canAddWallet
+        />
+      </Provider>
+    );
+  }
+
+  it("names the cap that emptied it", () => {
+    renderAtAllowanceCap();
+
+    expect(screen.getByRole("button", { name: "Spender" })).toBeDisabled();
+    expect(
+      screen.getByText(/already has 15 spending limits across everyone in it/i)
+    ).toBeInTheDocument();
   });
 });

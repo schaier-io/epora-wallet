@@ -250,7 +250,13 @@ export function LockedAssetsOverviewPanel({
         // Row-shaped, not three text bars. A loaded row is a 36px icon inside `px-3 py-2`
         // plus its border, so the old 16px bars stood at roughly a third of the height the
         // list lands at and the panel jumped when the assets arrived.
-        <div className="mt-3 space-y-2" aria-busy="true" aria-live="polite">
+        <div className="mt-3 space-y-2" role="status" aria-busy="true" aria-live="polite">
+          {/* The live region needs something to read. `Skeleton` is `aria-hidden`, so this
+              told a screen reader a region had updated and then held nothing in it. The
+              same fix as `app/user/loading.tsx` and the activity panel's fallback: an
+              `sr-only` line, because the rows below are shaped to match the loaded list
+              and a visible "Loading" would break that. */}
+          <span className="sr-only">{i18n("loadingTheAssetsInThisWallet")}</span>
           <Skeleton className="h-[54px] w-full rounded-md" />
           <Skeleton className="h-[54px] w-full rounded-md" />
           <Skeleton className="h-[54px] w-full rounded-md" />

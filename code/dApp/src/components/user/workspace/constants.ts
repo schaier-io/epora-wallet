@@ -8,8 +8,6 @@ import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspace
 
 const i18n = createDefaultTranslator("ComponentsUserWorkspaceConstants", defaultMessages);
 
-export const LONG_DESCRIPTION_LIMIT = 78;
-
 
 // Start with an empty ADA row (not a pre-filled 5 ₳) so the deposit amount is a
 // deliberate choice, consistent with the Send flow, which also starts blank.

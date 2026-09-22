@@ -31,3 +31,32 @@ export function shouldForwardToWalletSelection({
 
   return workspaceMode === "existing-wallet" && !selectedWalletIsUsable;
 }
+
+/**
+ * Whether the landing screen should say the demo wallet cannot look smart wallets up,
+ * instead of running its "Detecting wallets…" state.
+ *
+ * The demo wallet is a read-only shim with a fake address, so the inventory lookup never
+ * resolves for it. Measured on `/user` with the demo connected: the spinner ran for minutes
+ * with no network request at all and no error, because `detectedSttTokensLoading` stays true
+ * and `detectedSttTokensErrorAtom` never produces a message. The connect dialog offers the
+ * demo to "browse the app without a wallet extension", so that is a state this path can
+ * reach and never leave.
+ *
+ * Scoped to the demo wallet on purpose. A real wallet whose lookup is slow still gets the
+ * loading state, so a genuine failure there stays visible rather than being papered over.
+ *
+ * Pure and separate from the view for the same reason as the rule above: a three-term
+ * boolean inline in JSX cannot be tested without mounting the whole workspace.
+ */
+export function shouldShowDemoLookupLimit({
+  workspaceMode,
+  detectedSttTokensLoading,
+  isDemoWallet
+}: {
+  workspaceMode: UserWorkspaceMode;
+  detectedSttTokensLoading: boolean;
+  isDemoWallet: boolean;
+}): boolean {
+  return workspaceMode === "landing" && detectedSttTokensLoading && isDemoWallet;
+}

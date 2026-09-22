@@ -46,7 +46,17 @@ export function PopupDialog({
     onOpenChangeRef.current = onOpenChange;
   });
   const handleClose = useCallback(() => onOpenChangeRef.current(false), []);
-  useModalIsolation({ open, containerRef: dialogRef, onEscape: handleClose });
+  // `initialFocusRef` is the container itself, matching the two fullscreen overlays in
+  // `workspace/editors/primitives.tsx`. The dialog names itself with `aria-labelledby` and
+  // `aria-describedby`, so landing on it reads the title and the description out. The first
+  // focusable descendant is the header's X, where a reader would hear "Close dialog" in
+  // place of what the dialog is for, and Enter would dismiss it unread.
+  useModalIsolation({
+    open,
+    containerRef: dialogRef,
+    initialFocusRef: dialogRef,
+    onEscape: handleClose
+  });
 
   if (!open || typeof document === "undefined") {
     return null;
@@ -73,6 +83,8 @@ export function PopupDialog({
       >
         <div
           ref={dialogRef}
+          // Focusable only by script: the container is the initial focus target above.
+          tabIndex={-1}
           role="dialog"
           aria-modal="true"
           aria-labelledby={titleId}

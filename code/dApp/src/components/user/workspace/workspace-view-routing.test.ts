@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { shouldForwardToWalletSelection } from "@/components/user/workspace/workspace-view-routing";
+import { shouldForwardToWalletSelection, shouldShowDemoLookupLimit } from "@/components/user/workspace/workspace-view-routing";
 
 /**
  * The bug this file exists for: the workspace forwarded to the wallet chooser whenever the
@@ -56,4 +56,37 @@ test("landing always shows the chooser, whatever the capability map says", () =>
       true
     );
   }
+});
+
+/**
+ * The demo wallet is a read-only shim with a fake address, so its inventory lookup never
+ * resolves. Measured on `/user` with the demo connected: "Detecting wallets…" ran for
+ * minutes with no network request at all and no error.
+ */
+const demoBase = {
+  workspaceMode: "landing" as const,
+  detectedSttTokensLoading: true,
+  isDemoWallet: true
+};
+
+test("says the demo wallet cannot look wallets up", () => {
+  assert.equal(shouldShowDemoLookupLimit(demoBase), true);
+});
+
+/**
+ * The whole point of scoping it to the demo: a real wallet whose lookup is slow, or
+ * failing, still gets the loading state and whatever error follows. Papering over that
+ * would hide a genuine failure behind a sentence about the demo.
+ */
+test("leaves a real wallet's lookup alone", () => {
+  assert.equal(shouldShowDemoLookupLimit({ ...demoBase, isDemoWallet: false }), false);
+});
+
+test("says nothing once the lookup is no longer pending", () => {
+  assert.equal(shouldShowDemoLookupLimit({ ...demoBase, detectedSttTokensLoading: false }), false);
+});
+
+test("stays out of every mode but the landing screen", () => {
+  assert.equal(shouldShowDemoLookupLimit({ ...demoBase, workspaceMode: "existing-wallet" }), false);
+  assert.equal(shouldShowDemoLookupLimit({ ...demoBase, workspaceMode: "new-wallet" }), false);
 });

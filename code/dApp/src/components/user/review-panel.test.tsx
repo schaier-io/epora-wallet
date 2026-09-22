@@ -493,6 +493,23 @@ describe("review rail CTA icons", () => {
 });
 
 /**
+ * A description over 78 characters went into an ⓘ popover beside the title and appeared
+ * nowhere else. Every caller passes one over 78, so the panel that a reader checks before
+ * signing never showed its description. The longest is the stop-payment review at 140
+ * characters, which is the consequence copy for stopping a payment.
+ */
+describe("the review description", () => {
+  const LONG =
+    "This stops future earnings at the time below. The unpaid amount stays owed to you. The paying wallet’s owners can change the schedule later.";
+
+  it("renders at any length instead of folding into a hint", () => {
+    render(<UserReviewPanel {...BASE} description={LONG} />);
+
+    expect(screen.getByText(LONG)).toBeInTheDocument();
+  });
+});
+
+/**
  * The build state used to render after the primary button, so the rail read "Confirm X"
  * and only then "Ready to sign." The reader met the control before the sentence that says
  * whether pressing it will do anything. It now closes the step block above the buttons.

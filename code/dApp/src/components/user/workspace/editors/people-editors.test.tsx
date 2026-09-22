@@ -2,7 +2,6 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { BeneficiaryEditor } from "./people-editors";
-import { LONG_DESCRIPTION_LIMIT } from "@/components/user/workspace/constants";
 import {
   type BeneficiaryFormState,
   createDefaultBeneficiaryFormState
@@ -104,18 +103,20 @@ describe("the extra wait", () => {
   });
 });
 
-describe("the empty-state copy stays visible", () => {
-  /**
-   * `TaskEmptyState` folds a description longer than `LONG_DESCRIPTION_LIMIT` into an
-   * InfoHint, and InfoHints are blocked until backlog 19c is fixed. Pin the length so the
-   * text keeps rendering on the page.
-   */
-  it("fits inside the limit that keeps it out of an InfoHint", () => {
-    expect(
-      "Add someone who can claim what is here if the proof of life runs out.".length
-    ).toBeLessThanOrEqual(LONG_DESCRIPTION_LIMIT);
-  });
-});
+/*
+ * A length guard stood here. `TaskEmptyState` used to fold a description over 78
+ * characters into an InfoHint, and the guard pinned this copy short enough to keep
+ * rendering on the page. Its stated reason, that "InfoHints are blocked until backlog 19c
+ * is fixed", was already stale when it was written: 19c is what BUILT `InfoHint`, and
+ * `locked-assets-panel.test.tsx` says so. `info-hint.test.tsx` passes, including "opens on
+ * click" and "closes on Escape".
+ *
+ * The guard goes anyway, for the reason it should always have given. An empty state's only
+ * explanation belongs on the page, not one discovered interaction away. `TaskEmptyState`
+ * now renders a description at any length, so there is no limit left to pin against, and
+ * `task-surface.test.tsx` asserts the behaviour directly: it renders a 95-character
+ * description and looks for it on the page.
+ */
 
 
 describe("the configured payout address", () => {
@@ -139,6 +140,24 @@ describe("the configured payout address", () => {
     });
     expect(screen.getByLabelText("Payout and signing wallet")).toHaveAttribute("aria-invalid", "true");
     expect(screen.getByText(/script address cannot sign for recovery/i)).toBeInTheDocument();
+  });
+
+  it("says nothing about the address while it is still being typed", () => {
+    // `looksLikeCardanoAddress` opens the reason gate at "addr_test", nine characters
+    // into a 108-character address, and nothing parses until the last one lands.
+    // Measured on one valid preprod address: 99 of its keystrokes were flagged.
+    // The prop carries the half-typed text, because `onChange` here does not store it.
+    renderContact({ payoutAddress: address.slice(0, 60) });
+    const input = screen.getByLabelText("Payout and signing wallet");
+
+    fireEvent.focus(input);
+    expect(input).not.toHaveAttribute("aria-invalid");
+    expect(screen.queryByText(/not a valid Cardano address/i)).not.toBeInTheDocument();
+
+    // Left half-typed, it is judged the moment focus goes.
+    fireEvent.blur(input);
+    expect(input).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByText(/not a valid Cardano address/i)).toBeInTheDocument();
   });
 });
 

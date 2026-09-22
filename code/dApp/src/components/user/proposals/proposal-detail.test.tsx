@@ -69,6 +69,7 @@ vi.mock("@/providers/wallet-provider", () => ({
 
 import { ToastProvider } from "@/providers/toast-provider";
 import {
+  cancelProposal,
   deleteProposal,
   fetchProposal,
   parseProposalBuildContext,
@@ -612,5 +613,112 @@ describe("deleting a finished request", () => {
     ).toBeInTheDocument();
     expect(screen.getByText(detail.title)).toBeInTheDocument();
     expect(onBack).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Withdraw and Delete are both destructive, and only Delete asked. Delete removes the record
+ * of a request that has already finished; Withdraw kills one that co-signers are part-way
+ * through signing, and it cannot be undone. It sits two buttons from "Sign this request", so
+ * the more consequential of the two was the one a slip could fire.
+ */
+describe("withdrawing an open request", () => {
+  beforeEach(() => {
+    verify.proposal.mockReset();
+    verify.proposal.mockReturnValue(new Promise(() => undefined));
+    // Reset explicitly: the describe above leaves `fetchProposal` handing back a CANCELLED
+    // request, and Withdraw only exists while the request is open.
+    vi.mocked(fetchProposal).mockReset().mockResolvedValue(detail);
+    vi.mocked(cancelProposal).mockReset().mockResolvedValue(undefined);
+  });
+
+  it("withdraws only after the creator confirms", async () => {
+    renderDetail(
+      <ProposalDetail
+        proposalId={detail.id}
+        sessionKeyHash={detail.createdByKeyHash}
+        onChanged={() => {}}
+        onBack={() => {}}
+      />
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: /withdraw request/i }));
+    expect(cancelProposal).not.toHaveBeenCalled();
+
+    // The confirmation names what happens to the co-signers who already approved.
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Withdraw this request?")).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/approvals your co-signers have already given stop counting/i)
+    ).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: /withdraw request/i }));
+    await waitFor(() => expect(cancelProposal).toHaveBeenCalled());
+  });
+
+  it("leaves the request open when the creator backs out", async () => {
+    renderDetail(
+      <ProposalDetail
+        proposalId={detail.id}
+        sessionKeyHash={detail.createdByKeyHash}
+        onChanged={() => {}}
+        onBack={() => {}}
+      />
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: /withdraw request/i }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: /keep it open/i }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(cancelProposal).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The signer list's own comment says a signer checks it for their own key hash, so the
+ * truncated form has to lead back to the full value. A native `title` was the only route,
+ * and it opens on hover and nowhere else, so a touch or keyboard user had none. Unlike the
+ * transaction hashes on this page, a key hash is not a Cardanoscan link either.
+ */
+describe("the required-signer key hash", () => {
+  const signerKeyHash = "ee".repeat(28);
+
+  beforeEach(() => {
+    verify.proposal.mockReset();
+    verify.proposal.mockResolvedValue({
+      validity: "valid",
+      reasons: [],
+      bodyHashMatches: true,
+      stateTransition: { txBodyHash: detail.txBodyHash, outputIndex: 0, changes: [] },
+      effect: {
+        inputs: [],
+        outputs: [],
+        feeLovelace: "200000"
+      },
+      signers: {
+        authorityPath: "multisig",
+        requiredSigners: [{ keyHash: signerKeyHash, isAdmin: false, power: 1 }],
+        signedKeyHashes: [],
+        satisfiedPower: 0,
+        threshold: 1,
+        satisfied: false
+      }
+    });
+  });
+
+  it("carries a copy control, not only a hover title", async () => {
+    renderDetail(
+      <ProposalDetail
+        proposalId={detail.id}
+        sessionKeyHash={"dd".repeat(28)}
+        onChanged={() => undefined}
+        onBack={() => undefined}
+      />
+    );
+
+    const truncated = await screen.findByTitle(signerKeyHash);
+    const row = truncated.closest("li")!;
+    expect(within(row).getByRole("button", { name: /copy/i })).toBeInTheDocument();
   });
 });

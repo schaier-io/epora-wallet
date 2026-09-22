@@ -26,8 +26,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils/cn";
 import type { ProposalVerification } from "@/lib/proposals/types";
+import { AddressCopyButton } from "@/components/ui/address-copy-button";
 import { actionKindLabel, lovelaceToAda, truncateMiddle } from "./format";
 import { authorityPathLabel, describeSignerProgress } from "./signer-progress";
+import { ProposalSummaryRows } from "./proposal-summary-rows";
 import { buildProposalShareUrl } from "./share-link";
 import { CLIPBOARD_BLOCKED_MESSAGE, copyTextToClipboard } from "@/lib/utils/clipboard";
 import { useToast } from "@/providers/toast-provider";
@@ -52,6 +54,7 @@ export function ProposalDetail({
   const toast = useToast();
   const [linkCopied, setLinkCopied] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmWithdraw, setConfirmWithdraw] = useState(false);
   const {
     actionError,
     actionInfo,
@@ -267,21 +270,7 @@ export function ProposalDetail({
               <p className="mb-2 break-words text-xs text-muted-foreground">
                 {summary.headline}
               </p>
-              {/* `gap-y-3`, not `gap-y-1`: at 4px the space between a value and the next
-                  pair's label was smaller than the word spaces inside the value, so the
-                  summary read as one run-on string on the panel a co-signer verifies an
-                  amount and a destination in. */}
-              <dl className="grid grid-cols-1 gap-x-8 gap-y-3 text-sm sm:grid-cols-2">
-                {summary.rows.map((row, index) => (
-                  // Grid, not `justify-between`: the value belongs next to its label. Pushed
-                  // to the far end, a truncated bech32 address welded itself to the next
-                  // row's label -- the one string a co-signer compares before signing.
-                  <div key={`${row.label}-${index}`} className="grid min-w-0 grid-cols-[auto_1fr] gap-x-3">
-                    <dt className="text-muted-foreground">{row.label}</dt>
-                    <dd className="min-w-0 wrap-anywhere">{row.value}</dd>
-                  </div>
-                ))}
-              </dl>
+              <ProposalSummaryRows rows={summary.rows} />
             </section>
           ) : null}
 
@@ -392,11 +381,17 @@ export function ProposalDetail({
                 cannot be undone. It used to wear the same treatment as "Sign out", two
                 buttons along from "Sign this request". Same idiom as the cancel action in
                 `payee-view.tsx:388`. */}
+            {/* Through the same confirmation as Delete, for the reason the comment above
+                gives: this is the irreversible one. Delete only removes the record of a
+                request that is already finished, and it asked; Withdraw kills a request
+                other people are part-way through signing, and it did not. It sat two
+                buttons from "Sign this request", so the more consequential of the two
+                destructive actions was the one a slip could fire. */}
             {isCreator && isOpen ? (
               <Button
                 type="button"
                 variant="destructive"
-                onClick={() => void handleCancel()}
+                onClick={() => setConfirmWithdraw(true)}
                 disabled={busy !== null}
                 aria-busy={busy === "cancel"}
               >
@@ -421,6 +416,23 @@ export function ProposalDetail({
           ) : null}
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={confirmWithdraw}
+        onOpenChange={setConfirmWithdraw}
+        title={i18n("withdrawRequestTitle")}
+        description={i18n("withdrawRequestDescription")}
+        confirmLabel={i18n("withdrawRequestConfirm")}
+        cancelLabel={i18n("withdrawRequestCancel")}
+        destructive
+        busy={busy === "cancel"}
+        onConfirm={() => {
+          // Closed first, like the delete path: a failure leaves the panel in place with
+          // its error, so the reader can read it and try again.
+          setConfirmWithdraw(false);
+          void handleCancel();
+        }}
+      />
 
       <ConfirmDialog
         open={confirmDelete}
@@ -579,9 +591,16 @@ function SignersSection({ verification }: { verification: ProposalVerification |
               className="flex items-center justify-between gap-2"
             >
               {/* A signer checks this list for their own key hash, so the truncated form
-                  has to lead back to the full value. */}
-              <span className="font-mono" title={signer.keyHash}>
-                {truncateMiddle(signer.keyHash, 10, 6)}
+                  has to lead back to the full value. The `title` alone did not: it opens on
+                  hover and nowhere else, so a touch or keyboard user had no route to it.
+                  Unlike the two transaction hashes above, this one is not a Cardanoscan
+                  link either. The copy button is the route; the `title` stays as the
+                  shortcut for a mouse. */}
+              <span className="flex min-w-0 items-center gap-1">
+                <span className="font-mono" title={signer.keyHash}>
+                  {truncateMiddle(signer.keyHash, 10, 6)}
+                </span>
+                <AddressCopyButton value={signer.keyHash} />
               </span>
               <span className="flex items-center gap-2">
                 {signer.isAdmin ? <Badge variant="outline">{i18n("owner_89ff31")}</Badge> : null}

@@ -455,6 +455,15 @@ describe("tidy funds: choosing pools", () => {
     expect(container.textContent).not.toContain("addr_test1tidy");
   });
 
+  it("announces a failed pool read instead of showing it in silence", () => {
+    // "Refresh funds" is an on-demand lookup and this line is its only failure cue, the
+    // same situation pool-finder.tsx gives `role="alert"`. Nothing else in the file is a
+    // live region, so without the role the failure reached a screen reader as silence.
+    renderTidyFunds({ utxosError: "Could not reach the chain." });
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Could not reach the chain.");
+  });
+
   it("names the row button for what it does, not for the other button on the page", () => {
     renderTidyFunds({
       utxos: [

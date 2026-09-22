@@ -81,6 +81,26 @@ describe("workspace header", () => {
     actions.refreshWorkspaceSummary.mockReset();
   });
 
+  /**
+   * Two load errors tell the reader to "Use Refresh to try again"
+   * (`WorkspaceMainPanelView.couldNotLoadThisWallet`,
+   * `WorkspaceSidebarView.couldNotLoadThisWalletReloadThePage`). This button is the
+   * control they mean, and it carries no visible text, so its accessible name is the
+   * only name a reader has for it. It used to say "Reload…" while its own tooltip said
+   * "Refresh wallet data": one control, two verbs, and neither was the word the copy
+   * used.
+   */
+  it("calls itself Refresh, which is the word the load errors use", () => {
+    renderWith({ assets: [], loading: false, error: null });
+
+    const button = screen
+      .getAllByRole("button")
+      .find((candidate) => /refresh/i.test(candidate.getAttribute("aria-label") ?? ""));
+    expect(button).toBeDefined();
+    expect(button!.getAttribute("aria-label")).toMatch(/^Refresh/);
+    expect(button!.getAttribute("title")).toMatch(/^Refresh/);
+  });
+
   it("shows scan errors while a cached wallet remains open", () => {
     renderWith({ assets: [], loading: false, error: null }, false, "Inventory refresh failed.", true);
     expect(screen.getByText("Inventory refresh failed.")).toBeInTheDocument();
@@ -143,6 +163,16 @@ describe("workspace header", () => {
 
     const button = screen.getByRole("button", { name: /^Smart wallets, 2\./ });
     expect(button.textContent).toContain("Smart wallets");
+  });
+
+  it("gives the refresh control one name, not a different tooltip", () => {
+    renderWith({ assets: [], loading: false, error: null });
+
+    // A speech-input user says the name they can see. The tooltip read "Refresh wallet data"
+    // while the accessible name read "Refresh the smart wallet list", so the only visible
+    // name named nothing the control answers to.
+    const button = screen.getByRole("button", { name: "Refresh the smart wallet list" });
+    expect(button.getAttribute("title")).toBe("Refresh the smart wallet list");
   });
 
   it("does not refresh summaries from an invalidated smart-wallet scan", async () => {

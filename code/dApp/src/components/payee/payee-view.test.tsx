@@ -38,6 +38,13 @@ vi.mock("@/components/payee/payee-stop-plan", () => ({ planPayeeStop: actions.st
 vi.mock("@/lib/utils/clipboard", () => ({ copyTextToClipboard: actions.copy }));
 
 vi.mock("@/providers/wallet-provider", () => ({ useWalletContext: () => wallet.value }));
+// The wallet chooser reads the full wallet context (`wallet-panel.tsx:193`), which this
+// file's `wallet` stub does not carry. The same stand-in the setup page's tests use
+// (`setup/stt-reference-setup.test.tsx:42`): the subject here is the empty state's control,
+// not the chooser it opens.
+vi.mock("@/components/layout/wallet-panel", () => ({
+  WalletConnectionDialog: ({ open }: { open: boolean }) => open ? <div>Wallet chooser</div> : null
+}));
 vi.mock("@/lib/contracts/blueprint", async (importOriginal) => ({
   ...await importOriginal<typeof Blueprint>(),
   getSttMintPolicyId: () => "aa".repeat(28)
@@ -250,15 +257,20 @@ describe("who this page is for", () => {
     expect(screen.queryByText(/never reduces what is already owed/)).toBeNull();
   });
 
-  /** There is no menu in the top-right. There is a button, and it says Connect. */
-  it("names the control that connects a wallet", async () => {
+  /**
+   * There is no menu in the top-right, and the page no longer points at a control somewhere
+   * else either: the empty state carries the connect control itself. Refresh, the card's only
+   * other button, is disabled while no wallet is connected, so without this the disconnected
+   * page offered the reader nothing to press.
+   */
+  it("offers the control that connects a wallet", async () => {
     wallet.value = { ...wallet.value, activeAddress: null };
     await renderView();
 
-    expect(
-      screen.getByText(/Use the Connect button at the top of this page/)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/No wallet is connected yet/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Connect wallet/ })).toBeInTheDocument();
     expect(screen.queryByText(/top-right/)).toBeNull();
+    expect(screen.queryByText(/at the top of this page/)).toBeNull();
   });
 
   /**
@@ -1107,7 +1119,14 @@ describe("payment stop review", () => {
 
   it("shows the exact frozen cutoff and retained debt before any signature", async () => {
     await openReview();
-    expect(screen.getByText(new Date(NOW + 60_000).toISOString())).toBeInTheDocument();
+    // The subject here is that the cutoff is FROZEN -- the clock moves below and the build
+    // still uses the captured instant -- not the spelling of it. The dialog used to print
+    // `new Date(...).toISOString()`, which is UTC with no zone named, on the one number a
+    // reader checks before stopping their own income. Same instant, written the way the rest
+    // of the screen writes a time. The literal is spelled out rather than built by calling
+    // `formatTimestampLabel`: a test that formats with the same helper as the code under
+    // test would pass whatever that helper did.
+    expect(screen.getByText("Oct 9, 2025, 08:54 AM UTC")).toBeInTheDocument();
     expect(screen.getByText("5.003472 ADA")).toBeInTheDocument();
     expect(actions.submit).not.toHaveBeenCalled();
     vi.setSystemTime(NOW + 20_000);

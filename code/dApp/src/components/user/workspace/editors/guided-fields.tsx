@@ -7,7 +7,7 @@ import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formatAmountSummary, formatCountLabel, formatInputRefLabel } from "@/components/user/workspace/helpers";
+import { formatAmountSummary, formatCompactHash, formatCountLabel, formatInputRefLabel } from "@/components/user/workspace/helpers";
 import { isNonNegativeUint64Decimal } from "@/lib/contracts/on-chain-integer";
 import { type WalletInputRef } from "@/lib/types/contracts";
 import {
@@ -383,8 +383,13 @@ export function GuidedLockedUtxoSelector({
                     <p className="wrap-anywhere text-sm font-medium text-foreground tabular-nums">
                       {formatAmountSummary(utxo.output.amount)}
                     </p>
-                    <p className="truncate font-mono text-[11px] text-muted-foreground" title={refLabel}>
-                      {refLabel}
+                    {/* Shortened in the middle, not clipped at the end. The full ref is
+                        436px wide in this font at 11px, so `truncate` always fired in this
+                        column, and what it cut was the tail: the `#outputIndex` that is the
+                        only difference between two outputs of one transaction with the same
+                        amount. `proposal-detail.tsx` shortens the same way. */}
+                    <p className="font-mono text-[11px] text-muted-foreground" title={refLabel}>
+                      {formatCompactHash(utxo.input.txHash)}#{utxo.input.outputIndex}
                     </p>
                   </div>
                   <div className="shrink-0">

@@ -4,9 +4,7 @@ import { useTranslations } from "next-intl";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { InfoHint } from "@/components/ui/info-hint";
 import { type UserWorkspaceTask } from "@/components/user/flow-types";
-import { LONG_DESCRIPTION_LIMIT } from "@/components/user/workspace/constants";
 import { formatCountLabel } from "@/components/user/workspace/helpers";
 import { type GuidedAdminTaskDefinition } from "@/components/user/workspace/types";
 import { cn } from "@/lib/utils/cn";
@@ -26,9 +24,6 @@ export function TaskEmptyState({
   actionLabel?: string;
   onAction?: () => void;
 }) {
-  const i18n = useTranslations("ComponentsUserWorkspaceEditorsTaskSurface");
-  const descriptionIsLong = description.length > LONG_DESCRIPTION_LIMIT;
-
   return (
     <div className="user-surface rounded-lg border border-dashed border-border/60 bg-background/30 p-3 sm:p-4 text-center">
       {/* Block-level, not inline-flex: two inline boxes flowed onto one text line
@@ -36,17 +31,12 @@ export function TaskEmptyState({
       <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-lg border border-border/70 bg-background/60 text-primary">
         <Icon className="h-5 w-5" />
       </div>
-      <p className="mt-3 flex items-center justify-center gap-2 text-sm font-medium text-foreground">
-        {title}
-        {descriptionIsLong ? (
-          <InfoHint label={i18n("moreAboutTitle", { title: title })} contentClassName="max-w-sm">
-            {description}
-          </InfoHint>
-        ) : null}
-      </p>
-      {!descriptionIsLong ? (
-        <p className="mt-1 text-xs text-muted-foreground">{description}</p>
-      ) : null}
+      <p className="mt-3 text-sm font-medium text-foreground">{title}</p>
+      {/* Shown at any length. Over 78 characters this went into an ⓘ popover and was
+          never rendered visibly, so the recovery-contacts empty state, whose only job is
+          to explain recovery contacts to a reader who has none, showed nothing at all.
+          `PopupDialog` dropped the same mechanism for the same reason. */}
+      <p className="mt-1 text-xs text-muted-foreground">{description}</p>
       {actionLabel && onAction ? (
         <div className="mt-4">
           <Button type="button" variant="secondary" onClick={onAction}>

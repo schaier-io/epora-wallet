@@ -1,0 +1,34 @@
+/* Native form controls the design system never restyled.
+ *
+ * Checkboxes were left at the UA default on four of their five call sites, so a
+ * browser-blue 13px box sat inside amber consent panels and teal-accented
+ * editors; the fifth set `accent-[hsl(var(--brand-teal))]` alone, which made the
+ * five disagree with each other as well as with the theme. Styling the element
+ * itself keeps the native control (its label pairing, its indeterminate state,
+ * its forced-colors behaviour) and needs no wrapper component.
+ *
+ * `--primary` is the light teal the primary button already fills with, and the
+ * UA draws the tick in an automatically contrasting ink, so a checked box reads
+ * the same way a primary button does. The focus ring restates DESIGN.md's
+ * "visible 2px ring" in `--ring`; Chrome's own `outline: auto` ignores the
+ * `outline-ring` colour the base layer sets for every other element.
+ */
+input[type="checkbox"] {
+  accent-color: var(--primary);
+  block-size: 1rem;
+  inline-size: 1rem;
+  /* Every call site puts the box in a flex label, where it was a shrinkable item:
+     measured 13.4px wide against its own 16px height inside the "no direct owner"
+     consent label. A checkbox has no business absorbing a row's overflow. */
+  flex: none;
+  cursor: pointer;
+}
+
+input[type="checkbox"]:disabled {
+  cursor: not-allowed;
+}
+
+input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}

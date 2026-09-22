@@ -99,3 +99,20 @@ it("keeps re-check available while stale recovery actions are disabled", () => {
   fireEvent.click(screen.getByRole("button", { name: "Re-check" }));
   expect(onRefresh).toHaveBeenCalledOnce();
 });
+
+/**
+ * `actionsDisabled` is `loading || error || !canCheck` at its only call site, and
+ * `loading` is the case that fires in normal use: pressing Re-check turns both
+ * action buttons grey. Nothing on screen said a check was running, so the notice
+ * read as broken. `!canCheck` cannot reach here at all, because the hook returns
+ * no orphans then and the notice does not render.
+ */
+it("says a check is running instead of greying the actions in silence", () => {
+  render(<OrphanUtxoNotice orphans={orphans(1)} orphanLovelace={1n} actionsDisabled checking
+    onConsolidate={() => {}} onRecover={() => {}} onRefresh={() => {}} />);
+
+  const refresh = screen.getByRole("button", { name: "Checking…" });
+  expect(refresh).toBeDisabled();
+  expect(refresh).toHaveAttribute("aria-busy", "true");
+  expect(screen.queryByRole("button", { name: "Re-check" })).toBeNull();
+});

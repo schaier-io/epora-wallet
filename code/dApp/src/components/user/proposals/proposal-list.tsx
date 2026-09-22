@@ -128,6 +128,21 @@ export function ProposalList({
         </p>
       ) : null}
 
+      {/* First load rendered nothing at all: the empty state is gated on `!loading` and the
+          `ol` on having rows, so the column under the header was blank while the request was
+          in flight and only the Refresh button's spinner said anything was happening. Nothing
+          announced it either. The box is the empty state's box -- same border, same
+          `flex-1 justify-center` -- so resolving to "no requests yet" moves nothing. */}
+      {loading && proposals.length === 0 ? (
+        <div
+          role="status"
+          className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border/60 bg-background/30 p-3 sm:p-4 text-center text-sm text-muted-foreground"
+        >
+          <Loader2 className="h-6 w-6 animate-spin text-primary" aria-hidden="true" />
+          <p>{i18n("lookingForApprovalRequests")}</p>
+        </div>
+      ) : null}
+
       {!loading && proposals.length === 0 ? (
         // `flex-1 justify-center`: the empty box fills its pane, so the two workspace
         // columns agree on height instead of leaving a short card beside a tall one.

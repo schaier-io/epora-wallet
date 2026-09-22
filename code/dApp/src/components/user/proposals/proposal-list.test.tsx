@@ -171,3 +171,27 @@ describe("the approval queue column", () => {
     expect(screen.getByText(/Build a transaction on the wallet page/)).toBeTruthy();
   });
 });
+
+/**
+ * The empty state is gated on `!loading` and the `ol` on having rows, so while the first
+ * request was in flight the column under the "Requests" header rendered nothing: no rows, no
+ * empty box, no status. The only sign anything was happening was the Refresh button's
+ * spinner, and nothing announced it.
+ */
+describe("the approval queue before anything has loaded", () => {
+  it("says it is looking while the first load is in flight", () => {
+    renderList(undefined, { proposals: [], loading: true });
+
+    expect(screen.getByRole("status")).toHaveTextContent("Looking for approval requests");
+    // The empty state is a different claim -- that there is nothing to show -- and must not
+    // appear before the answer is known.
+    expect(screen.queryByText(/Build a transaction on the wallet page/)).toBeNull();
+  });
+
+  it("swaps to the empty state once the load finishes with nothing", () => {
+    renderList(undefined, { proposals: [], loading: false });
+
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.getByText(/Build a transaction on the wallet page/)).toBeTruthy();
+  });
+});

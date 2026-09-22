@@ -33,12 +33,17 @@ export function SearchableAssetUnitDropdown({
   options,
   onChange,
   placeholder,
-  emptyLabel
+  emptyLabel,
+  // Set by a list that has just added the row this dropdown heads, so the cursor
+  // lands in the new row instead of the first one. It reaches the trigger, not the
+  // filter box inside the panel, because the panel is closed at that point.
+  autoFocus
 }: {
   id: string;
   value: string;
   options: AssetSelectionOption[];
   onChange: (value: string) => void;
+  autoFocus?: boolean;
   placeholder?: string;
   emptyLabel?: string;
 }) {
@@ -363,6 +368,7 @@ export function SearchableAssetUnitDropdown({
         id={id}
         ref={triggerRef}
         type="button"
+        autoFocus={autoFocus}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-controls={isOpen ? listboxId : undefined}
