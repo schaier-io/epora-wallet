@@ -28,7 +28,7 @@ it("accepts either the explicit API header or browser cookie", () => {
   }
 });
 
-it.each(["accepted", "mainnet:old", betaConsentValue("preprod")])("rejects stale or other-network acknowledgements (%s)", (value) => {
+it.each(["accepted", "mainnet:old", "mainnet:epora-beta-1", betaConsentValue("preprod")])("rejects stale or other-network acknowledgements (%s)", (value) => {
   expect(proxy(request("/api/mesh", { [BETA_CONSENT_HEADER]: value })).status).toBe(403);
   expect(proxy(request("/api/mesh", { cookie: `${BETA_CONSENT_COOKIE}=${value}` })).status).toBe(403);
 });

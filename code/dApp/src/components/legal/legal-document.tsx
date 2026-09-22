@@ -4,7 +4,7 @@ import { LEGAL_OPERATOR, LEGAL_VERSION } from "@/lib/legal";
 
 const SECTIONS = {
   legal: [],
-  terms: ["termsBeta", "termsLoss", "termsControl", "termsResponsibilities", "termsService", "termsAdvice", "termsWarranty", "termsPrivacy", "termsContact"],
+  terms: ["termsBeta", "termsLoss", "termsControl", "termsResponsibilities", "termsService", "termsAdvice", "termsWarranty", "termsRelease", "termsPrivacy", "termsContact"],
   privacy: ["privacyData", "privacyKeys", "privacyPurposes", "privacyStorage", "privacyDiagnostics", "privacyRecipients", "privacyTransfers", "privacyRetention", "privacyRights", "privacyChanges"]
 } as const;
 

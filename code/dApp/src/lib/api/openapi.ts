@@ -211,7 +211,8 @@ to the caller.
 **Network.** ${CARDANO_NETWORK}. Addresses must match this deployment network.
 
 **Beta consent.** On mainnet, unsafe HTTP methods require explicit acceptance of the
-beta risks and current terms, including no security audit and possible loss of all funds.
+beta risks and current terms, including the liability release to the extent permitted by law,
+no security audit, and possible loss of all funds.
 Send \`${BETA_CONSENT_HEADER}: ${betaConsentValue()}\` only after acceptance.
 A current browser consent cookie is also accepted. Missing acknowledgement returns 403
 with \`BETA_CONSENT_REQUIRED\`. Read /terms and /privacy before accepting.

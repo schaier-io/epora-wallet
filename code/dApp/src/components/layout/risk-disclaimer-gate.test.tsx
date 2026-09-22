@@ -26,18 +26,30 @@ describe("beta consent boundary", () => {
     expect(mounted).not.toHaveBeenCalled();
   });
 
-  it("requires four separate unchecked acknowledgements", () => {
+  it("requires five separate unchecked acknowledgements", () => {
     render(<Gate />);
     expect(screen.getAllByRole("main")).toHaveLength(1);
     const inputs = screen.getAllByRole("checkbox");
-    expect(inputs).toHaveLength(4);
+    expect(inputs).toHaveLength(5);
     for (const input of inputs) expect(input).not.toBeChecked();
     expect(screen.getByRole("button", { name: "Accept risks and continue" })).toBeDisabled();
-    for (const input of inputs.slice(0, 3)) fireEvent.click(input);
+    for (const input of inputs.slice(0, 4)) fireEvent.click(input);
     expect(screen.getByRole("button", { name: "Accept risks and continue" })).toBeDisabled();
-    fireEvent.click(inputs[3]!);
+    fireEvent.click(inputs[4]!);
     expect(screen.getByRole("button", { name: "Accept risks and continue" })).toBeEnabled();
     expect(mounted).not.toHaveBeenCalled();
+  });
+
+  it("requires the liability release even when the other boxes are checked", () => {
+    render(<Gate />);
+    const release = screen.getByRole("checkbox", { name: /I release 41BIT LLC/ });
+    expect(release).not.toBeChecked();
+    for (const input of screen.getAllByRole("checkbox")) {
+      if (input !== release) fireEvent.click(input);
+    }
+    expect(screen.getByRole("button", { name: "Accept risks and continue" })).toBeDisabled();
+    fireEvent.click(release);
+    expect(screen.getByRole("button", { name: "Accept risks and continue" })).toBeEnabled();
   });
 
   it.each(["/terms", "/privacy", "/legal", "/terms/"])("keeps %s readable without mounting providers", (path) => {
@@ -61,7 +73,7 @@ describe("beta consent boundary", () => {
     checkAll();
     fireEvent.click(screen.getByRole("button", { name: "Accept risks and continue" }));
     await screen.findByText("Wallet application");
-    expect(JSON.parse((fetcher.mock.calls[0]![1] as RequestInit).body as string)).toEqual({ beta: true, unaudited: true, totalLoss: true, terms: true, network: CARDANO_NETWORK, version: LEGAL_VERSION });
+    expect(JSON.parse((fetcher.mock.calls[0]![1] as RequestInit).body as string)).toEqual({ beta: true, unaudited: true, totalLoss: true, liabilityRelease: true, terms: true, network: CARDANO_NETWORK, version: LEGAL_VERSION });
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
 
@@ -78,7 +90,7 @@ describe("beta consent boundary", () => {
   it("ignores the former unversioned sessionStorage acceptance", () => {
     sessionStorage.setItem("permission-wallet:risk-acknowledgement", "accepted");
     render(<Gate />);
-    expect(screen.getAllByRole("checkbox")).toHaveLength(4);
+    expect(screen.getAllByRole("checkbox")).toHaveLength(5);
     expect(mounted).not.toHaveBeenCalled();
     sessionStorage.clear();
   });

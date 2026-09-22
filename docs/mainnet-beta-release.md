@@ -19,7 +19,7 @@ registration and current standing was not completed. The site does not claim
 that the supplied details were independently verified.
 
 The proposed public documents are `/terms`, `/privacy`, and `/legal`.
-Their version is `epora-beta-1`. Company values live in
+Their current version is `epora-beta-2`. Company values live in
 `code/dApp/src/lib/legal.ts`. Public document copy lives in
 `code/dApp/messages/en/catalog-legal.json`.
 
@@ -122,6 +122,29 @@ in the changed network, consent, signing, and legal-page paths. This is a code
 review, not an independent security audit. An existing OpenAPI `Apache-2.0`
 license declaration differs from the root `MIT` license and was left outside
 this change.
+
+## Liability release update
+
+REPORTED: The operator requested a separate release-of-responsibility checkbox.
+The current terms and checkbox limit the release to applicable law. They exclude
+fraud, gross negligence, intentional misconduct, and rights that cannot be waived.
+The earlier browser and HTTP evidence above describes version `epora-beta-1`.
+Version `epora-beta-2` adds a fifth required acknowledgement, `liabilityRelease`.
+Previous cookies and API acknowledgements no longer satisfy the current version.
+
+VERIFIED for this update: The focused component/API suites returned
+`46 passed (46)`. Consent and API specification unit tests returned
+`tests 12`, `pass 12`, `fail 0`. Before implementation, the new regression tests
+returned `7 failed | 32 passed (39)`, exit `1`. ESLint and translation checks
+exited `0`. The final mainnet `next build --webpack` exited `0`.
+The refreshed local browser displayed five unchecked boxes, including the release,
+and a disabled continue button. No terms were accepted during this browser check.
+REPORTED: A final independent review found no remaining issues after
+matching the liability exceptions and browser/API acceptance wording.
+
+Legal reference: [EU Unfair Contract Terms Directive](https://eur-lex.europa.eu/eli/dir/1993/13/oj/eng),
+Article 6 and the Annex. This reference does not establish that any particular
+waiver is enforceable against any particular user.
 
 ## Least confident decisions
 

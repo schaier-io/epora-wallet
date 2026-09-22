@@ -21,7 +21,7 @@ export function requiresBetaConsent(method: string, pathname: string, network: C
   return !(method === "DELETE" && path === "/api/proposals/auth");
 }
 
-export const BETA_ACKNOWLEDGEMENTS = ["beta", "unaudited", "totalLoss", "terms"] as const;
+export const BETA_ACKNOWLEDGEMENTS = ["beta", "unaudited", "totalLoss", "liabilityRelease", "terms"] as const;
 export type BetaAcknowledgements = Record<(typeof BETA_ACKNOWLEDGEMENTS)[number], boolean>;
 
 export function validBetaAcceptance(value: unknown, network: CardanoNetwork = CARDANO_NETWORK): boolean {

@@ -7,7 +7,7 @@ import { BETA_ACKNOWLEDGEMENTS, hasCurrentBetaReceipt, type BetaAcknowledgements
 
 export function useBetaConsent(initialAccepted: boolean) {
   const [accepted, setAccepted] = useState(initialAccepted);
-  const [acknowledgements, setAcknowledgements] = useState<BetaAcknowledgements>({ beta: false, unaudited: false, totalLoss: false, terms: false });
+  const [acknowledgements, setAcknowledgements] = useState<BetaAcknowledgements>({ beta: false, unaudited: false, totalLoss: false, liabilityRelease: false, terms: false });
   const [pending, setPending] = useState(false);
   const [failed, setFailed] = useState(false);
   const ready = BETA_ACKNOWLEDGEMENTS.every((key) => acknowledgements[key]);

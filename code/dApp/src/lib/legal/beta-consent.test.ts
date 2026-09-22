@@ -5,15 +5,16 @@ import { LEGAL_VERSION } from "../legal";
 
 test("acknowledgement matches the exact current network and document version", () => {
   assert.equal(hasBetaConsent(betaConsentValue("mainnet"), "mainnet"), true);
-  for (const value of [undefined, "accepted", "mainnet:old", betaConsentValue("preprod"), `${betaConsentValue("mainnet")}, other`]) {
+  for (const value of [undefined, "accepted", "mainnet:old", "mainnet:epora-beta-1", betaConsentValue("preprod"), `${betaConsentValue("mainnet")}, other`]) {
     assert.equal(hasBetaConsent(value, "mainnet"), false);
   }
 });
 
 test("every checkbox and the current deployment must be explicit", () => {
-  const body = { network: "mainnet", version: LEGAL_VERSION, beta: true, unaudited: true, totalLoss: true, terms: true };
+  const body = { network: "mainnet", version: LEGAL_VERSION, beta: true, unaudited: true, totalLoss: true, liabilityRelease: true, terms: true };
   assert.equal(validBetaAcceptance(body, "mainnet"), true);
-  for (const key of ["beta", "unaudited", "totalLoss", "terms"]) {
+  for (const key of ["beta", "unaudited", "totalLoss", "liabilityRelease", "terms"]) {
+    assert.equal(validBetaAcceptance({ ...body, [key]: undefined }, "mainnet"), false);
     assert.equal(validBetaAcceptance({ ...body, [key]: false }, "mainnet"), false);
     assert.equal(validBetaAcceptance({ ...body, [key]: "true" }, "mainnet"), false);
   }

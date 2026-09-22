@@ -19,7 +19,8 @@
     "back": "Back to Epora Wallet",
     "faucet": "Cardano testnet faucet",
     "required": "Could not verify beta acceptance. Reload and accept the current risks and terms before signing.",
-    "wrongNetwork": "Switch your connected wallet to Cardano {network} before signing."
+    "wrongNetwork": "Switch your connected wallet to Cardano {network} before signing.",
+    "liabilityRelease": "To the extent permitted by law, I release 41BIT LLC from all liability for losses arising from my use of this beta, including loss of all funds. This excludes fraud, gross negligence, intentional misconduct, and rights that cannot lawfully be waived."
   },
   "BetaStatus": {
     "mainnet": "Mainnet beta. No independent security audit. You could lose all funds.",

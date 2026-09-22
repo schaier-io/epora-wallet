@@ -39,10 +39,11 @@ abbreviates long hashes with `...`, so fill those in from your own lookup.
 
 Before making POST requests on mainnet, read the deployment's `/terms` and
 `/privacy`. Explicitly accept the beta risks, including no security audit and
-possible permanent loss of all funds. Only after that acceptance, include:
+possible permanent loss of all funds, and the liability release to the extent
+permitted by law. Only after that acceptance, include:
 
 ```http
-X-Epora-Beta-Consent: mainnet:epora-beta-1
+X-Epora-Beta-Consent: mainnet:epora-beta-2
 ```
 
 This also applies to POST-based reads such as `/api/v1/stt/lookup`. GET requests

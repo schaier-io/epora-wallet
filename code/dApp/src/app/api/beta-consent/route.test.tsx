@@ -6,7 +6,7 @@ import { CARDANO_NETWORK } from "@/lib/cardano-network";
 import { LEGAL_VERSION } from "@/lib/legal";
 import { BETA_CONSENT_COOKIE, betaConsentValue } from "@/lib/legal/beta-consent";
 
-const acceptance = { network: CARDANO_NETWORK, version: LEGAL_VERSION, beta: true, unaudited: true, totalLoss: true, terms: true };
+const acceptance = { network: CARDANO_NETWORK, version: LEGAL_VERSION, beta: true, unaudited: true, totalLoss: true, liabilityRelease: true, terms: true };
 function request(body: unknown = acceptance, origin = "https://wallet.example") {
   return new NextRequest("https://wallet.example/api/beta-consent", { method: "POST", headers: { Origin: origin, "Content-Type": "application/json" }, body: JSON.stringify(body) });
 }
@@ -27,10 +27,20 @@ describe("beta acknowledgement endpoint", () => {
       expect(response.headers.get("cache-control")).toBe("no-store");
     } finally { vi.unstubAllEnvs(); }
   });
-  it.each(["beta", "unaudited", "totalLoss", "terms"])("rejects missing %s acceptance", async (key) => {
+  it.each(["beta", "unaudited", "totalLoss", "liabilityRelease", "terms"])("rejects missing %s acceptance", async (key) => {
     const response = await POST(request({ ...acceptance, [key]: false }));
     expect(response.status).toBe(400);
     expect(response.headers.get("set-cookie")).toBeNull();
+  });
+  it("rejects an omitted release or the previous terms version", async () => {
+    for (const body of [
+      { ...acceptance, liabilityRelease: undefined },
+      { ...acceptance, version: "epora-beta-1" }
+    ]) {
+      const response = await POST(request(body));
+      expect(response.status).toBe(400);
+      expect(response.headers.get("set-cookie")).toBeNull();
+    }
   });
   it("rejects a cross-origin acceptance attempt", async () => {
     expect((await POST(request(acceptance, "https://other.example"))).status).toBe(403);

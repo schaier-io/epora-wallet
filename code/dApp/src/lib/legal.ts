@@ -9,7 +9,7 @@ export const LEGAL_OPERATOR = {
 } as const;
 
 // Change this whenever the terms or material beta risk disclosures change.
-export const LEGAL_VERSION = "epora-beta-1";
+export const LEGAL_VERSION = "epora-beta-2";
 
 export const LEGAL_PATHS = ["/legal", "/terms", "/privacy"] as const;
 
