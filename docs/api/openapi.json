@@ -3,7 +3,7 @@
   "info": {
     "title": "Epora permission wallet API",
     "version": "1.0.0",
-    "description": "HTTP access to the Epora permission wallet: read its indexed on-chain state, and\nbuild transactions against its smart contracts.\n\n**The server never holds a key and never signs.** Every active transaction build route takes an\naddress, returns an unsigned transaction as CBOR hex, and leaves signing and submission\nto the caller.\n\n**Network.** Preprod only. Addresses must be `addr_test1...`.\n\n**Versioning.** `v1` describes the current shape of the API. The compatibility promise\nstarts at the mainnet beta: until then a `v1` route may change without a version bump,\nand this document is the record of what it does today. After the beta, breaking changes\nget a new version prefix.\n\n**Errors.** Every failure returns the same body, `{ \"error\": \"...\" }`. A `400` carries a\nmessage naming what to fix. A `502` means the chain data provider is unreachable, and\nnever carries the provider's own text.\n\n**Rate limits.** Per client address: 5 requests per\n60s across all transaction builds together,\n600 per 60s for wallet lookups,\n300 per 60s for pool lookups. Builds also\nshare a deployment-wide cap of 25 per\n60s, because one build costs the chain provider tens of\nrequests. Each declared wallet input also consumes one weighted unit. The default client bucket\nholds 40 units per 60s,\nand the deployment bucket holds 120 units per\n60s. Every `429` carries `Retry-After`.\nDeployments may set their own caps.\n\nSee [the developer guide](https://github.com/schaier-io/epora-wallet/blob/main/docs/api/README.md).",
+    "description": "HTTP access to the Epora permission wallet: read its indexed on-chain state, and\nbuild transactions against its smart contracts.\n\n**The server never holds a key and never signs.** Every active transaction build route takes an\naddress, returns an unsigned transaction as CBOR hex, and leaves signing and submission\nto the caller.\n\n**Network.** Preprod only. Addresses must be `addr_test1...`.\n\n**Versioning.** `v1` describes the current shape of the API. The compatibility promise\nstarts at the mainnet beta: until then a `v1` route may change without a version bump,\nand this document is the record of what it does today. After the beta, breaking changes\nget a new version prefix.\n\n**Errors.** Every failure returns the same body, `{ \"error\": \"...\" }`. A `400` carries a\nmessage naming what to fix. A `502` means the chain data provider is unreachable, and\nnever carries the provider's own text.\n\n**Rate limits.** Per client address: 5 requests per\n60s across all transaction builds together,\n600 per 60s for wallet lookups,\n300 per 60s for pool lookups,\n300 per 60s for governance action lookups. Builds also\nshare a deployment-wide cap of 25 per\n60s, because one build costs the chain provider tens of\nrequests. Each declared wallet input also consumes one weighted unit. The default client bucket\nholds 40 units per 60s,\nand the deployment bucket holds 120 units per\n60s. Every `429` carries `Retry-After`.\nDeployments may set their own caps.\n\nSee [the developer guide](https://github.com/schaier-io/epora-wallet/blob/main/docs/api/README.md).",
     "license": {
       "name": "Apache-2.0",
       "identifier": "Apache-2.0"
@@ -112,6 +112,93 @@
           },
           "404": {
             "description": "No pool exists with that id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. The limit is 300 requests per 60 seconds, per client address.",
+            "headers": {
+              "Retry-After": {
+                "required": true,
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "string",
+                  "description": "Seconds to wait before retrying.",
+                  "example": "42"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/governance-actions": {
+      "get": {
+        "operationId": "getGovernanceAction",
+        "summary": "Look up a governance action",
+        "description": "Fetch one Cardano governance action, with its CIP-108 title and abstract when published, by id.",
+        "tags": [
+          "Chain"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Governance action id, either CIP-129 `gov_action1...` or `<tx hash>#<index>`.",
+              "example": "0ecc74fe26532cec1ab9a299f082afc436afc888ca2dc0fc6acda431c52dc60d#0"
+            },
+            "required": true,
+            "description": "Governance action id, either CIP-129 `gov_action1...` or `<tx hash>#<index>`."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The governance action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GovernanceActionsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The governance action id is missing or malformed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No governance action exists with that id.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3339,6 +3426,86 @@
         ],
         "additionalProperties": false,
         "description": "Standard error body for every public endpoint."
+      },
+      "GovernanceActionsResponse": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "CIP-129 `gov_action1...` id."
+              },
+              "txHash": {
+                "type": "string"
+              },
+              "index": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991,
+                "description": "Index of the action inside its proposal transaction (`govActionId.txIndex`)."
+              },
+              "type": {
+                "type": "string",
+                "description": "Blockfrost `governance_type`, e.g. `treasury_withdrawals`."
+              },
+              "title": {
+                "description": "CIP-108 title, when the anchor resolved.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "abstract": {
+                "description": "CIP-108 abstract, when the anchor resolved.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "expirationEpoch": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "active",
+                  "ratified",
+                  "enacted",
+                  "dropped",
+                  "expired"
+                ],
+                "description": "`active` while DReps can still vote on it; every other value is final."
+              }
+            },
+            "required": [
+              "id",
+              "txHash",
+              "index",
+              "type",
+              "title",
+              "abstract",
+              "expirationEpoch",
+              "status"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "additionalProperties": false,
+        "description": "One governance action with its off-chain title and abstract, when published."
       },
       "SttLookupResponse": {
         "type": "object",

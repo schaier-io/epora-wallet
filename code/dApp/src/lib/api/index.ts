@@ -4,6 +4,15 @@
 export { ApiErrorSchema, type ApiError } from "./errors";
 export { HealthResponseSchema, type HealthResponse } from "./health";
 export {
+  GovernanceActionIdSchema,
+  GovernanceActionsQuerySchema,
+  GovernanceActionsResponseSchema,
+  GOV_ACTION_ID_INVALID_MESSAGE,
+  GOV_ACTION_ID_MISSING_MESSAGE,
+  type GovernanceAction,
+  type GovernanceActionsResponseDto
+} from "./governance-actions";
+export {
   PoolIdSchema,
   PoolsQuerySchema,
   PoolsResponseSchema,
