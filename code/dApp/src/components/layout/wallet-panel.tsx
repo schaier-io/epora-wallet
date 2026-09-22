@@ -441,11 +441,10 @@ export function WalletConnectionDialog({
                                 : i18n("connect")}
                         </Badge>
                       </div>
-                      {/* Per-card captions carry per-card state. The idle caption repeated the
-                          section subtitle above ("...approve wallet actions") once per wallet,
-                          so N idle wallets read the same sentence N times; idle cards now have
-                          no caption at all. */}
-                      {active || connecting || isDemoOption ? (
+                      {/* Per-card captions carry per-card state. The idle caption repeated one
+                          sentence once per wallet, so idle cards have no caption, and a
+                          connecting card relies on its "Connecting" badge. */}
+                      {active || isDemoOption ? (
                         <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
                           {connecting ? (
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
