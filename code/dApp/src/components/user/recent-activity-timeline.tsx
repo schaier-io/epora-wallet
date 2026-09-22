@@ -38,6 +38,8 @@ type RecentActivityTimelineProps = {
   onEventClick?: (event: TimelineEvent) => void;
   /** Loading + error states drive the inner placeholder. */
   loading?: boolean;
+  /** A failed read. Without it an empty list read "No activity yet" when the fetch failed. */
+  error?: string | null;
 };
 
 function dotToneClass(amountClassName?: string) {
@@ -52,7 +54,8 @@ export function RecentActivityTimeline({
   limit = 5,
   onSeeAll,
   onEventClick,
-  loading
+  loading,
+  error
 }: RecentActivityTimelineProps) {
   const i18n = useTranslations("ComponentsUserRecentActivityTimeline");
   const sliced = events.slice(0, limit);
@@ -89,6 +92,13 @@ export function RecentActivityTimeline({
           />
           {i18n("loadingRecentActivity")}
         </div>
+      ) : events.length === 0 && error ? (
+        <p
+          role="alert"
+          className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-xs leading-relaxed text-rose-100"
+        >
+          {error}
+        </p>
       ) : events.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border/60 bg-background/30 p-3">
           <div className="flex items-start gap-3">

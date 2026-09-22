@@ -291,6 +291,7 @@ export function WorkspaceWalletDashboardView() {
                           };
                         })}
                         loading={walletTransactions.loading}
+                        error={walletTransactions.error}
                         onSeeAll={() => openGuidedOverview("transactions")}
                         onEventClick={() => openGuidedOverview("transactions")}
                       />
