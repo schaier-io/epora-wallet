@@ -151,7 +151,7 @@
     "whenToUseIt": "When to use it"
   },
   "ComponentsUserStakeAddressDiscoveryPanel": {
-    "couldNotCheckWhereThisWalletSFunds": "Could not check where this wallet's funds sit. Reload the page to try again."
+    "couldNotCheckWhereThisWalletSFunds": "Could not check where this wallet's funds sit. The app keeps trying."
   },
   "ComponentsUserWalletHeroCard": {
     "acrossValue1": "across {value1}",

@@ -459,7 +459,7 @@
   },
   "ComponentsUserWorkspaceWorkspaceMainPanelView": {
     "coSignerPowerRatio": "{label} · {needed}/{available} power",
-    "couldNotLoadThisWallet": "Could not load this wallet. Reload the page to try again.",
+    "couldNotLoadThisWallet": "Could not load this wallet. Use Refresh to try again.",
     "oneSharedCardanoWalletWithKeyRecoveryNo": "One shared Cardano wallet with key recovery. No new seed phrase: you sign with the wallet you already use.",
     "value1Details": "{value1} details",
     "walletSetup": "Wallet setup"
@@ -632,7 +632,7 @@
     "balancePeopleAndRecentActivity": "Balance, people, and recent activity.",
     "chooseAWallet": "Choose a wallet",
     "commonActions": "Common actions",
-    "couldNotLoadThisWalletReloadThePage": "Could not load this wallet. Reload the page to try again.",
+    "couldNotLoadThisWalletReloadThePage": "Could not load this wallet. Use Refresh to try again.",
     "home": "Home",
     "loadingYourWallet": "Loading your wallet…",
     "noDailyActionsYet": "No daily actions yet",

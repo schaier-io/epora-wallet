@@ -90,11 +90,18 @@ describe("nothing to act on renders nothing", () => {
 });
 
 describe("a failed check", () => {
+  /**
+   * Still one plain line, and still no button: `use-orphan-wallet-utxos.ts:35` sets
+   * `refetchInterval: queryPolicy.activePollMs` (30 seconds), so the check retries on
+   * its own and the reader has nothing to do. The line used to end "Reload the page to
+   * try again", which named the one recovery that costs something: `activeWalletAtom`
+   * starts null on every page load, so reloading disconnects the wallet.
+   */
   it("says so in one plain line", () => {
     renderPanel({ error: "Discovery failed" });
 
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "Could not check where this wallet's funds sit. Reload the page to try again."
+      "Could not check where this wallet's funds sit. The app keeps trying."
     );
     expect(screen.queryByText(/Re-check/)).not.toBeInTheDocument();
     expect(screen.queryByText(/—/)).not.toBeInTheDocument();
