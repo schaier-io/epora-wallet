@@ -5,7 +5,7 @@ import { LEGAL_VERSION } from "../legal";
 
 test("acknowledgement matches the exact current network and document version", () => {
   assert.equal(hasBetaConsent(betaConsentValue("mainnet"), "mainnet"), true);
-  for (const value of [undefined, "accepted", "mainnet:old", "mainnet:epora-beta-1", betaConsentValue("preprod"), `${betaConsentValue("mainnet")}, other`]) {
+  for (const value of [undefined, "accepted", "mainnet:old", "mainnet:epora-beta-1", "mainnet:epora-beta-2", betaConsentValue("preprod"), `${betaConsentValue("mainnet")}, other`]) {
     assert.equal(hasBetaConsent(value, "mainnet"), false);
   }
 });

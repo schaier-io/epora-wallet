@@ -2,6 +2,7 @@
 import { useTranslations } from "next-intl";
 
 
+import { LEGAL_OPERATOR } from "@/lib/legal";
 import { CARDANO_NETWORK } from "@/lib/cardano-network";
 import Link from "next/link";
 import { useAtom } from "jotai";
@@ -63,7 +64,7 @@ export function SiteFooter() {
           <div className="flex flex-wrap items-center gap-2">
           <Link href="/terms" className={FOOTER_LINK_CLASS}>{beta("terms")}</Link>
           <Link href="/privacy" className={FOOTER_LINK_CLASS}>{beta("privacy")}</Link>
-          <Link href="/legal" className={FOOTER_LINK_CLASS}>{beta("legal")}</Link>
+          <Link href="/legal" className={FOOTER_LINK_CLASS}>{beta("legal", { company: LEGAL_OPERATOR.name })}</Link>
           <a
             href={DISCORD_INVITE_URL}
             target="_blank"

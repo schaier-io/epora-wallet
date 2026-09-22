@@ -4,7 +4,7 @@ import { useTranslations } from "next-intl";
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CARDANO_NETWORK, cardanoFaucetUrl } from "@/lib/cardano-network";
-import { LEGAL_OPERATOR } from "@/lib/legal";
+import { LEGAL_OPERATOR, MIT_LICENSE_URL } from "@/lib/legal";
 import { BETA_ACKNOWLEDGEMENTS } from "@/lib/legal/beta-consent";
 import type { useBetaConsent } from "./use-beta-consent";
 
@@ -25,6 +25,7 @@ export function RiskDisclaimerGate({ model }: { model: ConsentModel }) {
           <a href="/terms">{i18n("termsLink")}</a>
           <a href="/privacy">{i18n("privacyLink")}</a>
           <a href="/legal">{i18n("legalLink")}</a>
+          <a href={MIT_LICENSE_URL}>{i18n("licenseLink")}</a>
           {faucet ? <a href={faucet} target="_blank" rel="noopener noreferrer">{i18n("faucet")}</a> : null}
         </nav>
         <form onSubmit={(event) => { event.preventDefault(); void model.accept(); }} className="space-y-4">

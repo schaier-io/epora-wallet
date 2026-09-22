@@ -35,6 +35,7 @@ describe("footer separators", () => {
     pathname.mockReturnValue("/user");
     render(<SiteFooter />);
 
+    expect(screen.getByRole("link", { name: "Operator: 41BIT LLC" })).toHaveAttribute("href", "/legal");
     expect(screen.queryByRole("link", { name: "Wallet home" })).toBeNull();
     expect(screen.getByRole("link", { name: "Discord" })).toHaveAttribute(
       "href",

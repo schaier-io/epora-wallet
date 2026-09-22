@@ -19,7 +19,7 @@ registration and current standing was not completed. The site does not claim
 that the supplied details were independently verified.
 
 The proposed public documents are `/terms`, `/privacy`, and `/legal`.
-Their current version is `epora-beta-2`. Company values live in
+Their current version is `epora-beta-3`. Company values live in
 `code/dApp/src/lib/legal.ts`. Public document copy lives in
 `code/dApp/messages/en/catalog-legal.json`.
 
@@ -145,6 +145,41 @@ matching the liability exceptions and browser/API acceptance wording.
 Legal reference: [EU Unfair Contract Terms Directive](https://eur-lex.europa.eu/eli/dir/1993/13/oj/eng),
 Article 6 and the Annex. This reference does not establish that any particular
 waiver is enforceable against any particular user.
+
+## Operator, related parties and MIT update
+
+REPORTED: The operator requested that 41BIT LLC remain the sole service operator
+and contracting party, while the release also covers related people and entities.
+Version `epora-beta-3` defines those Released Parties and extends the checkbox,
+release, and liability exclusions to them. Individuals give no personal guarantee
+by contributing to Epora. The text preserves mandatory rights and does not promise
+that an individual cannot be sued or held liable for their own conduct.
+
+VERIFIED: Root `LICENSE` begins `MIT License` and identifies
+`Copyright (c) 2026 schaier-io`. The gate and legal documents now state the MIT
+license and link to that file. The earlier OpenAPI license mismatch was a real
+inconsistency. This update corrects its declaration to MIT without changing
+copyright ownership or the root license. Third-party licenses remain separate.
+
+References: [MIT License](https://opensource.org/license/mit) and
+[Wyoming LLC Act, section 17-29-304](https://www.wyoleg.gov/statutes/compress/title17.pdf).
+The statute limits liability based solely on member or manager status; it does
+not establish blanket personal immunity for developers. Counsel must assess
+personal exposure against actual company operations and conduct before launch.
+
+VERIFIED for this update: Focused component/API suites returned `47 passed (47)`.
+Consent and API specification tests returned `tests 13`, `pass 13`, `fail 0`.
+The footer suite returned `5 passed (5)` and identifies 41BIT LLC as operator.
+Before implementation, the new component/API regressions returned
+`5 failed | 35 passed (40)`, exit `1`. ESLint and translation checks exited `0`.
+REPORTED: The independent final review found no remaining issues in the changed
+wording, consent version, or license declaration. The final metadata review also
+confirmed that product references belong to the WebApplication, whose provider
+is the separate 41BIT LLC Organization. This does not establish legal enforceability.
+VERIFIED: The final mainnet Webpack production build exited `0`. The local browser
+displayed `epora-beta-3` terms, the sole-operator statement, expanded release,
+and MIT notice. Five unchecked acknowledgements remained required. No terms were
+accepted and no transaction was signed during this check.
 
 ## Least confident decisions
 

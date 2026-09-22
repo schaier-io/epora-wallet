@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
-import { LEGAL_OPERATOR, LEGAL_VERSION } from "@/lib/legal";
+import { LEGAL_OPERATOR, LEGAL_VERSION, MIT_LICENSE_URL } from "@/lib/legal";
 
 const SECTIONS = {
   legal: [],
-  terms: ["termsBeta", "termsLoss", "termsControl", "termsResponsibilities", "termsService", "termsAdvice", "termsWarranty", "termsRelease", "termsPrivacy", "termsContact"],
+  terms: ["termsOperator", "termsBeta", "termsLoss", "termsControl", "termsResponsibilities", "termsService", "termsAdvice", "termsParties", "termsWarranty", "termsRelease", "termsLicense", "termsPrivacy", "termsContact"],
   privacy: ["privacyData", "privacyKeys", "privacyPurposes", "privacyStorage", "privacyDiagnostics", "privacyRecipients", "privacyTransfers", "privacyRetention", "privacyRights", "privacyChanges"]
 } as const;
 
@@ -21,6 +21,7 @@ export async function LegalDocument({ kind }: { kind: LegalDocumentKind }) {
             {t(document)}
           </Link>
         ))}
+        <a href={MIT_LICENSE_URL} className="rounded-sm underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{t("licenseLink")}</a>
         <Link href="/" className="rounded-sm underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           {t("back")}
         </Link>

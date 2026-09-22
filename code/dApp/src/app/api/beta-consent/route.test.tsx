@@ -35,7 +35,8 @@ describe("beta acknowledgement endpoint", () => {
   it("rejects an omitted release or the previous terms version", async () => {
     for (const body of [
       { ...acceptance, liabilityRelease: undefined },
-      { ...acceptance, version: "epora-beta-1" }
+      { ...acceptance, version: "epora-beta-1" },
+      { ...acceptance, version: "epora-beta-2" }
     ]) {
       const response = await POST(request(body));
       expect(response.status).toBe(400);

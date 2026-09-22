@@ -8,6 +8,7 @@ import {
   type MessageCatalog
 } from "@/i18n/client-messages";
 import { COPY } from "@/lib/copy";
+import { LEGAL_OPERATOR } from "@/lib/legal";
 import { CARDANO_NETWORK } from "@/lib/cardano-network";
 import "@/app/globals.css";
 import "@/app/globals/animations.css";
@@ -127,6 +128,12 @@ export default async function RootLayout({
         alternateName: i18n("permissionBasedCardanoWallet"),
         url: siteUrl,
         applicationCategory: "FinanceApplication",
+        provider: { "@id": `${siteUrl}/#org` },
+        sameAs: [
+          "https://projectcatalyst.io/funds/11/cardano-use-cases-concept/dead-man-switch-permission-based-wallet",
+          DISCORD_INVITE_URL,
+          "https://x.com/eporawallet"
+        ],
         operatingSystem: "Web",
         description: i18n("structuredDataDescription"),
         offers: {
@@ -146,13 +153,9 @@ export default async function RootLayout({
       {
         "@type": "Organization",
         "@id": `${siteUrl}/#org`,
-        name: "Epora Wallet",
-        url: siteUrl,
-        sameAs: [
-          "https://projectcatalyst.io/funds/11/cardano-use-cases-concept/dead-man-switch-permission-based-wallet",
-          DISCORD_INVITE_URL,
-          "https://x.com/eporawallet"
-        ]
+        name: LEGAL_OPERATOR.name,
+        legalName: LEGAL_OPERATOR.name,
+        url: siteUrl
       },
       {
         "@type": "FAQPage",

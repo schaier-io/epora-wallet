@@ -211,7 +211,8 @@ to the caller.
 **Network.** ${CARDANO_NETWORK}. Addresses must match this deployment network.
 
 **Beta consent.** On mainnet, unsafe HTTP methods require explicit acceptance of the
-beta risks and current terms, including the liability release to the extent permitted by law,
+beta risks and current terms, including the liability release for 41BIT LLC and the
+Released Parties defined in the terms, to the extent permitted by law,
 no security audit, and possible loss of all funds.
 Send \`${BETA_CONSENT_HEADER}: ${betaConsentValue()}\` only after acceptance.
 A current browser consent cookie is also accepted. Missing acknowledgement returns 403
@@ -248,7 +249,7 @@ export function buildOpenApiDocument() {
       title: "Epora permission wallet API",
       version: API_VERSION,
       description: DESCRIPTION,
-      license: { name: "Apache-2.0", identifier: "Apache-2.0" }
+      license: { name: "MIT", identifier: "MIT" }
     },
     servers: [{ url: "/", description: "The deployment serving this document." }],
     // These public routes do not require wallet authentication. Mainnet consent

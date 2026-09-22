@@ -22,6 +22,7 @@ describe("beta consent boundary", () => {
     const html = renderToString(<Gate />);
     expect(html).toContain("No independent security audit");
     expect(html).toContain("permanent loss of all funds");
+    expect(html).toContain("MIT License");
     expect(html).not.toContain("Wallet application");
     expect(mounted).not.toHaveBeenCalled();
   });
@@ -43,6 +44,7 @@ describe("beta consent boundary", () => {
   it("requires the liability release even when the other boxes are checked", () => {
     render(<Gate />);
     const release = screen.getByRole("checkbox", { name: /I release 41BIT LLC/ });
+    expect(release).toHaveAccessibleName(/developers, maintainers, contributors, authors, and copyright holders/);
     expect(release).not.toBeChecked();
     for (const input of screen.getAllByRole("checkbox")) {
       if (input !== release) fireEvent.click(input);
@@ -62,6 +64,7 @@ describe("beta consent boundary", () => {
 
   it("links the terms and privacy before any acceptance", () => {
     render(<Gate />);
+    expect(screen.getByRole("link", { name: "MIT License" })).toHaveAttribute("href", "https://github.com/schaier-io/epora-wallet/blob/main/LICENSE");
     expect(screen.getByRole("link", { name: "Terms of Use" })).toHaveAttribute("href", "/terms");
     expect(screen.getByRole("link", { name: "Privacy Policy" })).toHaveAttribute("href", "/privacy");
   });

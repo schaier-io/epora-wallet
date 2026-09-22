@@ -185,3 +185,7 @@ describe("spec coverage", () => {
     assert.ok(signedPatterns.every((pattern) => !pattern.test(tooLarge)));
   });
 });
+
+it("declares the repository MIT license", () => {
+  assert.deepEqual(buildOpenApiDocument().info.license, { name: "MIT", identifier: "MIT" });
+});
