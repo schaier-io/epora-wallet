@@ -21,7 +21,10 @@ import {
   looksLikeCardanoAddress
 } from "@/lib/contracts/payout-address";
 import { type StateAssetAmountForm, createDefaultStateAssetAmountForm } from "@/lib/contracts/state-form";
-import { MAX_ALLOWANCE_ENTRIES } from "@/lib/contracts/state-validation";
+import {
+  MAX_ALLOWANCE_ENTRIES,
+  MAX_TOTAL_ALLOWANCE_ENTRIES
+} from "@/lib/contracts/state-validation";
 import { type Asset, type WalletInputRef } from "@/lib/types/contracts";
 import { POLICY_ID_LENGTH } from "@/lib/cardano-assets";
 import { resolvedWalletAddressesAtom } from "@/providers/wallet-address-book";
@@ -146,6 +149,17 @@ export function StateAssetAmountListEditor({
           {addLabel ?? i18n("addAToken")}
         </Button>
       </div>
+      {/* Two different caps can empty that button and neither had a voice. `value.length`
+          is this person's own limit; `canAdd` is the wallet-wide reserved-allowance budget
+          every caller passes (`state-form.ts:647`). Without this the row simply stopped
+          accepting tokens, with no number and no way to tell which limit was reached. */}
+      {addDisabled ? (
+        <p className="text-xs text-muted-foreground">
+          {value.length >= MAX_ALLOWANCE_ENTRIES
+            ? i18n("thisPersonAlreadyHasMaxLimits", { max: MAX_ALLOWANCE_ENTRIES })
+            : i18n("thisWalletAlreadyHasMaxLimits", { max: MAX_TOTAL_ALLOWANCE_ENTRIES })}
+        </p>
+      ) : null}
       {value.length === 0 ? (
         <p className="rounded-lg border border-dashed border-border/60 p-3 text-xs text-muted-foreground">
           {i18n("nothingAddedYet")}

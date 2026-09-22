@@ -482,7 +482,8 @@ export function FocusedStreamingPaymentRulesEditor({
         </p>
         {/* Not while the empty state carries the same button: it owns this exact label and
             handler, so the toolbar copy was a second identical button. At the cap the empty
-            state drops its CTA, so the disabled toolbar one stays as the cap's only cue. */}
+            state drops its CTA, so the disabled toolbar one is what remains; the line below
+            says which cap emptied it. */}
         {adding && (shownPayments.length > 0 || scheduledAtCap) ? (
           <Button
             type="button"
@@ -495,6 +496,14 @@ export function FocusedStreamingPaymentRulesEditor({
           </Button>
         ) : null}
       </div>
+      {/* The comment above used to end "the disabled toolbar one stays as the cap's only
+          cue", which is the finding: a dead button naming neither the cap nor the way past
+          it. The full editor has always said it here (`state-form-editor.tsx:379`). */}
+      {adding && scheduledAtCap ? (
+        <p className="text-xs text-muted-foreground">
+          {i18n("thisWalletAlreadyHoldsMaxScheduledPayments", { max: MAX_STREAMING_PAYMENTS })}
+        </p>
+      ) : null}
       {shownPayments.length === 0 ? (
         <TaskEmptyState
           icon={adding ? CalendarPlus2 : CalendarSearch}

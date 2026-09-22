@@ -5,7 +5,10 @@ import { describe, expect, it, vi } from "vitest";
 import { getDefaultStore } from "jotai";
 import { useState } from "react";
 import { resolvedWalletAddressesAtom } from "@/providers/wallet-address-book";
-import { MAX_ALLOWANCE_ENTRIES } from "@/lib/contracts/state-validation";
+import {
+  MAX_ALLOWANCE_ENTRIES,
+  MAX_TOTAL_ALLOWANCE_ENTRIES
+} from "@/lib/contracts/state-validation";
 import { createDefaultStateForm, createDefaultUserFormState, stateFormToDatum, type StateAssetAmountForm } from "@/lib/contracts/state-form";
 import { readStateSections } from "@/lib/contracts/state-layout";
 import { parseValueData } from "@/lib/contracts/value-data";
@@ -158,6 +161,13 @@ describe("a list of token amounts", () => {
     expect(add).toBeDisabled();
     fireEvent.click(add);
     expect(onChange).not.toHaveBeenCalled();
+    // A dead button and no number was the whole message. Two different caps can empty it,
+    // so the line has to say which one, not merely that something is full.
+    expect(
+      screen.getByText(
+        `This person already has ${MAX_ALLOWANCE_ENTRIES} spending limits. Remove one to add another.`
+      )
+    ).toBeInTheDocument();
   });
 
   it("lets the parent stop adds at the total allowance cap", () => {
@@ -175,6 +185,11 @@ describe("a list of token amounts", () => {
     expect(add).toBeDisabled();
     fireEvent.click(add);
     expect(onChange).not.toHaveBeenCalled();
+    expect(
+      screen.getByText(
+        `This wallet already has ${MAX_TOTAL_ALLOWANCE_ENTRIES} spending limits across everyone in it. Remove one to add another.`
+      )
+    ).toBeInTheDocument();
   });
 
   it("gives two lists with the same label distinct control ids", () => {

@@ -174,7 +174,9 @@
     "oneAdaIsAMillionLovelace": "1 ADA is 1,000,000 lovelace.",
     "removeFundPoolNumber": "Remove fund pool {number}",
     "removeTokenNumber": "Remove token {number}",
-    "removeWalletNumber": "Remove wallet {number}"
+    "removeWalletNumber": "Remove wallet {number}",
+    "thisPersonAlreadyHasMaxLimits": "This person already has {max} spending limits. Remove one to add another.",
+    "thisWalletAlreadyHasMaxLimits": "This wallet already has {max} spending limits across everyone in it. Remove one to add another."
   },
   "ComponentsUserWorkspaceEditorsAssetListEditor": {
     "adaOrTokenPolicyAsset": "ADA or token policy+asset",
@@ -518,7 +520,8 @@
     "thisActionMustForwardExistingSchedulesUnchangedUse": "This action must forward existing schedules unchanged. Use Manage scheduled payments to reschedule it.",
     "thisPaymentIsAlreadyRunningYouCanOnly": "This payment is already running. You can only change when it stops. To stop it, select Stop as soon as possible. Whatever has already built up stays theirs.",
     "value1Ada": "{value1} ADA",
-    "yourPayeeCollectsThisOnThe": "Your payee collects this on the"
+    "yourPayeeCollectsThisOnThe": "Your payee collects this on the",
+    "thisWalletAlreadyHoldsMaxScheduledPayments": "This wallet already holds {max} scheduled payments. Remove one to add another."
   },
   "ComponentsUserWorkspaceEditorsTaskSurface": {
     "iUnderstandAndWantThisWalletToHave": "I understand, and want this wallet to have no owner.",
