@@ -16,12 +16,13 @@ const SIGNER_KEY = "bb".repeat(28);
 
 function renderInvite({
   walletHashes = [SIGNER_KEY],
-  registered
-}: { walletHashes?: string[]; registered?: string[] } = {}) {
+  registered,
+  walletUnit = WALLET_UNIT
+}: { walletHashes?: string[]; registered?: string[]; walletUnit?: string } = {}) {
   const store = createStore();
   store.set(
     routeStateAtom,
-    parseWorkspaceRouteState(new URLSearchParams({ wallet: WALLET_UNIT }))
+    parseWorkspaceRouteState(new URLSearchParams(walletUnit ? { wallet: walletUnit } : {}))
   );
 
   const queryClient = createAppQueryClient();
@@ -109,5 +110,27 @@ describe("SignerInvite", () => {
       "aria-expanded",
       "true"
     );
+  });
+  // The indexer lowercases every key hash it stores; the wallet-id field keeps whatever
+  // the owner pasted. Comparing them as typed left a co-signer who had already registered
+  // reading as pending for good.
+  it("matches a registered key whatever case the owner typed it in", () => {
+    renderInvite({ walletHashes: [SIGNER_KEY.toUpperCase()], registered: [SIGNER_KEY] });
+
+    expect(screen.getByText("Ready to co-sign")).toBeInTheDocument();
+    expect(screen.queryByText("Has not signed in yet")).not.toBeInTheDocument();
+  });
+
+  // In the create-wallet flow there is no wallet in the URL yet. A link built then names
+  // no wallet, so it would land the recipient on whichever wallet the app auto-picks.
+  it("offers no invite until the wallet exists", () => {
+    renderInvite({ walletUnit: "", registered: [] });
+
+    expect(
+      screen.getByText("You can invite them once this wallet exists on-chain.")
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /copy link/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /email/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /text/i })).not.toBeInTheDocument();
   });
 });

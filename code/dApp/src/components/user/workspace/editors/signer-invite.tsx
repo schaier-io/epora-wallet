@@ -52,7 +52,10 @@ export function SignerInvite({ walletHashes }: { walletHashes: string[] }) {
   const origin = useSyncExternalStore(emptySubscribe, getOrigin, getServerOrigin);
   const canShare = useSyncExternalStore(emptySubscribe, getCanShare, getServerCanShare);
   const [showQr, setShowQr] = useState(false);
-  const inviteUrl = origin ? buildSignerInviteUrl(origin, walletUnit) : "";
+  // Empty until BOTH are known. Without the origin there is no absolute link to give
+  // anyone, and without the wallet the link names no wallet, which is worse than no
+  // link: it lands the recipient on whichever wallet the app auto-picks for them.
+  const inviteUrl = origin && walletUnit ? buildSignerInviteUrl(origin, walletUnit) : "";
 
   // Three states, and they are not the same question. Without a wallet id there is nobody
   // to invite yet. With one, the registration answer is either known or unavailable, and
@@ -60,8 +63,21 @@ export function SignerInvite({ walletHashes }: { walletHashes: string[] }) {
   // have, so claiming they have not registered would be a guess.
   const registered = signers.data;
   const hasWalletId = walletHashes.length > 0;
-  const isRegistered = Boolean(registered?.some((hash) => walletHashes.includes(hash)));
+  // Both sides are lowercased before they are compared. The indexer stores every key hash
+  // lowercased (stt-cache/participants.ts `normalizeHash`), but the wallet-id field keeps
+  // whatever the owner typed or pasted, so an uppercase hash made a co-signer who had
+  // already registered read as pending for good.
+  const ownedHashes = walletHashes.map((hash) => hash.trim().toLowerCase());
+  const isRegistered = Boolean(
+    registered?.some((hash) => ownedHashes.includes(hash.trim().toLowerCase()))
+  );
   const statusKnown = Array.isArray(registered);
+
+  // There is nothing to invite anyone to until the wallet exists on chain: `walletUnit` is
+  // empty throughout the create-wallet flow, which would produce a link naming no wallet and
+  // a status query that never runs. `inviteUrl` is empty in the server snapshot for the same
+  // reason the origin is, so it gates the controls too rather than only the copy button.
+  const canInvite = hasWalletId && Boolean(inviteUrl);
 
   const mailBody = i18n("mailBody", { link: inviteUrl });
 
@@ -85,12 +101,14 @@ export function SignerInvite({ walletHashes }: { walletHashes: string[] }) {
       <p className="text-xs text-muted-foreground">
         {!hasWalletId
           ? i18n("askThisPersonForTheirWalletIdFirst")
-          : isRegistered
-            ? i18n("theySignedInAndCanCoSignRequests")
-            : i18n("sendThemThisLinkTheySignInOnce")}
+          : !walletUnit
+            ? i18n("youCanInviteThemOnceThisWalletExists")
+            : isRegistered
+              ? i18n("theySignedInAndCanCoSignRequests")
+              : i18n("sendThemThisLinkTheySignInOnce")}
       </p>
 
-      {hasWalletId ? (
+      {canInvite ? (
         <>
           <div className="flex flex-wrap items-center gap-2">
             {canShare ? (
@@ -110,7 +128,6 @@ export function SignerInvite({ walletHashes }: { walletHashes: string[] }) {
               value={inviteUrl}
               label={i18n("copyLink")}
               copiedLabel={i18n("linkCopied")}
-              disabled={!inviteUrl}
             />
             {/* Anchors, not buttons: a draft is a navigation the browser hands to the
                 owner's mail or messages app, and only a real href lets them long-press,
@@ -139,7 +156,7 @@ export function SignerInvite({ walletHashes }: { walletHashes: string[] }) {
             </Button>
           </div>
 
-          {showQr && inviteUrl ? (
+          {showQr ? (
             <div className="flex flex-col items-start gap-2">
               {/* The same local renderer the receive address uses. It encodes whatever
                   string it is given and never reaches a third-party QR service, which
@@ -149,12 +166,12 @@ export function SignerInvite({ walletHashes }: { walletHashes: string[] }) {
             </div>
           ) : null}
         </>
-      ) : (
+      ) : !hasWalletId ? (
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <UserPlus className="h-3.5 w-3.5" aria-hidden="true" />
           {i18n("addTheirWalletIdBelowToInviteThem")}
         </p>
-      )}
+      ) : null}
     </div>
   );
 }

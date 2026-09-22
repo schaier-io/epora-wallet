@@ -75,9 +75,13 @@ export async function fetchProposalSession(options: ProposalReadOptions = {}): P
 
 /**
  * Which of a wallet's indexed participants have completed the sign-in, i.e. finished
- * registering. Only a participant of the wallet may ask, so a caller who is not signed
- * in gets an empty list rather than an error: the owner should still see the invite
- * controls, just without a status they have not earned the right to read.
+ * registering.
+ *
+ * Only a participant of the wallet may ask, and this REJECTS when they may not: the route
+ * answers 401 without a session and 403 for a non-participant, and `getJson` turns both
+ * into a ProposalRequestError. Callers must treat a rejection as "not known" rather than
+ * as an empty list, because "nobody has registered" is a different claim from "you were
+ * not allowed to ask".
  */
 export async function fetchRegisteredWalletSigners(
   walletUnit: string,
