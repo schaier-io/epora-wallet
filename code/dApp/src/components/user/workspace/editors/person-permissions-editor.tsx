@@ -19,6 +19,7 @@ import {
   withUserAdminEnabled
 } from "@/components/user/workspace/helpers";
 import { PersonHeading } from "@/components/user/workspace/editors/person-heading";
+import { SignerInvite } from "./signer-invite";
 import { personLabel } from "@/lib/contracts/person-label";
 import {
   MAX_TOTAL_ALLOWANCE_ENTRIES,
@@ -250,6 +251,10 @@ export function PersonPermissionsEditor({
           <p className="text-xs text-muted-foreground">
             {i18n("addedUpWithEveryoneElseWhoApprovesZero")}
           </p>
+          {/* Granting the chip writes this person into State. It does not reach them,
+              which is the whole gap: they still have to sign in once before they can
+              co-sign anything. */}
+          <SignerInvite walletHashes={user.wallets} />
         </div>
       ) : null}
 

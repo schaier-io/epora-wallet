@@ -1,6 +1,11 @@
 import { infiniteQueryOptions, queryOptions, type QueryClient } from "@tanstack/react-query";
 import { CHAIN_NETWORK, queryPolicy } from "@/lib/query/keys";
-import { fetchProposal, fetchProposalSession, listProposals } from "./client";
+import {
+  fetchProposal,
+  fetchProposalSession,
+  fetchRegisteredWalletSigners,
+  listProposals
+} from "./client";
 import type { ProposalDetailDto, ProposalListItemDto } from "./types";
 import { MAX_BACKGROUND_PROPOSAL_INPUT_LOOKUPS, verifyProposal } from "./verify";
 
@@ -20,7 +25,9 @@ export const proposalKeys = {
     [...privatePrefix, signer, "verification", record.id, mode, record] as const,
   background: (signer: string, records: ProposalListItemDto[]) =>
     [...privatePrefix, signer, "background", records] as const,
-  backgrounds: (signer: string) => [...privatePrefix, signer, "background"] as const
+  backgrounds: (signer: string) => [...privatePrefix, signer, "background"] as const,
+  walletSigners: (signer: string, walletUnit: string) =>
+    [...privatePrefix, signer, "wallet-signers", walletUnit] as const
 };
 
 export const proposalSessionQueryOptions = () => queryOptions({
@@ -96,3 +103,18 @@ export async function refreshProposalBackgroundQueries(
   });
   await client.invalidateQueries({ queryKey: proposalKeys.backgrounds(signer) });
 }
+
+/**
+ * Who on this wallet has registered. Scoped by signer like every other private query, so
+ * switching account clears it with the rest. It is a slow-moving fact -- a co-signer
+ * registers once -- so it polls no faster than the session does, and a failure is not
+ * retried: the common failure is "you are not signed in", which retrying cannot fix.
+ */
+export const walletSignersQueryOptions = (signer: string, walletUnit: string) => queryOptions({
+  queryKey: proposalKeys.walletSigners(signer, walletUnit),
+  queryFn: ({ signal }) => fetchRegisteredWalletSigners(walletUnit, { signal }),
+  enabled: Boolean(signer && walletUnit),
+  staleTime: queryPolicy.chainStaleMs,
+  gcTime: queryPolicy.chainGcMs,
+  retry: false
+});

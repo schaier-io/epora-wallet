@@ -1,6 +1,8 @@
 import "@/test/mock-workspace-queries";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { Provider, createStore } from "jotai";
+import { createStore } from "jotai";
+
+import { TestProviders } from "@/test/query-client";
 import { describe, expect, it, vi } from "vitest";
 import { type ReactNode } from "react";
 
@@ -236,9 +238,9 @@ function renderPayout(
     store.set(buildErrorExpectedAtom, options.buildErrorExpected ?? false);
   }
   return render(
-    <Provider store={store}>
+    <TestProviders store={store}>
       <SttSpendConfigView />
-    </Provider>
+    </TestProviders>
   );
 }
 
