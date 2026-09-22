@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils/cn";
 import type { ProposalVerification } from "@/lib/proposals/types";
 import { actionKindLabel, lovelaceToAda, truncateMiddle } from "./format";
 import { authorityPathLabel, describeSignerProgress } from "./signer-progress";
+import { ProposalSummaryRows } from "./proposal-summary-rows";
 import { buildProposalShareUrl } from "./share-link";
 import { CLIPBOARD_BLOCKED_MESSAGE, copyTextToClipboard } from "@/lib/utils/clipboard";
 import { useToast } from "@/providers/toast-provider";
@@ -268,21 +269,7 @@ export function ProposalDetail({
               <p className="mb-2 break-words text-xs text-muted-foreground">
                 {summary.headline}
               </p>
-              {/* `gap-y-3`, not `gap-y-1`: at 4px the space between a value and the next
-                  pair's label was smaller than the word spaces inside the value, so the
-                  summary read as one run-on string on the panel a co-signer verifies an
-                  amount and a destination in. */}
-              <dl className="grid grid-cols-1 gap-x-8 gap-y-3 text-sm sm:grid-cols-2">
-                {summary.rows.map((row, index) => (
-                  // Grid, not `justify-between`: the value belongs next to its label. Pushed
-                  // to the far end, a truncated bech32 address welded itself to the next
-                  // row's label -- the one string a co-signer compares before signing.
-                  <div key={`${row.label}-${index}`} className="grid min-w-0 grid-cols-[auto_1fr] gap-x-3">
-                    <dt className="text-muted-foreground">{row.label}</dt>
-                    <dd className="min-w-0 wrap-anywhere">{row.value}</dd>
-                  </div>
-                ))}
-              </dl>
+              <ProposalSummaryRows rows={summary.rows} />
             </section>
           ) : null}
 
