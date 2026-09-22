@@ -32,7 +32,9 @@ export function ReviewReceiptCard({
           teal `CheckCircle2` beside "Create wallet" while the same panel said "Add at least
           one owner", the form said "Needs review" and Create said "Not built yet". A tick in
           the colour DESIGN.md reserves for "confirmed safe progress" is the one mark that
-          must never appear before the thing is confirmed. The title carries the meaning. */}
+          must never appear before the thing is confirmed. The title carries the meaning.
+          The same rule keeps "success" rows untinted: a green row reads as done. Only the
+          amber "warning" rows stand out, because they name something still missing. */}
       <p className="text-sm font-medium text-foreground">{receiptTitle}</p>
       {receiptSummary ? (
         <p
@@ -57,7 +59,6 @@ export function ReviewReceiptCard({
                   item.copyValue && item.copyLabel
                     ? "grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-2 py-2"
                     : "flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 px-2 py-2",
-                  item.tone === "success" && "bg-emerald-500/10",
                   item.tone === "warning" && "bg-amber-500/10"
                 )}
               >
@@ -118,7 +119,6 @@ export function ReviewReceiptCard({
                 key={`${item.label}-${item.value}`}
                 className={cn(
                   "rounded-md border border-border/60 bg-background/45 px-3 py-2",
-                  item.tone === "success" && "border-emerald-500/30 bg-emerald-500/10",
                   item.tone === "warning" && "border-amber-500/30 bg-amber-500/10"
                 )}
               >

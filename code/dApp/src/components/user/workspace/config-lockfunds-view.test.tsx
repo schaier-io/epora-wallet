@@ -115,6 +115,13 @@ describe("the wallet address", () => {
     expect(row).toContainElement(screen.getByRole("link", { name: "Open address on Cardanoscan" }));
   });
 
+  it("links to Cardanoscan once, so a click on the address selects it", () => {
+    renderView({ address: "addr_test1locking", receiveAddress: "addr_test1receive" });
+
+    expect(screen.getByText("addr_test1receive").closest("a")).toBeNull();
+    expect(screen.getAllByRole("link")).toHaveLength(1);
+  });
+
   it("stops repeating the address error down the page", () => {
     renderView();
 

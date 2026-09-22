@@ -119,7 +119,6 @@ function ProjectionRow({
           </p>
         </div>
         <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1.5">
-          <Badge variant="secondary">{i18n("projectedBadge")}</Badge>
           <Badge variant={STATUS_BADGE_VARIANT[projection.status.kind]}>
             {statusWord}
           </Badge>

@@ -386,7 +386,9 @@ export function PayeeView() {
         <PayeeCardHeader
           refreshing={fetching}
           disabled={loading || fetching}
-          onRefresh={() => void loadTokens()}
+          // Only while there is something to rescan: with no wallet the query is off, and on
+          // mainnet a rescan reads Preprod again and cannot change the answer.
+          onRefresh={activeAddress && (networkId === null || networkId === 0) ? () => void loadTokens() : undefined}
         />
         <CardContent className="flex flex-col gap-4">
           <p role="status" aria-live="polite" className="sr-only">
@@ -396,7 +398,7 @@ export function PayeeView() {
             // The empty state carries the control, it does not point at one. This used to read
             // "Use the Connect button at the top of this page", which asked the reader to find
             // a control elsewhere on a page that had nothing else to offer: the only other
-            // button in the card, Refresh, is disabled while no wallet is connected. The
+            // button in the card, Refresh, is hidden while no wallet is connected. The
             // sibling page already does it this way (`proposals/sign-in-gate.tsx:84`), and the
             // dialog here is the one the header button opens, so there is still one flow.
             <div className="flex flex-col items-start gap-3 rounded-lg border border-border/60 bg-background/40 p-3 text-sm text-muted-foreground sm:flex-row sm:items-center">
@@ -535,7 +537,7 @@ export function PayeeView() {
                             }
                           : collectState.status === "declined"
                             ? { text: i18n("nothingWasSigned"), tone: "note" }
-                            : nothingOwed
+                            : nothingOwed && !alreadyEnded
                               ? { text: i18n("nothingIsOwedToYouYetTheAmount"), tone: "note" }
                               : !alreadyEnded && cannotShorten
                                 ? { text: i18n("thisPaymentEndsTooSoonToShortenIt"), tone: "note" }
@@ -571,7 +573,10 @@ export function PayeeView() {
                           <span className="font-medium tabular-nums">
                             {i18n(
                               "amount",
-                              amountParts(computePayeeDueAmount(payment, renderNowMs), payment)
+                              // The same instant the "nothing owed" check, the Collect button and
+                              // the transaction use. `renderNowMs` ran about two minutes ahead of
+                              // them, so a row could show an amount beside "Nothing is owed".
+                              amountParts(computePayeeDueAmount(payment, renderValidityWindow.earliestTimeMs), payment)
                             )}
                           </span>
                         </p>

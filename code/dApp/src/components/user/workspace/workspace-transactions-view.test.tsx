@@ -180,6 +180,21 @@ describe("activity row timestamp", () => {
   });
 });
 
+describe("activity row links", () => {
+  it("links each transaction to Cardanoscan once", () => {
+    const event = activityEvent();
+    const { container } = renderView({
+      recentWalletActivityEvents: [event],
+      paginatedWalletActivityEvents: [event],
+      activityVisibleStart: 1,
+      activityVisibleEnd: 1
+    });
+
+    const links = container.querySelectorAll(`a[href*="${"ab".repeat(32)}"]`);
+    expect(links).toHaveLength(1);
+  });
+});
+
 /**
  * Three names shipped for one destination: the sidebar card said "Receive funds", the hero
  * card said "Add funds", and this button said "Receive". "Add funds" is the one the
@@ -287,7 +302,7 @@ describe("activity streaming-expense projections", () => {
     fireEvent.click(toggle);
     expect(screen.getByText("Scheduled payment 1")).toBeInTheDocument();
     expect(screen.getByText("Unpaid now 3 ADA")).toBeInTheDocument();
-    expect(screen.getAllByText("Projected").length).toBeGreaterThan(0);
+    expect(screen.getByText(/Projected as of/)).toBeInTheDocument();
   });
 
   it("shows the projection even while the event list is empty", () => {

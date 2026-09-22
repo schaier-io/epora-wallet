@@ -66,9 +66,10 @@ describe("workspace sidebar, no wallet open", () => {
     );
   }
 
-  it("shows scan errors while a cached wallet remains open", () => {
+  it("keeps a cached wallet open after a failed scan, leaving the error to the header", () => {
     renderSidebar(false, "Inventory refresh failed.", true);
-    expect(screen.getByText("Inventory refresh failed.")).toBeInTheDocument();
+    // The header names the failed refresh and its error; the sidebar repeated both.
+    expect(screen.queryByText("Inventory refresh failed.")).toBeNull();
     expect(screen.getByRole("navigation", { name: "Wallet navigation" })).toBeInTheDocument();
   });
 
@@ -97,17 +98,22 @@ describe("workspace sidebar, no wallet open", () => {
   it("shows a loading shell before deciding that no wallet is open", () => {
     renderSidebar(true);
 
-    expect(screen.getByRole("status", { name: "Loading your wallet…" })).toBeTruthy();
+    // Visible text, not a second live region: the header's skeleton already announces it.
+    expect(screen.queryByRole("status", { name: "Loading your wallet…" })).toBeNull();
     expect(screen.getByText("Loading your wallet…")).not.toHaveClass("sr-only");
     expect(screen.queryByText("No wallet open")).toBeNull();
     expect(screen.queryByRole("button", { name: "Choose a wallet" })).toBeNull();
   });
 
-  it("shows a lookup failure instead of the empty-wallet state", () => {
+  it("says the lookup failed under No wallet open", () => {
     renderSidebar(false, "Could not check the chain for smart wallets.");
 
-    expect(screen.getByText("Wallet could not load")).toBeTruthy();
-    expect(screen.queryByText("No wallet open")).toBeNull();
+    expect(screen.getByText("No wallet open")).toBeInTheDocument();
+
+    // The header carries the raw error; the sidebar says the lookup failed, once.
+    expect(screen.getByText("Could not load this wallet. Use Refresh to try again.")).toBeTruthy();
+    expect(screen.queryByText("Could not check the chain for smart wallets.")).toBeNull();
+    expect(screen.queryByText(/not one of yours/)).toBeNull();
   });
 });
 
@@ -252,8 +258,8 @@ describe("workspace sidebar, wallet failed to load", () => {
 
     render(<View />);
 
-    expect(screen.getByText("Wallet could not load")).toBeTruthy();
-    expect(screen.getByText("Detection failed")).toBeTruthy();
+    expect(screen.getByText("Could not load this wallet. Use Refresh to try again.")).toBeTruthy();
+    expect(screen.queryByText("Detection failed")).toBeNull();
     expect(screen.queryByText(/not one of yours/)).toBeNull();
   });
 });

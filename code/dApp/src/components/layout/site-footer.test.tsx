@@ -14,9 +14,9 @@ const { KeyboardShortcutsHelp } = await import("@/components/layout/shortcuts-he
 const { shortcutsHelpOpenAtom } = await import("@/components/layout/shortcuts-help.atoms");
 
 /**
- * The footer's second row is a list of links joined by "·". Discord, Report an
- * issue, and Catalyst always show. Wallet home only exists off `/user`, and the
- * separator after it must exist exactly when that link does.
+ * The footer's second row is a list of links joined by "·": Discord, Report an
+ * issue, and Catalyst. There is no Wallet home link: the nav's "Smart wallet" link and
+ * the logo already reach that page on every route.
  */
 function footerSeparators() {
   return Array.from(document.querySelectorAll('[aria-hidden="true"]')).filter(
@@ -31,7 +31,7 @@ afterEach(() => {
 });
 
 describe("footer separators", () => {
-  it("keeps Discord and issue links on /user without Wallet home", () => {
+  it("links Discord and issues, with no Wallet home link duplicating the nav", () => {
     pathname.mockReturnValue("/user");
     render(<SiteFooter />);
 
@@ -47,13 +47,6 @@ describe("footer separators", () => {
     expect(footerSeparators()).toHaveLength(2);
   });
 
-  it("separates Wallet home from Discord once Wallet home is shown", () => {
-    pathname.mockReturnValue("/payee");
-    render(<SiteFooter />);
-
-    expect(screen.getByRole("link", { name: "Wallet home" })).toBeTruthy();
-    expect(footerSeparators()).toHaveLength(3);
-  });
 });
 
 describe("shortcuts affordance", () => {

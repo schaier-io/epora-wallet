@@ -203,6 +203,8 @@ export function ProposalList({
                       progress.tone === "ready" ? "text-emerald-300" : undefined
                     )}
                   >
+                    {/* No ring here: background checks blank each row's signers every poll,
+                        so a ring would swap for this icon and replay its fill every 30s. */}
                     <Users className="h-3 w-3" aria-hidden="true" />
                     {progress.label}
                   </span>

@@ -2,7 +2,7 @@ import { useFormatter, useTranslations } from "next-intl";
 import { defaultTimeZone } from "@/i18n/config";
 import type { ProposalStateTransition } from "@/lib/proposals/state-transition";
 
-export function StateTransitionReview({ transition }: { transition: ProposalStateTransition | null }) {
+export function StateTransitionReview({ transition }: { transition: ProposalStateTransition }) {
   const formatter = useFormatter();
   const i18n = useTranslations("ComponentsUserProposalsProposalDetail");
   const labels: Record<string, string> = {
@@ -74,9 +74,7 @@ export function StateTransitionReview({ transition }: { transition: ProposalStat
     <section className="space-y-2 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
       <h3 className="text-sm font-semibold">{i18n("stateChanges")}</h3>
       <p className="text-xs text-muted-foreground">{i18n("stateChangesSource")}</p>
-      {!transition ? (
-        <p role="alert" className="text-sm text-amber-200">{i18n("stateChangesUnavailable")}</p>
-      ) : transition.changes.length === 0 ? (
+      {transition.changes.length === 0 ? (
         <p className="text-sm">{i18n("stateUnchanged")}</p>
       ) : (
         <>

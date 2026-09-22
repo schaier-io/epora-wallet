@@ -44,11 +44,14 @@ export function SignInGate({ session }: { session: ProposalSessionController }) 
   // render as two unrelated shapes, a bordered callout and a bare amber line, although they
   // answer the same question: what has to happen before this button works?
   //
-  // The third reason is not a blocker at all: the button works, and pressing it is the fix.
+  // The second reason is not a blocker at all: the button works, and pressing it is the fix.
   // It is here because the alternative was the bare gate, which reads as "you were signed
   // out" and says nothing about the wallet the user just switched to.
+  //
+  // No line while no wallet is connected: the heading, its description and the "Connect
+  // wallet and sign in" button already say what has to happen, three times over.
   const blocker = !activeAddress
-    ? i18n("noWalletIsConnectedYetUseThe")
+    ? null
     : isDemoWallet
       ? i18n("theDemoWalletCanLookButIt")
       : session.connectedWalletMismatch

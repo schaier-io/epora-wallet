@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { createQueryTestWrapper } from "@/test/query-client";
 import { fireEvent, render as baseRender, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { LockedAssetsOverviewPanel } from "@/components/user/locked-assets-panel";
 
 /**
@@ -75,7 +75,6 @@ describe("locked assets panel", () => {
         utxoCount={0}
         assets={[]}
         emptyHint="Send ADA to this smart wallet's address."
-        emptyCta={{ label: "Add funds", onClick: vi.fn() }}
       />
     );
 

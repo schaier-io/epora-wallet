@@ -1,0 +1,196 @@
+/* State-carrying motion: page transitions, signer progress, welcome-step glyphs, the
+   confirmation check and the activity rail. Each block names the component it serves, and
+   every block carries its own prefers-reduced-motion guard. Imported right after
+   animations.css in layout.tsx; the rules are uniquely scoped, so order does not matter. */
+
+/* Page transitions (React <ViewTransition>, see components/layout/page-transition.tsx).
+   The three top-level pages are peers in the nav row, so a page slides in from the side its
+   tab lies on. 24px is enough to say which way the reader moved without making them track
+   the whole page. The header is named `site-header` and held still: it is the fixed point
+   that tells the reader the content moved, not the viewport. */
+::view-transition {
+  pointer-events: none;
+}
+
+::view-transition-old(.nav-forward),
+::view-transition-old(.nav-back) {
+  animation:
+    140ms ease-in both page-fade reverse,
+    280ms cubic-bezier(0.22, 1, 0.36, 1) both page-slide reverse;
+}
+
+::view-transition-new(.nav-forward),
+::view-transition-new(.nav-back) {
+  animation:
+    200ms ease-out 100ms both page-fade,
+    280ms cubic-bezier(0.22, 1, 0.36, 1) both page-slide;
+}
+
+::view-transition-old(.nav-forward) { --page-slide-offset: -24px; }
+::view-transition-new(.nav-forward) { --page-slide-offset: 24px; }
+::view-transition-old(.nav-back) { --page-slide-offset: 24px; }
+::view-transition-new(.nav-back) { --page-slide-offset: -24px; }
+
+@keyframes page-fade {
+  from { opacity: 0; }
+}
+
+@keyframes page-slide {
+  from { translate: var(--page-slide-offset) 0; }
+}
+
+::view-transition-group(site-header) {
+  animation: none;
+  z-index: 50;
+}
+::view-transition-old(site-header) {
+  display: none;
+}
+::view-transition-new(site-header) {
+  animation: none;
+}
+
+/* The current-page chip glides from the old tab to the new one, above the still header. */
+::view-transition-group(.nav-pill) {
+  z-index: 51;
+  animation-duration: 320ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
+/* Signer progress ring (components/user/proposals/signer-ring.tsx). It fills from empty on
+   mount. The detail view remounts it whenever verification reloads: after a new signature,
+   a Refresh, or a check that recovers from an error. No "ready" pulse: the ring always
+   remounts already ready, so a pulse could not tell a new signature from a page open. */
+.signer-ring-fill {
+  stroke-dashoffset: var(--signer-ring-offset);
+  animation: signer-ring-fill 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes signer-ring-fill {
+  from { stroke-dashoffset: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .signer-ring-fill {
+    animation: none;
+    transition: none;
+  }
+}
+
+/* Welcome-step glyphs (components/user/workspace/onboarding-glyphs.tsx). Each plays its
+   story once, after its row has entered. */
+.onboarding-glyph .glyph-key {
+  animation: glyph-key-join 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.onboarding-glyph .glyph-key-1 { animation-delay: calc(var(--glyph-delay) + 0ms); }
+.onboarding-glyph .glyph-key-2 { animation-delay: calc(var(--glyph-delay) + 90ms); }
+.onboarding-glyph .glyph-key-3 { animation-delay: calc(var(--glyph-delay) + 180ms); }
+
+@keyframes glyph-key-join {
+  from { translate: -3px 0; opacity: 0; }
+}
+
+.onboarding-glyph .glyph-sweep {
+  stroke-dashoffset: 0.25;
+  animation: glyph-sweep 1100ms cubic-bezier(0.22, 1, 0.36, 1) var(--glyph-delay) both;
+}
+
+@keyframes glyph-sweep {
+  from { stroke-dashoffset: 1; }
+}
+
+.onboarding-glyph .glyph-pulse {
+  animation: glyph-pulse 900ms cubic-bezier(0.22, 1, 0.36, 1) var(--glyph-delay) both;
+}
+.onboarding-glyph .glyph-recovery-key {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: glyph-pop 420ms cubic-bezier(0.34, 1.56, 0.64, 1) calc(var(--glyph-delay) + 800ms) both;
+}
+
+@keyframes glyph-pulse {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes glyph-pop {
+  from { scale: 0.4; opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .onboarding-glyph .glyph-key,
+  .onboarding-glyph .glyph-sweep,
+  .onboarding-glyph .glyph-pulse,
+  .onboarding-glyph .glyph-recovery-key {
+    animation: none;
+  }
+}
+
+/* Confirmation moment (components/ui/confirmed-check.tsx): the ring closes, the tick strokes
+   in, and the panel that holds it gives one soft ring of light. Plays once, when the state
+   becomes final. */
+.confirmed-check-ring {
+  animation: confirmed-check-draw 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.confirmed-check-tick {
+  animation: confirmed-check-draw 320ms cubic-bezier(0.22, 1, 0.36, 1) 380ms both;
+}
+
+@keyframes confirmed-check-draw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+
+.confirmed-pulse {
+  animation: confirmed-pulse 900ms cubic-bezier(0.22, 1, 0.36, 1) 300ms both;
+}
+
+@keyframes confirmed-pulse {
+  from { box-shadow: 0 0 0 0 hsl(160 70% 55% / 0.45); }
+  to { box-shadow: 0 0 0 10px hsl(160 70% 55% / 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .confirmed-check-ring,
+  .confirmed-check-tick,
+  .confirmed-pulse {
+    animation: none;
+  }
+}
+
+/* Activity timeline (components/user/recent-activity-timeline.tsx): the rail draws downward
+   in reading order and each event's dot lands on it as its row arrives (the row's own
+   `list-stagger-item` delay is inherited through `animation-delay: inherit`). */
+.timeline-rail-draw {
+  transform-origin: top;
+  animation: timeline-rail-draw 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.timeline-dot-pop {
+  animation: timeline-dot-pop 360ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation-delay: inherit;
+}
+
+@keyframes timeline-rail-draw {
+  from { scale: 1 0; }
+}
+
+@keyframes timeline-dot-pop {
+  from { scale: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .timeline-rail-draw,
+  .timeline-dot-pop {
+    animation: none;
+  }
+}

@@ -45,4 +45,20 @@ describe("ReviewReceiptCard labels", () => {
     expect(screen.getByRole("button", { name: "Copy recipient address" })).toBeInTheDocument();
     expect(screen.getAllByRole("button")).toHaveLength(1);
   });
+
+  it("does not paint a preview row green before anything is confirmed", () => {
+    const { container } = render(
+      <ReviewReceiptCard
+        compact
+        receiptTitle="What will happen"
+        receiptItems={[
+          { label: "Starter funds", value: "5 ADA", tone: "success" },
+          { label: "Owner", value: "None", tone: "warning" }
+        ]}
+      />
+    );
+
+    expect(container.querySelectorAll('[class*="emerald"]')).toHaveLength(0);
+    expect(container.querySelectorAll('[class*="amber"]')).toHaveLength(1);
+  });
 });

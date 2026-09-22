@@ -84,7 +84,8 @@ describe("streaming expense projections in Activity", () => {
     renderExpandedView();
 
     expect(screen.getByRole("region", { name: /^Streaming expenses/ })).toBeInTheDocument();
-    expect(screen.getAllByText("Projected").length).toBeGreaterThan(0);
+    // The section and the as-of line already say these are projections; no per-row badge.
+    expect(screen.queryByText("Projected")).not.toBeInTheDocument();
     expect(screen.getByText("Scheduled payment 1")).toBeInTheDocument();
     expect(screen.getByText("addr_test1payee")).toBeInTheDocument();
     // 3 whole days at 1 ADA/day, accrued but not yet paid out.

@@ -52,7 +52,7 @@ describe("setup checkpoint, funding", () => {
     renderWith(false);
 
     expect(screen.getByText("This wallet has no funds yet")).toBeTruthy();
-    expect(screen.getByText(/Choose Receive funds to add some/)).toBeTruthy();
+    expect(screen.getByText(/Choose Add funds to add some/)).toBeTruthy();
     expect(screen.queryByText(/Checking this wallet's funds/)).toBeNull();
   });
 

@@ -282,7 +282,7 @@ describe("who this page is for", () => {
     await renderView();
 
     expect(chain.detect).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: /refresh/i })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /refresh/i })).toBeNull();
   });
 
   /**
@@ -311,7 +311,7 @@ describe("who this page is for", () => {
     await renderView();
 
     const note = screen.getByText(/demo wallet cannot sign/);
-    expect(note).toHaveTextContent(/collect or shorten payments/);
+    expect(note).toHaveTextContent(/collect or stop payments/);
     expect(note.textContent?.trim().split(/\.\s/)).toHaveLength(1);
   });
 
@@ -361,7 +361,7 @@ describe("a payment the reader cannot act on yet", () => {
     await renderView();
 
     expect(
-      screen.getByText("This payment ends too soon to shorten. It will finish on its own.")
+      screen.getByText("This payment ends too soon to stop. It will finish on its own.")
     ).toBeInTheDocument();
     expect(screen.queryByText(/safe transaction window/)).toBeNull();
   });
@@ -565,11 +565,11 @@ describe("a row", () => {
     firstVisit.unmount();
     wallet.value = { ...wallet.value, activeWallet: {}, activePaymentKeyHash: "bb".repeat(28) };
     await renderView();
-    expect(screen.getByRole("button", { name: /Shortening/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Stopping/ })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Collect payment" })).toBeDisabled();
 
     await act(async () => pending.resolve("cd".repeat(32)));
-    expect(screen.getByRole("button", { name: "Shortened" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Stop sent" })).toBeDisabled();
     expect(screen.getByTitle("cd".repeat(32))).toBeInTheDocument();
   });
 
@@ -831,7 +831,7 @@ describe("a row", () => {
 
     // Row 1 is still listed. Its collect button carries the post-action label.
     expect(screen.getByRole("button", { name: "Collected" })).toBeInTheDocument();
-    // Row 2's link reads "Shortened", so the only "Review payment stop" left is row 1's.
+    // Row 2's link reads "Stop sent", so the only "Review payment stop" left is row 1's.
     const shorten = screen.getAllByRole("button", { name: "Review payment stop" });
     expect(shorten).toHaveLength(1);
     expect(shorten[0]).toBeDisabled();

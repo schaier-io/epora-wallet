@@ -32,6 +32,7 @@ test("a multisig request counts power against the threshold", () => {
   const progress = describeSignerProgress(satisfaction(), 1);
   assert.equal(progress.label, "2 of 3 approval power");
   assert.equal(progress.tone, "pending");
+  assert.equal(progress.fraction, 2 / 3);
 });
 
 test("a satisfied multisig request reads as ready", () => {
@@ -41,6 +42,8 @@ test("a satisfied multisig request reads as ready", () => {
   );
   assert.equal(progress.label, "4 of 3 approval power");
   assert.equal(progress.tone, "ready");
+  // Over the threshold still draws a full ring, not an overflowing one.
+  assert.equal(progress.fraction, 1);
 });
 
 test("the owner path has no threshold, so it says who it is waiting for", () => {
@@ -48,21 +51,22 @@ test("the owner path has no threshold, so it says who it is waiting for", () => 
     satisfaction({ authorityPath: "admin", threshold: null, satisfied: false }),
     0
   );
-  assert.deepEqual(waiting, { label: "Waiting for an owner", tone: "pending" });
+  assert.deepEqual(waiting, { label: "Waiting for an owner", tone: "pending", fraction: 0 });
 
   const done = describeSignerProgress(
     satisfaction({ authorityPath: "admin", threshold: null, satisfied: true }),
     1
   );
-  assert.deepEqual(done, { label: "Signed by an owner", tone: "ready" });
+  assert.deepEqual(done, { label: "Signed by an owner", tone: "ready", fraction: 1 });
 });
 
 test("before verification lands it reports the count it has, not a total it cannot see", () => {
-  assert.deepEqual(describeSignerProgress(null, 0), { label: "0 signatures", tone: "pending" });
-  assert.deepEqual(describeSignerProgress(null, 1), { label: "1 signature", tone: "pending" });
+  assert.deepEqual(describeSignerProgress(null, 0), { label: "0 signatures", tone: "pending", fraction: null });
+  assert.deepEqual(describeSignerProgress(null, 1), { label: "1 signature", tone: "pending", fraction: null });
   assert.deepEqual(describeSignerProgress(undefined, 3), {
     label: "3 signatures",
-    tone: "pending"
+    tone: "pending",
+    fraction: null
   });
 });
 
