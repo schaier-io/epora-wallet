@@ -125,7 +125,7 @@ describe("a saved vote the card does not show", () => {
     fireEvent.change(screen.getByLabelText("Governance action"), { target: { value: `${TX_HASH}#0` } });
     fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
 
-    await waitFor(() => expect(screen.getByText(/The vote saved now is Yes on a different action/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/The vote saved now is Yes on action abababab/)).toBeInTheDocument());
     expect(screen.getByRole("button", { name: "Yes" })).toHaveAttribute("aria-pressed", "false");
   });
 
@@ -137,7 +137,23 @@ describe("a saved vote the card does not show", () => {
 
     await waitFor(() => expect(screen.getByText("Fund the node")).toBeInTheDocument());
     expect(screen.getByRole("button", { name: "Yes" })).toHaveAttribute("aria-pressed", "false");
-    expect(screen.getByText(/or by a different voter/)).toBeInTheDocument();
+    expect(screen.getByText(/cast by drep1someoneelse/)).toBeInTheDocument();
+  });
+  it("still names the saved vote when the lookup of another action fails", async () => {
+    holder.voteJson = savedOn(TX_HASH, holder.drepId!);
+    vi.stubGlobal("fetch", vi.fn(async (url: string) =>
+      url.includes(encodeURIComponent(`${TX_HASH}#0`))
+        ? new Response(JSON.stringify({ action: ACTION }))
+        : new Response(JSON.stringify({ error: "Governance action not found on this network." }), { status: 404 })
+    ));
+    render(<GovernanceVotePicker />);
+    await waitFor(() => expect(screen.getByText("Fund the node")).toBeInTheDocument());
+
+    fireEvent.change(screen.getByLabelText("Governance action"), { target: { value: `${"ef".repeat(32)}#1` } });
+    fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
+
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/not found/));
+    expect(screen.getByText(/The vote saved now is Yes on action 0ecc74fe/)).toBeInTheDocument();
   });
 });
 
@@ -206,6 +222,6 @@ describe("an empty vote the validator rejected", () => {
 
     await waitFor(() => expect(screen.getByText("Fund the node")).toBeInTheDocument());
     expect(screen.getByLabelText("Governance action")).not.toHaveAttribute("aria-invalid");
-    expect(screen.getByText(MESSAGE)).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Your vote" })).toHaveAccessibleDescription(MESSAGE);
   });
 });

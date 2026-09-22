@@ -56,12 +56,14 @@ export function GovernanceVotePicker({ error: validationError = null }: { error?
     : null;
 
   // The saved vote counts as this card's choice only when it names this action and this
-  // wallet's DRep. Anything else is a vote on something the card does not show.
+  // wallet's DRep. Anything else is a vote on something the card does not show, and it is
+  // named even when no card shows (a failed lookup), because Build would still cast it.
   const savedMatchesCard =
     !!result && !!current && current.txHash === result.txHash && current.txIndex === result.index &&
     current.drepId === drepId;
   const chosen = savedMatchesCard ? current.voteKind : null;
-  const savedElsewhere = !!result && !!current && !savedMatchesCard;
+  const savedElsewhere = !!current && !savedMatchesCard && !loading;
+  const choiceError = chosen ? null : validationError;
   const votable = result?.status === "active" && drepId !== null;
 
   return (
@@ -103,6 +105,16 @@ export function GovernanceVotePicker({ error: validationError = null }: { error?
         </p>
       ) : null}
 
+      {savedElsewhere ? (
+        <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+          {i18n("savedVoteElsewhere", {
+            vote: i18n(VOTE_LABEL_KEYS[current.voteKind]),
+            action: `${shortenIdentifier(current.txHash, 8, 4)}#${current.txIndex}`,
+            voter: shortenIdentifier(current.drepId)
+          })}
+        </p>
+      ) : null}
+
       {result ? (
         <div className="rounded-md border border-border/60 bg-background/40 p-2 sm:p-3">
           <div className="flex flex-wrap items-center gap-2">
@@ -131,7 +143,12 @@ export function GovernanceVotePicker({ error: validationError = null }: { error?
 
           <div className="mt-3 space-y-2">
             <p id="governanceVoteChoice" className="eyebrow text-muted-foreground">{i18n("yourVote")}</p>
-            <div role="group" aria-labelledby="governanceVoteChoice" className="flex flex-wrap gap-2">
+            <div
+              role="group"
+              aria-labelledby="governanceVoteChoice"
+              aria-describedby={choiceError ? "governanceVoteChoice-error" : undefined}
+              className="flex flex-wrap gap-2"
+            >
               {VOTE_KINDS.map((kind) => (
                 <Button
                   key={kind}
@@ -152,15 +169,7 @@ export function GovernanceVotePicker({ error: validationError = null }: { error?
                 </Button>
               ))}
             </div>
-            {savedElsewhere ? (
-              <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
-                {i18n("savedVoteElsewhere", {
-                  vote: i18n(VOTE_LABEL_KEYS[current.voteKind]),
-                  action: `${shortenIdentifier(current.txHash, 8, 4)}#${current.txIndex}`
-                })}
-              </p>
-            ) : null}
-            {chosen ? null : <InlineFieldError id="governanceVoteChoice-error" message={validationError} />}
+            <InlineFieldError id="governanceVoteChoice-error" message={choiceError} />
             <p className="text-xs text-muted-foreground">
               {result.status !== "active" ? i18n("closedHint")
                 : !drepId ? i18n("noDrepHint")
