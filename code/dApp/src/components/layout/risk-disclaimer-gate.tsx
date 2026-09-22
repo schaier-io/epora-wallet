@@ -17,9 +17,12 @@ export function RiskDisclaimerGate({ model }: { model: ConsentModel }) {
   return (
     <main className="container flex min-h-dvh items-center justify-center py-8" id="main">
       <section aria-labelledby="risk-disclaimer-title" className="w-full max-w-xl space-y-6 rounded-2xl border border-amber-500/30 bg-background p-4 shadow-2xl sm:p-8">
-        <AlertTriangle className="h-7 w-7 text-amber-400" aria-hidden="true" />
-        <h1 id="risk-disclaimer-title" className="text-xl font-semibold">{i18n("title")}</h1>
-        <p className="font-semibold text-amber-200">{CARDANO_NETWORK === "mainnet" ? i18n("mainnet") : i18n("testnet", { network: CARDANO_NETWORK })}</p>
+        <div className="flex items-center gap-3">
+          <AlertTriangle className="h-6 w-6 shrink-0 text-amber-400" aria-hidden="true" />
+          <h1 id="risk-disclaimer-title" className="text-xl font-semibold">{i18n("title")}</h1>
+        </div>
+        <NetworkSwitch />
+        <p className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-sm font-medium leading-relaxed text-amber-200">{CARDANO_NETWORK === "mainnet" ? i18n("mainnet") : i18n("testnet", { network: CARDANO_NETWORK })}</p>
         <p className="text-sm leading-relaxed text-muted-foreground">{i18n("disclosure")}</p>
         <p className="text-sm text-muted-foreground">{i18n("operator", { company: LEGAL_OPERATOR.name })}</p>
         <nav aria-label={i18n("termsLink")} className="flex flex-wrap gap-4 text-sm underline underline-offset-4">
@@ -29,8 +32,7 @@ export function RiskDisclaimerGate({ model }: { model: ConsentModel }) {
           <a href={MIT_LICENSE_URL}>{i18n("licenseLink")}</a>
           {faucet ? <a href={faucet} target="_blank" rel="noopener noreferrer">{i18n("faucet")}</a> : null}
         </nav>
-        <NetworkSwitch />
-        <form onSubmit={(event) => { event.preventDefault(); void model.accept(); }} className="space-y-4">
+        <form onSubmit={(event) => { event.preventDefault(); void model.accept(); }} className="space-y-4 border-t border-border pt-6">
           {BETA_ACKNOWLEDGEMENTS.map((key) => (
             <label key={key} className="flex cursor-pointer items-start gap-3 text-sm leading-relaxed">
               <input type="checkbox" checked={model.acknowledgements[key]} disabled={model.pending}

@@ -21,6 +21,7 @@ describe("network switch", () => {
     state.network = network;
     render(<NetworkSwitch />);
     const nav = screen.getByRole("navigation", { name: "Choose Cardano network" });
+    expect(Array.from(nav.querySelectorAll("li"), (item) => item.textContent)).toEqual(["Preprod Test funds", "Mainnet Real funds"]);
     expect(nav.querySelector('[aria-current="true"]')).toHaveTextContent(activeLabel);
     expect(screen.getByRole("link", { name: linkLabel })).toHaveAttribute("href", href);
     expect(screen.getByRole("link", { name: linkLabel })).toHaveAttribute("rel", "noreferrer");

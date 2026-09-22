@@ -1,6 +1,6 @@
 import type { CardanoNetwork } from "./cardano-network";
 
-export const SWITCHABLE_NETWORKS = ["mainnet", "preprod"] as const;
+export const SWITCHABLE_NETWORKS = ["preprod", "mainnet"] as const;
 export type SwitchableNetwork = (typeof SWITCHABLE_NETWORKS)[number];
 export type NetworkDeployments = Record<SwitchableNetwork, string | undefined>;
 
