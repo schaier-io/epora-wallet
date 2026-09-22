@@ -19,6 +19,22 @@ Every row links the GitHub issue and the pull request that answers it.
 
 **How to report:** footer "Report an issue" (bug or feedback form, added in [#473](https://github.com/schaier-io/epora-wallet/pull/473)), [open a GitHub issue](https://github.com/schaier-io/epora-wallet/issues/new/choose), or [Discord](https://discord.gg/2uh4BynQBW). Discord messages are copied into issues as text.
 
+## How feedback is categorized
+
+1. A report comes in from the app forms, GitHub, Discord, or an e2e test session.
+2. It becomes one GitHub issue. A Discord report is copied into the issue as text, with the reporter named.
+3. The issue gets one bucket: `fixed`, `feasible`, `next`, or `not-a-bug`.
+4. A `feasible` issue gets a pull request. When the fix merges, the issue closes and moves to `fixed`.
+5. This page lists each issue once, with its bucket and its fix PR.
+
+## Milestone 4 evidence map
+
+| Catalyst requirement | Where to verify |
+| --- | --- |
+| A. Link to prototype | [epora.io](https://epora.io), [/api/health](https://www.epora.io/api/health), [Prototype evidence](#prototype-evidence) |
+| B. Gathered and categorized feedback | This page: [Summary](#summary) and one section per bucket |
+| C. Implementation and bug fixes per category | [External tester reports](#external-tester-reports), [Fixed: bugs](#fixed-bugs), [Fixed: feature requests](#fixed-feature-requests-and-ux-feedback), [Fixed: operations](#fixed-operations-and-tooling) |
+
 ## Summary
 
 | Bucket | Count |
