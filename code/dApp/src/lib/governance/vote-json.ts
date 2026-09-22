@@ -8,6 +8,8 @@ export const VOTE_KINDS = ["Yes", "No", "Abstain"] as const;
 export type VoteKind = (typeof VOTE_KINDS)[number];
 
 export type VoteChoice = { txHash: string; txIndex: number; voteKind: VoteKind };
+/** A read-back vote also says who casts it, which a hand-edited payload may have changed. */
+export type SavedVote = VoteChoice & { drepId: string | null };
 
 const TX_HASH_PATTERN = /^[0-9a-f]{64}$/;
 
@@ -27,8 +29,8 @@ function record(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null;
 }
 
-/** The action and vote kind a payload names, or null when it names no complete vote. */
-export function readVoteJson(json: string): VoteChoice | null {
+/** The action, vote kind and DRep a payload names, or null when it names no complete vote. */
+export function readVoteJson(json: string): SavedVote | null {
   let parsed: unknown;
   try {
     parsed = JSON.parse(json);
@@ -43,7 +45,8 @@ export function readVoteJson(json: string): VoteChoice | null {
   if (!TX_HASH_PATTERN.test(txHash)) return null;
   if (typeof txIndex !== "number" || !Number.isSafeInteger(txIndex) || txIndex < 0) return null;
   if (!VOTE_KINDS.includes(voteKind as VoteKind)) return null;
-  return { txHash, txIndex, voteKind: voteKind as VoteKind };
+  const drepId = record(root?.voter)?.drepId;
+  return { txHash, txIndex, voteKind: voteKind as VoteKind, drepId: typeof drepId === "string" ? drepId : null };
 }
 
 /**

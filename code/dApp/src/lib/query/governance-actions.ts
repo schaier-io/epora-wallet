@@ -4,10 +4,13 @@ import { queryOptions, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { GovernanceActionsResponseSchema } from "@/lib/api/governance-actions";
 import { extractGovernanceActionId } from "@/lib/governance/vote-json";
+import { parseRetryAfterMs } from "@/lib/mesh/server-fetcher";
 import { queryKeys } from "./keys";
 
+// `status` and `retryAfterMs` feed `retryQuery`/`queryRetryDelay`: a 400 or 404 is final,
+// and a 429 waits as long as the server asked.
 class GovernanceActionLookupError extends Error {
-  constructor(readonly serverMessage: string | null) {
+  constructor(readonly status: number, readonly serverMessage: string | null, readonly retryAfterMs?: number) {
     super(serverMessage ?? "Governance action lookup failed.");
     this.name = "GovernanceActionLookupError";
   }
@@ -17,20 +20,21 @@ export const governanceActionQueryOptions = (id: string) => queryOptions({
   queryKey: queryKeys.governanceAction(id),
   queryFn: async ({ signal }) => {
     const response = await fetch(`/api/v1/governance-actions?id=${encodeURIComponent(id)}`, { signal });
+    const retryAfterMs = parseRetryAfterMs(response.headers.get("Retry-After"));
     let payload: unknown;
     try {
       payload = await response.json();
     } catch {
       signal.throwIfAborted();
-      throw new GovernanceActionLookupError(null);
+      throw new GovernanceActionLookupError(response.ok ? 502 : response.status, null, retryAfterMs);
     }
     if (!response.ok) {
       const message = payload && typeof payload === "object" && "error" in payload && typeof payload.error === "string"
         ? payload.error : null;
-      throw new GovernanceActionLookupError(message);
+      throw new GovernanceActionLookupError(response.status, message, retryAfterMs);
     }
     const parsed = GovernanceActionsResponseSchema.safeParse(payload);
-    if (!parsed.success) throw new GovernanceActionLookupError(null);
+    if (!parsed.success) throw new GovernanceActionLookupError(502, null);
     return parsed.data.action;
   }
 });

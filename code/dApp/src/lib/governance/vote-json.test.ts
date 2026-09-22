@@ -13,7 +13,7 @@ test("builds the Mesh VoteType the builder reads, and reads it back", () => {
     govActionId: { txHash: TX_HASH, txIndex: 3 },
     votingProcedure: { voteKind: "Abstain" }
   });
-  assert.deepEqual(readVoteJson(json), { txHash: TX_HASH, txIndex: 3, voteKind: "Abstain" });
+  assert.deepEqual(readVoteJson(json), { txHash: TX_HASH, txIndex: 3, voteKind: "Abstain", drepId: DREP_ID });
 });
 
 test("reads no vote from an incomplete or malformed payload", () => {

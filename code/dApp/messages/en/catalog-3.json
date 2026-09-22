@@ -629,6 +629,7 @@
     "no": "No",
     "noDrepHint": "This wallet's voting id could not be worked out yet. Open the wallet first.",
     "pasteHint": "Paste the action id, or a link to it, from any governance explorer.",
+    "savedVoteElsewhere": "The vote saved now is {vote} on a different action ({action}), or by a different voter. Choose Yes, No or Abstain here to replace it.",
     "statusActive": "Open for votes",
     "statusDropped": "Dropped",
     "statusEnacted": "Enacted",

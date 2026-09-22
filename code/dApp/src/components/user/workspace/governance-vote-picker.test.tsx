@@ -2,6 +2,7 @@ import type { ReactElement } from "react";
 import { fireEvent, render as renderUI, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createQueryTestWrapper } from "@/test/query-client";
+import { retryQuery } from "@/lib/query/client";
 import type { GovernanceAction } from "@/lib/api/governance-actions";
 
 const holder = vi.hoisted(() => ({
@@ -95,6 +96,7 @@ describe("finding the action", () => {
 
   it("re-shows the action an existing vote already names", async () => {
     holder.voteJson = JSON.stringify({
+      voter: { type: "DRep", drepId: holder.drepId },
       govActionId: { txHash: TX_HASH, txIndex: 0 },
       votingProcedure: { voteKind: "No" }
     });
@@ -104,6 +106,56 @@ describe("finding the action", () => {
 
     await waitFor(() => expect(screen.getByText("Fund the node")).toBeInTheDocument());
     expect(screen.getByRole("button", { name: "No" })).toHaveAttribute("aria-pressed", "true");
+  });
+});
+
+describe("a saved vote the card does not show", () => {
+  const savedOn = (txHash: string, drepId: string) => JSON.stringify({
+    voter: { type: "DRep", drepId },
+    govActionId: { txHash, txIndex: 0 },
+    votingProcedure: { voteKind: "Yes" }
+  });
+
+  it("warns when the saved vote is on another action than the one looked up", async () => {
+    holder.voteJson = savedOn("ab".repeat(32), holder.drepId!);
+    const fetchMock = stubLookup(ACTION);
+    render(<GovernanceVotePicker />);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    fireEvent.change(screen.getByLabelText("Governance action"), { target: { value: `${TX_HASH}#0` } });
+    fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
+
+    await waitFor(() => expect(screen.getByText(/The vote saved now is Yes on a different action/)).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "Yes" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("does not count a vote by another DRep as this wallet's choice", async () => {
+    holder.voteJson = savedOn(TX_HASH, "drep1someoneelse");
+    stubLookup(ACTION);
+
+    render(<GovernanceVotePicker />);
+
+    await waitFor(() => expect(screen.getByText("Fund the node")).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "Yes" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByText(/or by a different voter/)).toBeInTheDocument();
+  });
+});
+
+describe("a lookup the server refused", () => {
+  it("does not retry a 404, so not-found shows at once", async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(JSON.stringify({ error: "Governance action not found on this network." }), { status: 404 })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    // The test wrapper turns retries off; put the app's own policy back so a retry would show.
+    context.queryClient.setDefaultOptions({ queries: { retry: retryQuery, retryDelay: 0 } });
+    render(<GovernanceVotePicker />);
+
+    fireEvent.change(screen.getByLabelText("Governance action"), { target: { value: `${TX_HASH}#0` } });
+    fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
+
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Governance action not found on this network."));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
 

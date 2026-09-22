@@ -89,6 +89,20 @@ describe("where the vote comes from", () => {
     expect(screen.getByTestId("governance-vote-picker")).toBeEmptyDOMElement();
   });
 
+  it("leaves the JSON open once the reader's fix clears the error", () => {
+    holder.voteJson = '{"voter":';
+    const { container, rerender } = renderView({ fieldErrors: { Vote: ["Vote JSON is not valid JSON."] } });
+    holder.fieldErrors = {};
+    rerender(
+      <Provider store={createStore()}>
+        <WalletVoteConfigView />
+      </Provider>
+    );
+    holder.voteJson = "{}";
+
+    expect(container.querySelector("details")).toHaveAttribute("open");
+  });
+
   it("sends an empty vote's error to the picker and keeps the JSON folded", () => {
     const { container } = renderView({ fieldErrors: { "Vote JSON": ["Pick a governance action."] } });
 

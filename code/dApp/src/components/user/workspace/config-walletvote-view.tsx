@@ -1,5 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
+import { useEffect, useRef } from "react";
 
 import { Button } from "@/components/ui/button";
 
@@ -28,13 +29,20 @@ export function WalletVoteConfigView() {
   // An untouched box means nothing was picked yet: the picker is where to fix that, so the
   // error shows there. A hand-edited box keeps its error on the box itself.
   const jsonEdited = !["", "{}"].includes(voteJson.trim());
+  const jsonRejected = Boolean(voteJsonError) && jsonEdited;
+  // Opened, never closed, from here: an `open` prop would shut the box under the cursor
+  // the moment the reader's fix cleared the error.
+  const detailsRef = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    if (jsonRejected && detailsRef.current) detailsRef.current.open = true;
+  }, [jsonRejected]);
 
       return (
         <div className="space-y-4">
           <GovernanceVotePicker error={jsonEdited ? null : voteJsonError} />
           {/* The raw payload stays reachable for votes the picker cannot express. It opens
               by itself when validation rejects it, so the reader lands on the reason. */}
-          <details className="space-y-2" open={voteJsonError && jsonEdited ? true : undefined}>
+          <details ref={detailsRef} className="space-y-2">
             <summary className="cursor-pointer text-xs text-muted-foreground hover:text-foreground">
               {i18n("editAsJson")}
             </summary>

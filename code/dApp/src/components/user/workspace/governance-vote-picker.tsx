@@ -55,10 +55,13 @@ export function GovernanceVotePicker({ error: validationError = null }: { error?
     : failure?.kind === "network" ? i18n("lookupUnreachable")
     : null;
 
-  const chosen =
-    result && current && current.txHash === result.txHash && current.txIndex === result.index
-      ? current.voteKind
-      : null;
+  // The saved vote counts as this card's choice only when it names this action and this
+  // wallet's DRep. Anything else is a vote on something the card does not show.
+  const savedMatchesCard =
+    !!result && !!current && current.txHash === result.txHash && current.txIndex === result.index &&
+    current.drepId === drepId;
+  const chosen = savedMatchesCard ? current.voteKind : null;
+  const savedElsewhere = !!result && !!current && !savedMatchesCard;
   const votable = result?.status === "active" && drepId !== null;
 
   return (
@@ -149,6 +152,14 @@ export function GovernanceVotePicker({ error: validationError = null }: { error?
                 </Button>
               ))}
             </div>
+            {savedElsewhere ? (
+              <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+                {i18n("savedVoteElsewhere", {
+                  vote: i18n(VOTE_LABEL_KEYS[current.voteKind]),
+                  action: `${shortenIdentifier(current.txHash, 8, 4)}#${current.txIndex}`
+                })}
+              </p>
+            ) : null}
             {chosen ? null : <InlineFieldError id="governanceVoteChoice-error" message={validationError} />}
             <p className="text-xs text-muted-foreground">
               {result.status !== "active" ? i18n("closedHint")
