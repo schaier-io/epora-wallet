@@ -265,6 +265,7 @@
     "thisWalletAlreadyHoldsMaxAccessRecords": "This wallet already holds {max} owners, spenders, and recovery contacts in total. Remove one to add another.",
     "thisWalletAlreadyHoldsMaxPeople": "This wallet already holds {max} people, owners and spenders together. Remove one to add another.",
     "thisPersonAlreadyHasMaxWallets": "This person already has {max} wallets. Remove one to add another.",
+    "thisWalletAlreadyHasMaxLimits": "This wallet already has {max} spending limits across everyone in it. Remove one to add another.",
     "thisWalletAlreadyLinksMaxWallets": "This wallet already links {max} wallets across everyone in it. Remove one from somebody to add another."
   },
   "ComponentsUserWorkspaceEditorsFocusedWalletSettingsEditor": {

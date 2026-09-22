@@ -21,6 +21,7 @@ import {
 import { PersonHeading } from "@/components/user/workspace/editors/person-heading";
 import { personLabel } from "@/lib/contracts/person-label";
 import {
+  MAX_TOTAL_ALLOWANCE_ENTRIES,
   MAX_TOTAL_USER_WALLETS,
   MAX_WALLETS_PER_USER
 } from "@/lib/contracts/state-validation";
@@ -210,6 +211,16 @@ export function PersonPermissionsEditor({
         </div>
         {user.isAdmin ? (
           <p className="text-xs text-muted-foreground">{i18n("everyOwnerCanCheckIn")}</p>
+        ) : null}
+        {/* The Spender chip goes dead on two conditions. `user.isAdmin` says why in the
+            line above and in the chip's own description. The wallet-wide allowance budget
+            said nothing: the chip simply stopped responding, with no number and no way to
+            learn which limit was reached. `asset-editors.tsx:155` names the same cap for
+            the Add button inside the limits list. */}
+        {!user.isAdmin && !isSpender && !canAddPerDayAllowanceEntry ? (
+          <p className="text-xs text-muted-foreground">
+            {i18n("thisWalletAlreadyHasMaxLimits", { max: MAX_TOTAL_ALLOWANCE_ENTRIES })}
+          </p>
         ) : null}
         <div className="flex flex-wrap gap-2">
           <Badge variant="outline">

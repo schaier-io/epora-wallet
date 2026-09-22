@@ -592,3 +592,36 @@ describe("what a permission chip grants", () => {
     );
   });
 });
+
+/**
+ * The Spender chip goes dead on two conditions. `user.isAdmin` already says why, in the
+ * line under the row and in the chip's own description. The wallet-wide allowance budget
+ * said nothing at all: the chip simply stopped responding.
+ */
+describe("why the spender chip is off", () => {
+  function renderAtAllowanceCap() {
+    const store = createStore();
+    return render(
+      <Provider store={store}>
+        <PersonPermissionsEditor
+          user={person({}, "1")}
+          onChange={vi.fn()}
+          onRemove={vi.fn()}
+          approvalPowerCeiling={1}
+          canAddPerDayAllowanceEntry={false}
+          canAddRemainingAllowanceEntry={false}
+          canAddWallet
+        />
+      </Provider>
+    );
+  }
+
+  it("names the cap that emptied it", () => {
+    renderAtAllowanceCap();
+
+    expect(screen.getByRole("button", { name: "Spender" })).toBeDisabled();
+    expect(
+      screen.getByText(/already has 15 spending limits across everyone in it/i)
+    ).toBeInTheDocument();
+  });
+});
