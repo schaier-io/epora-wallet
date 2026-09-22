@@ -52,6 +52,7 @@ export function ProposalDetail({
   const toast = useToast();
   const [linkCopied, setLinkCopied] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmWithdraw, setConfirmWithdraw] = useState(false);
   const {
     actionError,
     actionInfo,
@@ -392,11 +393,17 @@ export function ProposalDetail({
                 cannot be undone. It used to wear the same treatment as "Sign out", two
                 buttons along from "Sign this request". Same idiom as the cancel action in
                 `payee-view.tsx:388`. */}
+            {/* Through the same confirmation as Delete, for the reason the comment above
+                gives: this is the irreversible one. Delete only removes the record of a
+                request that is already finished, and it asked; Withdraw kills a request
+                other people are part-way through signing, and it did not. It sat two
+                buttons from "Sign this request", so the more consequential of the two
+                destructive actions was the one a slip could fire. */}
             {isCreator && isOpen ? (
               <Button
                 type="button"
                 variant="destructive"
-                onClick={() => void handleCancel()}
+                onClick={() => setConfirmWithdraw(true)}
                 disabled={busy !== null}
                 aria-busy={busy === "cancel"}
               >
@@ -421,6 +428,23 @@ export function ProposalDetail({
           ) : null}
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={confirmWithdraw}
+        onOpenChange={setConfirmWithdraw}
+        title={i18n("withdrawRequestTitle")}
+        description={i18n("withdrawRequestDescription")}
+        confirmLabel={i18n("withdrawRequestConfirm")}
+        cancelLabel={i18n("withdrawRequestCancel")}
+        destructive
+        busy={busy === "cancel"}
+        onConfirm={() => {
+          // Closed first, like the delete path: a failure leaves the panel in place with
+          // its error, so the reader can read it and try again.
+          setConfirmWithdraw(false);
+          void handleCancel();
+        }}
+      />
 
       <ConfirmDialog
         open={confirmDelete}

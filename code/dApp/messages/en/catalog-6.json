@@ -201,6 +201,10 @@
     "field_end_date": "Stops",
     "field_constructor": "Constructor",
     "field_fields": "Field",
-    "numberedField": "{label} {number}"
+    "numberedField": "{label} {number}",
+    "withdrawRequestTitle": "Withdraw this request?",
+    "withdrawRequestDescription": "Nobody will be able to sign it, and the approvals your co-signers have already given stop counting. Nothing on the blockchain changes, and this cannot be undone.",
+    "withdrawRequestConfirm": "Withdraw request",
+    "withdrawRequestCancel": "Keep it open"
   }
 }
