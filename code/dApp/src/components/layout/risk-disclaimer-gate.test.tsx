@@ -32,6 +32,7 @@ describe("beta consent boundary", () => {
     expect(screen.getAllByRole("main")).toHaveLength(1);
     const inputs = screen.getAllByRole("checkbox");
     expect(inputs).toHaveLength(5);
+    expect(inputs[0]).toHaveAccessibleName("I have read and accept the Terms of Use.");
     for (const input of inputs) expect(input).not.toBeChecked();
     expect(screen.getByRole("button", { name: "Accept risks and continue" })).toBeDisabled();
     for (const input of inputs.slice(0, 4)) fireEvent.click(input);
