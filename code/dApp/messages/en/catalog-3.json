@@ -527,7 +527,6 @@
   },
   "ComponentsUserWorkspaceEditorsTaskSurface": {
     "iUnderstandAndWantThisWalletToHave": "I understand, and want this wallet to have no owner.",
-    "moreAboutTitle": "More about {title}",
     "nobodyCouldChangeItDirectlyOnlyTheRecovery": "Nobody could change it directly. Only the recovery contacts and spending limits already saved would still work. Confirm that is what you want.",
     "noDirectOwner": "No direct owner",
     "noIssues": "No issues",
@@ -546,7 +545,6 @@
     "chooseTheEarliestLocalDateAndTimeThis_de24bc": "Choose the earliest local date and time this person may use recovery.",
     "dailySpendingLimit": "Daily spending limit",
     "higherWeightMeansALargerOneTimeShare": "Higher weight means a larger proportional share while several recovery contacts remain. Earlier recovery contacts withdraw once and are removed. The final recovery contact stays available for other fund pools and funds sent later. Whole number, 1 or more.",
-    "moreAboutTitle": "More about {title}",
     "moreAboutWalletNames": "More about wallet names",
     "mostWalletsCanRelyOnTheSharedProof": "Most wallets can rely on the shared proof of life. Add a personal wait date only when this recovery contact should be blocked until a later date.",
     "noDate": "No date",

@@ -15,7 +15,6 @@ import { DestructiveRemoveButton } from "./destructive-remove-button";
 import { InfoHint } from "@/components/ui/info-hint";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LONG_DESCRIPTION_LIMIT } from "@/components/user/workspace/constants";
 import { defaultSafetyUnlockTimestamp, formatCountLabel, withBeneficiaryPayoutAndSigningAddress } from "@/components/user/workspace/helpers";
 import { PersonHeading } from "@/components/user/workspace/editors/person-heading";
 import { personLabel } from "@/lib/contracts/person-label";
@@ -42,9 +41,6 @@ export function WalletRuleSection({
   action?: ReactNode;
   children: ReactNode;
 }) {
-  const i18n = useTranslations("ComponentsUserWorkspaceEditorsWalletSettingsEditors");
-  const descriptionIsLong = description.length > LONG_DESCRIPTION_LIMIT;
-
   return (
     <section className="space-y-4 rounded-xl border border-border/60 bg-background/35 p-3 sm:p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -53,17 +49,9 @@ export function WalletRuleSection({
             <Icon className="h-4.5 w-4.5" />
           </span>
           <div className="min-w-0 space-y-1">
-            <div className="flex items-center gap-2">
-              <p className="text-sm font-semibold text-foreground">{title}</p>
-              {descriptionIsLong ? (
-                <InfoHint label={i18n("moreAboutTitle", { title: title })} contentClassName="max-w-sm">
-                  {description}
-                </InfoHint>
-              ) : null}
-            </div>
-            {!descriptionIsLong ? (
-              <p className="text-xs leading-snug text-muted-foreground">{description}</p>
-            ) : null}
+            <p className="text-sm font-semibold text-foreground">{title}</p>
+            {/* Shown at any length: see the note in `task-surface.tsx`. */}
+            <p className="text-xs leading-snug text-muted-foreground">{description}</p>
           </div>
         </div>
         {action ? <div className="flex shrink-0 flex-wrap gap-2">{action}</div> : null}
@@ -92,7 +80,6 @@ export function WalletRuleTogglePanel({
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsWalletSettingsEditors");
   const uid = useId();
-  const descriptionIsLong = description.length > LONG_DESCRIPTION_LIMIT;
 
   return (
     <div
@@ -103,19 +90,10 @@ export function WalletRuleTogglePanel({
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
-          <div className="flex items-center gap-2">
-            <p id={`${uid}-title`} className="text-sm font-medium text-foreground">
-              {title}
-            </p>
-            {descriptionIsLong ? (
-              <InfoHint label={i18n("moreAboutTitle", { title: title })} contentClassName="max-w-sm">
-                {description}
-              </InfoHint>
-            ) : null}
-          </div>
-          {!descriptionIsLong ? (
-            <p className="text-xs leading-snug text-muted-foreground">{description}</p>
-          ) : null}
+          <p id={`${uid}-title`} className="text-sm font-medium text-foreground">
+            {title}
+          </p>
+          <p className="text-xs leading-snug text-muted-foreground">{description}</p>
         </div>
         {/* A toggle, not a command: its text names the state it is already in ("Using",
             "Timer on"), so without `aria-pressed` a screen reader read it as an action

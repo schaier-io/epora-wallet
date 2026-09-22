@@ -202,3 +202,28 @@ describe("which task chip is open", () => {
     expect(closed.className).not.toContain("shadow-[");
   });
 });
+
+/**
+ * A description over 78 characters used to go into an ⓘ tooltip and was never rendered
+ * visibly. Two real strings exceeded that: the streaming-payments header at 84, and the
+ * recovery-contacts empty state at 95, whose only job is to explain recovery contacts to
+ * a reader who has none.
+ */
+describe("a description longer than the old limit", () => {
+  const LONG =
+    "If you ever lose your keys, recovery contacts can step in. They wait behind your proof of life.";
+
+  it("is visible in an empty state, not hidden behind a hint", () => {
+    render(
+      <TaskEmptyState icon={Repeat} title="Recovery contacts" description={LONG} />
+    );
+
+    expect(screen.getByText(LONG)).toBeInTheDocument();
+  });
+
+  it("is visible in a task surface header", () => {
+    renderSurface({ description: LONG });
+
+    expect(screen.getByText(LONG)).toBeInTheDocument();
+  });
+});
