@@ -644,8 +644,14 @@ export function PayeeView() {
         {stopReview ? (
           <div className="space-y-4">
             <dl className="space-y-3 text-sm">
+              {/* Through `formatTimestampLabel`, like every other time on this screen, for
+                  the reason the import comment at the top of this file gives: it renders in
+                  the configured zone and names it. `toISOString()` rendered UTC with no zone
+                  named, on the one number a reader checks before stopping their own income,
+                  while the payment's own start and end dates 100 lines up were already
+                  formatted. No `font-mono`: this is a date now, not an identifier. */}
               <div><dt className="text-muted-foreground">{i18n("stopTime")}</dt>
-                <dd className="break-words font-mono">{new Date(stopReview.cutoff).toISOString()}</dd></div>
+                <dd>{formatTimestampLabel(stopReview.cutoff)}</dd></div>
               <div><dt className="text-muted-foreground">{i18n("retainedDebt")}</dt>
                 <dd>{i18n("amount", {
                   amount: stopReview.policyId === "" && stopReview.assetName === ""

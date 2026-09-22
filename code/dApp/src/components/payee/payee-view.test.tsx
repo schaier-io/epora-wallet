@@ -1102,7 +1102,14 @@ describe("payment stop review", () => {
 
   it("shows the exact frozen cutoff and retained debt before any signature", async () => {
     await openReview();
-    expect(screen.getByText(new Date(NOW + 60_000).toISOString())).toBeInTheDocument();
+    // The subject here is that the cutoff is FROZEN -- the clock moves below and the build
+    // still uses the captured instant -- not the spelling of it. The dialog used to print
+    // `new Date(...).toISOString()`, which is UTC with no zone named, on the one number a
+    // reader checks before stopping their own income. Same instant, written the way the rest
+    // of the screen writes a time. The literal is spelled out rather than built by calling
+    // `formatTimestampLabel`: a test that formats with the same helper as the code under
+    // test would pass whatever that helper did.
+    expect(screen.getByText("Oct 9, 2025, 08:54 AM UTC")).toBeInTheDocument();
     expect(screen.getByText("5.003472 ADA")).toBeInTheDocument();
     expect(actions.submit).not.toHaveBeenCalled();
     vi.setSystemTime(NOW + 20_000);
