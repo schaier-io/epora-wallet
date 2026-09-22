@@ -197,7 +197,10 @@ export function SttReferenceSetup({
         <div className="flex gap-3">
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" aria-hidden="true" />
           <div className="space-y-1">
-            <p className="text-sm font-medium text-foreground">{i18n("permanentTitle")}</p>
+            {/* `h2`, not `p`: this titles the warning block under the page's only `h1`.
+                Preflight resets `h1`-`h6` to `font-size: inherit` and `font-weight:
+                inherit`, so the classes still decide how it looks. */}
+            <h2 className="text-sm font-medium text-foreground">{i18n("permanentTitle")}</h2>
             <p className="text-xs leading-relaxed text-muted-foreground">{i18n("permanentDescription")}</p>
           </div>
         </div>
@@ -206,7 +209,7 @@ export function SttReferenceSetup({
       <div className="space-y-4 rounded-xl border border-border/60 bg-background/40 p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-medium text-foreground">{i18n("statusTitle")}</p>
+            <h2 className="text-sm font-medium text-foreground">{i18n("statusTitle")}</h2>
             <p className="mt-1 text-xs text-muted-foreground">
               {busy ? i18n("working") : connected ? i18n("walletReady") : i18n("walletNeeded")}
             </p>

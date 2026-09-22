@@ -321,3 +321,21 @@ describe("STT reference setup", () => {
     await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
   });
 });
+
+/**
+ * /setup carries 26 controls and burns ADA to an always-fail address, and its only
+ * heading was the `h1`. Both block titles were `<p class="text-sm font-medium">`:
+ * they look like headings and were not, so heading navigation offered one landing
+ * point for the whole page (WCAG 1.3.1).
+ *
+ * Asserted by level and order rather than by text: this file renders the namespace
+ * unresolved, so the two titles come back as "permanentTitle" and "statusTitle".
+ */
+it("gives the warning and funding blocks real headings under the h1", () => {
+  render(<SttReferenceSetup initialStore={missingStore} />);
+
+  expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+  expect(
+    screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent)
+  ).toEqual(["permanentTitle", "statusTitle"]);
+});
