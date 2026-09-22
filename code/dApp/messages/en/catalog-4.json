@@ -284,7 +284,7 @@
     "couldnTLoadThisSmartWalletSBalance": "Could not load this smart wallet’s balance. Refresh and try again."
   },
   "ComponentsUserWorkspaceUseLockedContractUtxos": {
-    "couldNotLoadThisWalletSFunds": "Could not load this wallet's funds. Reload to try again."
+    "couldNotLoadThisWalletSFunds": "Could not load this wallet's funds. The app keeps trying. Use Refresh to try now."
   },
   "ComponentsUserWorkspaceUsePermissionWalletWorkspaceState": {
     "confirming": "Confirming…",
