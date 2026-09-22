@@ -35,5 +35,12 @@ test("finds the action id in a bare id, a tx reference, or an explorer link", ()
   assert.equal(extractGovernanceActionId(`https://explorer.example/governance/${bech32}?tab=votes`), bech32);
   assert.equal(extractGovernanceActionId(`${TX_HASH.toUpperCase()}#02`), `${TX_HASH}#2`);
   assert.equal(extractGovernanceActionId(`https://explorer.example/action/${TX_HASH}%230`), `${TX_HASH}#0`);
+  assert.equal(
+    extractGovernanceActionId(`https://preprod.adastat.net/governances/${TX_HASH}0a`),
+    `${TX_HASH}#10`
+  );
+  // A bare tx hash names no action, and 66 hex characters inside a longer run is not an id.
+  assert.equal(extractGovernanceActionId(TX_HASH), null);
+  assert.equal(extractGovernanceActionId(`${TX_HASH}0a0b`), null);
   assert.equal(extractGovernanceActionId("drep1abc"), null);
 });
