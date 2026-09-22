@@ -14,6 +14,7 @@ import { useVoteForm } from "@/components/user/workspace/forms/use-vote-form";
 import type { GovernanceAction } from "@/lib/api/governance-actions";
 import { VOTE_KINDS, buildVoteJson, readVoteJson, type VoteKind } from "@/lib/governance/vote-json";
 import { useGovernanceActionLookup } from "@/lib/query/governance-actions";
+import { CARDANO_NETWORK, GOVERNANCE_EXPLORER_URLS } from "@/lib/cardano-network";
 import { shortenIdentifier } from "@/lib/utils/explorer";
 
 const TYPE_LABEL_KEYS = {
@@ -96,7 +97,35 @@ export function GovernanceVotePicker({ error: validationError = null }: { error?
             {i18n("lookUp")}
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground">{i18n("pasteHint")}</p>
+        <p className="text-xs text-muted-foreground">
+          {i18n.rich("pasteHint", {
+            govtool: (chunks) => (
+              <a
+                href={GOVERNANCE_EXPLORER_URLS.govtool}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-2 hover:text-foreground"
+              >
+                {chunks}
+              </a>
+            ),
+            cardanoscan: (chunks) => (
+              <a
+                href={GOVERNANCE_EXPLORER_URLS.cardanoscan}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-2 hover:text-foreground"
+              >
+                {chunks}
+              </a>
+            )
+          })}
+        </p>
+        {CARDANO_NETWORK === "mainnet" ? null : (
+          <p className="text-xs text-muted-foreground">
+            {i18n("testNetworkActionsNote", { network: CARDANO_NETWORK })}
+          </p>
+        )}
         {result ? null : <InlineFieldError id="governanceActionInput-error" message={validationError} />}
       </div>
 

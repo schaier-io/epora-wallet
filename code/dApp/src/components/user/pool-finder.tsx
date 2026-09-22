@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 import { cn } from "@/lib/utils/cn";
+import { CARDANO_NETWORK, POOL_EXPLORER_URLS } from "@/lib/cardano-network";
 
 export type StakePool = PoolsResponseDto["pool"];
 
@@ -78,9 +79,9 @@ export function PoolFinder({
         </div>
         <p className="text-xs text-muted-foreground">
           {i18n.rich("donTHaveOneBrowsePoolsOnPool_b446d3", {
-            poolPm: (chunks) => (
+            cardanoscan: (chunks) => (
               <a
-                href="https://pool.pm/"
+                href={POOL_EXPLORER_URLS.cardanoscan}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="underline underline-offset-2 hover:text-foreground"
@@ -88,9 +89,9 @@ export function PoolFinder({
                 {chunks}
               </a>
             ),
-            cexplorer: (chunks) => (
+            adastat: (chunks) => (
               <a
-                href="https://cexplorer.io/pool"
+                href={POOL_EXPLORER_URLS.adastat}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="underline underline-offset-2 hover:text-foreground"
@@ -100,6 +101,11 @@ export function PoolFinder({
             )
           })}
         </p>
+        {CARDANO_NETWORK === "mainnet" ? null : (
+          <p className="text-xs text-muted-foreground">
+            {i18n("testNetworkPoolsNote", { network: CARDANO_NETWORK })}
+          </p>
+        )}
       </div>
 
       {error ? (
