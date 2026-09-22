@@ -20,6 +20,10 @@ import {
 } from "@/components/user/workspace/helpers";
 import { PersonHeading } from "@/components/user/workspace/editors/person-heading";
 import { personLabel } from "@/lib/contracts/person-label";
+import {
+  MAX_TOTAL_USER_WALLETS,
+  MAX_WALLETS_PER_USER
+} from "@/lib/contracts/state-validation";
 import { type UserFormState } from "@/lib/contracts/state-form";
 import { Check, Plus } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
@@ -282,6 +286,17 @@ export function PersonPermissionsEditor({
               : i18n("addsTheIdOfTheWalletYouAre")}
         </p>
       </div>
+      {/* Two caps empty the Add above and the button beside it: this person's own wallet
+          list (`MAX_WALLETS_PER_USER`) and the wallet-wide total every caller folds into
+          `canAddWallet` (`state-form-editor.tsx:318`). The remedy differs, so the line has
+          to say which one: remove a wallet from this person, or from somebody else. */}
+      {!canAddWallet ? (
+        <p className="text-xs text-muted-foreground">
+          {user.wallets.length >= MAX_WALLETS_PER_USER
+            ? i18n("thisPersonAlreadyHasMaxWallets", { max: MAX_WALLETS_PER_USER })
+            : i18n("thisWalletAlreadyLinksMaxWallets", { max: MAX_TOTAL_USER_WALLETS })}
+        </p>
+      ) : null}
     </div>
   );
 }

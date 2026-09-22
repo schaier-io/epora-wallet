@@ -263,7 +263,9 @@
     "whatIsLeftOfTheDailyLimitRight": "What is left of the daily limit right now. It goes back to the full limit on the first payment made after the reset time above.",
     "yes": "Yes",
     "thisWalletAlreadyHoldsMaxAccessRecords": "This wallet already holds {max} owners, spenders, and recovery contacts in total. Remove one to add another.",
-    "thisWalletAlreadyHoldsMaxPeople": "This wallet already holds {max} people, owners and spenders together. Remove one to add another."
+    "thisWalletAlreadyHoldsMaxPeople": "This wallet already holds {max} people, owners and spenders together. Remove one to add another.",
+    "thisPersonAlreadyHasMaxWallets": "This person already has {max} wallets. Remove one to add another.",
+    "thisWalletAlreadyLinksMaxWallets": "This wallet already links {max} wallets across everyone in it. Remove one from somebody to add another."
   },
   "ComponentsUserWorkspaceEditorsFocusedWalletSettingsEditor": {
     "addRecoveryContact": "Add recovery contact",
@@ -579,7 +581,9 @@
     "walletName": "Wallet name",
     "walletNameAtLimit": "That is as long as a wallet name can be. Emoji and accented letters take up more room than plain letters.",
     "walletNamePreview": "This wallet will show as <strong>{name}</strong>.",
-    "spender": "Spender"
+    "spender": "Spender",
+    "thisPersonAlreadyHasMaxWallets": "This person already has {max} wallets. Remove one to add another.",
+    "thisWalletAlreadyLinksMaxWallets": "This wallet already links {max} wallets across everyone in it. Remove one from somebody to add another."
   },
   "ComponentsUserWorkspaceGuidedAdminCatalog": {
     "add": "Add",

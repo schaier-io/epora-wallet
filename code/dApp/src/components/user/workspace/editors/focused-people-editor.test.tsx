@@ -459,6 +459,42 @@ describe("person wallet cap", () => {
     expect(addConnected).toBeDisabled();
     fireEvent.click(addConnected);
     expect(onChange).not.toHaveBeenCalled();
+    // This person holds no wallets, so the block came from the wallet-wide total. Saying
+    // "full" without saying which list is full leaves the reader with nowhere to go.
+    expect(
+      screen.getByText(
+        `This wallet already links ${MAX_TOTAL_USER_WALLETS} wallets across everyone in it. Remove one from somebody to add another.`
+      )
+    ).toBeInTheDocument();
+  });
+
+  it("names this person's own wallet cap when that is the one it hit", () => {
+    const store = createStore();
+    store.set(activePaymentKeyHashAtom, "dd".repeat(28));
+    render(
+      <Provider store={store}>
+        <PersonPermissionsEditor
+          user={{
+            ...person({}, "1"),
+            wallets: Array.from({ length: MAX_WALLETS_PER_USER }, (_, index) =>
+              String(index).padStart(2, "0").repeat(28)
+            )
+          }}
+          onChange={vi.fn()}
+          onRemove={vi.fn()}
+          approvalPowerCeiling={1}
+          canAddPerDayAllowanceEntry
+          canAddRemainingAllowanceEntry
+          canAddWallet={false}
+        />
+      </Provider>
+    );
+
+    expect(
+      screen.getByText(
+        `This person already has ${MAX_WALLETS_PER_USER} wallets. Remove one to add another.`
+      )
+    ).toBeInTheDocument();
   });
 
   it("does not remove a person until the reader confirms", () => {
