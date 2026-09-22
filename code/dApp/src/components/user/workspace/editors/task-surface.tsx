@@ -200,7 +200,7 @@ export function FocusedTaskSurface({
               </span>
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-foreground">{title}</p>
-                {/* Shown at any length. Over 78 characters this went into an ⓘ tooltip
+                {/* Shown at any length. Over 78 characters this went into an ⓘ popover
                     and was never rendered visibly, so the two descriptions that exceed
                     78 were invisible: the recovery-contacts empty state, whose only job
                     is to explain recovery contacts to a reader who has none, and the

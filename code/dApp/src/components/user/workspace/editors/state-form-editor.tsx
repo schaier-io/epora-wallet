@@ -441,7 +441,7 @@ export function StateFormEditor({
           {/* Not a <label>: this heads the whole panel and points at no single
               control, so it named nothing and clicked through to nothing. */}
           <p className="text-sm font-medium leading-none">{label}</p>
-          {/* Shown at any length. Over 78 characters the helper went into an ⓘ tooltip
+          {/* Shown at any length. Over 78 characters the helper went into an ⓘ popover
               and appeared nowhere else, which hid the wallet-creation guidance: 127
               characters, on the panel that builds the wallet. Seven of the other helpers
               sit at 75 to 77, written to duck under the same limit. */}
