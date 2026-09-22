@@ -122,6 +122,10 @@ export function SttReferenceSetup({
   async function confirmDeployment(reference: string) {
     for (let attempt = 1; attempt <= SUBMIT_CONFIRMATION_MAX_ATTEMPTS; attempt += 1) {
       await delay(attempt === 1 ? SUBMIT_CONFIRMATION_INITIAL_DELAY_MS : SUBMIT_CONFIRMATION_POLL_MS);
+      // The reader can leave while the poll is sleeping. Without this the next attempt
+      // still queries the provider for a page that is gone, and the result is discarded
+      // one line further down anyway.
+      if (!mounted.current) return;
       try {
         const result = await detectSharedSttReferenceStore();
         if (!mounted.current) return;
