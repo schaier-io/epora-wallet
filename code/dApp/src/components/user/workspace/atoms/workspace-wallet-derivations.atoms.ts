@@ -22,7 +22,7 @@ import { lockedContractUtxosAtom } from "@/components/user/workspace/atoms/works
 import { configAtom } from "@/components/user/workspace/atoms/workspace-config.atoms";
 import { networkIdAtom } from "@/providers/wallet.atoms";
 import { withdrawRewardAddressAtom } from "@/components/user/workspace/atoms/forms/withdraw-form.atoms";
-import { serializeScriptRewardAddress } from "@/lib/cardano-addresses";
+import { serializeScriptDrepId, serializeScriptRewardAddress } from "@/lib/cardano-addresses";
 import {
   sttExtraTransfersAtom,
   sttWalletInputsAtom,
@@ -123,6 +123,23 @@ export const walletRewardAddressAtom = atom<string | null>((get) => {
         sttAssetNameHex: walletAssetNameHex
       }),
       networkId === 1 ? 1 : 0
+    );
+  } catch {
+    return null;
+  }
+});
+
+/**
+ * The wallet's CIP-129 DRep id. The wallet votes as a script DRep under its own script hash,
+ * the same hash its reward address carries, so a vote never needs the id typed in.
+ */
+export const walletDrepIdAtom = atom<string | null>((get) => {
+  const walletPolicyId = get(configAtom).walletPolicyId?.trim() ?? "";
+  const walletAssetNameHex = get(effectiveWalletAssetNameHexAtom);
+  if (!walletPolicyId || !walletAssetNameHex) return null;
+  try {
+    return serializeScriptDrepId(
+      resolveWalletSpendScriptHash({ sttPolicyId: walletPolicyId, sttAssetNameHex: walletAssetNameHex })
     );
   } catch {
     return null;

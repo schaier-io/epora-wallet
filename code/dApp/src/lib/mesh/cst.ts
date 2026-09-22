@@ -89,8 +89,14 @@ export interface CstTransactionBody {
   requiredSigners(): unknown;
   certs(): { values(): readonly { toCbor(): string }[]; toCbor(): string } | undefined;
   withdrawals(): Map<string, bigint> | undefined;
-  votingProcedures(): { toCbor(): string } | undefined;
+  votingProcedures(): { toCbor(): string; toCore(): CstVotingProcedures } | undefined;
 }
+
+/** `Cardano.VotingProcedures`: `vote` is 0 = No, 1 = Yes, 2 = Abstain. */
+export type CstVotingProcedures = ReadonlyArray<{
+  voter: { __typename: string; credential: { hash: string } };
+  votes: ReadonlyArray<{ actionId: { id: string; actionIndex: number }; votingProcedure: { vote: number } }>;
+}>;
 
 export interface CstWitnessSet {
   redeemers(): CstRedeemers | undefined;

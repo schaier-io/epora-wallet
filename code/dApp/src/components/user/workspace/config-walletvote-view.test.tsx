@@ -3,7 +3,6 @@ import { Provider, createStore } from "jotai";
 import { describe, expect, it, vi } from "vitest";
 
 const holder = vi.hoisted(() => ({
-  rewardAddress: "stake_test17qexample" as string | null,
   voteJson: "{}",
   setVoteJson: vi.fn(),
   operatorOptions: [
@@ -24,16 +23,12 @@ vi.mock(
   }
 );
 
-vi.mock(
-  "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms",
-  async (importOriginal) => {
-    const { atom } = await import("jotai");
-    return {
-      ...(await importOriginal<Record<string, unknown>>()),
-      walletRewardAddressAtom: atom(() => holder.rewardAddress)
-    };
-  }
-);
+// The picker has its own tests; here it only has to be on the screen.
+vi.mock("@/components/user/workspace/governance-vote-picker", () => ({
+  GovernanceVotePicker: ({ error }: { error?: string | null }) => (
+    <div data-testid="governance-vote-picker">{error}</div>
+  )
+}));
 
 vi.mock("@/components/user/workspace/workspace-actions-context", () => ({
   useWorkspaceActions: () => ({ activeFieldErrors: holder.fieldErrors })
@@ -52,11 +47,9 @@ const { WalletVoteConfigView } = await import(
 );
 
 function renderView({
-  rewardAddress = "stake_test17qexample" as string | null,
   operatorOptions = holder.operatorOptions,
   fieldErrors = {} as Record<string, string[]>
 } = {}) {
-  holder.rewardAddress = rewardAddress;
   holder.operatorOptions = operatorOptions;
   holder.fieldErrors = fieldErrors;
   holder.setVoteJson = vi.fn();
@@ -76,38 +69,45 @@ describe("signing path selection", () => {
   });
 });
 
-describe("what the box needs", () => {
-  it("names the three parts of a vote without naming the SDK", () => {
-    renderView();
-
-    expect(
-      screen.getByText(/who is voting, which proposal, and how you vote \(Yes,\s+No or Abstain\)/)
-    ).toBeInTheDocument();
-    expect(screen.queryByText(/Mesh/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/govActionId/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/votingProcedure/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/voteKind/)).not.toBeInTheDocument();
-  });
-
-  /**
-   * `govActionId` appears nowhere else in `src`, and `/user/proposals` holds this wallet's
-   * own co-signing requests, not Cardano governance actions. The proposal really does have
-   * to come from another tool, and the screen now says so.
-   */
-  it("says where the vote comes from, because the app cannot look it up", () => {
-    renderView();
-
-    expect(screen.getByText(/This app cannot look proposals up/)).toBeInTheDocument();
-  });
-
-  it("puts that explanation before the box it describes", () => {
+describe("where the vote comes from", () => {
+  it("leads with the picker and folds the raw JSON away", () => {
     const { container } = renderView();
 
-    const explanation = screen.getByText(/This app cannot look proposals up/);
-    const textarea = container.querySelector("#userVoteJson")!;
-    expect(
-      explanation.compareDocumentPosition(textarea) & Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy();
+    const picker = screen.getByTestId("governance-vote-picker");
+    const details = container.querySelector("details")!;
+    expect(details).not.toHaveAttribute("open");
+    expect(details).toContainElement(screen.getByLabelText("Vote JSON"));
+    expect(picker.compareDocumentPosition(details) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("opens the JSON by itself when validation rejected a hand-edited payload", () => {
+    holder.voteJson = '{"voter":';
+    const { container } = renderView({ fieldErrors: { Vote: ["Vote JSON is not valid JSON."] } });
+    holder.voteJson = "{}";
+
+    expect(container.querySelector("details")).toHaveAttribute("open");
+    expect(screen.getByTestId("governance-vote-picker")).toBeEmptyDOMElement();
+  });
+
+  it("leaves the JSON open once the reader's fix clears the error", () => {
+    holder.voteJson = '{"voter":';
+    const { container, rerender } = renderView({ fieldErrors: { Vote: ["Vote JSON is not valid JSON."] } });
+    holder.fieldErrors = {};
+    rerender(
+      <Provider store={createStore()}>
+        <WalletVoteConfigView />
+      </Provider>
+    );
+    holder.voteJson = "{}";
+
+    expect(container.querySelector("details")).toHaveAttribute("open");
+  });
+
+  it("sends an empty vote's error to the picker and keeps the JSON folded", () => {
+    const { container } = renderView({ fieldErrors: { "Vote JSON": ["Pick a governance action."] } });
+
+    expect(container.querySelector("details")).not.toHaveAttribute("open");
+    expect(screen.getByTestId("governance-vote-picker")).toHaveTextContent("Pick a governance action.");
   });
 
   it("shows the vote shape in the empty box", () => {
@@ -118,68 +118,9 @@ describe("what the box needs", () => {
     expect(placeholder).toContain('"govActionId"');
     expect(placeholder).toContain('"votingProcedure"');
   });
-});
-
-/**
- * Mesh's `VoteType` (`@meshsdk/common` `index.d.ts:1607-1626`) is
- * `{voter, govActionId, votingProcedure: {voteKind: "Yes"|"No"|"Abstain"}}`.
- */
-describe("vote templates", () => {
-  it("writes a Yes vote Mesh can serialize", () => {
-    renderView();
-
-    fireEvent.click(screen.getByRole("button", { name: "Yes" }));
-
-    expect(holder.setVoteJson).toHaveBeenCalledTimes(1);
-    const written: unknown = JSON.parse(holder.setVoteJson.mock.calls[0][0] as string);
-    expect(written).toEqual({
-      voter: { type: "DRep", drepId: "" },
-      govActionId: { txHash: "", txIndex: 0 },
-      votingProcedure: { voteKind: "Yes" }
-    });
-  });
-
-  it("writes a No vote Mesh can serialize", () => {
-    renderView();
-
-    fireEvent.click(screen.getByRole("button", { name: "No" }));
-
-    expect(holder.setVoteJson).toHaveBeenCalledTimes(1);
-    const written: unknown = JSON.parse(holder.setVoteJson.mock.calls[0][0] as string);
-    expect(written).toEqual({
-      voter: { type: "DRep", drepId: "" },
-      govActionId: { txHash: "", txIndex: 0 },
-      votingProcedure: { voteKind: "No" }
-    });
-  });
-
-  it("writes an Abstain vote Mesh can serialize", () => {
-    renderView();
-
-    fireEvent.click(screen.getByRole("button", { name: "Abstain" }));
-
-    expect(holder.setVoteJson).toHaveBeenCalledTimes(1);
-    const written: unknown = JSON.parse(holder.setVoteJson.mock.calls[0][0] as string);
-    expect(written).toEqual({
-      voter: { type: "DRep", drepId: "" },
-      govActionId: { txHash: "", txIndex: 0 },
-      votingProcedure: { voteKind: "Abstain" }
-    });
-  });
-
-  it("turns the templates off when the staking address is unknown", () => {
-    renderView({ rewardAddress: null });
-
-    expect(screen.getByRole("button", { name: "Yes" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "No" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Abstain" })).toBeDisabled();
-    expect(
-      screen.getByText(/The templates need this wallet's staking address/)
-    ).toBeInTheDocument();
-  });
 
   it("leaves Clear working so the box can be emptied by hand", () => {
-    renderView({ rewardAddress: null });
+    renderView();
 
     fireEvent.click(screen.getByRole("button", { name: "Clear" }));
 

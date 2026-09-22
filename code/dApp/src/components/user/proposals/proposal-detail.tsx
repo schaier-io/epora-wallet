@@ -30,6 +30,7 @@ import { AddressCopyButton } from "@/components/ui/address-copy-button";
 import { actionKindLabel, lovelaceToAda, truncateMiddle } from "./format";
 import { authorityPathLabel, describeSignerProgress } from "./signer-progress";
 import { ProposalSummaryRows } from "./proposal-summary-rows";
+import { ProposalVoteEffect } from "./proposal-vote-effect";
 import { buildProposalShareUrl } from "./share-link";
 import { CLIPBOARD_BLOCKED_MESSAGE, copyTextToClipboard } from "@/lib/utils/clipboard";
 import { useToast } from "@/providers/toast-provider";
@@ -471,6 +472,8 @@ function EffectSection({ verification }: { verification: ProposalVerification | 
       <p className="text-xs text-muted-foreground">
         {i18n("readFromTheTransactionItselfNotFromThe")}
       </p>
+
+      {effect.votes?.length ? <ProposalVoteEffect votes={effect.votes} /> : null}
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         <div className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">

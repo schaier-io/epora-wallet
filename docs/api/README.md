@@ -96,6 +96,22 @@ An unknown pool returns `404`, not an empty body:
 { "error": "Pool not found or not registered on this network." }
 ```
 
+### Governance action lookup
+
+Takes a Cardano governance action id and returns what it is, so a vote can be
+checked before it is built. Accepts the CIP-129 `gov_action1...` id or the
+ledger form `<tx hash>#<index>`.
+
+```bash
+curl -s "$BASE/api/v1/governance-actions?id=0ecc74fe26532cec1ab9a299f082afc436afc888ca2dc0fc6acda431c52dc60d%230"
+```
+
+The response carries `action.txHash` and `action.index`, which are the
+`govActionId` a vote build needs. `title` and `abstract` come from the action's
+CIP-108 anchor and are `null` when none was published or Blockfrost could not
+read it. `status` is `active` while DReps can still vote on the action. The
+field-by-field shape is `GovernanceActionsResponse` in the spec.
+
 ### Find the wallets an address participates in
 
 This is the entry point. Give it an address or a payment key hash, and it
@@ -688,6 +704,7 @@ Per client address, in a rolling window:
 | Active `/api/v1/tx/*` build routes | 5 requests per 60 seconds, across all nine routes together |
 | `/api/v1/stt/lookup` | 600 requests per 60 seconds |
 | `/api/v1/pools` | 300 requests per 60 seconds |
+| `/api/v1/governance-actions` | 300 requests per 60 seconds |
 
 The nine active build routes share **one** bucket. Three mints and two deposits in the
 same minute use the whole allowance.

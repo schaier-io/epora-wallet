@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { bech32Encode } from "./bech32";
-import { serializeScriptRewardAddress, testnetPaymentCredentialHash } from "./cardano-addresses";
+import { serializeScriptDrepId, serializeScriptRewardAddress, testnetPaymentCredentialHash } from "./cardano-addresses";
 
 const SCRIPT_HASH = "5aec5c87ee4ba8d12e390b0b7cbef0d8af043e210d174c776eefd4d4";
 const KEY_PAYMENT_ADDRESS =
@@ -54,4 +54,19 @@ test("returns null for stake, mainnet-header, and mistyped addresses", () => {
   assert.equal(testnetPaymentCredentialHash(`${KEY_PAYMENT_ADDRESS.slice(0, -2)}qq`), null);
   assert.equal(testnetPaymentCredentialHash(""), null);
   assert.equal(testnetPaymentCredentialHash("addr_test1"), null);
+});
+
+// The preprod wallet from the 2026-08-31 API sweep (tasks/subtasks/m3-api-09-tx-routes.md):
+// its vote built with this DRep id, and its reward address carries the same script hash.
+test("encodes the wallet's script DRep id as CIP-129", () => {
+  const walletScriptHash = "e9dcbf89a50c1d86f196cdb4f483d25fc0aaec071d29954516d0cf98";
+  assert.equal(
+    serializeScriptRewardAddress(walletScriptHash, 0),
+    "stake_test17r5ae0uf55xpmph3jmxmfayr6f0up2hvquwjn929zmgvlxqhfkys0"
+  );
+  assert.equal(
+    serializeScriptDrepId(walletScriptHash),
+    "drep1y05ae0uf55xpmph3jmxmfayr6f0up2hvquwjn929zmgvlxqdjsap6"
+  );
+  assert.throws(() => serializeScriptDrepId("zz"));
 });
