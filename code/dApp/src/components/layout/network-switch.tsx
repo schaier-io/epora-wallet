@@ -5,7 +5,9 @@ import { Check } from "lucide-react";
 import { CARDANO_NETWORK } from "@/lib/cardano-network";
 import { NETWORK_DEPLOYMENTS, networkChoices } from "@/lib/network-deployments";
 
-const CHOICE_CLASS = "flex min-h-14 items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm";
+// `min-h-14` leads: `pnpm i18n:check` reads a class string as copy unless its first class
+// starts with one of the scan's utility prefixes, each ending in `-`, so a bare `flex` fails.
+const CHOICE_CLASS = "min-h-14 flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm";
 
 export function NetworkSwitch() {
   const t = useTranslations("NetworkSwitch");
