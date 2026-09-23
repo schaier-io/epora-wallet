@@ -1,12 +1,29 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import messages from "@/i18n/messages/en";
+import type * as NetworkModule from "@/lib/cardano-network";
 import type * as DeploymentModule from "@/lib/network-deployments";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// The build fixes the network, so the tests set it here to cover both sides of the switch.
+const network = vi.hoisted(() => ({ current: "preprod" as "preprod" | "mainnet" }));
+vi.mock("@/lib/cardano-network", async (importOriginal) => {
+  const actual = await importOriginal<typeof NetworkModule>();
+  return {
+    ...actual,
+    get CARDANO_NETWORK() { return network.current; },
+    // The real default argument reads the build's network, not the mocked one.
+    cardanoNetworkId: (value = network.current) => actual.cardanoNetworkId(value)
+  };
+});
 const deployments = vi.hoisted(() => ({ mainnet: undefined as string | undefined, preprod: undefined as string | undefined }));
 vi.mock("@/lib/network-deployments", async (importOriginal) => ({
   ...await importOriginal<typeof DeploymentModule>(),
   NETWORK_DEPLOYMENTS: deployments
 }));
+
+// Read from the catalog, so a copy change cannot make an absence check pass vacuously.
+const NETWORK_HEADING = messages.ComponentsLayoutWalletPanel.network;
+const SWITCH_LABEL = messages.NetworkSwitch.label;
 
 const DEMO_ID = "__demo__";
 const demoWallet = { id: DEMO_ID, name: "Demo wallet", icon: "", version: "0" };
@@ -27,7 +44,7 @@ vi.mock("@/providers/wallet-provider", () => ({
     walletsLoaded: ctx.walletsLoaded,
     activeWalletName: ctx.activeWalletName,
     connectingWalletName: ctx.connectingWalletName,
-    networkId: ctx.activeWalletName ? 0 : null,
+    networkId: ctx.activeWalletName ? (network.current === "mainnet" ? 1 : 0) : null,
     isConnecting: false,
     isDemoWallet: false,
     connectWallet: vi.fn(),
@@ -46,35 +63,39 @@ describe("wallet connection dialog", () => {
     ctx.activeWalletName = null;
     ctx.connectingWalletName = null;
     ctx.disconnectWallet.mockClear();
+    network.current = "preprod";
     deployments.mainnet = undefined;
     deployments.preprod = undefined;
   });
 
   // A switch opens the other network's own site, where a wallet connects afresh.
-  it("offers the network switch only while no wallet is connected", () => {
+  it.each([["preprod", "mainnet", /Mainnet/], ["mainnet", "preprod", /Preprod/]] as const)("on %s, offers %s only while no wallet is connected", (current, other, link) => {
+    network.current = current;
     ctx.walletsLoaded = true;
     ctx.installedWallets = [eternl];
-    deployments.mainnet = "https://other.example";
+    deployments[other] = "https://other.example";
     const { rerender } = render(<WalletConnectionDialog open onOpenChange={() => {}} />);
 
-    expect(screen.getByText("Network")).toBeTruthy();
-    expect(screen.getByRole("link", { name: /Mainnet/ })).toHaveAttribute("href", "https://other.example/user");
+    expect(screen.getByText(NETWORK_HEADING)).toBeTruthy();
+    expect(screen.getByRole("navigation", { name: SWITCH_LABEL })).toBeTruthy();
+    expect(screen.getByRole("link", { name: link })).toHaveAttribute("href", "https://other.example/user");
 
     ctx.activeWalletName = "eternl";
     rerender(<WalletConnectionDialog open onOpenChange={() => {}} />);
 
-    expect(screen.queryByText("Network")).toBeNull();
-    expect(screen.queryByRole("navigation", { name: "Choose Cardano network" })).toBeNull();
+    expect(screen.queryByText(NETWORK_HEADING)).toBeNull();
+    expect(screen.queryByRole("navigation", { name: SWITCH_LABEL })).toBeNull();
   });
 
-  it("shows no network section until another network is live", () => {
+  it.each(["preprod", "mainnet"] as const)("on %s, shows no network section until another network is live", (current) => {
+    network.current = current;
     ctx.walletsLoaded = true;
     ctx.installedWallets = [eternl];
-    deployments.preprod = "https://own.example";
+    deployments[current] = "https://own.example";
     render(<WalletConnectionDialog open onOpenChange={() => {}} />);
 
-    expect(screen.queryByText("Network")).toBeNull();
-    expect(screen.queryByRole("navigation", { name: "Choose Cardano network" })).toBeNull();
+    expect(screen.queryByText(NETWORK_HEADING)).toBeNull();
+    expect(screen.queryByRole("navigation", { name: SWITCH_LABEL })).toBeNull();
   });
 
   it("says nothing about missing extensions before the first scan settles", () => {
