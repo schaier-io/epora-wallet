@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { flushSync } from "react-dom";
 import { CARDANO_NETWORK } from "@/lib/cardano-network";
 import { LEGAL_VERSION } from "@/lib/legal";
 import { BETA_ACKNOWLEDGEMENTS, hasCurrentBetaReceipt, type BetaAcknowledgements } from "@/lib/legal/beta-consent";
@@ -28,7 +29,11 @@ export function useBetaConsent(initialAccepted: boolean) {
       const check = await fetch("/api/beta-consent", { credentials: "same-origin", cache: "no-store" });
       const receipt: unknown = await check.json();
       if (!check.ok || !hasCurrentBetaReceipt(receipt)) throw new Error("Acceptance not retained");
-      setAccepted(true);
+      // The gate sits in the page flow, so on a phone the window kept the scroll that reached
+      // this button and the app opened mid-page, beta notice out of sight. Swap first, then
+      // scroll, both before the next paint.
+      flushSync(() => setAccepted(true));
+      window.scrollTo(0, 0);
     } catch {
       setFailed(true);
     } finally {

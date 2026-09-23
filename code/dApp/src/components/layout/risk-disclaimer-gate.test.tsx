@@ -73,12 +73,16 @@ describe("beta consent boundary", () => {
   it("mounts providers only after the server confirms the retained current cookie", async () => {
     const fetcher = vi.fn().mockResolvedValueOnce({ ok: true }).mockResolvedValueOnce({ ok: true, json: async () => ({ accepted: true, network: CARDANO_NETWORK, version: LEGAL_VERSION }) });
     vi.stubGlobal("fetch", fetcher);
+    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
     render(<Gate />);
     checkAll();
     fireEvent.click(screen.getByRole("button", { name: "Accept risks and continue" }));
     await screen.findByText("Wallet application");
     expect(JSON.parse((fetcher.mock.calls[0]![1] as RequestInit).body as string)).toEqual({ beta: true, unaudited: true, totalLoss: true, liabilityRelease: true, terms: true, network: CARDANO_NETWORK, version: LEGAL_VERSION });
     expect(fetcher).toHaveBeenCalledTimes(2);
+    // The app opens at its top, not at the scroll that reached the accept button.
+    expect(scrollTo).toHaveBeenCalledWith(0, 0);
+    scrollTo.mockRestore();
   });
 
   it.each([false, "old"])("keeps providers blocked for a rejected or stale receipt (%s)", async (receipt) => {
