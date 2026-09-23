@@ -14,7 +14,7 @@ export function NetworkSwitch() {
   const choices = networkChoices(CARDANO_NETWORK, NETWORK_DEPLOYMENTS);
   if (!choices.length) return null;
   return (
-    <nav aria-label={t("label")} className="inline-flex max-w-full flex-col gap-2">
+    <nav aria-label={t("label")} className="flex w-fit max-w-full flex-col gap-2">
       {CARDANO_NETWORK === "preview" ? <span className="text-sm text-muted-foreground">{t("preview")}</span> : null}
       <ul className="grid grid-flow-col auto-cols-fr gap-1 rounded-xl border border-border bg-foreground/5 p-1">
         {choices.map(({ network, active, href }) => {
