@@ -3,6 +3,7 @@ import { useTranslations } from "next-intl";
 
 
 import { CARDANO_NETWORK } from "@/lib/cardano-network";
+import Link from "next/link";
 import { useState } from "react";
 import { FlaskConical, X } from "lucide-react";
 
@@ -24,9 +25,14 @@ export function BetaNotice() {
       role="status"
       className="border-b border-amber-500/30 bg-amber-500/10 text-amber-100"
     >
-      <div className="container flex items-center gap-3 py-2 text-xs sm:text-sm">
+      <div className="container flex items-center gap-3 py-2 text-sm">
         <FlaskConical className="h-4 w-4 shrink-0 text-amber-400" aria-hidden="true" />
-        <p className="min-w-0 flex-1">{CARDANO_NETWORK === "mainnet" ? i18n("mainnet") : i18n("testnet", { network: CARDANO_NETWORK })}</p>
+        <p className="min-w-0 flex-1">
+          {CARDANO_NETWORK === "mainnet" ? i18n("mainnet") : i18n("testnet", { network: CARDANO_NETWORK })}{" "}
+          <Link href="/terms" className="rounded-sm font-medium text-amber-50 underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400">
+            {i18n("terms")}
+          </Link>
+        </p>
         {CARDANO_NETWORK !== "mainnet" ? <button
           type="button"
           onClick={() => setDismissed(true)}
