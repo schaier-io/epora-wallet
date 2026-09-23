@@ -11,8 +11,6 @@ export const ROOT_CLIENT_NAMESPACES = [
   "AppLoading",
   "AppNotFound",
   "ComponentsErrorBoundary",
-  "ComponentsLayoutBetaNotice",
-  "ComponentsLayoutRiskDisclaimerGate",
   "ComponentsLayoutShortcutsHelp",
   "ComponentsLayoutSiteFooter",
   "ComponentsLayoutSparkleEasterEgg",

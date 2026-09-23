@@ -129,32 +129,6 @@
     "tryAgain": "Try again",
     "technicalDetails": "Technical details"
   },
-  "ComponentsLayoutBetaNotice": {
-    "betaOnThePreprodTestNetworkDoNot": "Beta on the Preprod test network. Do not use real funds.",
-    "gotIt": "Got it"
-  },
-  "ComponentsLayoutRiskDisclaimerGate": {
-    "assetsOrDataOnTestnetOrMainnetArising": ", assets, or data, on testnet or mainnet, arising from its use, misuse, or malfunction.",
-    "cardanoPreprod": "Cardano Preprod",
-    "cardanoPreprodTestNetwork": "Cardano Preprod test network",
-    "doNotUseItWithRealFunds": ". Do not use it with real funds.",
-    "experimentalUnauditedSoftware": "experimental, unaudited software",
-    "forAnyUseOfThisWalletTheAuthors": "for any use of this wallet. The authors and contributors accept",
-    "forTestFundsRequestTestAdaFromTheCardanoPreprodFaucet": "For test funds, request test ADA from the <link>Cardano Preprod faucet</link>.",
-    "iUnderstandAndAcceptTheRisks": "I understand and accept the risks",
-    "liabilityRiskWarning": "You are <strong>solely responsible</strong> for any use of this wallet. The authors and contributors accept <strong>no liability for any loss of funds</strong>, assets, or data, on testnet or mainnet, arising from its use, misuse, or malfunction.",
-    "ldquoAsIsRdquo": "“as is”",
-    "noLiabilityForAnyLossOfFunds": "no liability for any loss of funds",
-    "preprodRiskWarning": "This wallet currently targets the <strong>Cardano Preprod test network</strong>. Do not use it with real funds.",
-    "provided": "provided",
-    "solelyResponsible": "solely responsible",
-    "softwareRiskWarning": "This is <strong>experimental, unaudited software</strong> provided <strong>“as is”</strong>, with no warranties or guarantees of any kind.",
-    "thisIs": "This is",
-    "thisWalletCurrentlyTargetsThe": "This wallet currently targets the",
-    "useAtYourOwnRisk": "Use at your own risk",
-    "withNoWarrantiesOrGuaranteesOfAnyKind": ", with no warranties or guarantees of any kind.",
-    "youAre": "You are"
-  },
   "ComponentsLayoutShortcutsHelp": {
     "addFunds": "Add funds",
     "closeOpenedDialog": "Close a dialog you opened",
