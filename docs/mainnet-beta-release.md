@@ -170,10 +170,6 @@ personal exposure against actual company operations and conduct before launch.
 VERIFIED for this update: Focused component/API suites returned `47 passed (47)`.
 Consent and API specification tests returned `tests 13`, `pass 13`, `fail 0`.
 The footer suite returned `5 passed (5)` and identifies 41BIT LLC as operator.
-Correction (2026-09-23): the counts in this paragraph predate the rebase onto
-`dev` at `5d936c45`. Dev removed the footer's "Wallet home" link and its test,
-so the footer suite now returns `4 passed (4)`. It still checks the
-"Operator: 41BIT LLC" link (VERIFIED at `bc8e76b9`).
 Before implementation, the new component/API regressions returned
 `5 failed | 35 passed (40)`, exit `1`. ESLint and translation checks exited `0`.
 REPORTED: The independent final review found no remaining issues in the changed
@@ -184,6 +180,55 @@ VERIFIED: The final mainnet Webpack production build exited `0`. The local brows
 displayed `epora-beta-3` terms, the sole-operator statement, expanded release,
 and MIT notice. Five unchecked acknowledgements remained required. No terms were
 accepted and no transaction was signed during this check.
+
+## Post-rebase validation
+
+VERIFIED on 2026-09-23 on Node v24.21.0 at `64c20bcf`, after the rebase onto
+`dev` at `5d936c45`: the dApp CI verify, build and file-length commands exited
+`0`, with `pnpm test:unit` in place of the Postgres-backed `pnpm test`.
+`pnpm test:components` returned `Test Files 185 passed (185)` and
+`Tests 1729 passed (1729)`. `pnpm test:unit` returned `tests 1818`,
+`pass 1793`, `fail 0` and `skipped 25`. The skipped tests need Postgres, which
+this run did not start. `pnpm bundle-budget:check` printed
+`Bundle budget OK: 9 routes checked`, and the 9 routes include `/terms`,
+`/privacy` and `/legal`. The run skipped `pnpm install --frozen-lockfile`.
+The stack changes neither `code/dApp/package.json` nor
+`code/dApp/pnpm-lock.yaml`.
+
+Update to the environment limitation above: the default Turbopack production
+build is now verified. The `pnpm build` in this run is that build. Its log
+prints `Next.js 16.3.5 (Turbopack)`, and it exited `0`.
+
+Correction: the footer count in the operator update above predates the rebase
+onto `dev`. Dev removed the footer's "Wallet home" link and its test. An
+earlier version of this correction sat inside that paragraph. VERIFIED at
+`64c20bcf`: the footer suite returned `Tests 4 passed (4)`, and it still checks
+the "Operator: 41BIT LLC" link.
+
+VERIFIED in a throwaway headless browser on a local Preprod dev server, 375
+pixels wide. Checking the five boxes scrolled the window to `scrollY` 419, and
+the probe then accepted. At `64c20bcf`, the app opened at `scrollY` 0, with the
+top of the beta notice 65 pixels down, under the header. At `c185ec5b`, before
+the fix in `5388938c`, the same probe landed at `scrollY` 185, with the top of
+the notice 120 pixels above the viewport. Two runs at `c185ec5b` gave the same
+numbers. The browser accepted the terms locally. No wallet was connected and no
+transaction was signed.
+
+VERIFIED at `64c20bcf`: `risk-disclaimer-gate.test.tsx` returned
+`Tests 13 passed (13)`. Four mutants of `use-beta-consent.ts` each failed it.
+No `flushSync`, the scroll before the swap, and no scroll each returned
+`Tests 1 failed | 12 passed (13)`. The scroll in `finally` returned
+`Tests 2 failed | 11 passed (13)`.
+
+VERIFIED at `64c20bcf` with `NEXT_PUBLIC_CARDANO_NETWORK=mainnet` on a local
+dev server, in the same kind of throwaway browser, 375 and 1280 pixels wide.
+After acceptance, the notice read "Mainnet beta. No independent security
+audit. You could lose all funds. Use only funds you can afford to lose." It
+linked "Terms" to `/terms` and had no button. Its top sat 65 pixels down, under
+the header. After `window.scrollTo(0, 400)`, `scrollY` read 400 at 375 pixels
+and 397 at 1280 pixels. The top of the header stayed at 0, and the top of the
+notice moved to -335 and -332. The notice scrolls away with the page while the
+header stays pinned.
 
 ## Least confident decisions
 
