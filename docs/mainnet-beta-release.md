@@ -170,6 +170,10 @@ personal exposure against actual company operations and conduct before launch.
 VERIFIED for this update: Focused component/API suites returned `47 passed (47)`.
 Consent and API specification tests returned `tests 13`, `pass 13`, `fail 0`.
 The footer suite returned `5 passed (5)` and identifies 41BIT LLC as operator.
+Correction (2026-09-23): the counts in this paragraph predate the rebase onto
+`dev` at `5d936c45`. Dev removed the footer's "Wallet home" link and its test,
+so the footer suite now returns `4 passed (4)`. It still checks the
+"Operator: 41BIT LLC" link (VERIFIED at `bc8e76b9`).
 Before implementation, the new component/API regressions returned
 `5 failed | 35 passed (40)`, exit `1`. ESLint and translation checks exited `0`.
 REPORTED: The independent final review found no remaining issues in the changed

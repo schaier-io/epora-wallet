@@ -56,8 +56,10 @@ Status: Local preparation complete; deployment pending
 
 ## Next action
 
-VERIFIED: The network layer is committed as `3c51eb7f`. The consent layer is
+VERIFIED: The network layer is committed as `2a2cd8ed`. The consent layer is
 rebased onto it. Final validation is recorded in `docs/mainnet-beta-release.md`.
+Correction: this entry named `3c51eb7f` until the stack was rebased onto `dev`
+at `5d936c45` on 2026-09-23. `2a2cd8ed` is the rebased network commit.
 The earlier next-action entry described the state before integration.
 Deployment and real-funds testing still require a separate release decision.
 
