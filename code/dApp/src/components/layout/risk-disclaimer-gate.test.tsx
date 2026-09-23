@@ -15,7 +15,7 @@ function Gate({ accepted = false }: { accepted?: boolean }) {
 function checkAll() { for (const input of screen.getAllByRole("checkbox")) fireEvent.click(input); }
 
 beforeEach(() => { pathname.value = "/user"; mounted.mockClear(); });
-afterEach(() => { vi.unstubAllGlobals(); });
+afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 describe("beta consent boundary", () => {
   it("renders the risk disclosure on the server and withholds wallet providers", () => {
@@ -73,7 +73,9 @@ describe("beta consent boundary", () => {
   it("mounts providers only after the server confirms the retained current cookie", async () => {
     const fetcher = vi.fn().mockResolvedValueOnce({ ok: true }).mockResolvedValueOnce({ ok: true, json: async () => ({ accepted: true, network: CARDANO_NETWORK, version: LEGAL_VERSION }) });
     vi.stubGlobal("fetch", fetcher);
-    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+    // The scroll must land on the app, so the app has to replace the gate before it runs.
+    let appShownAtScroll = false;
+    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => { appShownAtScroll = screen.queryByText("Wallet application") !== null; });
     render(<Gate />);
     checkAll();
     fireEvent.click(screen.getByRole("button", { name: "Accept risks and continue" }));
@@ -82,17 +84,20 @@ describe("beta consent boundary", () => {
     expect(fetcher).toHaveBeenCalledTimes(2);
     // The app opens at its top, not at the scroll that reached the accept button.
     expect(scrollTo).toHaveBeenCalledWith(0, 0);
-    scrollTo.mockRestore();
+    expect(appShownAtScroll).toBe(true);
   });
 
   it.each([false, "old"])("keeps providers blocked for a rejected or stale receipt (%s)", async (receipt) => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce({ ok: true }).mockResolvedValueOnce({ ok: true, json: async () => ({ accepted: receipt !== false, network: CARDANO_NETWORK, version: receipt === "old" ? "old" : LEGAL_VERSION }) }));
+    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
     render(<Gate />);
     checkAll();
     fireEvent.click(screen.getByRole("button", { name: "Accept risks and continue" }));
     await screen.findByRole("alert");
     await waitFor(() => expect(screen.getByRole("button", { name: "Accept risks and continue" })).toBeEnabled());
     expect(mounted).not.toHaveBeenCalled();
+    // A failed acceptance keeps the reader where the error shows.
+    expect(scrollTo).not.toHaveBeenCalled();
   });
 
   it("ignores the former unversioned sessionStorage acceptance", () => {
