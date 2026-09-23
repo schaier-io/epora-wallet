@@ -4,9 +4,15 @@ import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { BetaConsentBoundary } from "./beta-consent-boundary";
 import { CARDANO_NETWORK } from "@/lib/cardano-network";
 import { LEGAL_VERSION } from "@/lib/legal";
+import type * as DeploymentModule from "@/lib/network-deployments";
 
 const pathname = vi.hoisted(() => ({ value: "/user" }));
 vi.mock("next/navigation", () => ({ usePathname: () => pathname.value }));
+const deployments = vi.hoisted(() => ({ mainnet: undefined as string | undefined, preprod: undefined as string | undefined }));
+vi.mock("@/lib/network-deployments", async (importOriginal) => ({
+  ...await importOriginal<typeof DeploymentModule>(),
+  NETWORK_DEPLOYMENTS: deployments
+}));
 const mounted = vi.fn();
 function Providers() { mounted(); return <p>Wallet application</p>; }
 function Gate({ accepted = false }: { accepted?: boolean }) {
@@ -14,7 +20,7 @@ function Gate({ accepted = false }: { accepted?: boolean }) {
 }
 function checkAll() { for (const input of screen.getAllByRole("checkbox")) fireEvent.click(input); }
 
-beforeEach(() => { pathname.value = "/user"; mounted.mockClear(); });
+beforeEach(() => { pathname.value = "/user"; mounted.mockClear(); deployments.mainnet = undefined; deployments.preprod = undefined; });
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 describe("beta consent boundary", () => {
@@ -31,7 +37,6 @@ describe("beta consent boundary", () => {
     render(<Gate />);
     expect(screen.getAllByRole("main")).toHaveLength(1);
     const inputs = screen.getAllByRole("checkbox");
-    expect(screen.getByRole("navigation", { name: "Choose Cardano network" })).toBeInTheDocument();
     expect(inputs).toHaveLength(5);
     expect(inputs[0]).toHaveAccessibleName("I have read and accept the Terms of Use.");
     for (const input of inputs) expect(input).not.toBeChecked();
@@ -41,6 +46,14 @@ describe("beta consent boundary", () => {
     fireEvent.click(inputs[4]!);
     expect(screen.getByRole("button", { name: "Accept risks and continue" })).toBeEnabled();
     expect(mounted).not.toHaveBeenCalled();
+  });
+
+  it("offers the network choice only once the other network is configured", () => {
+    const { rerender } = render(<Gate />);
+    expect(screen.queryByRole("navigation", { name: "Choose Cardano network" })).toBeNull();
+    deployments[CARDANO_NETWORK === "mainnet" ? "preprod" : "mainnet"] = "https://other.example";
+    rerender(<Gate />);
+    expect(screen.getByRole("navigation", { name: "Choose Cardano network" })).toBeInTheDocument();
   });
 
   it("requires the liability release even when the other boxes are checked", () => {

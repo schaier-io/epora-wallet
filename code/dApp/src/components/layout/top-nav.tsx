@@ -17,6 +17,7 @@ import {
 } from "@/components/user/workspace/atoms/workspace-ui.atoms";
 import { cn } from "@/lib/utils/cn";
 import { NetworkSwitch } from "./network-switch";
+import { NETWORK_DEPLOYMENTS, networkChoices } from "@/lib/network-deployments";
 import { COPY } from "@/lib/copy";
 import { useWalletContext } from "@/providers/wallet-provider";
 
@@ -269,7 +270,7 @@ export function TopNav() {
           scrolled content passes underneath instead of showing through. `z-20` stays
           below tooltips (`z-50`), dialogs (`z-[100]`), toasts (`z-[110]`) and the
           disclaimer gate (`z-[200]`). */}
-      <div className="border-b border-border/60 bg-background/80"><div className="container py-2"><NetworkSwitch /></div></div>
+      {networkChoices(CARDANO_NETWORK, NETWORK_DEPLOYMENTS).length ? <div className="border-b border-border/60 bg-background/80"><div className="container py-2"><NetworkSwitch /></div></div> : null}
       {/* Named so a page transition leaves it still: the content slides, the bar stays put.
           See `::view-transition-group(site-header)` in globals/motion.css. */}
       <header

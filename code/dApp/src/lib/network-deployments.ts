@@ -3,6 +3,9 @@ import type { CardanoNetwork } from "./cardano-network";
 export const SWITCHABLE_NETWORKS = ["preprod", "mainnet"] as const;
 export type SwitchableNetwork = (typeof SWITCHABLE_NETWORKS)[number];
 export type NetworkDeployments = Record<SwitchableNetwork, string | undefined>;
+export type NetworkChoice =
+  | { network: SwitchableNetwork; active: true; href?: undefined }
+  | { network: SwitchableNetwork; active: false; href: string };
 
 function deploymentOrigin(value: string | undefined, variable: string): string | undefined {
   if (!value?.trim()) return undefined;
@@ -33,6 +36,17 @@ export function networkSwitchUrl(network: CardanoNetwork, deployments: NetworkDe
   const origin = deployments[network];
   // Always start at home. Wallet, proposal, and transaction state belongs to its network.
   return origin ? `${origin}/user` : undefined;
+}
+
+// Offer only networks that are live: the current one and each configured destination.
+// With no other network to open, there is no choice to show.
+export function networkChoices(current: CardanoNetwork, deployments: NetworkDeployments): NetworkChoice[] {
+  const choices = SWITCHABLE_NETWORKS.flatMap((network): NetworkChoice[] => {
+    if (network === current) return [{ network, active: true }];
+    const href = networkSwitchUrl(network, deployments);
+    return href ? [{ network, active: false, href }] : [];
+  });
+  return choices.some((choice) => !choice.active) ? choices : [];
 }
 
 export const NETWORK_DEPLOYMENTS = parseNetworkDeployments(

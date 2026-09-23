@@ -1,16 +1,20 @@
 import { render, screen, cleanup } from "@testing-library/react";
 import type * as DeploymentModule from "@/lib/network-deployments";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const state = vi.hoisted(() => ({ network: "mainnet", preprod: "https://preprod.example" as string | undefined }));
+const state = vi.hoisted(() => ({ network: "mainnet", mainnet: undefined as string | undefined, preprod: undefined as string | undefined }));
 vi.mock("@/lib/cardano-network", () => ({ get CARDANO_NETWORK() { return state.network; } }));
 vi.mock("@/lib/network-deployments", async (importOriginal) => ({
   ...await importOriginal<typeof DeploymentModule>(),
-  get NETWORK_DEPLOYMENTS() { return { mainnet: "https://mainnet.example", preprod: state.preprod }; }
+  get NETWORK_DEPLOYMENTS() { return { mainnet: state.mainnet, preprod: state.preprod }; }
 }));
 
 import { NetworkSwitch } from "./network-switch";
 
+beforeEach(() => {
+  state.mainnet = "https://mainnet.example";
+  state.preprod = "https://preprod.example";
+});
 afterEach(cleanup);
 
 describe("network switch", () => {
@@ -29,12 +33,20 @@ describe("network switch", () => {
     // A regular link unloads network-bound providers instead of reusing their state.
     expect(screen.getByRole("link", { name: linkLabel })).not.toHaveAttribute("target");
   });
-});
 
-it("shows an unconfigured network as unavailable without a guessed destination", () => {
-  state.network = "mainnet";
-  state.preprod = undefined;
-  render(<NetworkSwitch />);
-  expect(screen.getByText("Unavailable")).toBeInTheDocument();
-  expect(screen.queryByRole("link")).toBeNull();
+  it.each([["mainnet", "preprod"], ["preprod", "mainnet"]] as const)("on %s, shows no choice until %s is configured", (network, other) => {
+    state.network = network;
+    state[other] = undefined;
+    const { container } = render(<NetworkSwitch />);
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("on preview, offers only the configured networks", () => {
+    state.network = "preview";
+    state.mainnet = undefined;
+    render(<NetworkSwitch />);
+    const nav = screen.getByRole("navigation", { name: "Choose Cardano network" });
+    expect(Array.from(nav.querySelectorAll("li"), (item) => item.textContent)).toEqual(["Preprod Test funds"]);
+    expect(screen.getByRole("link", { name: "Preprod Test funds" })).toHaveAttribute("href", "https://preprod.example/user");
+  });
 });

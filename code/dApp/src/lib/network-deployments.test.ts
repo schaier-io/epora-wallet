@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { networkSwitchUrl, parseNetworkDeployments } from "./network-deployments";
+import { networkChoices, networkSwitchUrl, parseNetworkDeployments } from "./network-deployments";
 
 test("network destinations are isolated origins and always open a clean wallet home", () => {
   const deployments = parseNetworkDeployments(" https://mainnet.example/ ", "https://preprod.example");
@@ -16,6 +16,41 @@ test("configured switch destinations reject unsafe or state-carrying URLs", () =
     assert.throws(() => parseNetworkDeployments(url, undefined), url);
   }
   assert.throws(() => parseNetworkDeployments("https://wallet.example", "https://wallet.example:8443"), /different hostnames/);
+});
+
+test("the switch offers only live networks, and nothing when there is nowhere to go", () => {
+  const both = parseNetworkDeployments("https://mainnet.example", "https://preprod.example");
+  assert.deepEqual(networkChoices("preprod", both), [
+    { network: "preprod", active: true },
+    { network: "mainnet", active: false, href: "https://mainnet.example/user" }
+  ]);
+  assert.deepEqual(networkChoices("preprod", parseNetworkDeployments("https://mainnet.example", undefined)), [
+    { network: "preprod", active: true },
+    { network: "mainnet", active: false, href: "https://mainnet.example/user" }
+  ]);
+  assert.deepEqual(networkChoices("mainnet", both), [
+    { network: "preprod", active: false, href: "https://preprod.example/user" },
+    { network: "mainnet", active: true }
+  ]);
+  assert.deepEqual(networkChoices("mainnet", parseNetworkDeployments(undefined, "https://preprod.example")), [
+    { network: "preprod", active: false, href: "https://preprod.example/user" },
+    { network: "mainnet", active: true }
+  ]);
+  assert.deepEqual(networkChoices("mainnet", parseNetworkDeployments("https://mainnet.example", undefined)), []);
+  assert.deepEqual(networkChoices("preprod", parseNetworkDeployments(undefined, "https://preprod.example")), []);
+  assert.deepEqual(networkChoices("preprod", parseNetworkDeployments(undefined, undefined)), []);
+  assert.deepEqual(networkChoices("mainnet", parseNetworkDeployments(undefined, undefined)), []);
+  assert.deepEqual(networkChoices("preview", both), [
+    { network: "preprod", active: false, href: "https://preprod.example/user" },
+    { network: "mainnet", active: false, href: "https://mainnet.example/user" }
+  ]);
+  assert.deepEqual(networkChoices("preview", parseNetworkDeployments(undefined, "https://preprod.example")), [
+    { network: "preprod", active: false, href: "https://preprod.example/user" }
+  ]);
+  assert.deepEqual(networkChoices("preview", parseNetworkDeployments("https://mainnet.example", undefined)), [
+    { network: "mainnet", active: false, href: "https://mainnet.example/user" }
+  ]);
+  assert.deepEqual(networkChoices("preview", parseNetworkDeployments(undefined, undefined)), []);
 });
 
 test("local parallel previews require distinct cookie hosts", () => {

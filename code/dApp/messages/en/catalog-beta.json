@@ -47,7 +47,6 @@
     "preprod": "Preprod",
     "preview": "Preview testnet",
     "realFunds": "Real funds",
-    "testFunds": "Test funds",
-    "unavailable": "Unavailable"
+    "testFunds": "Test funds"
   }
 }

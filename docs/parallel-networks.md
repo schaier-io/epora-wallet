@@ -6,7 +6,8 @@ switch between two deployments; it does not change the active network in place.
 VERIFIED from source: `src/lib/cardano-network.ts` selects the network at build
 time. `src/lib/network-deployments.ts` reads the two public origins. The switch
 opens the other network's `/user` page without wallet IDs, proposal IDs, query
-parameters, or fragments. Missing destinations appear as unavailable.
+parameters, or fragments. It lists the current network and each network with a
+configured URL. It stays hidden until you set the other network's URL.
 
 ## Vercel setup
 
