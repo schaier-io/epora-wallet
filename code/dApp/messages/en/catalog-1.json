@@ -291,6 +291,8 @@
     "lace": "Lace",
     "mainnet": "Mainnet",
     "makeSureThisSiteIsAllowedInThe": "Make sure this site is allowed in the wallet extension. Select the same network as this app.",
+    "network": "Network",
+    "networkHint": "Each network is a separate site. Select the same network in your wallet before you connect.",
     "noExtensionDetected": "No extension detected",
     "openDemo": "Open demo",
     "or": "or",

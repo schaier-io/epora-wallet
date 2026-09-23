@@ -1,5 +1,12 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import type * as DeploymentModule from "@/lib/network-deployments";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const deployments = vi.hoisted(() => ({ mainnet: undefined as string | undefined, preprod: undefined as string | undefined }));
+vi.mock("@/lib/network-deployments", async (importOriginal) => ({
+  ...await importOriginal<typeof DeploymentModule>(),
+  NETWORK_DEPLOYMENTS: deployments
+}));
 
 const DEMO_ID = "__demo__";
 const demoWallet = { id: DEMO_ID, name: "Demo wallet", icon: "", version: "0" };
@@ -39,6 +46,35 @@ describe("wallet connection dialog", () => {
     ctx.activeWalletName = null;
     ctx.connectingWalletName = null;
     ctx.disconnectWallet.mockClear();
+    deployments.mainnet = undefined;
+    deployments.preprod = undefined;
+  });
+
+  // A switch opens the other network's own site, where a wallet connects afresh.
+  it("offers the network switch only while no wallet is connected", () => {
+    ctx.walletsLoaded = true;
+    ctx.installedWallets = [eternl];
+    deployments.mainnet = "https://other.example";
+    const { rerender } = render(<WalletConnectionDialog open onOpenChange={() => {}} />);
+
+    expect(screen.getByText("Network")).toBeTruthy();
+    expect(screen.getByRole("link", { name: /Mainnet/ })).toHaveAttribute("href", "https://other.example/user");
+
+    ctx.activeWalletName = "eternl";
+    rerender(<WalletConnectionDialog open onOpenChange={() => {}} />);
+
+    expect(screen.queryByText("Network")).toBeNull();
+    expect(screen.queryByRole("navigation", { name: "Choose Cardano network" })).toBeNull();
+  });
+
+  it("shows no network section until another network is live", () => {
+    ctx.walletsLoaded = true;
+    ctx.installedWallets = [eternl];
+    deployments.preprod = "https://own.example";
+    render(<WalletConnectionDialog open onOpenChange={() => {}} />);
+
+    expect(screen.queryByText("Network")).toBeNull();
+    expect(screen.queryByRole("navigation", { name: "Choose Cardano network" })).toBeNull();
   });
 
   it("says nothing about missing extensions before the first scan settles", () => {

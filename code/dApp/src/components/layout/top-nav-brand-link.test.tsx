@@ -1,13 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import type * as DeploymentModule from "@/lib/network-deployments";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-const deployments = vi.hoisted(() => ({ mainnet: undefined as string | undefined, preprod: undefined as string | undefined }));
-vi.mock("@/lib/network-deployments", async (importOriginal) => ({
-  ...await importOriginal<typeof DeploymentModule>(),
-  NETWORK_DEPLOYMENTS: deployments
-}));
-beforeEach(() => { deployments.mainnet = undefined; deployments.preprod = undefined; });
+import { describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/user",
@@ -45,18 +37,6 @@ describe("header brand link", () => {
       expect(link).toHaveAttribute("href", "/user?wallet=unit-1");
     }
   });
-});
-
-it("adds the network strip above the header only once the other network is configured", () => {
-  deployments.preprod = "https://own.example";
-  const { container, rerender } = render(<TopNav />);
-  expect(screen.queryByRole("navigation", { name: "Choose Cardano network" })).toBeNull();
-  expect(container.querySelector("header")?.previousElementSibling).toBeNull();
-  deployments.preprod = undefined;
-  deployments.mainnet = "https://other.example";
-  rerender(<TopNav />);
-  expect(screen.getByRole("navigation", { name: "Choose Cardano network" })).toBeInTheDocument();
-  expect(container.querySelector("header")?.previousElementSibling).not.toBeNull();
 });
 
 
