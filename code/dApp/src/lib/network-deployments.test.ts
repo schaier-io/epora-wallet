@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { test } from "node:test";
 import { networkChoices, networkSwitchUrl, parseNetworkDeployments } from "./network-deployments";
 
@@ -12,10 +13,19 @@ test("network destinations are isolated origins and always open a clean wallet h
 });
 
 test("configured switch destinations reject unsafe or state-carrying URLs", () => {
-  for (const url of ["/user", "javascript:alert(1)", "http://mainnet.example", "https://u:p@mainnet.example", "https://mainnet.example/user", "https://mainnet.example?wallet=unit", "https://mainnet.example#proposal", "https://mainnet.example.evil/user"]) {
-    assert.throws(() => parseNetworkDeployments(url, undefined), url);
+  // Each failure names the variable to fix, including input that is not a URL at all.
+  for (const url of ["mainnet.example", "/user", "javascript:alert(1)", "http://mainnet.example", "https://u:p@mainnet.example", "https://mainnet.example/user", "https://mainnet.example?wallet=unit", "https://mainnet.example#proposal", "https://mainnet.example.evil/user"]) {
+    assert.throws(() => parseNetworkDeployments(url, undefined), /NEXT_PUBLIC_MAINNET_URL must be an HTTPS origin/, url);
   }
+  assert.throws(() => parseNetworkDeployments(undefined, "preprod.example"), /NEXT_PUBLIC_PREPROD_URL must be an HTTPS origin/);
   assert.throws(() => parseNetworkDeployments("https://wallet.example", "https://wallet.example:8443"), /different hostnames/);
+});
+
+// Every HTML route renders per request, so without this the build passes and each page fails.
+test("Next configuration rejects a malformed switch URL before a build starts", () => {
+  assert.throws(() => execFileSync(process.execPath, ["--input-type=module", "-e", "await import('./next.config.mjs')"], {
+    env: { ...process.env, NEXT_PUBLIC_MAINNET_URL: "mainnet.example", NEXT_PUBLIC_PREPROD_URL: "", SENTRY_AUTH_TOKEN: "" }, stdio: "pipe"
+  }), /NEXT_PUBLIC_MAINNET_URL must be an HTTPS origin/);
 });
 
 test("the switch offers only live networks, and nothing when there is nowhere to go", () => {

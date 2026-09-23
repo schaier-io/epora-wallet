@@ -50,6 +50,7 @@ for (const network of ["preprod", "mainnet", "preview"]) {
 
 test("Next configuration rejects invalid network names before a build starts", () => {
   assert.throws(() => execFileSync(process.execPath, ["--input-type=module", "-e", "await import('./next.config.mjs')"], {
-    env: { ...process.env, NEXT_PUBLIC_CARDANO_NETWORK: "typo", SENTRY_AUTH_TOKEN: "" }, stdio: "pipe"
+    // The config also parses the switch URLs, so blank them to reach the network check.
+    env: { ...process.env, NEXT_PUBLIC_CARDANO_NETWORK: "typo", NEXT_PUBLIC_MAINNET_URL: "", NEXT_PUBLIC_PREPROD_URL: "", SENTRY_AUTH_TOKEN: "" }, stdio: "pipe"
   }), /NEXT_PUBLIC_CARDANO_NETWORK must be/);
 });

@@ -1,3 +1,6 @@
+// next.config.mjs loads this file with Node's own type stripping. Use erasable syntax only
+// (no enums), and import only with `import type { ... }`: Node erases that form, but it
+// cannot resolve the extensionless or `@/` path of any other import.
 import type { CardanoNetwork } from "./cardano-network";
 
 export const SWITCHABLE_NETWORKS = ["preprod", "mainnet"] as const;
@@ -9,9 +12,10 @@ export type NetworkChoice =
 
 function deploymentOrigin(value: string | undefined, variable: string): string | undefined {
   if (!value?.trim()) return undefined;
-  const url = new URL(value.trim());
-  const loopback = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
-  if ((url.protocol !== "https:" && !(url.protocol === "http:" && loopback)) ||
+  let url: URL | undefined;
+  try { url = new URL(value.trim()); } catch { /* reported below, with the variable's name */ }
+  const loopback = url && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+  if (!url || (url.protocol !== "https:" && !(url.protocol === "http:" && loopback)) ||
       url.username || url.password || url.pathname !== "/" || url.search || url.hash) {
     throw new Error(`${variable} must be an HTTPS origin without a path, credentials, query, or fragment. HTTP is allowed only for localhost.`);
   }
