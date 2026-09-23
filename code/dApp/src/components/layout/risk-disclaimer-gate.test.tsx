@@ -48,7 +48,8 @@ describe("beta consent boundary", () => {
     expect(mounted).not.toHaveBeenCalled();
   });
 
-  it("offers the network choice only once the other network is configured", () => {
+  it.each(["/user", "/terms"])("offers the network choice on %s only once the other network is configured", (path) => {
+    pathname.value = path;
     const { rerender } = render(<Gate />);
     expect(screen.queryByRole("navigation", { name: "Choose Cardano network" })).toBeNull();
     deployments[CARDANO_NETWORK === "mainnet" ? "preprod" : "mainnet"] = "https://other.example";
