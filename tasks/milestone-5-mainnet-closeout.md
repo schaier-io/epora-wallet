@@ -21,7 +21,7 @@ Go live on mainnet as a beta (not externally audited, and we say so), keep fixin
 
 - [ ] Announce beta + clear "unaudited" notice in UI and docs.
 - [ ] Keep sorting feedback/bugs.
-- [ ] Wallet-integration thread + talk to interested devs.
+- [x] Wallet-integration thread + talk to interested devs: [outreach record](../docs/wallet-integration.md).
 - [ ] Closeout report + video.
 
 ## Acceptance criteria (Catalyst)
@@ -36,6 +36,6 @@ Go live on mainnet as a beta (not externally audited, and we say so), keep fixin
 - Link to the mainnet prototype
 - Validator freeze record at `af80c6fc`: [docs/mainnet-beta-release.md](../docs/mainnet-beta-release.md#release-freeze-validator-blueprint)
 - Link to the categorized feedback
-- Link to the wallet-integration discussion
+- [Wallet-integration discussion](../docs/wallet-integration.md)
 - Link to the closeout report
 - Link to the closeout video
