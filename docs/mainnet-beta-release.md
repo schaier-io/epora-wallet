@@ -241,6 +241,18 @@ on 2026-09-25: the live Mainnet deployment (`mainnet-epora`, `fra1`) and the
 live Preprod deployment (`epora-wallet`, `iad1`) both report
 `githubCommitSha` `af80c6fcd62fa875876ac7793c728f78187c379d`.
 
+Update, later on 2026-09-25: `main` moved to `d3b5a239`
+(`Merge pull request #603 from schaier-io/dev`). VERIFIED with the Vercel API:
+`mainnet.epora.io` and `www.epora.io` now point to deployments with
+`githubCommitSha` `d3b5a2391e6f58836752ec40e39eec4139f8d886`. VERIFIED with
+`git rev-parse`: `code/smart-contract` has the tree `b03c6b25` at both commits,
+and the dApp `plutus.json` has the blob `71258dc5` at both commits. All 10 files
+that changed are in `code/dApp`. So the results below also apply to `d3b5a239`.
+On the push of `d3b5a239`, `dApp CI`, `Native Recovery CI` and
+`File Length Check` concluded `success`. `Smart Contract CI` and
+`Blueprint Autosync` did not run, because no changed file matches their path
+filters.
+
 VERIFIED on 2026-09-25 in a `git archive` export of `code/smart-contract` at
 `af80c6fc`:
 
