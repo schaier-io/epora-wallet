@@ -1,3 +1,4 @@
+import { CARDANO_NETWORK } from "@/lib/cardano-network";
 import { parseRetryAfterMs } from "@/lib/http/retry-after";
 // Koios client for the orphan / "Franken" UTxO check. Koios's public API does
 // NOT send an `access-control-allow-origin` header, so the browser cannot call
@@ -45,7 +46,7 @@ export function mapKoiosCredentialUtxos(rows: KoiosUtxo[]): DiscoveredUtxo[] {
 /// ("Franken") variants that an address-based Blockfrost query would miss.
 export async function fetchCredentialUtxos(
   paymentCredentialHex: string,
-  network = "preprod",
+  network = CARDANO_NETWORK,
   signal?: AbortSignal
 ): Promise<DiscoveredUtxo[]> {
   const response = await fetch(CREDENTIAL_UTXOS_PROXY, {

@@ -1,4 +1,5 @@
-export const NETWORK = "preprod";
+import { CARDANO_NETWORK } from "@/lib/cardano-network";
+export const NETWORK = CARDANO_NETWORK;
 
 
 export const MIN_COLLATERAL_LOVELACE = 5_000_000;

@@ -19,3 +19,14 @@ test("preprod config and conversion agree with the Mesh SDK across a slot sweep"
     );
   }
 });
+
+import { SLOT_CONFIG_BY_NETWORK } from "./cardano-slot-time";
+
+test("all configured network slot conversions match the installed SDK", () => {
+  for (const network of ["preprod", "preview", "mainnet"] as const) {
+    for (const slot of [0, 4_492_800, 86_400, 12_345_678, 518_400_000]) {
+      assert.equal(slotToBeginUnixTime(slot, SLOT_CONFIG_BY_NETWORK[network]),
+        meshSlotToBeginUnixTime(slot, SLOT_CONFIG_NETWORK[network]));
+    }
+  }
+});

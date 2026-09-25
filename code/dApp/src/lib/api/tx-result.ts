@@ -1,3 +1,4 @@
+import { CARDANO_NETWORK } from "@/lib/cardano-network";
 import { z } from "zod";
 
 // The response every build route returns. This is `BuildResult` from
@@ -94,7 +95,7 @@ export const BuildResultSchema = z
     signerAddress: z.string().optional().meta({
       description:
         "Address whose signature the transaction requires, as resolved at build time. Sign it with this address's key.",
-      example: "addr_test1qr..."
+      example: CARDANO_NETWORK === "mainnet" ? "addr1qr..." : "addr_test1qr..."
     })
   })
   .meta({

@@ -1,5 +1,14 @@
 import { withSentryConfig } from "@sentry/nextjs";
 import createNextIntlPlugin from "next-intl/plugin";
+// Parse the network switch URLs while the config loads. A malformed value then fails the
+// build, where it would otherwise pass and fail every page at runtime. package.json sets
+// no "type", so Node warns MODULE_TYPELESS_PACKAGE_JSON here; the warning is harmless.
+import "./src/lib/network-deployments.ts";
+
+const cardanoNetwork = process.env.NEXT_PUBLIC_CARDANO_NETWORK?.trim() || "preprod";
+if (!["preprod", "preview", "mainnet"].includes(cardanoNetwork)) {
+  throw new Error("NEXT_PUBLIC_CARDANO_NETWORK must be preprod, preview, or mainnet.");
+}
 
 const securityHeaders = [
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
@@ -16,6 +25,7 @@ const nextConfig = {
   // lucide-react tree-shakes fine without it, and the production build never
   // relied on it.
   poweredByHeader: false,
+  env: { NEXT_PUBLIC_CARDANO_NETWORK: cardanoNetwork },
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
   }
@@ -43,7 +53,7 @@ function buildConfig() {
   // release identifier the server uses (client code cannot read
   // VERCEL_GIT_COMMIT_SHA at runtime).
   const withReleaseId = sentryRelease
-    ? { ...base, env: { NEXT_PUBLIC_SENTRY_RELEASE: sentryRelease } }
+    ? { ...base, env: { ...base.env, NEXT_PUBLIC_SENTRY_RELEASE: sentryRelease } }
     : base;
   return withSentryConfig(withReleaseId, {
     authToken: process.env.SENTRY_AUTH_TOKEN,

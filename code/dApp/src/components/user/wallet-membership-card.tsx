@@ -1,4 +1,5 @@
 "use client";
+import { CARDANO_NETWORK } from "@/lib/cardano-network";
 import { useTranslations } from "next-intl";
 
 
@@ -291,7 +292,7 @@ export function WalletMembershipCard({
   walletName,
   policyId,
   sttUnit,
-  network = "Preprod",
+  network = CARDANO_NETWORK,
   className
 }: WalletMembershipCardProps) {
   const i18n = useTranslations("ComponentsUserWalletMembershipCard");

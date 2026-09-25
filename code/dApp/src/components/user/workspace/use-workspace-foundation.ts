@@ -1,4 +1,5 @@
 "use client";
+import { cardanoNetworkId } from "@/lib/cardano-network";
 import { lockedContractUtxosAtom, lockedContractUtxosLoadingAtom, resetWorkspaceDataAtom, sharedSttReferenceStoreAtom, sharedSttReferenceStoreLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { resetWorkspaceActivityAtom } from "@/components/user/workspace/atoms/workspace-activity.atoms";
 
@@ -72,7 +73,7 @@ export function useWorkspaceFoundation() {
     isDemoWallet,
     networkId
   } = useWalletContext();
-  const walletReady = Boolean(activeWallet && networkId === 0);
+  const walletReady = Boolean(activeWallet && networkId === cardanoNetworkId());
   const chainReadsEnabled = useAtomValue(chainReadsEnabledAtom);
 
   // Subscribe to config (not the value, just the setter) so the controller re-renders on

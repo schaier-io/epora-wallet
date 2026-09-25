@@ -1,12 +1,8 @@
+import { CARDANO_NETWORK, type CardanoNetwork } from "@/lib/cardano-network";
+import { paymentCredentialHash } from "@/lib/cardano-addresses";
 import { getBlockfrostProvider } from "@/lib/mesh/blockfrost-server";
 import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
 import { deserializeAddress } from "@meshsdk/core";
-
-// The app targets preprod only (`NETWORK` in transactions/internals/constants,
-// `STT_CACHE_NETWORK` in lib/stt-cache/domain). Testnet payment addresses carry
-// the `addr_test` HRP, so a mainnet `addr1...` is rejected here rather than
-// resolved against the wrong chain.
-const PREPROD_ADDRESS_PREFIX = "addr_test1";
 
 /** A caller-supplied address the server cannot build from. Routes map it to 400. */
 export class ServerWalletAddressError extends Error {}
@@ -17,21 +13,23 @@ export class ServerWalletAddressError extends Error {}
  * Runs entirely offline: a bech32 decode for the shape and an HRP check for the
  * network. Both failures are the caller's, so they must not reach Blockfrost.
  */
-export function assertServerWalletAddress(value: string) {
+export function assertServerWalletAddress(value: string, network: CardanoNetwork = CARDANO_NETWORK) {
+  const addressPrefix = network === "mainnet" ? "addr1" : "addr_test1";
   const address = value.trim();
 
   if (address.length === 0) {
     throw new ServerWalletAddressError("A Cardano address is required.");
   }
 
-  if (!address.startsWith(PREPROD_ADDRESS_PREFIX)) {
+  if (!address.startsWith(addressPrefix)) {
     throw new ServerWalletAddressError(
-      `Address "${address}" is not a preprod address. Expected a \`${PREPROD_ADDRESS_PREFIX}...\` payment address.`
+      `Address "${address}" is not a ${network} address. Expected a \`${addressPrefix}...\` payment address.`
     );
   }
 
   try {
     deserializeAddress(address);
+    if (paymentCredentialHash(address, network) === null) throw new Error("Wrong address network or type");
   } catch {
     throw new ServerWalletAddressError(
       `Address "${address}" is not a valid Cardano address.`

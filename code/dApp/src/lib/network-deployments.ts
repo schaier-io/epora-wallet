@@ -1,0 +1,59 @@
+// next.config.mjs loads this file with Node's own type stripping. Use erasable syntax only
+// (no enums), and import only with `import type { ... }`: Node erases that form, but it
+// cannot resolve the extensionless or `@/` path of any other import.
+import type { CardanoNetwork } from "./cardano-network";
+
+export const SWITCHABLE_NETWORKS = ["preprod", "mainnet"] as const;
+export type SwitchableNetwork = (typeof SWITCHABLE_NETWORKS)[number];
+export type NetworkDeployments = Record<SwitchableNetwork, string | undefined>;
+export type NetworkChoice =
+  | { network: SwitchableNetwork; active: true; href?: undefined }
+  | { network: SwitchableNetwork; active: false; href: string };
+
+function deploymentOrigin(value: string | undefined, variable: string): string | undefined {
+  if (!value?.trim()) return undefined;
+  let url: URL | undefined;
+  try { url = new URL(value.trim()); } catch { /* reported below, with the variable's name */ }
+  const loopback = url && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+  if (!url || (url.protocol !== "https:" && !(url.protocol === "http:" && loopback)) ||
+      url.username || url.password || url.pathname !== "/" || url.search || url.hash) {
+    throw new Error(`${variable} must be an HTTPS origin without a path, credentials, query, or fragment. HTTP is allowed only for localhost.`);
+  }
+  return url.origin;
+}
+
+export function parseNetworkDeployments(mainnet: string | undefined, preprod: string | undefined): NetworkDeployments {
+  const deployments = {
+    mainnet: deploymentOrigin(mainnet, "NEXT_PUBLIC_MAINNET_URL"),
+    preprod: deploymentOrigin(preprod, "NEXT_PUBLIC_PREPROD_URL")
+  };
+  // Cookies ignore ports. Separate hostnames isolate consent and proposal sessions.
+  if (deployments.mainnet && deployments.preprod &&
+      new URL(deployments.mainnet).hostname === new URL(deployments.preprod).hostname) {
+    throw new Error("Mainnet and Preprod deployments must use different hostnames.");
+  }
+  return deployments;
+}
+
+export function networkSwitchUrl(network: CardanoNetwork, deployments: NetworkDeployments): string | undefined {
+  if (network === "preview") return undefined;
+  const origin = deployments[network];
+  // Always start at home. Wallet, proposal, and transaction state belongs to its network.
+  return origin ? `${origin}/user` : undefined;
+}
+
+// Offer only networks that are live: the current one and each configured destination.
+// With no other network to open, there is no choice to show.
+export function networkChoices(current: CardanoNetwork, deployments: NetworkDeployments): NetworkChoice[] {
+  const choices = SWITCHABLE_NETWORKS.flatMap((network): NetworkChoice[] => {
+    if (network === current) return [{ network, active: true }];
+    const href = networkSwitchUrl(network, deployments);
+    return href ? [{ network, active: false, href }] : [];
+  });
+  return choices.some((choice) => !choice.active) ? choices : [];
+}
+
+export const NETWORK_DEPLOYMENTS = parseNetworkDeployments(
+  process.env.NEXT_PUBLIC_MAINNET_URL,
+  process.env.NEXT_PUBLIC_PREPROD_URL
+);

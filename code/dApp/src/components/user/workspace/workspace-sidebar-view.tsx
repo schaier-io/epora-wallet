@@ -1,4 +1,5 @@
 "use client";
+import { cardanoNetworkId } from "@/lib/cardano-network";
 import { useTranslations } from "next-intl";
 
 import { recentWalletActivityEventsAtom, walletTransactionsAtom } from "@/components/user/workspace/atoms/workspace-activity.atoms";
@@ -316,7 +317,7 @@ export function WorkspaceSidebarView() {
                       sttPolicyId={orphanDiscoveryPolicyId}
                       sttAssetNameHex={orphanDiscoveryAssetNameHex}
                       walletScriptAddress={orphanDiscoveryWalletAddress}
-                      enabled={networkId === 0}
+                      enabled={networkId === cardanoNetworkId()}
                       onConsolidate={handleConsolidateOrphans}
                       onRecover={
                         canRecoverOrphansDirectly ? handleRecoverOrphans : undefined

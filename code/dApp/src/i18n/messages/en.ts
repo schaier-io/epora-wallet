@@ -4,6 +4,8 @@ import catalog3 from "../../../messages/en/catalog-3.json";
 import catalog4 from "../../../messages/en/catalog-4.json";
 import catalog5 from "../../../messages/en/catalog-5.json";
 import catalog6 from "../../../messages/en/catalog-6.json";
+import legalCatalog from "../../../messages/en/catalog-legal.json";
+import betaCatalog from "../../../messages/en/catalog-beta.json";
 
 const messages = {
   ...catalog1,
@@ -11,7 +13,9 @@ const messages = {
   ...catalog3,
   ...catalog4,
   ...catalog5,
-  ...catalog6
+  ...catalog6,
+  ...legalCatalog,
+  ...betaCatalog
 };
 
 export default messages;

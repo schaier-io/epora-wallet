@@ -29,6 +29,9 @@ export const FIRST_LOAD_JS_BUDGETS_KB = {
   "/payee": 1100,
   "/setup": 1100,
   "/user/proposals": 1100,
+  "/legal": 1100,
+  "/privacy": 1100,
+  "/terms": 1100,
   "/_not-found": 1100
 };
 

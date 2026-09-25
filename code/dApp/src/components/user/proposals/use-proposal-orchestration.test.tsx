@@ -13,12 +13,22 @@ import type {
   ProposalVerification
 } from "@/lib/proposals/types";
 
+import type * as BetaConsentModule from "@/lib/legal/browser-beta-consent";
+
+const consentCheck = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/legal/browser-beta-consent", async (original) => ({
+  ...await original<typeof BetaConsentModule>(),
+  requireBrowserBetaConsent: consentCheck
+}));
+import { CARDANO_NETWORK, cardanoNetworkId } from "@/lib/cardano-network";
+import { BetaConsentRequiredError } from "@/lib/legal/browser-beta-consent";
+
 type ProposalErrorMessage = (error: unknown, fallback: string) => string;
 
 const dependencies = vi.hoisted(() => {
   class RebuildUnsupportedError extends Error {}
 
-  const wallet = { signTx: vi.fn() };
+  const wallet = { signTx: vi.fn(), getNetworkId: vi.fn() };
   return {
     RebuildUnsupportedError,
     wallet,
@@ -170,6 +180,7 @@ function synchronousDeferred<T>() {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  consentCheck.mockResolvedValue(undefined);
   localStorage.clear();
   dependencies.deserializeTx.mockReturnValue({ body: () => ({ ttl: () => undefined }) });
   dependencies.walletContext.activeWallet = dependencies.wallet;
@@ -180,6 +191,7 @@ beforeEach(() => {
   dependencies.parseProposalSummary.mockReturnValue(null);
   dependencies.isAutoRebuildable.mockReturnValue(false);
   dependencies.wallet.signTx.mockResolvedValue("wallet-witness");
+  dependencies.wallet.getNetworkId.mockResolvedValue(cardanoNetworkId());
   dependencies.normalizeWitnessSetHex.mockReturnValue("normalized-witness");
 });
 
@@ -1135,4 +1147,34 @@ it("keeps the broadcast candidate and actual body expiry after an uncertain POST
   });
   expect(result.current.canSubmit).toBe(false);
   expect(test.store.get(walletStateSubmissionsAtom)[proposal("proposal-1").walletUnit]).toBeUndefined();
+});
+
+
+it("refuses a proposal wallet signature when current beta consent is absent", async () => {
+  consentCheck.mockRejectedValue(new BetaConsentRequiredError());
+  dependencies.verifyProposal.mockResolvedValue(verification("valid", true));
+  dependencies.fetchProposal.mockResolvedValue(proposal("proposal-1"));
+  const { result } = renderHook(() => useProposalOrchestration({
+    proposalId: "proposal-1", sessionKeyHash: SIGNER_KEY_HASH, onChanged: vi.fn()
+  }));
+  await waitFor(() => expect(result.current.canSign).toBe(true));
+  await act(async () => result.current.handleSign());
+  expect(dependencies.wallet.signTx).not.toHaveBeenCalled();
+  expect(dependencies.signProposal).not.toHaveBeenCalled();
+  expect(result.current.actionError).toContain("Reload and accept the current risks and terms");
+});
+
+
+it("refuses to sign a proposal after the connected wallet changes network", async () => {
+  dependencies.wallet.getNetworkId.mockResolvedValue(cardanoNetworkId() === 1 ? 0 : 1);
+  dependencies.verifyProposal.mockResolvedValue(verification("valid", true));
+  dependencies.fetchProposal.mockResolvedValue(proposal("proposal-1"));
+  const { result } = renderHook(() => useProposalOrchestration({
+    proposalId: "proposal-1", sessionKeyHash: SIGNER_KEY_HASH, onChanged: vi.fn()
+  }));
+  await waitFor(() => expect(result.current.canSign).toBe(true));
+  await act(async () => result.current.handleSign());
+  expect(dependencies.wallet.signTx).not.toHaveBeenCalled();
+  expect(dependencies.signProposal).not.toHaveBeenCalled();
+  expect(result.current.actionError).toBe(`Switch your connected wallet to Cardano ${CARDANO_NETWORK} before signing.`);
 });

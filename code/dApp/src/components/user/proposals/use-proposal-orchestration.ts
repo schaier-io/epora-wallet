@@ -1,4 +1,6 @@
 "use client";
+import { CARDANO_NETWORK, cardanoNetworkId } from "@/lib/cardano-network";
+import { BetaConsentRequiredError, requireBrowserBetaConsent } from "@/lib/legal/browser-beta-consent";
 import { useTranslations } from "next-intl";
 import { deserializeTx } from "@/lib/mesh/cst";
 import { useAtomValue, useStore } from "jotai";
@@ -76,6 +78,7 @@ export function useProposalOrchestration({
   onChanged
 }: ProposalOrchestrationArgs): ProposalOrchestration {
   const i18n = useTranslations("ComponentsUserProposalsProposalDetail");
+  const betaI18n = useTranslations("BetaConsent");
   const { activeWallet, isDemoWallet } = useWalletContext();
   const queryClient = useQueryClient();
   const store = useStore();
@@ -262,6 +265,13 @@ export function useProposalOrchestration({
     setActionInfo(null);
     let phase: "wallet" | "upload" = "wallet";
     try {
+      await requireBrowserBetaConsent();
+      const networkId = await activeWallet.getNetworkId();
+      if (!isCurrentLifecycle(actionProposalId, lifecycleToken)) return;
+      if (networkId !== cardanoNetworkId()) {
+        setActionError(betaI18n("wrongNetwork", { network: CARDANO_NETWORK }));
+        return;
+      }
       const signed = await activeWallet.signTx(detail.unsignedTxHex, true);
       if (!isCurrentLifecycle(actionProposalId, lifecycleToken)) return;
       const witnessSetHex = normalizeWitnessSetHex(signed);
@@ -277,7 +287,7 @@ export function useProposalOrchestration({
     } catch (caught) {
       if (isCurrentLifecycle(actionProposalId, lifecycleToken)) {
         setActionError(
-          getProposalErrorMessage(
+          caught instanceof BetaConsentRequiredError ? caught.message : getProposalErrorMessage(
             caught,
             phase === "wallet" ? i18n("signingFailed") : i18n("couldNotAddSignature")
           )

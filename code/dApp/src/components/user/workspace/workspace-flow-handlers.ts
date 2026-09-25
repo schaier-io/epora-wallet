@@ -1,4 +1,5 @@
 "use client";
+import { cardanoNetworkId } from "@/lib/cardano-network";
 import { runWorkspaceBuild, workspaceBuildIdentityAtom } from "./workspace-build-cache";
 import { isWorkspaceBuildResultExpired, warmBuildResultExpiry } from "./workspace-build-expiry";
 import { createAbortableWalletSource } from "@/lib/mesh/build-cancellation";
@@ -138,7 +139,7 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
       return null;
     }
 
-    if (networkId !== 0) {
+    if (networkId !== cardanoNetworkId()) {
       setBuildError(i18n("connectedWalletIsNotOnPreprodSwitchNetworks"));
       setBuildErrorExpected(true);
       return null;

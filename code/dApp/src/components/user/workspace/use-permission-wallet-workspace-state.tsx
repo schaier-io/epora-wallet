@@ -1,4 +1,5 @@
 "use client";
+import { cardanoNetworkId } from "@/lib/cardano-network";
 import { beneficiaryPreparationActiveAtom } from "./atoms/forms/consolidate-form.atoms";
 import { useTranslations } from "next-intl";
 
@@ -354,7 +355,7 @@ export function usePermissionWalletWorkspaceState() {
   const signingActions = useAtomValue(selectedSigningActionAvailabilityAtom);
   const walletStateUpdating = useAtomValue(walletStateUpdatingAtom);
   useWorkspaceTransactionPrebuild({
-    enabled: Boolean(activeWallet) && !isDemoWallet && networkId === 0 && !walletStateUpdating &&
+    enabled: Boolean(activeWallet) && !isDemoWallet && networkId === cardanoNetworkId() && !walletStateUpdating &&
       (routeState.workspaceMode === "new-wallet" || Boolean(wizardSelectedAction)) &&
       !hasFieldErrors(activeFieldErrors) && !activeReadinessIssues.some(issue => issue.blocking) &&
       (signingActions.canDirectSign || signingActions.canSaveApprovalRequest),

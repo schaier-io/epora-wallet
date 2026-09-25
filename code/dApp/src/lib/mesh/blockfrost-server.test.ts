@@ -151,3 +151,19 @@ test("collection cursors must be bounded positive integers", async () => {
   }
   assert.deepEqual(calls, []);
 });
+
+import { blockfrostProjectId } from "./blockfrost-server";
+
+test("each network uses its own provider key and rejects a key for another network", () => {
+  const env = {
+    BLOCKFROST_PREPROD_PROJECT_ID: "preprodExample",
+    BLOCKFROST_MAINNET_PROJECT_ID: "mainnetExample",
+    BLOCKFROST_PREVIEW_PROJECT_ID: "previewExample"
+  };
+  for (const network of ["preprod", "mainnet", "preview"] as const) {
+    assert.equal(blockfrostProjectId(network, env), `${network}Example`);
+    assert.throws(() => blockfrostProjectId(network, {}), /Missing BLOCKFROST/);
+  }
+  assert.throws(() => blockfrostProjectId("mainnet", { BLOCKFROST_MAINNET_PROJECT_ID: "preprodExample" }), /mainnet-prefixed/);
+  assert.throws(() => blockfrostProjectId("preprod", { BLOCKFROST_PREPROD_PROJECT_ID: "mainnetExample" }), /preprod-prefixed/);
+});

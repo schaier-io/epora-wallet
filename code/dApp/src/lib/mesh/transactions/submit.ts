@@ -1,3 +1,5 @@
+import { requireBrowserBetaConsent } from "@/lib/legal/browser-beta-consent";
+import { CARDANO_NETWORK, cardanoNetworkId } from "@/lib/cardano-network";
 import { assertSerializedTransactionSizeIsBounded, createStageError, extractComputedScriptIntegrity, isLikelyTransactionCbor, normalizeError, readScriptDataHash, refreshScriptDataHashWithLiveCostModels, setScriptDataHash, withStage } from "./internals";
 import { ServerFetcher } from "@/lib/mesh/server-fetcher";
 import { resolveTxHash, type BrowserWallet } from "@meshsdk/core";
@@ -14,6 +16,13 @@ export async function signAndSubmitTx(
     beforeBroadcast?: (transaction: { txHash: string; invalidHereafter?: number }) => void;
   } = {}
 ) {
+  const assertWalletNetwork = async () => {
+    if (await wallet.getNetworkId() !== cardanoNetworkId()) {
+      throw new Error(`Connected wallet must use ${CARDANO_NETWORK} before signing or submitting.`);
+    }
+  };
+  await requireBrowserBetaConsent();
+  await assertWalletNetwork();
   const fetcher = new ServerFetcher();
   const scriptDataHashRefresh = await refreshScriptDataHashWithLiveCostModels(
     txHex,
@@ -41,6 +50,8 @@ export async function signAndSubmitTx(
       );
     }
 
+    await requireBrowserBetaConsent();
+    await assertWalletNetwork();
     await options.assertCurrent?.();
     // The ledger verifies every vkey signature over exactly this body hash, so
     // a witness made for any other body would make the transaction invalid.
@@ -139,6 +150,8 @@ export async function signAndSubmitTx(
       async () => assertSerializedTransactionSizeIsBounded(signed),
       diagnostics
     );
+    await requireBrowserBetaConsent();
+    await assertWalletNetwork();
     await options.assertCurrent?.();
     if (options.beforeBroadcast) {
       const ttl = deserializeTx(signed).body().ttl();
@@ -169,6 +182,8 @@ export async function signAndSubmitTx(
       return withStage(
         "submit:blockfrost.submitTx",
         async () => {
+          await requireBrowserBetaConsent();
+          await assertWalletNetwork();
           await options.assertCurrent?.();
           return fetcher.submitTx(signed);
         },

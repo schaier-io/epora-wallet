@@ -1,3 +1,5 @@
+import { cardanoNetworkId } from "@/lib/cardano-network";
+import { serializeScriptRewardAddress } from "@/lib/cardano-addresses";
 import { z } from "zod";
 import {
   AssetListSchema,
@@ -41,6 +43,10 @@ const WalletActionBase = TxRequestBaseSchema.extend({
 
 // One request schema per build route, mirroring the builder each one calls.
 // The nine-action `stt-spend` union lives in ./tx-stt-spend.ts.
+
+const SCRIPT_REWARD_ADDRESS_EXAMPLE = serializeScriptRewardAddress(
+  "e9dcbf89a50c1d86f196cdb4f483d25fc0aaec071d29954516d0cf98", cardanoNetworkId()
+);
 
 export const MintTxRequestSchema = TxRequestBaseSchema.extend({
   sttSpendReference: z.string().optional().meta({
@@ -106,8 +112,8 @@ export const WalletSpendTxRequestSchema = WalletActionBase.extend({
 export const WalletWithdrawTxRequestSchema = WalletActionBase.extend({
   rewardAddress: z.string().min(1).meta({
     description:
-      "The wallet's reward address. Its credential is the wallet's own staking script, so this is a script reward address (`stake_test17...`), not a key one.",
-    example: "stake_test17r5ae0uf55xpmph3jmxmfayr6f0up2hvquwjn929zmgvlxqhfkys0"
+      "The wallet's reward address. Its credential is the wallet's own staking script, so this is a script reward address, not a key one.",
+    example: SCRIPT_REWARD_ADDRESS_EXAMPLE
   }),
   amountLovelace: QuantitySchema.meta({
     description: "Rewards to withdraw, in lovelace. Must equal the full available balance."
@@ -222,7 +228,7 @@ export const PublishTxRequestSchema = WalletActionBase.extend({
       "The certificate, as Mesh's `CertificateType`: a `type` plus that type's fields. The builder wraps it in a `ScriptCertificate` and supplies the script itself.",
     example: {
       type: "DelegateStake",
-      stakeKeyAddress: "stake_test17r5ae0uf55xpmph3jmxmfayr6f0up2hvquwjn929zmgvlxqhfkys0",
+      stakeKeyAddress: SCRIPT_REWARD_ADDRESS_EXAMPLE,
       poolId: "pool1rkfs9glmfva3jd0q9vnlqvuhnrflpzj4l07u6sayfx5k7d788us"
     }
   }),

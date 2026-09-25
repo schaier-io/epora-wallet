@@ -101,7 +101,7 @@ describe("wallet selection dialog", () => {
     const { container } = renderWith(1, true);
 
     expect(screen.getByText("Your wallet is on the wrong network")).toBeTruthy();
-    expect(container.textContent).toMatch(/Preprod/);
+    expect(container.textContent).toMatch(/preprod/i);
   });
 
   it("does not send anyone to a step that is only drawn while disconnected", () => {
