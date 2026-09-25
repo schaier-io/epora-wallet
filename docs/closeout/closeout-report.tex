@@ -2,7 +2,7 @@
 % Build: cd docs/closeout && tectonic closeout-report.tex
 % Headings follow the Catalyst close-out report template (Fund 12 and Fund 14 knowledge base).
 % Every \missing{...} marks a fact still to supply; the report is final when none remain.
-\documentclass[fontsize=10pt,paper=a4,DIV=15,parskip=half-]{scrartcl}
+\documentclass[fontsize=10pt,paper=a4,DIV=16,parskip=half-]{scrartcl}
 \usepackage[english]{babel}
 \usepackage{libertinus}
 \usepackage{xcolor}
@@ -75,7 +75,7 @@ Project manager & Sandro Schaier \\
 Date project started & 11 March 2024 \\
 Date project completed & \missing{date of the final milestone submission} \\
 Plan & 7 months, with deliveries from April to October 2024 \\
-Budget & 100,000 ADA in five milestones; 59,000 ADA distributed by 25 September 2026 \\
+Budget & 100,000 ADA in five milestones \\
 Close-out video & \missing{YouTube or Vimeo link} \\
 \end{tabularx}
 
@@ -95,8 +95,9 @@ The challenge brief states aims, not numeric KPIs, so each row quotes one aim an
     Mainnet beta: \missing{mainnet URL}. \\
 \addlinespace
 ``generate and test new ideas that bring utility to Cardano''
-  & The Preprod phase produced 49 tracked issues, and 2 of them came from outside testers.
-    Each issue has one category, and 46 are fixed. \\
+  & Epora brings the smart-contract wallets of large treasuries to individual users.
+    Recovery, shared control, allowances, and streaming payments combine as data on one contract.
+    750 contract tests and a public Preprod phase tested the ideas. \\
 \addlinespace
 ``produce specifications and a pathway that requires more significant technical development''
   & The whitepaper and the OpenAPI 3.1 document specify the system.
@@ -146,7 +147,7 @@ The table summarizes the acceptance criteria from the Statement of Milestones, t
 \bottomrule
 \end{xltabular}}
 
-\textbf{Still open.} WalletConnect signing (pairing works), a screen for governance votes, the retest of \pr{561}, and the results of the wallet talks. See the \href{https://github.com/schaier-io/epora-wallet/tree/main/tasks}{task tracker}.
+\textbf{Still open.} A screen for governance votes, the retest of \pr{561}, and the results of the wallet talks. See the \href{https://github.com/schaier-io/epora-wallet/tree/main/tasks}{task tracker}.
 
 \textbf{Timeline and scope.} The plan had seven months, with the last delivery in October 2024.
 The Milestone Module approved milestones 1 to 3 between 7 July and 21 September 2026.
@@ -182,13 +183,16 @@ Partially custodial wallets
 \section{Key achievements}
 
 \begin{itemize}[leftmargin=1.2em]
-\item \textbf{Categorized feedback.} Reports came from team test sessions, from GitHub issue forms linked in the app footer, and from Discord.
-  All 49 tracked issues have one category: 46 fixed, 1 for the next version, and 2 not a bug.
-\item \textbf{Outside reports led to changes.} A GitHub report from Isaac (\texttt{bytegen-dev}), made with the Vespr wallet, led to a consolidation change (\pr{562}).
-  A Discord request from Bee (\texttt{opacular}) led to a co-signer invite link and a signed-in status for each co-signer (\pr{568} to \pr{571}).
-\item \textbf{Wallet developer outreach.} A public message in the Eternl Discord on 24 September 2026 asked about a native Eternl integration and a CIP for a standard smart wallet.
+\item \textbf{Specification.} The whitepaper v1.0 specifies the permission system with a formal model, 11 theorems, and a security analysis.
+\item \textbf{Contracts with security evidence.} Aiken validators implement every whitepaper transition, and 750 contract tests pass.
+  A security evidence map links each abuse vector to the tests that reject it.
+\item \textbf{App and public API.} The web app creates, configures, and uses smart wallets on Preprod.
+  The public API builds unsigned transactions that any wallet can sign, and the server never holds a key.
+\item \textbf{Community testing.} Reports came from team test sessions, GitHub issue forms linked in the app, and Discord.
+  All 49 tracked issues have one category, and 46 are fixed. Reports from two outside testers led to changes (\pr{562}, \pr{568} to \pr{571}).
+\item \textbf{Mainnet beta.} Network configuration, beta consent, legal pages, and a network switch are merged (\pr{589}, \pr{590}, \pr{594}).
+\item \textbf{Wallet developer outreach.} A public message in the Eternl Discord asked about a native Eternl integration and a CIP for a standard smart wallet.
   Eternl replied by direct message \reported. We sent Begin Wallet a direct message and contacted other wallet developers \reported.
-\item \textbf{Mainnet preparation.} Network configuration, beta consent, legal pages, and a network switch merged on 25 September 2026 (\pr{589}, \pr{590}, \pr{594}).
 \end{itemize}
 
 \section{Key learnings}
@@ -226,14 +230,17 @@ Partially custodial wallets
   With full traces the state script has 40,258 bytes, so the production build drops them.
   A size pass used standard-library helpers, callbacks, and shared checks (\pr{296}).
   It cut the state script from 15,936 to 14,428 bytes and the wallet script from 9,810 to 9,378 bytes.
-\item \textbf{Caps and gates keep each action inside the limits.} The contracts cap the lists: 15 user and beneficiary records (at most 10 users), 15 streaming payments, and 5 assets in one allowance.
+\item \textbf{Caps and gates keep each action inside the limits.} We try to prove that every action fits in one transaction, so that no wallet state can lock the funds forever.
+  The contracts cap the lists: 15 user and beneficiary records (at most 10 users), 15 streaming payments, and 5 assets in one allowance.
   The beneficiary checks compare every pair, so their cost grows with the square of the list.
-  CI fails when a recorded cost moves by more than 1\%.
+  Budget tests run actions on wallets at the caps. CI fails when a recorded cost moves by more than 1\% or passes a fixed ceiling.
   The app checks each signed transaction against the size limit before it submits.
-\item \textbf{A smart wallet still needs a normal wallet.} Today each action uses two wallets.
-  A normal CIP-30 wallet signs, pays the fee, provides the collateral, and gets the change.
-  CIP-30 does not cover script wallets, so the app shows the smart wallet's funds and previews each transaction.
-  The CIP in Section~\ref{sec:next} aims to remove the second wallet.
+  Each configuration must also keep a recovery path: an admin, a quorum, or a beneficiary that can still sign.
+\item \textbf{Two wallets work together by design.} The smart wallet holds the funds and enforces the rules.
+  The normal wallet holds the user's keys, signs each action, pays the fee, and provides the collateral.
+  So the app builds each action as one transaction that uses both wallets.
+  The CIP in Section~\ref{sec:next} aims to integrate the two wallets.
+  The normal wallet will likely stay part of the setup.
 \end{itemize}
 
 \section{Next steps for the product}\label{sec:next}
