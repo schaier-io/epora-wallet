@@ -1,0 +1,272 @@
+% Project Close-out Report for Catalyst Fund 11 project 1100002.
+% Build: cd docs/closeout && tectonic closeout-report.tex
+% Headings follow the Catalyst close-out report template (Fund 12 and Fund 14 knowledge base).
+% Every \missing{...} marks a fact still to supply; the report is final when none remain.
+\documentclass[fontsize=10pt,paper=a4,DIV=14,parskip=half-]{scrartcl}
+\usepackage[english]{babel}
+\usepackage{libertinus}
+\usepackage{xcolor}
+% Brand palette, copied from whitepaper/preamble.tex (source: code/dApp globals.css).
+\definecolor{brandteal}{HTML}{14B8A6}
+\definecolor{brandcyan}{HTML}{33CFFF}
+\definecolor{brandnavy}{HTML}{0A1A33}
+\definecolor{logobg}{HTML}{001331}
+\definecolor{branddeepteal}{HTML}{0E7C70}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{positioning}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{xltabular}% tabularx that can break across pages
+\usepackage{enumitem}
+\usepackage{microtype}
+\usepackage{hyperref}
+\usepackage{xurl}
+\urlstyle{same}% monospace URLs stretched letter by letter in justified lines
+\usepackage{scrlayer-scrpage}
+\hypersetup{
+  colorlinks,
+  linkcolor={branddeepteal},
+  urlcolor={brandcyan!60!black},
+  pdftitle={Project Close-out Report: (Dead-man-switch) Permission based Wallet},
+  pdfauthor={Sandro Schaier}
+}
+
+\setkomafont{section}{\normalfont\sffamily\bfseries\large\color{brandnavy}}
+\setkomafont{disposition}{\normalfont\sffamily}
+\renewcommand*{\sectionformat}{\textcolor{brandteal}{\thesection}\enskip}
+\RedeclareSectionCommand[beforeskip=-0.9\baselineskip, afterskip=0.3\baselineskip]{section}
+\setlist{itemsep=2pt, topsep=2pt}
+
+\clearpairofpagestyles
+\addtokomafont{pagefoot}{\normalfont\sffamily\footnotesize\color{brandnavy!70}}
+\addtokomafont{pagenumber}{\sffamily\color{branddeepteal}}
+\ifoot{Project 1100002 · Project Close-out Report}
+\ofoot{\pagemark}
+
+\newcommand{\missing}[1]{\textcolor{red!70!black}{\sffamily\bfseries[To fill: #1]}}
+\newcommand{\reported}{\textit{(reported)}}
+\newcommand{\pr}[1]{\href{https://github.com/schaier-io/epora-wallet/pull/#1}{\##1}}
+\newcommand{\repo}[2]{\href{https://github.com/schaier-io/epora-wallet/blob/main/#1}{#2}}
+\newcommand{\hd}[1]{{\sffamily\bfseries\color{brandnavy}#1}}
+
+\begin{document}
+
+\begin{tikzpicture}[remember picture, overlay]
+  \fill[logobg] ([shift={(-3mm,3mm)}]current page.north west)
+        rectangle ([shift={(3mm,-3.6cm)}]current page.north east);
+  \fill[brandteal] ([shift={(-3mm,-3.6cm)}]current page.north west)
+        rectangle ([shift={(3mm,-3.72cm)}]current page.north east);
+  \node[anchor=west] at ([xshift=1.9cm,yshift=-1.8cm]current page.north west)
+        {\includegraphics[height=2.4cm]{../../whitepaper/images/logo.png}};
+  \node[anchor=west, align=left, text=white] at ([xshift=4.9cm,yshift=-1.8cm]current page.north west)
+        {{\sffamily\small\color{brandteal!65!white} Project Catalyst Fund 11 · Cardano Use Cases: Concept}\\[5pt]
+         {\sffamily\bfseries\LARGE Project Close-out Report}\\[5pt]
+         {\large (Dead-man-switch) Permission based Wallet, shipped as Epora}};
+\end{tikzpicture}
+\vspace*{1.5cm}
+
+\noindent
+\begin{tabularx}{\linewidth}{@{}>{\sffamily\bfseries\color{brandnavy}}l X@{}}
+Name of project & (Dead-man-switch) Permission based Wallet, shipped as Epora \\
+Project URL & \href{https://projectcatalyst.io/funds/11/cardano-use-cases-concept/dead-man-switch-permission-based-wallet}{projectcatalyst.io, Fund 11, Cardano Use Cases: Concept} \\
+Project number & 1100002 \\
+Project manager & Sandro Schaier \\
+Date project started & 11 March 2024 \\
+Date project completed & \missing{date of the final milestone submission} \\
+Plan & 7 months, with deliveries from April to October 2024 \\
+Budget & 100,000 ADA in five milestones; 59,000 ADA distributed by 25 September 2026 \\
+Close-out video & \missing{YouTube or Vimeo link} \\
+\end{tabularx}
+
+\section{Challenge KPIs and how the project addressed them}
+
+The challenge brief states aims, not numeric KPIs, so each row quotes one aim and the project's answer.
+
+{\small
+\noindent
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{0.34\linewidth}X@{}}
+\toprule
+\hd{Aim in the challenge brief} & \hd{How the project addressed it} \\
+\midrule
+``deliver proof of concept, design research and basic prototyping''
+  & The whitepaper v1.0 gives the design, a formal model, and a security analysis.
+    The Aiken validators and the reference app run on Preprod at \href{https://epora.io}{epora.io}.
+    Mainnet beta: \missing{mainnet URL}. \\
+\addlinespace
+``generate and test new ideas that bring utility to Cardano''
+  & The Preprod phase produced 49 tracked issues, and 2 of them came from outside testers.
+    Each issue has one category, and 46 are fixed. \\
+\addlinespace
+``produce specifications and a pathway that requires more significant technical development''
+  & The whitepaper and the OpenAPI 3.1 document specify the system.
+    Section~\ref{sec:next} gives the pathway: a smart-wallet CIP, an external audit, and wallet integrations. \\
+\addlinespace
+``for the benefit of the Cardano ecosystem''
+  & The project's own code and documents are public under the MIT license.
+    Third-party parts keep their own licenses. \\
+\bottomrule
+\end{tabularx}}
+
+\section{Project KPIs and how the project addressed them}
+
+The proposal measures success through its five milestones.
+The table summarizes the acceptance criteria from the Statement of Milestones, the result, and the review status in the Milestone Module on 25 September 2026.
+
+{\small
+\begin{xltabular}{\linewidth}{@{}>{\raggedright\arraybackslash}p{0.14\linewidth}>{\raggedright\arraybackslash}p{0.29\linewidth}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}p{0.12\linewidth}@{}}
+\toprule
+\hd{Milestone} & \hd{Acceptance criteria} & \hd{Result} & \hd{Status} \\
+\midrule
+\endhead
+1. Setup, whitepaper, planning
+  & X and Discord accounts; a whitepaper with abstract, introduction, functionality, permission system, and use cases; a development task list
+  & X account \href{https://x.com/schaier_io}{@schaier\_io} and a Discord server; \repo{whitepaper/whitepaper.pdf}{whitepaper v1.0} with its LaTeX source; a \href{https://github.com/schaier-io/epora-wallet/tree/main/tasks}{task tracker} with one file per milestone
+  & Approved\newline 7 Jul 2026 \\
+\addlinespace
+2. Smart contract development
+  & The whitepaper methods; code documentation for new developers; abuse vectors explained and shown not to work
+  & Aiken validators for every whitepaper transition; a contracts guide; a \repo{code/smart-contract/SECURITY.md}{security evidence map}; 750 of 750 contract tests pass
+  & Approved\newline 6 Aug 2026 \\
+\addlinespace
+3. Development of UI
+  & A video of the whitepaper functions; an API and a specification for external developers; code documentation
+  & A wallet UI video; a public v1 API with an OpenAPI 3.1 document and a \repo{docs/api/README.md}{developer guide}; the app README
+  & Approved\newline 21 Sep 2026 \\
+\addlinespace
+4. Testnet launch
+  & A usable prototype; aggregated feedback; improvements and bug fixes from the feedback
+  & The prototype on Preprod at \href{https://epora.io}{epora.io}; a \repo{docs/testnet-feedback.md}{feedback page} with 49 categorized issues; 46 fixes with linked pull requests
+  & Submitted,\newline in review \\
+\addlinespace
+5. Finalization and mainnet launch
+  & A mainnet prototype; categorized feedback; communication with potential wallet developers, if they or the community ask for it; this report; a close-out video
+  & Mainnet beta at \missing{URL}; the same feedback page; a \repo{docs/wallet-integration.md}{wallet outreach page}; this report; the video in Section~\ref{sec:video}
+  & This\newline submission \\
+\bottomrule
+\end{xltabular}}
+
+\textbf{Still open.} WalletConnect signing (pairing works), a screen for governance votes, the retest of \pr{561}, and the results of the wallet talks. See the \href{https://github.com/schaier-io/epora-wallet/tree/main/tasks}{task tracker}.
+
+\textbf{Timeline and scope.} The plan had seven months, with the last delivery in October 2024.
+The Milestone Module approved milestones 1 to 3 between 7 July and 21 September 2026.
+The project delivered much more than the proposal asked for, and the budget stayed at 100,000 ADA.
+The larger scope took more time than the plan allowed.
+
+{\small
+\noindent
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{0.33\linewidth}>{\raggedright\arraybackslash}X@{}}
+\toprule
+\hd{Proposal} & \hd{Delivered} \\
+\midrule
+Permissions after a period of inactivity
+  & A proof-of-life dead-man-switch that owners and liveness keepers renew \\
+Two parties agree before a transaction
+  & Weighted multi-signature for operator actions, with a workspace where co-signers review and sign \\
+Limits for spending certain assets
+  & A per-day allowance for each user, with up to 5 assets in each allowance \\
+A family member recovers funds after six inactive months
+  & Weighted-share recovery for several beneficiaries, each with an optional unlock delay, and exact distribution to all of them \\
+Partially custodial wallets
+  & Third parties can hold a role: co-owner, spender, liveness keeper, or beneficiary. The funds stay in the contract. \\
+\addlinespace
+\textit{Not in the proposal}
+  & Up to 15 streaming payments that settle while the owner is offline;
+    reward withdrawal, certificates, and governance votes from the smart wallet;
+    stake-credential pinning and consolidation;
+    a formal model and a security analysis;
+    750 contract tests, 37 of them property-based \\
+\bottomrule
+\end{tabularx}}
+
+\section{Key achievements}
+
+\begin{itemize}[leftmargin=1.2em]
+\item \textbf{Categorized feedback.} Reports came from team test sessions, from GitHub issue forms linked in the app footer, and from Discord.
+  All 49 tracked issues have one category: 46 fixed, 1 for the next version, and 2 not a bug.
+\item \textbf{Outside reports led to changes.} A GitHub report from Isaac (\texttt{bytegen-dev}), made with the Vespr wallet, led to a consolidation change (\pr{562}).
+  A Discord request from Bee (\texttt{opacular}) led to a co-signer invite link and a signed-in status for each co-signer (\pr{568} to \pr{571}).
+\item \textbf{Wallet developer outreach.} A public message in the Eternl Discord on 24 September 2026 asked about a native Eternl integration and a CIP for a standard smart wallet.
+  Eternl replied by direct message \reported. We sent Begin Wallet a direct message and contacted other wallet developers \reported.
+\item \textbf{Mainnet preparation.} Network configuration, beta consent, legal pages, and a network switch merged on 25 September 2026 (\pr{589}, \pr{590}, \pr{594}).
+\end{itemize}
+
+\section{Key learnings}
+
+\begin{center}
+\begin{tikzpicture}[font=\sffamily\footnotesize, >=stealth,
+  box/.style={draw=branddeepteal, fill=brandteal!8, rounded corners=2pt, align=center, inner sep=3pt, text=brandnavy},
+  arr/.style={->, thick, draw=brandnavy}]
+\node[box, fill=brandcyan!12, text width=3.3cm] (w) {\textbf{Normal wallet} (CIP-30)\\signs, pays the fee,\\provides the collateral};
+\node[box, fill=brandnavy!6, text width=3.0cm, right=6mm of w] (tx) {\textbf{One transaction}\\one redeemer:\\the declared action};
+\node[box, text width=6.2cm, anchor=north west] (st) at ([xshift=7mm]tx.north east) {\textbf{State contract} (rules): action $=$ true change};
+\node[box, text width=6.2cm, anchor=south west] (wa) at ([xshift=7mm]tx.south east) {\textbf{Wallet contract} (funds): payout $\le$ action};
+\draw[arr] (w) -- (tx);
+\draw[arr] (tx.east) -- (st.west);
+\draw[arr] (tx.east) -- (wa.west);
+\end{tikzpicture}\par
+{\footnotesize\color{brandnavy!80} One action in Epora: two contracts read the same redeemer, and a normal wallet signs and pays.}
+\end{center}
+
+\begin{itemize}[leftmargin=1.2em]
+\item \textbf{Two contracts must agree on one action.} Both contracts read one redeemer, the declared action.
+  The state contract proves that the action equals the true change to the wallet state.
+  The wallet contract limits the payout to that action and has no permission logic, so a reviewer can check it by itself.
+\item \textbf{One configurable contract replaces many bespoke ones.} Six features give 364 combinations of ``and'' and ``or'', and seven give 1,093.
+  One contract for each combination is too much to build, test, and audit.
+  So the whole configuration is one datum on one contract, and a new combination is data, not code.
+\item \textbf{An open deposit address has edge cases.} Anyone can pay into the wallet with no datum, as into a normal address.
+  But a sender can attach a datum hash, or pick a foreign stake credential that then collects the staking rewards of those funds.
+  The contracts now pin the stake credential and reject datum hashes on outputs that stay in the wallet.
+  The app offers to consolidate stray funds.
+  An earlier whitepaper version missed the datum-hash case, and the whitepaper now records the correction.
+\item \textbf{Ledger limits set the size of the product.} Every check must fit the size limit and the execution budget of one transaction.
+  So the contracts cap the lists: 15 user and beneficiary records (at most 10 users), 15 streaming payments, and 5 assets in one allowance.
+  The beneficiary checks compare every pair, so their cost grows with the square of the list.
+  A reference script keeps spends small, and the app offers a preparation step when a recovery does not fit.
+\item \textbf{A smart wallet still needs a normal wallet.} Today each action uses two wallets.
+  A normal CIP-30 wallet signs, pays the fee, provides the collateral, and gets the change.
+  CIP-30 does not cover script wallets, so the app must show the funds in the smart wallet and preview each transaction.
+  Native wallet support would remove the second wallet. This is the aim of the CIP in Section~\ref{sec:next}.
+\end{itemize}
+
+\section{Next steps for the product}\label{sec:next}
+
+\begin{itemize}[leftmargin=1.2em]
+\item \textbf{Mainnet beta.} Run the beta with small funds, and close the open items from Section~2.
+  On Mainnet, a notice says that the code has no external audit, and users cannot close it.
+\item \textbf{A smart-wallet CIP.} EVM chains have smart-account standards, for example ERC-4337 and ERC-7579.
+  We plan to draft a similar CIP for Cardano. It would define how a wallet finds a smart wallet, shows its funds and rules, and builds its actions.
+  It can build on CIP-141 (Plutus wallets) and CIP-106 (multisig wallets), which both have the status Proposed.
+  After an external audit, the Epora contracts could be the reference implementation.
+\item \textbf{Wallet integrations.} Follow up on the Eternl reply, the Begin Wallet contact, and other wallet teams.
+\item \textbf{Funding and commercial use.} \missing{further funding plans and commercial use, if any}
+\end{itemize}
+
+\section{Final thoughts}
+
+The proposal addressed the risk of losing all funds when a key or a backup is lost.
+The delivered contracts, app, and API give Cardano users recovery and shared permissions without a custodian of funds.
+We want this work to become the base of a smart-wallet standard for Cardano.
+Feedback stays open on GitHub and Discord.
+
+\section{Links to other project sources}
+
+{\small
+\noindent
+\begin{tabularx}{\linewidth}{@{}>{\sffamily\bfseries\color{brandnavy}}l X@{}}
+Documents & \href{https://github.com/schaier-io/epora-wallet}{Repository}; \repo{whitepaper/whitepaper.pdf}{whitepaper}; \repo{code/smart-contract/SECURITY.md}{security evidence map}; \repo{docs/api/README.md}{API guide}; \href{https://www.epora.io/api/v1/docs}{live API reference} \\
+Progress & \href{https://github.com/schaier-io/epora-wallet/tree/main/tasks}{Task tracker}; \repo{docs/testnet-feedback.md}{categorized feedback}; \repo{docs/wallet-integration.md}{wallet outreach} \\
+Prototypes & Preprod at \href{https://epora.io}{epora.io}; mainnet at \missing{mainnet URL} \\
+Catalyst and community & \href{https://milestones.projectcatalyst.io/projects/1100002}{Milestone Module}; Discord \href{https://discord.gg/2uh4BynQBW}{discord.gg/2uh4BynQBW}; X \href{https://x.com/schaier_io}{@schaier\_io} \\
+\end{tabularx}}
+
+\section{Close-out video}\label{sec:video}
+
+\missing{public YouTube or Vimeo link, 2 to 5 minutes, 720p or 1080p}
+
+\vfill
+{\footnotesize\color{brandnavy!75}
+\textbf{Sources.} Catalyst project page and Milestone Module (read on 25 September 2026); linked repository files; \texttt{aiken check}, Aiken v1.1.23 (750 passed, 0 failed, same day). Items marked \reported{} have no public record.\par}
+
+\end{document}
