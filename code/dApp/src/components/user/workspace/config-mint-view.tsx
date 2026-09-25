@@ -69,7 +69,7 @@ export function MintConfigView() {
 
           {/* Scroll anchor for the "Choose people" setup step: the stepper sits at the top of
               the view while this editor is a screen or more down the page. */}
-          <div id="mint-section-people" className="scroll-mt-20 space-y-4">
+          <div id="mint-section-people" className="scroll-mt-[calc(5rem+var(--beta-notice-h,0px))] space-y-4">
             <StateFormEditor
               label={i18n("walletRules")}
               helper={i18n("startWithTheConnectedWalletAsAnOwner")}

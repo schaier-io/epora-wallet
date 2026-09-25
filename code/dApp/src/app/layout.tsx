@@ -224,12 +224,13 @@ export default async function RootLayout({
                     moves nothing at all, so "Skip to content" left focus in the header.
                   */}
                   {/*
-                    `scroll-mt` clears the sticky TopNav (65px: the `h-16` row plus its
-                    1px `border-b`), so "Skip to content" used mid-page lands below the
-                    bar instead of under it. One line: `layout-copy.test.ts` matches
-                    this tag's opening only as a single line, so do not wrap it.
+                    `scroll-mt` clears the sticky TopNav (`4rem + 1px`: the `h-16` row plus
+                    its 1px `border-b`) and the sticky BetaNotice (`--beta-notice-h`), so
+                    "Skip to content" used mid-page lands below both bars, not under them.
+                    One line: `layout-copy.test.ts` matches this tag's opening only as a
+                    single line, so do not wrap it.
                   */}
-                  <div id="main" tabIndex={-1} className="flex min-h-0 flex-1 flex-col scroll-mt-[65px]">
+                  <div id="main" tabIndex={-1} className="flex min-h-0 flex-1 flex-col scroll-mt-[calc(4rem+1px+var(--beta-notice-h,0px))]">
                     {children}
                   </div>
                 </ErrorBoundary>
