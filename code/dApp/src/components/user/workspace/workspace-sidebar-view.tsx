@@ -95,11 +95,12 @@ export function WorkspaceSidebarView() {
   // classic scrollbars. Keeping the track at the card edge is still right, but the reason is
   // the full-bleed look, not a gutter that was never reserved.
   return (
-            // `top-20`, not `top-4`: the sticky TopNav is 65px tall (the `h-16` row plus
-            // its 1px `border-b`), so 80px from the viewport top leaves 15px of
+            // `5rem` from the top, not `1rem`: the sticky TopNav is 65px tall (the `h-16`
+            // row plus its 1px `border-b`), so 80px from the viewport top leaves 15px of
             // clearance below it. The max-height spends the same 80px:
-            // 100dvh - 80px top - 8px bottom.
-            <Card className="user-surface order-2 flex min-h-0 flex-col p-0 sm:p-0 lg:sticky lg:top-20 lg:order-1 lg:max-h-[calc(100dvh-5.5rem)] lg:self-start">
+            // 100dvh - 80px top - 8px bottom. The top adds, and the max-height
+            // subtracts, `--beta-notice-h`: the sticky BetaNotice below the TopNav.
+            <Card className="user-surface order-2 flex min-h-0 flex-col p-0 sm:p-0 lg:sticky lg:top-[calc(5rem+var(--beta-notice-h,0px))] lg:order-1 lg:max-h-[calc(100dvh-5.5rem-var(--beta-notice-h,0px))] lg:self-start">
               <CardContent className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4">
                 {walletIsResolving ? (
                   // Not a live region: the header's skeleton announces the same load, so two
