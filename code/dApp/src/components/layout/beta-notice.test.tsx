@@ -15,7 +15,7 @@ beforeEach(() => {
 it("keeps the mainnet loss warning visible without a dismiss action", () => {
   render(<BetaNotice />);
   expect(screen.getByRole("status")).toHaveTextContent(
-    "Mainnet beta. No independent security audit. You could lose all funds. Use only funds you can afford to lose."
+    "Mainnet beta. No independent security audit. You could lose all funds. Use only funds you are willing to lose."
   );
   expect(screen.getByRole("link", { name: "Terms" })).toHaveAttribute("href", "/terms");
   expect(screen.queryByRole("button")).toBeNull();
