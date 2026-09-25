@@ -212,9 +212,11 @@ export function createSttChainClient(provider: SttChainProvider): SttChainClient
       }
     },
     async fetchAddressTransactionsPage(address, page, order) {
-      const raw: unknown = await provider.get(
-        `/addresses/${address}/transactions?page=${page}&order=${order}`
-      );
+      const path = `/addresses/${address}/transactions?page=${page}&order=${order}`;
+      // An unused address can return 404 on page 1, in either sort order.
+      // A later-page 404 must still fail. Reading it as an empty page would
+      // mark an unfinished history backfill complete.
+      const raw = page === 1 ? await getOrEmpty(provider, path) : await provider.get(path);
       const parsed = AddressTransactionsSchema.parse(raw);
       return parsed.map(normalizeAddressTransactionPageEntry);
     },

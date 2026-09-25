@@ -177,6 +177,36 @@ test("fetchAddressUTxOs treats a 404 as an address Blockfrost has never seen", a
   assert.deepEqual(await client.fetchAddressUTxOs(SCRIPT_ADDRESS, UNIT), []);
 });
 
+test("fetchAddressTransactionsPage reads a page-1 404 as no transactions and surfaces every other failure", async () => {
+  // An unused STT address can return 404. Its first page must read as empty
+  // for both head sync and history backfill.
+  const urls: string[] = [];
+  const unseen = clientWith(async (url) => {
+    urls.push(url);
+    throw meshHttpError(404);
+  });
+  for (const order of ["desc", "asc"] as const) {
+    assert.deepEqual(await unseen.fetchAddressTransactionsPage(SCRIPT_ADDRESS, 1, order), []);
+  }
+  // Check both head sync and backfill. Handling only desc would still break
+  // the first asc backfill read for an address Blockfrost has never seen.
+  assert.deepEqual(urls, [
+    `/addresses/${SCRIPT_ADDRESS}/transactions?page=1&order=desc`,
+    `/addresses/${SCRIPT_ADDRESS}/transactions?page=1&order=asc`
+  ]);
+
+  // A later-page 404 must fail, or the history backfill would mark itself
+  // complete before reaching the end.
+  for (const order of ["desc", "asc"] as const) {
+    await assert.rejects(unseen.fetchAddressTransactionsPage(SCRIPT_ADDRESS, 2, order), /"status":404/);
+  }
+
+  const failing = clientWith(async () => {
+    throw meshHttpError(429);
+  });
+  await assert.rejects(failing.fetchAddressTransactionsPage(SCRIPT_ADDRESS, 1, "desc"), /"status":429/);
+});
+
 test("rejects a 200 whose body is not a list instead of reading it as nothing", async () => {
   // A proxy answering an error object with 200 must not close the wallet.
   const client = clientWith(async () => ({ error: "Bad Gateway", status_code: 502 }));
