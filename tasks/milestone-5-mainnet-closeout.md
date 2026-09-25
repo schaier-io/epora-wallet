@@ -34,6 +34,7 @@ Go live on mainnet as a beta (not externally audited, and we say so), keep fixin
 ## Evidence
 
 - Link to the mainnet prototype
+- Validator freeze record at `af80c6fc`: [docs/mainnet-beta-release.md](../docs/mainnet-beta-release.md#release-freeze-validator-blueprint)
 - Link to the categorized feedback
 - Link to the wallet-integration discussion
 - Link to the closeout report

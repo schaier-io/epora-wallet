@@ -233,6 +233,106 @@ and 397 at 1280 pixels. The top of the header stayed at 0, and the top of the
 notice moved to -335 and -332. The notice scrolls away with the page while the
 header stays pinned.
 
+## Release freeze: validator blueprint
+
+This section records deployment check 3 for release commit `af80c6fc`
+(`Merge pull request #599 from schaier-io/dev`). VERIFIED with the Vercel API
+on 2026-09-25: the live Mainnet deployment (`mainnet-epora`, `fra1`) and the
+live Preprod deployment (`epora-wallet`, `iad1`) both report
+`githubCommitSha` `af80c6fcd62fa875876ac7793c728f78187c379d`.
+
+VERIFIED on 2026-09-25 in a `git archive` export of `code/smart-contract` at
+`af80c6fc`:
+
+- `node scripts/check-toolchain.mjs` printed
+  `check-toolchain: aiken v1.1.23 matches the aiken.toml pin`. The blueprint
+  preamble records compiler `v1.1.23+8949565` and Plutus `v3`. `aiken.lock`
+  pins `aiken-lang/stdlib` `v3.1.0` and `aiken-lang/fuzz` `v2.2.0`.
+- `aiken build` exited `0`. The committed `plutus.json` was moved aside before
+  the build, so a failed build could not leave the old file in place. `cmp`
+  found the new file byte-identical to the committed `plutus.json` and to the
+  dApp mirror `code/dApp/src/lib/contracts/plutus.json`.
+- `plutus.json` SHA-256:
+  `89c81cd914348611e79034cfa804d940924693fe9d90b5763df2aa2ea89c5424`.
+  `aiken.lock` SHA-256:
+  `98385dde0c0a450210e57a6c46794f7a4a5c3b8f1293f5d885ff4433855dcfb1`.
+- `aiken check -D --seed 3106021271` exited `0` with
+  `total: 750, passed: 750, failed: 0`: 713 unit tests and 37 property tests.
+- `aiken check --max-success 10000 --seed 3106021271` exited `0` with the same
+  totals. Its report lists `iterations` `10000` for each property test.
+
+| Validator | Parameters | Blueprint hash | `compiledCode` |
+| --- | --- | --- | --- |
+| STT validator, `stt.stt` | none | `0dac00be80879dcf585cdb9d0acf6e0ecf52c417ded30d8b72d0ebf1` | 14469 bytes |
+| STT reference store, `stt_reference_store.stt_reference_store` | none | `fc20070d1e5379403add6acbf77b233b2f8240821c187b398525de28` | 93 bytes |
+| Wallet validator, `wallet.wallet` | `stt_policy_id`, `asset_name` | `5f8f25f5b598548b224efba3082ffbdd33f46ec58274282b63d0d701` | 9100 bytes |
+
+The STT validator hash is also the STT policy ID. The Wallet validator hash is
+the hash before parameters. Each wallet applies its own STT policy ID and asset
+name, so each wallet has its own script hash and address.
+
+VERIFIED with `@meshsdk/core` `1.9.1` and the calls in
+`code/dApp/src/lib/contracts/blueprint.ts`: `resolveScriptHash` returned the
+two blueprint hashes. `resolvePlutusScriptAddress` with network ID `1` returned
+these Mainnet addresses:
+
+- STT validator: `addr1wyx6cq97szremn6ctnde6zk0dc8v75kyzl0dxrvtwtgwhugwudywu`
+- STT reference store: `addr1w87zqpcdrefhjsp6m44vhammyvajlqjqsgwps7ees5jau2quqhgjf`
+
+VERIFIED on the live hosts: `GET /api/shared-helper` returned the `policyId`
+`0dac00be80879dcf585cdb9d0acf6e0ecf52c417ded30d8b72d0ebf1` on both hosts.
+Mainnet returned `"status":"missing"` and `"activeReference":null`. Preprod
+returned `"status":"ready"` with the `activeReference`
+`5c863ef0a4a2720b20508f6acbfc6ba8796b3d7ff4622ca9c53c593e91196204#0`.
+Without a reference, the mint builder stops with "Wallet service is
+temporarily unavailable. Try again later." (`mint-state-token.ts:130-135`).
+INFERRED: nobody can create a Mainnet wallet before check 5 deploys the
+reference.
+
+VERIFIED with Koios `address_info` on 2026-09-25: the Mainnet store address
+holds 16 UTxOs with `308768400` lovelace in total. Each UTxO carries a
+reference script. They carry 15 distinct script hashes, and none is the current
+STT hash. The newest was created on 2026-05-02. The spend path of the store is
+`fail`, so this ADA stays locked. On Preprod, the current reference output
+holds `63270800` lovelace for the 14469-byte script. Its transaction paid a fee
+of `809969` lovelace.
+
+VERIFIED with `gh run list --commit af80c6fc`: `Smart Contract CI`,
+`dApp CI`, `Native Recovery CI`, `File Length Check` and `Blueprint Autosync`
+concluded `success` on the push to `main`. Smart Contract CI runs
+`aiken fmt --check`, `aiken check -D`, the budget and trace gates, and
+`pnpm offchain:test`. The fuzz workflow runs
+`aiken check --max-success 10000`. It concluded `success` on the pull request
+head `cc2cf2f9`, which has the same tree as `af80c6fc`.
+
+Unresolved contract issues at the freeze:
+
+- VERIFIED: `gh issue list --state open` returned `[]`.
+- VERIFIED: no independent security audit exists. The tests above are not an
+  audit, and the Mainnet notice says so.
+- VERIFIED, accepted in writing: `code/smart-contract/SECURITY.md` records that
+  "The 2026-09 security review accepted this availability risk" for
+  proof-of-life contention. `code/smart-contract/INTERACTIONS.md` lists the
+  items that the 2026-07 security review accepted, for example the no-op
+  `Consolidate` replay (P12). The whitepaper section "Limitations and Trust
+  Assumptions" records the intentional trade-offs.
+
+Open after this check:
+
+- VERIFIED: `git ls-remote --tags origin` listed no tags. The freeze task asks
+  for a tag on the release commit. Pushing a tag needs the operator's approval.
+- INFERRED: nothing enforces this freeze. `code/dApp/vercel.json` enables
+  deployments from `main`, and the Mainnet project has no ignored build step.
+  A contract change merged to `main` would reach Mainnet without a new record.
+  It would also change the STT policy ID and every wallet address that the dApp
+  derives. Compare both SHA-256 values above before each Mainnet release.
+- VERIFIED with Koios `cli_protocol_params`: Mainnet allows `16500000` memory
+  units per transaction, and Preprod allows `17500000`. The contract budget
+  gates cap one evaluation at `14_000_000`. The dApp compares the summed
+  memory with `maxTxExMem` from the protocol parameters of its builder
+  (`execution-snapshot.ts:273`). INFERRED: a transaction with several script
+  evaluations can fit on Preprod and fail this check on Mainnet.
+
 ## Least confident decisions
 
 1. Jurisdiction-specific terms and privacy obligations need review against actual
