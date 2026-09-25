@@ -92,7 +92,7 @@ The challenge brief states aims, not numeric KPIs, so each row quotes one aim an
 ``deliver proof of concept, design research and basic prototyping''
   & The whitepaper v1.0 gives the design, a formal model, and a security analysis.
     The Aiken validators and the reference app run on Preprod at \href{https://epora.io}{epora.io}.
-    Mainnet beta: \missing{mainnet URL}. \\
+    Mainnet beta: \href{https://mainnet.epora.io}{mainnet.epora.io}. \\
 \addlinespace
 ``generate and test new ideas that bring utility to Cardano''
   & Epora brings the smart-contract wallets of large treasuries to individual users.
@@ -142,7 +142,7 @@ The table summarizes the acceptance criteria from the Statement of Milestones, t
 \addlinespace
 5. Finalization and mainnet launch
   & A mainnet prototype; categorized feedback; talks with potential wallet developers, if they or the community ask; this report; a close-out video
-  & Mainnet beta at \missing{URL}; the same feedback page; a \repo{docs/wallet-integration.md}{wallet outreach page}; this report; the video in Section~\ref{sec:video}
+  & Mainnet beta at \href{https://mainnet.epora.io}{mainnet.epora.io}; the same feedback page; a \repo{docs/wallet-integration.md}{wallet outreach page}; this report; the video in Section~\ref{sec:video}
   & This\newline submission \\
 \bottomrule
 \end{xltabular}}
@@ -190,9 +190,9 @@ Partially custodial wallets
   The public API builds unsigned transactions that any wallet can sign, and the server never holds a key.
 \item \textbf{Community testing.} Reports came from team test sessions, GitHub issue forms linked in the app, and Discord.
   All 49 tracked issues have one category, and 46 are fixed. Reports from two outside testers led to changes (\pr{562}, \pr{568} to \pr{571}).
-\item \textbf{Mainnet beta.} Network configuration, beta consent, legal pages, and a network switch are merged (\pr{589}, \pr{590}, \pr{594}).
-\item \textbf{Wallet developer outreach.} A public message in the Eternl Discord asked about a native Eternl integration and a CIP for a standard smart wallet.
-  Eternl replied by direct message \reported. We sent Begin Wallet a direct message and contacted other wallet developers \reported.
+\item \textbf{Mainnet beta.} Network configuration, beta consent, legal pages, and a network switch are merged (\pr{589}, \pr{590}, \pr{594}). The beta runs at \href{https://mainnet.epora.io}{mainnet.epora.io}.
+\item \textbf{Wallet developer outreach.} We contacted wallet developers in a public channel and by direct message \reported.
+  We asked about a native integration and a CIP for a standard smart wallet. One team replied \reported.
 \end{itemize}
 
 \section{Key learnings}
@@ -262,7 +262,7 @@ Partially custodial wallets
 
 The proposal addressed the risk of losing all funds when a key or a backup is lost.
 The delivered contracts, app, and API give Cardano users recovery and shared permissions without a custodian of funds.
-We want this work to become the base of a smart-wallet standard for Cardano.
+We intend this work to become the base of a smart-wallet standard for Cardano.
 
 \section{Links to other project sources}
 
@@ -271,7 +271,7 @@ We want this work to become the base of a smart-wallet standard for Cardano.
 \begin{tabularx}{\linewidth}{@{}>{\sffamily\bfseries\color{brandnavy}}l X@{}}
 Documents & \href{https://github.com/schaier-io/epora-wallet}{Repository}; \repo{whitepaper/whitepaper.pdf}{whitepaper}; \repo{code/smart-contract/SECURITY.md}{security evidence map}; \repo{docs/api/README.md}{API guide}; \href{https://www.epora.io/api/v1/docs}{live API reference} \\
 Progress & \href{https://github.com/schaier-io/epora-wallet/tree/main/tasks}{Task tracker}; \repo{docs/testnet-feedback.md}{categorized feedback}; \repo{docs/wallet-integration.md}{wallet outreach} \\
-Prototypes & Preprod at \href{https://epora.io}{epora.io}; mainnet at \missing{mainnet URL} \\
+Prototypes & Preprod at \href{https://epora.io}{epora.io}; mainnet beta at \href{https://mainnet.epora.io}{mainnet.epora.io} \\
 Catalyst and community & \href{https://milestones.projectcatalyst.io/projects/1100002}{Milestone Module}; Discord \href{https://discord.gg/2uh4BynQBW}{discord.gg/2uh4BynQBW}; X \href{https://x.com/schaier_io}{@schaier\_io} \\
 \end{tabularx}}
 
