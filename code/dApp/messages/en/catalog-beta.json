@@ -24,7 +24,7 @@
     "licenseLink": "MIT License"
   },
   "BetaStatus": {
-    "mainnet": "Mainnet beta. No independent security audit. You could lose all funds. Use only funds you can afford to lose.",
+    "mainnet": "Mainnet beta. No independent security audit. You could lose all funds. Use only funds you are willing to lose.",
     "testnet": "Beta on Cardano {network}. No independent security audit. Do not use real funds.",
     "terms": "Terms",
     "dismiss": "Got it"

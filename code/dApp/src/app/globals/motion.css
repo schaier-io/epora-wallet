@@ -39,14 +39,19 @@
   from { translate: var(--page-slide-offset) 0; }
 }
 
-::view-transition-group(site-header) {
+/* The sticky BetaNotice under the header is held still the same way, or the sliding page
+   snapshots would paint over it. */
+::view-transition-group(site-header),
+::view-transition-group(beta-notice) {
   animation: none;
   z-index: 50;
 }
-::view-transition-old(site-header) {
+::view-transition-old(site-header),
+::view-transition-old(beta-notice) {
   display: none;
 }
-::view-transition-new(site-header) {
+::view-transition-new(site-header),
+::view-transition-new(beta-notice) {
   animation: none;
 }
 

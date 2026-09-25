@@ -223,10 +223,11 @@ export function WorkspaceReviewRailView() {
               tabIndex={-1}
               role="region"
               aria-label={i18n("reviewAndConfirm")}
-              // `top-20` clears the sticky TopNav (65px: the `h-16` row plus its 1px
-              // `border-b`) with 15px to spare, and the max-height spends the same 80px:
-              // 100dvh - 80px top - 8px bottom.
-              className="order-3 flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden scroll-mt-20 xl:sticky xl:top-20 xl:max-h-[calc(100dvh-5.5rem)] xl:self-start"
+              // `5rem` from the top clears the sticky TopNav (65px: the `h-16` row plus its
+              // 1px `border-b`) with 15px to spare, and the max-height spends the same 80px:
+              // 100dvh - 80px top - 8px bottom. The top adds, and the max-height
+              // subtracts, `--beta-notice-h`: the sticky BetaNotice below the TopNav.
+              className="order-3 flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden scroll-mt-[calc(5rem+var(--beta-notice-h,0px))] xl:sticky xl:top-[calc(5rem+var(--beta-notice-h,0px))] xl:max-h-[calc(100dvh-5.5rem-var(--beta-notice-h,0px))] xl:self-start"
             >
               <div className="user-scrollbar min-h-0 min-w-0 flex-1 overflow-y-auto">
                   <UserReviewPanel

@@ -263,8 +263,8 @@ export function TopNav() {
     <>
       {/* `sticky`, not `fixed`: the bar keeps its place in the layout flow, so the page
           needs no spacer. Content does scroll underneath it, so anchor targets carry
-          scroll margins (`#main` in the root layout, `scroll-mt-20` on the two hash
-          targets in the workspace). The opaque `bg-[#091215]` is what makes this work:
+          scroll margins (`#main` in the root layout and the two hash targets in the
+          workspace, each plus the sticky BetaNotice's `--beta-notice-h`). The opaque `bg-[#091215]` is what makes this work:
           scrolled content passes underneath instead of showing through. `z-20` stays
           below tooltips (`z-50`), dialogs (`z-[100]`), toasts (`z-[110]`) and the
           disclaimer gate (`z-[200]`). */}
