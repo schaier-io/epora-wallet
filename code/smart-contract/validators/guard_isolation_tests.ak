@@ -388,9 +388,9 @@ fn crank_input_state() -> state_types.State {
   )
 }
 
-// sh.pay.declared_delta — the redeemer's declared payout delta must equal the
-// delta the state diff implies (here the diff pays 1_000_000, declared 2_000_000).
-test pay_streaming_rejects_declared_delta_mismatch() fail {
+// Valid non-admin crank: the payee signs, the clock advances, and the stream
+// records one day's payout. Only the tagged amount varies between fixtures.
+fn crank_payout_transaction(payout_lovelace: Int) -> Transaction {
   let input_state = crank_input_state()
   let output_state = state_types.State {
     ..input_state,
@@ -401,24 +401,65 @@ test pay_streaming_rejects_declared_delta_mismatch() fail {
   }
   let payout_output = fixtures.tagged_streaming_payment_output(
     fixtures.address_from_key("beneficiary1"),
-    assets.from_lovelace(1_000_000),
+    assets.from_lovelace(payout_lovelace),
     fixtures.stt_input_ref(),
     1,
   )
-  let transaction = fixtures.stt_spend_tx(
+  fixtures.stt_spend_tx(
     interval.between(86_400_000, 86_400_000),
-    [],
+    ["beneficiary1"],
     input_state,
     output_state,
     [payout_output],
     fixtures.tx_id(#"7d10"),
   )
+}
+
+// Control for both payout guards in the Bounded-movement theorem. No wallet
+// input is consumed, so these tests exercise the STT's own payout checks.
+test pay_streaming_accepts_matching_delta_and_tagged_amount() {
+  expect
+    run_stt_spend(
+      state_types.PayStreamingPayment(
+        assets.from_lovelace(1_000_000) |> asset_entries.flatten_to_entries,
+      ),
+      crank_payout_transaction(1_000_000),
+    )
+}
+
+// sh.pay.declared_delta: the state diff pays 1_000_000, declared 2_000_000.
+// The previous fixture had no signer and failed the authority check first.
+test pay_streaming_rejects_declared_delta_mismatch() fail {
   expect
     run_stt_spend(
       state_types.PayStreamingPayment(
         assets.from_lovelace(2_000_000) |> asset_entries.flatten_to_entries,
       ),
-      transaction,
+      crank_payout_transaction(1_000_000),
+    )
+}
+
+// The tag and address match. Only the amount is one lovelace below the
+// recorded progress (Security Analysis: Bounded movement).
+test pay_streaming_rejects_tagged_output_below_recorded_progress() fail {
+  expect
+    run_stt_spend(
+      state_types.PayStreamingPayment(
+        assets.from_lovelace(1_000_000) |> asset_entries.flatten_to_entries,
+      ),
+      crank_payout_transaction(999_999),
+    )
+}
+
+// The amount check is a floor. External ADA can top up a tagged output
+// without increasing the stream's recorded progress.
+test pay_streaming_accepts_tagged_output_above_recorded_progress() {
+  expect
+    run_stt_spend(
+      state_types.PayStreamingPayment(
+        assets.from_lovelace(1_000_000) |> asset_entries.flatten_to_entries,
+      ),
+      crank_payout_transaction(2_000_000),
     )
 }
 
