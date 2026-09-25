@@ -2,7 +2,7 @@
 % Build: cd docs/closeout && tectonic closeout-report.tex
 % Headings follow the Catalyst close-out report template (Fund 12 and Fund 14 knowledge base).
 % Every \missing{...} marks a fact still to supply; the report is final when none remain.
-\documentclass[fontsize=10pt,paper=a4,DIV=14,parskip=half-]{scrartcl}
+\documentclass[fontsize=10pt,paper=a4,DIV=15,parskip=half-]{scrartcl}
 \usepackage[english]{babel}
 \usepackage{libertinus}
 \usepackage{xcolor}
@@ -35,8 +35,8 @@
 \setkomafont{section}{\normalfont\sffamily\bfseries\large\color{brandnavy}}
 \setkomafont{disposition}{\normalfont\sffamily}
 \renewcommand*{\sectionformat}{\textcolor{brandteal}{\thesection}\enskip}
-\RedeclareSectionCommand[beforeskip=-0.9\baselineskip, afterskip=0.3\baselineskip]{section}
-\setlist{itemsep=2pt, topsep=2pt}
+\RedeclareSectionCommand[beforeskip=-0.8\baselineskip, afterskip=0.25\baselineskip]{section}
+\setlist{itemsep=1pt, topsep=1pt}
 
 \clearpairofpagestyles
 \addtokomafont{pagefoot}{\normalfont\sffamily\footnotesize\color{brandnavy!70}}
@@ -114,13 +114,13 @@ The proposal measures success through its five milestones.
 The table summarizes the acceptance criteria from the Statement of Milestones, the result, and the review status in the Milestone Module on 25 September 2026.
 
 {\small
-\begin{xltabular}{\linewidth}{@{}>{\raggedright\arraybackslash}p{0.14\linewidth}>{\raggedright\arraybackslash}p{0.29\linewidth}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}p{0.12\linewidth}@{}}
+\begin{xltabular}{\linewidth}{@{}>{\raggedright\arraybackslash}p{0.13\linewidth}>{\raggedright\arraybackslash}p{0.31\linewidth}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}p{0.11\linewidth}@{}}
 \toprule
 \hd{Milestone} & \hd{Acceptance criteria} & \hd{Result} & \hd{Status} \\
 \midrule
 \endhead
 1. Setup, whitepaper, planning
-  & X and Discord accounts; a whitepaper with abstract, introduction, functionality, permission system, and use cases; a development task list
+  & X and Discord accounts; a whitepaper (abstract, introduction, functions, permission system, use cases); a task list
   & X account \href{https://x.com/schaier_io}{@schaier\_io} and a Discord server; \repo{whitepaper/whitepaper.pdf}{whitepaper v1.0} with its LaTeX source; a \href{https://github.com/schaier-io/epora-wallet/tree/main/tasks}{task tracker} with one file per milestone
   & Approved\newline 7 Jul 2026 \\
 \addlinespace
@@ -140,7 +140,7 @@ The table summarizes the acceptance criteria from the Statement of Milestones, t
   & Submitted,\newline in review \\
 \addlinespace
 5. Finalization and mainnet launch
-  & A mainnet prototype; categorized feedback; communication with potential wallet developers, if they or the community ask for it; this report; a close-out video
+  & A mainnet prototype; categorized feedback; talks with potential wallet developers, if they or the community ask; this report; a close-out video
   & Mainnet beta at \missing{URL}; the same feedback page; a \repo{docs/wallet-integration.md}{wallet outreach page}; this report; the video in Section~\ref{sec:video}
   & This\newline submission \\
 \bottomrule
@@ -193,7 +193,7 @@ Partially custodial wallets
 
 \section{Key learnings}
 
-\begin{center}
+{\centering
 \begin{tikzpicture}[font=\sffamily\footnotesize, >=stealth,
   box/.style={draw=branddeepteal, fill=brandteal!8, rounded corners=2pt, align=center, inner sep=3pt, text=brandnavy},
   arr/.style={->, thick, draw=brandnavy}]
@@ -205,8 +205,7 @@ Partially custodial wallets
 \draw[arr] (tx.east) -- (st.west);
 \draw[arr] (tx.east) -- (wa.west);
 \end{tikzpicture}\par
-{\footnotesize\color{brandnavy!80} One action in Epora: two contracts read the same redeemer, and a normal wallet signs and pays.}
-\end{center}
+{\footnotesize\color{brandnavy!80} One action in Epora: two contracts read the same redeemer, and a normal wallet signs and pays.\par}}
 
 \begin{itemize}[leftmargin=1.2em]
 \item \textbf{Two contracts must agree on one action.} Both contracts read one redeemer, the declared action.
@@ -218,16 +217,23 @@ Partially custodial wallets
 \item \textbf{An open deposit address has edge cases.} Anyone can pay into the wallet with no datum, as into a normal address.
   But a sender can attach a datum hash, or pick a foreign stake credential that then collects the staking rewards of those funds.
   The contracts now pin the stake credential and reject datum hashes on outputs that stay in the wallet.
-  The app offers to consolidate stray funds.
-  An earlier whitepaper version missed the datum-hash case, and the whitepaper now records the correction.
-\item \textbf{Ledger limits set the size of the product.} Every check must fit the size limit and the execution budget of one transaction.
-  So the contracts cap the lists: 15 user and beneficiary records (at most 10 users), 15 streaming payments, and 5 assets in one allowance.
+  An earlier whitepaper missed the datum-hash case and now records the correction.
+\item \textbf{Script size needs its own design work.} A transaction may use at most 16,384 bytes, and the state script alone has 14,469 bytes.
+  So the script is stored once as a reference script, in a 93-byte always-fail store at a fixed address.
+  Each state transaction points to it.
+  Without the reference, even the mint of a new wallet would exceed the limit.
+  With both scripts as references, a payout to 15 beneficiaries used 9,925 signed bytes. With the wallet script inline, 2 beneficiaries used 11,163.
+  With full traces the state script has 40,258 bytes, so the production build drops them.
+  A size pass used standard-library helpers, callbacks, and shared checks (\pr{296}).
+  It cut the state script from 15,936 to 14,428 bytes and the wallet script from 9,810 to 9,378 bytes.
+\item \textbf{Caps and gates keep each action inside the limits.} The contracts cap the lists: 15 user and beneficiary records (at most 10 users), 15 streaming payments, and 5 assets in one allowance.
   The beneficiary checks compare every pair, so their cost grows with the square of the list.
-  A reference script keeps spends small, and the app offers a preparation step when a recovery does not fit.
+  CI fails when a recorded cost moves by more than 1\%.
+  The app checks each signed transaction against the size limit before it submits.
 \item \textbf{A smart wallet still needs a normal wallet.} Today each action uses two wallets.
   A normal CIP-30 wallet signs, pays the fee, provides the collateral, and gets the change.
-  CIP-30 does not cover script wallets, so the app must show the funds in the smart wallet and preview each transaction.
-  Native wallet support would remove the second wallet. This is the aim of the CIP in Section~\ref{sec:next}.
+  CIP-30 does not cover script wallets, so the app shows the smart wallet's funds and previews each transaction.
+  The CIP in Section~\ref{sec:next} aims to remove the second wallet.
 \end{itemize}
 
 \section{Next steps for the product}\label{sec:next}
@@ -239,8 +245,10 @@ Partially custodial wallets
   We plan to draft a similar CIP for Cardano. It would define how a wallet finds a smart wallet, shows its funds and rules, and builds its actions.
   It can build on CIP-141 (Plutus wallets) and CIP-106 (multisig wallets), which both have the status Proposed.
   After an external audit, the Epora contracts could be the reference implementation.
+\item \textbf{Audit funding.} We plan to fund the external audit after the community gives feedback on the CIP, if the audit is needed.
+  This depends on the community and on the CIP implementations.
 \item \textbf{Wallet integrations.} Follow up on the Eternl reply, the Begin Wallet contact, and other wallet teams.
-\item \textbf{Funding and commercial use.} \missing{further funding plans and commercial use, if any}
+  At \mbox{TOKEN2049}, we plan to meet builders in person and collect their feedback.
 \end{itemize}
 
 \section{Final thoughts}
@@ -248,7 +256,6 @@ Partially custodial wallets
 The proposal addressed the risk of losing all funds when a key or a backup is lost.
 The delivered contracts, app, and API give Cardano users recovery and shared permissions without a custodian of funds.
 We want this work to become the base of a smart-wallet standard for Cardano.
-Feedback stays open on GitHub and Discord.
 
 \section{Links to other project sources}
 
@@ -267,6 +274,6 @@ Catalyst and community & \href{https://milestones.projectcatalyst.io/projects/11
 
 \vfill
 {\footnotesize\color{brandnavy!75}
-\textbf{Sources.} Catalyst project page and Milestone Module (read on 25 September 2026); linked repository files; \texttt{aiken check}, Aiken v1.1.23 (750 passed, 0 failed, same day). Items marked \reported{} have no public record.\par}
+\textbf{Sources.} Catalyst project page and Milestone Module (read on 25 September 2026); linked repository files; \texttt{aiken check}, Aiken v1.1.23 (750 passed, 0 failed), and the repository's size checks, run the same day. Items marked \reported{} have no public record.\par}
 
 \end{document}
