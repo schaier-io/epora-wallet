@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages, getTimeZone, getTranslations } from "next-intl/server";
 import {
@@ -8,6 +8,8 @@ import {
   type MessageCatalog
 } from "@/i18n/client-messages";
 import { COPY } from "@/lib/copy";
+import { LEGAL_OPERATOR } from "@/lib/legal";
+import { CARDANO_NETWORK } from "@/lib/cardano-network";
 import "@/app/globals.css";
 import "@/app/globals/animations.css";
 import "@/app/globals/motion.css";
@@ -23,7 +25,8 @@ import { GlobalBackground } from "@/components/layout/global-background";
 import { TopNav } from "@/components/layout/top-nav";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { KeyboardShortcutsHelp } from "@/components/layout/shortcuts-help";
-import { RiskDisclaimerGate } from "@/components/layout/risk-disclaimer-gate";
+import { BetaConsentBoundary } from "@/components/layout/beta-consent-boundary";
+import { BETA_CONSENT_COOKIE, hasBetaConsent } from "@/lib/legal/beta-consent";
 import { BetaNotice } from "@/components/layout/beta-notice";
 import { Geist, JetBrains_Mono } from "next/font/google";
 import { cn } from "@/lib/utils/cn";
@@ -50,7 +53,7 @@ export const metadata: Metadata = {
     template: COPY.brand.titleTemplate
   },
   description:
-    "A non-custodial Cardano wallet you share across owners and spenders, with on-chain daily limits, multisig, scheduled ADA payments, and key recovery once a proof of life expires. Live on Cardano Preprod.",
+    `Epora is an unaudited beta Cardano wallet on ${CARDANO_NETWORK}. Shared permissions, spending limits, and recovery rules. You can lose all funds.`,
   keywords: [
     "Cardano wallet",
     "non-custodial Cardano wallet",
@@ -76,16 +79,16 @@ export const metadata: Metadata = {
   // the .ico and drop the type hints.
   openGraph: {
     type: "website",
-    title: "Epora Wallet: Lose your keys, not your ADA",
+    title: "Epora Wallet: Unaudited beta",
     description:
-      "A non-custodial Cardano wallet you share across owners and spenders. On-chain limits, multisig, and key recovery. Open source, Catalyst-funded, live on Preprod.",
+      `Unaudited beta Cardano wallet on ${CARDANO_NETWORK}. No security audit has been completed. You can lose all funds.`,
     siteName: "Epora Wallet"
   },
   twitter: {
     card: "summary_large_image",
-    title: "Epora Wallet: Lose your keys, not your ADA",
+    title: "Epora Wallet: Unaudited beta",
     description:
-      "A non-custodial Cardano wallet you share across owners and spenders. On-chain limits, multisig, and key recovery. Open source, Catalyst-funded, live on Preprod."
+      `Unaudited beta Cardano wallet on ${CARDANO_NETWORK}. No security audit has been completed. You can lose all funds.`
   },
   robots: {
     index: true,
@@ -105,12 +108,13 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const [requestHeaders, locale, messages, timeZone, i18n] = await Promise.all([
+  const [requestHeaders, locale, messages, timeZone, i18n, cookieStore] = await Promise.all([
     headers(),
     getLocale(),
     getMessages(),
     getTimeZone(),
-    getTranslations("AppLayout")
+    getTranslations("AppLayout"),
+    cookies()
   ]);
   const nonce = requestHeaders.get("x-nonce") ?? undefined;
   const clientMessages = pickMessageNamespaces(messages as MessageCatalog, ROOT_CLIENT_NAMESPACES);
@@ -124,6 +128,12 @@ export default async function RootLayout({
         alternateName: i18n("permissionBasedCardanoWallet"),
         url: siteUrl,
         applicationCategory: "FinanceApplication",
+        provider: { "@id": `${siteUrl}/#org` },
+        sameAs: [
+          "https://projectcatalyst.io/funds/11/cardano-use-cases-concept/dead-man-switch-permission-based-wallet",
+          DISCORD_INVITE_URL,
+          "https://x.com/eporawallet"
+        ],
         operatingSystem: "Web",
         description: i18n("structuredDataDescription"),
         offers: {
@@ -143,13 +153,9 @@ export default async function RootLayout({
       {
         "@type": "Organization",
         "@id": `${siteUrl}/#org`,
-        name: "Epora Wallet",
-        url: siteUrl,
-        sameAs: [
-          "https://projectcatalyst.io/funds/11/cardano-use-cases-concept/dead-man-switch-permission-based-wallet",
-          DISCORD_INVITE_URL,
-          "https://x.com/eporawallet"
-        ]
+        name: LEGAL_OPERATOR.name,
+        legalName: LEGAL_OPERATOR.name,
+        url: siteUrl
       },
       {
         "@type": "FAQPage",
@@ -191,7 +197,7 @@ export default async function RootLayout({
           */}
           <MotionConfig reducedMotion="user">
           <GlobalBackground />
-          <RiskDisclaimerGate />
+          <BetaConsentBoundary initialAccepted={hasBetaConsent(cookieStore.get(BETA_CONSENT_COOKIE)?.value)} legalContent={children}>
           <ToastProvider>
             <QueryProvider>
             <WalletProvider>
@@ -233,6 +239,7 @@ export default async function RootLayout({
             </WalletProvider>
             </QueryProvider>
           </ToastProvider>
+          </BetaConsentBoundary>
           </MotionConfig>
         </NextIntlClientProvider>
       </body>

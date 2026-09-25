@@ -1,3 +1,4 @@
+import { CARDANO_NETWORK, cardanoNetworkId, type CardanoNetwork } from "./cardano-network";
 /**
  * CIP-19 address helpers the client needs without the Mesh SDK. The SDK's
  * serialisation stack builds to a multi-megabyte chunk that must stay off the
@@ -18,13 +19,13 @@ const STAKE_HRP = { testnet: "stake_test", mainnet: "stake" } as const;
 /** CIP-129 DRep id: key type 0b0010 (DRep), credential type 0b0011 (script). Same HRP on every network. */
 const DREP_SCRIPT_HEADER = 0x23;
 const DREP_HRP = "drep";
-const PAYMENT_ADDRESS_TESTNET_HRP = "addr_test";
-const TESTNET_NETWORK_ID = 0;
 /** CIP-19 header: high nibble = address type; 0-7 carry a payment credential, 8+ do not. */
 const PAYMENT_TYPE_MAX = 7;
 const CREDENTIAL_HASH_BYTES = 28;
 /** Header byte plus the 28-byte payment credential; pointer addresses only grow beyond this. */
 const MIN_PAYMENT_ADDRESS_BYTES = 1 + CREDENTIAL_HASH_BYTES;
+const BASE_ADDRESS_BYTES = MIN_PAYMENT_ADDRESS_BYTES + CREDENTIAL_HASH_BYTES;
+const POINTER_COORDINATES = 3;
 
 function decodeHash28Hex(hex: string): Uint8Array {
   const normalized = hex.trim().toLowerCase();
@@ -54,19 +55,28 @@ export function serializeScriptDrepId(scriptHash: string): string {
 }
 
 /**
- * The payment credential (key or script hash) of a testnet payment address, or
+ * The payment credential (key or script hash) of a payment address on the configured network, or
  * null for anything else — the local replacement for reading
  * `pubKeyHash || scriptHash` off `deserializeAddress`. Checksummed, so a
  * mistyped address yields null instead of a hash.
  */
-export function testnetPaymentCredentialHash(address: string): string | null {
+export function paymentCredentialHash(address: string, network: CardanoNetwork = CARDANO_NETWORK): string | null {
+  const networkId = cardanoNetworkId(network);
   const decoded = bech32Decode(address.trim());
-  if (!decoded || decoded.hrp !== PAYMENT_ADDRESS_TESTNET_HRP) return null;
+  if (!decoded || decoded.hrp !== (networkId === 1 ? "addr" : "addr_test")) return null;
   if (decoded.bytes.length < MIN_PAYMENT_ADDRESS_BYTES) return null;
   const header = decoded.bytes[0];
-  // The header's low nibble names the network; "addr_test" always pairs with testnet.
-  if ((header & 0x0f) !== TESTNET_NETWORK_ID) return null;
+  // Check both the human-readable prefix and the encoded network id.
+  if ((header & 0x0f) !== networkId) return null;
   const addressType = header >> 4;
   if (addressType > PAYMENT_TYPE_MAX) return null;
+  if (addressType <= 3 && decoded.bytes.length !== BASE_ADDRESS_BYTES) return null;
+  if (addressType >= 6 && decoded.bytes.length !== MIN_PAYMENT_ADDRESS_BYTES) return null;
+  if (addressType === 4 || addressType === 5) {
+    // CIP-19 pointer payload: exactly three terminated variable-length unsigned integers.
+    const pointer = decoded.bytes.slice(MIN_PAYMENT_ADDRESS_BYTES);
+    if (!pointer.length || (pointer[pointer.length - 1] & 0x80) !== 0) return null;
+    if (pointer.filter((byte) => (byte & 0x80) === 0).length !== POINTER_COORDINATES) return null;
+  }
   return Buffer.from(decoded.bytes.slice(1, 1 + CREDENTIAL_HASH_BYTES)).toString("hex");
 }

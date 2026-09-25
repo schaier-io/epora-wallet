@@ -1,4 +1,5 @@
 "use client";
+import { BetaConsentRequiredError, requireBrowserBetaConsent } from "@/lib/legal/browser-beta-consent";
 import { useTranslations } from "next-intl";
 
 import { useEffect, useRef, useState } from "react";
@@ -60,6 +61,7 @@ export function useProposalSession(): ProposalSessionController {
     mutationFn: async () => {
       if (!activeWallet || !activeAddress) throw new Error("Wallet unavailable");
       const nonce = await requestSignInNonce(activeAddress);
+      await requireBrowserBetaConsent();
       const dataSignature = await activeWallet.signData(nonce, activeAddress);
       return completeSignIn({
         address: activeAddress,
@@ -96,7 +98,7 @@ export function useProposalSession(): ProposalSessionController {
       clearProposalQueries(queryClient);
       queryClient.setQueryData(proposalKeys.session, result);
     } catch (caught) {
-      setError(getProposalErrorMessage(caught, i18n("couldnTSignInTryAgain")));
+      setError(caught instanceof BetaConsentRequiredError ? caught.message : getProposalErrorMessage(caught, i18n("couldnTSignInTryAgain")));
     } finally {
       authInFlight.current = false;
     }

@@ -1,4 +1,5 @@
 "use client";
+import { CARDANO_NETWORK, cardanoNetworkId } from "@/lib/cardano-network";
 import { useTranslations } from "next-intl";
 
 import { selectedDetectedTokenUnitAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
@@ -67,10 +68,10 @@ export function WalletSelectionDialogView() {
   // the wrong network. The old copy answered only the first ("Finish step 1 first"), and it
   // pointed at a numbered step that the dialog only draws while disconnected.
   const blocked =
-    networkId !== null && networkId !== 0
+    networkId !== null && networkId !== cardanoNetworkId()
       ? {
           title: i18n("yourWalletIsOnTheWrongNetwork"),
-          body: i18n("eporaRunsOnPreprodTheCardanoTestNetwork")
+          body: i18n("eporaRunsOnPreprodTheCardanoTestNetwork", { network: CARDANO_NETWORK })
         }
       : {
           title: i18n("noWalletConnected"),

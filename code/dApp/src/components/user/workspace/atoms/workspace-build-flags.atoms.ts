@@ -1,4 +1,5 @@
 "use client";
+import { cardanoNetworkId } from "@/lib/cardano-network";
 
 import { atom } from "jotai";
 import { activeWalletAtom, isDemoWalletAtom, networkIdAtom } from "@/providers/wallet.atoms";
@@ -11,9 +12,9 @@ import { sharedReferenceBusyAtom } from "@/components/user/workspace/atoms/works
  * builders read canBuildTransactions via the store.
  */
 
-/** A real (non-demo) Preprod wallet is connected, so transactions can be built. */
+/** A real (non-demo) wallet on the configured network is connected, so transactions can be built. */
 export const canBuildTransactionsAtom = atom((get) =>
-  Boolean(get(activeWalletAtom) && !get(isDemoWalletAtom) && get(networkIdAtom) === 0)
+  Boolean(get(activeWalletAtom) && !get(isDemoWalletAtom) && get(networkIdAtom) === cardanoNetworkId())
 );
 
 /** The mint progress overlay was dismissed for the current submission. */

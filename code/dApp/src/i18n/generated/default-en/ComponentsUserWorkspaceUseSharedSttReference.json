@@ -1,5 +1,5 @@
 {
-  "connectAPreprodWalletBeforeStartingTheOne": "Connect a Preprod wallet before starting the one-time setup.",
+  "connectAPreprodWalletBeforeStartingTheOne": "Connect a wallet on the same network as this app before starting the one-time setup.",
   "couldNotCheckTheOneTimeSetup": "Could not check the one-time setup.",
   "couldNotCompleteTheOneTimeSetup": "Could not complete the one-time setup.",
   "theDemoIsReadOnlyConnectABrowser": "The demo is read-only. Connect a browser wallet before starting the one-time setup."

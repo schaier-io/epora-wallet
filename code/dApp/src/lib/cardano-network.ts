@@ -5,7 +5,16 @@
 
 export type CardanoNetwork = "preprod" | "preview" | "mainnet";
 
-export const CARDANO_NETWORK: CardanoNetwork = "preprod";
+export function parseCardanoNetwork(value: string | undefined): CardanoNetwork {
+  const network = value?.trim() || "preprod";
+  if (network !== "preprod" && network !== "preview" && network !== "mainnet") {
+    throw new Error("NEXT_PUBLIC_CARDANO_NETWORK must be preprod, preview, or mainnet.");
+  }
+  return network;
+}
+
+// Next inlines this literal access for both browser and server during the build.
+export const CARDANO_NETWORK = parseCardanoNetwork(process.env.NEXT_PUBLIC_CARDANO_NETWORK);
 
 export function cardanoNetworkId(network: CardanoNetwork = CARDANO_NETWORK): 0 | 1 {
   return network === "mainnet" ? 1 : 0;

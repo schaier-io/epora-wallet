@@ -1,192 +1,53 @@
 "use client";
+
 import { useTranslations } from "next-intl";
-
-
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { createPortal } from "react-dom";
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cardanoFaucetUrl } from "@/lib/cardano-network";
+import { CARDANO_NETWORK, cardanoFaucetUrl } from "@/lib/cardano-network";
+import { LEGAL_OPERATOR, MIT_LICENSE_URL } from "@/lib/legal";
+import { BETA_ACKNOWLEDGEMENTS } from "@/lib/legal/beta-consent";
+import { NetworkSwitch } from "./network-switch";
+import type { useBetaConsent } from "./use-beta-consent";
 
-// Returns false during SSR / first paint, true once mounted on the client,
-// without a setState-in-effect cascade. Server snapshot is constant, client
-// snapshot is constant, so React never re-subscribes.
-const subscribeNoop = () => () => {};
-function useMounted(): boolean {
-  return useSyncExternalStore(
-    subscribeNoop,
-    () => true,
-    () => false
-  );
-}
+type ConsentModel = ReturnType<typeof useBetaConsent>;
 
-// Session scope, on purpose. `sessionStorage` keeps the acknowledgement for the life of the
-// tab: it survives a full page reload, but every new browser session asks again, and nothing
-// on disk records a permanent acceptance.
-const ACCEPTANCE_STORAGE_KEY = "permission-wallet:risk-acknowledgement";
-const ACCEPTANCE_STORAGE_VALUE = "accepted";
-
-function readSessionAcceptance(): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    return window.sessionStorage.getItem(ACCEPTANCE_STORAGE_KEY) === ACCEPTANCE_STORAGE_VALUE;
-  } catch {
-    // Storage can be unavailable (private mode, blocked cookies). Failing towards "not
-    // accepted" shows the gate again, which is the safe direction for a risk notice.
-    return false;
-  }
-}
-
-/**
- * Mandatory risk-acknowledgement gate.
- *
- * Acceptance is held per browser session: it is written to `sessionStorage` when the user
- * confirms and dies with the tab. A full page reload stays dismissed, while every new
- * session shows the disclaimer again. The user must explicitly confirm before they can
- * interact with the app.
- */
-export function RiskDisclaimerGate() {
-  const i18n = useTranslations("ComponentsLayoutRiskDisclaimerGate");
-  const faucetUrl = cardanoFaucetUrl();
-  const [accepted, setAccepted] = useState(readSessionAcceptance);
-  const mounted = useMounted();
-  const gateRef = useRef<HTMLDivElement | null>(null);
-
-  // Lock body scroll while the gate is up.
-  useEffect(() => {
-    if (accepted || typeof document === "undefined") return;
-    const { overflow } = document.body.style;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = overflow;
-    };
-  }, [accepted]);
-
-  // The gate had `role="alertdialog"` and `aria-modal` and nothing behind them: one Tab
-  // reached the header logo, and a screen reader could walk the whole page underneath. The
-  // overlay stopped the mouse and only the mouse.
-  //
-  // `inert` on every other child of `<body>` is the platform's own answer. It removes those
-  // subtrees from the tab order AND from the accessibility tree at once, so Tab cycles
-  // inside the gate without a hand-written trap to keep in sync.
-  useEffect(() => {
-    if (accepted || typeof document === "undefined") return;
-    const gate = gateRef.current;
-    if (!gate) return;
-
-    const marked: Element[] = [];
-    for (const child of Array.from(document.body.children)) {
-      if (child === gate || child.hasAttribute("inert")) continue;
-      child.setAttribute("inert", "");
-      marked.push(child);
-    }
-
-    // Focus the gate itself, not the button inside it. `autoFocus` used to sit on
-    // "I understand and accept the risks", so a screen reader read that button and
-    // nothing else: the notice it accepts is the container's `aria-describedby`, and
-    // Enter was armed on acceptance before a word of it had been heard. Landing on the
-    // container reads the title and the body out, which is the same reason
-    // `popup-dialog.tsx` names its own container as the initial focus target.
-    gate.focus({ preventScroll: true });
-
-    return () => {
-      for (const element of marked) {
-        element.removeAttribute("inert");
-      }
-    };
-  }, [accepted, mounted]);
-
-  if (!mounted || accepted || typeof document === "undefined") {
-    return null;
-  }
-
-  // The panel is centred with `my-auto`, not with `items-center` on the scroller. Both centre
-  // it, but `align-items: center` splits any overflow above and below the scroll origin, and a
-  // scroller cannot reach a negative scrollTop. Measured at 500x300: the title sat at -3px with
-  // the scroller already at the top, so a mandatory legal notice could not be read in full.
-  // `margin: auto` collapses to 0 the moment the panel is taller than the window.
-  return createPortal(
-    <div
-      ref={gateRef}
-      // Focusable only by script: the effect above puts initial focus here.
-      tabIndex={-1}
-      role="alertdialog"
-      aria-modal="true"
-      aria-labelledby="risk-disclaimer-title"
-      aria-describedby="risk-disclaimer-body"
-      className="fixed inset-0 z-[200] flex justify-center overflow-y-auto bg-black/80 p-4 backdrop-blur-sm sm:p-6"
-    >
-      <div className="my-auto flex w-full max-w-lg flex-col gap-4 rounded-2xl border border-amber-500/30 bg-background p-4 shadow-2xl sm:p-6">
+export function RiskDisclaimerGate({ model }: { model: ConsentModel }) {
+  const i18n = useTranslations("BetaConsent");
+  const faucet = cardanoFaucetUrl();
+  return (
+    <main className="container flex min-h-dvh items-center justify-center py-8" id="main">
+      <section aria-labelledby="risk-disclaimer-title" className="w-full max-w-xl space-y-6 rounded-2xl border border-amber-500/30 bg-background p-4 shadow-2xl sm:p-8">
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-amber-500">
-            <AlertTriangle className="h-5 w-5" aria-hidden="true" />
-          </span>
-          <h2 id="risk-disclaimer-title" className="text-lg font-semibold text-foreground">
-            {i18n("useAtYourOwnRisk")}
-          </h2>
+          <AlertTriangle className="h-6 w-6 shrink-0 text-amber-400" aria-hidden="true" />
+          <h1 id="risk-disclaimer-title" className="text-xl font-semibold">{i18n("title")}</h1>
         </div>
-
-        <div id="risk-disclaimer-body" className="space-y-3 text-sm leading-relaxed text-muted-foreground">
-          <p>
-            {i18n.rich("preprodRiskWarning", {
-              strong: (children) => <strong className="text-foreground">{children}</strong>
-            })}
-          </p>
-          <p>
-            {i18n.rich("softwareRiskWarning", {
-              strong: (children) => <strong className="text-foreground">{children}</strong>
-            })}
-          </p>
-          <p>
-            {i18n.rich("liabilityRiskWarning", {
-              strong: (children) => <strong className="text-foreground">{children}</strong>
-            })}
-          </p>
-          {/* The faucet is now reachable, not merely named. This line used to be plain
-              text, and this file's test recorded the reason: "There is no faucet URL in the
-              repo to link to, so the guidance names the faucet without inventing one." The
-              repo does hold one, in `PreprodFaucetHint`, so the first screen every reader
-              meets was sending them to find a site it already knew the address of. Both
-              places now read it from `cardano-network.ts`, which exists to keep the
-              network-keyed endpoints together. On a network with no faucet the sentence
-              falls back to the plain words rather than a dead link. */}
-          <p>
-            {faucetUrl
-              ? i18n.rich("forTestFundsRequestTestAdaFromTheCardanoPreprodFaucet", {
-                  link: (children) => (
-                    <a
-                      href={faucetUrl}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                      className="font-medium text-foreground underline decoration-border underline-offset-2 hover:decoration-foreground"
-                    >
-                      {children}
-                    </a>
-                  )
-                })
-              : i18n.rich("forTestFundsRequestTestAdaFromTheCardanoPreprodFaucet", {
-                  link: (children) => <>{children}</>
-                })}
-          </p>
-        </div>
-
-        <Button
-          type="button"
-          onClick={() => {
-            try {
-              window.sessionStorage.setItem(ACCEPTANCE_STORAGE_KEY, ACCEPTANCE_STORAGE_VALUE);
-            } catch {
-              // Unwritable storage still dismisses for this session; the next session
-              // asks again, which is the safe direction for a risk notice.
-            }
-            setAccepted(true);
-          }}
-          className="w-full"
-        >
-          {i18n("iUnderstandAndAcceptTheRisks")}
-        </Button>
-      </div>
-    </div>,
-    document.body
+        <NetworkSwitch />
+        <p className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-sm font-medium leading-relaxed text-amber-200">{CARDANO_NETWORK === "mainnet" ? i18n("mainnet") : i18n("testnet", { network: CARDANO_NETWORK })}</p>
+        <p className="text-sm leading-relaxed text-muted-foreground">{i18n("disclosure")}</p>
+        <p className="text-sm text-muted-foreground">{i18n("operator", { company: LEGAL_OPERATOR.name })}</p>
+        <nav aria-label={i18n("termsLink")} className="flex flex-wrap gap-4 text-sm underline underline-offset-4">
+          <a href="/terms">{i18n("termsLink")}</a>
+          <a href="/privacy">{i18n("privacyLink")}</a>
+          <a href="/legal">{i18n("legalLink")}</a>
+          <a href={MIT_LICENSE_URL}>{i18n("licenseLink")}</a>
+          {faucet ? <a href={faucet} target="_blank" rel="noopener noreferrer">{i18n("faucet")}</a> : null}
+        </nav>
+        <form onSubmit={(event) => { event.preventDefault(); void model.accept(); }} className="space-y-4 border-t border-border pt-6">
+          {BETA_ACKNOWLEDGEMENTS.map((key) => (
+            <label key={key} className="flex cursor-pointer items-start gap-3 text-sm leading-relaxed">
+              <input type="checkbox" checked={model.acknowledgements[key]} disabled={model.pending}
+                onChange={(event) => model.setAcknowledgements((current) => ({ ...current, [key]: event.target.checked }))}
+                className="mt-1 h-5 w-5 shrink-0 accent-amber-400" />
+              <span>{i18n(key)}</span>
+            </label>
+          ))}
+          <p className="text-xs leading-relaxed text-muted-foreground">{i18n("privacyNotice")}</p>
+          {model.failed ? <p role="alert" className="text-sm text-red-300">{i18n("error")}</p> : null}
+          <Button type="submit" disabled={!model.ready || model.pending} className="w-full">
+            {i18n(model.pending ? "pending" : "continue")}
+          </Button>
+        </form>
+      </section>
+    </main>
   );
 }

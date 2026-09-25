@@ -1,5 +1,6 @@
-/** The browser RPC is served by the configured Preprod provider. */
-export const CHAIN_NETWORK = "preprod" as const;
+import { CARDANO_NETWORK } from "@/lib/cardano-network";
+/** The browser RPC is served by the configured network provider. */
+export const CHAIN_NETWORK = CARDANO_NETWORK;
 
 /** Initial freshness policy. Mutations invalidate changing chain data explicitly. */
 export const queryPolicy = {

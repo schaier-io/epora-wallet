@@ -1,3 +1,4 @@
+import { CARDANO_NETWORK } from "@/lib/cardano-network";
 import { NextResponse } from "next/server";
 import {
   isKoiosNetwork,
@@ -51,7 +52,7 @@ export async function POST(request: Request) {
   }
 
   const paymentCredential = payload.paymentCredential?.trim();
-  const network = payload.network?.trim() || "preprod";
+  const network = payload.network?.trim() || CARDANO_NETWORK;
 
   if (!paymentCredential) {
     return NextResponse.json(

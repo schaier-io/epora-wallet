@@ -30,16 +30,18 @@ const files = tsxFiles(SRC).map((path) => ({
  * `loading` out of this list is what left the app's loading states with no main landmark for
  * the shell's "Skip to content" link to reach.
  *
- * `error-boundary.tsx` is the one component allowed, because it is mounted exactly once, in
+ * `error-boundary.tsx` is allowed, because it is mounted exactly once, in
  * `app/layout.tsx`, around the element that holds `children`. When it catches, the page's
  * `main` is already unmounted, so its fallback replaces one rather than nesting inside it.
  * The allowance is by exact path: a second mount, deeper in the tree, would nest.
+ * The beta consent gate also replaces the complete page until acceptance. Its boundary
+ * tests verify that page children do not mount while the gate owns the main landmark.
  */
-test("only route files open a main landmark", () => {
+test("only routes and whole-page replacements open a main landmark", () => {
   const offenders = files
     .filter(({ source }) => /<main[\s>]/.test(source))
     .map(({ path }) => path)
-    .filter((path) => path !== "components/error-boundary.tsx")
+    .filter((path) => !["components/error-boundary.tsx", "components/layout/risk-disclaimer-gate.tsx"].includes(path))
     .filter(
       (path) => !/^app\/(?:[^/]+\/)*(?:page|not-found|layout|error|loading)\.tsx$/.test(path)
     );

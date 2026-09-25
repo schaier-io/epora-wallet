@@ -81,6 +81,12 @@ export default defineConfig([
       ]
     }
   },
+  {
+    // next.config.mjs loads this file with Node's own type stripping. Node erases
+    // `import type { X }` but keeps `import { type X }` as an import it cannot resolve.
+    files: ["src/lib/network-deployments.ts"],
+    rules: { "@typescript-eslint/no-import-type-side-effects": "error" }
+  },
   globalIgnores([
     ".next/**",
     "out/**",

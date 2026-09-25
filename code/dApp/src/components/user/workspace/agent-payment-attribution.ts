@@ -1,4 +1,4 @@
-import { testnetPaymentCredentialHash } from "@/lib/cardano-addresses";
+import { paymentCredentialHash } from "@/lib/cardano-addresses";
 
 import { calculateAssetDelta, collectAddressAssets } from "./helpers/asset-amounts";
 import { isLikelyScriptAddress } from "./helpers/activity";
@@ -18,9 +18,7 @@ import type { WalletActivityEvent } from "./types";
  * inputs, the payment stays in the history but is labeled ambiguous rather
  * than guessed.
  *
- * `testnetPaymentCredentialHash` reads `addr_test` addresses only. Epora is an
- * experimental Preprod product (PRODUCT.md), so a mainnet-shaped address can
- * never appear here; if one somehow did, it degrades to "ambiguous".
+ * `paymentCredentialHash` accepts only payment addresses on the configured network.
  */
 
 export type AgentAttribution =
@@ -67,7 +65,7 @@ function matchAgentKeyHashes(event: WalletActivityEvent, agents: AgentAttributio
   // hash never appears raw on chain, so matching goes through the address.
   const inputKeyHashes = new Set(
     event.inputUtxos
-      .map((utxo) => testnetPaymentCredentialHash(utxo.output.address))
+      .map((utxo) => paymentCredentialHash(utxo.output.address))
       .filter((keyHash): keyHash is string => keyHash !== null)
       .map((keyHash) => keyHash.toLowerCase())
   );

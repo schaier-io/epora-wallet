@@ -1,4 +1,5 @@
 "use client";
+import { CARDANO_NETWORK, cardanoNetworkId } from "@/lib/cardano-network";
 import { useTranslations } from "next-intl";
 
 
@@ -220,21 +221,20 @@ export function TopNav() {
     return () => window.removeEventListener("keydown", handleKey);
   }, [mobileNavOpen]);
 
-  const networkLabel =
-    networkId === null
-      ? i18n("disconnected")
-      : networkId === 0
-        ? i18n("preprod")
-        : i18n("mainnet");
+  const networkLabel = i18n("deploymentNetworkStatus", {
+    network: CARDANO_NETWORK,
+    status: networkId === null ? i18n("disconnected")
+      : networkId === 0 ? i18n("testnet") : i18n("mainnet")
+  });
 
   // The `text-*` half is not decoration: `status-dot-live` breathes its halo in `currentColor`,
   // which the dot used to inherit from the pill's own `text-emerald-200`. On the wallet card's
   // second line it would inherit `text-white/60` instead, so each dot now names its own colour
   // and the halo matches the dot wherever the dot is rendered.
   const networkDotClass =
-    networkId === 0
+    networkId === cardanoNetworkId()
       ? "bg-emerald-400 text-emerald-400 status-dot-live"
-      : networkId === 1
+      : networkId !== null
         ? "bg-amber-400 text-amber-400 status-dot-live"
         : "bg-muted-foreground";
   const activeInstalledWallet = useMemo(
@@ -312,9 +312,9 @@ export function TopNav() {
             <span
               className={cn(
                 "hidden items-center gap-2 rounded-full border px-2 py-1 text-xs font-semibold uppercase tracking-[0.14em] sm:inline-flex md:hidden",
-                networkId === 0
+                networkId === cardanoNetworkId()
                   ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200"
-                  : networkId === 1
+                  : networkId !== null
                     ? "border-amber-400/30 bg-amber-500/10 text-amber-200"
                     : "border-border/70 bg-background/60 text-muted-foreground"
               )}

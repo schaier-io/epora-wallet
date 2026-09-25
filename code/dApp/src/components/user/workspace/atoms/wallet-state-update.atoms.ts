@@ -1,3 +1,4 @@
+import { CARDANO_NETWORK } from "@/lib/cardano-network";
 import { atom } from "jotai";
 import { atomWithStorage, createJSONStorage, unstable_withStorageValidator as withStorageValidator } from "jotai/utils";
 import { routeStateAtom } from "./workspace-route.atoms";
@@ -35,7 +36,7 @@ export type PendingWalletStateUpdate = {
   invalidHereafter?: number;
 };
 
-export const WALLET_STATE_STORAGE_KEY = "epora:preprod:pending-wallet-state:v1";
+export const WALLET_STATE_STORAGE_KEY = `epora:${CARDANO_NETWORK}:pending-wallet-state:v1`;
 type PendingUpdates = Record<string, PendingWalletStateUpdate>;
 function validPendingUpdates(value: unknown): value is PendingUpdates {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;

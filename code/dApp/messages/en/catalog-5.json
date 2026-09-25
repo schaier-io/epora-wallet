@@ -86,7 +86,7 @@
     "backToWalletBalance": "Back to wallet balance",
     "balance": "Balance",
     "change": "Change",
-    "checkingYourConnectedWalletAndThisSmartWallet": "Checking your connected wallet and this smart wallet on Preprod.",
+    "checkingYourConnectedWalletAndThisSmartWallet": "Checking your connected wallet and this smart wallet on the configured Cardano network.",
     "copyTransactionHash": "Copy transaction hash",
     "couldNotWorkOutThisWalletSAddress": "Could not work out this wallet's address, so its activity cannot be read.",
     "eventsAppearHereOnceTheFirstDeposit": "Events appear here once the first deposit or setup transaction is recorded.",
@@ -171,10 +171,10 @@
   },
   "ComponentsUserWorkspaceWorkspaceWalletSelectionDialogView": {
     "ada": "ADA",
-    "connectACardanoWalletOnPreprodYourSmart": "Connect a Cardano wallet on Preprod. Your smart wallets appear here as soon as one is connected.",
+    "connectACardanoWalletOnPreprodYourSmart": "Connect a Cardano wallet on the same network as this app. Your smart wallets appear here as soon as one is connected.",
     "createNewSmartWallet": "Create new smart wallet",
     "current": "Current",
-    "eporaRunsOnPreprodTheCardanoTestNetwork": "Epora runs on Preprod, the Cardano test network. Switch networks in your wallet, then connect again.",
+    "eporaRunsOnPreprodTheCardanoTestNetwork": "This app uses {network}. Switch your wallet to {network}, then connect again.",
     "fundPool": "fund pool",
     "fundPools": "fund pools",
     "lookingForYourSmartWallets": "Looking for your smart wallets…",
@@ -393,7 +393,7 @@
     "beneficiaryUnusedShare": "Any unused share is forfeited after this withdrawal."
   },
   "LibProductFaq": {
-    "costAnswer": "Epora itself is free. There is no service fee, no subscription and no token to buy. You pay only the ordinary Cardano network fee for each transaction you sign. That fee goes to the network, not to us. On Preprod you pay it in test ADA, so it costs nothing real.",
+    "costAnswer": "Epora itself is free. There is no service fee, no subscription and no token to buy. You pay the Cardano network fee for each transaction you sign. That fee goes to the network. Mainnet transactions use real ADA. Test networks use test ADA.",
     "costQuestion": "What does it cost?",
     "custodyAnswer": "No. Epora is non-custodial. Your ADA stays in a Cardano smart contract that follows the rules you set. Your own connected wallet authorizes every action. Epora never takes custody of your keys or funds.",
     "custodyQuestion": "Does Epora Wallet hold my keys or funds?",
@@ -403,7 +403,7 @@
     "differenceQuestion": "How is Epora Wallet different from a regular Cardano wallet?",
     "fundPoolsAnswer": "Cardano records money as separate chunks called UTxOs, not as one running balance. A regular wallet adds its chunks up and shows you one number. An Epora smart wallet keeps its money at the wallet's own contract address and shows the chunks as fund pools, because each payment picks the pools it spends. Your balance is still the total of all pools: a payment spends whole pools and returns the change as a new pool. Tidy funds has no fixed two-pool or native-asset count limit. The transaction builder and current Cardano limits decide what fits. If a Tidy transaction is too large, select fewer pools and try again.",
     "fundPoolsQuestion": "Why does the wallet talk about fund pools?",
-    "mainnetAnswer": "Not yet. Epora Wallet runs on the Cardano Preprod test network. The project is in active development under its Project Catalyst grant. Funds and signatures on Preprod have no monetary value, so you can try every feature at no risk.",
+    "mainnetAnswer": "Epora supports a mainnet beta and test networks. Check the network shown by this deployment. The beta has not been audited. Mainnet uses real funds, and you can lose all funds you use with the app.",
     "mainnetQuestion": "Is Epora Wallet on Cardano mainnet?",
     "whatIsEporaWalletAnswer": "Epora Wallet is a non-custodial, permission-based wallet on Cardano. It keeps funds in an on-chain smart contract, and lets one wallet be shared across people with different roles. Owners control the rules. Spenders can spend up to a daily limit. If owners lose their keys, recovery contacts can recover access once a proof of life expires. You authorize every action by signing with your own Cardano wallet.",
     "whatIsEporaWalletQuestion": "What is Epora Wallet?"

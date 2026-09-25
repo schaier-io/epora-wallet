@@ -11,11 +11,11 @@
   "createItOnceIfNeeded": "Epora maintains the helper. Check again if it is unavailable.",
   "owner": "Owner",
   "peopleAreSet": "People are set.",
-  "readyOnPreprod": "Ready on Preprod.",
+  "readyOnPreprod": "Ready on the configured Cardano network.",
   "recoveryContact": "Recovery contact",
   "ruleDriven": "Rule-driven",
   "reviewThenContinueInYourWallet": "Review, then continue in your wallet.",
   "spender": "Spender",
-  "useAPreprodBrowserWallet": "Use a Preprod browser wallet.",
+  "useAPreprodBrowserWallet": "Use a browser wallet on the same network as this app.",
   "walletSigner": "Wallet signer"
 }

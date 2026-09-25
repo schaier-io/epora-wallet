@@ -1,4 +1,5 @@
 "use client";
+import { CARDANO_NETWORK, cardanoNetworkId } from "@/lib/cardano-network";
 import { useTranslations } from "next-intl";
 
 
@@ -16,7 +17,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PopupDialog } from "@/components/ui/popup-dialog";
 import { MobileWalletSection } from "@/components/layout/wallet-connect-section";
+import { NetworkSwitch } from "@/components/layout/network-switch";
 import { WALLETCONNECT_ENABLED } from "@/lib/feature-flags";
+import { NETWORK_DEPLOYMENTS, networkChoices } from "@/lib/network-deployments";
 import { cn } from "@/lib/utils/cn";
 import { DEMO_WALLET_ID, useWalletContext } from "@/providers/wallet-provider";
 
@@ -254,7 +257,7 @@ export function WalletConnectionDialog({
   // as a fault in the connector, sitting right above a Connect button that works.
   const networkBadge =
     networkId === null ? null : (
-      <Badge variant={networkId === 0 ? "secondary" : "warning"}>
+      <Badge variant={networkId === cardanoNetworkId() ? "secondary" : "warning"}>
         {networkId === 0 ? i18n("preprodTestnet") : i18n("mainnet")}
       </Badge>
     );
@@ -473,6 +476,18 @@ export function WalletConnectionDialog({
           <MobileWalletSection
             variant={availableExtensionWallets.length === 0 ? "primary" : "secondary"}
           />
+        ) : null}
+
+        {/* Only while nothing is connected. A switch opens the other network's own site, where
+            a wallet connects afresh, so a connection made here would not carry over. */}
+        {!activeWalletName && networkChoices(CARDANO_NETWORK, NETWORK_DEPLOYMENTS).length ? (
+          <section className="space-y-3 border-t border-border/60 pt-6">
+            <div className="space-y-1">
+              <p className="eyebrow font-semibold text-muted-foreground">{i18n("network")}</p>
+              <p className="text-xs leading-relaxed text-muted-foreground">{i18n("networkHint")}</p>
+            </div>
+            <NetworkSwitch />
+          </section>
         ) : null}
 
         {connectedSwitcher ? <section>{children}</section> : null}

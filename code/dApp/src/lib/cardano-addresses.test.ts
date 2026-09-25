@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { bech32Encode } from "./bech32";
-import { serializeScriptDrepId, serializeScriptRewardAddress, testnetPaymentCredentialHash } from "./cardano-addresses";
+import { serializeScriptDrepId, serializeScriptRewardAddress, paymentCredentialHash } from "./cardano-addresses";
 
 const SCRIPT_HASH = "5aec5c87ee4ba8d12e390b0b7cbef0d8af043e210d174c776eefd4d4";
 const KEY_PAYMENT_ADDRESS =
@@ -30,17 +30,17 @@ test("rejects a malformed script hash like the Mesh helper does", () => {
 });
 
 test("extracts the payment key hash from a preprod payment address", () => {
-  assert.equal(testnetPaymentCredentialHash(KEY_PAYMENT_ADDRESS), KEY_PAYMENT_HASH);
+  assert.equal(paymentCredentialHash(KEY_PAYMENT_ADDRESS), KEY_PAYMENT_HASH);
 });
 
 test("extracts the script hash from an enterprise script address", () => {
-  assert.equal(testnetPaymentCredentialHash(SCRIPT_PAYMENT_ADDRESS), SCRIPT_HASH);
+  assert.equal(paymentCredentialHash(SCRIPT_PAYMENT_ADDRESS), SCRIPT_HASH);
 });
 
 test("returns null for stake, mainnet-header, and mistyped addresses", () => {
   // A reward address has no payment part, and the editor only converts payment addresses.
   assert.equal(
-    testnetPaymentCredentialHash("stake_test17pdwchy8ae9635fw8y9skl977rv27pp7yyx3wnrhdmhaf4qaj0and"),
+    paymentCredentialHash("stake_test17pdwchy8ae9635fw8y9skl977rv27pp7yyx3wnrhdmhaf4qaj0and"),
     null
   );
   // Mainnet network id in the header, wearing a testnet HRP: Mesh accepted
@@ -49,11 +49,11 @@ test("returns null for stake, mainnet-header, and mistyped addresses", () => {
     "addr_test",
     Uint8Array.of(0x71, ...Buffer.from(SCRIPT_HASH, "hex"))
   );
-  assert.equal(testnetPaymentCredentialHash(mainnetHeader), null);
+  assert.equal(paymentCredentialHash(mainnetHeader), null);
   // Checksum damage must never yield a hash.
-  assert.equal(testnetPaymentCredentialHash(`${KEY_PAYMENT_ADDRESS.slice(0, -2)}qq`), null);
-  assert.equal(testnetPaymentCredentialHash(""), null);
-  assert.equal(testnetPaymentCredentialHash("addr_test1"), null);
+  assert.equal(paymentCredentialHash(`${KEY_PAYMENT_ADDRESS.slice(0, -2)}qq`), null);
+  assert.equal(paymentCredentialHash(""), null);
+  assert.equal(paymentCredentialHash("addr_test1"), null);
 });
 
 // The preprod wallet from the 2026-08-31 API sweep (tasks/subtasks/m3-api-09-tx-routes.md):
@@ -69,4 +69,21 @@ test("encodes the wallet's script DRep id as CIP-129", () => {
     "drep1y05ae0uf55xpmph3jmxmfayr6f0up2hvquwjn929zmgvlxqdjsap6"
   );
   assert.throws(() => serializeScriptDrepId("zz"));
+});
+
+test("rejects malformed base, enterprise, and pointer lengths on either network", () => {
+  for (const network of ["preprod", "mainnet"] as const) {
+    const id = network === "mainnet" ? 1 : 0;
+    const encode = (type: number, payload: number[]) =>
+      bech32Encode(id ? "addr" : "addr_test", Uint8Array.of((type << 4) | id, ...payload));
+    const hash = [...new Uint8Array(28)];
+    assert.equal(paymentCredentialHash(encode(0, hash), network), null);
+    assert.equal(paymentCredentialHash(encode(0, [...hash, ...hash]), network), "00".repeat(28));
+    assert.equal(paymentCredentialHash(encode(6, [...hash, 0]), network), null);
+    assert.equal(paymentCredentialHash(encode(6, hash), network), "00".repeat(28));
+    for (const pointer of [[], [0], [0, 0], [0, 0, 0, 0], [0, 0, 128]]) {
+      assert.equal(paymentCredentialHash(encode(4, [...hash, ...pointer]), network), null);
+    }
+    assert.equal(paymentCredentialHash(encode(4, [...hash, 129, 0, 0, 0]), network), "00".repeat(28));
+  }
 });

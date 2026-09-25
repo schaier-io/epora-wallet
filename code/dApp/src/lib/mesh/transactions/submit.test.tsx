@@ -4,6 +4,7 @@ import type * as MeshCst from "@/lib/mesh/cst";
 import { beforeEach, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  requireBetaConsent: vi.fn(),
   assertSerializedTransactionSizeIsBounded: vi.fn(),
   addVKeyWitnessSetToTransaction: vi.fn().mockReturnValue("signed-transaction"),
   providerSubmitTx: vi.fn(),
@@ -13,6 +14,8 @@ const mocks = vi.hoisted(() => ({
   isLikelyTransactionCbor: vi.fn(),
   readScriptDataHash: vi.fn()
 }));
+
+vi.mock("@/lib/legal/browser-beta-consent", () => ({ requireBrowserBetaConsent: mocks.requireBetaConsent }));
 
 vi.mock("./internals", () => ({
   assertSerializedTransactionSizeIsBounded: mocks.assertSerializedTransactionSizeIsBounded,
@@ -42,6 +45,7 @@ import { createVKeyWitnessSetHex } from "@/lib/mesh/cst";
 import { signAndSubmitTx } from "./submit";
 
 beforeEach(() => {
+  mocks.requireBetaConsent.mockReset().mockResolvedValue(undefined);
   mocks.assertSerializedTransactionSizeIsBounded.mockReset();
   mocks.extractIntegrity.mockReset().mockReturnValue(null);
   mocks.providerSubmitTx.mockReset();
@@ -89,7 +93,7 @@ function staleBodyWalletScenario(returnedWitnessSetHex: string) {
   } : { body: () => ({ ttl: () => 12345 }) });
   return {
     wallet: {
-      signTx: vi.fn().mockResolvedValue("wallet-full-tx"),
+      getNetworkId: vi.fn().mockResolvedValue(0), signTx: vi.fn().mockResolvedValue("wallet-full-tx"),
       submitTx: vi.fn().mockResolvedValue("tx-hash")
     }
   };
@@ -97,7 +101,7 @@ function staleBodyWalletScenario(returnedWitnessSetHex: string) {
 
 it("checks the signed transaction size before wallet submission", async () => {
   const wallet = {
-    signTx: vi.fn().mockResolvedValue(VERIFYING_WALLET_PAYLOAD),
+    getNetworkId: vi.fn().mockResolvedValue(0), signTx: vi.fn().mockResolvedValue(VERIFYING_WALLET_PAYLOAD),
     submitTx: vi.fn().mockResolvedValue("tx-hash")
   };
 
@@ -112,7 +116,7 @@ it("checks the signed transaction size before wallet submission", async () => {
 
 it("does not submit a signed transaction that exceeds the size bound", async () => {
   const wallet = {
-    signTx: vi.fn().mockResolvedValue(VERIFYING_WALLET_PAYLOAD),
+    getNetworkId: vi.fn().mockResolvedValue(0), signTx: vi.fn().mockResolvedValue(VERIFYING_WALLET_PAYLOAD),
     submitTx: vi.fn()
   };
   mocks.assertSerializedTransactionSizeIsBounded.mockImplementationOnce(() => {
@@ -132,7 +136,7 @@ it("checks after refresh and before sign, wallet submit, and provider fallback",
     events.push("refresh"); return { txHex, beforeHash: null, afterHash: null, changed: false };
   });
   const wallet = {
-    signTx: vi.fn(async () => { events.push("sign"); return VERIFYING_WALLET_PAYLOAD; }),
+    getNetworkId: vi.fn().mockResolvedValue(0), signTx: vi.fn(async () => { events.push("sign"); return VERIFYING_WALLET_PAYLOAD; }),
     submitTx: vi.fn(async () => { events.push("wallet-submit"); throw new Error("unavailable"); })
   };
   mocks.providerSubmitTx.mockImplementation(async () => { events.push("provider-submit"); return "hash"; });
@@ -140,7 +144,7 @@ it("checks after refresh and before sign, wallet submit, and provider fallback",
   expect(events).toEqual(["refresh", "check", "sign", "check", "wallet-submit", "check", "provider-submit"]);
 });
 for (const failAt of [1, 2, 3]) it(`stops when freshness check ${failAt} fails`, async () => {
-  const wallet = { signTx: vi.fn().mockResolvedValue(VERIFYING_WALLET_PAYLOAD), submitTx: vi.fn().mockRejectedValue(new Error("unavailable")) };
+  const wallet = { getNetworkId: vi.fn().mockResolvedValue(0), signTx: vi.fn().mockResolvedValue(VERIFYING_WALLET_PAYLOAD), submitTx: vi.fn().mockRejectedValue(new Error("unavailable")) };
   let checks = 0;
   await expect(signAndSubmitTx(wallet as never, "unsigned", { assertCurrent: async () => {
     checks += 1; if (checks === failAt) throw new Error("stale");
@@ -152,7 +156,7 @@ for (const failAt of [1, 2, 3]) it(`stops when freshness check ${failAt} fails`,
 
 it("checks again before signing the script-integrity retry", async () => {
   const wallet = {
-    signTx: vi.fn().mockResolvedValue(VERIFYING_WALLET_PAYLOAD),
+    getNetworkId: vi.fn().mockResolvedValue(0), signTx: vi.fn().mockResolvedValue(VERIFYING_WALLET_PAYLOAD),
     submitTx: vi.fn().mockRejectedValue(new Error("integrity mismatch"))
   };
   mocks.extractIntegrity.mockReturnValue("correct-hash");
@@ -171,7 +175,7 @@ it("checks again before signing the script-integrity retry", async () => {
 it("records the signed body before any broadcast and stops if recording fails", async () => {
   const order: string[] = [];
   const wallet = {
-    signTx: vi.fn().mockResolvedValue(VERIFYING_WALLET_PAYLOAD),
+    getNetworkId: vi.fn().mockResolvedValue(0), signTx: vi.fn().mockResolvedValue(VERIFYING_WALLET_PAYLOAD),
     submitTx: vi.fn(async () => { order.push("broadcast"); return "hash"; })
   };
   const record = vi.fn(() => { order.push("record"); });
@@ -205,5 +209,43 @@ it("rejects wallet witnesses signed over a stale body before any submission", as
   );
   expect(mocks.addVKeyWitnessSetToTransaction).not.toHaveBeenCalled();
   expect(wallet.submitTx).not.toHaveBeenCalled();
+  expect(mocks.providerSubmitTx).not.toHaveBeenCalled();
+});
+
+
+it("rejects the wrong wallet network before provider access or signing", async () => {
+  const wallet = { getNetworkId: vi.fn().mockResolvedValue(1), signTx: vi.fn(), submitTx: vi.fn() };
+  await expect(signAndSubmitTx(wallet as never, "tx")).rejects.toThrow("must use preprod");
+  expect(mocks.refresh).not.toHaveBeenCalled();
+  expect(wallet.signTx).not.toHaveBeenCalled();
+  expect(wallet.submitTx).not.toHaveBeenCalled();
+});
+
+it("does not broadcast if the wallet changes network during signing", async () => {
+  const wallet = {
+    getNetworkId: vi.fn().mockResolvedValueOnce(0).mockResolvedValueOnce(0).mockResolvedValue(1),
+    signTx: vi.fn().mockResolvedValue(VERIFYING_WALLET_PAYLOAD),
+    submitTx: vi.fn()
+  };
+  await expect(signAndSubmitTx(wallet as never, "tx")).rejects.toThrow("must use preprod");
+  expect(wallet.signTx).toHaveBeenCalledOnce();
+  expect(wallet.submitTx).not.toHaveBeenCalled();
+  expect(mocks.providerSubmitTx).not.toHaveBeenCalled();
+});
+
+
+it.each([1, 2, 3, 4])("blocks signing or broadcast when consent check %s fails", async (failAt) => {
+  let checks = 0;
+  mocks.requireBetaConsent.mockImplementation(async () => {
+    if (++checks === failAt) throw new Error("Beta consent required");
+  });
+  const wallet = {
+    getNetworkId: vi.fn().mockResolvedValue(0),
+    signTx: vi.fn().mockResolvedValue(VERIFYING_WALLET_PAYLOAD),
+    submitTx: vi.fn().mockRejectedValue(new Error("wallet relay unavailable"))
+  };
+  await expect(signAndSubmitTx(wallet as never, "tx")).rejects.toThrow("Beta consent required");
+  expect(wallet.signTx).toHaveBeenCalledTimes(failAt > 2 ? 1 : 0);
+  expect(wallet.submitTx).toHaveBeenCalledTimes(failAt > 3 ? 1 : 0);
   expect(mocks.providerSubmitTx).not.toHaveBeenCalled();
 });

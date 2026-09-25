@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { useId, useMemo, useRef, useState } from "react";
 import { useAtom, useAtomValue } from "jotai";
 
-import { testnetPaymentCredentialHash } from "@/lib/cardano-addresses";
+import { paymentCredentialHash } from "@/lib/cardano-addresses";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -331,12 +331,11 @@ export function WalletHashesEditor({
 
   const handleChange = (index: number, raw: string) => {
     const trimmed = raw.trim();
-    // Only preprod payment addresses convert here; mainnet ("addr1…") is rejected by the
-    // validation below because this wallet is on Preprod, and a stake address has no
+    // Only payment addresses on the configured network convert here. A stake address has no
     // payment part to extract. The decode is local (lib/cardano-addresses): a Mesh
     // import here put the SDK's serialisation chunk on first load.
-    if (trimmed.startsWith("addr_test1")) {
-      const hash = testnetPaymentCredentialHash(trimmed);
+    if (trimmed.startsWith("addr")) {
+      const hash = paymentCredentialHash(trimmed);
       if (hash) {
         // First sighting wins, the same rule `rememberWalletAddressAtom` follows.
         // The book is app-wide and persisted, so rewriting a known hash changes

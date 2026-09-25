@@ -34,6 +34,7 @@ function routePathsOnDisk(directory = API_ROOT, prefix = "/api"): string[] {
 // gives. Adding a route here is a decision to keep it out of the public
 // contract, not a way to silence this test.
 const DELIBERATELY_UNDOCUMENTED = new Map([
+  ["/api/beta-consent", "Browser acknowledgement cookie endpoint. API clients explicitly acknowledge with the documented header."],
   ["/api/mesh", "Chain-read proxy for the app's own browser client."],
   ["/api/shared-helper", "Shared setup reference discovery for the app's own browser client."],
   ["/api/stt/sync", "Indexer trigger, gated by a shared secret."],
@@ -127,12 +128,12 @@ describe("spec coverage", () => {
     assert.deepEqual(withoutId, []);
   });
 
-  it("documents the retired wallet spend route as deprecated with only 410", () => {
+  it("documents the retired wallet spend route with consent rejection and retirement", () => {
     const operation = buildOpenApiDocument().paths?.["/api/v1/tx/wallet-spend"]?.post;
 
     assert.equal(operation?.operationId, "buildWalletSpendTx");
     assert.equal(operation?.deprecated, true);
-    assert.deepEqual(Object.keys(operation?.responses ?? {}), ["410"]);
+    assert.deepEqual(Object.keys(operation?.responses ?? {}), ["403", "410"]);
   });
 
   it("documents both weighted wallet-input limits", () => {
@@ -183,4 +184,8 @@ describe("spec coverage", () => {
     assert.ok(signedPatterns.every((pattern) => !pattern.test(`-${tooLarge}`)));
     assert.ok(signedPatterns.every((pattern) => !pattern.test(tooLarge)));
   });
+});
+
+it("declares the repository MIT license", () => {
+  assert.deepEqual(buildOpenApiDocument().info.license, { name: "MIT", identifier: "MIT" });
 });

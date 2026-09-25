@@ -1,4 +1,5 @@
 "use client";
+import { cardanoNetworkId } from "@/lib/cardano-network";
 
 import { atom, type PrimitiveAtom } from "jotai";
 import type { BrowserWallet } from "@meshsdk/core";
@@ -36,9 +37,9 @@ export const networkIdAtom = accountIdentityAtom<number | null>(null);
 
 /** Derived: the active wallet is the read-only demo wallet. */
 export const isDemoWalletAtom = atom((get) => get(activeWalletNameAtom) === DEMO_WALLET_ID);
-/** Derived: a usable Preprod wallet is connected. */
+/** Derived: a wallet on the configured network is connected. */
 export const walletReadyAtom = atom(
-  (get) => Boolean(get(activeWalletAtom) && get(networkIdAtom) === 0)
+  (get) => Boolean(get(activeWalletAtom) && get(networkIdAtom) === cardanoNetworkId())
 );
 
 /** Public chain discovery starts while a connection is in progress. */

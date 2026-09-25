@@ -1,7 +1,8 @@
+import { CARDANO_NETWORK, type CardanoNetwork } from "@/lib/cardano-network";
 import { BlockfrostProvider } from "@meshsdk/core";
 import type { IFetcherOptions, UTxO } from "@meshsdk/common";
 import type { ChainMethod } from "@/lib/types/contracts";
-import { requireServerEnv } from "@/lib/env/server-env";
+import { requireServerEnv, getServerEnv, type ServerEnv } from "@/lib/env/server-env";
 import { meshHttpStatus } from "@/lib/mesh/http-error";
 import { fetchAddressUtxosStrict, fetchAssetAddressesStrict, fetchCollectionAssetsStrict } from "./blockfrost-reads";
 
@@ -23,8 +24,21 @@ export const METHOD_VALUES = [
   "get"
 ] as const satisfies readonly ChainMethod[];
 
+export function blockfrostProjectId(network: CardanoNetwork, env: ServerEnv = getServerEnv()) {
+  const keys = {
+    preprod: "BLOCKFROST_PREPROD_PROJECT_ID",
+    preview: "BLOCKFROST_PREVIEW_PROJECT_ID",
+    mainnet: "BLOCKFROST_MAINNET_PROJECT_ID"
+  } as const;
+  const key = requireServerEnv(keys[network], env);
+  if (!key.startsWith(network)) {
+    throw new Error(`${keys[network]} must use a ${network}-prefixed project key.`);
+  }
+  return key;
+}
+
 export function getBlockfrostProvider() {
-  return new BlockfrostProvider(requireServerEnv("BLOCKFROST_PREPROD_PROJECT_ID"));
+  return new BlockfrostProvider(blockfrostProjectId(CARDANO_NETWORK));
 }
 
 export class MeshRpcInputError extends Error {}

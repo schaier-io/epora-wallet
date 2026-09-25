@@ -3,6 +3,15 @@ import { act, renderHook as queryRenderhook, waitFor } from "@testing-library/re
 const renderHook: typeof queryRenderhook = (callback, options) => queryRenderhook(callback, { wrapper: createQueryTestWrapper().wrapper, ...options });
 import { beforeEach, expect, it, vi } from "vitest";
 
+import type * as BetaConsentModule from "@/lib/legal/browser-beta-consent";
+
+const consentCheck = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/legal/browser-beta-consent", async (original) => ({
+  ...await original<typeof BetaConsentModule>(),
+  requireBrowserBetaConsent: consentCheck
+}));
+import { BetaConsentRequiredError } from "@/lib/legal/browser-beta-consent";
+
 type ProposalErrorMessage = (error: unknown, fallback: string) => string;
 type ProposalRequestErrorConstructor = new (message?: string) => Error;
 
@@ -48,6 +57,7 @@ const SESSION = {
 };
 
 beforeEach(() => {
+  consentCheck.mockReset().mockResolvedValue(undefined);
   dependencies.fetchProposalSession.mockReset().mockResolvedValue(SESSION);
   dependencies.completeSignIn.mockReset();
   dependencies.requestSignInNonce.mockReset().mockResolvedValue("nonce");
@@ -131,4 +141,15 @@ it("clears private cached proposals and ignores an old auth response after sign-
   await act(async () => { resolveRead(SESSION); });
   expect(result.current.session).toBeNull();
   expect(queryClient.getQueryData(proposalKeys.session)).toBeNull();
+});
+
+
+it("refuses a wallet authentication signature when beta consent is absent", async () => {
+  consentCheck.mockRejectedValue(new BetaConsentRequiredError());
+  const { result } = renderHook(() => useProposalSession());
+  await waitFor(() => expect(result.current.loading).toBe(false));
+  await act(async () => result.current.signIn());
+  expect(dependencies.walletContext.activeWallet.signData).not.toHaveBeenCalled();
+  expect(dependencies.completeSignIn).not.toHaveBeenCalled();
+  expect(result.current.error).toContain("Reload and accept the current risks and terms");
 });

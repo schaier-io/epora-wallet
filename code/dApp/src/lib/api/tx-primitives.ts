@@ -1,3 +1,6 @@
+import { bech32Encode } from "@/lib/bech32";
+import { CARDANO_NETWORK, cardanoNetworkId } from "@/lib/cardano-network";
+import { paymentCredentialHash } from "@/lib/cardano-addresses";
 import { z } from "zod";
 import type { Data } from "@meshsdk/common";
 import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
@@ -8,7 +11,11 @@ import type { ConstrData } from "@/lib/types/contracts";
 // format gate so an obviously wrong value fails validation with a useful
 // message. `assertServerWalletAddress` in lib/mesh/server-wallet.ts is the
 // authority — it bech32-decodes before any provider call.
-const PREPROD_ADDRESS_PATTERN = /^addr_test1[0-9a-z]{20,}$/;
+const PAYMENT_ADDRESS_EXAMPLE = bech32Encode(
+  CARDANO_NETWORK === "mainnet" ? "addr" : "addr_test",
+  Uint8Array.of(0x60 | cardanoNetworkId(), ...new Uint8Array(28))
+);
+const PAYMENT_ADDRESS_PATTERN = CARDANO_NETWORK === "mainnet" ? /^addr1[0-9a-z]{20,}$/ : /^addr_test1[0-9a-z]{20,}$/;
 
 // JSON Schema cannot apply a numeric maximum to a decimal string. This pattern
 // describes every accepted decimal representation through the uint64 maximum.
@@ -49,13 +56,14 @@ const PlutusIntegerDecimalSchema = z
 
 export const CardanoAddressSchema = z
   .string()
-  .regex(PREPROD_ADDRESS_PATTERN, "Expected a preprod bech32 address starting with `addr_test1`.")
+  .regex(PAYMENT_ADDRESS_PATTERN, `Expected a ${CARDANO_NETWORK} bech32 payment address starting with ${CARDANO_NETWORK === "mainnet" ? "addr1" : "addr_test1"}.`)
+  .refine((address) => paymentCredentialHash(address) !== null, "Invalid payment address or network.")
   .meta({
     id: "CardanoAddress",
     description:
-      "A preprod bech32 payment address. The transaction is built to spend from it, and the caller signs the result.",
+      `A ${CARDANO_NETWORK} bech32 payment address. The transaction is built to spend from it, and the caller signs the result.`,
     example:
-      "addr_test1qz7r704wjqh275anmzsln4ad9e4nwrutnmyvnd32jpzy2kal8d9m8yxj9gwg0ddh4nhj6zqwad8px7u45ljczt4ajfps72xr59"
+      PAYMENT_ADDRESS_EXAMPLE
   });
 
 export const TxHashSchema = z
@@ -238,7 +246,7 @@ export const PayoutTransferSchema = z
     address: z.string().min(1).meta({
       description: "The bech32 address that receives this transfer.",
       example:
-        "addr_test1qz7r704wjqh275anmzsln4ad9e4nwrutnmyvnd32jpzy2kal8d9m8yxj9gwg0ddh4nhj6zqwad8px7u45ljczt4ajfps72xr59"
+        PAYMENT_ADDRESS_EXAMPLE
     }),
     amount: AssetListSchema,
     inlineDatum: ConstrDataSchema.optional()
