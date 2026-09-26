@@ -1,7 +1,7 @@
 % Project Close-out Report for Catalyst Fund 11 project 1100002.
 % Build: cd docs/closeout && tectonic closeout-report.tex
 % Headings follow the Catalyst close-out report template (Fund 12 and Fund 14 knowledge base).
-% Every \missing{...} marks a fact still to supply; the report is final when none remain.
+% Completion date and operating-fund use were confirmed by Sandro on 26 September 2026.
 \documentclass[fontsize=10pt,paper=a4,DIV=16,parskip=half-]{scrartcl}
 \usepackage[english]{babel}
 \usepackage{libertinus}
@@ -73,7 +73,7 @@ Project URL & \href{https://projectcatalyst.io/funds/11/cardano-use-cases-concep
 Project number & 1100002 \\
 Project manager & Sandro Schaier \\
 Date project started & 11 March 2024 \\
-Date project completed & \missing{date of the final milestone submission} \\
+Date project completed & 26 September 2026 \\
 Plan & 7 months, with deliveries from April to October 2024 \\
 Budget & 100,000 ADA in five milestones \\
 Close-out video & \href{https://youtu.be/XKyZoa02kag}{Watch the close-out video on YouTube} \\
@@ -248,11 +248,17 @@ Partially custodial wallets
   The normal wallet will likely stay part of the setup.
 \end{itemize}
 
-\section{Next steps for the product}\label{sec:next}
+\section{Sustainability and next steps}\label{sec:next}
+
+% REPORTED 26 September 2026: Sandro confirmed that received Catalyst funds cover
+% server and other operating costs. Longer-term CIP support is a potential path.
+Epora continues as an open-source project. Received Catalyst funds cover servers and other operating costs.
+Our team plans to maintain the beta and address feedback through the public issue tracker.
+Longer-term, a smart-wallet CIP could support shared maintenance with wallet teams.
+Future funding or revenue would depend on adoption and partner agreements.
 
 \begin{itemize}[leftmargin=1.2em]
-\item \textbf{Mainnet beta.} Run the beta with small funds, and keep collecting feedback.
-  On Mainnet, a notice says that the code has no external audit, and users cannot close it.
+\item \textbf{Mainnet beta.} Run the beta with small funds and keep its permanent unaudited-code notice.
 \item \textbf{A smart-wallet CIP.} EVM chains have smart-account standards, for example ERC-4337 and ERC-7579.
   We plan to draft a similar CIP for Cardano. It would define how a wallet finds a smart wallet, shows its funds and rules, and builds its actions.
   It can build on CIP-141 (Plutus wallets) and CIP-106 (multisig wallets), which both have the status Proposed.

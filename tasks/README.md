@@ -41,7 +41,7 @@ See the [Milestone 5 evidence](milestone-5-mainnet-closeout.md#evidence). Mainne
 
 REPORTED: Sandro confirmed the Vespr retest, outside API guide review, and signed, confirmed API transaction complete.
 The wallet outreach task is complete with the [Discord evidence](../docs/wallet-integration.md).
-The [closeout video](https://youtu.be/XKyZoa02kag) is supplied; the report still needs its completion date.
+The [closeout video](https://youtu.be/XKyZoa02kag) is supplied. REPORTED 2026-09-26: Sandro set the completion date to today and confirmed that received Catalyst funds cover operating costs. The report records both and the longer-term sustainability plan.
 
 REPORTED: Sandro deferred WalletConnect signing/device testing and wallet-signed terms acceptance beyond closeout.
 Checked tasks marked **Closed as deferred** record that decision, not completed implementation.

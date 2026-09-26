@@ -24,7 +24,7 @@ Go live on mainnet as a beta (not externally audited, and we say so), keep fixin
 - [ ] Record the public beta announcement.
 - [ ] Keep sorting feedback/bugs.
 - [x] Wallet-integration thread + talk to interested devs: [outreach record](../docs/wallet-integration.md).
-- [ ] Finalize the [closeout report](../docs/closeout/closeout-report.pdf), including the completion date.
+- [ ] Complete the final submission review of the [closeout report](../docs/closeout/closeout-report.pdf).
 - [x] Closeout video link supplied: [watch on YouTube](https://youtu.be/XKyZoa02kag). REPORTED by Sandro on 26 September 2026. This records the supplied link, not Catalyst approval.
 
 ## Acceptance criteria (Catalyst)
