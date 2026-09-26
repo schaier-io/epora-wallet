@@ -232,10 +232,8 @@ pre-rename `/api/pools`.
 - [ ] Validate all nine active routes and eleven `stt-spend` actions on Preprod.
       Record new evidence against the current revision. The old seven-of-ten
       result includes a different route and action set.
-- [ ] At least one transaction built through the API is signed by a wallet,
-      submitted and confirmed on preprod. Record the transaction hash. It
-      belongs in the Catalyst proof of achievement. **Needs a human to sign**,
-      so it cannot be closed from here.
+- [x] At least one API-built transaction was signed, submitted, and confirmed on Preprod. REPORTED: the user confirmed completion on 2026-09-26. This session did not observe submission or confirmation. The user did not supply a transaction hash with this confirmation.
+      Correction: the previous status said this awaited a human signature. The user's confirmation closes that step. Attach the hash to the Catalyst evidence when available.
 - [x] Publish the transaction paths in the committed specification. VERIFIED:
       [`docs/api/openapi.json`](../../docs/api/openapi.json) includes the active
       routes and the retired route. [The OpenAPI task](m3-api-04-openapi.md) records publication.

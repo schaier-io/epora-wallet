@@ -2,13 +2,17 @@
 
 Mainnet deploy task · [Milestone 5](../milestone-5-mainnet-closeout.md)
 
-Preprod is hardcoded: `NETWORK = "preprod"` in [internals/constants.ts](../../code/dApp/src/lib/mesh/transactions/internals/constants.ts), `STT_CACHE_NETWORK = "preprod"` in [stt-cache/domain.ts](../../code/dApp/src/lib/stt-cache/domain.ts), and the Blockfrost provider reads `BLOCKFROST_PREPROD_PROJECT_ID` only ([blockfrost-server.ts](../../code/dApp/src/lib/mesh/blockfrost-server.ts)). The Koios proxy already knows the mainnet URL. The offchain `.mjs` scripts hardcode preprod too — leave those, they're dev tools.
+VERIFIED 2026-09-26: network configuration is implemented on `main` at `d3b5a239`.
+The earlier claim that the application hardcoded Preprod was stale.
+`src/lib/cardano-network.ts` reads `NEXT_PUBLIC_CARDANO_NETWORK`; both transaction constants and cache domain import `CARDANO_NETWORK`.
+`src/lib/mesh/blockfrost-server.ts` selects `BLOCKFROST_MAINNET_PROJECT_ID` for mainnet.
+Paths above are under `code/dApp`. The [live checks](../milestone-5-mainnet-closeout.md#live-deployment-check-2026-09-26) confirm both deployments respond.
 
 ## Steps
 
-- [ ] One env var (`CARDANO_NETWORK`) feeds both constants and selects the Blockfrost key (`BLOCKFROST_MAINNET_PROJECT_ID` on mainnet).
+- [x] `NEXT_PUBLIC_CARDANO_NETWORK` feeds both constants and selects the network's Blockfrost key. Rebuild after changing it.
 - [ ] `grep -rn '"preprod"' code/dApp/src/` and account for every remaining hit — Koios default, address derivation, explorer links, anything. The audit table goes in the PR.
-- [ ] Update [.env.example](../../code/dApp/.env.example) with the new vars and a one-line "preprod vs mainnet" note.
+- [x] Document the network variables. VERIFIED: `main` at `d3b5a239`, `code/dApp/.env.example:1-9`, contains the build-time network, separate-mainnet-deployment note, and mainnet provider key.
 - [ ] Preprod deployment must behave identically after the change — this lands and soaks on testnet first.
 
 ## Done when

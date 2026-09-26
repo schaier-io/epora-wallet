@@ -23,17 +23,16 @@ guide are what answer it for the off-chain half.
       `koios/credential-utxos` and `proposals`.
 - [x] Link it from the repository README and from the spec's `info.description`.
 
-## Done when
+## Completion status
 
-- Someone outside the project finds a wallet, reads its state and activity, and
-  builds one unsigned transaction, using only this README and the spec. Have one
-  person actually do it. Do not assume it reads clearly.
-  - **Open.** This needs a person who has not read the code. It cannot be
-    closed from inside the project.
+- [x] Publish the developer guide. VERIFIED on 2026-09-26: `origin/main` at `d3b5a239` contains `docs/api/README.md`. Its sections cover pagination (line 235), transaction construction (line 277), errors (line 665), rate limits (line 724), and versioning (line 823).
+- [x] External-reader review. REPORTED: the user confirmed completion on 2026-09-26. This session did not observe that person's test.
+
+Correction, 2026-09-26: the previous status left the external-reader review open. The user's confirmation closes that item. Current-route validation remains in [the transaction-route task](m3-api-09-tx-routes.md).
 
 ## What was written
 
-[`docs/api/README.md`](../../docs/api/README.md), 756 lines. Every response it
+REPORTED historical capture, 2026-08-31: [`docs/api/README.md`](../../docs/api/README.md) then had 756 lines. Every response it
 quotes was captured from a live preprod deployment on 2026-08-31, not written
 from the schemas.
 

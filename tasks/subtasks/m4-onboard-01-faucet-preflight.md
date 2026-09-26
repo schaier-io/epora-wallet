@@ -1,15 +1,22 @@
-# Onboarding: faucet pointer + pre-flight hints
+# Onboarding: faucet pointer and preflight hints
 
-Onboarding & observability task · [Milestone 4](../milestone-4-testnet-feedback.md)
+Onboarding task · [Milestone 4](../milestone-4-testnet-feedback.md)
 
-A tester with an empty wallet is stuck before the first click, and nothing in the app says where preprod tADA comes from.
+VERIFIED by source inspection on 2026-09-26 at `origin/main` (`d3b5a2391e6f58836752ec40e39eec4139f8d886`).
+No tests or deployment drills were run for this task update.
 
-## Steps
+Correction: the earlier claim that the app had no faucet guidance was stale.
+Some requested placements and live tester checks remain open.
 
-- [ ] Link the [preprod faucet](https://docs.cardano.org/cardano-testnets/tools/faucet) from the onboarding view ([workspace-onboarding-view.tsx](../../code/dApp/src/components/user/workspace/workspace-onboarding-view.tsx)) and from `lock-funds` (Add funds) when the connected wallet holds no tADA.
-- [ ] Pre-flight hints on onboarding: no CIP-30 wallet detected → name a few (the wallet list already exists in the view); wallet on the wrong network → say it must be preprod, not a generic failure.
+## Completed
 
-## Done when
+- [x] Link the faucet before testnet entry. VERIFIED: `code/dApp/src/components/layout/risk-disclaimer-gate.tsx:16-33` displays the testnet faucet link.
+- [x] Link the faucet when the send view has no funds. VERIFIED: `code/dApp/src/components/user/workspace/config-sttspend-view.tsx:466-469` renders `PreprodFaucetHint` for an empty wallet.
+- [x] Offer wallet installation links when no extension is detected. VERIFIED: `code/dApp/src/components/layout/wallet-panel.tsx:361-378` links Lace, Eternl, and Vespr.
+- [x] Give network-specific action guidance. VERIFIED: `code/dApp/src/components/user/workspace/workspace-flow-handlers.ts:142-143` rejects a wrong network. `code/dApp/src/components/user/proposals/use-proposal-orchestration.ts:269-273` names the required network before signing.
 
-- A fresh tester gets from landing to a funded wallet using only in-app pointers — watch one try, don't assume.
-- Wrong-network connection produces a specific message, not a dead end.
+## Remaining work and verification
+
+- [ ] Check the dedicated onboarding and Add funds placements requested originally. The verified consent and send-view links do not prove those placements exist.
+- [ ] Watch a fresh tester reach a funded wallet using only in-app guidance.
+- [ ] Record the live wrong-network message and a successful retry after switching networks.

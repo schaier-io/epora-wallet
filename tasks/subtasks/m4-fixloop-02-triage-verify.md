@@ -1,18 +1,22 @@
 # Fix loop: triage, fix, verify, publish
 
-Fix loop task · [Milestone 4](../milestone-4-testnet-feedback.md) · intake from [m4-fixloop-01](m4-fixloop-01-intake.md)
+Fix loop task · [Milestone 4](../milestone-4-testnet-feedback.md)
 
-The loop itself: reports become labeled issues, fixes become verified closes, and the published summary stays honest.
+VERIFIED by source inspection on 2026-09-26 at `origin/main` (`d3b5a2391e6f58836752ec40e39eec4139f8d886`).
+No tests or deployment drills were run for this task update.
 
-## Steps
+Correction: the earlier unchecked list omitted published triage and linked fixes.
+The snapshot closes the recorded batch, not the ongoing feedback process.
 
-- [ ] Weekly triage: label, dedupe, mark what's in milestone scope.
-- [ ] One branch per issue; the PR links the issue; frontend + contracts CI green before merge.
-- [ ] Close with verification: the reporter confirms, or we re-run the failing path on the deployed URL and attach the tx hash or screenshot. "Fixed in code" without a re-test doesn't close.
-- [ ] Keep the published feedback summary (the milestone's Catalyst evidence) current per category as items move — not reconstructed at review time.
+## Completed
 
-## Done when
+- [x] Publish categorized feedback and fix links. VERIFIED: `docs/testnet-feedback.md` contains 49 distinct issue IDs across its category tables. The fixed categories contain 2 + 21 + 13 + 10 = 46 issues. The other categories contain one deferred issue and two non-bugs. This counts the document, not the live tracker.
+- [x] Record the external tester cases and their fixes. REPORTED: `docs/testnet-feedback.md:55-61` records #561/#562 and #565/#568-#571.
+- [x] Complete the live retest for #561. REPORTED: Sandro confirmed completion on 2026-09-26. This replaces the earlier pending retest status.
 
-- Zero unlabelled reports at milestone review.
-- Every `fixed` issue links its PR and its verification.
-- The summary doc matches the issue tracker on the day it's submitted.
+## Remaining work and verification
+
+- [ ] Continue weekly triage and update the published summary as reports arrive.
+- [ ] Check that each fixed issue links both its PR and a deployed retest or reporter confirmation. A merged fix alone does not establish the original verification requirement.
+- [ ] Check frontend and contract CI evidence for each relevant fix. This task update did not inspect every PR's checks.
+- [ ] Compare the published summary with the live tracker on final submission day. The 2026-09-22 snapshot is historical evidence.

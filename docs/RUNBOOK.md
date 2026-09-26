@@ -1,7 +1,7 @@
 # Operations Runbook
 
 Operational procedures for the Epora permission-wallet dApp and its on-chain
-contracts. The dApp is a Next.js app (`code/dApp`) targeting Cardano **preprod**;
+contracts. The dApp is a Next.js app (`code/dApp`) with separate **mainnet beta** and **Preprod** deployments;
 the validators live in `code/smart-contract`. Design rationale is in the
 [whitepaper](../whitepaper/whitepaper.pdf); this document is the *how-to-operate*
 companion. Milestone-level deploy notes live under
@@ -17,9 +17,13 @@ point that ties them together.
 | --- | --- | --- |
 | dApp | Vercel (Next.js) | Production auto-deploys from `main`; PR previews on `/deploy` comment |
 | Database | Postgres (Prisma 7, `@prisma/adapter-pg`) | Schema in `code/dApp/prisma/schema.prisma` |
-| Chain access | Blockfrost (preprod) + Koios proxy | Server-side only; no key reaches the browser |
+| Chain access | Network-specific Blockfrost + Koios proxy | Server-side only; no key reaches the browser |
 | STT reference script | On-chain reference UTxO | Redeployed when validators change (§6) |
 | Contract blueprint | `code/smart-contract/plutus.json` | Mirrored into the dApp by `pnpm sync:blueprint` |
+
+VERIFIED 2026-09-26: [mainnet](https://mainnet.epora.io/api/health) and [Preprod](https://www.epora.io/api/health) returned HTTP 200 with `"database":"up","indexer":"up"`.
+This corrects the earlier Preprod-only description. [Milestone 5](../tasks/milestone-5-mainnet-closeout.md#live-deployment-check-2026-09-26) records the measurements and their limits.
+Network settings below were inspected on `main` at `d3b5a239`; the closeout branch predates those application changes.
 
 ---
 
@@ -94,12 +98,16 @@ migration (column/table drops).
 | `STT_SYNC_SECRET` | `src/app/api/stt/sync/route.ts` | Bearer secret guarding the background STT sync route. |
 | `CRON_SECRET` | Vercel Cron → `GET /api/stt/sync` | Vercel sends this as `Authorization: Bearer …` on the 5-minute indexer cron. Set it to the same value as `STT_SYNC_SECRET`. |
 | `BLOCKFROST_PREPROD_PROJECT_ID` | server chain proxies | Blockfrost preprod access. |
+| `BLOCKFROST_MAINNET_PROJECT_ID` | server chain proxies | Blockfrost mainnet access. |
 | `DATABASE_URL` | Prisma | Postgres connection string. |
 | `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | client WalletConnect | Optional; CIP-45 pairing. Public by design. |
 | `KOIOS_URL` | Koios proxy | Optional endpoint override. |
 
 Full descriptions are in [`code/dApp/README.md`](../code/dApp/README.md) and
 [`code/dApp/.env.example`](../code/dApp/.env.example).
+
+VERIFIED at `d3b5a239`: the public build-time variable `NEXT_PUBLIC_CARDANO_NETWORK` selects `mainnet`, `preprod`, or `preview`.
+It is not a secret. Rebuild when changing it; keep deployment secrets and databases separate.
 
 ### Rotation procedure
 
@@ -318,4 +326,3 @@ auth token set).
 
 Until a DSN is configured, production errors remain visible in Vercel runtime
 logs; filter on `"level":"error"`.
-

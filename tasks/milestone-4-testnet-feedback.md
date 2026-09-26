@@ -1,4 +1,4 @@
-# Milestone 4 — Testnet Launch & Feedback
+# Milestone 4: Testnet Launch and Feedback
 
 Get it onto a public testnet, put it in front of people, fix what they hit.
 
@@ -10,27 +10,38 @@ REPORTED: Sandro confirmed the Preprod launch on 2026-09-14.
 This corrects the earlier unchecked public-launch status. The operational
 checks and feedback tasks below still need their own completion evidence.
 
+## Status correction (2026-09-26)
+
+VERIFIED: source inspection used `origin/main` at `d3b5a2391e6f58836752ec40e39eec4139f8d886`.
+The old checklist mixed completed implementation with outstanding live checks.
+The subtasks now separate those states. No tests or deployment drills were run for this update.
+
 ## Development tasks
 
-- [ ] **Deploy to testnet** — the app already targets preprod; this is hosting it publicly and writing down what got deployed.
-  - [ ] [Host, database, secrets (+ dev-fallback refusal)](subtasks/m4-deploy-01-hosting.md)
+- [x] **Public testnet deployment**. The launch and working health endpoint are recorded above and in the evidence below. The remaining deployment checks are separate tasks.
+  - [ ] [Host configuration and remaining environment verification](subtasks/m4-deploy-01-hosting.md)
   - [ ] [`prisma migrate deploy` in the release step + drift check](subtasks/m4-deploy-02-migrations.md)
-  - [x] [Schedule the indexer — cron on `/api/stt/sync`](subtasks/m4-deploy-03-sync-cron.md) — Vercel cron in `vercel.json`. First production run still needs `CRON_SECRET` in Vercel (same value as `STT_SYNC_SECRET`).
+  - [x] Configure the indexer cron. VERIFIED: `code/dApp/vercel.json:10-15` defines the five-minute schedule.
+  - [ ] [Record 24 hours of unattended indexer runs](subtasks/m4-deploy-03-sync-cron.md).
   - [ ] [Deploy the shared STT reference store, record it](subtasks/m4-deploy-04-reference-store.md)
   - [ ] [Smoke pass + evidence (URL, validator hashes, tx hashes)](subtasks/m4-deploy-05-smoke-evidence.md)
-- [ ] **Onboarding & observability** — testers get themselves funded; we see what breaks without being told.
-  - [ ] [Faucet pointer + pre-flight hints](subtasks/m4-onboard-01-faucet-preflight.md)
+- [ ] **Onboarding & observability**. Implementation and live checks are separate below.
+  - [x] Add faucet links, wallet installation links, and network checks. VERIFIED: [source locations](subtasks/m4-onboard-01-faucet-preflight.md#completed).
+  - [ ] [Finish placement checks and observe a fresh tester](subtasks/m4-onboard-01-faucet-preflight.md#remaining-work-and-verification).
   - [x] [Visible feedback links (Discord, issues)](subtasks/m4-onboard-02-feedback-links.md)
-  - [ ] [Error sink for crashes, failed submits, API 500s](subtasks/m4-onboard-03-error-sink.md)
-- [ ] **Fix loop** — reports become labeled issues, fixes become verified closes.
-  - [x] [Intake — issue templates, labels, Discord-to-issue](subtasks/m4-fixloop-01-intake.md) — templates and labels exist. Discord copy is the standing rule; none were on file for this snapshot.
-  - [ ] [Triage, fix, verify, publish](subtasks/m4-fixloop-02-triage-verify.md)
-  - [ ] [Rules for contract-touching fixes (hash changes, re-test, store redeploy)](subtasks/m4-fixloop-03-contract-redeploys.md)
+  - [x] Implement Sentry capture, scrubbing, and release attribution. VERIFIED: [source locations](subtasks/m4-onboard-03-error-sink.md#completed).
+  - [ ] [Verify caught render errors and live event delivery](subtasks/m4-onboard-03-error-sink.md#remaining-work-and-verification).
+- [ ] **Fix loop**. The published batch is recorded. Ongoing verification remains open.
+  - [x] [Intake: issue forms, categories, and Discord reports](subtasks/m4-fixloop-01-intake.md). VERIFIED: forms and category definitions exist. REPORTED: the feedback page now includes Discord issue #565.
+  - [x] Publish the categorized batch and its fix links. VERIFIED: [49 document entries, 46 categorized as fixed](subtasks/m4-fixloop-02-triage-verify.md#completed).
+  - [ ] [Continue triage and verify each closure](subtasks/m4-fixloop-02-triage-verify.md#remaining-work-and-verification).
+  - [x] Document the contract redeploy procedure. VERIFIED: `docs/RUNBOOK.md:209-220`.
+  - [ ] [Complete and verify the contract-change checklist](subtasks/m4-fixloop-03-contract-redeploys.md#remaining-work-and-verification).
 
 ## Non-development tasks
 
 - [ ] Announce launch (Discord, Twitter/X).
-- [ ] Tester guide — connect, fund, try each feature.
+- [ ] Tester guide: connect, fund, and try each feature.
 - [x] Collect + sort feedback (feasible/fixed/next/not-a-bug); publish.
 
 ## Acceptance criteria (Catalyst)
@@ -57,4 +68,7 @@ VERIFIED from `code/smart-contract/plutus.json` on this branch:
 
 REPORTED production spend on Preprod (epora.io, 4 Sep 2026, 2-of-2 send): [`64c01da1705083a6565b0f6a56cc5674396757e45426e3f80dbca3def0a6f731`](https://preprod.cardanoscan.io/transaction/64c01da1705083a6565b0f6a56cc5674396757e45426e3f80dbca3def0a6f731)
 
-Health at evidence time: `GET https://www.epora.io/api/health` returned 503 (indexer never stamped a sync). The Vercel cron is the fix. It starts after merge to `main` plus `CRON_SECRET` in Vercel Production.
+Correction: the earlier `503` sample and merge blocker are historical, not the current deployment status.
+REPORTED: `docs/testnet-feedback.md:150` records HTTP `200`, database/indexer `up`, and `recentHeadFresh: true` on 2026-09-22.
+REPORTED: the parent reviewer measured Preprod health at 2026-09-26 00:39:26 UTC: HTTP `200`, `status: ok`, `database: up`, `indexer: up`, `recentHeadFresh: true`, `walletReconcileFresh: true`, `historyBackfillCompleted: true`.
+These samples do not establish 24 hours of unattended cron operation.
