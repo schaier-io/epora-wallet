@@ -33,7 +33,7 @@ Milestone 4 feedback record: https://github.com/schaier-io/epora-wallet/blob/mai
 
 C. Output: Communication about potential wallet integration
 
-Delivered: We contacted wallet developers about native smart-wallet integration and a possible Cardano Improvement Proposal. A public message in Eternl's Discord on 24 September 2026 introduces Epora and asks about integration interest. The repository includes a screenshot, so reviewers can inspect the communication without a Discord account. The outreach record also lists contact with Begin Wallet and other developers. Eternl replied by direct message. Further integration discussions remain follow-up work.
+Delivered: Wallet developers were contacted about native smart-wallet integration and a possible Cardano Improvement Proposal. A public message in Eternl's Discord on 24 September 2026 introduces Epora and asks about integration interest. The repository includes a screenshot, so reviewers can inspect the communication without a Discord account. The outreach record also lists contact with Begin Wallet and other developers. Eternl replied by direct message. Further integration discussions remain follow-up work.
 
 Acceptance criteria: Communication with potential wallet developers, if wallet developers or the community express interest. The milestone requires communication about potential collaboration; it does not require a completed wallet integration.
 
@@ -45,7 +45,7 @@ API and integration guide: https://github.com/schaier-io/epora-wallet/blob/main/
 
 D. Output: Project Completion Report
 
-Delivered: The report uses Catalyst's current headings: Deliverables, Usage, Impact, and Sustainability. It describes the contract system, application, API, intended users, and user workflow. It includes the approved Milestone 1, 2, and 3 references, measured mainnet activity, transaction fees, feedback results, and the closeout video link. It records lessons from delivery and explains maintenance and future work. Epora has no revenue yet; received Catalyst funds cover servers and other operating costs. Open operational checks and deferred features remain explicit.
+Delivered: The report uses Catalyst's current headings: Deliverables, Usage, Impact, and Sustainability. It describes the contract system, application, API, intended users, and user workflow. It includes the approved Milestone 1, 2, and 3 references, measured mainnet activity, transaction fees, feedback results, and the closeout video link. It records lessons from delivery and explains maintenance and future work. No revenue is currently generated. Server and other operating costs are covered by received Catalyst funds. Any external audit depends on community feedback on the proposed CIP and its implementation. If needed, the audit is intended to be financed through a separate funding round, not existing Catalyst or personal funds. Open operational checks and deferred features remain explicit.
 
 Acceptance criteria: A Project Closeout Report, supplied through an accessible link in the final milestone submission.
 

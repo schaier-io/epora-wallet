@@ -48,7 +48,7 @@ Every row links the GitHub issue and the pull request that answers it.
 
 ## External tester reports
 
-Feedback from people outside the team. Both reports led to code changes.
+Feedback from external testers. Both reports led to code changes.
 
 | Issue | Reporter | Report | Category | Fix |
 | --- | --- | --- | --- | --- |

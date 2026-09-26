@@ -7,7 +7,7 @@ Milestone 5 asks for communication with potential wallet developers, if wallet d
 
 **Milestone task: completed.**
 The [Discord screenshot](#eternl-message) records outreach to Eternl about a native integration and a smart-wallet CIP.
-We also contacted Begin Wallet and other developers. Communication is complete; integration discussions continue.
+Begin Wallet and other developers were also contacted. Communication is complete; integration discussions continue.
 The milestone requires communication about potential collaboration, not a completed wallet integration.
 
 | Wallet | Outreach | Status |
@@ -22,6 +22,6 @@ In the message, Sandro (Discord user `Spl45h`) introduces epora.io and a plan to
 The message asks if Eternl is interested, including a native integration into Eternl.
 
 The Discord link needs a sign-in, so the screenshot below shows the same message.
-We redacted the messages from other users.
+The screenshot omits messages from other users.
 
 ![Sandro's wallet-integration message in the #general channel of the Eternl Discord, 24 September 2026](assets/eternl-discord-wallet-integration.webp)

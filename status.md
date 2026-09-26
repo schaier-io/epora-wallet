@@ -14,7 +14,7 @@ Recovery drills and wider economics checks remain open in the [Milestone 5 check
 The [report](docs/closeout/closeout-report.pdf) covers Deliverables, Usage, Impact, and Sustainability.
 The [submission text](docs/closeout/milestone-5-submission.txt) maps outputs A-E to the approved acceptance criteria and evidence.
 The [submission checklist](docs/closeout/submission-review.md) explains the evidence scope and publication steps.
-The report records that Epora has no revenue yet and that Catalyst funds cover operating costs.
+The report records that no revenue is currently generated and that operating costs are covered by received Catalyst funds.
 Publication on `main` and Catalyst acceptance are separate steps.
 
 ## Network and beta acknowledgement

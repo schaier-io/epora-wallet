@@ -30,7 +30,7 @@ The approved [final milestone](https://milestones.projectcatalyst.io/projects/11
 Output A states the unaudited beta scope. Output B describes fixes and improvements.
 Output C records communication about potential collaboration. Native wallet integration remains future work.
 The report describes the whole product, intended users, measured activity, lessons, maintenance, and funding.
-Epora has no revenue yet. Received Catalyst funds cover servers and other operating costs.
+No revenue is currently generated. Server and other operating costs are covered by received Catalyst funds. Any external audit depends on community feedback on the proposed CIP and its implementation. If needed, the audit is intended to be financed through a separate funding round, not existing Catalyst or personal funds.
 
 ## Evidence scope
 
