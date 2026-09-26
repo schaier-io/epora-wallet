@@ -1,22 +1,22 @@
 # Smart contract state diagram and action cycles
 
-VERIFIED source snapshot: working tree based on `cd5b89e11919b0f9613d3ea4e522a476503e8432`, read on 2026-09-07.
+Source snapshot: working tree based on `cd5b89e11919b0f9613d3ea4e522a476503e8432`, read on 2026-09-07.
 This snapshot includes the change that validates beneficiary STT destinations at creation and update.
 The diagrams describe executable Aiken code in this checkout. Comments and the whitepaper are not evidence here.
 
-VERIFIED scope: 14 STT spend action kinds, STT minting, and the wallet's three governance entrypoints.
+Scope: 14 STT spend action kinds, STT minting, and the wallet's three governance entrypoints.
 The action inventory comes from [SttAction and OperatorActionKind](../code/smart-contract/lib/state/types.ak#L175),
 [STT dispatch](../code/smart-contract/validators/stt.ak#L178), and [wallet entrypoints](../code/smart-contract/validators/wallet.ak#L33).
 Receiving funds and rejected purposes appear separately at the end.
 
-INFERRED examples: Every example below is a hypothetical transaction sequence derived from those checks.
+Every example below is a hypothetical transaction sequence derived from those checks.
 These examples were not submitted or executed as contract tests. They assume valid configuration, addresses, asset encodings, and ledger transactions.
 Fees and required output ADA come from external inputs. Amounts show ADA for readability, with calculations in lovelace.
 Each example starts independently. A cycle shows the next possible action, not necessarily a return to the original state.
 
 ## Read the state correctly
 
-VERIFIED: `State` stores access records, proof-of-life settings, streams, wallet name, intended stake credential, and the shared payout timestamp.
+`State` stores access records, proof-of-life settings, streams, wallet name, intended stake credential, and the shared payout timestamp.
 There is no stored `Active`, `Expired`, or `Closed` enum. See [State](../code/smart-contract/lib/state/types.ak#L129).
 
 Every successful STT spend consumes one state output and creates its successor at the same full address.
@@ -37,7 +37,7 @@ stateDiagram-v2
     Next --> Current: Use successor as the next input
 ```
 
-VERIFIED: Recovery eligibility is a derived view of the state and transaction time.
+Recovery eligibility is a derived view of the state and transaction time.
 The following diagram shows the recovery path with a fixed access configuration.
 Operator updates and removals can change that configuration separately.
 An elapsed deadline does not disable operators, allowance users, or eligible renewal users.
@@ -58,7 +58,7 @@ stateDiagram-v2
     Final --> Final: UseBeneficiary or DistributeBeneficiaries
 ```
 
-VERIFIED: The final beneficiary remains listed after `UseBeneficiary`.
+The final beneficiary remains listed after `UseBeneficiary`.
 `DistributeBeneficiaries` preserves the list.
 These transitions follow [user_handlers.ak:224](../code/smart-contract/lib/stt/user_handlers.ak#L224)
 and [:302](../code/smart-contract/lib/stt/user_handlers.ak#L302).
@@ -69,7 +69,7 @@ An authorized renewal can put either unlocked state back into `None unlocked`.
 
 ## Permissions and shared checks
 
-VERIFIED permission definitions:
+Permission definitions:
 
 | Name used below | Exact contract condition | Executable evidence |
 | --- | --- | --- |
@@ -82,7 +82,7 @@ VERIFIED permission definitions:
 | Single authorized beneficiary | Exactly one beneficiary record is both signed and unlocked. Its ID equals the declared ID. | [authorization.ak:97](../code/smart-contract/lib/state/authorization.ak#L97), [user_handlers.ak:410](../code/smart-contract/lib/stt/user_handlers.ak#L410) |
 | Payee | The payout address has a verification-key payment credential, and that key signs. A script payee cannot use this signature path. | [authorization.ak:237](../code/smart-contract/lib/state/authorization.ak#L237) |
 
-VERIFIED time rules: `L` and `U` denote the transaction's lower and upper bound values, in milliseconds.
+Time rules: `L` and `U` denote the transaction's lower and upper bound values, in milliseconds.
 `D = 86,400,000` milliseconds. The code reads finite bound values without inspecting their inclusivity flags.
 See [time/bounds.ak:35](../code/smart-contract/lib/time/bounds.ak#L35) and [constants.ak:12](../code/smart-contract/lib/constants.ak#L12).
 
@@ -99,7 +99,7 @@ An admin signature exempts only `PayStreamingPayment` from cooldown. Other actio
 See [payout authority](../code/smart-contract/lib/stt/settlement_handlers.ak#L120),
 [stop checks](../code/smart-contract/lib/stt/settlement_handlers.ak#L297), and [beneficiary cadence](../code/smart-contract/lib/stt/user_handlers.ak#L386).
 
-VERIFIED transaction boundaries: Wallet movement checks run when a wallet input is consumed.
+Transaction boundaries: Wallet movement checks run when a wallet input is consumed.
 An STT-only transition does not by itself prove that wallet funds moved.
 Stream payout outputs are also checked on the STT side, so external inputs can fund a stream payout.
 See [wallet spend](../code/smart-contract/lib/wallet/spend.ak#L22) and [STT payout](../code/smart-contract/lib/stt/settlement_handlers.ak#L62).
@@ -120,7 +120,7 @@ See [STT value check](../code/smart-contract/lib/stt/io.ak#L233) and [operator u
 
 ## Every STT action and its permission
 
-VERIFIED: Each branch below consumes `S` and produces its successor `S'`.
+Each branch below consumes `S` and produces its successor `S'`.
 The labels summarize permissions. The tables supply action-specific limits and source evidence.
 
 ### Operator transitions
@@ -147,7 +147,7 @@ flowchart LR
 | `RunOperator(RemoveAccessIndex(target))` | Remove exactly one zero-based `UserIndex` or `BeneficiaryIndex`. Preserve other fields. Require a remaining admin, reachable multisig, or beneficiary path. | Rejected. | [operator_handlers.ak:194](../code/smart-contract/lib/stt/operator_handlers.ak#L194), [preservation.ak:228](../code/smart-contract/lib/stt/preservation.ak#L228) |
 | `RunOperator(SetIntendedStakeCredential(target))` | Set only the intended credential to the redeemer target. Target is `None` or a valid key/script credential. | Rejected. Existing wallet outputs keep their addresses until a later spend. | [operator_handlers.ak:238](../code/smart-contract/lib/stt/operator_handlers.ak#L238), [credentials.ak:15](../code/smart-contract/lib/state/credentials.ak#L15) |
 
-VERIFIED details: `UpdateState` validates the output configuration but does not apply the bounded-renewal rule to proof-of-life changes.
+Details: `UpdateState` validates the output configuration but does not apply the bounded-renewal rule to proof-of-life changes.
 For stream management, an ordinary existing stream's new end must be at least `max(start+1, min(old_end, U))`.
 Without a finite `U`, its floor is `old_end`. An existing zero-duration stream has floor `start`.
 Operators can extend a previously shortened stream. Stream management itself does not inspect wallet funding.
@@ -181,24 +181,24 @@ flowchart LR
 | `DistributeBeneficiaries(id)` | All beneficiaries unlocked, declared initiator signed, and no streams. Preserve beneficiary list. Apply cooldown only with one input-state beneficiary. | Exactly one wallet input, zero wallet change outputs. Pay tagged shares to every configured full payout address. | [user_handlers.ak:302](../code/smart-contract/lib/stt/user_handlers.ak#L302), [rules.ak:92](../code/smart-contract/lib/wallet/rules.ak#L92) |
 | `StopBeneficiaryStream(beneficiary_id, stream_id)` | Single authorized beneficiary. Set target end exactly to `max(start, U)`, strictly below old end. Preserve paid amount and beneficiary list. Always apply cooldown. | Rejected. | [user_handlers.ak:267](../code/smart-contract/lib/stt/user_handlers.ak#L267), [settlement_handlers.ak:297](../code/smart-contract/lib/stt/settlement_handlers.ak#L297) |
 
-VERIFIED allowance math: At `L >= old_reset`, available allowance becomes the daily grant. Otherwise, use the old remaining amount.
+Allowance math: At `L >= old_reset`, available allowance becomes the daily grant. Otherwise, use the old remaining amount.
 Every use sets `new_reset = max(old_reset, U+D)`, even when no reset was due.
 See [allowance availability](../code/smart-contract/lib/state/allowance.ak#L228) and [next reset](../code/smart-contract/lib/state/allowance.ak#L260).
 
-VERIFIED share math: For each withdrawn asset, the earlier beneficiary's cap is
+Share math: For each withdrawn asset, the earlier beneficiary's cap is
 `floor(weight * max(0, consumed_wallet_amount - reserve) / total_input_beneficiary_weight)`.
 This uses consumed wallet inputs, not all funds at the wallet address. There is no minimum withdrawal.
 Allowance and beneficiary use require wallet output count no greater than input count.
 See [beneficiary_share.ak:46](../code/smart-contract/lib/wallet/beneficiary_share.ak#L46) and [wallet/rules.ak:31](../code/smart-contract/lib/wallet/rules.ak#L31).
 
-VERIFIED reserves: An unsettled stream reserves `max(0, accrued_at(U)+1-paid_out_amount)` units of its asset.
+Reserves: An unsettled stream reserves `max(0, accrued_at(U)+1-paid_out_amount)` units of its asset.
 A fully settled stream contributes zero. The extra unit is one lovelace for an ADA stream.
 Operator use and final-beneficiary use check the full reserve. Allowance and earlier beneficiary use check reserves for withdrawn assets.
 These checks prevent withdrawals from reducing protected funds. They do not require an actor to repair an existing shortfall.
 See [funding.ak:332](../code/smart-contract/lib/streaming_payments/funding.ak#L332),
 [reserve.ak:35](../code/smart-contract/lib/wallet/reserve.ak#L35), and [funding checks](../code/smart-contract/lib/streaming_payments/funding.ak#L119).
 
-VERIFIED distribution math: Every asset must divide exactly by beneficiary weights.
+Distribution math: Every asset must divide exactly by beneficiary weights.
 For each beneficiary, require `(quantity * weight) % total_weight == 0`.
 Exactly one tagged output must reach its configured full address. Native assets must equal the calculated share exactly.
 ADA may exceed its calculated share through external top-up. No extra native assets may appear in that payout output.
@@ -228,7 +228,7 @@ flowchart LR
 | `CancelStreamingPayment(id)` | Target payee signs. Require `max(start,U) <= new_end < old_end`. After sole-beneficiary unlock, require exact `new_end=max(start,U)`. Always apply cooldown. | Rejected. No payout or stream removal occurs. | [settlement_handlers.ak:260](../code/smart-contract/lib/stt/settlement_handlers.ak#L260), [forwarding.ak:136](../code/smart-contract/lib/streaming_payments/forwarding.ak#L136) |
 | `Consolidate(path)` | `AdminPath`, `MultisigPath`, or `BeneficiaryPath` authority. Preserve all state fields and the payout stamp. | Preserve aggregate value exactly. Merge or split outputs. No output-count cap. | [authorization.ak:170](../code/smart-contract/lib/state/authorization.ak#L170), [settlement_handlers.ak:361](../code/smart-contract/lib/stt/settlement_handlers.ak#L361), [rules.ak:179](../code/smart-contract/lib/wallet/rules.ak#L179) |
 
-VERIFIED payout details: Both time bounds must be finite for all payouts, including admin payouts.
+Payout details: Both time bounds must be finite for all payouts, including admin payouts.
 Admin payouts do not apply the one-hour width limit or thirty-minute cooldown.
 Partial payouts cannot exceed unpaid accrual at `L`. Retained streams keep owing some lifetime value.
 Matured or already fully settled entries can leave the list, with their unpaid remainder paid on removal.
@@ -237,7 +237,7 @@ See [payout authority](../code/smart-contract/lib/stt/settlement_handlers.ak#L12
 [retained entries](../code/smart-contract/lib/streaming_payments/payout.ak#L171),
 [removal](../code/smart-contract/lib/streaming_payments/payout.ak#L235), and [payout amount](../code/smart-contract/lib/streaming_payments/payout.ak#L296).
 
-VERIFIED routing: A positive stream payment requires the configured full address and an inline payout tag.
+Routing: A positive stream payment requires the configured full address and an inline payout tag.
 The tag contains the stream ID and consumed STT reference. Wallet-funded payouts also check all outgoing payout assets.
 Cancellation preserves stream fields except the target end date, but may reorder the stream list because matching uses IDs.
 See [tagged payment checks](../code/smart-contract/lib/streaming_payments/payout.ak#L363),
@@ -245,7 +245,7 @@ See [tagged payment checks](../code/smart-contract/lib/streaming_payments/payout
 
 ## Separate example cycles
 
-All examples in this section are INFERRED illustrations, not executed transactions.
+All examples in this section are hypothetical illustrations, not executed transactions.
 `S` denotes the complete datum. Unmentioned fields remain unchanged.
 Examples without stated streams use an empty stream list. Time labels are offsets from a valid example origin.
 
@@ -258,7 +258,7 @@ flowchart TB
     C -->|"Alice can authorize later actions"| D["Continuing state thread"]
 ```
 
-VERIFIED rule: Mint validates configuration and fresh unpaid streams, and requires one token under its policy.
+Rule: Mint validates configuration and fresh unpaid streams, and requires one token under its policy.
 Beneficiary payout addresses must not use the STT payment credential.
 Its name is `blake2b_256(transaction_id || uint32be(output_index))` for a consumed input.
 The STT output uses the policy's script payment credential, no stake credential, and an inline datum.
@@ -274,7 +274,7 @@ flowchart TB
     B -->|"Alice signs another Admin Use"| C["S; wallet 85 ADA<br/>Another 5 ADA paid"]
 ```
 
-INFERRED alternative: Users with powers 2 and 1 can sign the same cycle through `Multisig` with threshold 3.
+Example alternative: Users with powers 2 and 1 can sign the same cycle through `Multisig` with threshold 3.
 The example preserves proof of life. Either operator path can optionally renew it within the renewal window.
 Evidence: [operator use](../code/smart-contract/lib/stt/operator_handlers.ak#L33), [multisig sum](../code/smart-contract/lib/state/configuration.ak#L266).
 
@@ -286,7 +286,7 @@ flowchart TB
     B -->|"Bob spends after his reset is due"| C["UseAllowance of 2 ADA<br/>Bob has 6 ADA remaining"]
 ```
 
-VERIFIED rule: The new configuration must pass full validation. Current input-state authority authorizes the change.
+Rule: The new configuration must pass full validation. Current input-state authority authorizes the change.
 Beneficiary payout addresses must not use the STT payment credential. The maintained frontend also checks the derived wallet credential.
 The output beneficiary destinations must not use the STT payment credential. An update can replace an incompatible input destination.
 Multisig can also update access and proof of life, but its selected path cannot rename the wallet.
@@ -301,7 +301,7 @@ flowchart TB
     C -->|"Operator signs ManageStreamingPayments"| D["End moves to day 6<br/>Paid amount stays 10"]
 ```
 
-VERIFIED rule: Both Admin and Multisig can run management. Creating the stream does not itself transfer or reserve a separate funding UTxO.
+Rule: Both Admin and Multisig can run management. Creating the stream does not itself transfer or reserve a separate funding UTxO.
 Evidence: [management](../code/smart-contract/lib/stt/operator_handlers.ak#L134), [forwarding](../code/smart-contract/lib/streaming_payments/forwarding.ak#L52).
 
 ### 5. RunOperator(RemoveAccessIndex)
@@ -314,7 +314,7 @@ flowchart TB
     D -->|"Remaining operator authorizes next action"| E
 ```
 
-VERIFIED rule: Targets are zero-based positions in the input lists, not stored user or beneficiary IDs.
+Rule: Targets are zero-based positions in the input lists, not stored user or beneficiary IDs.
 Both operator paths work. At least one permitted access path must remain.
 Evidence: [remove handler](../code/smart-contract/lib/stt/operator_handlers.ak#L194), [list removal](../code/smart-contract/lib/stt/preservation.ak#L228).
 
@@ -326,7 +326,7 @@ flowchart TB
     B -->|"Authorized Consolidate"| C["Same wallet value<br/>Continuing outputs use stake K"]
 ```
 
-VERIFIED rule: The target can be `None`, a key credential, or a script credential.
+Rule: The target can be `None`, a key credential, or a script credential.
 The later wallet spend applies the new target. The STT output's own full address remains pinned.
 Evidence: [stake setter](../code/smart-contract/lib/stt/operator_handlers.ak#L238), [wallet stake check](../code/smart-contract/lib/wallet/stake_pinning.ak#L69).
 
@@ -338,7 +338,7 @@ flowchart TB
     B -->|"Same eligible user renews near day 5"| C["Unlock day 7<br/>Beneficiary recovery deferred"]
 ```
 
-INFERRED intervals: First use `[4D,4D+60,000]`, then `[5D,5D+60,000]`.
+Example intervals: First use `[4D,4D+60,000]`, then `[5D,5D+60,000]`.
 Both new deadlines strictly increase and satisfy `U <= new_unlock <= L+3D`.
 An admin uses operator `Use` for optional renewal. Admin status alone does not permit this dedicated action.
 Evidence: [dedicated renewal](../code/smart-contract/lib/stt/user_handlers.ak#L36), [eligibility](../code/smart-contract/lib/stt/user_handlers.ak#L201).
@@ -351,7 +351,7 @@ flowchart TB
     B -->|"After new reset: user spends 20"| C["Effective allowance 100<br/>Remaining 80; wallet 165<br/>Reset advances again"]
 ```
 
-INFERRED first interval: `[9D,9D+60,000]`. Therefore the first new reset is `10D+60,000`.
+Example first interval: `[9D,9D+60,000]`. Therefore the first new reset is `10D+60,000`.
 The example leaves proof of life unchanged. The second spend uses a lower bound at or after that new reset.
 Evidence: [allowance transition](../code/smart-contract/lib/state/allowance.ak#L134), [reset calculation](../code/smart-contract/lib/state/allowance.ak#L260).
 
@@ -364,7 +364,7 @@ flowchart TB
     C -->|"New 20 ADA deposit; wait for cooldown"| D["B2 repeats UseBeneficiary<br/>Recovers 20; B2 still remains"]
 ```
 
-INFERRED setup: The first transaction consumes the entire 400 ADA pool. No streams exist.
+Example setup: The first transaction consumes the entire 400 ADA pool. No streams exist.
 The first removal preserves the prior stamp. B2's first recovery must respect that prior stamp if present.
 The final branch permits future recovery because it retains B2.
 Evidence: [beneficiary use](../code/smart-contract/lib/stt/user_handlers.ak#L224), [share cap](../code/smart-contract/lib/wallet/beneficiary_share.ak#L69).
@@ -377,14 +377,14 @@ flowchart TB
     B -->|"Later 40 ADA input; repeat distribution"| C["Tagged payouts: B1 10, B2 30<br/>Both remain"]
 ```
 
-VERIFIED rule: All beneficiaries must be unlocked, but only the declared initiator needs to sign.
+Rule: All beneficiaries must be unlocked, but only the declared initiator needs to sign.
 Each payout uses its configured address and a tag bound to the current STT input.
 With multiple beneficiaries, this cycle preserves the cooldown stamp. A singleton distribution uses cooldown.
 Evidence: [distribution authority](../code/smart-contract/lib/stt/user_handlers.ak#L302), [exact shares](../code/smart-contract/lib/wallet/beneficiary_distribution.ak#L12).
 
 ### 11. Reserved constructor index 7
 
-VERIFIED: Both validators reject constructor index 7, formerly `ExitBeneficiary`.
+Both validators reject constructor index 7, formerly `ExitBeneficiary`.
 It cannot change State or spend wallet funds.
 `UseBeneficiary` keeps the final beneficiary for repeated recovery.
 Evidence: [STT dispatch](../code/smart-contract/validators/stt.ak),
@@ -399,7 +399,7 @@ flowchart TB
     B -->|"After cooldown, beneficiary signs payout"| C["Pay remaining 400 ADA<br/>Remove stream 7"]
 ```
 
-INFERRED stop interval: `[10D-60,000,10D]`. The existing stamp permits this interval.
+Example stop interval: `[10D-60,000,10D]`. The existing stamp permits this interval.
 The stop fixes lifetime value at 1,000 ADA. Later settlement pays the unpaid 400 ADA.
 The payee does not need to sign the stop.
 Evidence: [beneficiary stop](../code/smart-contract/lib/stt/user_handlers.ak#L267), [exact cutoff](../code/smart-contract/lib/stt/settlement_handlers.ak#L328).
@@ -412,7 +412,7 @@ flowchart TB
     B -->|"Eligible signer settles at day 4"| C["Payee gets remaining 30<br/>Wallet 60; stream removed"]
 ```
 
-INFERRED intervals: Use `L=D, U=D+60,000` for the first payment.
+Example intervals: Use `L=D, U=D+60,000` for the first payment.
 Use `L=4D, U=4D+60,000` for the second. The payee can sign while final recovery is inactive.
 After final recovery activates, an admin or the sole beneficiary signs settlement instead.
 An admin can execute the same payments without advancing the cooldown stamp.
@@ -426,7 +426,7 @@ flowchart TB
     B -->|"Eligible signer pays after cooldown"| C["Pay 10 ADA<br/>Remove stream 7"]
 ```
 
-INFERRED cancel interval: `[D-60,000,D]`, with prior stamp `None`.
+Example cancel interval: `[D-60,000,D]`, with prior stamp `None`.
 Set `end=D`. This also satisfies the exact cutoff required after final recovery opens.
 The later payout needs its own authorized signer. Cancel permission alone does not grant payout permission after final recovery.
 Evidence: [cancel](../code/smart-contract/lib/stt/settlement_handlers.ak#L260), [cutoff bounds](../code/smart-contract/lib/streaming_payments/forwarding.ak#L136).
@@ -440,14 +440,14 @@ flowchart TB
     C -->|"Unlocked beneficiary signs BeneficiaryPath"| D["S; one 100 ADA output<br/>Intended stake credential"]
 ```
 
-INFERRED setup: The state has an admin, a reachable multisig threshold, and an unlocked beneficiary.
+Example setup: The state has an admin, a reachable multisig threshold, and an unlocked beneficiary.
 Every step has a finite upper bound. The beneficiary step also has a finite lower bound that reaches its unlock.
 Each step preserves every asset, all state fields, and the cooldown stamp. External inputs pay the fees.
 Evidence: [consolidation paths](../code/smart-contract/lib/state/authorization.ak#L170), [value equality](../code/smart-contract/lib/wallet/rules.ak#L179).
 
 ## Wallet governance actions and their cycles
 
-VERIFIED: `withdraw`, `publish`, and `vote` each require a simultaneous STT `RunOperator(Use)` transition.
+`withdraw`, `publish`, and `vote` each require a simultaneous STT `RunOperator(Use)` transition.
 The wallet redeemer selects Admin or Multisig, and that path must exactly match the STT action's path.
 The transaction may contain at most two redeemers. These examples use one STT spend and one wallet governance purpose.
 The authorization helper does not inspect the account, certificate, or voter payload beyond this shared gate.
@@ -463,7 +463,7 @@ flowchart TB
     B -->|"Later rewards; repeat with valid authority"| C["Next withdrawal"]
 ```
 
-INFERRED: This example preserves proof of life. Multisig can use the same entrypoint with matching paths.
+This example preserves proof of life. Multisig can use the same entrypoint with matching paths.
 Evidence: [withdraw entrypoint](../code/smart-contract/validators/wallet.ak#L33), [operator-use handshake](../code/smart-contract/validators/wallet.ak#L83).
 
 ### 17. publish
@@ -474,7 +474,7 @@ flowchart TB
     B -->|"Later valid certificate; repeat"| C["Next certificate action"]
 ```
 
-INFERRED: This example uses Multisig and preserves proof of life. Admin can use the same entrypoint.
+This example uses Multisig and preserves proof of life. Admin can use the same entrypoint.
 Evidence: [publish entrypoint](../code/smart-contract/validators/wallet.ak#L46), [operator-use handshake](../code/smart-contract/validators/wallet.ak#L83).
 
 ### 18. vote
@@ -485,12 +485,12 @@ flowchart TB
     B -->|"Later valid vote; repeat"| C["Next vote action"]
 ```
 
-INFERRED: This example preserves proof of life. Multisig can use the same entrypoint with matching paths.
+This example preserves proof of life. Multisig can use the same entrypoint with matching paths.
 Evidence: [vote entrypoint](../code/smart-contract/validators/wallet.ak#L59), [operator-use handshake](../code/smart-contract/validators/wallet.ak#L83).
 
 ## Receiving funds and rejected actions
 
-VERIFIED: Receiving a new wallet output is not an STT redeemer action.
+Receiving a new wallet output is not an STT redeemer action.
 The wallet's spend handler consumes wallet inputs and ignores their datum and redeemer arguments.
 It does not impose an STT transition merely to create a new deposit output.
 The diagram's deposit is an external ledger event.
@@ -502,7 +502,7 @@ flowchart TB
     B -->|"Later authorized wallet spend with STT action"| C["Successor STT; wallet value follows action"]
 ```
 
-VERIFIED rejection inventory:
+Rejection inventory:
 
 | Requested purpose | Result | Executable evidence |
 | --- | --- | --- |
@@ -520,12 +520,12 @@ flowchart TB
 
 ## Verification limits
 
-VERIFIED method: The permission tables and transitions were traced through executable dispatchers, handlers, and their called helpers.
+Method: The permission tables and transitions were traced through executable dispatchers, handlers, and their called helpers.
 Every action section links that code. Comments were excluded as behavior evidence.
 The examples describe selected successful paths. They do not enumerate every possible transaction shape or replace ledger validation.
 No contract source changed, and no transaction was signed or submitted for this document.
 
-VERIFIED artifact checks: The Mermaid preview reported `25 diagrams, 0 errors`.
+Artifact checks: The Mermaid preview reported `25 diagrams, 0 errors`.
 The local link check reported `Source links: 138 Invalid: 0`.
 These checks cover diagram rendering and source-link targets. They do not execute the example transactions.
 

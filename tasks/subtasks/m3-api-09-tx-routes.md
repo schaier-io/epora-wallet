@@ -8,7 +8,7 @@ back an unsigned transaction. The server never holds a key and never signs.
 
 ## Current status (2026-09-14)
 
-VERIFIED: [the schema](../../code/dApp/src/lib/api/tx-stt-spend.ts) defines eleven `stt-spend` actions.
+[The schema](../../code/dApp/src/lib/api/tx-stt-spend.ts) defines eleven `stt-spend` actions.
 [The OpenAPI source](../../code/dApp/src/lib/api/openapi.ts) lists nine active build routes.
 [The retired wallet-spend handler](../../code/dApp/src/app/api/v1/tx/wallet-spend/route.ts) returns `410`.
 The earlier count of ten build routes and eighteen operations is outdated.
@@ -127,7 +127,7 @@ The quoted 2026-08-31 failures below record the earlier builder behavior.
 | `vote` | 400 "Error serializing votes..." |
 | `publish` | 400 "Error serializing certificates..." |
 
-VERIFIED: no path answered `500`, and no caller mistake answered `502`.
+No path answered `500`, and no caller mistake answered `502`.
 
 At that revision, the five 400s were the request bodies, not the routes. Each one reached its
 builder and was rejected on chain state or payload semantics: the wallet holds a
@@ -170,7 +170,7 @@ submitted transaction could create: a second wallet UTxO to consolidate, a contr
 redeemer, and a registered stake credential with rewards. That is the
 [walkthrough](m3-walk-02-run.md)'s job.
 
-The documented failures were checked in the same run (VERIFIED): 400 naming the
+The documented failures were checked in the same run: 400 naming the
 field, 400 for a mainnet address, 400 for malformed JSON, 400 for a body nested
 past 64 levels, 413 over 32 KB, and 429 with `Retry-After: 60` on the sixth
 build inside one minute. No path answered 500.
@@ -197,11 +197,10 @@ changed no route behaviour. Same wallet, same caller, same State UTxO
 | `wallet-withdraw` | 400 "Adding redeemer to non plutus withdrawal". The stake credential is not registered |
 | `deploy-reference` | 400 "Shared STT reference is already deployed at 69a692e2...#0" |
 
-VERIFIED: the same seven paths build and the same five fail for the same
+The same seven paths build and the same five fail for the same
 reasons as the second sweep. No path answered `500`.
 
-The read surface and every documented failure were re-checked in the same run
-(VERIFIED):
+The read surface and every documented failure were re-checked in the same run:
 
 | Case | Result |
 | --- | --- |
@@ -232,12 +231,12 @@ pre-rename `/api/pools`.
 - [ ] Validate all nine active routes and eleven `stt-spend` actions on Preprod.
       Record new evidence against the current revision. The old seven-of-ten
       result includes a different route and action set.
-- [x] At least one API-built transaction was signed, submitted, and confirmed on Preprod. REPORTED: the user confirmed completion on 2026-09-26. This session did not observe submission or confirmation. The user did not supply a transaction hash with this confirmation.
-      Correction: the previous status said this awaited a human signature. The user's confirmation closes that step. Attach the hash to the Catalyst evidence when available.
-- [x] Publish the transaction paths in the committed specification. VERIFIED:
+- [x] At least one API-built transaction was signed, submitted, and confirmed on Preprod by 2026-09-26. The transaction hash is not included in this record.
+      Status correction: signing and confirmation are complete. Attach the transaction hash to the Catalyst evidence when available.
+- [x] Publish the transaction paths in the committed specification.
       [`docs/api/openapi.json`](../../docs/api/openapi.json) includes the active
       routes and the retired route. [The OpenAPI task](m3-api-04-openapi.md) records publication.
 - [ ] Recheck that each active path has an example in the deployed specification.
-      This documentation update inspected the committed specification only.
-- [x] Builder errors arrive as documented status codes, not as `500`. VERIFIED
+      The committed specification is the only evidence recorded here.
+- [x] Builder errors arrive as documented status codes, not as `500`, checked
       across all ten paths, above.

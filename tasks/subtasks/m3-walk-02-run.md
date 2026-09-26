@@ -6,11 +6,11 @@ One pass on preprod proving each whitepaper claim works through the guided UI. T
 
 ## Current evidence
 
-VERIFIED: [the wallet UI video](../../docs/assets/wallet-ui.mp4?raw=1) is committed and linked from the repository README.
+[the wallet UI video](../../docs/assets/wallet-ui.mp4?raw=1) is committed and linked from the repository README.
 The earlier combined video/walkthrough TODO did not distinguish publication from full feature validation.
 Publication is complete. Completion of the rows below is not determined from that file alone.
 
-VERIFIED 26 September 2026: the earlier claim that voting had no guided flow was wrong.
+26 September 2026: the earlier claim that voting had no guided flow was wrong.
 It omitted the implemented `wallet-vote` action.
 [The action menu](../../code/dApp/src/components/user/workspace/use-workspace-guided-derivations.ts#L286) exposes it.
 [The config view](../../code/dApp/src/components/user/workspace/config-walletvote-view.tsx#L42) renders `GovernanceVotePicker` for action lookup and vote selection.

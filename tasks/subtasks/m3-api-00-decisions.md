@@ -6,11 +6,7 @@ The other `m3-api-*` files describe work. This file records why that work has th
 shape it has, so a later reader does not re-open settled questions or repeat a
 measurement.
 
-Provenance tags used below. **VERIFIED** means it was run or read in the repo and
-the evidence is quoted. **DECIDED** means Sandro chose it. **INFERRED** means it
-was reasoned from something else and is not yet measured.
-
-## What was already true (VERIFIED, 2026-08-31)
+## What was already true (2026-08-31)
 
 Four claims in the original task files were stale. They shrink the work.
 
@@ -46,50 +42,50 @@ Two structural facts decided the transaction work.
 
 ## Decisions
 
-**1. Destination (DECIDED).** Catalyst acceptance criterion 2 satisfied on
+**1. Destination.** Catalyst acceptance criterion 2 satisfied on
 `main`: a versioned v1 API, an OpenAPI 3.1 document served by the app and
 checked in CI, and developer documentation an outsider can follow. The scope is
 what the milestone asks for, not a general-purpose platform API.
 
-**2. The spec is generated from zod by `zod-openapi` (DECIDED).** Not
+**2. The spec is generated from zod by `zod-openapi`.** Not
 hand-written, and not zod's native `z.toJSONSchema`. `zod-openapi@6.0.2` has a
 `zod ^4.0.0` peer range matching our `4.4.3`, has zero runtime dependencies,
 targets OpenAPI `3.1.0` and `3.1.1`, and annotates through zod's own `.meta()`
-rather than patching zod (VERIFIED from the npm registry and the project README
+rather than patching zod (from the npm registry and the project README
 on 2026-08-31). The alternative `@asteasolutions/zod-to-openapi@9.1.0` also
 supports zod 4 but adds an `openapi3-ts` dependency. One source of truth for
 request and response shapes, so the spec cannot drift from the routes.
 
-**3. The public routes stay anonymous (DECIDED, with an accepted risk).** No
+**3. The public routes stay anonymous (accepted risk).** No
 bearer token and no API key in v1. The existing per-IP Postgres limiter is the
 only abuse control, and the transaction-build routes fetch through Blockfrost,
 which spends our project quota.
 
 The risk was raised and accepted: an anonymous build route turns one HTTP
 request into at least one provider request, which is the same property that
-keeps `/api/mesh` internal and unversioned. Sandro's call was to ship it on
+keeps `/api/mesh` internal and unversioned. The decision was to use
 Blockfrost with the existing limiter and handle quota problems if they appear.
 Recorded so the reasoning is visible if it does.
 
 Routing the fetch through Koios instead, or gating the build routes, were the
 two rejected alternatives. Either remains available without redesign.
 
-**4. `proposals` is excluded from the spec entirely (DECIDED).** It stays
+**4. `proposals` is excluded from the spec entirely.** It stays
 internal alongside `mesh` and `stt/sync`. It is session-authed and specific to
 this app, so it is not part of what an external wallet team integrates against.
 
-**5. There is a server-side transaction-building API (DECIDED).** The caller
+**5. There is a server-side transaction-building API.** The caller
 posts a described action and receives an unsigned transaction to sign with its
 own wallet. This is what makes criterion 2's phrase "interact with the smart
 contract" true of the HTTP surface rather than only of the client library.
 
-**6. The server fetches the caller's UTxOs from chain by address (DECIDED).**
+**6. The server fetches the caller's UTxOs from chain by address.**
 The request carries an address, not a UTxO set. Blockfrost backs the fetch, per
 decision 3. The rejected alternative was to have the caller supply UTxOs, change
 address and collateral in the body, which would have made the route a pure
 computation with no provider cost.
 
-**7. All eighteen operations are covered (DECIDED).** The nine `buildSttSpendTx`
+**7. All eighteen operations are covered.** The nine `buildSttSpendTx`
 actions (`use`, `renew-proof-of-life`, `update-state`,
 `manage-streaming-payments`, `use-allowance`, `use-beneficiary`,
 `payout-streaming-payment`, `cancel-streaming-payment`, `remove-access-index`)
@@ -97,36 +93,36 @@ plus `mint`, `lock-funds`, `wallet-spend`, `wallet-withdraw`, `consolidate`,
 `set-stake-credential`, `vote`, `publish` and `deploy-reference`. Full parity
 between the HTTP API and the app.
 
-**8. One seam is widened, nothing is duplicated (DECIDED).** `setupTransaction`
+**8. One seam is widened, nothing is duplicated.** `setupTransaction`
 takes a narrow wallet-source interface instead of a Mesh `BrowserWallet`. A
 `BrowserWallet` satisfies it structurally, so the browser path is unchanged, and
 a Blockfrost-backed server implementation satisfies it too. Per finding 5 this
 single change carries all eighteen operations to the server. Writing server-side
 twins was rejected: eighteen operations implemented twice will drift.
 
-**9. Ten transaction paths, one per builder (DECIDED).** `/api/v1/tx/stt-spend`
+**9. Ten transaction paths, one per builder.** `/api/v1/tx/stt-spend`
 carries the nine-action discriminator the builder already has, and the other nine
 builders get one path each. The HTTP surface mirrors the module layout, so there
 is no second structure to keep in sync. A single `/tx/build` endpoint hiding an
 eighteen-branch union was rejected as unreadable in rendered documentation.
 
-**10. The document is generated, committed, served and checked (DECIDED).** A
+**10. The document is generated, committed, served and checked.** A
 script emits it from the zod schemas into `docs/api/openapi.json`; the file is
 committed; `/api/v1/openapi.json` serves it; CI regenerates and fails when the
 committed copy is stale. The committed file is what the Catalyst proof links, in
 the same way the Milestone 2 proof linked files on `main`.
 
-**11. v1 means the current shape; stability is promised at mainnet (DECIDED).**
+**11. v1 means the current shape; stability is promised at mainnet.**
 The spec and the developer docs say plainly that the compatibility promise begins
 with the Milestone 5 mainnet beta. Freezing eighteen operations that nobody
 outside the project has used yet was rejected.
 
-**12. There is no separate planning map (DECIDED).** These decisions live in
+**12. There is no separate planning map.** These decisions live in
 `tasks/subtasks/` beside the work, not in a parallel tracker.
 
 ## Resolved since the decisions were recorded
 
-### Collateral needs no server-specific handling. VERIFIED 2026-08-31.
+### Collateral needs no server-specific handling. 2026-08-31.
 
 The open question was whether collateral selection works over an address-fetched
 UTxO set, because the browser path appeared to take collateral from the connected
@@ -146,7 +142,7 @@ branch. The one caller-facing precondition is unchanged and already has its
 error: the address must hold a pure-ADA UTxO of at least 5 ADA, or the build
 fails at `setup:manualCollateral`.
 
-### The build routes get their own rate-limit tier. VERIFIED 2026-08-31.
+### The build routes get their own rate-limit tier. 2026-08-31.
 
 The open question was whether `/api/v1/tx/*` needs a tier separate from the read
 routes, and what the numbers are. It does, and they are now in
@@ -160,7 +156,7 @@ routes, and what the numbers are. It does, and they are now in
 
 The reasoning behind the two numbers, including the measured 70 provider
 requests for the most expensive build, is in that file's header and in
-[rate limits](m3-api-03-rate-limits.md). VERIFIED live: the sixth build inside
+[rate limits](m3-api-03-rate-limits.md). Live check: the sixth build inside
 one minute answers `429` with `Retry-After`.
 
 ## Open, not yet decided

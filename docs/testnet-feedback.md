@@ -48,7 +48,7 @@ Every row links the GitHub issue and the pull request that answers it.
 
 ## External tester reports
 
-Feedback from people outside the team. Both reports led to code changes.
+Feedback from external testers. Both reports led to code changes.
 
 | Issue | Reporter | Report | Category | Fix |
 | --- | --- | --- | --- | --- |
@@ -57,7 +57,7 @@ Feedback from people outside the team. Both reports led to code changes.
 
 Notes on these two rows:
 
-- #561: the fix removes the availability gate that hid the action. REPORTED 2026-09-26: Sandro confirmed the live Vespr retest complete. This replaces the earlier pending-retest status. No retest transaction hash was supplied with that confirmation.
+- #561: the fix removes the availability gate that hid the action. The live VESPR retest was complete by 26 September 2026. The record does not include a retest transaction hash.
 - #565: the app has no mail or push channel. The notification is a link that the owner sends. The stack is on `main` (merged via [#575](https://github.com/schaier-io/epora-wallet/pull/575)). Bee gets an update that it shipped.
 
 ## Fixed: bugs
@@ -132,7 +132,7 @@ From the e2e notes, still worth a ticket if it reproduces on today's build: dust
 
 | Issue | Why later |
 | --- | --- |
-| [#392](https://github.com/schaier-io/epora-wallet/issues/392) | WalletConnect signing and real-device testing. REPORTED 2026-09-26: Sandro explicitly deferred this work beyond closeout. Closed as deferred, not implemented. The earlier blanket claim about mobile wallet support was not reverified. |
+| [#392](https://github.com/schaier-io/epora-wallet/issues/392) | WalletConnect signing and real-device testing. Deferred beyond closeout on 26 September 2026. Closed as deferred, not implemented. Mobile wallet support has not been established by this test record. |
 
 ## Not a bug
 

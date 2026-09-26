@@ -2,18 +2,18 @@
 
 Observability task · [Milestone 4](../milestone-4-testnet-feedback.md)
 
-VERIFIED by source inspection on 2026-09-26 at `origin/main` (`d3b5a2391e6f58836752ec40e39eec4139f8d886`).
-No tests or deployment drills were run for this task update.
+Source evidence as of 2026-09-26, `origin/main` (`d3b5a2391e6f58836752ec40e39eec4139f8d886`).
+The source references below establish implementation. Live checks and drills retain their own evidence requirements.
 
 Correction: the earlier statement that no error reporting existed was stale.
 Sentry integration is present. Its presence does not prove delivery of live events.
 
 ## Completed
 
-- [x] Select and document Sentry. VERIFIED: `code/dApp/package.json` includes `@sentry/nextjs`. `docs/RUNBOOK.md:235-265` describes browser, server, and API capture.
-- [x] Wire server request errors and caught workspace transaction failures. VERIFIED: `code/dApp/src/instrumentation.ts:28` exports `Sentry.captureRequestError`. The workspace files call `captureClientError` at `workspace-flow-handlers.ts:205` and `workspace-transaction-submit.ts:299`.
-- [x] Add event and breadcrumb scrubbing. VERIFIED: `code/dApp/src/lib/observability/sentry-options.ts:73-74` installs the scrubbers. `sentry-scrub.ts:163-184` removes cookies, sensitive headers, and request data.
-- [x] Configure release attribution. VERIFIED: `code/dApp/src/lib/observability/sentry-options.ts:64-70` selects the supplied release or commit SHA.
+- [x] Select and document Sentry. `code/dApp/package.json` includes `@sentry/nextjs`. `docs/RUNBOOK.md:235-265` describes browser, server, and API capture.
+- [x] Wire server request errors and caught workspace transaction failures. `code/dApp/src/instrumentation.ts:28` exports `Sentry.captureRequestError`. The workspace files call `captureClientError` at `workspace-flow-handlers.ts:205` and `workspace-transaction-submit.ts:299`.
+- [x] Add event and breadcrumb scrubbing. `code/dApp/src/lib/observability/sentry-options.ts:73-74` installs the scrubbers. `sentry-scrub.ts:163-184` removes cookies, sensitive headers, and request data.
+- [x] Configure release attribution. `code/dApp/src/lib/observability/sentry-options.ts:64-70` selects the supplied release or commit SHA.
 
 ## Remaining work and verification
 

@@ -9,7 +9,7 @@ probably be reviewed together.
 
 ## Why it is small
 
-VERIFIED on 2026-08-31. All nine builder files that accept a Mesh `BrowserWallet`
+Checked on 2026-08-31. All nine builder files that accept a Mesh `BrowserWallet`
 reach it through one function, `setupTransaction` at
 [`internals/core.ts:56`](../../code/dApp/src/lib/mesh/transactions/internals/core.ts).
 `grep -rln setupTransaction src/lib/mesh/transactions/*.ts` lists exactly those
@@ -82,7 +82,7 @@ refactor so its regression surface is clean, which is what it promised.
 ## Preprod regression: run and passed
 
 Run on 2026-08-31 against the dev server, in Brave with Eternl on Preprod.
-Sandro signed both transactions. Both build paths go through the refactored
+Both transactions were signed. Both build paths go through the refactored
 `setupTransaction` seam.
 
 | Step | Builder exercised | Transaction |

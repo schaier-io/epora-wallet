@@ -54,8 +54,7 @@ The hosted deployment reports application errors to Sentry (EU region). A report
 
 ## Documentation
 
-<!-- REPORTED 26 September 2026: Sandro supplied the Catalyst closeout video URL. -->
-[Catalyst Fund11 closeout video](https://youtu.be/XKyZoa02kag) · [Closeout report (draft PDF)](docs/closeout/closeout-report.pdf)
+[Catalyst Fund11 closeout video](https://youtu.be/XKyZoa02kag) · [Closeout report (PDF)](docs/closeout/closeout-report.pdf) · [Mainnet evidence](docs/closeout/mainnet-evidence.md) · [Submission text](docs/closeout/milestone-5-submission.txt)
 
 ### Wallet UI walkthrough ([MP4 source](docs/assets/wallet-ui.mp4?raw=1))
 
@@ -95,7 +94,7 @@ This repository is under active development, and milestones are tracked within t
 Development tasks — completed and open, grouped per milestone — are tracked in the [tasks/](./tasks) folder.
 
 Current focus: **Mainnet beta and Catalyst closeout**. The [mainnet beta](https://mainnet.epora.io) and [Preprod app](https://epora.io) are live.
-VERIFIED 2026-09-26: both health endpoints returned HTTP 200 with `"database":"up","indexer":"up"`.
+On 2026-09-26, both health endpoints returned HTTP 200 with `"database":"up","indexer":"up"`.
 This corrects the earlier statement that mainnet beta remained open. See the [Milestone 5 evidence](tasks/milestone-5-mainnet-closeout.md#evidence) for the check and its limits.
 
 ### Current public status
@@ -108,8 +107,8 @@ This corrects the earlier statement that mainnet beta remained open. See the [Mi
 - [x] [Testnet feedback launch](https://epora.io) (Preprod, including the public API)
 - [ ] [Full manual feature walkthrough](tasks/subtasks/m3-walk-02-run.md), with transaction evidence.
 - [x] [Mainnet beta](https://mainnet.epora.io), with an unaudited-beta warning.
-- [x] [Catalyst closeout video](https://youtu.be/XKyZoa02kag), supplied by Sandro on 2026-09-26.
-- [ ] Complete the final submission review of the [closeout report](docs/closeout/closeout-report.pdf).
+- [x] [Catalyst closeout video](https://youtu.be/XKyZoa02kag) (26 September 2026).
+- [x] Review the [closeout report](docs/closeout/closeout-report.pdf) and [submission text](docs/closeout/milestone-5-submission.txt). See the [submission checklist](docs/closeout/submission-review.md). Catalyst approval remains separate.
 
 ## Contributing
 

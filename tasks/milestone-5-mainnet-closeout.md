@@ -4,7 +4,7 @@ Go live on mainnet as a beta (not externally audited, and we say so), keep fixin
 
 ## Development tasks
 
-- [x] **Mainnet beta online**: [mainnet.epora.io](https://mainnet.epora.io). VERIFIED 2026-09-26: homepage, health, and OpenAPI returned HTTP 200. See evidence below.
+- [x] **Mainnet beta online**: [mainnet.epora.io](https://mainnet.epora.io). 2026-09-26: homepage, health, and OpenAPI returned HTTP 200. See evidence below.
   - [x] [Network configuration implemented](subtasks/m5-mainnet-01-network-config.md). Source inspection and live network checks recorded there; remaining audit checks stay separate.
   - [ ] [Final validator review + frozen hashes](subtasks/m5-mainnet-02-validator-freeze.md)
   - [ ] [Verify production secrets and database isolation](subtasks/m5-mainnet-03-prod-env.md). The live app and indexer checks are complete.
@@ -24,8 +24,8 @@ Go live on mainnet as a beta (not externally audited, and we say so), keep fixin
 - [ ] Record the public beta announcement.
 - [ ] Keep sorting feedback/bugs.
 - [x] Wallet-integration thread + talk to interested devs: [outreach record](../docs/wallet-integration.md).
-- [ ] Complete the final submission review of the [closeout report](../docs/closeout/closeout-report.pdf).
-- [x] Closeout video link supplied: [watch on YouTube](https://youtu.be/XKyZoa02kag). REPORTED by Sandro on 26 September 2026. This records the supplied link, not Catalyst approval.
+- [x] Review the closeout report and A-E submission against the approved requirements. 2026-09-26: see the [submission review](../docs/closeout/submission-review.md). Publication on `main` and Catalyst acceptance are separate steps.
+- [x] Closeout video link supplied: [watch on YouTube](https://youtu.be/XKyZoa02kag). Link recorded on 26 September 2026. Catalyst acceptance remains a separate step.
 
 ## Acceptance criteria (Catalyst)
 
@@ -36,16 +36,20 @@ Go live on mainnet as a beta (not externally audited, and we say so), keep fixin
 
 ## Evidence
 
+- [Confirmed mainnet transactions, balances, actual fees, and limits](../docs/closeout/mainnet-evidence.md)
+- [Plain-text A-E submission](../docs/closeout/milestone-5-submission.txt)
+- [Submission review and approved format references](../docs/closeout/submission-review.md)
+
 - [Mainnet prototype](https://mainnet.epora.io)
 - Validator freeze record at `af80c6fc`: [docs/mainnet-beta-release.md](../docs/mainnet-beta-release.md#release-freeze-validator-blueprint)
 - [Categorized feedback](../docs/testnet-feedback.md)
 - [Wallet-integration discussion](../docs/wallet-integration.md)
-- [Closeout report (draft PDF)](../docs/closeout/closeout-report.pdf)
+- [Closeout report (PDF)](../docs/closeout/closeout-report.pdf)
 - [Closeout video](https://youtu.be/XKyZoa02kag)
 
 ### Live deployment check (2026-09-26)
 
-VERIFIED with public GET requests:
+Checks with public GET requests:
 
 | Endpoint | Result |
 | --- | --- |
@@ -55,9 +59,13 @@ VERIFIED with public GET requests:
 | `https://www.epora.io/api/health` | HTTP 200; `"status":"ok","checks":{"database":"up","indexer":"up"}` at `2026-09-26T00:39:26.996Z` |
 
 Both health responses had `recentHeadFresh: true`, `walletReconcileFresh: true`, and `historyBackfillCompleted: true`.
-VERIFIED in the browser: mainnet displayed `Mainnet Real funds` and the unaudited-beta risk acknowledgement.
+The mainnet browser displayed `Mainnet Real funds` and the unaudited-beta risk acknowledgement.
 No acknowledgement was accepted and no wallet was connected.
 
 This corrects the earlier open launch status. These checks establish HTTP availability and reported database/indexer health.
 They do not establish database isolation, completed backup drills, transaction success, or measured fees.
 The relevant operational tasks retain those checks.
+
+### Mainnet transaction evidence added (2026-09-26)
+
+The [mainnet evidence](../docs/closeout/mainnet-evidence.md) records eight confirmed transactions, two current-policy wallets, and measured fees. This resolves the earlier lack of recorded transaction evidence. Dedicated manual renewal, full economics coverage, and recovery drills remain open. The earlier HTTP-only check above remains a historical record.
