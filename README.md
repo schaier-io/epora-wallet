@@ -55,7 +55,7 @@ The hosted deployment reports application errors to Sentry (EU region). A report
 ## Documentation
 
 <!-- REPORTED 26 September 2026: Sandro supplied the Catalyst closeout video URL. -->
-[Catalyst Fund11 closeout video](https://youtu.be/XKyZoa02kag) · [Closeout report (draft PDF)](docs/closeout/closeout-report.pdf)
+[Catalyst Fund11 closeout video](https://youtu.be/XKyZoa02kag) · [Closeout report (PDF)](docs/closeout/closeout-report.pdf) · [Mainnet evidence](docs/closeout/mainnet-evidence.md) · [Submission text](docs/closeout/milestone-5-submission.txt)
 
 ### Wallet UI walkthrough ([MP4 source](docs/assets/wallet-ui.mp4?raw=1))
 
@@ -109,7 +109,7 @@ This corrects the earlier statement that mainnet beta remained open. See the [Mi
 - [ ] [Full manual feature walkthrough](tasks/subtasks/m3-walk-02-run.md), with transaction evidence.
 - [x] [Mainnet beta](https://mainnet.epora.io), with an unaudited-beta warning.
 - [x] [Catalyst closeout video](https://youtu.be/XKyZoa02kag), supplied by Sandro on 2026-09-26.
-- [ ] Complete the final submission review of the [closeout report](docs/closeout/closeout-report.pdf).
+- [x] Review the [closeout report](docs/closeout/closeout-report.pdf) and [submission text](docs/closeout/milestone-5-submission.txt). VERIFIED 2026-09-26: [review record](docs/closeout/submission-review.md). Catalyst approval remains separate.
 
 ## Contributing
 

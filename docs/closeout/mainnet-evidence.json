@@ -1,0 +1,173 @@
+{
+  "verification": "VERIFIED",
+  "checked_at_utc": "2026-09-26T01:30:26.157Z",
+  "scope": "Current deployed Epora STT policy only. Wallet counts are not unique people. Transaction records cover observed deployment and wallet activity, not all possible actions.",
+  "source": "https://api.koios.rest/api/v1",
+  "health": {
+    "status": "ok",
+    "checks": {
+      "database": "up",
+      "indexer": "up"
+    },
+    "indexer": {
+      "available": true,
+      "recentHeadLastSyncedAt": "2026-09-26T01:25:31.462Z",
+      "recentHeadAgeMs": 294695,
+      "recentHeadFresh": true,
+      "walletReconcileLastSyncedAt": "2026-09-26T01:25:31.462Z",
+      "walletReconcileAgeMs": 294695,
+      "walletReconcileFresh": true,
+      "historyBackfillCompleted": true,
+      "degradedReasons": []
+    },
+    "ts": "2026-09-26T01:30:26.157Z"
+  },
+  "shared_helper": {
+    "policyId": "0dac00be80879dcf585cdb9d0acf6e0ecf52c417ded30d8b72d0ebf1",
+    "sttScriptHash": "0dac00be80879dcf585cdb9d0acf6e0ecf52c417ded30d8b72d0ebf1",
+    "storeAddress": "addr1w87zqpcdrefhjsp6m44vhammyvajlqjqsgwps7ees5jau2quqhgjf",
+    "status": "ready",
+    "activeReference": "fb11866380769867300d1919098c5961473e362d40d03192f5b83c61eb6f0c0d#0",
+    "matchingReferences": [
+      "fb11866380769867300d1919098c5961473e362d40d03192f5b83c61eb6f0c0d#0"
+    ],
+    "matchingCount": 1,
+    "checkedReferenceCount": 1
+  },
+  "wallets": [
+    {
+      "verification": "VERIFIED",
+      "name": "Smart wallet",
+      "address": "addr1wynmfgsec4hax5e29fretxg0c0ve6xznpcry04087g7jg8skrul80",
+      "payment_credential": "27b4a219c56fd3532a2a4795990fc3d99d18530e0647d5e7f23d241e",
+      "asset_name": "48b97d9f36d8df3d37df33909dcaae043130aa6a5bd88e630fcadc6483903f60",
+      "balance_lovelace": 10000000,
+      "state_deposit_lovelace": 1586080,
+      "utxo_count": 2,
+      "native_assets": [],
+      "state_output": "8d21e3b7f954262d8da288e97b4067f40cc7ccc94db94a19959d4929350b8732#1"
+    },
+    {
+      "verification": "VERIFIED",
+      "name": "Smart wallet Demo",
+      "address": "addr1w8wj6tjlfqjdgtlxq9t6g4ar089e7vs6wcqwpwpxgdtqvysply755",
+      "payment_credential": "dd2d2e5f4824d42fe60157a457a379cb9f321a7600e0b82643560612",
+      "asset_name": "3eaa1c9f47fa638000c9cd4cd37517693e5238e0c4c8b7596a2e662a155eb7d3",
+      "balance_lovelace": 17000000,
+      "state_deposit_lovelace": 2202410,
+      "utxo_count": 2,
+      "native_assets": [],
+      "state_output": "a9502540ad8ef0af445fe99904dc05ccb2d50c785344953a1f146e114424aad9#1"
+    }
+  ],
+  "transactions": [
+    {
+      "verification": "VERIFIED",
+      "action": "Reference deployment",
+      "tx_hash": "fb11866380769867300d1919098c5961473e362d40d03192f5b83c61eb6f0c0d",
+      "block_height": 13987866,
+      "timestamp_utc": "2026-09-25T20:51:19+00:00",
+      "fee_lovelace": 809617,
+      "size_bytes": 14868,
+      "valid_contracts": [],
+      "explorer_url": "https://cardanoscan.io/transaction/fb11866380769867300d1919098c5961473e362d40d03192f5b83c61eb6f0c0d"
+    },
+    {
+      "verification": "VERIFIED",
+      "action": "Smart wallet creation and initial funding",
+      "tx_hash": "71ea33e0e820dc4a04c86530d3f994a2f880aa047cdfbe3b68d3e272c33409a8",
+      "block_height": 13988226,
+      "timestamp_utc": "2026-09-25T22:48:51+00:00",
+      "fee_lovelace": 447150,
+      "size_bytes": 838,
+      "valid_contracts": [
+        true
+      ],
+      "explorer_url": "https://cardanoscan.io/transaction/71ea33e0e820dc4a04c86530d3f994a2f880aa047cdfbe3b68d3e272c33409a8"
+    },
+    {
+      "verification": "VERIFIED",
+      "action": "Smart wallet additional funding",
+      "tx_hash": "d6e2e824daef4347231db51c1a5f0c422a6e3292fab2d514cb5320e86a2cf249",
+      "block_height": 13988234,
+      "timestamp_utc": "2026-09-25T22:52:59+00:00",
+      "fee_lovelace": 170825,
+      "size_bytes": 350,
+      "valid_contracts": [],
+      "explorer_url": "https://cardanoscan.io/transaction/d6e2e824daef4347231db51c1a5f0c422a6e3292fab2d514cb5320e86a2cf249"
+    },
+    {
+      "verification": "VERIFIED",
+      "action": "Smart wallet operator spend",
+      "tx_hash": "8d21e3b7f954262d8da288e97b4067f40cc7ccc94db94a19959d4929350b8732",
+      "block_height": 13988254,
+      "timestamp_utc": "2026-09-25T23:00:17+00:00",
+      "fee_lovelace": 895889,
+      "size_bytes": 10117,
+      "valid_contracts": [
+        true,
+        true
+      ],
+      "explorer_url": "https://cardanoscan.io/transaction/8d21e3b7f954262d8da288e97b4067f40cc7ccc94db94a19959d4929350b8732"
+    },
+    {
+      "verification": "VERIFIED",
+      "action": "Demo wallet creation and initial funding",
+      "tx_hash": "6ba0055f3cddbe2882a7ce1648eddee47e73e65b0cf36b771e375b653e8beb31",
+      "block_height": 13988323,
+      "timestamp_utc": "2026-09-25T23:24:38+00:00",
+      "fee_lovelace": 447194,
+      "size_bytes": 839,
+      "valid_contracts": [
+        true
+      ],
+      "explorer_url": "https://cardanoscan.io/transaction/6ba0055f3cddbe2882a7ce1648eddee47e73e65b0cf36b771e375b653e8beb31"
+    },
+    {
+      "verification": "VERIFIED",
+      "action": "Demo wallet additional funding",
+      "tx_hash": "9e60d91d71008a72ff725e9d1e4b6e07a96d4e7a53046af1af5b8dd217b2d7f2",
+      "block_height": 13988330,
+      "timestamp_utc": "2026-09-25T23:26:48+00:00",
+      "fee_lovelace": 170825,
+      "size_bytes": 350,
+      "valid_contracts": [],
+      "explorer_url": "https://cardanoscan.io/transaction/9e60d91d71008a72ff725e9d1e4b6e07a96d4e7a53046af1af5b8dd217b2d7f2"
+    },
+    {
+      "verification": "VERIFIED",
+      "action": "Demo beneficiary and proof-of-life configuration",
+      "tx_hash": "4080136da4b64ba642f5b40d017a2181c1edfbf7cd21a48ab38a623225b34871",
+      "block_height": 13988334,
+      "timestamp_utc": "2026-09-25T23:29:02+00:00",
+      "fee_lovelace": 478150,
+      "size_bytes": 919,
+      "valid_contracts": [
+        true
+      ],
+      "explorer_url": "https://cardanoscan.io/transaction/4080136da4b64ba642f5b40d017a2181c1edfbf7cd21a48ab38a623225b34871"
+    },
+    {
+      "verification": "VERIFIED",
+      "action": "Demo operator spend and automatic proof-of-life refresh",
+      "tx_hash": "a9502540ad8ef0af445fe99904dc05ccb2d50c785344953a1f146e114424aad9",
+      "block_height": 13988362,
+      "timestamp_utc": "2026-09-25T23:36:38+00:00",
+      "fee_lovelace": 912502,
+      "size_bytes": 10256,
+      "valid_contracts": [
+        true,
+        true
+      ],
+      "explorer_url": "https://cardanoscan.io/transaction/a9502540ad8ef0af445fe99904dc05ccb2d50c785344953a1f146e114424aad9"
+    }
+  ],
+  "reference_deposit_lovelace": 63270800,
+  "proof_of_life": {
+    "tx_hash": "a9502540ad8ef0af445fe99904dc05ccb2d50c785344953a1f146e114424aad9",
+    "before_unlock_ms": 1792970826972,
+    "after_unlock_ms": 1792971216000,
+    "increment_ms": 2592000000,
+    "path": "RunOperator(Admin, Use); not dedicated RenewProofOfLife"
+  }
+}

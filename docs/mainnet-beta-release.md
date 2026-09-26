@@ -296,9 +296,14 @@ VERIFIED on the live hosts: `GET /api/shared-helper` returned the `policyId`
 Mainnet returned `"status":"missing"` and `"activeReference":null`. Preprod
 returned `"status":"ready"` with the `activeReference`
 `5c863ef0a4a2720b20508f6acbfc6ba8796b3d7ff4622ca9c53c593e91196204#0`.
+Update, verified on 2026-09-26: mainnet now returns `status: ready` with active reference
+`fb11866380769867300d1919098c5961473e362d40d03192f5b83c61eb6f0c0d#0`.
+The [mainnet evidence](closeout/mainnet-evidence.md) records the deployment, confirmed wallet transactions, and fees.
+The `missing` response above describes the earlier check before deployment.
+
 Without a reference, the mint builder stops with "Wallet service is
 temporarily unavailable. Try again later." (`mint-state-token.ts:130-135`).
-INFERRED: nobody can create a Mainnet wallet before check 5 deploys the
+INFERRED at that earlier check: nobody could create a Mainnet wallet before check 5 deployed the
 reference.
 
 VERIFIED with Koios `address_info` on 2026-09-25: the Mainnet store address

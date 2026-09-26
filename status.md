@@ -1,7 +1,17 @@
 # Mainnet beta preparation
 
 Owner: release coordinator
-Status: Local preparation complete; deployment pending
+Status: Mainnet beta verified; closeout evidence content review completed
+
+## Closeout evidence update (2026-09-26)
+
+Owner: closeout coordinator. Status: Completed (content review). Publication and Catalyst acceptance remain separate.
+
+VERIFIED: GET `/api/health` returned HTTP 200 with `status: ok` at `2026-09-26T01:30:26.157Z`.
+The [mainnet evidence](docs/closeout/mainnet-evidence.md) records eight confirmed transactions and two wallets holding 27 ADA, plus separate state deposits.
+Correction: the deployment-pending status below belonged to the earlier preparation session. Mainnet availability and observed transactions are now established. Recovery drills and full economics coverage remain open.
+VERIFIED: `tectonic docs/closeout/closeout-report.tex` exited `0`; `pdfinfo` returned `Pages: 5`. The [submission review](docs/closeout/submission-review.md) records the link checks and their limits. Next: publish the PR, merge it, then open the stable `main` evidence links before Catalyst submission.
+The coordinator owns the report, evidence, submission text, and linked task corrections. The evidence reviewer has read-only ownership of the feedback and outreach cross-check.
 
 ## Scope
 
