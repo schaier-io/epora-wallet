@@ -384,9 +384,21 @@
       "mem": 948607,
       "cpu": 307247186
     },
+    "guard_isolation_tests.pay_streaming_accepts_matching_delta_and_tagged_amount": {
+      "mem": 1176220,
+      "cpu": 398621388
+    },
     "guard_isolation_tests.pay_streaming_rejects_declared_delta_mismatch": {
-      "mem": 928726,
-      "cpu": 305898022
+      "mem": 1163551,
+      "cpu": 396572837
+    },
+    "guard_isolation_tests.pay_streaming_rejects_tagged_output_below_recorded_progress": {
+      "mem": 1121595,
+      "cpu": 384109716
+    },
+    "guard_isolation_tests.pay_streaming_accepts_tagged_output_above_recorded_progress": {
+      "mem": 1176220,
+      "cpu": 398621388
     },
     "guard_isolation_tests.pay_streaming_rejects_no_streaming_progress": {
       "mem": 843512,
@@ -1864,6 +1876,14 @@
       "mem": 905227,
       "cpu": 295075631
     },
+    "stt_single_input_tests.stt_spend_accepts_tokenless_input_at_an_external_address": {
+      "mem": 667864,
+      "cpu": 224099188
+    },
+    "stt_single_input_tests.stt_spend_rejects_tokenless_input_at_the_stt_address": {
+      "mem": 211376,
+      "cpu": 71838094
+    },
     "stt_spend_io_tests.stt_spend_accepts_exactly_one_continuing_output": {
       "mem": 119529,
       "cpu": 44868523
@@ -2587,6 +2607,30 @@
     "wallet_datum_tests.wallet_datum_leaves_other_destinations_unrestricted": {
       "mem": 27620,
       "cpu": 11489698
+    },
+    "wallet_fragmentation_tests.allowance_use_accepts_one_continuing_wallet_output": {
+      "mem": 1934543,
+      "cpu": 637490345
+    },
+    "wallet_fragmentation_tests.allowance_use_rejects_fragmented_wallet_return": {
+      "mem": 1955731,
+      "cpu": 649418584
+    },
+    "wallet_fragmentation_tests.final_beneficiary_accepts_one_continuing_wallet_output": {
+      "mem": 1447576,
+      "cpu": 482938069
+    },
+    "wallet_fragmentation_tests.final_beneficiary_rejects_fragmented_wallet_return": {
+      "mem": 1514646,
+      "cpu": 511152459
+    },
+    "wallet_fragmentation_tests.nonfinal_beneficiary_accepts_one_continuing_wallet_output": {
+      "mem": 1724768,
+      "cpu": 569755491
+    },
+    "wallet_fragmentation_tests.nonfinal_beneficiary_rejects_fragmented_wallet_return": {
+      "mem": 1746196,
+      "cpu": 582705149
     },
     "wallet_governance_tests.governance_gate_accepts_matching_admin_path": {
       "mem": 345305,

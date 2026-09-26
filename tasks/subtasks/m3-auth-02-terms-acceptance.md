@@ -1,5 +1,9 @@
 # Auth: persist the signed terms-and-conditions acceptance
 
+- [x] Closed as deferred. REPORTED: the user deferred wallet-signed terms acceptance on 2026-09-26.
+
+VERIFIED: `origin/main` at `d3b5a239`, `code/dApp/src/lib/legal/beta-consent.ts:7`, describes the shipped flow as "An acknowledgement, not authentication or a retained legal acceptance record." The deferred signature and storage requirements below remain unimplemented.
+
 Auth task · [Milestone 3](../milestone-3-ui-development.md)
 
 When a user signs in via [wallet login](m3-auth-01-wallet-login.md), capture their
@@ -14,21 +18,21 @@ nonce so it's the same single signature the user already gives at confirm time.
 Storage goes in Postgres via Prisma alongside the STT cache
 ([schema.prisma](../../code/dApp/prisma/schema.prisma)).
 
-## Steps
+## Deferred scope
 
-- [ ] Pin the terms text under version control; compute a stable content hash for it.
-- [ ] Include `{ termsVersion, termsHash, address, issuedAt }` in the payload the
+- Pin the terms text under version control; compute a stable content hash for it.
+- Include `{ termsVersion, termsHash, address, issuedAt }` in the payload the
       wallet signs at sign-in (extend the login nonce rather than a second prompt).
-- [ ] Verify the signature server-side against the connecting key before accepting.
-- [ ] Add a Prisma model storing: payment key hash, address, terms version, terms
+- Verify the signature server-side against the connecting key before accepting.
+- Add a Prisma model storing: payment key hash, address, terms version, terms
       hash, the full signature + signed payload (the CIP-30 key/signature pair),
       and accepted-at. One row per (key, version); don't re-prompt if a valid row
       already exists for the current version.
-- [ ] Re-prompt only when the terms version changes.
-- [ ] Test: signature verifies, a tampered payload is rejected, and a stored row
+- Re-prompt only when the terms version changes.
+- Test: signature verifies, a tampered payload is rejected, and a stored row
       round-trips.
 
-## Done when
+## Acceptance criteria if resumed
 
 - A signed-in wallet has a stored, signature-verifiable record of which terms
   version it accepted, recoverable later; bumping the version re-prompts.
