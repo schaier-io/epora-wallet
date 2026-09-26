@@ -20,7 +20,7 @@ Operator spend and automatic proof-of-life refresh: https://cardanoscan.io/trans
 
 B. Output: Further bug fixes and improvements, with categorized feedback
 
-Delivered: The public feedback register groups reports by category and links each issue to its resolution or deferral. Its 22 September snapshot contains 49 distinct issues: 46 categorized as fixed, one deferred, and two classified as non-bugs. The fixed categories cover external tester reports, bugs, interface improvements, and operations. Reports from GitHub and Discord led to wallet-connection and interface fixes. The register also records the later VESPR retest as complete.
+Delivered: The public feedback register groups reports by category and links each issue to its resolution or deferral. Its 22 September snapshot contains 49 distinct issues: 46 categorized as fixed, one deferred, and two classified as non-bugs. The fixed categories cover external tester reports, bugs, interface improvements, and operations. Reports from GitHub and Discord led to wallet-connection and interface fixes.
 
 Acceptance criteria: Feedback and bugs are aggregated and categorized. The milestone output includes further bug fixes and improvements.
 
@@ -45,7 +45,7 @@ API and integration guide: https://github.com/schaier-io/epora-wallet/blob/main/
 
 D. Output: Project Completion Report
 
-Delivered: The report uses Catalyst's current headings: Deliverables, Usage, Impact, and Sustainability. It describes the contract system, application, API, intended users, and user workflow. It includes the approved Milestone 1, 2, and 3 references, measured mainnet activity, transaction fees, feedback results, and the closeout video link. It records lessons from delivery and explains maintenance and future work. No revenue is currently generated. Server and other operating costs are covered by received Catalyst funds. Any external audit depends on community feedback on the proposed CIP and its implementation. If needed, the audit is intended to be financed through a separate funding round. Open operational checks and deferred features remain explicit.
+Delivered: The report uses Catalyst's current headings: Deliverables, Usage, Impact, and Sustainability. It describes the contract system, application, API, intended users, and user workflow. It includes the approved Milestone 1, 2, and 3 references, measured mainnet activity, transaction fees, feedback results, and the closeout video link. It records lessons from delivery and explains maintenance and future work. No revenue is currently generated. Server and other operating costs are covered by received Catalyst funds. Any external audit depends on community feedback on the proposed CIP and its implementation. If needed, the audit is intended to be financed through a separate funding round.
 
 Acceptance criteria: A Project Closeout Report, supplied through an accessible link in the final milestone submission.
 
