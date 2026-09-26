@@ -4,7 +4,7 @@ Public API task · [Milestone 3](../milestone-3-ui-development.md) · after [sha
 
 Catalyst Milestone 3 asks for "an API + specification for external developers".
 Correction (2026-09-14): the earlier statement that no spec existed described the pre-implementation state.
-VERIFIED: [`docs/api/openapi.json`](../../docs/api/openapi.json) now exists, with
+[`docs/api/openapi.json`](../../docs/api/openapi.json) now exists, with
 [the route](../../code/dApp/src/app/api/v1/openapi.json/route.ts) that serves it.
 
 The document is generated from the zod schemas by `zod-openapi`, committed to the
@@ -13,7 +13,7 @@ Generation is what keeps the spec and the routes from drifting apart.
 
 ## The library
 
-`zod-openapi@6.0.2`. VERIFIED from the npm registry and the project README on
+`zod-openapi@6.0.2`. From the npm registry and the project README on
 2026-08-31: peer range `zod ^4.0.0`, which matches the pinned `4.4.3`; zero
 runtime dependencies; supports OpenAPI `3.1.0` and `3.1.1`; annotates through
 zod's own `.meta()` with no patching of zod. Install it with
@@ -37,7 +37,7 @@ together, and returns the finished document object.
 
 ## What landed
 
-`zod-openapi@6.0.2`, installed through Socket Firewall. VERIFIED at install:
+`zod-openapi@6.0.2`, installed through Socket Firewall. At install:
 `latest` resolved to exactly 6.0.2, peer range `zod ^4.0.0`, matching the pinned
 4.4.3.
 
@@ -59,12 +59,12 @@ Plutus data is two mutually recursive schemas, and both needed their `id` in a
 different place. `ConstrData` carries its id on the object the `z.lazy` wrapper
 resolves to; `PlutusData` carries its id on the wrapper itself, because its union
 is inlined. Placing either one wrongly produced an auto-generated `__schema0` in
-the output. VERIFIED: the committed document has 35 named components and no
+the output. The committed document has 35 named components and no
 auto-generated names.
 
 ### Validation
 
-VERIFIED on 2026-08-31 with `redocly lint` (via `pnpm dlx`, not added as a
+Checked on 2026-08-31 with `redocly lint` (via `pnpm dlx`, not added as a
 dependency): **"Your API description is valid."**
 
 Getting there fixed two real gaps. Every operation now has an `operationId`,
@@ -86,7 +86,7 @@ document is absent, and exits `0` on a clean tree.
 ## Done when
 
 - [x] `docs/api/openapi.json` is committed and validates as OpenAPI 3.1.
-- [x] `/api/v1/openapi.json` returns it. VERIFIED: the served bytes parse equal
+- [x] `/api/v1/openapi.json` returns it. The served bytes parse equal
       to the committed file.
 - [x] Every documented route, including all ten transaction paths, is in it.
       Thirteen paths, 35 components.

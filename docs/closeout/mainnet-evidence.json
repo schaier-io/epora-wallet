@@ -1,5 +1,4 @@
 {
-  "verification": "VERIFIED",
   "checked_at_utc": "2026-09-26T01:30:26.157Z",
   "scope": "Current deployed Epora STT policy only. Wallet counts are not unique people. Transaction records cover observed deployment and wallet activity, not all possible actions.",
   "source": "https://api.koios.rest/api/v1",
@@ -36,7 +35,6 @@
   },
   "wallets": [
     {
-      "verification": "VERIFIED",
       "name": "Smart wallet",
       "address": "addr1wynmfgsec4hax5e29fretxg0c0ve6xznpcry04087g7jg8skrul80",
       "payment_credential": "27b4a219c56fd3532a2a4795990fc3d99d18530e0647d5e7f23d241e",
@@ -48,7 +46,6 @@
       "state_output": "8d21e3b7f954262d8da288e97b4067f40cc7ccc94db94a19959d4929350b8732#1"
     },
     {
-      "verification": "VERIFIED",
       "name": "Smart wallet Demo",
       "address": "addr1w8wj6tjlfqjdgtlxq9t6g4ar089e7vs6wcqwpwpxgdtqvysply755",
       "payment_credential": "dd2d2e5f4824d42fe60157a457a379cb9f321a7600e0b82643560612",
@@ -62,7 +59,6 @@
   ],
   "transactions": [
     {
-      "verification": "VERIFIED",
       "action": "Reference deployment",
       "tx_hash": "fb11866380769867300d1919098c5961473e362d40d03192f5b83c61eb6f0c0d",
       "block_height": 13987866,
@@ -73,7 +69,6 @@
       "explorer_url": "https://cardanoscan.io/transaction/fb11866380769867300d1919098c5961473e362d40d03192f5b83c61eb6f0c0d"
     },
     {
-      "verification": "VERIFIED",
       "action": "Smart wallet creation and initial funding",
       "tx_hash": "71ea33e0e820dc4a04c86530d3f994a2f880aa047cdfbe3b68d3e272c33409a8",
       "block_height": 13988226,
@@ -86,7 +81,6 @@
       "explorer_url": "https://cardanoscan.io/transaction/71ea33e0e820dc4a04c86530d3f994a2f880aa047cdfbe3b68d3e272c33409a8"
     },
     {
-      "verification": "VERIFIED",
       "action": "Smart wallet additional funding",
       "tx_hash": "d6e2e824daef4347231db51c1a5f0c422a6e3292fab2d514cb5320e86a2cf249",
       "block_height": 13988234,
@@ -97,7 +91,6 @@
       "explorer_url": "https://cardanoscan.io/transaction/d6e2e824daef4347231db51c1a5f0c422a6e3292fab2d514cb5320e86a2cf249"
     },
     {
-      "verification": "VERIFIED",
       "action": "Smart wallet operator spend",
       "tx_hash": "8d21e3b7f954262d8da288e97b4067f40cc7ccc94db94a19959d4929350b8732",
       "block_height": 13988254,
@@ -111,7 +104,6 @@
       "explorer_url": "https://cardanoscan.io/transaction/8d21e3b7f954262d8da288e97b4067f40cc7ccc94db94a19959d4929350b8732"
     },
     {
-      "verification": "VERIFIED",
       "action": "Demo wallet creation and initial funding",
       "tx_hash": "6ba0055f3cddbe2882a7ce1648eddee47e73e65b0cf36b771e375b653e8beb31",
       "block_height": 13988323,
@@ -124,7 +116,6 @@
       "explorer_url": "https://cardanoscan.io/transaction/6ba0055f3cddbe2882a7ce1648eddee47e73e65b0cf36b771e375b653e8beb31"
     },
     {
-      "verification": "VERIFIED",
       "action": "Demo wallet additional funding",
       "tx_hash": "9e60d91d71008a72ff725e9d1e4b6e07a96d4e7a53046af1af5b8dd217b2d7f2",
       "block_height": 13988330,
@@ -135,7 +126,6 @@
       "explorer_url": "https://cardanoscan.io/transaction/9e60d91d71008a72ff725e9d1e4b6e07a96d4e7a53046af1af5b8dd217b2d7f2"
     },
     {
-      "verification": "VERIFIED",
       "action": "Demo beneficiary and proof-of-life configuration",
       "tx_hash": "4080136da4b64ba642f5b40d017a2181c1edfbf7cd21a48ab38a623225b34871",
       "block_height": 13988334,
@@ -148,7 +138,6 @@
       "explorer_url": "https://cardanoscan.io/transaction/4080136da4b64ba642f5b40d017a2181c1edfbf7cd21a48ab38a623225b34871"
     },
     {
-      "verification": "VERIFIED",
       "action": "Demo operator spend and automatic proof-of-life refresh",
       "tx_hash": "a9502540ad8ef0af445fe99904dc05ccb2d50c785344953a1f146e114424aad9",
       "block_height": 13988362,

@@ -21,7 +21,7 @@ point that ties them together.
 | STT reference script | On-chain reference UTxO | Redeployed when validators change (§6) |
 | Contract blueprint | `code/smart-contract/plutus.json` | Mirrored into the dApp by `pnpm sync:blueprint` |
 
-VERIFIED 2026-09-26: [mainnet](https://mainnet.epora.io/api/health) and [Preprod](https://www.epora.io/api/health) returned HTTP 200 with `"database":"up","indexer":"up"`.
+On 2026-09-26, [mainnet](https://mainnet.epora.io/api/health) and [Preprod](https://www.epora.io/api/health) returned HTTP 200 with `"database":"up","indexer":"up"`.
 This corrects the earlier Preprod-only description. [Milestone 5](../tasks/milestone-5-mainnet-closeout.md#live-deployment-check-2026-09-26) records the measurements and their limits.
 Network settings below were inspected on `main` at `d3b5a239`; the closeout branch predates those application changes.
 
@@ -106,7 +106,7 @@ migration (column/table drops).
 Full descriptions are in [`code/dApp/README.md`](../code/dApp/README.md) and
 [`code/dApp/.env.example`](../code/dApp/.env.example).
 
-VERIFIED at `d3b5a239`: the public build-time variable `NEXT_PUBLIC_CARDANO_NETWORK` selects `mainnet`, `preprod`, or `preview`.
+Checked at `d3b5a239`: the public build-time variable `NEXT_PUBLIC_CARDANO_NETWORK` selects `mainnet`, `preprod`, or `preview`.
 It is not a secret. Rebuild when changing it; keep deployment secrets and databases separate.
 
 ### Rotation procedure

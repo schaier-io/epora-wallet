@@ -8,7 +8,7 @@ the server.
 
 ## What already exists
 
-VERIFIED on 2026-08-31.
+Checked on 2026-08-31.
 [`resolveWalletUtxos`](../../code/dApp/src/lib/mesh/transactions/internals/utxo.ts)
 already has an address-based fallback: when the wallet returns no UTxOs it walks
 `addressCandidates` and calls `fetcher.fetchAddressUTxOs(address)`, then
@@ -47,7 +47,7 @@ with [tests](../../code/dApp/src/lib/mesh/server-wallet.test.ts) (7, passing):
 - `createAddressWalletSource` — validates up front, then reports the address as
   change and used, and no UTxOs. `resolveWalletUtxos` therefore takes its
   existing `fetchAddressUTxOs` fallback.
-- `createServerTxFetcher` — returns `getBlockfrostProvider()`. VERIFIED by
+- `createServerTxFetcher` returns `getBlockfrostProvider()`. Checked by
   typecheck that `BlockfrostProvider` satisfies `TxFetcher` with no adapter.
 
 Threading: every builder gained a trailing optional `txFetcher?: TxFetcher` and
@@ -69,12 +69,12 @@ site passes one, the browser path is unchanged.
 
 Fixed, and the caller cannot inflate it. Every `WalletSource` method reports the
 same address, so the fallback dedupes to one candidate and one address fetch per
-`setupTransaction`. VERIFIED: `buildTransactionWithReestimatedLimits` calls
+`setupTransaction`. `buildTransactionWithReestimatedLimits` calls
 `prepareTx` exactly twice (`budget.ts:33` and `budget.ts:40`), draft then
 re-estimated final, so a build makes **two** address fetches, not one. No retry
 loop, no caller-controlled multiplier.
 
-## The collateral question: settled, VERIFIED 2026-08-31
+## The collateral question: settled, 2026-08-31
 
 Collateral never came from the connected wallet. `setupTransaction` stubs the
 CIP-30 API to nothing (`getCollateral: async () => []`,
@@ -111,7 +111,7 @@ including collateral and live script evaluation, not just a UTxO read.
 
 ### The byte-identical criterion cannot be met. Here is exactly why.
 
-VERIFIED by measurement, not inferred. With the same address, the same 5 UTxOs
+Measured result: With the same address, the same 5 UTxOs
 in the same order, and `Date.now()` pinned to a fixed value, three consecutive
 builds produced **different** transactions:
 

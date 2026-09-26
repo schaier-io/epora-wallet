@@ -6,7 +6,7 @@ Testnet tolerates waste; mainnet doesn't. Fees, min-ADA, and transaction-size li
 
 ## Recorded measurements
 
-VERIFIED 2026-09-26: [mainnet evidence](../../docs/closeout/mainnet-evidence.md) records eight confirmed transactions with actual fees. It covers reference deployment, mint/funding, plain funding, settings update, and operator spending. Automatic proof-of-life refresh occurred during one spend. The remaining action types, multi-asset minimum ADA, and fragmented-wallet consolidation remain unmeasured in this record.
+2026-09-26: [mainnet evidence](../../docs/closeout/mainnet-evidence.md) records eight confirmed transactions with actual fees. It covers reference deployment, mint/funding, plain funding, settings update, and operator spending. Automatic proof-of-life refresh occurred during one spend. The remaining action types, multi-asset minimum ADA, and fragmented-wallet consolidation remain unmeasured in this record.
 
 ## Steps
 

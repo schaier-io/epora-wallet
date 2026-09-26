@@ -6,7 +6,7 @@ The proposal commits to going live as a beta and saying so. No external audit ha
 
 ## Completion evidence (2026-09-26)
 
-VERIFIED on `main` at `d3b5a239`: `code/dApp/src/components/layout/beta-notice.tsx` keeps the mainnet notice visible and omits its dismiss button.
+Checked on `main` at `d3b5a239`: `code/dApp/src/components/layout/beta-notice.tsx` keeps the mainnet notice visible and omits its dismiss button.
 `code/dApp/src/app/layout.tsx` renders it; the README's beta-risk section states that no security audit is complete.
 The live mainnet browser displayed the unaudited-beta risk acknowledgement before wallet connection.
 This closes the implementation task. The earlier requirement for no Preprod notice was inaccurate: Preprod intentionally has a dismissible test-network notice.

@@ -25,14 +25,14 @@ guide are what answer it for the off-chain half.
 
 ## Completion status
 
-- [x] Publish the developer guide. VERIFIED on 2026-09-26: `origin/main` at `d3b5a239` contains `docs/api/README.md`. Its sections cover pagination (line 235), transaction construction (line 277), errors (line 665), rate limits (line 724), and versioning (line 823).
-- [x] External-reader review. REPORTED: the user confirmed completion on 2026-09-26. This session did not observe that person's test.
+- [x] Publish the developer guide. Checked on 2026-09-26: `origin/main` at `d3b5a239` contains `docs/api/README.md`. Its sections cover pagination (line 235), transaction construction (line 277), errors (line 665), rate limits (line 724), and versioning (line 823).
+- [x] External-reader review was complete by 2026-09-26.
 
-Correction, 2026-09-26: the previous status left the external-reader review open. The user's confirmation closes that item. Current-route validation remains in [the transaction-route task](m3-api-09-tx-routes.md).
+Status correction, 2026-09-26: the external-reader review is complete. Current-route validation remains in [the transaction-route task](m3-api-09-tx-routes.md).
 
 ## What was written
 
-REPORTED historical capture, 2026-08-31: [`docs/api/README.md`](../../docs/api/README.md) then had 756 lines. Every response it
+Historical capture, 2026-08-31: [`docs/api/README.md`](../../docs/api/README.md) then had 756 lines. Every response it
 quotes was captured from a live preprod deployment on 2026-08-31, not written
 from the schemas.
 

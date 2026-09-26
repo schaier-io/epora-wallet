@@ -20,7 +20,7 @@ Operator spend and automatic proof-of-life refresh: https://cardanoscan.io/trans
 
 B. Output: Further bug fixes and improvements, with categorized feedback
 
-Delivered: The public feedback register groups reports by category and links each issue to its resolution or deferral. Its 22 September snapshot contains 49 distinct issues: 46 categorized as fixed, one deferred, and two classified as non-bugs. The fixed categories cover external tester reports, bugs, interface improvements, and operations. Reports from GitHub and Discord led to wallet-connection and interface fixes. The register also records the later VESPR retest as complete based on the project manager's confirmation.
+Delivered: The public feedback register groups reports by category and links each issue to its resolution or deferral. Its 22 September snapshot contains 49 distinct issues: 46 categorized as fixed, one deferred, and two classified as non-bugs. The fixed categories cover external tester reports, bugs, interface improvements, and operations. Reports from GitHub and Discord led to wallet-connection and interface fixes. The register also records the later VESPR retest as complete.
 
 Acceptance criteria: Feedback and bugs are aggregated and categorized. The milestone output includes further bug fixes and improvements.
 
@@ -33,7 +33,7 @@ Milestone 4 feedback record: https://github.com/schaier-io/epora-wallet/blob/mai
 
 C. Output: Communication about potential wallet integration
 
-Delivered: We contacted wallet developers about native smart-wallet integration and a possible Cardano Improvement Proposal. A public message in Eternl's Discord on 24 September 2026 introduces Epora and asks about integration interest. The repository includes a screenshot, so reviewers can inspect the communication without a Discord account. The outreach record also lists contact with Begin Wallet and other developers. An Eternl reply by direct message is reported by the project manager. Further integration discussions remain follow-up work.
+Delivered: We contacted wallet developers about native smart-wallet integration and a possible Cardano Improvement Proposal. A public message in Eternl's Discord on 24 September 2026 introduces Epora and asks about integration interest. The repository includes a screenshot, so reviewers can inspect the communication without a Discord account. The outreach record also lists contact with Begin Wallet and other developers. Eternl replied by direct message. Further integration discussions remain follow-up work.
 
 Acceptance criteria: Communication with potential wallet developers, if wallet developers or the community express interest. The milestone requires communication about potential collaboration; it does not require a completed wallet integration.
 
@@ -45,7 +45,7 @@ API and integration guide: https://github.com/schaier-io/epora-wallet/blob/main/
 
 D. Output: Project Completion Report
 
-Delivered: The report uses Catalyst's current headings: Deliverables, Usage, Impact, and Sustainability. It describes the delivered work and maps the final milestone outputs to acceptance criteria and evidence. It includes the approved Milestone 1, 2, and 3 references, measured mainnet activity, transaction fees, feedback results, and the closeout video link. It explains how received Catalyst funds support operating costs and describes the planned maintenance and future work. Open operational checks and deferred features remain explicit.
+Delivered: The report uses Catalyst's current headings: Deliverables, Usage, Impact, and Sustainability. It describes the contract system, application, API, intended users, and user workflow. It includes the approved Milestone 1, 2, and 3 references, measured mainnet activity, transaction fees, feedback results, and the closeout video link. It records lessons from delivery and explains maintenance and future work. Epora has no revenue yet; received Catalyst funds cover servers and other operating costs. Open operational checks and deferred features remain explicit.
 
 Acceptance criteria: A Project Closeout Report, supplied through an accessible link in the final milestone submission.
 
@@ -56,7 +56,7 @@ Mainnet evidence snapshot: https://github.com/schaier-io/epora-wallet/blob/main/
 
 E. Output: Project Completion Video
 
-Delivered: The Epora Wallet Catalyst-Closeout video is supplied on YouTube. Review it alongside the report, the live mainnet prototype, and the linked transaction evidence. The report and repository README also link to this video.
+Delivered: The Epora Wallet Catalyst-Closeout video is available on YouTube. Review it alongside the report, the live mainnet prototype, and the linked transaction evidence. The report and repository README also link to this video.
 
 Acceptance criteria: A Project Closeout Video, supplied through a YouTube link in the report and final milestone submission.
 

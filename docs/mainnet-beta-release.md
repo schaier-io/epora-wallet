@@ -8,7 +8,7 @@ For two live networks and the visitor switch, follow the
 
 ## Operator and legal documents
 
-REPORTED by the operator in this task:
+Company details supplied by the operator:
 
 - Operator: 41BIT LLC, a Wyoming LLC.
 - Entity ID: `2026-001999964`.
@@ -16,8 +16,8 @@ REPORTED by the operator in this task:
   United States.
 - Legal and privacy contact: `info@41bit.io`.
 
-VERIFIED: The [Wyoming registry](https://wyobiz.wyo.gov/Business/FilingSearch.aspx)
-returned a human-verification page during this task. Independent verification of
+The [Wyoming registry](https://wyobiz.wyo.gov/Business/FilingSearch.aspx)
+returned a human-verification page during the registry check. Independent verification of
 registration and current standing was not completed. The site does not claim
 that the supplied details were independently verified.
 
@@ -42,7 +42,7 @@ These sources do not determine every law applicable to the company or service.
 
 ## Privacy evidence and unresolved operations
 
-VERIFIED from source:
+Source evidence:
 
 | Processing | Evidence | Limit |
 | --- | --- | --- |
@@ -73,14 +73,13 @@ automatic deletion instead of inventing retention periods.
 5. Only after approval, deploy the reference store and perform a small-funds
    mainnet smoke test. Record transaction hashes and measured fees before launch.
 
-INFERRED: Completing application tests does not establish that production secrets,
+Completing application tests does not establish that production secrets,
 provider accounts, contract deployments, or backup recovery work. These checks
-need their own evidence. No mainnet transaction or deployment was authorized by
-the company-details message.
+need their own evidence. The company details did not authorize a mainnet transaction or deployment.
 
-## Validation in this task
+## Initial validation
 
-VERIFIED on Node v24.14.0:
+Checks on Node v24.14.0:
 
 - Mainnet production build: `next build --webpack`, exit `0`. TypeScript and
   generation of all `41/41` static pages completed. Dependency warnings concerned
@@ -95,11 +94,11 @@ VERIFIED on Node v24.14.0:
 - Type checking, ESLint, translation checks, source length checks, blueprint
   mirror checks, and OpenAPI generation checks exited `0`.
 
-VERIFIED negative control: Restoring the previous shared submission source while
+Negative control: Restoring the previous shared submission source while
 keeping the new tests returned `4 failed | 12 skipped (16)`, exit `1`.
 The current source was restored, and all 16 submission tests then passed.
 
-VERIFIED local production checks at `http://127.0.0.1:3017`:
+Local production checks at `http://127.0.0.1:3017`:
 
 - `/api/beta-consent` returned `200` with
   `{"accepted":false,"network":"mainnet","version":"epora-beta-1"}`.
@@ -114,13 +113,13 @@ Limits: The live browser check did not accept terms on the operator's behalf,
 connect a wallet, or sign a transaction. Automated tests cover acceptance and
 submission guards. A deployed-host check remains required.
 
-VERIFIED environment limitation: The first default build could not fetch Google
+Environment limitation: The first default build could not fetch Google
 Fonts. The network-enabled Turbopack build then failed with
 `binding to a port: Operation not permitted (os error 1)`.
 The Webpack build above succeeded; the default Turbopack production build remains
 unverified in this environment.
 
-REPORTED: The final independent adversarial review found no actionable findings
+The final independent adversarial review recorded no findings that required changes
 in the changed network, consent, signing, and legal-page paths. This is a code
 review, not an independent security audit. An existing OpenAPI `Apache-2.0`
 license declaration differs from the root `MIT` license and was left outside
@@ -128,21 +127,21 @@ this change.
 
 ## Liability release update
 
-REPORTED: The operator requested a separate release-of-responsibility checkbox.
+The liability update adds a separate release-of-responsibility checkbox at the operator's request.
 The current terms and checkbox limit the release to applicable law. They exclude
 fraud, gross negligence, intentional misconduct, and rights that cannot be waived.
 The earlier browser and HTTP evidence above describes version `epora-beta-1`.
 Version `epora-beta-2` adds a fifth required acknowledgement, `liabilityRelease`.
 Previous cookies and API acknowledgements no longer satisfy the current version.
 
-VERIFIED for this update: The focused component/API suites returned
+For this update, the focused component/API suites returned
 `46 passed (46)`. Consent and API specification unit tests returned
 `tests 12`, `pass 12`, `fail 0`. Before implementation, the new regression tests
 returned `7 failed | 32 passed (39)`, exit `1`. ESLint and translation checks
 exited `0`. The final mainnet `next build --webpack` exited `0`.
 The refreshed local browser displayed five unchecked boxes, including the release,
 and a disabled continue button. No terms were accepted during this browser check.
-REPORTED: A final independent review found no remaining issues after
+A final independent review recorded no remaining issues after
 matching the liability exceptions and browser/API acceptance wording.
 
 Legal reference: [EU Unfair Contract Terms Directive](https://eur-lex.europa.eu/eli/dir/1993/13/oj/eng),
@@ -151,14 +150,14 @@ waiver is enforceable against any particular user.
 
 ## Operator, related parties and MIT update
 
-REPORTED: The operator requested that 41BIT LLC remain the sole service operator
-and contracting party, while the release also covers related people and entities.
+At the operator's request, 41BIT LLC remains the sole service operator
+and contracting party. The release also covers related people and entities.
 Version `epora-beta-3` defines those Released Parties and extends the checkbox,
 release, and liability exclusions to them. Individuals give no personal guarantee
 by contributing to Epora. The text preserves mandatory rights and does not promise
 that an individual cannot be sued or held liable for their own conduct.
 
-VERIFIED: Root `LICENSE` begins `MIT License` and identifies
+Root `LICENSE` begins `MIT License` and identifies
 `Copyright (c) 2026 schaier-io`. The gate and legal documents now state the MIT
 license and link to that file. The earlier OpenAPI license mismatch was a real
 inconsistency. This update corrects its declaration to MIT without changing
@@ -170,23 +169,23 @@ The statute limits liability based solely on member or manager status; it does
 not establish blanket personal immunity for developers. Counsel must assess
 personal exposure against actual company operations and conduct before launch.
 
-VERIFIED for this update: Focused component/API suites returned `47 passed (47)`.
+For this update, focused component/API suites returned `47 passed (47)`.
 Consent and API specification tests returned `tests 13`, `pass 13`, `fail 0`.
 The footer suite returned `5 passed (5)` and identifies 41BIT LLC as operator.
 Before implementation, the new component/API regressions returned
 `5 failed | 35 passed (40)`, exit `1`. ESLint and translation checks exited `0`.
-REPORTED: The independent final review found no remaining issues in the changed
+The independent final review recorded no remaining issues in the changed
 wording, consent version, or license declaration. The final metadata review also
 confirmed that product references belong to the WebApplication, whose provider
 is the separate 41BIT LLC Organization. This does not establish legal enforceability.
-VERIFIED: The final mainnet Webpack production build exited `0`. The local browser
+The final mainnet Webpack production build exited `0`. The local browser
 displayed `epora-beta-3` terms, the sole-operator statement, expanded release,
 and MIT notice. Five unchecked acknowledgements remained required. No terms were
 accepted and no transaction was signed during this check.
 
 ## Post-rebase validation
 
-VERIFIED on 2026-09-23 on Node v24.21.0 at `64c20bcf`, after the rebase onto
+Measured on 2026-09-23 on Node v24.21.0 at `64c20bcf`, after the rebase onto
 `dev` at `5d936c45`: the dApp CI verify, build and file-length commands exited
 `0`, with `pnpm test:unit` in place of the Postgres-backed `pnpm test`.
 `pnpm test:components` returned `Test Files 185 passed (185)` and
@@ -203,12 +202,11 @@ build is now verified. The `pnpm build` in this run is that build. Its log
 prints `Next.js 16.3.5 (Turbopack)`, and it exited `0`.
 
 Correction: the footer count in the operator update above predates the rebase
-onto `dev`. Dev removed the footer's "Wallet home" link and its test. An
-earlier version of this correction sat inside that paragraph. VERIFIED at
+onto `dev`. Dev removed the footer's "Wallet home" link and its test. At
 `64c20bcf`: the footer suite returned `Tests 4 passed (4)`, and it still checks
 the "Operator: 41BIT LLC" link.
 
-VERIFIED in a throwaway headless browser on a local Preprod dev server, 375
+Checked in a throwaway headless browser on a local Preprod dev server, 375
 pixels wide. Checking the five boxes scrolled the window to `scrollY` 419, and
 the probe then accepted. At `64c20bcf`, the app opened at `scrollY` 0, with the
 top of the beta notice 65 pixels down, under the header. At `c185ec5b`, before
@@ -217,13 +215,13 @@ the notice 120 pixels above the viewport. Two runs at `c185ec5b` gave the same
 numbers. The browser accepted the terms locally. No wallet was connected and no
 transaction was signed.
 
-VERIFIED at `64c20bcf`: `risk-disclaimer-gate.test.tsx` returned
+Checked at `64c20bcf`: `risk-disclaimer-gate.test.tsx` returned
 `Tests 13 passed (13)`. Four mutants of `use-beta-consent.ts` each failed it.
 No `flushSync`, the scroll before the swap, and no scroll each returned
 `Tests 1 failed | 12 passed (13)`. The scroll in `finally` returned
 `Tests 2 failed | 11 passed (13)`.
 
-VERIFIED at `64c20bcf` with `NEXT_PUBLIC_CARDANO_NETWORK=mainnet` on a local
+Checked at `64c20bcf` with `NEXT_PUBLIC_CARDANO_NETWORK=mainnet` on a local
 dev server, in the same kind of throwaway browser, 375 and 1280 pixels wide.
 After acceptance, the notice read "Mainnet beta. No independent security
 audit. You could lose all funds. Use only funds you can afford to lose." It
@@ -236,15 +234,15 @@ header stays pinned.
 ## Release freeze: validator blueprint
 
 This section records deployment check 3 for release commit `af80c6fc`
-(`Merge pull request #599 from schaier-io/dev`). VERIFIED with the Vercel API
+(`Merge pull request #599 from schaier-io/dev`). Checked with the Vercel API
 on 2026-09-25: the live Mainnet deployment (`mainnet-epora`, `fra1`) and the
 live Preprod deployment (`epora-wallet`, `iad1`) both report
 `githubCommitSha` `af80c6fcd62fa875876ac7793c728f78187c379d`.
 
 Update, later on 2026-09-25: `main` moved to `d3b5a239`
-(`Merge pull request #603 from schaier-io/dev`). VERIFIED with the Vercel API:
+(`Merge pull request #603 from schaier-io/dev`). Checked with the Vercel API:
 `mainnet.epora.io` and `www.epora.io` now point to deployments with
-`githubCommitSha` `d3b5a2391e6f58836752ec40e39eec4139f8d886`. VERIFIED with
+`githubCommitSha` `d3b5a2391e6f58836752ec40e39eec4139f8d886`. Checked with
 `git rev-parse`: `code/smart-contract` has the tree `b03c6b25` at both commits,
 and the dApp `plutus.json` has the blob `71258dc5` at both commits. All 10 files
 that changed are in `code/dApp`. So the results below also apply to `d3b5a239`.
@@ -253,7 +251,7 @@ On the push of `d3b5a239`, `dApp CI`, `Native Recovery CI` and
 `Blueprint Autosync` did not run, because no changed file matches their path
 filters.
 
-VERIFIED on 2026-09-25 in a `git archive` export of `code/smart-contract` at
+Measured on 2026-09-25 in a `git archive` export of `code/smart-contract` at
 `af80c6fc`:
 
 - `node scripts/check-toolchain.mjs` printed
@@ -283,7 +281,7 @@ The STT validator hash is also the STT policy ID. The Wallet validator hash is
 the hash before parameters. Each wallet applies its own STT policy ID and asset
 name, so each wallet has its own script hash and address.
 
-VERIFIED with `@meshsdk/core` `1.9.1` and the calls in
+Checked with `@meshsdk/core` `1.9.1` and the calls in
 `code/dApp/src/lib/contracts/blueprint.ts`: `resolveScriptHash` returned the
 two blueprint hashes. `resolvePlutusScriptAddress` with network ID `1` returned
 these Mainnet addresses:
@@ -291,7 +289,7 @@ these Mainnet addresses:
 - STT validator: `addr1wyx6cq97szremn6ctnde6zk0dc8v75kyzl0dxrvtwtgwhugwudywu`
 - STT reference store: `addr1w87zqpcdrefhjsp6m44vhammyvajlqjqsgwps7ees5jau2quqhgjf`
 
-VERIFIED on the live hosts: `GET /api/shared-helper` returned the `policyId`
+Measured on the live hosts: `GET /api/shared-helper` returned the `policyId`
 `0dac00be80879dcf585cdb9d0acf6e0ecf52c417ded30d8b72d0ebf1` on both hosts.
 Mainnet returned `"status":"missing"` and `"activeReference":null`. Preprod
 returned `"status":"ready"` with the `activeReference`
@@ -303,10 +301,10 @@ The `missing` response above describes the earlier check before deployment.
 
 Without a reference, the mint builder stops with "Wallet service is
 temporarily unavailable. Try again later." (`mint-state-token.ts:130-135`).
-INFERRED at that earlier check: nobody could create a Mainnet wallet before check 5 deployed the
-reference.
+At that earlier check, the missing reference indicated that the app could not
+create a Mainnet wallet until deployment check 5 supplied it.
 
-VERIFIED with Koios `address_info` on 2026-09-25: the Mainnet store address
+Checked with Koios `address_info` on 2026-09-25: the Mainnet store address
 holds 16 UTxOs with `308768400` lovelace in total. Each UTxO carries a
 reference script. They carry 15 distinct script hashes, and none is the current
 STT hash. The newest was created on 2026-05-02. The spend path of the store is
@@ -314,7 +312,7 @@ STT hash. The newest was created on 2026-05-02. The spend path of the store is
 holds `63270800` lovelace for the 14469-byte script. Its transaction paid a fee
 of `809969` lovelace.
 
-VERIFIED with `gh run list --commit af80c6fc`: `Smart Contract CI`,
+Checked with `gh run list --commit af80c6fc`: `Smart Contract CI`,
 `dApp CI`, `Native Recovery CI`, `File Length Check` and `Blueprint Autosync`
 concluded `success` on the push to `main`. Smart Contract CI runs
 `aiken fmt --check`, `aiken check -D`, the budget and trace gates, and
@@ -324,10 +322,10 @@ head `cc2cf2f9`, which has the same tree as `af80c6fc`.
 
 Unresolved contract issues at the freeze:
 
-- VERIFIED: `gh issue list --state open` returned `[]`.
-- VERIFIED: no independent security audit exists. The tests above are not an
+- `gh issue list --state open` returned `[]`.
+- No independent security audit exists. The tests above are not an
   audit, and the Mainnet notice says so.
-- VERIFIED, accepted in writing: `code/smart-contract/SECURITY.md` records that
+- Accepted in writing: `code/smart-contract/SECURITY.md` records that
   "The 2026-09 security review accepted this availability risk" for
   proof-of-life contention. `code/smart-contract/INTERACTIONS.md` lists the
   items that the 2026-07 security review accepted, for example the no-op
@@ -336,18 +334,18 @@ Unresolved contract issues at the freeze:
 
 Open after this check:
 
-- VERIFIED: `git ls-remote --tags origin` listed no tags. The freeze task asks
+- `git ls-remote --tags origin` listed no tags. The freeze task asks
   for a tag on the release commit. Pushing a tag needs the operator's approval.
-- INFERRED: nothing enforces this freeze. `code/dApp/vercel.json` enables
+- The deployment settings suggest that nothing enforces this freeze. `code/dApp/vercel.json` enables
   deployments from `main`, and the Mainnet project has no ignored build step.
   A contract change merged to `main` would reach Mainnet without a new record.
   It would also change the STT policy ID and every wallet address that the dApp
   derives. Compare both SHA-256 values above before each Mainnet release.
-- VERIFIED with Koios `cli_protocol_params`: Mainnet allows `16500000` memory
+- Checked with Koios `cli_protocol_params`: Mainnet allows `16500000` memory
   units per transaction, and Preprod allows `17500000`. The contract budget
   gates cap one evaluation at `14_000_000`. The dApp compares the summed
   memory with `maxTxExMem` from the protocol parameters of its builder
-  (`execution-snapshot.ts:273`). INFERRED: a transaction with several script
+  (`execution-snapshot.ts:273`). This means a transaction with several script
   evaluations can fit on Preprod and fail this check on Mainnet.
 
 ## Least confident decisions

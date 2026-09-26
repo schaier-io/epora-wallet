@@ -1,66 +1,54 @@
-# Milestone 5 submission review
+# Milestone 5 submission checklist
 
-Date: 2026-09-26. Owner: closeout coordinator. Status: Completed (content review).
-Publication on `main` and Catalyst acceptance remain separate steps.
+Date: 26 September 2026. Project 1100002.
 
-## Format checked against approved submissions
+## Format and prior approvals
 
-VERIFIED in the public Milestone Module in this session:
+The [plain-text submission](milestone-5-submission.txt) follows the lettered output, acceptance criteria, and evidence format used in earlier approved submissions.
 
-| Submission | Pattern observed | Admin signoff displayed |
+| Submission | Format | Admin signoff |
 | --- | --- | --- |
-| [Milestone 1](https://milestones.projectcatalyst.io/projects/1100002/milestones/1) | A-C outputs, acceptance criteria, evidence links, and detailed whitepaper/task descriptions | `July 7, 2026 at 9:01 AM UTC` |
-| [Milestone 2](https://milestones.projectcatalyst.io/projects/1100002/milestones/2) | A-E outputs, delivered descriptions, acceptance criteria, labeled source/test links | `August 6, 2026 at 11:56 AM UTC` |
-| [Milestone 3](https://milestones.projectcatalyst.io/projects/1100002/milestones/3) | A-E outputs, explicit `Delivered`, acceptance criteria, labeled video/API/source links | `September 21, 2026 at 5:29 PM UTC` |
+| [Milestone 1](https://milestones.projectcatalyst.io/projects/1100002/milestones/1) | A-C outputs, acceptance criteria, evidence links, and whitepaper/task descriptions | 7 July 2026, 09:01 UTC |
+| [Milestone 2](https://milestones.projectcatalyst.io/projects/1100002/milestones/2) | A-E outputs, delivered descriptions, acceptance criteria, source/test links | 6 August 2026, 11:56 UTC |
+| [Milestone 3](https://milestones.projectcatalyst.io/projects/1100002/milestones/3) | A-E outputs, delivered descriptions, acceptance criteria, video/API/source links | 21 September 2026, 17:29 UTC |
 
-VERIFIED: the new [plain-text submission](milestone-5-submission.txt) uses this pattern.
-The [report](closeout-report.pdf) uses the current required headings: Deliverables, Usage, Impact, Sustainability.
-Source: [Catalyst report and video requirements](https://docs.projectcatalyst.io/current-fund/general-information/project-completion-report-and-video-requirements).
-Earlier approvals establish the format precedent, not approval of Milestone 5.
+The [report](closeout-report.pdf) uses Deliverables, Usage, Impact, and Sustainability, as requested by the current [Catalyst report guidance](https://docs.projectcatalyst.io/current-fund/general-information/project-completion-report-and-video-requirements).
+Earlier approvals establish a format precedent; they do not approve Milestone 5.
 
 ## Requirement mapping
 
-VERIFIED against the approved [final milestone](https://milestones.projectcatalyst.io/projects/1100002/milestones/5) and the authored submission:
+The approved [final milestone](https://milestones.projectcatalyst.io/projects/1100002/milestones/5) requires these five evidence links.
 
 | Required evidence | Submission output | Evidence |
 | --- | --- | --- |
-| Link to mainnet prototype | A | Live mainnet URL, healthy endpoint, current reference, confirmed transactions |
-| Link to aggregated and categorized feedback | B | Feedback register with issue categories and linked fixes |
-| Link to wallet-integration discussion | C | Public Discord message, screenshot, outreach record |
-| Link to closeout report | D | PDF, source, measured mainnet evidence |
-| Link to closeout video | E | Supplied YouTube URL, also in PDF and README |
+| Mainnet prototype | A | [Live beta](https://mainnet.epora.io), [health endpoint](https://mainnet.epora.io/api/health), and [confirmed transactions](mainnet-evidence.md) |
+| Aggregated and categorized feedback | B | [Feedback register](../testnet-feedback.md) with categories and linked fixes |
+| Wallet-integration discussion | C | [Outreach record](../wallet-integration.md), public Discord message, and screenshot |
+| Closeout report | D | [PDF](closeout-report.pdf), source, and measured mainnet evidence |
+| Closeout video | E | [YouTube video](https://youtu.be/XKyZoa02kag), also linked in the PDF and README |
 
-VERIFIED: A includes the beta/unaudited scope. B describes further fixes and improvements.
-C describes communication about potential collaboration without claiming an implemented integration.
-The snapshot counts wallet contracts, not people. User-confirmed tests and deferred features remain distinct.
+Output A states the unaudited beta scope. Output B describes fixes and improvements.
+Output C records communication about potential collaboration. Native wallet integration remains future work.
+The report describes the whole product, intended users, measured activity, lessons, maintenance, and funding.
+Epora has no revenue yet. Received Catalyst funds cover servers and other operating costs.
 
-## Checks performed
+## Evidence scope
 
-- VERIFIED: `tectonic docs/closeout/closeout-report.tex` exited `0`; `pdfinfo` returned `Pages: 5`.
-  All five pages were rendered with `pdftoppm` and inspected. No clipping or unresolved references were observed.
-- VERIFIED: the report and submission contain 44 distinct URL strings. Thirty existing targets returned HTTP `200`.
-  GitHub blob files were fetched through their raw-content URLs. YouTube used its public oEmbed endpoint.
-  Its returned title was `Epora Wallet Catalyst-Closeout` and channel was `schaier-io`.
-  An HTTP response or metadata result does not prove the full video content or its public/unlisted setting.
-- VERIFIED: ten Cardanoscan links identify hashes or addresses verified through Koios. Automated explorer access was blocked.
-  One Discord link needs sign-in; the public screenshot is the fallback. Three new evidence/submission paths were checked locally and require this PR to reach `main`.
-- VERIFIED: all eight transaction fees, sizes, timestamps, block heights, and contract-result arrays match the saved Koios responses.
-  Wallet amounts are 27,000,000 lovelace plus 3,788,490 lovelace in state deposits. The reference deposit is separate.
-- REPORTED: the independent evidence reviewer returned `No concrete findings in the four reviewed files.`
-  The coordinator also checked the source, rendered PDF, A-E mapping, amounts, and link destinations.
+The [mainnet snapshot](mainnet-evidence.json) contains eight confirmed transactions and two wallets under the current policy.
+Wallet payment outputs total 27 ADA; separate state deposits total 3.788490 ADA.
+The reference-script deposit is separate. These figures measure prototype activity, not independent adoption.
 
-The writing detector returned scores 3/100 for the report source and 1/100 for each evidence/submission text.
-Its remaining flags were formatting, repeated technical vocabulary, and the existing phrase `deferred features`.
-These scores are a limited prose check, not proof of correctness.
+Koios supplies the chain data. Cardanoscan links identify the same hashes and addresses for public inspection.
+The Discord link requires sign-in; the public screenshot provides an accessible copy of the outreach message.
+The video is titled “Epora Wallet Catalyst-Closeout” on the `schaier-io` channel.
 
-## Publication and remaining checks
+## Publication and remaining work
 
-Use the A-E text after the PR merges. Its stable `main` URLs intentionally target the merged report and evidence.
-Before submitting, open the new PDF and evidence links from `main` and confirm that they show this version.
-The previous PDF already existed on `main`; a successful response for that URL alone does not prove the replacement is published.
+The submission uses stable `main` URLs. Merge the documentation update before submitting those links to Catalyst.
+Open the report and evidence on `main` after the merge to confirm that they show the updated content.
 
-VERIFIED record limits: backup restore, reindex, retention/isolation checks, deliberate alerting, full-action fee coverage,
-multi-asset minimum ADA, and fragmented consolidation still lack completion evidence in these records.
-The new chain results establish automatic proof-of-life refresh during an operator spend, not the dedicated manual renewal path.
-These broader engineering tasks are not added to the approved milestone acceptance criteria.
-No transaction, restore drill, production change, Catalyst submission, or merge was performed for this report update.
+Backup restore, reindex, retention/isolation checks, deliberate alerting, wider fee coverage,
+multi-asset minimum ADA, and fragmented consolidation still lack completion evidence in the linked records.
+The observed operator spend refreshed proof of life automatically; it does not establish the separate manual renewal path.
+These engineering checks are separate from the approved milestone acceptance criteria.
+WalletConnect signing/device tests and wallet-signed terms acceptance remain deferred.

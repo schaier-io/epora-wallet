@@ -1,12 +1,11 @@
 # Mainnet evidence for Catalyst Milestone 5
 
-VERIFIED snapshot: 2026-09-26. Live health and wallet balance refresh: 01:30 UTC.
-Transaction details were read from Koios during the same session.
+Snapshot: 2026-09-26. Live health and wallet balance refresh: 01:30 UTC.
+Transaction details were read from Koios on 26 September 2026.
 Source data: [mainnet-evidence.json](mainnet-evidence.json).
 
-## What this corrects
+## Mainnet deployment and transaction evidence
 
-The earlier closeout check did not establish successful mainnet transactions or measured fees.
 The transactions below now establish reference deployment, wallet creation, funding, configuration, and operator spending.
 One operator spend also refreshed proof of life. This is not evidence of the separate manual renewal action.
 The earlier reference-store check in [the release record](../mainnet-beta-release.md#release-freeze-validator-blueprint) preceded the deployment below.
@@ -14,7 +13,7 @@ Its `status: missing` result was a historical snapshot, not the current state.
 
 ## Live deployment
 
-VERIFIED: GET [health](https://mainnet.epora.io/api/health) returned HTTP 200.
+GET [health](https://mainnet.epora.io/api/health) returned HTTP 200.
 Its response at `2026-09-26T01:30:26.157Z` contained `status: ok`, database/indexer `up`,
 `recentHeadFresh: true`, `walletReconcileFresh: true`, and `historyBackfillCompleted: true`.
 GET [shared helper](https://mainnet.epora.io/api/shared-helper) returned `status: ready`.
@@ -29,7 +28,7 @@ Active reference output: `fb11866380769867300d1919098c5961473e362d40d03192f5b83c
 
 ## Current wallets
 
-VERIFIED: the current policy has two supply-one assets, matched to two state UTxOs.
+The current policy has two supply-one assets, matched to two state UTxOs.
 Payment-credential queries cover all stake-address variants for each derived wallet.
 Each query used `limit=1000&offset=0`; the asset query returned 2 rows and the balance query returned 4.
 No result reached the page limit. Older policies are outside this inventory.
@@ -39,14 +38,14 @@ No result reached the page limit. Older policies are outside this inventory.
 | [Smart wallet](https://cardanoscan.io/address/addr1wynmfgsec4hax5e29fretxg0c0ve6xznpcry04087g7jg8skrul80) | 10.000000 | 1.586080 | 2 |
 | [Smart wallet Demo](https://cardanoscan.io/address/addr1w8wj6tjlfqjdgtlxq9t6g4ar089e7vs6wcqwpwpxgdtqvysply755) | 17.000000 | 2.202410 | 2 |
 
-VERIFIED: wallet balances total **27 ADA**. Separate state deposits total **3.788490 ADA**.
+Wallet balances total **27 ADA**. Separate state deposits total **3.788490 ADA**.
 The combined amount is **30.788490 ADA**. No native tokens occur in the wallet payment outputs.
 Each state output contains its identifying STT. The reference output holds another **63.270800 ADA**.
 Deposits are not transaction fees. These amounts are not revenue or adoption figures.
 
 ## Confirmed transactions and actual fees
 
-VERIFIED: all eight hashes have block records in Koios. All returned Plutus contract results are `valid_contract: true`.
+All eight hashes have block records in Koios. All returned Plutus contract results are `valid_contract: true`.
 Funding transactions have no Plutus contract results. These are actual ledger fees, not estimates.
 
 | Action | UTC on 2026-09-25 | Actual fee (ADA) | Signed bytes | Transaction |
@@ -60,7 +59,7 @@ Funding transactions have no Plutus contract results. These are actual ledger fe
 | Demo beneficiary and proof-of-life configuration | 23:29:02 | 0.478150 | 919 | [4080136da4b6...](https://cardanoscan.io/transaction/4080136da4b64ba642f5b40d017a2181c1edfbf7cd21a48ab38a623225b34871) |
 | Demo operator spend and automatic proof-of-life refresh | 23:36:38 | 0.912502 | 10256 | [a9502540ad8e...](https://cardanoscan.io/transaction/a9502540ad8ef0af445fe99904dc05ccb2d50c785344953a1f146e114424aad9) |
 
-VERIFIED: Demo spend `a9502540ad8ef0af445fe99904dc05ccb2d50c785344953a1f146e114424aad9`
+Demo spend `a9502540ad8ef0af445fe99904dc05ccb2d50c785344953a1f146e114424aad9`
 consumed 20 ADA and returned 10 ADA to the smart wallet. It paid 10 ADA to the recipient.
 The existing 7 ADA output remained unspent. The state retained its 2.202410 ADA deposit.
 Its proof-of-life deadline changed from `1792970826972` to `1792971216000` milliseconds.
@@ -69,7 +68,7 @@ The increment remained `2592000000` milliseconds (30 days).
 
 ## Method and limits
 
-VERIFIED method: read the live policy from `/api/shared-helper`. Query Koios `policy_asset_list`,
+Query method: read the live policy from `/api/shared-helper`. Query Koios `policy_asset_list`,
 then `credential_utxos` for the STT credential. Derive wallet payment credentials from the
 repository blueprint and each STT asset name using the same Mesh functions as
 `code/dApp/src/lib/contracts/blueprint.ts`. Query `credential_utxos` and `credential_txs`
@@ -84,7 +83,7 @@ Koios base: `https://api.koios.rest/api/v1`. Read-only POST bodies:
 
 Use that body with `credential_utxos?limit=1000&offset=0`.
 For `tx_info`, pass hashes from the JSON evidence as `_tx_hashes`, with `_inputs`, `_assets`, and `_scripts` set to `true`.
-Cardanoscan blocked automated access. Explorer links identify the same hashes, but Koios supplied the verified data.
+Cardanoscan blocked automated access. Explorer links identify the same hashes, but Koios supplied the data in this record.
 
 Not established by these checks:
 
