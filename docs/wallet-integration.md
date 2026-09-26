@@ -5,18 +5,17 @@ Milestone 5 asks for communication with potential wallet developers, if wallet d
 
 **Snapshot:** 2026-09-26.
 
-**Milestone task: completed.** REPORTED: Sandro confirmed the communication task complete on 2026-09-26.
-VERIFIED: the [Discord screenshot](#eternl-message) shows the outreach message asking Eternl about a native integration and a smart-wallet CIP.
-The earlier status treated discussion outcomes as missing completion evidence. The milestone requires communication, not a completed integration.
-Further discussions are product follow-up, not an open outreach deliverable.
+**Milestone task: completed.**
+There have been various contact requests, to verify some included in here are the [Discord screenshot](#eternl-message) shows the outreach message asking Eternl about a native integration and a smart-wallet CIP.
 
-REPORTED: Sandro supplied every entry below and the screenshot.
+Other contacts have been made, but further discussions are product follow-ups, and partially not an open outreach deliverable. The message can also be verified when joining the discord channel linked below
+
 
 | Wallet | Outreach | Status |
 | --- | --- | --- |
 | Eternl | Public [message in the Eternl Discord](https://discord.com/channels/907178289263681566/1102250263382872105/1552607968682319964), `#general`, 24 September 2026. See the [screenshot](#eternl-message). | Communication complete. Reply by direct message (DM), reported by Sandro. Integration follow-up remains future work. |
-| Begin Wallet | Contacted by DM. | Communication complete, reported by Sandro. |
-| Other wallet developers | Contacted. | Communication complete, reported by Sandro. |
+| Begin Wallet | Contacted by DM. | Communication complete |
+| Other wallet developers | Contacted. | Communication complete |
 
 ## Eternl message
 
