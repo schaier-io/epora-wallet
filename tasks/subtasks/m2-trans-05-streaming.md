@@ -10,7 +10,7 @@ Contract dev task (done) · [Milestone 2](../milestone-2-smart-contract.md) · W
 - [x] The contract sets no fixed positive-schedule payout count. Ledger byte-size and ExUnit limits decide each batch, and a builder can retry fewer schedules.
 - [x] `ManageStreamingPayments` is operator-gated. It adds new unsettled payments or reschedules existing end dates through [forwarding.ak](../../code/smart-contract/lib/streaming_payments/forwarding.ak). It cannot drop or otherwise change an existing payment.
 
-VERIFIED correction: the earlier task named the test-only `payout_is_valid` wrapper. The production call is `validated_value_change` at `lib/stt/settlement_handlers.ak:58`.
+Correction: the earlier task named the test-only `payout_is_valid` wrapper. The production call is `validated_value_change` at `lib/stt/settlement_handlers.ak:58`.
 
 ## Verified by
 

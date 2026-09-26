@@ -5,7 +5,7 @@
 
 ## Verified working
 
-- Flow 1 create, 2 add-funds, 3 send, 4 tidy, 5 co-signer threshold (earlier sessions).
+- Flow 1 create, 2 add-funds, 3 send, 4 tidy, 5 co-signer threshold (earlier tests).
 - **Flow 8 scheduled payments:** create 5 ₳/day payment → on-chain state forward verified
   (datum round-trips: name, payee, start/stop all exact). Accrual proration is exact
   (due 0.03125 ₳ = 5 ₳ × 9/1440 min). Payout tx signed + submitted; payee received
@@ -406,7 +406,7 @@ tooling (set_value/arrow keys rejected); "Now" buttons were used instead. Early 
 session an address typo (truncated bech32 checksum) was correctly caught by the form's
 "No — not a valid Cardano address" validation — that guard works.
 
-## Session addendum — 3 Sept 2026 (localhost:3100 dev server, same backend DB as prod)
+## Test addendum: 3 Sept 2026 (localhost:3100 dev server, same backend DB as prod)
 
 ### Flow 6 (deferred signing / approval requests) — status
 
@@ -416,14 +416,14 @@ session an address typo (truncated bech32 checksum) was correctly caught by the 
 - **~3-minute tx TTL** made signing brittle (popup countdown, expired twice). Fix: `VALIDITY_WINDOW_FUTURE_MS` 240_000 → 1_800_000 (PR #160, stacked on #158).
 - **"Authorization path" dropdown naming** (user feedback): "Owner" reads as a person role; renamed to "Multi-custodial owner" (PR #159).
 - **Who may sign a settings change:** the create form lists only the CURRENT state's owners for the Owner path ("Nobody else can sign for this wallet on this path") — a person being promoted cannot co-sign their own promotion. Multi-custodial (co-signer) proposals: file under the Co-signers path; required signers = all users with approval power, satisfied at the threshold (`computeSignerSatisfaction`).
-- Multi-custodial two-participant round (in progress when session paused): stage spender "Counts toward approvals"=Yes power=1 + co-signer threshold=2, file under Co-signers path → both keys listed as required signers; sign with `test`, then switch eternl to `test 2` + re-sign-in (signData) for the second signature.
+- Multi-custodial two-participant round (in progress at the end of this test): stage spender "Counts toward approvals"=Yes power=1 + co-signer threshold=2, file under Co-signers path → both keys listed as required signers; sign with `test`, then switch eternl to `test 2` + re-sign-in (signData) for the second signature.
 
 ### PRs opened
 - #158 fix(proposals): accept witness sets that carry script artifacts
 - #159 chore(dapp): relabel the owner authorization path ("Multi-custodial owner")
 - #160 chore(transactions): 30-minute validity window (stacked on #158)
 
-### Session addendum 2 — 3 Sept evening (localhost:3000, branch stack #158+#160+#161+#162+#168+#173)
+### Test addendum 2: 3 Sept evening (localhost:3000, branch stack #158+#160+#161+#162+#168+#173)
 
 #### Multi-custodial two-participant round — COMPLETE, verified on chain
 
@@ -431,7 +431,7 @@ session an address typo (truncated bech32 checksum) was correctly caught by the 
 - **Product bug found + fixed (PR #162).** Filing ANY proposal on the Co-signers path died at build with the empty-failure wall (`EvaluationFailure {"ScriptFailures": {}}` → "The wallet's own rules refused this action…"): the stt-spend draft lists only the connected wallet in `extra_signatories`, the Aiken multisig arm sums the power of exactly those listed keys (`authorization.ak`), so threshold 2 > proposer power 1 could never evaluate — and the co-signer picker that would add the second key lives on the NEXT page, after the stash that requires a successful build. Fix: multisig drafts whose threshold exceeds the proposer's own power list every other consumed-state power holder (`multisigDraftSignerKeyHashes`); thresholds the proposer alone meets keep the proposer-only draft (direct execution unchanged).
 - **Round 2 (co-signers path, both participants).** With #162 live: staged Send funds 2₳ → eternl `test` address, path Co-signers → draft built and evaluated (previously impossible) → picker showed both power holders, Save correctly gated until the co-signer was checked → saved → signed with `test` ("1 of 2 approval power") → user switched eternl to `test 2`, re-signed-in, signed second ("2 of 2") → **Submitted: tx `d40324d2051c…1f1fa217`, confirmed block 5134225**. True 2-of-2 governance exercised end-to-end: two different keys, two wallets, one proposal.
 
-#### Requests implemented live this session
+#### Changes implemented on 3 September
 
 - **Cardanoscan links (PR #168).** User: "please always link to the cardanoscan for the tx". Submitted-tx hash is now a persistent link on every visit to a submitted request (was plain text in a transient line only), and every "Funds it uses" input ref links too. Live-verified on the submitted proposal.
 - **People roster with permission chips (PR #173).** User: the `Owners 1 OWNER / Spenders 1 SPENDER / Wallets 2/2 LINKED` strip "shows a bit strange" — asked for all persons with their permissions, add-person, and per-person chip-like multi-select permissions. Rebuilt as one roster: per-person cards with Owner / Co-signer / Spender / Check-in toggle chips + the editor for each held permission beneath; Add person replaces the two role-specific buttons; owner-locked check-in and owner-disabled spender chips encode the contract rules.
@@ -439,18 +439,18 @@ session an address typo (truncated bech32 checksum) was correctly caught by the 
 #### Open / not reproduced
 
 - **One-off 3-second withdrawal.** The FIRST bootstrap proposal was DELETEd ~3s after creation by a session with creator rights; not reproducible on the re-create (watched status for 18s, stayed OPEN). Only the Withdraw button issues that DELETE — likely a stray click in another signed-in tab. Watch for recurrence.
-- ~~**"Invalid" badge on submitted proposals.**~~ **FIXED (PR #180, later session 3 Sept).** The detail page ran the liveness check on every proposal, so a sent request's inputs — consumed by the request's own success — were each reported "has already been spent", with the amber "What the check found" panel and an Invalid badge on the screen whose status note says the request went through. `runVerify` now skips every non-OPEN status (SUBMITTED / SUBMITTING / CANCELLED); verification null suppresses both the panel and the badge, and the Cardanoscan link + Submitted badge carry the status. Live-verified on the 2-of-2 Send funds proposal. The list-side check already filtered to OPEN, unchanged. Also covers #168's sub-note and the person-diff/#177/#179 follow-ups below.
+- ~~**"Invalid" badge on submitted proposals.**~~ **FIXED (PR #180, later test on 3 Sept).** The detail page ran the liveness check on every proposal, so a sent request's inputs, consumed by the request's own success, were each reported "has already been spent", with the amber "What the check found" panel and an Invalid badge on the screen whose status note says the request went through. `runVerify` now skips every non-OPEN status (SUBMITTED / SUBMITTING / CANCELLED); verification null suppresses both the panel and the badge, and the Cardanoscan link + Submitted badge carry the status. Live-verified on the 2-of-2 Send funds proposal. The list-side check already filtered to OPEN, unchanged. Also covers #168's sub-note and the person-diff/#177/#179 follow-ups below.
 - Earlier findings still open: rebuild false-success; missing wallet-name field on the deployed editor.
 
 ### PRs opened (cumulative)
 - #158 witness-set fix · #159 "Multi-custodial owner" label · #160 30-min validity · #161 wallet-settings URL round-trip · #162 multisig drafts list power holders · #168 Cardanoscan links · #173 people roster with permission chips · #176 labeled person-diff segments · #177 owners on the admin path skip the request flow · #179 approval-power sliders with threshold coloring + whole-number wording · #180 no spent-input check on sent/in-flight/withdrawn requests · #187 approval rule derived from the Co-signer chips (Yes/No removed; user-approved)
 
-### Session addendum 3 — 4 Sept (localhost:3000, stack #179→#180→#187)
+### Test addendum 3: 4 Sept (localhost:3000, stack #179→#180→#187)
 
 - **#180 shipped:** detail-page liveness check now runs only for OPEN requests; submitted ones show status note + Cardanoscan link without the "already been spent" wall or Invalid badge. Live-verified on the 2-of-2 Send funds proposal.
 - **Threshold Yes/No removed (PR #187, user approved "yes").** The approval rule is the Co-signer chips: first chip grants turn it on (threshold defaults to the co-signers' total power, "all together"), last revoke/removal turns it off. Wallet-settings threshold editor states the derived answer in a sentence; owners-only state carries "Add a co-signer" in place. Live-verified on the 2-of-2 wallet: derived UI + "NO CHANGES" receipt (no drift from decoded chain state).
 
-### Session addendum 4 — 4 Sept (localhost:3000, stack #187→#190→#192→#193)
+### Test addendum 4: 4 Sept (localhost:3000, stack #187→#190→#192→#193)
 
 #### Full rerun on a NEW smart wallet with a real daily limit — through second signature
 
@@ -460,15 +460,15 @@ session an address typo (truncated bech32 checksum) was correctly caught by the 
 - **Round 2 staged + saved:** Send 2 ₳ to test 2 via Co-signers path → "Save as approval request" was first blocked by "This wallet has not been indexed yet" (forced backend indexing via `POST /api/stt/sync` with the sync secret) → the Save click then crashed the tab, but the POST had landed: reload showed the proposal. Saved draft picked a stale auto-input (`d40324d2…#2`, an old-wallet-era UTxO at the shared lock address) → Invalid/Out of date → **"Make a new version" rebuild FIXED it (Verified valid)** — contradicts the earlier "rebuild false-success" finding; that one did not reproduce.
 - **Signed by `test` (1 of 2 approval power, 1 person still to sign).** Paused here; next: user flips eternl to `test 2` → second signature → Submit → on-chain verify.
 
-#### UI fixes opened this session
+#### UI fixes opened on 4 September
 
 - **#190 two-color approval-power slider with a permanent threshold-reached zone** (user request): the track right of the threshold mark is permanently emerald; thumb + power chip flip emerald when the person alone reaches the rule.
 - **#192 persisted wallet address book** (user complaint "still does not show the address in the input… for co-signer/spender"): a person entry stores the payment key hash, and the field only showed an address when that exact pair was known from a paste or from whoever was connected. The provider now learns hash→address for EVERY wallet it connects (and every account switch) into a persisted book; every wallet field can then name the address. Includes a meshsdk landmine: `deserializeAddress` reports a stake address's staking credential in `pubKeyHash`, so the book only accepts `addr`/`addr_test` HRP. Live check of test 2's card happens after the round-2 flip.
-- **#193 review receipt shows the daily limit in the unit it is typed in** (this session's finding): the receipt ran the form's ADA text through the lovelace formatter — "daily limit 0.000005 ₳" for a 5 ₳ limit. The old test had fed lovelace into the form value and pinned the wrong unit; corrected + regression test.
+- **#193 review receipt shows the daily limit in the unit it is typed in** (found on 4 September): the receipt ran the form's ADA text through the lovelace formatter and displayed "daily limit 0.000005 ₳" for a 5 ₳ limit. The old test had fed lovelace into the form value and pinned the wrong unit; corrected + regression test.
 
 #### Open / not reproduced (updated)
 
-- Rebuild false-success: did NOT reproduce this session — the rebuild correctly swapped a spent input and re-verified. Keep on the watch list, downgraded.
+- Rebuild false-success: did NOT reproduce during the 4 September test. The rebuild correctly swapped a spent input and re-verified. Keep on the watch list, downgraded.
 - Receipt formatter, person-diff labels, address display: fixed by #193 / #176 / #192 respectively.
 - Still open: deployed (prod) settings editor has no wallet-name field (dev has it); one-off 3-second DELETE watcher; release PR #178 (dev→main) still open.
 
@@ -477,11 +477,11 @@ session an address typo (truncated bech32 checksum) was correctly caught by the 
 
 - **Rebuild false-success REPRODUCED with a precise signature (4 Sept, ~02:00).** The round-2 "Send 2 ₳ to test 2" request sat OPEN with 1 of 2 signatures past its ~30-min validity window (PR #160), so the detail page showed Invalid: "The transaction's validity window has closed." Clicking **Make a new version** cleared the signatures (1 of 2 → 0 of 2, "Rebuilt against live chain state. Existing signatures were reset.") but a fresh verification still reported the closed validity window — same inputs, same fee (0.782509 ₳). The rebuild resets signatures and re-verifies but does NOT re-serialize the tx with a fresh TTL. Second occurrence of the 3 Sept finding; now characterised. Workaround: create the request again from scratch. Fix candidate: the rebuild path must re-run draft assembly (fresh ttl/fee, fresh input pick) instead of only clearing signatures.
 
-### Session addendum 5 — 4 Sept (epora.io, production deploy)
+### Test addendum 5: 4 Sept (epora.io, production deploy)
 
 #### Round 2 completed end-to-end on production
 
-- The user deployed the merged work to epora.io (REPORTED by user). Verified live: production serves the Preprod network build with the new settings UI, People tab in Wallet settings, and the request flow.
+- A live check of epora.io after the reported deployment showed that production serves the Preprod network build with the new settings UI, People tab in Wallet settings, and the request flow.
 - **Fresh request "Send 2 ADA to test 2"** on wallet "Two-of-two rerun" (unit 67c11430…5e5c89): built 13:30:28 CEST via the Co-signers path with both power-1 signers listed, saved with zero friction. The "This wallet has not been indexed yet" wall did not appear (#200 behaviour confirmed on production).
 - **Signatures:** `test` (27c006ce…d36810, owner) signed first via eternl; the user flipped eternl to `test 2`, signed in on epora.io, and signed second. "1 of 2" then "2 of 2 approval power", badge stayed "Verified valid" throughout.
 - **Submitted: tx `64c01da1705083a6565b0f6a56cc5674396757e45426e3f80dbca3def0a6f731`** (preprod). Wallet balance went 5 ₳ to 3 ₳; the activity timeline indexed "Funds sent −2 ₳" at 13:37 CEST (slot 132838663). This is the second true 2-of-2 governance send, this time through the saved-request flow on production.
@@ -494,7 +494,7 @@ session an address typo (truncated bech32 checksum) was correctly caught by the 
 - The old 12-PR linear chain was restructured: only genuinely dependent PRs stay chained. GitHub native stacked PRs (public preview) pin a PR's base permanently once it is in a stack: base edits are refused via GraphQL and REST, survive close/reopen and closing the parent. The only clean paths are recreating the PR or the `gh stack` tooling.
 - PR number remap (old closed with pointer comments, no reviews lost): #190 to #206, #192 to #207, #193 to #208, #194 to #211, #199 to #209, #200 to #210. The stale stack object (number 205, 11 entries, rooted at merged #188) was deleted with `gh stack unstack`; #188 keeps a harmless size-1 residue (merged PRs cannot leave a stack).
 - New stack #213 (trunk `dev`): #206 → #195 → #196 → #197 → #198. #211 merged into #206's branch first, so #206's diff carries both. Singles on dev: #201, #202, #207, #208, #209 (later #210). The user merged 201, 202, 207, 210, 211, and the chain during the day; everything reached epora.io.
-- Conflict resolutions during the restack: #194's session-notes commit was trimmed to only the REPRODUCED bullet (addendum 4 belongs to #193), and #207's provider test kept both the #191 lazy-import preamble and the address-book import. #206 went CONFLICTING against dev on the notes file after its base moved from main to dev; resolved by merging dev into the branch (addendum 4 + the bullet, chronological order).
+- Conflict resolutions during the restack: #194's test-notes commit was trimmed to only the REPRODUCED bullet (addendum 4 belongs to #193), and #207's provider test kept both the #191 lazy-import preamble and the address-book import. #206 went CONFLICTING against dev on the notes file after its base moved from main to dev; resolved by merging dev into the branch (addendum 4 + the bullet, chronological order).
 
 #### Watch list (updated)
 

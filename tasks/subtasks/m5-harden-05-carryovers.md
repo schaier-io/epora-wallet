@@ -6,8 +6,8 @@ The M4 fix loop parks out-of-scope items under the `next` label. Mainnet is wher
 
 ## Steps
 
-- [x] Review the `next`-labelled issues. VERIFIED 2026-09-26: `gh issue list --state all --label next --limit 100` returned one record, issue #392, state `CLOSED`. The response did not reach its 100-record cap.
-- [x] Record the deferral. REPORTED 2026-09-26: Sandro explicitly deferred WalletConnect signing and real-device testing beyond closeout. See [categorized feedback](../../docs/testnet-feedback.md#next). Closed as deferred, not implemented.
+- [x] Review the `next`-labelled issues. 2026-09-26: `gh issue list --state all --label next --limit 100` returned one record, issue #392, state `CLOSED`. The response did not reach its 100-record cap.
+- [x] Record the deferral. 2026-09-26: WalletConnect signing and real-device testing are deferred beyond closeout. See [categorized feedback](../../docs/testnet-feedback.md#next). Closed as deferred, not implemented.
 
 ## Done when
 

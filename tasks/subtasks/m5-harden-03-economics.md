@@ -4,6 +4,10 @@ Hardening task · [Milestone 5](../milestone-5-mainnet-closeout.md)
 
 Testnet tolerates waste; mainnet doesn't. Fees, min-ADA, and transaction-size limits need real numbers, measured, written down.
 
+## Recorded measurements
+
+2026-09-26: [mainnet evidence](../../docs/closeout/mainnet-evidence.md) records eight confirmed transactions with actual fees. It covers reference deployment, mint/funding, plain funding, settings update, and operator spending. Automatic proof-of-life refresh occurred during one spend. The remaining action types, multi-asset minimum ADA, and fragmented-wallet consolidation remain unmeasured in this record.
+
 ## Steps
 
 - [ ] Fee table: actual cost per transition (mint, operator use, allowance, renew, beneficiary, streaming crank, consolidate, set-stake, withdraw) — the execution-unit estimation lives in [budget.ts](../../code/dApp/src/lib/mesh/transactions/internals/budget.ts). Measure on mainnet, not from estimates.

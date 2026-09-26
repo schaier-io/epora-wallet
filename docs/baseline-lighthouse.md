@@ -3,13 +3,13 @@
 This report records the first Lighthouse baseline for the trimmed routes (issue #410).
 Its tables are a snapshot. They do not predict field data and they are not a target.
 
-VERIFIED on 2026-09-19. Baseline commit: `fc1a4862`.
+Measured on 2026-09-19. Baseline commit: `fc1a4862`.
 The `/payee` row was re-measured on 2026-09-19 after the issue #502 fix; see the
 "#502 update" section. The other rows are unchanged from the #410 snapshot.
 
 ## Method
 
-VERIFIED: all five routes were measured against a local production build.
+All five routes were measured against a local production build.
 
 - Build: `pnpm build` in `code/dApp` (Next.js 16.3.5, Turbopack), served with `next start` on `localhost:3000`.
 - Tool: `npx lighthouse@latest`, Lighthouse 13.5.0, `--only-categories=performance`.
@@ -23,7 +23,7 @@ VERIFIED: all five routes were measured against a local production build.
 
 ## Results (median of 3 runs)
 
-VERIFIED: values come from the saved Lighthouse JSON reports (location below).
+Values come from the saved Lighthouse JSON reports (location below).
 
 | Route | Performance score | LCP | TBT | CLS | FCP | Speed Index |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -45,7 +45,7 @@ The LCP element in every run's report:
 
 ## Run spread
 
-VERIFIED: per-run LCP and performance score, run 1 to run 3.
+Per-run LCP and performance score, run 1 to run 3.
 
 | Route | Run 1 | Run 2 | Run 3 |
 | --- | ---: | ---: | ---: |
@@ -59,7 +59,7 @@ TBT was more stable than LCP. Route medians sit between 863 ms and 2,245 ms.
 
 ## First-load JavaScript
 
-VERIFIED evidence: `node scripts/check-bundle-budget.mjs` after the build.
+Evidence: `node scripts/check-bundle-budget.mjs` after the build.
 It reads `.next/diagnostics/route-bundle-stats.json` and prints decoded (uncompressed)
 first-load JS per route. The budget script checks a sixth route (/_not-found) that the table below does not list. Output: `Bundle budget OK: 6 routes checked`.
 
@@ -100,7 +100,7 @@ sizes; the serving layer may compress them.
 
 ## #502 update (2026-09-19)
 
-VERIFIED: all numbers in this section come from the saved Lighthouse JSON reports in
+All numbers in this section come from the saved Lighthouse JSON reports in
 `/tmp/lighthouse-i502/` (3 before runs, 3 after runs, 1 proposals cross-check before and
 1 after, 1 after run with `--save-assets` for the trace), on the same hardware and Brave
 setup as the method above.
@@ -157,7 +157,7 @@ showing a bare skeleton for that whole window.
 
 ## #501 follow-up (2026-09-19): main-thread attribution on `/` and `/user`
 
-VERIFIED: numbers in this section come from saved Lighthouse JSON reports in
+Numbers in this section come from saved Lighthouse JSON reports in
 `/tmp/lighthouse-i522/`, from the built chunks in `code/dApp/.next/static/chunks/`, or from
 the commands quoted inline. Same hardware, Brave setup, and method as above. No fix shipped
 from this pass. The section records what the main-thread time on `/` and `/user` is, what

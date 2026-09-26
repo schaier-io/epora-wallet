@@ -4,11 +4,11 @@ Date: 2026-09-04
 
 ## Status and evidence
 
-- VERIFIED: Remote `dev` was `13a3ed15fedd596a4689591ba8f151da1b6da353` when the stacks were created.
-- REPORTED: The original audit recorded 99 findings. Its recheck classified 16 as fixed, 4 as partial, 78 as open, and 1 as withdrawn.
-- VERIFIED: F-013's concrete Sparkle Easter Egg failure is fixed. The generic bubble-phase focus-trap weakness remains as hardening work.
-- VERIFIED: F-098 was incorrect. `state-validation.ts` already rejects duplicate streaming-payment IDs.
-- VERIFIED: The shared worktree contains unrelated user edits. All work in this plan uses separate worktrees.
+- Remote `dev` was `13a3ed15fedd596a4689591ba8f151da1b6da353` when the stacks were created.
+- The original audit recorded 99 findings. Its recheck classified 16 as fixed, 4 as partial, 78 as open, and 1 as withdrawn.
+- F-013's concrete Sparkle Easter Egg failure is fixed. The generic bubble-phase focus-trap weakness remains as hardening work.
+- F-098 was incorrect. `state-validation.ts` already rejects duplicate streaming-payment IDs.
+- This plan uses separate worktrees to preserve unrelated edits in the shared worktree.
 
 ## Goal
 

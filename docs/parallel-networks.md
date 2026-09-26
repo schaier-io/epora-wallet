@@ -1,9 +1,9 @@
 # Parallel Mainnet and Preprod deployments
 
-REPORTED: The operator will configure Vercel. This change supplies a visitor
+The operator will configure Vercel. This change supplies a visitor
 switch between two deployments; it does not change the active network in place.
 
-VERIFIED from source: `src/lib/cardano-network.ts` selects the network at build
+Source configuration: `src/lib/cardano-network.ts` selects the network at build
 time. `src/lib/network-deployments.ts` reads the two public origins. The switch
 opens the other network's `/user` page without wallet IDs, proposal IDs, query
 parameters, or fragments. It lists the current network and each network with a
@@ -17,7 +17,7 @@ Create two projects from the same release commit. Use `code/dApp` as each
 project's root and Node 24. Give each project a different hostname and its own
 database. Two ports on one hostname do not isolate cookies.
 
-VERIFIED: `code/dApp/vercel.json` enables automatic Git deployments only for
+`code/dApp/vercel.json` enables automatic Git deployments only for
 `main`. A feature-branch push alone will not deploy these projects.
 
 Example hostnames below preserve the existing Preprod domain. They are proposed
@@ -57,7 +57,7 @@ not add a parent-domain cookie shared by the two deployments.
 
 ## Local verification
 
-VERIFIED on 2026-09-23 on Node v24.21.0 at `b4bb95ef`, with the stack rebased
+Measured on 2026-09-23 on Node v24.21.0 at `b4bb95ef`, with the stack rebased
 onto `dev` at `5d936c45`: the dApp CI verify, build and file-length commands
 exited `0`, with `pnpm test:unit` in place of the Postgres-backed `pnpm test`.
 `pnpm test:components` returned `Test Files 186 passed (186)` and
@@ -70,7 +70,7 @@ the user-flow helpers and the file-length guard also exited `0`. The run
 skipped `pnpm install --frozen-lockfile`. The stack changes neither
 `code/dApp/package.json` nor `code/dApp/pnpm-lock.yaml`.
 
-VERIFIED at `b4bb95ef`: `pnpm build` with
+Checked at `b4bb95ef`: `pnpm build` with
 `NEXT_PUBLIC_MAINNET_URL=mainnet.epora.io` exited `1` with
 `NEXT_PUBLIC_MAINNET_URL must be an HTTPS origin`. With
 `https://mainnet.example`, it exited `0`. At `33182cb7`, before the build
@@ -78,7 +78,7 @@ check, the same schemeless value passed `pnpm build` with exit `0`. `next start`
 then returned `500` for `/`, `/user`, `/terms`, `/privacy` and `/legal`, with
 `TypeError: Invalid URL` in the server log. `/robots.txt` returned `200`.
 
-VERIFIED at `b4bb95ef` with local dev servers and a throwaway headless
+Checked at `b4bb95ef` with local dev servers and a throwaway headless
 browser, 375 and 1280 pixels wide unless noted. The browser accepted the terms
 locally; no wallet was connected and no transaction was signed.
 
@@ -97,7 +97,7 @@ locally; no wallet was connected and no transaction was signed.
 - Preprod with neither URL, 375 pixels wide: the consent screen, the three
   legal pages and the dialog showed no switch.
 
-VERIFIED on `/terms` with only `NEXT_PUBLIC_MAINNET_URL` set, at 320, 375,
+Measured on `/terms` with only `NEXT_PUBLIC_MAINNET_URL` set, at 320, 375,
 430, 640 and 1280 pixels wide. On the code of `a73b9d76`, the "Back to Epora
 Wallet" link started beside the switch, and at 320 and 375 pixels it wrapped
 below it. At `b4bb95ef`, after `06522ad4` made the switch block-level, the link
@@ -105,7 +105,7 @@ sat below the switch at all five widths. On the consent screen and in the
 Connect wallet dialog, the switch box and its gaps did not change at 375 or
 1280 pixels.
 
-VERIFIED at `b4bb95ef`: six mutants of the source each failed the dialog,
+Checked at `b4bb95ef`: six mutants of the source each failed the dialog,
 header or legal-page tests. They hard-coded the dialog condition to Preprod,
 dropped its connected-wallet check, dropped its configured-network check,
 removed the dialog section, restored the header strip from before the move,
@@ -117,10 +117,9 @@ or removed the switch from the legal pages. Each dialog mutant returned
 returned `Tests 2 failed | 10 passed (12)`. The current tests set the network
 themselves. With that value, all 14 dialog tests and the new header test pass.
 
-REPORTED from the first switch revision, `cf8ffadc`. That was before networks
-without a URL were hidden and before the switch moved into the dialog. An
-earlier session recorded these results as VERIFIED; this run did not repeat
-them.
+The following results were recorded for the first switch revision, `cf8ffadc`.
+That was before networks without a URL were hidden and before the switch moved
+into the dialog. These results are retained as historical evidence.
 
 - Focused switch, gate, and navigation component tests returned
   `Test Files 3 passed (3)` and `Tests 18 passed (18)`. Destination,
@@ -137,7 +136,7 @@ them.
   accepted and no transaction was signed. That check covered the consent
   screen only.
 
-VERIFIED: GitHub Actions run `35793274917` at `cf8ffadc` passed its
+GitHub Actions run `35793274917` at `cf8ffadc` passed its
 `pnpm i18n:check` step. Its build job failed at `pnpm bundle-budget:check`.
 
 Correction: an earlier version of this section said component tests cover
@@ -148,13 +147,13 @@ wallet is connected.
 Correction: an earlier version of this section said the translation script
 exited `0`. That held for `cf8ffadc`, as the CI run above shows. A later
 styling commit started a class string with a bare `flex `, which the i18n
-static coverage scan reads as copy. VERIFIED: at `da01c070`, before
+static coverage scan reads as copy. At `da01c070`, before
 `737bf4e3` fixed the class order, `pnpm i18n:check` exited `1` on
 `network-switch.tsx:8`.
 
 ## Release limits
 
-INFERRED: Source checks do not prove that Vercel secrets, provider accounts,
+Source checks do not prove that Vercel secrets, provider accounts,
 DNS, migrations, cron, or actual Mainnet transactions work. The operator must
 verify these settings. The switch does not deploy contracts or move funds.
 See [mainnet beta release preparation](mainnet-beta-release.md) for contract,

@@ -19,7 +19,7 @@ Once a wallet exists on mainnet, its validators are immutable for that wallet. W
 
 ## Record
 
-VERIFIED on 2026-09-25 at release commit `af80c6fc`. The evidence is in
+Checked on 2026-09-25 at release commit `af80c6fc`. The evidence is in
 [Release freeze: validator blueprint](../../docs/mainnet-beta-release.md#release-freeze-validator-blueprint).
 
 - STT validator: `0dac00be80879dcf585cdb9d0acf6e0ecf52c417ded30d8b72d0ebf1`

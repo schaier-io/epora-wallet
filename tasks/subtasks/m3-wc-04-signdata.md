@@ -1,8 +1,8 @@
 # WalletConnect: signData for proposals login
 
-- [x] Closed as deferred. REPORTED: the user deferred WalletConnect signing and device testing on 2026-09-26. Implementation and device validation are not claimed.
+- [x] Closed as deferred. WalletConnect signing and device testing were deferred on 2026-09-26. WalletConnect signing remains unimplemented. Device validation remains deferred.
 
-VERIFIED: `origin/main` at `d3b5a239`, `code/dApp/src/lib/mesh/transactions/submit.ts:12`, still takes `BrowserWallet`. The scope below is retained for future work.
+`origin/main` at `d3b5a239`, `code/dApp/src/lib/mesh/transactions/submit.ts:12`, still takes `BrowserWallet`. The scope below is retained for future work.
 
 WalletConnect signing task · [Milestone 3](../milestone-3-ui-development.md)
 

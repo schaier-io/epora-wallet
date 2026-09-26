@@ -1,7 +1,9 @@
-% Project Close-out Report for Catalyst Fund 11 project 1100002.
+% Project Completion Report for Catalyst Fund 11 project 1100002.
 % Build: cd docs/closeout && tectonic closeout-report.tex
-% Headings follow the Catalyst close-out report template (Fund 12 and Fund 14 knowledge base).
-% Completion date and operating-fund use were confirmed by Sandro on 26 September 2026.
+% Headings: current Catalyst Project Completion Report guidance, 26 September 2026.
+% https://docs.projectcatalyst.io/current-fund/general-information/project-completion-report-and-video-requirements
+% Correction: the previous headings followed the older Fund 12/14 template.
+% Reporting date: 26 September 2026.
 \documentclass[fontsize=10pt,paper=a4,DIV=16,parskip=half-]{scrartcl}
 \usepackage[english]{babel}
 \usepackage{libertinus}
@@ -28,11 +30,13 @@
   colorlinks,
   linkcolor={branddeepteal},
   urlcolor={brandcyan!60!black},
-  pdftitle={Project Close-out Report: (Dead-man-switch) Permission based Wallet},
+  pdftitle={Project Completion Report: (Dead-man-switch) Permission based Wallet},
   pdfauthor={Sandro Schaier}
 }
 
 \setkomafont{section}{\normalfont\sffamily\bfseries\large\color{brandnavy}}
+\setkomafont{subsection}{\normalfont\sffamily\bfseries\normalsize\color{brandnavy}}
+\RedeclareSectionCommand[beforeskip=-0.6\baselineskip, afterskip=0.2\baselineskip]{subsection}
 \setkomafont{disposition}{\normalfont\sffamily}
 \renewcommand*{\sectionformat}{\textcolor{brandteal}{\thesection}\enskip}
 \RedeclareSectionCommand[beforeskip=-0.8\baselineskip, afterskip=0.25\baselineskip]{section}
@@ -41,11 +45,9 @@
 \clearpairofpagestyles
 \addtokomafont{pagefoot}{\normalfont\sffamily\footnotesize\color{brandnavy!70}}
 \addtokomafont{pagenumber}{\sffamily\color{branddeepteal}}
-\ifoot{Project 1100002 · Project Close-out Report}
+\ifoot{Project 1100002 · Project Completion Report}
 \ofoot{\pagemark}
 
-\newcommand{\missing}[1]{\textcolor{red!70!black}{\sffamily\bfseries[To fill: #1]}}
-\newcommand{\reported}{\textit{(reported)}}
 \newcommand{\pr}[1]{\href{https://github.com/schaier-io/epora-wallet/pull/#1}{\##1}}
 \newcommand{\repo}[2]{\href{https://github.com/schaier-io/epora-wallet/blob/main/#1}{#2}}
 \newcommand{\hd}[1]{{\sffamily\bfseries\color{brandnavy}#1}}
@@ -61,238 +63,167 @@
         {\includegraphics[height=2.4cm]{../../whitepaper/images/logo.png}};
   \node[anchor=west, align=left, text=white] at ([xshift=4.9cm,yshift=-1.8cm]current page.north west)
         {{\sffamily\small\color{brandteal!65!white} Project Catalyst Fund 11 · Cardano Use Cases: Concept}\\[5pt]
-         {\sffamily\bfseries\LARGE Project Close-out Report}\\[5pt]
+         {\sffamily\bfseries\LARGE Project Completion Report}\\[5pt]
          {\large (Dead-man-switch) Permission based Wallet, shipped as Epora}};
 \end{tikzpicture}
 \vspace*{1.5cm}
 
 \noindent
 \begin{tabularx}{\linewidth}{@{}>{\sffamily\bfseries\color{brandnavy}}l X@{}}
-Name of project & (Dead-man-switch) Permission based Wallet, shipped as Epora \\
+Project Name & (Dead-man-switch) Permission based Wallet, shipped as Epora \\
 Project URL & \href{https://projectcatalyst.io/funds/11/cardano-use-cases-concept/dead-man-switch-permission-based-wallet}{projectcatalyst.io, Fund 11, Cardano Use Cases: Concept} \\
-Project number & 1100002 \\
-Project manager & Sandro Schaier \\
-Date project started & 11 March 2024 \\
-Date project completed & 26 September 2026 \\
+Project Number & 1100002 \\
+Project Manager & Sandro Schaier \\
+Project Start Date & 11 March 2024 \\
+Project Completion Date & 26 September 2026 \\
 Plan & 7 months, with deliveries from April to October 2024 \\
 Budget & 100,000 ADA in five milestones \\
-Close-out video & \href{https://youtu.be/XKyZoa02kag}{Watch the close-out video on YouTube} \\
+Completion video & \href{https://youtu.be/XKyZoa02kag}{Watch the close-out video on YouTube} \\
 \end{tabularx}
 
-\section{Challenge KPIs and how the project addressed them}
 
-The challenge brief states aims, not numeric KPIs, so each row quotes one aim and the project's answer.
+\section{Deliverables}
+
+Epora is a permission-based smart wallet on Cardano. It lets users plan recovery after inactivity, share control, and give other people limited spending rights. A normal wallet holds the signing keys. The smart wallet holds funds and checks whether each action meets its configured rules.
+
+The project delivered the contract system, reference application, public API, whitepaper, and developer documentation. The application runs on \href{https://mainnet.epora.io}{mainnet} as an unaudited beta, with a \href{https://epora.io}{Preprod deployment} for testing. The project's own code and documents are public under the \repo{LICENSE}{MIT license}.
+
+\subsection*{What was built}
+\begin{tabularx}{\linewidth}{@{}p{0.23\linewidth}X@{}}
+\toprule
+\hd{Component} & \hd{Delivered functionality and evidence} \\
+\midrule
+Permission contracts & Aiken validators enforce owner and weighted multisignature actions, per-day allowances, proof-of-life renewal, weighted beneficiary recovery, and streaming payments. The system also supports consolidation, stake control, reward withdrawal, certificates, and governance votes. See the \repo{code/smart-contract/INTERACTIONS.md}{transition map}. \\
+\addlinespace
+Reference application & A web interface to create and fund smart wallets, configure permissions, review transactions, and sign through a connected wallet. Co-signers can review and complete shared approval requests. See the \repo{code/dApp/README.md}{application guide} and \href{https://mainnet.epora.io}{live beta}. \\
+\addlinespace
+Public API & A versioned HTTP API gives third-party developers access to indexed wallet state and unsigned transaction builders. Signing remains with the user's wallet. The \repo{docs/api/README.md}{developer guide}, \href{https://mainnet.epora.io/api/v1/docs}{interactive reference}, and \href{https://mainnet.epora.io/api/v1/openapi.json}{OpenAPI specification} document the interface. \\
+\addlinespace
+Design and security documentation & The \repo{whitepaper/whitepaper.pdf}{whitepaper} explains the architecture, permission model, use cases, and security assumptions. The \repo{code/smart-contract/SECURITY.md}{security evidence map} connects threats to executable tests. \\
+\bottomrule
+\end{tabularx}
+
+\subsection*{Feedback and wallet outreach}
+The \repo{docs/testnet-feedback.md}{feedback register} links reports to fixes or a deferral. Its 22 September snapshot contains 49 distinct issues: 46 categorized as fixed, one deferred, and two non-bugs. External GitHub and Discord reports led to wallet-connection and interface improvements.
+
+Eternl, Begin Wallet, and other wallet developers were contacted about native integration and a possible smart-wallet CIP. Eternl replied by direct message. The \repo{docs/wallet-integration.md}{outreach record} includes the public Discord message and a screenshot. Communication is complete; integration discussions continue.
+
+\textbf{Project demonstration.} \href{https://youtu.be/XKyZoa02kag}{Watch the Epora Wallet Catalyst-Closeout video}. The \repo{docs/closeout/milestone-5-submission.txt}{Milestone 5 submission} maps each final output to its acceptance criteria and evidence.
+
+\newpage
+\section{Usage}
+
+\subsection*{Who the wallet is for}
+Owners can configure a recovery plan if they become inactive. Families can name beneficiaries and assign recovery shares. Shared treasuries can require co-signatures or give users daily allowances. Developers can use the API to build wallet integrations.
+
+A user connects a signing wallet, creates and funds a smart wallet, then sets its permissions. Each action follows a review and signature flow. A co-signed action collects the required approval weight. When the proof-of-life period expires, eligible beneficiaries can use the configured recovery path. These are intended uses; the activity snapshot below measures the deployed prototype.
+
+\subsection*{Mainnet activity: 26 September 2026, 01:30 UTC} The current deployed policy identifies two active smart wallets. The two wallets held four unspent wallet outputs. These figures describe prototype activity under the current policy, not independent users or adoption across earlier contract versions.
+
+\begin{tabularx}{\linewidth}{@{}Xrrr@{}}
+\toprule
+\hd{Wallet} & \hd{Wallet ADA} & \hd{State deposit ADA} & \hd{Total ADA} \\
+\midrule
+\href{https://cardanoscan.io/address/addr1wynmfgsec4hax5e29fretxg0c0ve6xznpcry04087g7jg8skrul80}{Smart wallet} & 10.000000 & 1.586080 & 11.586080 \\
+\href{https://cardanoscan.io/address/addr1w8wj6tjlfqjdgtlxq9t6g4ar089e7vs6wcqwpwpxgdtqvysply755}{Smart wallet Demo} & 17.000000 & 2.202410 & 19.202410 \\
+\midrule
+Total & 27.000000 & 3.788490 & 30.788490 \\
+\bottomrule
+\end{tabularx}
+
+Neither wallet payment balance contains other native tokens. Each separate state output holds its identifying state-thread token. The shared reference output holds another 63.270800 ADA. These deposits are separate from user wallet balances and are not fees or revenue.
+
+\subsection*{Observed actions and measured fees}
+Seven wallet transactions and one reference deployment are confirmed on mainnet. The table lists the actual ledger fees and transaction sizes. Each link opens the corresponding transaction.
 
 {\small
-\noindent
-\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{0.34\linewidth}X@{}}
+\begin{tabularx}{\linewidth}{@{}Xrrp{0.23\linewidth}@{}}
 \toprule
-\hd{Aim in the challenge brief} & \hd{How the project addressed it} \\
+\hd{Confirmed action} & \hd{Fee ADA} & \hd{Bytes} & \hd{Transaction} \\
 \midrule
-``deliver proof of concept, design research and basic prototyping''
-  & The whitepaper v1.0 gives the design, a formal model, and a security analysis.
-    The Aiken validators and the reference app run on Preprod at \href{https://epora.io}{epora.io}.
-    Mainnet beta: \href{https://mainnet.epora.io}{mainnet.epora.io}. \\
-\addlinespace
-``generate and test new ideas that bring utility to Cardano''
-  & Epora brings the smart-contract wallets of large treasuries to individual users.
-    Recovery, shared control, allowances, and streaming payments combine as data on one contract.
-    750 contract tests and a public Preprod phase tested the ideas. \\
-\addlinespace
-``produce specifications and a pathway that requires more significant technical development''
-  & The whitepaper and the OpenAPI 3.1 document specify the system.
-    Section~\ref{sec:next} gives the pathway: a smart-wallet CIP, an external audit, and wallet integrations. \\
-\addlinespace
-``for the benefit of the Cardano ecosystem''
-  & The project's own code and documents are public under the MIT license.
-    Third-party parts keep their own licenses. \\
+Reference deployment & 0.809617 & 14868 & \href{https://cardanoscan.io/transaction/fb11866380769867300d1919098c5961473e362d40d03192f5b83c61eb6f0c0d}{\texttt{fb1186638076...}} \\
+Wallet creation + funding & 0.447150 & 838 & \href{https://cardanoscan.io/transaction/71ea33e0e820dc4a04c86530d3f994a2f880aa047cdfbe3b68d3e272c33409a8}{\texttt{71ea33e0e820...}} \\
+Wallet additional funding & 0.170825 & 350 & \href{https://cardanoscan.io/transaction/d6e2e824daef4347231db51c1a5f0c422a6e3292fab2d514cb5320e86a2cf249}{\texttt{d6e2e824daef...}} \\
+Wallet operator spend & 0.895889 & 10117 & \href{https://cardanoscan.io/transaction/8d21e3b7f954262d8da288e97b4067f40cc7ccc94db94a19959d4929350b8732}{\texttt{8d21e3b7f954...}} \\
+Demo creation + funding & 0.447194 & 839 & \href{https://cardanoscan.io/transaction/6ba0055f3cddbe2882a7ce1648eddee47e73e65b0cf36b771e375b653e8beb31}{\texttt{6ba0055f3cdd...}} \\
+Demo additional funding & 0.170825 & 350 & \href{https://cardanoscan.io/transaction/9e60d91d71008a72ff725e9d1e4b6e07a96d4e7a53046af1af5b8dd217b2d7f2}{\texttt{9e60d91d7100...}} \\
+Demo beneficiary + liveness settings & 0.478150 & 919 & \href{https://cardanoscan.io/transaction/4080136da4b64ba642f5b40d017a2181c1edfbf7cd21a48ab38a623225b34871}{\texttt{4080136da4b6...}} \\
+Demo spend + liveness refresh & 0.912502 & 10256 & \href{https://cardanoscan.io/transaction/a9502540ad8ef0af445fe99904dc05ccb2d50c785344953a1f146e114424aad9}{\texttt{a9502540ad8e...}} \\
 \bottomrule
 \end{tabularx}}
 
-\section{Project KPIs and how the project addressed them}
+The Demo spend paid 10 ADA to its recipient and returned 10 ADA to the smart wallet. An earlier 7 ADA output remained unspent. The proof-of-life deadline moved from 25 October 2026, 23:27:06.972 UTC to 23:33:36 UTC. This verifies automatic refresh during an operator spend.
 
-The proposal measures success through its five milestones.
-The table summarizes the acceptance criteria from the Statement of Milestones, the result, and the review status in the Milestone Module on 25 September 2026.
+\textbf{Current STT policy and validator hash:}\par
+{\footnotesize\nolinkurl{0dac00be80879dcf585cdb9d0acf6e0ecf52c417ded30d8b72d0ebf1}}
 
-{\small
-\begin{xltabular}{\linewidth}{@{}>{\raggedright\arraybackslash}p{0.13\linewidth}>{\raggedright\arraybackslash}p{0.31\linewidth}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}p{0.11\linewidth}@{}}
+\textbf{Evidence.} The \repo{docs/closeout/mainnet-evidence.md}{mainnet evidence record} provides full hashes, addresses, the Koios query method, and measurement limits. The \repo{docs/closeout/mainnet-evidence.json}{JSON snapshot} preserves the results.
+
+\newpage
+\section{Impact}
+
+The project turns the proposed dead-man-switch and permission model into working contracts, an application, and an API. Users can combine recovery, shared control, and spending limits in one smart wallet. Other developers can inspect the implementation and build on the same public specification.
+
+\subsection*{Project outcomes}
+\begin{tabularx}{\linewidth}{@{}p{0.24\linewidth}X@{}}
 \toprule
-\hd{Milestone} & \hd{Acceptance criteria} & \hd{Result} & \hd{Status} \\
+\hd{Original objective} & \hd{Result and evidence} \\
 \midrule
-\endhead
-1. Setup, whitepaper, planning
-  & X and Discord accounts; a whitepaper (abstract, introduction, functions, permission system, use cases); a task list
-  & X account \href{https://x.com/schaier_io}{@schaier\_io} and a Discord server; \repo{whitepaper/whitepaper.pdf}{whitepaper v1.0} with its LaTeX source; a \href{https://github.com/schaier-io/epora-wallet/tree/main/tasks}{task tracker} with one file per milestone
-  & Approved\newline 7 Jul 2026 \\
+Recover after inactivity & A configurable proof-of-life deadline and beneficiary rules. The mainnet settings transaction added a beneficiary and a 30-day period; a later operator spend refreshed the deadline. See \repo{docs/closeout/mainnet-evidence.md}{transaction evidence}. \\
 \addlinespace
-2. Smart contract development
-  & The whitepaper methods; code documentation for new developers; abuse vectors explained and shown not to work
-  & Aiken validators for every whitepaper transition; a contracts guide; a \repo{code/smart-contract/SECURITY.md}{security evidence map}; 750 of 750 contract tests pass
-  & Approved\newline 6 Aug 2026 \\
+Share control and limit spending & Weighted multisignature and per-day allowances are implemented in the contract and reference application. The \repo{whitepaper/whitepaper.pdf}{whitepaper} and \repo{code/smart-contract/INTERACTIONS.md}{transition map} explain the authorization rules. \\
 \addlinespace
-3. Development of UI
-  & A video of the whitepaper functions; an API and a specification for external developers; code documentation
-  & A wallet UI video; a public v1 API with an OpenAPI 3.1 document and a \repo{docs/api/README.md}{developer guide}; the app README
-  & Approved\newline 21 Sep 2026 \\
+Deliver a usable prototype & Public Preprod and mainnet applications, a UI walkthrough, an integration API, and developer documentation. The feedback register records fixes across connection handling, transaction flows, interface behavior, and operations. \\
 \addlinespace
-4. Testnet launch
-  & A usable prototype; aggregated feedback; improvements and bug fixes from the feedback
-  & The prototype on Preprod at \href{https://epora.io}{epora.io}; a \repo{docs/testnet-feedback.md}{feedback page} with 49 categorized issues; 46 fixes with linked pull requests
-  & Submitted,\newline in review \\
-\addlinespace
-5. Finalization and mainnet launch
-  & A mainnet prototype; categorized feedback; talks with potential wallet developers, if they or the community ask; this report; a close-out video
-  & Mainnet beta at \href{https://mainnet.epora.io}{mainnet.epora.io}; the same feedback page; a \repo{docs/wallet-integration.md}{wallet outreach page}; this report; the video in Section~\ref{sec:video}
-  & This\newline submission \\
+Support further development & Public source, an MIT license, a security evidence map, and wallet-developer outreach provide a basis for reuse and future integration. \\
 \bottomrule
-\end{xltabular}}
+\end{tabularx}
 
-% VERIFIED 26 September 2026: workspace-action-config-view.tsx:67 routes wallet-vote
-% to WalletVoteConfigView; config-walletvote-view.tsx:42 renders GovernanceVotePicker;
-% workspace-transactions.ts:408 calls buildWalletVoteTx. The previous TODO was stale.
-% REPORTED 26 September 2026: Sandro confirmed the Vespr retest complete.
-% VERIFIED: docs/assets/eternl-discord-wallet-integration.webp shows wallet outreach.
-\textbf{Follow-up.} The Vespr retest is complete \reported. Wallet outreach is complete. Integration talks continue.
+\subsection*{Testing and measured results}
+The \repo{docs/mainnet-beta-release.md}{25 September release record} records \texttt{750 passed, 0 failed} with Aiken v1.1.23: 713 unit tests and 37 property tests. The property run used 10,000 cases per property. The linked security tests cover the stated invariants and abuse cases; the beta has not had an external audit.
 
-\textbf{Timeline and scope.} The plan had seven months, with the last delivery in October 2024.
-The Milestone Module approved milestones 1 to 3 between 7 July and 21 September 2026.
-The project delivered much more than the proposal asked for, and the budget stayed at 100,000 ADA.
-The larger scope took more time than the plan allowed.
+Mainnet transactions establish successful wallet creation, funding, settings changes, and operator spending. The Demo wallet creation cost 0.447194 ADA. Its operator spend with automatic proof-of-life refresh cost 0.912502 ADA. These are measured examples, not a fee bound for all configurations. The two-wallet inventory is not a measure of independent adoption.
 
-{\small
-\noindent
-\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{0.33\linewidth}>{\raggedright\arraybackslash}X@{}}
+\subsection*{Lessons from delivery}
+\textbf{Script size affected the deployment design.} The state script is 14,469 bytes. A reference script lets transactions use it without including the full script each time. The \repo{docs/mainnet-beta-release.md}{release record} documents its hash and size, and the mainnet evidence records the deployed reference.
+
+\textbf{Shared control needs a usable coordination flow.} A tester could not tell a co-signer to complete registration. The resulting changes added an invitation link and a per-co-signer sign-in status. The \repo{docs/testnet-feedback.md}{feedback register} links the report to the fixes. Permissions need both enforceable rules and a clear way for people to complete the required steps.
+
+\newpage
+\section{Sustainability}
+
+\subsection*{Maintenance and operating costs}
+Epora continues as an open-source project. The beta is maintained, and public issues are reviewed for further fixes. The public repository and documentation allow other developers to inspect and contribute to the work.
+
+No revenue is currently generated. Server and other operating costs are covered by received Catalyst funds. Future funding or paid services will depend on adoption and partner agreements; there is no committed recurring revenue model yet.
+
+\subsection*{Next steps}
+Continue the beta with its unaudited-code notice and address feedback through the public issue tracker. Follow up with wallet teams and explore a smart-wallet CIP. The proposed standard could define how wallets discover smart wallets, display their rules and balances, and build permitted actions. A standard could also support shared maintenance across implementations. After community feedback on the proposed CIP, the need for an external audit will be assessed against that feedback and the CIP implementation. If an audit is needed, a separate funding round is planned to cover its cost.
+
+\subsection*{Delivery timeline and funding}
+The original plan covered seven months, ending in October 2024. Development extended beyond that schedule. The completion date is 26 September 2026. The project budget is 100,000 ADA; the Milestone Module showed 59,000 ADA distributed on that date.
+
+\begin{tabularx}{\linewidth}{@{}p{0.19\linewidth}X p{0.2\linewidth}@{}}
 \toprule
-\hd{Proposal} & \hd{Delivered} \\
+\hd{Milestone} & \hd{Delivery} & \hd{Status on 26 Sep 2026} \\
 \midrule
-Permissions after a period of inactivity
-  & A proof-of-life dead-man-switch that owners and liveness keepers renew \\
-Two parties agree before a transaction
-  & Weighted multi-signature for operator actions, with a workspace where co-signers review and sign \\
-Limits for spending certain assets
-  & A per-day allowance for each user, with up to 5 assets in each allowance \\
-A family member recovers funds after six inactive months
-  & Weighted-share recovery for several beneficiaries, each with an optional unlock delay, and exact distribution to all of them \\
-Partially custodial wallets
-  & Third parties can hold a role: co-owner, spender, liveness keeper, or beneficiary. The funds stay in the contract. \\
-\addlinespace
-\textit{Not in the proposal}
-  & Up to 15 streaming payments that settle while the owner is offline;
-    reward withdrawal, certificates, and governance votes from the smart wallet;
-    stake-credential pinning and consolidation;
-    a formal model and a security analysis;
-    750 contract tests, 37 of them property-based \\
+\href{https://milestones.projectcatalyst.io/projects/1100002/milestones/1}{1. Planning} & Social accounts, whitepaper, and development tasks & Approved 7 Jul \\
+\href{https://milestones.projectcatalyst.io/projects/1100002/milestones/2}{2. Contracts} & On-chain implementation, documentation, security evidence & Approved 6 Aug \\
+\href{https://milestones.projectcatalyst.io/projects/1100002/milestones/3}{3. Interface} & UI walkthrough, application, API, and code documentation & Approved 21 Sep \\
+\href{https://milestones.projectcatalyst.io/projects/1100002/milestones/4}{4. Testnet} & Prototype, categorized feedback, and fixes & Submitted, in review \\
+\href{https://milestones.projectcatalyst.io/projects/1100002/milestones/5}{5. Closeout} & Mainnet beta, wallet communication, report, and video & This submission \\
 \bottomrule
-\end{tabularx}}
+\end{tabularx}
 
-\section{Key achievements}
+\subsection*{Project resources}
+\href{https://github.com/schaier-io/epora-wallet}{Public repository and documentation}\quad
+\href{https://mainnet.epora.io}{Mainnet beta}\quad
+\href{https://youtu.be/XKyZoa02kag}{Completion video}
 
-\begin{itemize}[leftmargin=1.2em]
-\item \textbf{Specification.} The whitepaper v1.0 specifies the permission system with a formal model, 11 theorems, and a security analysis.
-\item \textbf{Contracts with security evidence.} Aiken validators implement every whitepaper transition, and 750 contract tests pass.
-  A security evidence map links each abuse vector to the tests that reject it.
-\item \textbf{App and public API.} The web app creates, configures, and uses smart wallets on Preprod.
-  The public API builds unsigned transactions that any wallet can sign, and the server never holds a key.
-\item \textbf{Community testing.} Reports came from team test sessions, GitHub issue forms linked in the app, and Discord.
-  All 49 tracked issues have one category, and 46 are fixed. Reports from two outside testers led to changes (\pr{562}, \pr{568} to \pr{571}).
-\item \textbf{Mainnet beta.} Network configuration, beta consent, legal pages, and a network switch are merged (\pr{589}, \pr{590}, \pr{594}). The beta runs at \href{https://mainnet.epora.io}{mainnet.epora.io}.
-\item \textbf{Wallet developer outreach.} We contacted wallet developers in a public channel and by direct message \reported.
-  We asked about a native integration and a CIP for a standard smart wallet. One team replied \reported.
-\end{itemize}
-
-\section{Key learnings}
-
-{\centering
-\begin{tikzpicture}[font=\sffamily\footnotesize, >=stealth,
-  box/.style={draw=branddeepteal, fill=brandteal!8, rounded corners=2pt, align=center, inner sep=3pt, text=brandnavy},
-  arr/.style={->, thick, draw=brandnavy}]
-\node[box, fill=brandcyan!12, text width=3.3cm] (w) {\textbf{Normal wallet} (CIP-30)\\signs, pays the fee,\\provides the collateral};
-\node[box, fill=brandnavy!6, text width=3.0cm, right=6mm of w] (tx) {\textbf{One transaction}\\one redeemer:\\the declared action};
-\node[box, text width=6.2cm, anchor=north west] (st) at ([xshift=7mm]tx.north east) {\textbf{State contract} (rules): action $=$ true change};
-\node[box, text width=6.2cm, anchor=south west] (wa) at ([xshift=7mm]tx.south east) {\textbf{Wallet contract} (funds): payout $\le$ action};
-\draw[arr] (w) -- (tx);
-\draw[arr] (tx.east) -- (st.west);
-\draw[arr] (tx.east) -- (wa.west);
-\end{tikzpicture}\par
-{\footnotesize\color{brandnavy!80} One action in Epora: two contracts read the same redeemer, and a normal wallet signs and pays.\par}}
-
-\begin{itemize}[leftmargin=1.2em]
-\item \textbf{Two contracts must agree on one action.} Both contracts read one redeemer, the declared action.
-  The state contract proves that the action equals the true change to the wallet state.
-  The wallet contract limits the payout to that action and has no permission logic, so a reviewer can check it by itself.
-\item \textbf{One configurable contract replaces many bespoke ones.} Six features give 364 combinations of ``and'' and ``or'', and seven give 1,093.
-  One contract for each combination is too much to build, test, and audit.
-  So the whole configuration is one datum on one contract, and a new combination is data, not code.
-\item \textbf{An open deposit address has edge cases.} Anyone can pay into the wallet with no datum, as into a normal address.
-  But a sender can attach a datum hash, or pick a foreign stake credential that then collects the staking rewards of those funds.
-  The contracts now pin the stake credential and reject datum hashes on outputs that stay in the wallet.
-  An earlier whitepaper missed the datum-hash case and now records the correction.
-\item \textbf{Script size needs its own design work.} A transaction may use at most 16,384 bytes, and the state script alone has 14,469 bytes.
-  So the script is stored once as a reference script, in a 93-byte always-fail store at a fixed address.
-  Each state transaction points to it.
-  Without the reference, even the mint of a new wallet would exceed the limit.
-  With both scripts as references, a payout to 15 beneficiaries used 9,925 signed bytes. With the wallet script inline, 2 beneficiaries used 11,163.
-  With full traces the state script has 40,258 bytes, so the production build drops them.
-  A size pass used standard-library helpers, callbacks, and shared checks (\pr{296}).
-  It cut the state script from 15,936 to 14,428 bytes and the wallet script from 9,810 to 9,378 bytes.
-\item \textbf{Caps and gates keep each action inside the limits.} We try to prove that every action fits in one transaction, so that no wallet state can lock the funds forever.
-  The contracts cap the lists: 15 user and beneficiary records (at most 10 users), 15 streaming payments, and 5 assets in one allowance.
-  The beneficiary checks compare every pair, so their cost grows with the square of the list.
-  Budget tests run actions on wallets at the caps. CI fails when a recorded cost moves by more than 1\% or passes a fixed ceiling.
-  The app checks each signed transaction against the size limit before it submits.
-  Each configuration must also keep a recovery path: an admin, a quorum, or a beneficiary that can still sign.
-\item \textbf{Two wallets work together by design.} The smart wallet holds the funds and enforces the rules.
-  The normal wallet holds the user's keys, signs each action, pays the fee, and provides the collateral.
-  So the app builds each action as one transaction that uses both wallets.
-  The CIP in Section~\ref{sec:next} aims to integrate the two wallets.
-  The normal wallet will likely stay part of the setup.
-\end{itemize}
-
-\section{Sustainability and next steps}\label{sec:next}
-
-% REPORTED 26 September 2026: Sandro confirmed that received Catalyst funds cover
-% server and other operating costs. Longer-term CIP support is a potential path.
-Epora continues as an open-source project. Received Catalyst funds cover servers and other operating costs.
-Our team plans to maintain the beta and address feedback through the public issue tracker.
-Longer-term, a smart-wallet CIP could support shared maintenance with wallet teams.
-Future funding or revenue would depend on adoption and partner agreements.
-
-\begin{itemize}[leftmargin=1.2em]
-\item \textbf{Mainnet beta.} Run the beta with small funds and keep its permanent unaudited-code notice.
-\item \textbf{A smart-wallet CIP.} EVM chains have smart-account standards, for example ERC-4337 and ERC-7579.
-  We plan to draft a similar CIP for Cardano. It would define how a wallet finds a smart wallet, shows its funds and rules, and builds its actions.
-  It can build on CIP-141 (Plutus wallets) and CIP-106 (multisig wallets), which both have the status Proposed.
-  After an external audit, the Epora contracts could be the reference implementation.
-\item \textbf{Audit funding.} We plan to fund the external audit after the community gives feedback on the CIP, if the audit is needed.
-  This depends on the community and on the CIP implementations.
-\item \textbf{Wallet integrations.} Follow up with the wallet teams that we contacted.
-  At \mbox{TOKEN2049}, we plan to meet builders in person and collect their feedback.
-\end{itemize}
-
-\section{Final thoughts}
-
-The proposal addressed the risk of losing all funds when a key or a backup is lost.
-The delivered contracts, app, and API give Cardano users recovery and shared permissions without a custodian of funds.
-We intend this work to become the base of a smart-wallet standard for Cardano.
-
-\section{Links to other project sources}
-
-{\small
-\noindent
-\begin{tabularx}{\linewidth}{@{}>{\sffamily\bfseries\color{brandnavy}}l X@{}}
-Documents & \href{https://github.com/schaier-io/epora-wallet}{Repository}; \repo{whitepaper/whitepaper.pdf}{whitepaper}; \repo{code/smart-contract/SECURITY.md}{security evidence map}; \repo{docs/api/README.md}{API guide}; \href{https://www.epora.io/api/v1/docs}{live API reference} \\
-Progress & \href{https://github.com/schaier-io/epora-wallet/tree/main/tasks}{Task tracker}; \repo{docs/testnet-feedback.md}{categorized feedback}; \repo{docs/wallet-integration.md}{wallet outreach} \\
-Prototypes & Preprod at \href{https://epora.io}{epora.io}; mainnet beta at \href{https://mainnet.epora.io}{mainnet.epora.io} \\
-Catalyst and community & \href{https://milestones.projectcatalyst.io/projects/1100002}{Milestone Module}; Discord \href{https://discord.gg/2uh4BynQBW}{discord.gg/2uh4BynQBW}; X \href{https://x.com/schaier_io}{@schaier\_io} \\
-\end{tabularx}}
-
-\section{Close-out video}\label{sec:video}
-
-% REPORTED 26 September 2026: Sandro supplied this close-out video URL.
-\href{https://youtu.be/XKyZoa02kag}{Watch the Epora Catalyst Fund 11 close-out video on YouTube.}
+\repo{docs/closeout/mainnet-evidence.md}{Mainnet evidence}\quad
+\repo{docs/testnet-feedback.md}{Feedback and fixes}\quad
+\repo{docs/wallet-integration.md}{Wallet outreach}
 
 \vfill
-{\footnotesize\color{brandnavy!75}
-\textbf{Sources.} Catalyst project page and Milestone Module (read on 25 September 2026); linked repository files; \texttt{aiken check}, Aiken v1.1.23 (750 passed, 0 failed), and the repository's size checks, run the same day. Items marked \reported{} have no public record.\par}
-
+{\footnotesize\color{brandnavy!75}Project 1100002. Report dated 26 September 2026. Mainnet amounts are a dated snapshot. Full transaction hashes, source links, and measurement methods accompany the report.}
 \end{document}

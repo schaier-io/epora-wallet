@@ -5,7 +5,7 @@ Public API task · [Milestone 3](../milestone-3-ui-development.md) · decisions 
 Most of this task was already done, which the original version of this file did
 not reflect.
 
-VERIFIED on 2026-08-31:
+Checked on 2026-08-31:
 [`rate-limit.ts`](../../code/dApp/src/lib/http/rate-limit.ts) re-exports
 `consumePostgresRateLimit as rateLimit`, so the limiter is already backed by
 Postgres and already survives a multi-instance deployment. `stt/lookup` uses 60
@@ -15,7 +15,7 @@ for expensive methods. All three answer `429` with a `Retry-After` header.
 ## The quota risk, accepted
 
 The build routes fetch the caller's UTxOs from Blockfrost (decision 6), and they
-are anonymous (decision 3). Sandro accepted this knowingly and chose to handle
+are anonymous (decision 3). The accepted approach is to handle
 it if it becomes a problem. This task's job is to make the cap tight enough that
 the problem is slow to arrive, not to re-open the decision.
 

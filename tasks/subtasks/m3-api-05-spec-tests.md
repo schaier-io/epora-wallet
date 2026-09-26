@@ -49,7 +49,7 @@ Both are in CI already: `.github/workflows/dapp-ci.yml:86` runs `pnpm test` and
 
 ## What the spec covers, and what each endpoint's test is
 
-13 paths, 13 operations (VERIFIED, by reading `docs/api/openapi.json`).
+13 paths, 13 operations (from `docs/api/openapi.json`).
 
 | Endpoint | Happy path | Failures |
 |---|---|---|
@@ -82,7 +82,7 @@ behaviour: they never referenced the new type, so nothing changed for them.
 **A deeply nested body returned `500`.**
 `PlutusDataSchema` is recursive, so zod parses `stateDatum` recursively. A body
 of about 30 KB, inside the 32 KB build-route cap, nests deep enough to raise
-`RangeError: Maximum call stack size exceeded` inside the handler (VERIFIED: a
+`RangeError: Maximum call stack size exceeded` inside the handler (a
 15,000-level body, 30,163 bytes, made `MintTxRequestSchema.parse` throw exactly
 that). The route caught it and answered `500` with a logged error, again for a
 request that is entirely the caller's mistake.
@@ -94,8 +94,7 @@ levels."}`. The walk is iterative on purpose, because a recursive check would
 overflow on exactly the input it exists to reject.
 
 64 is evidence-based, not a guess: a real state datum encodes 6 levels deep
-(VERIFIED, by running `stateFormToDatum(createDefaultStateForm())` and measuring
-the result), so the ceiling sits an order of magnitude above any legitimate body
+(measured from the output of `stateFormToDatum(createDefaultStateForm())`), so the ceiling sits an order of magnitude above any legitimate body
 and two orders below the depth that breaks a parser.
 
 ## The one limit worth stating plainly
@@ -115,17 +114,17 @@ was observed to fail, and the source was restored.
 
 | Mutation | Result |
 |---|---|
-| removed the `InvalidJsonError` mapping from both entry points | 2 failed: `answers malformed JSON with 400, not a logged 500` (VERIFIED) |
-| returned `estimatedFeeLovelace` as a number from the lock-funds builder | 1 failed: `expected string, received number` at `estimatedFeeLovelace` (VERIFIED) |
-| dropped `/api/v1/tx/vote` from the test's route list | 1 failed: `is in this file's list, so none goes untested` (VERIFIED) |
-| made `describeZodIssue` always return its generic fallback | 13 failed (VERIFIED) |
-| disabled the lookup route's rate-limit branch | 1 failed: `answers 429 with Retry-After and the documented body` (VERIFIED) |
-| removed the depth guard from `readBoundedJson` | 1 failed: `refuses a body nested deep enough to overflow the datum schema`, observed as `expected 500 to be 400` (VERIFIED) |
-| added an undocumented route file | spec-coverage failed (VERIFIED, recorded when written) |
-| added a phantom path to the document | spec-coverage failed (VERIFIED, recorded when written) |
-| drifted `userCount` to a string | response-conformance failed (VERIFIED, recorded when written) |
+| removed the `InvalidJsonError` mapping from both entry points | 2 failed: `answers malformed JSON with 400, not a logged 500` |
+| returned `estimatedFeeLovelace` as a number from the lock-funds builder | 1 failed: `expected string, received number` at `estimatedFeeLovelace` |
+| dropped `/api/v1/tx/vote` from the test's route list | 1 failed: `is in this file's list, so none goes untested` |
+| made `describeZodIssue` always return its generic fallback | 13 failed |
+| disabled the lookup route's rate-limit branch | 1 failed: `answers 429 with Retry-After and the documented body` |
+| removed the depth guard from `readBoundedJson` | 1 failed: `refuses a body nested deep enough to overflow the datum schema`, observed as `expected 500 to be 400` |
+| added an undocumented route file | spec-coverage failed (recorded when written) |
+| added a phantom path to the document | spec-coverage failed (recorded when written) |
+| drifted `userCount` to a string | response-conformance failed (recorded when written) |
 
-Gate, all VERIFIED in this session:
+Recorded validation results:
 
 ```
 pnpm lint        clean

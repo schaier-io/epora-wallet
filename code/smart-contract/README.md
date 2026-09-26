@@ -30,7 +30,7 @@ See [state diagrams and action cycles](../../docs/smart-contract-state-diagram.m
   wallet movement against the payload that the STT validator already proved
   consistent with the state diff.
 
-VERIFIED structure: validator entrypoints call the following library modules.
+Validator entrypoints call the following library modules.
 
 | Concern | Start here |
 | --- | --- |
@@ -110,7 +110,7 @@ does not repeat these checks. It cannot create a wallet output because its walle
 count must be zero. The other beneficiary actions remain available because they do not use
 this field.
 
-_VERIFIED:_ `state/configuration.ak::expect_beneficiaries_are_valid` checks address
+`state/configuration.ak::expect_beneficiaries_are_valid` checks address
 shape. `state/configuration.ak::beneficiary_destinations_are_valid` rejects the STT
 payment credential at mint and `UpdateState`. `wallet/rules.ak` requires zero wallet
 outputs for exact distribution. The maintained dApp validates the derived wallet credential
@@ -127,12 +127,12 @@ credential from its runtime policy id. Management reads it from the consumed
 STT input and applies the check only to new ids. Existing payout addresses stay
 immutable.
 
-_VERIFIED:_ `validators/stt.ak::eval_mint`,
+`validators/stt.ak::eval_mint`,
 `lib/stt/operator_handlers.ak::eval_manage_streaming_payments`, and
 `lib/streaming_payments/forwarding.ak::are_forwarded_rescheduled_or_added`
 enforce this without embedding the STT hash as a validator parameter.
 
-_VERIFIED:_ The on-chain stream shape does not exclude the active STT policy as
+The on-chain stream shape does not exclude the active STT policy as
 the payment asset policy. `validators/stt_mint_tests.ak` and
 `validators/stt_operator_tests.ak` accept the on-chain configuration with a
 non-STT payee. The maintained dApp rejects this policy at mint and for each new
@@ -142,7 +142,8 @@ management addition. Existing entries remain manageable.
 `code/dApp/src/lib/mesh/transactions/mint-state-token.test.tsx` cover the dApp
 guard and existing-entry compatibility.
 
-_INFERRED:_ A stream that owes a positive quantity cannot make positive payment
+As a consequence of the STT preservation and payout rules, a stream that owes a
+positive quantity cannot make positive payment
 progress or be removed while that unpaid amount remains. Its payout needs an
 STT-policy token at the tagged payee. Each token under that policy stays at its
 own continuing STT output, and the current spend rejects another input from the
@@ -211,7 +212,7 @@ Every otherwise-valid action may add externally funded ADA to the STT output. On
 `RunOperator(Use)` may remove ADA or add or remove assets under other policies.
 Every spend keeps the current wallet STT policy, asset name, and quantity fixed.
 
-_VERIFIED:_ `lib/stt/io.ak::expect_stt_token_is_forwarded_unchanged`,
+`lib/stt/io.ak::expect_stt_token_is_forwarded_unchanged`,
 `lib/stt/io.ak::stt_value_preserved_with_lovelace_top_up`, and
 `lib/stt/operator_handlers.ak::eval_operator_use` implement this boundary.
 
@@ -277,22 +278,22 @@ exercised in the suite.
   arrive, so the contract has no final recovery marker. This path recovers
   wallet UTxOs only. Staking rewards remain operator-only.
 - **Exact distribution retains recovery rights.** Each transaction distributes one selected wallet UTxO to every remaining beneficiary. All quantities, including lovelace, must divide exactly by the remaining weights. Beneficiaries retain their weights and may repeat with another input. Every stream must first leave State through settlement. Fees and any ADA topups come from external funding. This action sets no asset-count cap. Ledger size and execution limits still apply. With two or more beneficiaries, no streams, and every beneficiary unlocked, the named initiator can sign an STT-only call. The call preserves State and cadence, so the initiator can immediately build another call against the recreated STT. Each call consumes and recreates the latest STT. The caller funds its fee, and no wallet value moves. A call can invalidate another pending transaction that references the prior STT. This uncadenced succession is an accepted design trade-off. The sole-beneficiary form remains cadence-limited. It cannot prove wallet exhaustion.
-  _VERIFIED:_ `lib/stt/user_handlers.ak::eval_distribute_beneficiaries` and `validators/beneficiary_distribution_tests.ak::authorized_stt_only_transaction_preserves_multiple_beneficiary_state` accept this wallet-less transition.
-  _INFERRED:_ Every successor spends the recreated singleton STT, so it conflicts with a pending transaction that references the prior output.
-- **Recovery preparation preserves wallet value.** Verified in `settlement_handlers.eval_consolidate` and `wallet/rules.ak`: an unlocked beneficiary can use existing `Consolidate` to merge or split selected wallet UTxOs. State and beneficiary rights stay unchanged. The preparation builder derives one clean pool and its remainder from the selected value. Pool quantities must be multiples of `sum(weights) / gcd(weights)`. An empty pool request merges the selected inputs. Selected wallet ADA must cover each continuing output's minimum ADA; external funding pays fees. A shortage requires ADA reassignment or a separate wallet deposit. Preparation does not guarantee that the later distribution fits ledger limits. See P12 in [INTERACTIONS.md](INTERACTIONS.md) for the runnable native check.
+  `lib/stt/user_handlers.ak::eval_distribute_beneficiaries` and `validators/beneficiary_distribution_tests.ak::authorized_stt_only_transaction_preserves_multiple_beneficiary_state` accept this wallet-less transition.
+  Every successor spends the recreated singleton STT. As a consequence, it conflicts with a pending transaction that references the prior output.
+- **Recovery preparation preserves wallet value.** `settlement_handlers.eval_consolidate` and `wallet/rules.ak` allow an unlocked beneficiary to use existing `Consolidate` to merge or split selected wallet UTxOs. State and beneficiary rights stay unchanged. The preparation builder derives one clean pool and its remainder from the selected value. Pool quantities must be multiples of `sum(weights) / gcd(weights)`. An empty pool request merges the selected inputs. Selected wallet ADA must cover each continuing output's minimum ADA; external funding pays fees. A shortage requires ADA reassignment or a separate wallet deposit. Preparation does not guarantee that the later distribution fits ledger limits. See P12 in [INTERACTIONS.md](INTERACTIONS.md) for the runnable native check.
 - **Beneficiaries can stop future stream accrual.** `StopBeneficiaryStream` works with key and script payee addresses. It preserves earned debt and does not transfer funds. The existing settlement action remains necessary. Operators keep their existing management authority and can later reschedule a stopped stream.
 - **Wallet-less Allowance use is intentional.** A signed spender can submit a non-empty allowance decrease without consuming a wallet UTxO. No wallet value moves, but the call uses allowance, pays a fee, and consumes and recreates the current STT. Repeated calls can invalidate transactions that reference an earlier STT. The remaining allowance bounds calls until the next reset.
-  _VERIFIED:_ `stt_allowance_tests.allowance_use_accepts_wallet_less_draw_from_valid_configuration` executes this form. `user_handlers.eval_use_allowance` requires a non-empty bounded decrease and the changed user's signature.
-  _INFERRED:_ Each accepted successor conflicts with pending transactions that reference the prior STT output.
+  `stt_allowance_tests.allowance_use_accepts_wallet_less_draw_from_valid_configuration` executes this form. `user_handlers.eval_use_allowance` requires a non-empty bounded decrease and the changed user's signature.
+  As a consequence of singleton STT succession, each accepted successor conflicts with pending transactions that reference the prior STT output.
 - **Self-addressed streams are accepted on-chain.** Mint and stream addition reject the STT payment credential, but the validators permit a valid address with the wallet payment credential. The maintained dApp rejects this credential at mint and for each new stream addition. Existing entries remain payable and removable. A custom builder can still submit the accepted on-chain configuration. When settlement consumes wallet UTxOs, a tagged output at that address also counts as a continuing wallet output. For ADA, the continuing wallet aggregate must equal the wallet input aggregate minus the validated payout delta. ADA routing permits ADA at every correctly tagged configured stream output and checks only the aggregate tagged ADA amount. The exact wallet outflow can therefore reach another configured stream payee. The validators do not bind individual lovelace from one stream's delta to that stream's address. A wallet-less settlement can use external value to create a tagged wallet output because the wallet validator does not run.
   A native asset has a separate accepted consequence. Its tagged wallet output can equal the exact payout delta and remain inside the wallet aggregate. The Epora validators accept a matching negative mint that supplies the wallet's net loss. No external payee receives the burned quantity. Total wallet loss remains capped by the validated payout delta. These self-addressed outcomes are intentional configuration risks.
-  _VERIFIED:_ `stt_mint_tests.stt_mint_accepts_stream_to_wallet_address` and `stt_operator_tests.manage_streaming_payments_accepts_adding_wallet_address_stream` cover configuration. `wallet_spend_tests.streaming_payment_payout_accepts_self_address_delta_at_other_payee` runs both validators with no external input. It sends 5 ADA from the wallet to a 4 ADA tagged wallet continuation and a 1 ADA tagged output for another unchanged stream. `wallet_spend_tests.streaming_payment_payout_accepts_self_address_native_burn` runs the STT validator and both wallet input legs. It starts with 100 native tokens, leaves 90 in the wallet, and burns 10. `wallet_rule_tests.streaming_payment_payout_rule_accepts_configured_wallet_self_address` covers the wallet rule directly.
-  _VERIFIED:_ The Aiken acceptance test uses the fixture's zero placeholder fee. It does not execute a minting policy or Cardano phase-one validation.
-  _INFERRED:_ A ledger-balanced form of this native-only fixture needs external ADA for a positive fee and a minting policy that accepts the negative mint.
-  _VERIFIED:_ `code/dApp/src/lib/mesh/transactions/mint-state-token.test.tsx` rejects the derived wallet destination at mint. `code/dApp/src/lib/contracts/streaming-manage.test.ts` rejects new wallet-credential destinations across stake variants and accepts an existing entry.
-  _INFERRED:_ Ledger value conservation can assign part or all of the exact ADA wallet delta to transaction fees when outputs do not consume it.
+  `stt_mint_tests.stt_mint_accepts_stream_to_wallet_address` and `stt_operator_tests.manage_streaming_payments_accepts_adding_wallet_address_stream` cover configuration. `wallet_spend_tests.streaming_payment_payout_accepts_self_address_delta_at_other_payee` runs both validators with no external input. It sends 5 ADA from the wallet to a 4 ADA tagged wallet continuation and a 1 ADA tagged output for another unchanged stream. `wallet_spend_tests.streaming_payment_payout_accepts_self_address_native_burn` runs the STT validator and both wallet input legs. It starts with 100 native tokens, leaves 90 in the wallet, and burns 10. `wallet_rule_tests.streaming_payment_payout_rule_accepts_configured_wallet_self_address` covers the wallet rule directly.
+  The Aiken acceptance test uses the fixture's zero placeholder fee. It does not execute a minting policy or Cardano phase-one validation.
+  To balance this native-only fixture on the ledger, it would need external ADA for a positive fee and a minting policy that accepts the negative mint.
+  `code/dApp/src/lib/mesh/transactions/mint-state-token.test.tsx` rejects the derived wallet destination at mint. `code/dApp/src/lib/contracts/streaming-manage.test.ts` rejects new wallet-credential destinations across stake variants and accepts an existing entry.
+  Under ledger value conservation, part or all of the exact ADA wallet delta could go to transaction fees when outputs do not consume it.
 - **External script payout compatibility is a configuration responsibility.** Streaming and exact beneficiary payouts can target an unrelated script address. Each payout carries an inline `OutputId` datum. Epora checks the complete configured address, tag, and amount. It cannot check whether the receiving validator later accepts that datum. The person who configures the payout must verify this compatibility. Another Epora wallet accepts the output because its spending validator ignores input datums.
-  _VERIFIED:_ `lib/streaming_payments/payout.ak::output_with_streaming_payment_id_matches` and `lib/wallet/beneficiary_distribution.ak::all_shares_are_paid` require the configured address and inline `OutputId`. `lib/wallet/spend.ak::eval_spend` ignores its input datum.
+  `lib/streaming_payments/payout.ak::output_with_streaming_payment_id_matches` and `lib/wallet/beneficiary_distribution.ak::all_shares_are_paid` require the configured address and inline `OutputId`. `lib/wallet/spend.ak::eval_spend` ignores its input datum.
 - **A multisig meeting threshold can rewrite access, including evicting the
   admin.** `RunOperator({ path: Multisig, kind: UpdateState })` may replace the
   entire access-control record — adding or removing users and beneficiaries and
@@ -385,7 +386,7 @@ pnpm test "wallet/reserve_tests.{}"
 pnpm test "wallet_spend_tests.{}"
 ```
 
-VERIFIED correction: the earlier bare `wallet_spend_tests` example collected zero tests.
+Correction: the earlier bare `wallet_spend_tests` example collected zero tests.
 The explicit `"wallet_spend_tests.{}"` selector ran all 36 tests in that module.
 
 Use `pnpm build` to inspect script sizes. Use `pnpm sync` when the blueprint must
@@ -431,7 +432,7 @@ recorded by [check-budgets.mjs](scripts/check-budgets.mjs).
 **Correction (2026-09-07):** the previous 14,266-byte STT size and execution
 figures did not match the generated artifacts. The corrected snapshot values
 below were checked by `pnpm budgets:update` on 2026-09-07.
-VERIFIED: these values were read from `budgets.json`, `plutus.json`, and
+These values come from `budgets.json`, `plutus.json`, and
 [manifest.json](fixtures/entrypoint-budget/manifest.json).
 
 **Snapshot update:** beneficiary-exit removal and the merged optimization stack changed the script sizes and recorded group costs.
@@ -439,7 +440,7 @@ These values replace the intermediate measurements from before the optimization 
 The current values below come from the regenerated `budgets.json` and `plutus.json`.
 The earlier correction describes a prior snapshot.
 
-VERIFIED snapshot inventory: `713 unit-cost records, 26 transaction groups, 11 script records`.
+Snapshot inventory: `713 unit-cost records, 26 transaction groups, 11 script records`.
 This inventory does not report a fresh test pass count.
 `oversized_value_pay_streaming` records 13,371,050 memory units and
 4,541,580,818 CPU units. Both are the largest recorded group costs.
@@ -451,18 +452,18 @@ The 4,999-byte token-wide partial recovery records 9,996,416 memory units.
 Active owner cleanup records 12,830,875 memory units for the 151-policy shape and
 10,654,171 for the token-wide shape.
 
-VERIFIED: [plutus.json](plutus.json) contains 14,469 STT bytes and 9,100 wallet bytes.
+[plutus.json](plutus.json) contains 14,469 STT bytes and 9,100 wallet bytes.
 These sizes use `compiledCode.length / 2`, before wallet parameter application.
-REPORTED (earlier refactor against `c6115f9`): extracting the wallet reserve
+The earlier refactor record against `c6115f9` reports that extracting the wallet reserve
 policy saved 3 script bytes. Recorded transaction groups added at most 100 memory
 units and 16,000 CPU units. STT-only groups were unchanged.
-VERIFIED: all current recorded groups remain below the repository ceilings.
+All current recorded groups remain below the repository ceilings.
 The 16,384-byte limit applies to the full serialized transaction.
 [assertSerializedTransactionSizeIsBounded](../dApp/src/lib/mesh/transactions/internals/budget.ts)
 checks that limit. [signAndSubmitTx](../dApp/src/lib/mesh/transactions/submit.ts)
 applies it to the signed transaction before submission.
-REPORTED (prior README): A reference deployment of the previous 15,936-byte
-STT script used three funding inputs, one reference output,
+The prior README records a reference deployment of the previous 15,936-byte
+STT script. It used three funding inputs, one reference output,
 one base-address change output, no collateral input, and one payment-key witness.
 Its unsigned Conway encoding used 16,262 bytes. Its signed encoding used 16,368
 bytes, leaving 16 bytes below the 16,384-byte limit.
@@ -484,7 +485,7 @@ compiled validator entrypoints or prove full transaction serialization.
 The separate entrypoint fixture closes the entrypoint budget gap for one
 partial streaming payout. Mesh builds the transaction. Aiken's native
 transaction simulator then executes its compiled STT `Spend[0]` and wallet
-`Spend[1]` validators. VERIFIED snapshot: [manifest.json](fixtures/entrypoint-budget/manifest.json)
+`Spend[1]` validators. The snapshot in [manifest.json](fixtures/entrypoint-budget/manifest.json)
 records 9,495,732 memory units and 3,145,137,053 CPU units. The fixture reaches the user, combined-access, wallet, allowance, and
 stream caps. Its five beneficiaries each carry a full script payment address with
 an inline script stake credential. It uses high-width uint64 values and valid
@@ -513,7 +514,7 @@ The retained Exact integration gate runs with
 It builds, signs, and natively evaluates two production-builder scenarios.
 Both use five native assets with 32-byte names, full script/stake payout addresses,
 one funding input, one collateral input, base-address change, and one payment-key witness.
-VERIFIED on 2026-09-07: `node scripts/check-beneficiary-distribution-native.mjs` recorded the following costs.
+On 2026-09-07, `node scripts/check-beneficiary-distribution-native.mjs` recorded the following costs.
 Two beneficiaries with an inline wallet script use 11,163 signed bytes,
 1,524,541 memory units, and 541,539,259 CPU units. Fifteen beneficiaries with
 both reference scripts use 9,925 signed bytes, 7,024,932 memory units, and
@@ -525,11 +526,11 @@ The current costs are not determined by the retained snapshots cited above.
 
 The diagnostic Aiken Consolidation fixture uses one 151-policy wallet input,
 two continuing wallet outputs, an external funding input, and normal change.
-VERIFIED snapshot: its named STT and wallet helper bodies record 10,276,630 memory units and
+The snapshot of its named STT and wallet helper bodies records 10,276,630 memory units and
 3,203,459,272 CPU units together. These figures leave 26.60% memory margin and
 64.41% CPU margin. Helper-body figures are not the escape-path proof.
 
-**VERIFIED snapshot:** the compiled-entrypoint Consolidation fixture is the proof for
+The compiled-entrypoint Consolidation fixture is the proof for
 this representative minimum escape. Mesh builds the exact transaction with one
 wallet input, two wallet outputs, ordinary funding and change, collateral, and
 two reference inputs. Aiken's native simulator then executes that transaction's

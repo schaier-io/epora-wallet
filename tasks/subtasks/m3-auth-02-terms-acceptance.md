@@ -1,8 +1,8 @@
 # Auth: persist the signed terms-and-conditions acceptance
 
-- [x] Closed as deferred. REPORTED: the user deferred wallet-signed terms acceptance on 2026-09-26.
+- [x] Closed as deferred. Wallet-signed terms acceptance was deferred on 2026-09-26.
 
-VERIFIED: `origin/main` at `d3b5a239`, `code/dApp/src/lib/legal/beta-consent.ts:7`, describes the shipped flow as "An acknowledgement, not authentication or a retained legal acceptance record." The deferred signature and storage requirements below remain unimplemented.
+`origin/main` at `d3b5a239`, `code/dApp/src/lib/legal/beta-consent.ts:7`, describes the shipped flow as "An acknowledgement, not authentication or a retained legal acceptance record." The deferred signature and storage requirements below remain unimplemented.
 
 Auth task · [Milestone 3](../milestone-3-ui-development.md)
 
