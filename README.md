@@ -31,6 +31,8 @@ Use only funds you can afford to lose. Bugs, attacks, lost keys, incorrect
 permissions, failed recovery rules, or unavailable services can cause loss or
 permanently lock assets. No recovery outcome is guaranteed.
 
+[Mainnet beta](https://mainnet.epora.io) uses real funds and has no independent security audit. [Preprod](https://epora.io) uses test funds.
+
 The application requires explicit acknowledgement of beta status, no audit,
 total-loss risk, and the current terms before it starts wallet connections.
 Mainnet also requires a current acknowledgement on hosted API mutation requests.
@@ -52,6 +54,9 @@ The hosted deployment reports application errors to Sentry (EU region). A report
 
 ## Documentation
 
+<!-- REPORTED 26 September 2026: Sandro supplied the Catalyst closeout video URL. -->
+[Catalyst Fund11 closeout video](https://youtu.be/XKyZoa02kag) · [Closeout report (draft PDF)](docs/closeout/closeout-report.pdf)
+
 ### Wallet UI walkthrough ([MP4 source](docs/assets/wallet-ui.mp4?raw=1))
 
 https://github.com/user-attachments/assets/0b5dd0e9-7e10-4ad4-982e-8d14b23ad96f
@@ -64,7 +69,9 @@ https://github.com/user-attachments/assets/0b5dd0e9-7e10-4ad4-982e-8d14b23ad96f
 - [Testnet feedback](docs/testnet-feedback.md) — categorized Preprod reports (`feasible`, `fixed`, `next`, `not-a-bug`) for Milestone 4.
 - [Public API](docs/api/README.md): the developer guide covers reads, nine active transaction-build routes, errors, and rate limits. The [OpenAPI 3.1 document](docs/api/openapi.json) is served at `/api/v1/openapi.json`. The interactive reference is at `/api/v1/docs`.
 
-The API builds unsigned transactions and returns them. It never holds a key and never signs. Its network follows the deployment configuration, and its compatibility promise starts at the mainnet beta (see the roadmap below).
+The API builds unsigned transactions and returns them. It never holds a key and never signs.
+The [mainnet API specification](https://mainnet.epora.io/api/v1/openapi.json) identifies its network as mainnet.
+Preprod remains available for testing. The versioning policy is in the [API guide](docs/api/README.md).
 
 ## Structure
 
@@ -87,7 +94,9 @@ This repository is under active development, and milestones are tracked within t
 
 Development tasks — completed and open, grouped per milestone — are tracked in the [tasks/](./tasks) folder.
 
-Current focus: **Preprod validation and testnet feedback**. The public site is available at [epora.io](https://epora.io). The full feature walkthrough and mainnet beta remain open. See the task files for detailed validation work.
+Current focus: **Mainnet beta and Catalyst closeout**. The [mainnet beta](https://mainnet.epora.io) and [Preprod app](https://epora.io) are live.
+VERIFIED 2026-09-26: both health endpoints returned HTTP 200 with `"database":"up","indexer":"up"`.
+This corrects the earlier statement that mainnet beta remained open. See the [Milestone 5 evidence](tasks/milestone-5-mainnet-closeout.md#evidence) for the check and its limits.
 
 ### Current public status
 
@@ -98,7 +107,9 @@ Current focus: **Preprod validation and testnet feedback**. The public site is a
 - [x] [Demo video](docs/assets/wallet-ui.mp4?raw=1)
 - [x] [Testnet feedback launch](https://epora.io) (Preprod, including the public API)
 - [ ] [Full manual feature walkthrough](tasks/subtasks/m3-walk-02-run.md), with transaction evidence.
-- [ ] Mainnet beta
+- [x] [Mainnet beta](https://mainnet.epora.io), with an unaudited-beta warning.
+- [x] [Catalyst closeout video](https://youtu.be/XKyZoa02kag), supplied by Sandro on 2026-09-26.
+- [ ] Finalize the [closeout report](docs/closeout/closeout-report.pdf), including the completion date.
 
 ## Contributing
 

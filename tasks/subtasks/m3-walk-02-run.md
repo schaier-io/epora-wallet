@@ -2,13 +2,20 @@
 
 Feature walkthrough task · [Milestone 3](../milestone-3-ui-development.md) · wallets from [the setup](m3-walk-01-setup.md)
 
-One pass on preprod proving each whitepaper claim works through the guided UI. The same table is the script for the M3 demo video. Flow ids from [flow-config.tsx](../../code/dApp/src/components/user/flow-config.tsx); sections from the current [whitepaper](../../whitepaper/whitepaper.pdf).
+One pass on preprod proving each whitepaper claim works through the guided UI. The same table is the script for the M3 demo video. Action adapters are in [guided-action-adapters.ts](../../code/dApp/src/components/user/guided-action-adapters.ts); sections refer to the current [whitepaper](../../whitepaper/whitepaper.pdf).
 
 ## Current evidence
 
 VERIFIED: [the wallet UI video](../../docs/assets/wallet-ui.mp4?raw=1) is committed and linked from the repository README.
 The earlier combined video/walkthrough TODO did not distinguish publication from full feature validation.
 Publication is complete. Completion of the rows below is not determined from that file alone.
+
+VERIFIED 26 September 2026: the earlier claim that voting had no guided flow was wrong.
+It omitted the implemented `wallet-vote` action.
+[The action menu](../../code/dApp/src/components/user/workspace/use-workspace-guided-derivations.ts#L286) exposes it.
+[The config view](../../code/dApp/src/components/user/workspace/config-walletvote-view.tsx#L42) renders `GovernanceVotePicker` for action lookup and vote selection.
+[The transaction handler](../../code/dApp/src/components/user/workspace/workspace-transactions.ts#L408) calls `buildWalletVoteTx`.
+This source inspection verifies implementation, not a completed on-chain walkthrough.
 
 ## The script
 
@@ -28,7 +35,7 @@ Publication is complete. Completion of the rows below is not determined from tha
 | 12 | Consolidate, incl. stray-stake sweep (§4.5) | `consolidate-utxo` |
 | 13 | Set stake credential + delegate (§4.5) | `set-intended-stake-credential` |
 | 14 | Claim staking rewards (§4.5) | `wallet-withdraw` |
-| 15 | Governance publish / propose (§4.5) | `wallet-publish`, `wallet-propose` |
+| 15 | Governance publish / propose / vote (§4.5) | `wallet-publish`, `wallet-propose`, `wallet-vote` |
 | 16 | Remove an access entry (§5.1) | inside `update-state` |
 | 17 | Stake diagnostic finds and sweeps orphaned funds (§11) | tools surface |
 
@@ -36,7 +43,7 @@ Publication is complete. Completion of the rows below is not determined from tha
 
 - [ ] Run rows 1–8 and 10–17 on the main wallet, row 9 on the short-deadline wallet. Record the preprod tx hash per row in `walkthrough-results.md` next to this file.
 - [ ] Row 7 must fail in the pre-sign review with a readable reason — not a wallet-level error after signing.
-- [ ] The on-chain `vote` entrypoint has no guided flow today (only `wallet-publish` and `wallet-propose` exist) — decide whether the demo needs it and note the decision in the results file; if yes, it needs a flow first.
+- [x] Verify that the governance voting screen and guided `wallet-vote` action are implemented. See the source evidence above. Recording the vote transaction hash remains part of row 15.
 - [ ] Anything that forces leaving the guided flow gets an issue; those feed the polish tasks or the M4 fix loop.
 
 ## Done when

@@ -1,17 +1,22 @@
 # Observability: error sink
 
-Onboarding & observability task · [Milestone 4](../milestone-4-testnet-feedback.md)
+Observability task · [Milestone 4](../milestone-4-testnet-feedback.md)
 
-There is no error reporting at all — the [error boundary](../../code/dApp/src/components/error-boundary.tsx) and submit failures log to the console and stop there. On a public testnet that means bugs only exist if a tester writes them up.
+VERIFIED by source inspection on 2026-09-26 at `origin/main` (`d3b5a2391e6f58836752ec40e39eec4139f8d886`).
+No tests or deployment drills were run for this task update.
 
-## Steps
+Correction: the earlier statement that no error reporting existed was stale.
+Sentry integration is present. Its presence does not prove delivery of live events.
 
-- [ ] Pick the sink: Sentry via `@sentry/nextjs` is the least work; a small `/api/log` route into Postgres if we'd rather not add a vendor. Record the choice here.
-- [ ] Wire in: the error boundary, `signAndSubmitTx` failures in [submit.ts](../../code/dApp/src/lib/mesh/transactions/submit.ts), and API-route 500s.
-- [ ] Scrub events: tx hashes and addresses are public chain data anyway, but no wallet names or proposal titles in reports.
-- [ ] Tag events with the deployed commit so reports map to code versions.
+## Completed
 
-## Done when
+- [x] Select and document Sentry. VERIFIED: `code/dApp/package.json` includes `@sentry/nextjs`. `docs/RUNBOOK.md:235-265` describes browser, server, and API capture.
+- [x] Wire server request errors and caught workspace transaction failures. VERIFIED: `code/dApp/src/instrumentation.ts:28` exports `Sentry.captureRequestError`. The workspace files call `captureClientError` at `workspace-flow-handlers.ts:205` and `workspace-transaction-submit.ts:299`.
+- [x] Add event and breadcrumb scrubbing. VERIFIED: `code/dApp/src/lib/observability/sentry-options.ts:73-74` installs the scrubbers. `sentry-scrub.ts:163-184` removes cookies, sensitive headers, and request data.
+- [x] Configure release attribution. VERIFIED: `code/dApp/src/lib/observability/sentry-options.ts:64-70` selects the supplied release or commit SHA.
 
-- A forced render crash and a forced submit failure both appear in the sink within a minute, tagged with the commit.
-- Spot-check confirms no wallet names or proposal titles in stored events.
+## Remaining work and verification
+
+- [ ] Verify caught render errors reach Sentry. `code/dApp/src/components/error-boundary.tsx:94-100` only logs in development and does not explicitly forward the error.
+- [ ] Trigger a render crash and a submit failure in an isolated deployed environment. Record both events within one minute and their commit identifiers.
+- [ ] Inspect stored events for wallet names and proposal titles. General scrubbing does not establish this acceptance criterion.
