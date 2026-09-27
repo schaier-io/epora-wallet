@@ -18,12 +18,14 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
   sttInputOutputIndexAtom,
   sttInputTxHashAtom,
+  stagedSttTransfersAtom,
   sttWalletInputsAtom
 } from "./atoms/forms/stt-spend-form.atoms";
 import { beginWalletStateUpdateAtom, pendingWalletStateUpdatesAtom, pendingWalletStateUpdateAtom } from "./atoms/wallet-state-update.atoms";
 import { selectedOrphanInputsAtom } from "./atoms/forms/orphan-inputs.atoms";
 import { transferRecipientModeAtom, transferCustomAddressAtom, transferDisplayAmountAtom } from "./atoms/forms/transfer-form.atoms";
 import type { BuildResult } from "@/lib/types/contracts";
+import { DEFAULT_LOCK_ASSETS, DEFAULT_OPTIONAL_CONSTR_PRESET } from "./constants";
 
 const mocks = vi.hoisted(() => ({ freshness: vi.fn(), signAndSubmitTx: vi.fn(), captureClientError: vi.fn() }));
 
@@ -459,6 +461,70 @@ function bindPreview(deps: ReturnType<typeof makeDeps>) {
   });
   store.set(previewSignatureAtom, "current");
 }
+
+async function pendingBroadcast(deps: ReturnType<typeof makeDeps>) {
+  bindPreview(deps);
+  let started!: () => void;
+  const broadcasting = new Promise<void>(resolve => { started = resolve; });
+  let finish!: (hash: string) => void;
+  mocks.signAndSubmitTx.mockImplementationOnce(async (_wallet, _hex, options: { assertCurrent: () => Promise<void> }) => {
+    await options.assertCurrent();
+    await options.assertCurrent();
+    started();
+    return new Promise<string>(resolve => { finish = resolve; });
+  });
+  const pending = createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
+  await broadcasting;
+  return async () => { finish(TX_HASH); await pending; };
+}
+
+it.each(["amount", "action", "new build"])("preserves a deposit draft after %s changes during broadcast", async change => {
+  vi.useFakeTimers();
+  const deps = makeDeps({ selectedAction: "lock-funds" });
+  const store = deps.jotaiStore;
+  store.set(routeStateAtom, { ...store.get(routeStateAtom), selectedAction: "lock-funds" });
+  store.set(lockFundsAssetsAtom, [{ unit: "lovelace", quantity: "5000000" }]);
+  const finish = await pendingBroadcast(deps);
+  if (change === "amount") store.set(lockFundsAssetsAtom, [{ unit: "lovelace", quantity: "9000000" }]);
+  if (change === "action") store.set(routeStateAtom, { ...store.get(routeStateAtom), selectedAction: "use" });
+  if (change === "new build") store.set(buildRunAtom, run => run + 1);
+  const nextDraft = store.get(lockFundsAssetsAtom);
+  await finish();
+  expect(deps.setSubmitHash).toHaveBeenCalledWith(TX_HASH);
+  expect(store.get(lockFundsAssetsAtom)).toBe(nextDraft);
+});
+
+it("clears the unchanged deposit draft after broadcast", async () => {
+  vi.useFakeTimers();
+  const deps = makeDeps({ selectedAction: "lock-funds" });
+  deps.jotaiStore.set(lockFundsAssetsAtom, [{ unit: "lovelace", quantity: "5000000" }]);
+  const finish = await pendingBroadcast(deps);
+  await finish();
+  expect(deps.jotaiStore.get(lockFundsAssetsAtom)).toEqual(DEFAULT_LOCK_ASSETS);
+});
+
+it.each(["amount", "amount formatting", "recipient", "staged payout"])("preserves a payout draft after its %s changes during broadcast", async change => {
+  vi.useFakeTimers();
+  const deps = makeDeps();
+  const store = deps.jotaiStore;
+  store.set(routeStateAtom, { ...store.get(routeStateAtom), selectedAction: "use" });
+  store.set(transferRecipientModeAtom, "custom");
+  store.set(transferCustomAddressAtom, "addr_test1recipient");
+  store.set(transferDisplayAmountAtom, "5");
+  const finish = await pendingBroadcast(deps);
+  if (change === "amount") store.set(transferDisplayAmountAtom, "9");
+  if (change === "amount formatting") store.set(transferDisplayAmountAtom, "5.0");
+  if (change === "recipient") store.set(transferCustomAddressAtom, "addr_test1next");
+  if (change === "staged payout") store.set(stagedSttTransfersAtom, [{ address: "addr_test1next", amount: [{ unit: "lovelace", quantity: "1" }], inlineDatum: { ...DEFAULT_OPTIONAL_CONSTR_PRESET } }]);
+  const nextAmount = store.get(transferDisplayAmountAtom);
+  const nextRecipient = store.get(transferCustomAddressAtom);
+  const nextStaged = store.get(stagedSttTransfersAtom);
+  await finish();
+  expect(deps.setSubmitHash).toHaveBeenCalledWith(TX_HASH);
+  expect(store.get(transferDisplayAmountAtom)).toBe(nextAmount);
+  expect(store.get(transferCustomAddressAtom)).toBe(nextRecipient);
+  expect(store.get(stagedSttTransfersAtom)).toBe(nextStaged);
+});
 
 it.each(["chain validation", "wallet prompt"])("EPORA-WALLET-5 treats expiration during %s as an expected rejection", async phase => {
   vi.useFakeTimers();

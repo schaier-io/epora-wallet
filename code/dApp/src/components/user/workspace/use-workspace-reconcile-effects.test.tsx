@@ -3,7 +3,9 @@ import { Provider, createStore } from "jotai";
 import { type PropsWithChildren } from "react";
 import { describe, expect, it } from "vitest";
 
-import { streamingPaymentPayoutAmountsAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import { streamingPaymentPayoutAmountsAtom, sttExtraTransfersAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import { transferSelectedUnitAtom, transferDisplayAmountAtom, transferCustomAddressAtom, transferRecipientModeAtom } from "./atoms/forms/transfer-form.atoms";
+import { routeStateAtom } from "./atoms/workspace-route.atoms";
 import {
   type WorkspaceReconcileEffectsCtx,
   useWorkspaceReconcileEffects
@@ -15,6 +17,29 @@ import {
 import { cloneStateForm } from "@/components/user/workspace/helpers";
 
 describe("useWorkspaceReconcileEffects", () => {
+  it.each([true, false])("does not reuse a disappeared token amount for the fallback asset (ADA: %s)", fallbackIsAda => {
+    const store = createStore();
+    const token = "aa".repeat(28) + "01";
+    const fallback = fallbackIsAda ? "lovelace" : "bb".repeat(28) + "02";
+    store.set(routeStateAtom, { ...store.get(routeStateAtom), selectedAction: "use" });
+    store.set(transferSelectedUnitAtom, token);
+    store.set(transferDisplayAmountAtom, "2");
+    store.set(transferRecipientModeAtom, "custom");
+    store.set(transferCustomAddressAtom, "recipient");
+    const state = createDefaultStateForm();
+    const props: WorkspaceReconcileEffectsCtx = { activeAddress: null, autoMintStateForm: state,
+      availableLockedTransferAssets: [{ unit: fallback, quantity: "10000000" }, { unit: token, quantity: "5" }],
+      previousAutoMintStateRef: { current: state }, streamingPaymentPayoutRows: [] };
+    const view = renderHook(useWorkspaceReconcileEffects, { initialProps: props,
+      wrapper: ({ children }: PropsWithChildren) => <Provider store={store}>{children}</Provider> });
+    expect(store.get(sttExtraTransfersAtom)[0]!.amount).toEqual([{ unit: token, quantity: "2" }]);
+    view.rerender({ ...props, availableLockedTransferAssets: [{ unit: fallback, quantity: "10000000" }] });
+    expect(store.get(transferSelectedUnitAtom)).toBe(fallback);
+    expect(store.get(transferDisplayAmountAtom)).toBe("");
+    expect(store.get(transferCustomAddressAtom)).toBe("recipient");
+    expect(store.get(sttExtraTransfersAtom)[0]!.amount).toEqual([{ unit: fallback, quantity: "" }]);
+  });
+
   it("keeps every payout default after reconciliation", async () => {
     const store = createStore();
     const state = createDefaultStateForm();
