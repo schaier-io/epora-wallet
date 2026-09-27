@@ -39,11 +39,12 @@ export function useStakingRewards(
 
   useEffect(() => { setWithdrawRewardAddress(""); }, [rewardAddress, enabled, setWithdrawRewardAddress]);
   useEffect(() => {
-    // The draft is local intent. A failed or unfinished read cannot authorize a claim.
-    const amount = !state.loading && !state.error && BigInt(state.rewardsLovelace) > 0n
+    // Keep the last valid balance during refetch. Initial reads and failures
+    // still block the claim, without clearing a prepared draft on every poll.
+    const amount = account !== undefined && !state.error && BigInt(state.rewardsLovelace) > 0n
       ? state.rewardsLovelace : "";
     if (withdrawAmount !== amount) setWithdrawAmount(amount);
-  }, [setWithdrawAmount, state.error, state.loading, state.rewardsLovelace, withdrawAmount]);
+  }, [account, setWithdrawAmount, state.error, state.rewardsLovelace, withdrawAmount]);
 
   return { ...state, refresh: () => { if (canLoad) void query.refetch(); } };
 }

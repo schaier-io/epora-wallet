@@ -203,7 +203,8 @@ describe("runPayeeCollect", () => {
     ]);
     expect(mocks.signAndSubmitTx).toHaveBeenCalledWith(
       expect.anything(),
-      "00"
+      "00",
+      { assertCurrent: undefined }
     );
   });
 

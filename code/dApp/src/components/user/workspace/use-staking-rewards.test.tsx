@@ -1,3 +1,9 @@
+import { useAtom } from "jotai";
+import type { BuildResult } from "@/lib/types/contracts";
+import { useWorkspaceTransactionPrebuild } from "./use-workspace-transaction-prebuild";
+import { withdrawAmountAtom, withdrawRewardAddressAtom } from "./atoms/forms/withdraw-form.atoms";
+import { activeSubmitAtom, buildRunAtom, workspaceSessionAtom } from "./atoms/transaction-flow.atoms";
+import { preparedWorkspaceTransactionAtom, workspaceTransactionSnapshotAtom } from "./workspace-prepared-transaction";
 import { invalidateChainQueries } from "@/lib/query/invalidation";
 import { createQueryTestWrapper } from "@/test/query-client";
 import { act, renderHook as baseRenderHook, waitFor } from "@testing-library/react";
@@ -140,4 +146,41 @@ it("preserves the displayed balance after failure but disables the claim draft",
   await waitFor(() => expect(view.result.current.error).toBe(true));
   expect(view.result.current.rewardsLovelace).toBe("2500000");
   expect(setAmount).toHaveBeenLastCalledWith("");
+});
+
+
+it("preserves the prepared transaction during an unchanged rewards refresh while signing", async () => {
+  holder.fetchAccountInfo.mockResolvedValueOnce(account);
+  const context = createQueryTestWrapper();
+  clients.push(context.queryClient);
+  const view = baseRenderHook(() => {
+    const [amount, setAmount] = useAtom(withdrawAmountAtom);
+    const [, setAddress] = useAtom(withdrawRewardAddressAtom);
+    const rewards = useStakingRewards("stake_test1derived", true, amount, setAmount, setAddress);
+    useWorkspaceTransactionPrebuild({ enabled: false, buildSelectedActionTx: async () => null });
+    return rewards;
+  }, { wrapper: context.wrapper });
+  await waitFor(() => expect(context.store.get(withdrawAmountAtom)).toBe("2500000"));
+  const snapshot = context.store.get(workspaceTransactionSnapshotAtom);
+  const buildRun = context.store.get(buildRunAtom);
+  const prepared = {
+    result: { txHex: "unsigned" } as BuildResult, snapshot, buildRun, builtAt: Date.now(),
+    session: context.store.get(workspaceSessionAtom), proposalCapture: null
+  };
+  act(() => {
+    context.store.set(activeSubmitAtom, true);
+    context.store.set(preparedWorkspaceTransactionAtom, prepared);
+  });
+  let finish!: (value: typeof account) => void;
+  holder.fetchAccountInfo.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  act(() => view.result.current.refresh());
+  await waitFor(() => expect(view.result.current.loading).toBe(true));
+  const amountDuringRefresh = context.store.get(withdrawAmountAtom);
+  await act(async () => finish(account));
+  await waitFor(() => expect(view.result.current.loading).toBe(false));
+  expect(amountDuringRefresh).toBe("2500000");
+  expect(context.store.get(activeSubmitAtom)).toBe(true);
+  expect(context.store.get(buildRunAtom)).toBe(buildRun);
+  expect(context.store.get(preparedWorkspaceTransactionAtom)).toBe(prepared);
+  expect(context.store.get(workspaceTransactionSnapshotAtom)).toBe(snapshot);
 });
