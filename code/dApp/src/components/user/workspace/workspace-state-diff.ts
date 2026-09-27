@@ -49,7 +49,7 @@ function formatAssetAmount(entry: StateAssetAmountForm): string {
   // the review showed a person's 5 ₳ daily limit as "0.000005 ₳".
   return isAda
     ? `${entry.amount.trim() || "0"} ₳`
-    : `${entry.amount} ${entry.assetName || entry.policyId}`;
+    : `${entry.amount} ${entry.policyId}${entry.assetName}`;
 }
 
 function formatAllowance(entries: StateAssetAmountForm[]): string {
@@ -116,9 +116,14 @@ function describeBeneficiary(entry: BeneficiaryFormState): string {
 }
 
 function describeSchedule(entry: StreamingPaymentFormState): string {
+  const isAda = entry.policyId.length === 0 && entry.assetName.length === 0;
   return i18n("scheduleDescription", {
     address: shortenKey(entry.payoutAddress),
-    amount: formatLovelaceAsAda(entry.amountPerDay || "0"),
+    amount: formatAssetAmount({
+      policyId: entry.policyId,
+      assetName: entry.assetName,
+      amount: isAda ? formatLovelaceAsAda(entry.amountPerDay || "0") : entry.amountPerDay || "0"
+    }),
     start: formatTimestamp(entry.startDate),
     end: formatTimestamp(entry.endDate)
   });
