@@ -1,6 +1,7 @@
 "use client";
 import { isConnectingAtom } from "./wallet.atoms";
 import { useTranslations } from "next-intl";
+import { cardanoNetworkId } from "@/lib/cardano-network";
 
 
 // Types only. `@meshsdk/core` bundles the whole Cardano serialisation stack: it built to a
@@ -85,10 +86,9 @@ type WalletContextType = {
 
 const WalletContext = createContext<WalletContextType | null>(null);
 
-// A misbehaving extension can leave `enable()` pending forever (the popup never
-// opens, or the user walks away), which would strand the UI in "connecting".
-// Cap the wait so the attempt fails cleanly and can be retried.
-const WALLET_ENABLE_TIMEOUT_MS = 90_000;
+// Bound extension authorization, enable, and identity reads so a stalled response
+// cannot strand session restoration or connection in its loading state.
+const WALLET_RESPONSE_TIMEOUT_MS = 90_000;
 
 function importWalletRuntime() {
   return import("@meshsdk/core");
@@ -321,7 +321,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
         setActiveWalletName(DEMO_WALLET_ID);
         setActiveAddress(DEMO_WALLET_ADDRESS);
         setActiveRewardAddress(DEMO_REWARD_ADDRESS);
-        setNetworkId(0);
+        setNetworkId(cardanoNetworkId());
         setActivePaymentKeyHash(null);
         setRestoredWalletName(restore ? DEMO_WALLET_ID : null);
         persistLastConnectedWalletName(DEMO_WALLET_ID);
@@ -339,10 +339,15 @@ export function WalletProvider({ children }: PropsWithChildren) {
       // Keep the dapp approval prompt inside the original click gesture.
       const wallet = await withTimeout(
         BrowserWallet.enable(walletName),
-        WALLET_ENABLE_TIMEOUT_MS,
+        WALLET_RESPONSE_TIMEOUT_MS,
         i18n("walletDidNotRespond", { walletName })
       );
-      const { address, rewardAddress, networkId: id } = await readWalletIdentity(wallet);
+      if (!stillActive()) return false;
+      const { address, rewardAddress, networkId: id } = await withTimeout(
+        readWalletIdentity(wallet),
+        WALLET_RESPONSE_TIMEOUT_MS,
+        i18n("walletDidNotRespond", { walletName })
+      );
       if (!address) {
         throw new KnownConnectError(i18n("walletReturnedNoAddress", { walletName }));
       }
@@ -539,20 +544,24 @@ export function WalletProvider({ children }: PropsWithChildren) {
           return;
         }
         const alreadyAuthorized = injected?.isEnabled
-          ? await injected.isEnabled().catch(() => false)
+          ? await withTimeout(
+              injected.isEnabled(),
+              WALLET_RESPONSE_TIMEOUT_MS,
+              i18n("walletDidNotRespond", { walletName: lastConnectedWalletName })
+            ).catch(() => false)
           : false;
-        if (alreadyAuthorized && connectAttemptRef.current === attemptBeforeCheck) {
+        if (alreadyAuthorized && isMountedRef.current && connectAttemptRef.current === attemptBeforeCheck) {
           await connect(lastConnectedWalletName, true);
         }
       } catch {
         // Stay disconnected; the user can reconnect with a click.
       } finally {
-        if (connectAttemptRef.current === attemptBeforeCheck) {
+        if (isMountedRef.current && connectAttemptRef.current === attemptBeforeCheck) {
           setWalletSessionLoading(false);
         }
       }
     })();
-  }, [activeWallet, connect, installedWallets, isConnecting, walletsLoaded]);
+  }, [activeWallet, connect, i18n, installedWallets, isConnecting, walletsLoaded]);
 
   const isDemoWallet = useAtomValue(isDemoWalletAtom);
 

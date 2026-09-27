@@ -4,6 +4,7 @@
 
 import { type BrowserWallet, type Wallet } from "@meshsdk/core";
 import { DEMO_WALLET_ID } from "@/providers/wallet.atoms";
+import { cardanoNetworkId } from "@/lib/cardano-network";
 
 const DEMO_WALLET_NAME = "Demo Wallet";
 export const DEMO_WALLET_ADDRESS =
@@ -36,7 +37,7 @@ export function createDemoWallet() {
     getUnusedAddresses: async () => [DEMO_WALLET_ADDRESS],
     getChangeAddress: async () => DEMO_WALLET_ADDRESS,
     getRewardAddresses: async () => [DEMO_REWARD_ADDRESS],
-    getNetworkId: async () => 0,
+    getNetworkId: async () => cardanoNetworkId(),
     getUtxos: async () => [],
     getCollateral: async () => [],
     signTx: async () => {
