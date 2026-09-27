@@ -3,6 +3,7 @@ import { act, renderHook as queryRenderhook, waitFor } from "@testing-library/re
 const renderHook: typeof queryRenderhook = (callback, options) => queryRenderhook(callback, { wrapper: createQueryTestWrapper().wrapper, ...options });
 import { beforeEach, expect, it, vi } from "vitest";
 
+import type * as ProposalClient from "@/lib/proposals/client";
 import type * as BetaConsentModule from "@/lib/legal/browser-beta-consent";
 
 const consentCheck = vi.hoisted(() => vi.fn());
@@ -61,7 +62,9 @@ beforeEach(() => {
   dependencies.fetchProposalSession.mockReset().mockResolvedValue(SESSION);
   dependencies.completeSignIn.mockReset();
   dependencies.requestSignInNonce.mockReset().mockResolvedValue("nonce");
-  dependencies.walletContext.activeWallet.signData.mockReset();
+  dependencies.walletContext.activeWallet = { signData: vi.fn() };
+  dependencies.walletContext.activeAddress = SESSION.address;
+  dependencies.walletContext.activePaymentKeyHash = SESSION.paymentKeyHash;
   dependencies.signOutProposals.mockReset();
 });
 
@@ -152,4 +155,112 @@ it("refuses a wallet authentication signature when beta consent is absent", asyn
   expect(dependencies.walletContext.activeWallet.signData).not.toHaveBeenCalled();
   expect(dependencies.completeSignIn).not.toHaveBeenCalled();
   expect(result.current.error).toContain("Reload and accept the current risks and terms");
+});
+
+it("does not let an unmounted sign-in overwrite a newer account session", async () => {
+  const context = createQueryTestWrapper();
+  const accountB = { paymentKeyHash: "bb".repeat(28), address: "addr_test1B" };
+  let resolveOldSignature!: (value: {signature: string; key: string}) => void;
+  const oldWallet = dependencies.walletContext.activeWallet;
+  oldWallet.signData.mockReturnValue(new Promise(resolve => { resolveOldSignature = resolve; }));
+  dependencies.completeSignIn.mockImplementation(async (payload: Parameters<typeof ProposalClient.completeSignIn>[0]) => payload.address === SESSION.address ? SESSION : accountB);
+  dependencies.fetchProposalSession.mockResolvedValue(null);
+  const first = renderHook(() => useProposalSession(), {wrapper: context.wrapper});
+  await waitFor(() => expect(first.result.current.loading).toBe(false));
+  let oldOperation!: Promise<void>;
+  act(() => { oldOperation = first.result.current.signIn(); });
+  await waitFor(() => expect(oldWallet.signData).toHaveBeenCalledTimes(1));
+  first.unmount();
+  dependencies.walletContext.activeWallet = {signData: vi.fn().mockResolvedValue({signature: "new", key: "new"})};
+  dependencies.walletContext.activeAddress = accountB.address;
+  dependencies.walletContext.activePaymentKeyHash = accountB.paymentKeyHash;
+  const second = renderHook(() => useProposalSession(), {wrapper: context.wrapper});
+  await act(async () => second.result.current.signIn());
+  await waitFor(() => expect(second.result.current.session).toEqual(accountB));
+  await act(async () => { resolveOldSignature({signature: "old", key: "old"}); await oldOperation; });
+  expect(context.queryClient.getQueryData(proposalKeys.session)).toEqual(accountB);
+  expect(dependencies.completeSignIn).toHaveBeenCalledTimes(1);
+});
+
+
+it.each([
+  ["signIn", false],
+  ["signOut", false],
+  ["signIn", true]
+] as const)("serializes a newer %s after an auth POST (rejection: %s)", async (operation, rejectOld) => {
+  const actual = await vi.importActual<typeof ProposalClient>("@/lib/proposals/client");
+  const accountB = { paymentKeyHash: "bb".repeat(28), address: "addr_test1B" };
+  let releaseOld!: () => void;
+  const oldResponse = new Promise<void>((resolve) => { releaseOld = resolve; });
+  let cookie: typeof SESSION | null = null;
+  let calls = 0;
+  const fetchMock = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) => {
+    calls += 1;
+    if (calls === 1) {
+      await oldResponse;
+      if (rejectOld) throw new Error("Connection failed");
+      cookie = SESSION;
+      return Response.json(SESSION);
+    }
+    cookie = init?.method === "DELETE" ? null : accountB;
+    return Response.json(cookie);
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  dependencies.completeSignIn.mockImplementation(actual.completeSignIn);
+  dependencies.signOutProposals.mockImplementation(actual.signOutProposals);
+  dependencies.fetchProposalSession.mockResolvedValue(null);
+  dependencies.walletContext.activeWallet.signData.mockResolvedValue({ signature: "old", key: "old" });
+  const context = createQueryTestWrapper();
+  const first = renderHook(() => useProposalSession(), { wrapper: context.wrapper });
+  let oldOperation!: Promise<void>;
+  act(() => { oldOperation = first.result.current.signIn(); });
+  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+  dependencies.walletContext.activeWallet = { signData: vi.fn().mockResolvedValue({ signature: "new", key: "new" }) };
+  dependencies.walletContext.activeAddress = accountB.address;
+  dependencies.walletContext.activePaymentKeyHash = accountB.paymentKeyHash;
+  const second = renderHook(() => useProposalSession(), { wrapper: context.wrapper });
+  let newOperation!: Promise<void>;
+  await act(async () => { newOperation = second.result.current[operation](); });
+  first.unmount();
+  const callsBeforeOldResponse = fetchMock.mock.calls.length;
+  await act(async () => {
+    releaseOld();
+    await Promise.all([oldOperation, newOperation]);
+  });
+  vi.unstubAllGlobals();
+
+  expect(callsBeforeOldResponse).toBe(1);
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+  const expected = operation === "signIn" ? accountB : null;
+  expect(cookie).toEqual(expected);
+  expect(context.queryClient.getQueryData(proposalKeys.session)).toEqual(expected);
+});
+
+
+it("drops a pending signature when the wallet changes without unmounting", async () => {
+  let releaseSignature!: (value: { signature: string; key: string }) => void;
+  const pendingSignature = new Promise<{ signature: string; key: string }>((resolve) => { releaseSignature = resolve; });
+  const oldWallet = dependencies.walletContext.activeWallet;
+  oldWallet.signData.mockReturnValue(pendingSignature);
+  dependencies.fetchProposalSession.mockResolvedValue(null);
+  const accountB = { paymentKeyHash: "bb".repeat(28), address: "addr_test1B" };
+  dependencies.completeSignIn.mockResolvedValue(accountB);
+  const context = createQueryTestWrapper();
+  const { result, rerender } = renderHook(() => useProposalSession(), { wrapper: context.wrapper });
+  let oldOperation!: Promise<void>;
+  act(() => { oldOperation = result.current.signIn(); });
+  await waitFor(() => expect(oldWallet.signData).toHaveBeenCalledTimes(1));
+  dependencies.walletContext.activeWallet = { signData: vi.fn().mockResolvedValue({ signature: "new", key: "new" }) };
+  dependencies.walletContext.activeAddress = accountB.address;
+  dependencies.walletContext.activePaymentKeyHash = accountB.paymentKeyHash;
+  rerender();
+  expect(result.current.signingIn).toBe(false);
+  await act(async () => result.current.signIn());
+  await act(async () => {
+    releaseSignature({ signature: "old", key: "old" });
+    await oldOperation;
+  });
+  expect(dependencies.completeSignIn).toHaveBeenCalledTimes(1);
+  expect(dependencies.completeSignIn).toHaveBeenCalledWith(expect.objectContaining({ address: accountB.address }));
+  expect(context.queryClient.getQueryData(proposalKeys.session)).toEqual(accountB);
 });

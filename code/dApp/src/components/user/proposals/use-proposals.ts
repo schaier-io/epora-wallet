@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { useCallback, useMemo, useRef } from "react";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { proposalListQueryOptions } from "@/lib/proposals/query";
+import { proposalListSegment } from "@/lib/proposals/list-pagination";
 import { queryPolicy } from "@/lib/query/keys";
 import type { ProposalListItemDto } from "@/lib/proposals/types";
 import { getUserFacingErrorMessage } from "@/lib/utils/errors";
@@ -62,8 +63,27 @@ export function useProposals(
     }
   }, [canLoad, fetchNextPage, hasNextPage, isFetching]);
 
+  const proposals = useMemo(() => {
+    const byId = new Map<string, ProposalListItemDto>();
+    for (const page of query.data?.pages ?? []) {
+      for (const proposal of page.proposals) {
+        const previous = byId.get(proposal.id);
+        if (!previous || proposal.updatedAt >= previous.updatedAt) byId.set(proposal.id, proposal);
+      }
+    }
+    // Status changes can move a row across pages. Keep the latest copy and the
+    // server's active-first, createdAt-descending, id-descending order.
+    return [...byId.values()].sort((a, b) => {
+      const segment = Number(proposalListSegment(a.status) === "terminal") -
+        Number(proposalListSegment(b.status) === "terminal");
+      if (segment) return segment;
+      if (a.createdAt !== b.createdAt) return a.createdAt < b.createdAt ? 1 : -1;
+      return a.id < b.id ? 1 : a.id > b.id ? -1 : 0;
+    });
+  }, [query.data]);
+
   return {
-    proposals: canLoad ? query.data?.pages.flatMap((page) => page.proposals) ?? [] : [],
+    proposals: canLoad ? proposals : [],
     loading: canLoad && (query.isPending || (query.isFetching && !query.isFetchingNextPage)),
     loadingMore: canLoad && query.isFetchingNextPage,
     hasMore: canLoad && query.hasNextPage,
