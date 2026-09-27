@@ -8,7 +8,7 @@ import { STT_STATE_REFRESH_POLL_MS } from "./constants";
 import { routeStateAtom } from "./atoms/workspace-route.atoms";
 import { parseWorkspaceRouteState } from "@/components/user/workspace-controller";
 import {
-  pendingWalletStateUpdatesAtom, WALLET_STATE_STORAGE_KEY,
+  pendingWalletStateUpdatesAtom, WALLET_STATE_STORAGE_KEY, WALLET_STATE_RECORD_PREFIX,
   type PendingWalletStateUpdate, type SttInputRef
 } from "./atoms/wallet-state-update.atoms";
 import { sttInputTxHashAtom, sttInputOutputIndexAtom } from "./atoms/forms/stt-spend-form.atoms";
@@ -165,7 +165,8 @@ it("#433 resumes a persisted wait on the landing screen without a selected walle
   await act(async () => { await vi.advanceTimersByTimeAsync(0); });
   expect(mocks.detectSttInfo).toHaveBeenCalledWith(UNIT, expect.any(AbortSignal));
   expect(store.get(pendingWalletStateUpdatesAtom)).toEqual({});
-  expect(JSON.parse(localStorage.getItem(WALLET_STATE_STORAGE_KEY)!)).toEqual({});
+  expect(localStorage.getItem(WALLET_STATE_RECORD_PREFIX + UNIT)).toBe("null");
+  expect(createStore().get(pendingWalletStateUpdatesAtom)).toEqual({});
 });
 
 it("#433 resumes persisted state for the selected wallet and waits beyond ten polls before unlocking", async () => {
@@ -190,5 +191,6 @@ it("#433 resumes persisted state for the selected wallet and waits beyond ten po
   expect(store.get(pendingWalletStateUpdatesAtom)[other.walletUnit]).toEqual(other);
   expect(store.get(sttInputTxHashAtom)).toBe(NEXT.txHash);
   expect(store.get(sttInputOutputIndexAtom)).toBe(String(NEXT.outputIndex));
-  expect(JSON.parse(localStorage.getItem(WALLET_STATE_STORAGE_KEY)!)).toEqual({ [other.walletUnit]: other });
+  expect(localStorage.getItem(WALLET_STATE_RECORD_PREFIX + UNIT)).toBe("null");
+  expect(createStore().get(pendingWalletStateUpdatesAtom)).toEqual({ [other.walletUnit]: other });
 });

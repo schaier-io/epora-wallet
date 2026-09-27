@@ -6,7 +6,7 @@ import {
   beginWalletStateUpdateAtom,
   completeWalletStateUpdateAtom,
   isSttConsumingWorkspaceAction,
-  pendingWalletStateUpdateAtom, pendingWalletStateUpdatesAtom, WALLET_STATE_STORAGE_KEY
+  pendingWalletStateUpdateAtom, pendingWalletStateUpdatesAtom, WALLET_STATE_RECORD_PREFIX
 } from "./wallet-state-update.atoms";
 import { consolidateSttInputHashAtom, consolidateSttInputIndexAtom } from "./forms/consolidate-form.atoms";
 import { publishSttInputHashAtom, publishSttInputIndexAtom } from "./forms/publish-form.atoms";
@@ -84,14 +84,16 @@ test("a fresh store restores a persisted wait before wallet actions resume", () 
     localStorage: {
       getItem: (key: string) => entries.get(key) ?? null,
       setItem: (key: string, value: string) => entries.set(key, value),
-      removeItem: (key: string) => entries.delete(key)
+      removeItem: (key: string) => entries.delete(key),
+      key: (index: number) => [...entries.keys()][index] ?? null,
+      get length() { return entries.size; }
     }
   } });
   let unsubscribe = () => {};
   try {
     const first = createStore();
     first.set(beginWalletStateUpdateAtom, PENDING);
-    assert.ok(entries.get(WALLET_STATE_STORAGE_KEY)?.includes(PENDING.submittedTxHash));
+    assert.ok(entries.get(WALLET_STATE_RECORD_PREFIX + PENDING.walletUnit)?.includes(PENDING.submittedTxHash));
     const restored = createStore();
     unsubscribe = restored.sub(pendingWalletStateUpdatesAtom, () => {});
     assert.deepEqual(restored.get(pendingWalletStateUpdateAtom), PENDING);

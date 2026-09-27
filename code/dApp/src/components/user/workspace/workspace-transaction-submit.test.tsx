@@ -616,3 +616,38 @@ it.each([false, true])("#433 validates its own submission without accepting a fo
   expect(broadcast).toHaveBeenCalledTimes(foreign ? 0 : 1);
   expect(mocks.freshness).toHaveBeenCalledTimes(foreign ? 1 : 2);
 });
+
+it("stops before broadcast when the pending guard cannot be persisted", async () => {
+  const walletUnit = `${"aa".repeat(28)}01`;
+  const spent = { txHash: "cd".repeat(32), outputIndex: 0 };
+  const deps = makeDeps({ selectedDetectedToken: { unit: walletUnit, utxo: { input: spent } } });
+  deps.jotaiStore.set(routeStateAtom, { ...deps.jotaiStore.get(routeStateAtom), selectedWalletUnit: walletUnit });
+  deps.jotaiStore.set(sttInputTxHashAtom, spent.txHash);
+  deps.jotaiStore.set(sttInputOutputIndexAtom, "0");
+  bindPreview(deps);
+  const broadcast = vi.fn();
+  const storageDescriptor = Object.getOwnPropertyDescriptor(window, "localStorage")!;
+  const storage = window.localStorage;
+  const persist = vi.fn(() => { throw new Error("Storage full"); });
+  Object.defineProperty(window, "localStorage", { configurable: true, value: {
+    getItem: storage.getItem.bind(storage),
+    key: storage.key.bind(storage),
+    get length() { return storage.length; },
+    setItem: persist
+  } });
+  mocks.signAndSubmitTx.mockImplementationOnce(async (_wallet, _hex, options: {
+    beforeBroadcast: (transaction: { txHash: string }) => void;
+  }) => {
+    options.beforeBroadcast({ txHash: TX_HASH });
+    broadcast();
+    return TX_HASH;
+  });
+  try {
+    await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
+    expect(mocks.signAndSubmitTx).toHaveBeenCalledOnce();
+    expect(persist).toHaveBeenCalled();
+    expect(broadcast).not.toHaveBeenCalled();
+  } finally {
+    Object.defineProperty(window, "localStorage", storageDescriptor);
+  }
+});
