@@ -4,7 +4,7 @@ import {
   computeActionFieldErrors,
   type ActionFieldErrorsInput
 } from "@/components/user/workspace/action-validation";
-import { createDefaultStateForm } from "@/lib/contracts/state-form";
+import { createDefaultStateForm, createDefaultUserFormState } from "@/lib/contracts/state-form";
 import { type Asset } from "@/lib/types/contracts";
 
 // Only the lock-funds inputs matter here; the rest are the empty defaults the
@@ -105,4 +105,61 @@ test("one positive row carries a zero row alongside it", () => {
   ]);
 
   assert.equal(errors["Assets to lock"], undefined);
+});
+
+function stateActionInput(): ActionFieldErrorsInput {
+  const input = lockFundsInput([]);
+  const current = {
+    ...createDefaultStateForm(),
+    walletName: "Current wallet",
+    users: [{ ...createDefaultUserFormState(), isAdmin: true, wallets: ["aa".repeat(28)] }]
+  };
+  input.sttInputTxHash = "11".repeat(32);
+  input.sttInputOutputIndex = "0";
+  input.activeInferredSttStateForm = structuredClone(current);
+  input.sttStateForm = structuredClone(current);
+  input.updateStateForm = structuredClone(current);
+  return input;
+}
+
+test("an unsaved settings rename does not block the separate schedule draft", () => {
+  const input = stateActionInput();
+  const before = computeActionFieldErrors(input)["manage-streaming-payments"];
+  assert.deepEqual(before, {});
+
+  input.updateStateForm.walletName = "Unsubmitted rename";
+  assert.deepEqual(computeActionFieldErrors(input)["manage-streaming-payments"], before);
+});
+
+test("a schedule draft cannot rename the wallet when the settings draft is unchanged", () => {
+  const input = stateActionInput();
+  input.sttStateForm.walletName = "Schedule rename";
+  const errors = computeActionFieldErrors(input);
+
+  assert.deepEqual(errors["manage-streaming-payments"]["Wallet state after"], [
+    "Scheduled payment changes cannot rename the wallet."
+  ]);
+  assert.deepEqual(errors["update-state"], {});
+});
+
+test("only an owner can rename through the settings draft", () => {
+  const input = stateActionInput();
+  input.updateStateForm.walletName = "Settings rename";
+  assert.deepEqual(computeActionFieldErrors(input)["update-state"], {});
+
+  input.sttAuthorityPath = "multisig";
+  assert.deepEqual(computeActionFieldErrors(input)["update-state"]["Wallet state after"], [
+    "Only the owner path can rename this wallet."
+  ]);
+});
+
+test("equivalent normalized names do not count as draft renames", () => {
+  const input = stateActionInput();
+  input.sttAuthorityPath = "multisig";
+  input.updateStateForm.walletName = " Current wallet ";
+  input.sttStateForm.walletName = "  Current wallet  ";
+  const errors = computeActionFieldErrors(input);
+
+  assert.deepEqual(errors["update-state"], {});
+  assert.deepEqual(errors["manage-streaming-payments"], {});
 });
