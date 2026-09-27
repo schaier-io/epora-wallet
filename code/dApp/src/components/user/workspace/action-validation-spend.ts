@@ -14,6 +14,7 @@ import {
 } from "@/components/user/workspace/action-validation-shared";
 import { type TransferFormState, type WalletScriptOutputFormState } from "@/components/user/workspace/types";
 import { type StateFormState, stateFormToDatum } from "@/lib/contracts/state-form";
+import { normalizeWalletName } from "@/lib/contracts/state-wallet-name";
 import {
   validateStateDatum
 } from "@/lib/contracts/state-validation";
@@ -42,7 +43,6 @@ export type SpendActionValidationContext = {
   >;
   proofOfLifeRenewalMatchCount: number;
   resolveEffectiveProofOfLifeState: () => StateFormState;
-  walletNameChanged: boolean;
 };
 
 function validateAdvancedSerialization(
@@ -142,9 +142,9 @@ export function computeSpendActionErrors(
     updateStateActionAlternative,
     manageStreamingPaymentsActionAlternative,
     proofOfLifeRenewalMatchCount,
-    resolveEffectiveProofOfLifeState,
-    walletNameChanged
+    resolveEffectiveProofOfLifeState
   } = ctx;
+  const currentWalletName = normalizeWalletName(activeInferredSttStateForm.walletName);
   const spendCollections = { sttWalletInputs, sttWalletOutputs, sttExtraTransfers, sttOutputAssets };
   const collectionsWithoutFundPoolInputs = {
     ...spendCollections,
@@ -238,7 +238,7 @@ export function computeSpendActionErrors(
     fallbackMessage: i18n("outputStateIsInvalid")
   });
   requireZeroAdminConfirmation(updateErrors, updateStateForm, sttZeroAdminConfirmed);
-  if (walletNameChanged && sttAuthorityPath !== "admin") {
+  if (normalizeWalletName(updateStateForm.walletName) !== currentWalletName && sttAuthorityPath !== "admin") {
     pushFieldError(
       updateErrors,
       i18n("outputState"),
@@ -296,7 +296,7 @@ export function computeSpendActionErrors(
     sttStateForm,
     sttZeroAdminConfirmed
   );
-  if (walletNameChanged) {
+  if (normalizeWalletName(sttStateForm.walletName) !== currentWalletName) {
     pushFieldError(
       manageStreamingPaymentsErrors,
       i18n("outputState"),

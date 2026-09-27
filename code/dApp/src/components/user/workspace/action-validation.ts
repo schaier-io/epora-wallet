@@ -11,7 +11,7 @@ import { type ProofOfLifeOverrideMode, type StateFormState, applyProofOfLifeOver
 import { validateStateDatum } from "@/lib/contracts/state-validation";
 import { validateMintStateDatum } from "@/lib/contracts/state-validation-streaming";
 import { getSttMintPolicyId } from "@/lib/contracts/blueprint";
-import { MAX_WALLET_NAME_BYTES, normalizeWalletName, walletNameByteLength } from "@/lib/contracts/state-wallet-name";
+import { MAX_WALLET_NAME_BYTES, walletNameByteLength } from "@/lib/contracts/state-wallet-name";
 import {
   requireStakingEnabled,
   requireZeroAdminConfirmation,
@@ -125,7 +125,6 @@ export function computeActionFieldErrors(
     sttAuthorityPath,
     sttProofOfLifeOverrideMode,
     sttProofOfLifeSpecificDateTime,
-    updateStateForm,
     walletOperatorPath,
     withdrawAmount,
     withdrawRewardAddress,
@@ -168,10 +167,6 @@ export function computeActionFieldErrors(
         getValidityWindow(Date.now())
       );
     }
-
-    const walletNameChanged =
-      normalizeWalletName(updateStateForm.walletName) !==
-      normalizeWalletName(activeInferredSttStateForm.walletName);
 
     const mintErrors: FieldErrors = {};
     const mintWalletName = mintStateForm.walletName.trim();
@@ -238,8 +233,7 @@ export function computeActionFieldErrors(
       updateStateActionAlternative,
       manageStreamingPaymentsActionAlternative,
       proofOfLifeRenewalMatchCount,
-      resolveEffectiveProofOfLifeState,
-      walletNameChanged
+      resolveEffectiveProofOfLifeState
     });
     const consolidateErrors: FieldErrors = {};
     validateField(
