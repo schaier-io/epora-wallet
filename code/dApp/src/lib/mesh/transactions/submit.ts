@@ -96,16 +96,11 @@ export async function signAndSubmitTx(
         returnedTxScriptDataHash =
           returnedTx.body().scriptDataHash()?.toString() ?? null;
 
-        if (!expectedHash || returnedTxScriptDataHash === expectedHash) {
-          signed = normalizedSignedPayload;
-          signerPayloadKind = "full-transaction";
-        } else {
-          // The wallet signed its own stale body. Its witnesses are only
-          // usable when they still verify against the body we intend to
-          // broadcast; anything else would submit invalid signatures.
-          signed = mergeWalletWitnesses(returnedTx.witnessSet().toCbor().toString());
-          signerPayloadKind = "full-transaction-stale-body-witness-merged";
-        }
+        // A matching script-data hash does not bind the recipient, amount, or
+        // other body fields. Keep our transaction and accept only witnesses
+        // that verify against the body the wallet was asked to sign.
+        signed = mergeWalletWitnesses(returnedTx.witnessSet().toCbor().toString());
+        signerPayloadKind = "full-transaction-witness-merged";
       } else {
         signed = mergeWalletWitnesses(normalizedSignedPayload);
         signerPayloadKind = "witness-set";
