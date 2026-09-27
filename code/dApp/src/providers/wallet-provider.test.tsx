@@ -2,16 +2,23 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import { Provider as JotaiProvider, useAtomValue } from "jotai";
 import { useEffect } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import type * as CardanoNetwork from "@/lib/cardano-network";
 import messages from "@/i18n/messages/en";
 import { clearLastConnectedWalletName, persistLastConnectedWalletName } from "@/lib/wallet/storage";
 
 const mocks = vi.hoisted(() => ({
+  networkId: 0,
   enable: vi.fn(),
   resolvePaymentKeyHash: vi.fn<(address: string) => string>(),
   resolveWalletPaymentKeyHash: vi.fn<(address: string) => Promise<string>>(),
   getAvailableWallets: vi.fn().mockResolvedValue([
     { id: "lace", name: "Lace", icon: "", version: "1" }
   ])
+}));
+
+vi.mock("@/lib/cardano-network", async (importOriginal) => ({
+  ...(await importOriginal<typeof CardanoNetwork>()),
+  cardanoNetworkId: () => mocks.networkId
 }));
 
 vi.mock("@meshsdk/core", () => ({
@@ -42,6 +49,7 @@ await import("@meshsdk/core");
 
 import { DEMO_WALLET_ID, WalletProvider, useWalletContext } from "./wallet-provider";
 import { resolvedWalletAddressesAtom } from "./wallet-address-book";
+import { walletReadyAtom } from "./wallet.atoms";
 
 type Context = ReturnType<typeof useWalletContext>;
 const latest: { current: Context | null } = { current: null };
@@ -50,12 +58,14 @@ let probeRenderCount = 0;
 function Probe() {
   const context = useWalletContext();
   const addressBook = useAtomValue(resolvedWalletAddressesAtom);
+  const walletReady = useAtomValue(walletReadyAtom);
   useEffect(() => {
     probeRenderCount += 1;
     latest.current = context;
   });
   return (
     <>
+      <span data-testid="ready">{String(walletReady)}</span>
       <span data-testid="wallet">{context.activeWalletName ?? "none"}</span>
       <span data-testid="address">{context.activeAddress ?? "none"}</span>
       <span data-testid="payment-key">{context.activePaymentKeyHash ?? "none"}</span>
@@ -104,6 +114,7 @@ Object.defineProperty(window, "localStorage", {
 });
 
 beforeEach(() => {
+  mocks.networkId = 0;
   probeRenderCount = 0;
   mocks.resolvePaymentKeyHash.mockReset().mockReturnValue("aa".repeat(28));
   mocks.resolveWalletPaymentKeyHash.mockReset().mockResolvedValue("aa".repeat(28));
@@ -113,6 +124,91 @@ beforeEach(() => {
   ]);
   clearLastConnectedWalletName();
   window.localStorage.removeItem("epora.walletAddressBook.v1");
+});
+
+it("settles a stalled restore authorization check and ignores its late answer", async () => {
+  vi.useFakeTimers();
+  try {
+    let authorize!: (value: boolean) => void;
+    persistLastConnectedWalletName("lace");
+    inject({ lace: { isEnabled: () => new Promise<boolean>((resolve) => { authorize = resolve; }) } });
+    renderProvider();
+    await act(async () => { await vi.advanceTimersByTimeAsync(90_000); });
+
+    expect(latest.current!.walletSessionLoading).toBe(false);
+    expect(latest.current!.connectError).toBeNull();
+    expect(mocks.enable).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+    await act(async () => { authorize(true); });
+    expect(mocks.enable).not.toHaveBeenCalled();
+    expect(latest.current!.activeWallet).toBeNull();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+for (const stalledRead of ["getUsedAddresses", "getRewardAddresses", "getNetworkId"] as const) {
+  it(`times out connection identity when ${stalledRead} stalls and permits retry`, async () => {
+    vi.useFakeTimers();
+    try {
+      inject({ lace: {} });
+      let finishRead!: (value: never) => void;
+      mocks.enable.mockResolvedValue({
+        ...fakeWallet(),
+        [stalledRead]: () => new Promise((resolve) => { finishRead = resolve; })
+      });
+      renderProvider();
+      let error: unknown;
+      await act(async () => {
+        void latest.current!.connectWallet("lace").catch((failure) => { error = failure; });
+      });
+      await act(async () => { await vi.advanceTimersByTimeAsync(90_000); });
+
+      expect(latest.current!.isConnecting).toBe(false);
+      expect(latest.current!.activeWallet).toBeNull();
+      expect(error).toBeInstanceOf(Error);
+      expect(latest.current!.connectError).toContain("did not respond");
+      expect(vi.getTimerCount()).toBe(0);
+
+      mocks.enable.mockResolvedValue(fakeWallet("addr_test1retry"));
+      await act(async () => { await latest.current!.connectWallet("lace"); });
+      expect(latest.current!.activeAddress).toBe("addr_test1retry");
+      await act(async () => { finishRead((stalledRead === "getNetworkId" ? 0 : ["addr_test1old"]) as never); });
+      expect(latest.current!.activeAddress).toBe("addr_test1retry");
+      expect(latest.current!.connectError).toBeNull();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+}
+
+it("settles restore loading when an authorized wallet stalls during identity reads", async () => {
+  vi.useFakeTimers();
+  try {
+    persistLastConnectedWalletName("lace");
+    inject({ lace: { isEnabled: async () => true } });
+    mocks.enable.mockResolvedValue({ ...fakeWallet(), getNetworkId: () => new Promise(() => {}) });
+    renderProvider();
+    await act(async () => { await vi.advanceTimersByTimeAsync(90_000); });
+
+    expect(latest.current!.walletSessionLoading).toBe(false);
+    expect(latest.current!.isConnecting).toBe(false);
+    expect(latest.current!.activeWallet).toBeNull();
+    expect(vi.getTimerCount()).toBe(0);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it.each([0, 1])("makes the demo ready on configured network %s", async (networkId) => {
+  mocks.networkId = networkId;
+  renderProvider();
+  await act(async () => { await latest.current!.connectWallet(DEMO_WALLET_ID); });
+
+  expect(latest.current!.networkId).toBe(networkId);
+  expect(await latest.current!.activeWallet!.getNetworkId()).toBe(networkId);
+  expect(screen.getByTestId("ready").textContent).toBe("true");
 });
 
 afterEach(() => {

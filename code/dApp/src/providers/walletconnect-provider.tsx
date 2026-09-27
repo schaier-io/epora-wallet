@@ -94,6 +94,7 @@ export function WalletConnectProvider({ children }: PropsWithChildren) {
     if (!isWalletConnectConfigured()) return;
 
     let active = true;
+    const restoreAttempt = attemptRef.current;
     let eventClient: {
       off: (event: string, listener: (payload: { topic: string }) => void) => void;
     } | null = null;
@@ -113,7 +114,7 @@ export function WalletConnectProvider({ children }: PropsWithChildren) {
         if (!active) return;
         const sessions = client.session.getAll();
         const restored = sessions[sessions.length - 1];
-        if (restored) {
+        if (restored && attemptRef.current === restoreAttempt) {
           patch({ session: restored, status: "connected" });
         }
 
@@ -134,7 +135,7 @@ export function WalletConnectProvider({ children }: PropsWithChildren) {
         events.on("session_event", handleSessionEvent);
         events.on("session_update", handleSessionEvent);
       } catch (err) {
-        if (!active) return;
+        if (!active || attemptRef.current !== restoreAttempt) return;
         patch({
           status: "error",
           error: getUserFacingErrorMessage(
