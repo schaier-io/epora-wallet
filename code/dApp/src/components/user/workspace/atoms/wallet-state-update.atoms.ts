@@ -1,6 +1,5 @@
 import { CARDANO_NETWORK } from "@/lib/cardano-network";
 import { atom } from "jotai";
-import { atomWithStorage, createJSONStorage, unstable_withStorageValidator as withStorageValidator } from "jotai/utils";
 import { routeStateAtom } from "./workspace-route.atoms";
 import type { createStore } from "jotai";
 
@@ -37,6 +36,7 @@ export type PendingWalletStateUpdate = {
 };
 
 export const WALLET_STATE_STORAGE_KEY = `epora:${CARDANO_NETWORK}:pending-wallet-state:v1`;
+export const WALLET_STATE_RECORD_PREFIX = `epora:${CARDANO_NETWORK}:pending-wallet-state:v2:`;
 type PendingUpdates = Record<string, PendingWalletStateUpdate>;
 function validPendingUpdates(value: unknown): value is PendingUpdates {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
@@ -49,17 +49,63 @@ function validPendingUpdates(value: unknown): value is PendingUpdates {
       Number.isSafeInteger(pending.spentRef?.outputIndex) && pending.spentRef.outputIndex >= 0;
   });
 }
-const jsonStorage = createJSONStorage<unknown>();
-const storage = withStorageValidator(validPendingUpdates)({
-  ...jsonStorage,
-  setItem: (key: string, value: unknown) => {
-    // A missing browser store must stop broadcast, not silently discard its guard.
-    if (typeof window !== "undefined") window.localStorage.setItem(key, JSON.stringify(value));
+function parseStoredValue(value: string | null): unknown {
+  try { return value === null ? undefined : JSON.parse(value); } catch { return undefined; }
+}
+
+// Each wallet owns one key. Different tabs never replace one another's wallet map.
+// Legacy records remain readable until a v2 record overrides them. A null v2 value
+// is a tombstone: completion must not reveal the old v1 record on the next reload.
+function readStoredPendingUpdates(): PendingUpdates | null {
+  if (typeof window === "undefined") return null;
+  const storage = window.localStorage;
+  const legacy = parseStoredValue(storage.getItem(WALLET_STATE_STORAGE_KEY));
+  const result: PendingUpdates = validPendingUpdates(legacy) ? { ...legacy } : {};
+  for (let index = 0; index < storage.length; index += 1) {
+    const key = storage.key(index);
+    if (!key?.startsWith(WALLET_STATE_RECORD_PREFIX)) continue;
+    const unit = key.slice(WALLET_STATE_RECORD_PREFIX.length);
+    const value = parseStoredValue(storage.getItem(key));
+    if (value === null) delete result[unit];
+    else if (validPendingUpdates({ [unit]: value })) result[unit] = value as PendingWalletStateUpdate;
   }
-});
-export const pendingWalletStateUpdatesAtom = atomWithStorage<PendingUpdates>(
-  WALLET_STATE_STORAGE_KEY, {}, storage, { getOnInit: true }
+  return result;
+}
+
+function readPendingUpdatesOr(fallback: PendingUpdates): PendingUpdates {
+  try { return readStoredPendingUpdates() ?? fallback; } catch { return fallback; }
+}
+
+const pendingUpdatesSnapshotAtom = atom<PendingUpdates | null>(null);
+pendingUpdatesSnapshotAtom.onMount = setSnapshot => {
+  setSnapshot(previous => readPendingUpdatesOr(previous ?? {}));
+  if (typeof window === "undefined") return;
+  const onStorage = (event: StorageEvent) => {
+    if (event.key !== null && event.key !== WALLET_STATE_STORAGE_KEY &&
+        !event.key.startsWith(WALLET_STATE_RECORD_PREFIX)) return;
+    // Events can be queued before a newer write. Read durable keys, not newValue.
+    if (event.storageArea && event.storageArea !== window.localStorage) return;
+    setSnapshot(previous => readPendingUpdatesOr(previous ?? {}));
+  };
+  window.addEventListener?.("storage", onStorage);
+  return () => window.removeEventListener?.("storage", onStorage);
+};
+export const pendingWalletStateUpdatesAtom = atom(get =>
+  get(pendingUpdatesSnapshotAtom) ?? readPendingUpdatesOr({})
 );
+const writePendingWalletRecordAtom = atom(null, (get, set, {
+  unit, pending
+}: { unit: string; pending: PendingWalletStateUpdate | null }) => {
+  // Persist first. A missing or full browser store throws before broadcast and
+  // before any observer can treat an unsuccessful deletion as confirmation.
+  if (typeof window !== "undefined") {
+    window.localStorage.setItem(WALLET_STATE_RECORD_PREFIX + unit, JSON.stringify(pending));
+  }
+  const next = { ...readPendingUpdatesOr(get(pendingWalletStateUpdatesAtom)) };
+  if (pending) next[unit] = pending;
+  else delete next[unit];
+  set(pendingUpdatesSnapshotAtom, next);
+});
 // Signing is guarded before a submitted hash exists. Confirmed submissions use durable records.
 export const walletStateSubmissionsAtom = atom<Record<string, boolean>>({});
 export const pendingWalletStateUpdateAtom = atom(
@@ -69,13 +115,11 @@ export const pendingWalletStateUpdateAtom = atom(
     return unit ? updates[unit] ?? null : Object.values(updates)[0] ?? null;
   },
   (get, set, pending: PendingWalletStateUpdate | null) => {
-    if (pending) set(pendingWalletStateUpdatesAtom, { ...get(pendingWalletStateUpdatesAtom), [pending.walletUnit]: pending });
+    if (pending) set(writePendingWalletRecordAtom, { unit: pending.walletUnit, pending });
     else {
       const current = get(pendingWalletStateUpdateAtom);
       if (!current) return;
-      const remaining = { ...get(pendingWalletStateUpdatesAtom) };
-      delete remaining[current.walletUnit];
-      set(pendingWalletStateUpdatesAtom, remaining);
+      set(writePendingWalletRecordAtom, { unit: current.walletUnit, pending: null });
     }
   }
 );
@@ -164,7 +208,8 @@ function sameRef(hash: string, index: string, ref: SttInputRef) {
 export const completeWalletStateUpdateAtom = atom(
   null,
   (get, set, payload: { pending: PendingWalletStateUpdate; replacementRef: SttInputRef; expired?: boolean }) => {
-    const current = get(pendingWalletStateUpdatesAtom)[payload.pending.walletUnit];
+    const latest = readStoredPendingUpdates() ?? get(pendingWalletStateUpdatesAtom);
+    const current = latest[payload.pending.walletUnit];
     if (!current ||
       (!payload.expired && sameRef(payload.replacementRef.txHash, String(payload.replacementRef.outputIndex), current.spentRef)) ||
       current.walletUnit !== payload.pending.walletUnit ||
@@ -173,15 +218,13 @@ export const completeWalletStateUpdateAtom = atom(
       return false;
     }
 
+    set(writePendingWalletRecordAtom, { unit: current.walletUnit, pending: null });
     for (const [hashAtom, indexAtom] of DRAFT_REF_PAIRS) {
       if (sameRef(get(hashAtom), get(indexAtom), current.spentRef)) {
         set(hashAtom, payload.replacementRef.txHash);
         set(indexAtom, String(payload.replacementRef.outputIndex));
       }
     }
-    const remaining = { ...get(pendingWalletStateUpdatesAtom) };
-    delete remaining[current.walletUnit];
-    set(pendingWalletStateUpdatesAtom, remaining);
     return true;
   }
 );

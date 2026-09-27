@@ -570,7 +570,7 @@ describe("the words on the approval request detail", () => {
     expect(screen.queryByText(/Nobody has checked it/)).toBeNull();
     expect(screen.getByText("Send 5 ADA to addr_test1qq")).toBeInTheDocument();
     const summary = screen.getByText("Send 5 ADA to addr_test1qq");
-    expect(screen.getByText("What this transaction does").compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect((await screen.findByText("What this transaction does")).compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByText("Wallet State changes").compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(container.textContent).not.toMatch(/[—–]/);
   });
