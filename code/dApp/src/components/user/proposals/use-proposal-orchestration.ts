@@ -128,14 +128,14 @@ export function useProposalOrchestration({
   );
 
   useEffect(() => {
-    // Clear local action feedback when the proposal identity changes.
+    // Clear feedback for the same lifecycle changes that invalidate pending actions.
     /* eslint-disable react-hooks/set-state-in-effect */
     setStateLifecycleKey(lifecycleKey);
     setActionError(null);
     setActionInfo(null);
     setBusy(null);
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, [lifecycleKey]);
+  }, [lifecycleKey, activeWallet]);
 
   useEffect(() => {
     // A manual refresh waits for the command to finish. Remote data stays in Query;

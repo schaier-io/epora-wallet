@@ -1178,3 +1178,33 @@ it("refuses to sign a proposal after the connected wallet changes network", asyn
   expect(dependencies.signProposal).not.toHaveBeenCalled();
   expect(result.current.actionError).toBe(`Switch your connected wallet to Cardano ${CARDANO_NETWORK} before signing.`);
 });
+
+it("releases a replaced wallet's busy state without letting its result finish the new action", async () => {
+  const pending = deferred<string>();
+  const replacementSignature = deferred<string>();
+  dependencies.wallet.signTx.mockReturnValue(pending.promise);
+  dependencies.signProposal.mockResolvedValue(proposal("proposal-1"));
+  const { result, rerender } = renderHook(() => useProposalOrchestration({
+    proposalId: "proposal-1", sessionKeyHash: SIGNER_KEY_HASH, onChanged: vi.fn()
+  }));
+  await waitFor(() => expect(result.current.canSign).toBe(true));
+  let operation!: Promise<void>;
+  act(() => { operation = result.current.handleSign(); });
+  await waitFor(() => expect(dependencies.wallet.signTx).toHaveBeenCalledTimes(1));
+  const replacement = {
+    signTx: vi.fn().mockReturnValue(replacementSignature.promise),
+    getNetworkId: vi.fn().mockResolvedValue(cardanoNetworkId())
+  };
+  dependencies.walletContext.activeWallet = replacement;
+  rerender();
+  await waitFor(() => expect(result.current.busy).toBeNull());
+  let replacementOperation!: Promise<void>;
+  act(() => { replacementOperation = result.current.handleSign(); });
+  await waitFor(() => expect(replacement.signTx).toHaveBeenCalledTimes(1));
+  await act(async () => { pending.resolve("old-witness"); await operation; });
+  expect(result.current.busy).toBe("sign");
+  expect(dependencies.signProposal).not.toHaveBeenCalled();
+  await act(async () => { replacementSignature.resolve("new-witness"); await replacementOperation; });
+  expect(dependencies.signProposal).toHaveBeenCalledTimes(1);
+  expect(result.current.busy).toBeNull();
+});
