@@ -68,20 +68,23 @@ async function findCurrentStateRef(
 //    current clock (the same "resolved once per build" rule the draft and final
 //    builds of one session share still applies within this new session).
 //
-// Mutates a parsed copy of the build context.
+// Copy the input so refreshing a rebuild cannot change the original draft.
+// A co-signer rebuild keeps its selected state input and omits the live reference.
 export function refreshContextForRebuild(
   buildContext: ProposalBuildContext,
-  ref: { txHash: string; index: number }
+  ref?: { txHash: string; index: number }
 ): ProposalBuildContext {
-  const input = buildContext.input as {
+  const input = { ...buildContext.input } as {
     sttInputTxHash?: string;
     sttInputOutputIndex?: number;
     validityWindowReferenceTimeMs?: number;
   };
-  input.sttInputTxHash = ref.txHash;
-  input.sttInputOutputIndex = ref.index;
+  if (ref) {
+    input.sttInputTxHash = ref.txHash;
+    input.sttInputOutputIndex = ref.index;
+  }
   delete input.validityWindowReferenceTimeMs;
-  return buildContext;
+  return { ...buildContext, input } as ProposalBuildContext;
 }
 
 // Runs the builder a saved context names. Also used by the create form, which
@@ -135,7 +138,7 @@ export async function rebuildProposalTx(
   const fetcher = new ServerFetcher();
   const identity = buildWalletIdentity(proposal.walletUnit, proposal.walletPolicyId);
   const currentRef = await findCurrentStateRef(fetcher, identity);
-  refreshContextForRebuild(buildContext, currentRef);
+  buildContext = refreshContextForRebuild(buildContext, currentRef);
 
   const result = await buildProposalTx(wallet, buildContext);
   return {

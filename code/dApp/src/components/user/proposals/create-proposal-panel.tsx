@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { createProposal, getProposalErrorMessage } from "@/lib/proposals/client";
 import { proposalKeys } from "@/lib/proposals/query";
-import { buildProposalTx } from "@/lib/proposals/rebuild";
+import { buildProposalTx, refreshContextForRebuild } from "@/lib/proposals/rebuild";
 import { resolveProposalBodyHash } from "@/lib/proposals/serialization";
 import { useWalletContext } from "@/providers/wallet-provider";
 import { applyCoSigners, CoSignerPicker, describeCoSignerChoice } from "./cosigner-picker";
@@ -112,7 +112,7 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
           setError(i18n("connectTheWalletThatBuiltThisRequest"));
           return;
         }
-        buildContext = applyCoSigners(draft.buildContext, coSigners);
+        buildContext = refreshContextForRebuild(applyCoSigners(draft.buildContext, coSigners));
         unsignedTxHex = (await buildProposalTx(activeWallet, buildContext)).txHex;
       }
       const proposal = await createMutation.mutateAsync({

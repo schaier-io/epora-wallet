@@ -85,3 +85,24 @@ test("refreshContextForRebuild re-points the state input and drops the stale val
   // Everything the proposer actually proposed stays untouched.
   assert.equal(input.recipient, "addr_test1recipient");
 });
+
+
+test("refreshContextForRebuild can refresh validity without replacing or mutating the draft input", () => {
+  const input = {
+    sttInputTxHash: "cc".repeat(32),
+    sttInputOutputIndex: 2,
+    validityWindowReferenceTimeMs: 123,
+    requiredSignerKeyHashes: ["aa".repeat(28)]
+  };
+  const context = { builder: "stt-spend", input } as unknown as ProposalBuildContext;
+  const refreshed = refreshContextForRebuild(context);
+
+  assert.notEqual(refreshed, context);
+  assert.notEqual(refreshed.input, input);
+  assert.deepEqual(refreshed.input, {
+    sttInputTxHash: input.sttInputTxHash,
+    sttInputOutputIndex: 2,
+    requiredSignerKeyHashes: input.requiredSignerKeyHashes
+  });
+  assert.equal(input.validityWindowReferenceTimeMs, 123);
+});
