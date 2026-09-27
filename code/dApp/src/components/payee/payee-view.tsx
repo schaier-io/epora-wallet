@@ -55,6 +55,7 @@ import {
 
 import { planPayeeStop } from "./payee-stop-plan";
 
+import { usePayeeActionSession } from "./use-payee-action-session";
 import { usePayeeInventory } from "./use-payee-inventory";
 
 type RowActionState =
@@ -142,33 +143,12 @@ export function PayeeView() {
     setStopReview(null);
     resolve?.(approved);
   }, []);
-  const stopSessionRef = useRef<object | null>(null);
-  useEffect(() => {
-    const session = {};
-    stopSessionRef.current = session;
-    return () => {
-      stopSessionRef.current = null;
-      settleStopReview(false);
-    };
-  }, [activeWallet, activeAddress, activePaymentKeyHash, isDemoWallet, networkId, settleStopReview]);
-
   const [shortenStates, setShortenStates] = useState<Record<string, RowActionState>>({});
   const [collectStates, setCollectStates] = useState<Record<string, RowActionState>>({});
   const [actionAnnouncement, setActionAnnouncement] = useState("");
   const [connectOpen, setConnectOpen] = useState(false);
-  // The warning review dialog. The ref holds the pending promise's resolve so the
-  // suspended collect resumes with the reader's answer, and the state mirrors the
-  // warnings for the render. Unmounting settles the review as a decline, so the
-  // suspended collect still finishes and releases its State input lease.
-  const [warningReview, setWarningReview] = useState<readonly string[] | null>(null);
-  const warningReviewRef = useRef<{ resolve: (approved: boolean) => void } | null>(null);
-  const settleWarningReview = useCallback((approved: boolean) => {
-    const review = warningReviewRef.current;
-    warningReviewRef.current = null;
-    setWarningReview(null);
-    review?.resolve(approved);
-  }, []);
-  useEffect(() => () => settleWarningReview(false), [settleWarningReview]);
+  const { sessionRef: stopSessionRef, warningReview, warningReviewRef,
+    setWarningReview, settleWarningReview } = usePayeeActionSession(settleStopReview);
   const pendingStateInputs = useAtomValue(pendingPayeeInputActionsAtom);
   const beginStateInputAction = useSetAtom(beginPayeeInputActionAtom);
   const markStateInputSubmitted = useSetAtom(markPayeeInputSubmittedAtom);
@@ -206,6 +186,8 @@ export function PayeeView() {
         return;
       }
       let submitted = false;
+      const session = stopSessionRef.current;
+      const isCurrent = () => session !== null && stopSessionRef.current === session;
       setActionAnnouncement("");
       setCollectStates((prev) => ({ ...prev, [key]: { status: "submitting" } }));
       try {
@@ -225,11 +207,12 @@ export function PayeeView() {
           stateDatum: token.datum,
           payeePaymentKeyHash: activePaymentKeyHash ?? "",
           nowMs: Date.now(),
+          assertCurrent: () => { if (!isCurrent()) throw new Error("Wallet session changed."); },
           confirmWarnings: (warnings) => {
             // The dialog is modal, so a second review can only come from a
             // racing action on another row. Decline it quietly instead of
             // queueing a second modal over the first.
-            if (warningReviewRef.current || stopReviewRef.current) {
+            if (!isCurrent() || warningReviewRef.current || stopReviewRef.current) {
               return Promise.resolve(false);
             }
             return new Promise<boolean>((resolve) => {
@@ -239,6 +222,7 @@ export function PayeeView() {
           }
         });
         if (outcome.status === "declined") {
+          if (!isCurrent()) return;
           // A declined review is the reader's choice, not a failed payment.
           // The row goes back to collectable with one quiet note.
           setCollectStates((prev) => ({ ...prev, [key]: { status: "declined" } }));
@@ -247,6 +231,7 @@ export function PayeeView() {
         }
         submitted = true;
         markStateInputSubmitted({ key: inputKey, txHash: outcome.txHash });
+        if (!isCurrent()) return;
         setCollectStates((prev) => ({
           ...prev,
           [key]: { status: "done", txHash: outcome.txHash }
@@ -255,6 +240,7 @@ export function PayeeView() {
         // Re-read the advanced paid-out total and the shared cooldown stamp.
         await loadTokens();
       } catch (error) {
+        if (!isCurrent()) return;
         console.error("[payee:collect]", error);
         setCollectStates((prev) => ({
           ...prev,
@@ -269,6 +255,8 @@ export function PayeeView() {
       } finally {
         if (!submitted) {
           endStateInputAction(inputKey);
+          setCollectStates((prev) => prev[key]?.status === "submitting"
+            ? { ...prev, [key]: { status: "idle" } } : prev);
         }
       }
     },
@@ -280,7 +268,10 @@ export function PayeeView() {
       i18n,
       beginStateInputAction,
       markStateInputSubmitted,
-      endStateInputAction
+      endStateInputAction,
+      stopSessionRef,
+      warningReviewRef,
+      setWarningReview
     ]
   );
 
@@ -339,14 +330,20 @@ export function PayeeView() {
           setShortenStates((prev) => ({ ...prev, [key]: { status: "error", message: i18n("stopReviewExpired") } }));
           return;
         }
-        const txHash = await signAndSubmitTx(activeWallet, build.txHex);
+        const txHash = await signAndSubmitTx(activeWallet, build.txHex, {
+          assertCurrent: () => {
+            if (!session || stopSessionRef.current !== session) throw new Error("Wallet session changed.");
+          }
+        });
         submitted = true;
         markStateInputSubmitted({ key: inputKey, txHash });
+        if (stopSessionRef.current !== session) return;
         setShortenStates((prev) => ({ ...prev, [key]: { status: "done", txHash } }));
         setActionAnnouncement(i18n("sentTheListUpdatesAfterTheNextRefresh"));
         // Re-read the shortened end date and shared cooldown stamp.
         await loadTokens();
       } catch (error) {
+        if (stopSessionRef.current !== session) return;
         console.error("[payee:shorten]", error);
         setShortenStates((prev) => ({
           ...prev,
@@ -372,7 +369,9 @@ export function PayeeView() {
       i18n,
       beginStateInputAction,
       markStateInputSubmitted,
-      endStateInputAction
+      endStateInputAction,
+      stopSessionRef,
+      warningReviewRef
     ]
   );
 

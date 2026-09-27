@@ -370,3 +370,52 @@ it("gives the warning and funding blocks real headings under the h1", () => {
     screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent)
   ).toEqual(["permanentTitle", "statusTitle"]);
 });
+
+it("retires setup preview when switching the funding wallet", async () => {
+  const preview = {txHex: "wallet-A-preview", referenceScriptOutputIndex: 0, preview: {summary: "setup"}};
+  mocks.build.mockResolvedValue(preview);
+  const view = render(<SttReferenceSetup initialStore={missingStore} />);
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Build setup transaction" })); });
+  expect(screen.getByRole("button", {name: "Sign and deploy"})).toBeInTheDocument();
+  mocks.walletContext.activeAddress = "addr_test1_wallet_B";
+  mocks.walletContext.activeWallet = { signTx: vi.fn(), submitTx: vi.fn() };
+  view.rerender(<SttReferenceSetup initialStore={missingStore} />);
+  expect(screen.queryByRole("button", { name: "Sign and deploy" })).toBeNull();
+  expect(screen.getByRole("button", { name: "Build setup transaction" })).toBeEnabled();
+  expect(mocks.signAndSubmit).not.toHaveBeenCalled();
+});
+
+
+it("discards a build that finishes after the funding wallet changes", async () => {
+  let resolveBuild!: (value: unknown) => void;
+  mocks.build.mockReturnValue(new Promise(resolve => { resolveBuild = resolve; }));
+  const view = render(<SttReferenceSetup initialStore={missingStore} />);
+  fireEvent.click(screen.getByRole("button", { name: "Build setup transaction" }));
+  mocks.walletContext.activeWallet = { signTx: vi.fn(), submitTx: vi.fn() };
+  view.rerender(<SttReferenceSetup initialStore={missingStore} />);
+  await act(async () => resolveBuild({ txHex: "old", referenceScriptOutputIndex: 0, preview: { summary: "old" } }));
+  expect(screen.queryByRole("button", { name: "Sign and deploy" })).toBeNull();
+  expect(screen.getByRole("button", { name: "Build setup transaction" })).toBeEnabled();
+});
+
+it("guards an old signing session but keeps a broadcast result after a wallet change", async () => {
+  vi.useFakeTimers();
+  let resolveSubmit!: (value: string) => void;
+  mocks.build.mockResolvedValue({ txHex: "old", referenceScriptOutputIndex: 0, preview: { summary: "old" } });
+  mocks.signAndSubmit.mockReturnValue(new Promise(resolve => { resolveSubmit = resolve; }));
+  const view = render(<SttReferenceSetup initialStore={missingStore} />);
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: "Build setup transaction" })));
+  fireEvent.click(screen.getByRole("button", { name: "Sign and deploy" }));
+  const options = mocks.signAndSubmit.mock.calls[0]?.[2] as { assertCurrent?: () => void } | undefined;
+  expect(options?.assertCurrent).toBeTypeOf("function");
+  expect(() => options!.assertCurrent!()).not.toThrow();
+  mocks.walletContext.activeWallet = { signTx: vi.fn(), submitTx: vi.fn() };
+  view.rerender(<SttReferenceSetup initialStore={missingStore} />);
+  expect(() => options!.assertCurrent!()).toThrow("Wallet session changed.");
+  await act(async () => resolveSubmit("ef".repeat(32)));
+  expect(screen.getByRole("button", { name: "Confirming on-chain…" })).toBeDisabled();
+  expect(screen.queryByRole("button", { name: "Build setup transaction" })).toBeNull();
+  view.unmount();
+  await act(async () => vi.runAllTimersAsync());
+  vi.useRealTimers();
+});
