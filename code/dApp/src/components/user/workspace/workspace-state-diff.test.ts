@@ -76,6 +76,68 @@ test("a five-ADA daily limit is not divided by a million on the way to the revie
   assert.doesNotMatch(items[0]!.value, /0\.00000/);
 });
 
+for (const assetName of ["5553444d", ""]) {
+  test(`an allowance policy edit shows both full asset units (asset name: ${assetName || "empty"})`, () => {
+    const before = baseForm();
+    const previousPolicy = "aa".repeat(28);
+    const nextPolicy = "bb".repeat(28);
+    before.users[0]!.perDayAllowance = [{ policyId: previousPolicy, assetName, amount: "10" }];
+    const after = structuredClone(before);
+    after.users[0]!.perDayAllowance[0]!.policyId = nextPolicy;
+
+    const items = diffStateForms(before, after);
+    assert.equal(items.length, 1);
+    assert.equal(items[0]!.label, "Person changed");
+    assert.ok(items[0]!.value.includes(`10 ${previousPolicy}${assetName}`));
+    assert.ok(items[0]!.value.includes(`10 ${nextPolicy}${assetName}`));
+  });
+}
+
+function scheduleForm(policyId: string, assetName: string): StateFormState {
+  const form = baseForm();
+  form.streamingPayments = [{
+    id: "1",
+    payoutAddress: "addr_test_one",
+    paidOutAmount: "0",
+    policyId,
+    assetName,
+    amountPerDay: "5000000",
+    startDate: "1700000000000",
+    endDate: "1700086400000"
+  }];
+  return form;
+}
+
+for (const assetName of ["5553444d", ""]) {
+  test(`a native schedule keeps its integer rate and full asset unit (asset name: ${assetName || "empty"})`, () => {
+    const policyId = "aa".repeat(28);
+    const items = diffStateForms(baseForm(), scheduleForm(policyId, assetName));
+
+    assert.equal(items.length, 1);
+    assert.ok(items[0]!.value.includes(`5000000 ${policyId}${assetName}/day`));
+    assert.doesNotMatch(items[0]!.value, /₳/);
+  });
+}
+
+test("a schedule policy edit shows both full asset units", () => {
+  const before = scheduleForm("aa".repeat(28), "5553444d");
+  const after = scheduleForm("bb".repeat(28), "5553444d");
+
+  const items = diffStateForms(before, after);
+  assert.equal(items.length, 1);
+  assert.equal(items[0]!.label, "Scheduled payment changed");
+  for (const schedule of [before.streamingPayments[0]!, after.streamingPayments[0]!]) {
+    assert.ok(items[0]!.value.includes(`5000000 ${schedule.policyId}${schedule.assetName}/day`));
+  }
+});
+
+test("an ADA schedule converts its lovelace rate once", () => {
+  const items = diffStateForms(baseForm(), scheduleForm("", ""));
+  assert.equal(items.length, 1);
+  assert.match(items[0]!.value, /5 ₳\/day/);
+  assert.doesNotMatch(items[0]!.value, /5000000|0\.000005/);
+});
+
 test("lowering the approval threshold is reported", () => {
   const before = baseForm();
   before.multiSigThresholdMode = "some";
