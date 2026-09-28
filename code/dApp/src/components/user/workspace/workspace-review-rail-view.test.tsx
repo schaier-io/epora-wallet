@@ -15,6 +15,7 @@ import type { PermissionWalletWorkspaceState } from "@/components/user/workspace
 import type { SigningActionAvailability } from "@/components/user/workspace/workspace-stt-option-derivations";
 import { type BuildResult } from "@/lib/types/contracts";
 
+import { REVIEW_DONE_DOUBLE_PRESS_GUARD_MS } from "./constants";
 import { WorkspaceReviewRailView } from "./workspace-review-rail-view";
 
 // The mock stub can't close over module scope (vi.mock hoists), so the panel's props
@@ -129,13 +130,19 @@ function renderRail(options: {
   } as unknown as PermissionWalletWorkspaceState;
   state.proposalCaptureRef.current = {} as never;
 
-  return render(
+  const ui = (value: PermissionWalletWorkspaceState) => (
     <Provider store={store}>
-      <WorkspaceActionsProvider value={state}>
+      <WorkspaceActionsProvider value={value}>
         <WorkspaceReviewRailView />
       </WorkspaceActionsProvider>
     </Provider>
   );
+  const result = render(ui(state));
+  return {
+    ...result,
+    rerenderState: (overrides: Partial<PermissionWalletWorkspaceState>) =>
+      result.rerender(ui({ ...state, ...overrides }))
+  };
 }
 
 it("shows and disables wallet-state refresh across action navigation", () => {
@@ -192,6 +199,44 @@ it("keeps the Done acknowledgement live through the wallet-state wait", () => {
   (reviewPanelProps.latest.onPrimaryAction as () => void)();
   expect(dismiss).toHaveBeenCalledTimes(1);
   expect(combined).not.toHaveBeenCalled();
+});
+
+it("does not start a new transaction when Done is double-clicked", () => {
+  // The first press clears the hash, so the same button turns back into the action
+  // button under the cursor. The second click of a double-click must not sign again.
+  vi.useFakeTimers();
+  try {
+    const dismiss = vi.fn();
+    const combined = vi.fn();
+    const build = vi.fn();
+    const { rerenderState } = renderRail({
+      selectedAction: "wallet-vote",
+      previewMatchesSelectedAction: false,
+      buildSelectedActionTx: build,
+      buildAndSubmitSelectedActionTx: combined,
+      handleSaveProposalFromBuild: vi.fn(),
+      stateOverrides: {
+        reviewSubmitAwaitingAcknowledgement: true,
+        reviewPrimaryActionLabel: "Done",
+        dismissSubmitState: dismiss
+      }
+    });
+
+    (reviewPanelProps.latest.onPrimaryAction as () => void)();
+    expect(dismiss).toHaveBeenCalledTimes(1);
+    rerenderState({ reviewSubmitAwaitingAcknowledgement: false, reviewPrimaryActionLabel: "Vote" });
+    (reviewPanelProps.latest.onPrimaryAction as () => void)();
+    // The re-armed stack can also put "Save as approval request" under the cursor.
+    (reviewPanelProps.latest.onSecondaryAction as () => void)();
+    expect(combined).not.toHaveBeenCalled();
+    expect(build).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(REVIEW_DONE_DOUBLE_PRESS_GUARD_MS);
+    (reviewPanelProps.latest.onPrimaryAction as () => void)();
+    expect(combined).toHaveBeenCalledTimes(1);
+  } finally {
+    vi.useRealTimers();
+  }
 });
 
 it("dismisses the submitted banner on Done without building anything", () => {

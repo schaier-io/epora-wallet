@@ -1,5 +1,6 @@
 "use client";
 import { RecoveryFallbackView } from "./recovery-fallback-view";
+import { REVIEW_DONE_DOUBLE_PRESS_GUARD_MS } from "./constants";
 
 import { useTranslations } from "next-intl";
 
@@ -11,7 +12,7 @@ import { selectedActionAtom } from "@/components/user/workspace/atoms/workspace-
 import { selectedSigningActionAvailabilityAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
 import { walletStateUpdatingAtom } from "@/components/user/workspace/atoms/wallet-state-update.atoms";
 import { useAtomValue } from "jotai";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { hasFieldErrors } from "@/components/user/workspace/helpers";
 import { Button } from "@/components/ui/button";
@@ -75,11 +76,15 @@ export function WorkspaceReviewRailView() {
     action: typeof selectedAction; session: typeof session;
   } | null>(null);
   const directActionPending = clickedAction?.action === selectedAction && clickedAction.session === session;
+  // Pressing "Done" re-arms the rail under the cursor, so the second click of a
+  // double-click would land on a live action button: drop it instead of building.
+  const acknowledgedAtRef = useRef(0);
+  const justAcknowledged = () => Date.now() - acknowledgedAtRef.current < REVIEW_DONE_DOUBLE_PRESS_GUARD_MS;
 
   // One press builds (or reuses the still-current prepared transaction) and then
   // signs; the wallet prompt is the confirmation step.
   async function runDirectAction() {
-    if (directActionPending || preparingProposal || activeSubmit || walletStateUpdating || reviewPrimaryActionDisabled) return;
+    if (justAcknowledged() || directActionPending || preparingProposal || activeSubmit || walletStateUpdating || reviewPrimaryActionDisabled) return;
     const click = { action: selectedAction, session };
     setClickedAction(click);
     try {
@@ -153,7 +158,7 @@ export function WorkspaceReviewRailView() {
     // `approvalBlockedReason` is the same reason the CTA renders disabled, checked here
     // too so the handler is not the one control on this rail whose only guard is a DOM
     // attribute. `runDirectAction` above already re-checks its own disabled reason.
-    if (preparingProposal || transactionInFlight || approvalBlockedReason) {
+    if (justAcknowledged() || preparingProposal || transactionInFlight || approvalBlockedReason) {
       return;
     }
     setPreparingProposal(true);
@@ -271,6 +276,7 @@ export function WorkspaceReviewRailView() {
                       // "Done" after a one-shot submit: acknowledge the receipt and
                       // re-arm the rail instead of sitting on a dead control.
                       if (reviewSubmitAwaitingAcknowledgement) {
+                        acknowledgedAtRef.current = Date.now();
                         dismissSubmitState();
                         return;
                       }
