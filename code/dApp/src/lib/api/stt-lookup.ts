@@ -108,7 +108,9 @@ export const SttLookupResponseSchema = z
     nextCursor: z.string().nullable().meta({
       description: "Pass back as `cursor` for the next page. `null` on the last page."
     }),
-    wallets: z.array(SttLookupWalletSchema),
+    wallets: z.array(SttLookupWalletSchema).meta({
+      description: "One page of matching wallets, ordered by wallet id. Stable across pages: a wallet that is touched between two requests never moves to a page already served."
+    }),
     sync: z
       .object({
         recentHeadTriggered: z.boolean(),

@@ -4105,7 +4105,8 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/SttLookupWallet"
-            }
+            },
+            "description": "One page of matching wallets, ordered by wallet id. Stable across pages: a wallet that is touched between two requests never moves to a page already served."
           },
           "sync": {
             "type": "object",
