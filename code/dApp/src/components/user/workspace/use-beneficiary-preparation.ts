@@ -4,7 +4,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query/keys";
 import { beneficiaryPreparationPreviewAtom, beneficiaryPreparationProtocolAtom } from "./atoms/beneficiary-preparation.atoms";
 import { beneficiaryPreparationPoolAssetsAtom, consolidateWalletInputsAtom } from "./atoms/forms/consolidate-form.atoms";
-import { lockedContractUtxosAtom, lockedContractUtxosLoadingAtom, lockedContractUtxosErrorAtom } from "./atoms/workspace-data.atoms";
+import { lockedContractUtxosLoadingAtom, lockedContractUtxosErrorAtom } from "./atoms/workspace-data.atoms";
+import { spendableWalletUtxosAtom } from "./atoms/workspace-spendable-utxos.atoms";
 import { lockingContractAtom } from "./atoms/workspace-wallet-derivations.atoms";
 import { renderNowMsAtom } from "./atoms/workspace-ui.atoms";
 import { useWorkspaceActions } from "./workspace-actions-context";
@@ -15,7 +16,7 @@ export function useBeneficiaryPreparation() {
   const client = useQueryClient();
   const [poolAssets, setPoolAssets] = useAtom(beneficiaryPreparationPoolAssetsAtom);
   const [selectedRefs, setSelectedRefs] = useAtom(consolidateWalletInputsAtom);
-  const utxos = useAtomValue(lockedContractUtxosAtom);
+  const utxos = useAtomValue(spendableWalletUtxosAtom);
   const loading = useAtomValue(lockedContractUtxosLoadingAtom);
   const discoveryError = useAtomValue(lockedContractUtxosErrorAtom);
   const walletAddress = useAtomValue(lockingContractAtom).address ?? "";
@@ -27,7 +28,7 @@ export function useBeneficiaryPreparation() {
     refresh: () => {
       setNow(Date.now());
       void client.invalidateQueries({ queryKey: queryKeys.protocolParameters(), exact: true });
-      if (walletAddress) void refreshLockedContractUtxos(walletAddress);
+      if (walletAddress) void refreshLockedContractUtxos(walletAddress, { preserveRecovery: true });
     },
     correctAda: () => {
       const amount = preview.plan?.suggestedPoolLovelace;

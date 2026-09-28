@@ -3,6 +3,7 @@ import { createStore } from "jotai";
 import { notifyManager } from "@tanstack/react-query";
 import { createQueryTestWrapper } from "@/test/query-client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type * as PayeeCollectTx from "@/components/payee/payee-collect-tx";
 import type * as Blueprint from "@/lib/contracts/blueprint";
 import type {
   PayeeScanResult,
@@ -47,7 +48,8 @@ vi.mock("@/components/layout/wallet-panel", () => ({
 }));
 vi.mock("@/lib/contracts/blueprint", async (importOriginal) => ({
   ...await importOriginal<typeof Blueprint>(),
-  getSttMintPolicyId: () => "aa".repeat(28)
+  getSttMintPolicyId: () => "aa".repeat(28),
+  resolveWalletContinuingOutputAddressFromState: () => "addr_test1locked"
 }));
 vi.mock("@/lib/mesh/detection", () => ({
   detectSttInfo: async () => {
@@ -481,7 +483,7 @@ describe("a row", () => {
       "cancel-streaming-payment",
       expect.objectContaining({ streamingPaymentCancelId: current.streamingPaymentId })
     );
-    expect(actions.submit).toHaveBeenCalledWith(wallet.value.activeWallet, "84a0");
+    expect(actions.submit).toHaveBeenCalledWith(wallet.value.activeWallet, "84a0", { assertCurrent: expect.any(Function) as () => void });
   });
 
   /** Up to five helper lines used to stack under the buttons. One line, highest priority. */
@@ -1134,7 +1136,7 @@ describe("payment stop review", () => {
     expect(actions.build).toHaveBeenCalledTimes(1);
     expect(actions.build).toHaveBeenCalledWith(expect.anything(), expect.anything(), "cancel-streaming-payment",
       expect.objectContaining({ validityWindowReferenceTimeMs: NOW }));
-    expect(actions.submit).toHaveBeenCalledWith(wallet.value.activeWallet, "84a0");
+    expect(actions.submit).toHaveBeenCalledWith(wallet.value.activeWallet, "84a0", { assertCurrent: expect.any(Function) as () => void });
   });
 
   it("cancels without signing and releases the input lease", async () => {
@@ -1190,4 +1192,104 @@ describe("payment stop review", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("This review expired");
     expect(screen.getByRole("button", { name: "Review payment stop" })).toBeEnabled();
   });
+});
+
+vi.mock("@/components/user/workspace/helpers", async (original) => ({
+  ...await original<object>(), fetchScriptUtxos: async () => []
+}));
+vi.mock("@/components/payee/payee-collect", () => ({
+  planPayeeCollect: () => ({ status: "ready", walletInputs: [], transfers: [] })
+}));
+it("does not start signing after collector leaves during build", async () => {
+  const row = payment();
+  const datum = structuredClone(ordinaryStateDatum);
+  datum.fields[2] = [{ alternative: 0, fields: [1,
+    { alternative: 0, fields: [{ alternative: 0, fields: ["aa".repeat(28)] }, NONE] },
+    0, "", "", 5_000_000, NOW - 86_400_000, NOW + 86_400_000] }];
+  chain.detect.mockResolvedValue({ tokens: [detectedTokenFor(row, datum)] });
+  chain.scan.mockReturnValue(scanOf([row]));
+  const build = deferred<{ txHex: string }>();
+  actions.build.mockReturnValue(build.promise);
+  const real = await vi.importActual<typeof PayeeCollectTx>("@/components/payee/payee-collect-tx");
+  actions.collect.mockImplementation(real.runPayeeCollect);
+  const view = await renderView();
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Collect payment" })); });
+  expect(actions.build).toHaveBeenCalledTimes(1);
+  view.unmount();
+  await act(async () => { build.resolve({ txHex: "84a0" }); });
+  expect(actions.submit).not.toHaveBeenCalled();
+});
+
+it("releases the input when warnings arrive after page exit", async () => {
+  const row = payment();
+  const datum = structuredClone(ordinaryStateDatum);
+  datum.fields[2] = [{ alternative: 0, fields: [1,
+    { alternative: 0, fields: [{ alternative: 0, fields: ["aa".repeat(28)] }, NONE] },
+    0, "", "", 5_000_000, NOW - 86_400_000, NOW + 86_400_000] }];
+  chain.detect.mockResolvedValue({ tokens: [detectedTokenFor(row, datum)] });
+  chain.scan.mockReturnValue(scanOf([row]));
+  const build = deferred<{ txHex: string; warnings?: string[] }>();
+  actions.build.mockReturnValue(build.promise);
+  const real = await vi.importActual<typeof PayeeCollectTx>("@/components/payee/payee-collect-tx");
+  actions.collect.mockImplementation(real.runPayeeCollect);
+  const view = await renderView();
+  await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Collect payment" })); });
+  expect(actions.build).toHaveBeenCalledTimes(1);
+  view.unmount();
+  await act(async () => { build.resolve({ txHex: "84a0", warnings: ["Extra ADA required"] }); });
+  expect(actions.submit).not.toHaveBeenCalled();
+  const atoms = await import("@/components/payee/payee-pending-inputs.atoms");
+  expect(payeeStore.get(atoms.pendingPayeeInputActionsAtom)).toEqual({});
+});
+
+
+it("rejects a collect session that changes while the wallet signature is pending", async () => {
+  const row = payment();
+  const datum = structuredClone(ordinaryStateDatum);
+  datum.fields[2] = [{ alternative: 0, fields: [1,
+    { alternative: 0, fields: [{ alternative: 0, fields: ["aa".repeat(28)] }, NONE] },
+    0, "", "", 5_000_000, NOW - 86_400_000, NOW + 86_400_000] }];
+  chain.detect.mockResolvedValue({ tokens: [detectedTokenFor(row, datum)] });
+  chain.scan.mockReturnValue(scanOf([row]));
+  const real = await vi.importActual<typeof PayeeCollectTx>("@/components/payee/payee-collect-tx");
+  actions.collect.mockImplementation(real.runPayeeCollect);
+  const signature = deferred<void>();
+  actions.submit.mockImplementation(async (_wallet: unknown, _txHex: string, options: { assertCurrent: () => void }) => {
+    await signature.promise;
+    options.assertCurrent();
+    return "cd".repeat(32);
+  });
+  const view = await renderView();
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: "Collect payment" })));
+  expect(actions.submit).toHaveBeenCalledTimes(1);
+  expect(actions.submit.mock.calls[0]?.[2]).toEqual({ assertCurrent: expect.any(Function) as () => void });
+  wallet.value = { ...wallet.value, activeAddress: "addr_test1other" };
+  view.rerender(<PayeeView />);
+  await act(async () => signature.resolve());
+  const atoms = await import("@/components/payee/payee-pending-inputs.atoms");
+  expect(payeeStore.get(atoms.pendingPayeeInputActionsAtom)).toEqual({});
+  expect(screen.getByRole("button", { name: "Collect payment" })).toBeEnabled();
+});
+
+
+it("declines an open collect warning review when the wallet changes", async () => {
+  const row = payment();
+  const datum = structuredClone(ordinaryStateDatum);
+  datum.fields[2] = [{ alternative: 0, fields: [1,
+    { alternative: 0, fields: [{ alternative: 0, fields: ["aa".repeat(28)] }, NONE] },
+    0, "", "", 5_000_000, NOW - 86_400_000, NOW + 86_400_000] }];
+  chain.detect.mockResolvedValue({ tokens: [detectedTokenFor(row, datum)] });
+  chain.scan.mockReturnValue(scanOf([row]));
+  actions.build.mockResolvedValue({ txHex: "84a0", warnings: ["Extra ADA required"] });
+  const real = await vi.importActual<typeof PayeeCollectTx>("@/components/payee/payee-collect-tx");
+  actions.collect.mockImplementation(real.runPayeeCollect);
+  const view = await renderView();
+  await act(async () => fireEvent.click(screen.getByRole("button", { name: "Collect payment" })));
+  expect(screen.getByRole("dialog")).toHaveTextContent("Extra ADA required");
+  wallet.value = { ...wallet.value, activeAddress: "addr_test1other" };
+  await act(async () => view.rerender(<PayeeView />));
+  expect(screen.queryByRole("dialog")).toBeNull();
+  const atoms = await import("@/components/payee/payee-pending-inputs.atoms");
+  expect(payeeStore.get(atoms.pendingPayeeInputActionsAtom)).toEqual({});
+  expect(actions.submit).not.toHaveBeenCalled();
 });

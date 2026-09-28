@@ -3,7 +3,7 @@ import { cardanoNetworkId } from "@/lib/cardano-network";
 
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
 import { WalletConnectionDialog } from "@/components/layout/wallet-panel";
 import { Badge } from "@/components/ui/badge";
@@ -47,7 +47,7 @@ export function SttReferenceSetup({
 }) {
   const i18n = useTranslations("ComponentsSetupSttReference");
   const router = useRouter();
-  const { activeAddress, activeWallet, isDemoWallet, networkId } = useWalletContext();
+  const { activeAddress, activeWallet, activePaymentKeyHash, isDemoWallet, networkId } = useWalletContext();
   const [connectionOpen, setConnectionOpen] = useState(false);
   const [store, setStore] = useState(initialStore);
   const [preview, setPreview] = useState<BuildResult | null>(null);
@@ -60,6 +60,18 @@ export function SttReferenceSetup({
   const [detectAttempt, setDetectAttempt] = useState(0);
   const mounted = useRef(true);
   const inFlight = useRef(false);
+  const sessionRef = useRef<object | null>(null);
+  const previewSessionRef = useRef<object | null>(null);
+  useLayoutEffect(() => {
+    sessionRef.current = {};
+    previewSessionRef.current = null;
+    // A reviewed transaction belongs to the wallet that funded its build.
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setPreview(null);
+    setPhase((current) => current === "review" ? "idle" : current);
+    /* eslint-enable react-hooks/set-state-in-effect */
+    return () => { sessionRef.current = null; };
+  }, [activeWallet, activeAddress, activePaymentKeyHash, isDemoWallet, networkId]);
 
   useEffect(() => {
     mounted.current = true;
@@ -109,6 +121,7 @@ export function SttReferenceSetup({
   async function buildPreview() {
     if (!activeWallet || !canBuild || inFlight.current) return;
     inFlight.current = true;
+    const session = sessionRef.current;
     setPhase("building");
     setError(null);
     try {
@@ -119,15 +132,17 @@ export function SttReferenceSetup({
       if (!Number.isSafeInteger(result.referenceScriptOutputIndex) || result.referenceScriptOutputIndex! < 0) {
         throw new Error(i18n("missingOutputIndex"));
       }
-      if (!mounted.current) return;
+      if (!mounted.current || sessionRef.current !== session) return;
+      previewSessionRef.current = session;
       setPreview(result);
       setPhase("review");
     } catch (cause) {
-      if (!mounted.current) return;
+      if (!mounted.current || sessionRef.current !== session) return;
       setError(getUserFacingErrorMessage(cause, i18n("buildFailed")));
       setPhase("idle");
     } finally {
       inFlight.current = false;
+      if (mounted.current && sessionRef.current !== session) setPhase("idle");
     }
   }
 
@@ -159,13 +174,18 @@ export function SttReferenceSetup({
   }
 
   async function submitPreview() {
-    if (!activeWallet || !preview || inFlight.current) return;
+    if (!activeWallet || !preview || inFlight.current || previewSessionRef.current !== sessionRef.current) return;
+    const session = sessionRef.current;
     let reference: string | null = null;
     inFlight.current = true;
     setPhase("submitting");
     setError(null);
     try {
-      const txHash = await signAndSubmitTx(activeWallet, preview.txHex);
+      const txHash = await signAndSubmitTx(activeWallet, preview.txHex, {
+        assertCurrent: () => {
+          if (!session || sessionRef.current !== session) throw new Error("Wallet session changed.");
+        }
+      });
       if (!mounted.current) return;
       reference = `${txHash}#${preview.referenceScriptOutputIndex}`;
       setSubmittedReference(reference);
@@ -174,7 +194,9 @@ export function SttReferenceSetup({
       await confirmDeployment(reference);
     } catch (cause) {
       if (!mounted.current) return;
-      setError(getUserFacingErrorMessage(cause, i18n(reference ? "confirmationFailed" : "submitFailed")));
+      if (reference || sessionRef.current === session) {
+        setError(getUserFacingErrorMessage(cause, i18n(reference ? "confirmationFailed" : "submitFailed")));
+      }
       setPhase("idle");
     } finally {
       inFlight.current = false;

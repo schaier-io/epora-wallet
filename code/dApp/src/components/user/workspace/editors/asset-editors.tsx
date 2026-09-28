@@ -18,7 +18,8 @@ import { type AssetSelectionOption } from "@/components/user/workspace/types";
 import {
   describeAddressProblem,
   isCredentialHash,
-  looksLikeCardanoAddress
+  looksLikeCardanoAddress,
+  paymentKeyHashFromAddress
 } from "@/lib/contracts/payout-address";
 import { type StateAssetAmountForm, createDefaultStateAssetAmountForm } from "@/lib/contracts/state-form";
 import {
@@ -331,11 +332,10 @@ export function WalletHashesEditor({
 
   const handleChange = (index: number, raw: string) => {
     const trimmed = raw.trim();
-    // Only payment addresses on the configured network convert here. A stake address has no
-    // payment part to extract. The decode is local (lib/cardano-addresses): a Mesh
-    // import here put the SDK's serialisation chunk on first load.
-    if (trimmed.startsWith("addr")) {
-      const hash = paymentCredentialHash(trimmed);
+    // Check the encoded network byte before resolving a signing key. Script credentials
+    // cannot sign, and the original case must reach the parsers to reject mixed-case input.
+    if (trimmed.toLowerCase().startsWith("addr")) {
+      const hash = paymentCredentialHash(trimmed) ? paymentKeyHashFromAddress(trimmed) : null;
       if (hash) {
         // First sighting wins, the same rule `rememberWalletAddressAtom` follows.
         // The book is app-wide and persisted, so rewriting a known hash changes

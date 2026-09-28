@@ -3,7 +3,7 @@ import { type MutableRefObject } from "react";
 import { useAtomValue, useSetAtom } from "jotai";
 import { mintStateFormAtom } from "@/components/user/workspace/atoms/forms/mint-form.atoms";
 import { streamingPaymentPayoutAmountsAtom, sttTransferAmountsAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
-import { transferRecipientModeAtom, transferSelectedUnitAtom } from "@/components/user/workspace/atoms/forms/transfer-form.atoms";
+import { transferDisplayAmountAtom, transferRecipientModeAtom, transferSelectedUnitAtom } from "@/components/user/workspace/atoms/forms/transfer-form.atoms";
 
 import { useEffect } from "react";
 
@@ -44,6 +44,7 @@ export function useWorkspaceReconcileEffects(ctx: WorkspaceReconcileEffectsCtx):
   const setSttTransferAmounts = useSetAtom(sttTransferAmountsAtom);
   const setTransferRecipientMode = useSetAtom(transferRecipientModeAtom);
   const setTransferSelectedUnit = useSetAtom(transferSelectedUnitAtom);
+  const setTransferDisplayAmount = useSetAtom(transferDisplayAmountAtom);
 
   useEffect(() => {
     // Reconcile-on-change (preserves valid user input); the functional updater
@@ -99,9 +100,11 @@ export function useWorkspaceReconcileEffects(ctx: WorkspaceReconcileEffectsCtx):
         availableLockedTransferAssets.find((asset) => asset.unit === "lovelace") ??
         availableLockedTransferAssets[0];
        
+      // A quantity belongs to its asset. Require a new amount before changing units.
+      setTransferDisplayAmount("");
       setTransferSelectedUnit(preferred?.unit ?? "lovelace");
     }
-  }, [availableLockedTransferAssets, transferSelectedUnit, setTransferSelectedUnit]);
+  }, [availableLockedTransferAssets, transferSelectedUnit, setTransferSelectedUnit, setTransferDisplayAmount]);
 
   useEffect(() => {
     // Reconcile-on-change (preserves user input); updater bails when unchanged.

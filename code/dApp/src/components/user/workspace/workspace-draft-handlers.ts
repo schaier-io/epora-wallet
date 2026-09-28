@@ -121,6 +121,7 @@ export function useWorkspaceDraftHandlers(ctx: WorkspaceDraftHandlersCtx) {
 
     if (
       action === "use" ||
+      action === "renew-proof-of-life" ||
       action === "update-state" ||
       action === "manage-streaming-payments" ||
       action === "use-allowance" ||
@@ -256,6 +257,7 @@ export function useWorkspaceDraftHandlers(ctx: WorkspaceDraftHandlersCtx) {
 
     if (
       action === "use" ||
+      action === "renew-proof-of-life" ||
       action === "update-state" ||
       action === "manage-streaming-payments" ||
       action === "use-allowance" ||

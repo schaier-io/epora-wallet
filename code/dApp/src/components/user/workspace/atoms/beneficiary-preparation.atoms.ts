@@ -3,7 +3,8 @@ import { atomWithQuery } from "jotai-tanstack-query";
 import { protocolParametersQueryOptions } from "@/lib/query/chain";
 import { activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
 import { activeInferredSttStateFormAtom, lockingContractAtom } from "./workspace-wallet-derivations.atoms";
-import { lockedContractUtxosAtom, lockedContractUtxosLoadingAtom, lockedContractUtxosErrorAtom } from "./workspace-data.atoms";
+import { lockedContractUtxosLoadingAtom, lockedContractUtxosErrorAtom } from "./workspace-data.atoms";
+import { spendableWalletUtxosAtom } from "./workspace-spendable-utxos.atoms";
 import { renderNowMsAtom } from "./workspace-ui.atoms";
 import { beneficiaryPreparationActiveAtom, beneficiaryPreparationPoolAssetsAtom, consolidateWalletInputsAtom } from "./forms/consolidate-form.atoms";
 import { deriveBeneficiaryPreparationPreview } from "../beneficiary-preparation-model";
@@ -26,7 +27,7 @@ export const beneficiaryPreparationPreviewAtom = atom((get) => {
   const current = protocol?.address === address ? protocol : null;
   return deriveBeneficiaryPreparationPreview({
     form: get(activeInferredSttStateFormAtom), signer: get(activePaymentKeyHashAtom),
-    selectedRefs: get(consolidateWalletInputsAtom), utxos: get(lockedContractUtxosAtom),
+    selectedRefs: get(consolidateWalletInputsAtom), utxos: get(spendableWalletUtxosAtom),
     poolAssets: get(beneficiaryPreparationPoolAssetsAtom), walletAddress: address,
     nowMs: get(renderNowMsAtom), protocolParams: current?.params ?? null,
     loading: get(lockedContractUtxosLoadingAtom), discoveryError: get(lockedContractUtxosErrorAtom),

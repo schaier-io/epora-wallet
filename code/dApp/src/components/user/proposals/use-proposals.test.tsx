@@ -119,3 +119,38 @@ it("deduplicates the same signed-in proposal list across observers", async () =>
   await waitFor(() => expect(result.current.every((query) => query.proposals.length === 1)).toBe(true));
   expect(client.listProposals).toHaveBeenCalledTimes(1);
 });
+
+import { paginateProposalRows, encodeProposalCursor, decodeProposalCursor, proposalListSegment } from "@/lib/proposals/list-pagination";
+it("shows each proposal once when an already loaded active row becomes terminal", async () => {
+ const rows = Array.from({length: 26}, (_, i) => proposal(`p${String(26-i).padStart(2, "0")}`));
+ client.listProposals.mockImplementation(async ({cursor}: { cursor?: string }) => {
+   const page = await paginateProposalRows({limit: 25, cursor: cursor ? decodeProposalCursor(cursor)! : undefined}, async ({segment, before, take}) => rows.filter(row => proposalListSegment(row.status) === segment && (!before || row.id < before.id)).slice(0, take));
+   return {proposals: page.rows.map(row => ({...row})), nextCursor: page.nextCursor ? encodeProposalCursor(page.nextCursor) : null};
+ });
+ const {result} = renderHook(() => useProposals(true, "signer"));
+ await waitFor(() => expect(result.current.proposals).toHaveLength(25));
+ rows[0]!.status = "CANCELLED";
+ await act(async () => { await result.current.loadMore(); });
+ await waitFor(() => expect(result.current.hasMore).toBe(false));
+ expect(result.current.proposals.map(row => `${row.id}:${row.status}`)).toEqual(expect.arrayContaining(["p26:CANCELLED"]));
+ expect(result.current.proposals).toHaveLength(new Set(result.current.proposals.map(row => row.id)).size);
+});
+
+
+it("keeps the newer duplicate and preserves active-before-terminal ordering", async () => {
+  const newer = { ...proposal("new"), updatedAt: "2026-08-03T00:00:00.000Z" };
+  client.listProposals.mockReset()
+    .mockResolvedValueOnce({ proposals: [newer, proposal("old")], nextCursor: "next" })
+    .mockResolvedValueOnce({ proposals: [
+      { ...proposal("new"), status: "CANCELLED", updatedAt: "2026-08-02T00:00:00.000Z" },
+      { ...proposal("old"), status: "CANCELLED", updatedAt: "2026-08-04T00:00:00.000Z" },
+      proposal("last")
+    ], nextCursor: null });
+  const { result } = renderHook(() => useProposals(true, "signer"));
+  await waitFor(() => expect(result.current.hasMore).toBe(true));
+  await act(async () => result.current.loadMore());
+  await waitFor(() => expect(result.current.hasMore).toBe(false));
+  expect(result.current.proposals.map(({ id, status }) => [id, status])).toEqual([
+    ["new", "OPEN"], ["last", "OPEN"], ["old", "CANCELLED"]
+  ]);
+});

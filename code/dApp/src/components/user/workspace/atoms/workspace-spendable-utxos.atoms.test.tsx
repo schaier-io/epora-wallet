@@ -9,6 +9,8 @@ import { routeStateAtom } from "./workspace-route.atoms";
 import { spendableWalletUtxosAtom } from "./workspace-spendable-utxos.atoms";
 import { recoveryCapacitySignatureAtom } from "./recovery-capacity.atoms";
 import { resetAllFlowAtom } from "./transaction-flow.atoms";
+import { beneficiaryPreparationActiveAtom } from "./forms/consolidate-form.atoms";
+import { consolidateAuthorityPathAtom } from "./forms/stt-spend-form.atoms";
 
 function setup() {
   const store = createStore();
@@ -42,4 +44,26 @@ it("clears the selected orphan draft on workspace reset", () => {
   const store = setup();
   store.set(resetAllFlowAtom);
   expect(store.get(selectedOrphanInputsAtom)).toBeNull();
+});
+
+it("includes orphan values only in the current beneficiary preparation scope", () => {
+  const enterPreparation = () => {
+    const store = setup();
+    store.set(routeStateAtom, { ...store.get(routeStateAtom), selectedAction: "consolidate-utxo" });
+    store.set(beneficiaryPreparationActiveAtom, true);
+    store.set(consolidateAuthorityPathAtom, "beneficiary");
+    return store;
+  };
+  expect(enterPreparation().get(spendableWalletUtxosAtom)).toHaveLength(2);
+  for (const leaveScope of [
+    (store: ReturnType<typeof createStore>) => store.set(activeAddressAtom, "signer-b"),
+    (store: ReturnType<typeof createStore>) => store.set(routeStateAtom, { ...store.get(routeStateAtom), selectedWalletUnit: "wallet-b" }),
+    (store: ReturnType<typeof createStore>) => store.set(routeStateAtom, { ...store.get(routeStateAtom), selectedAction: "use" }),
+    (store: ReturnType<typeof createStore>) => store.set(beneficiaryPreparationActiveAtom, false),
+    (store: ReturnType<typeof createStore>) => store.set(consolidateAuthorityPathAtom, "admin")
+  ]) {
+    const store = enterPreparation();
+    leaveScope(store);
+    expect(store.get(spendableWalletUtxosAtom)).toEqual(store.get(lockedContractUtxosAtom));
+  }
 });

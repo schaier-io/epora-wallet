@@ -39,6 +39,7 @@ export async function runPayeeCollect(input: {
   /** The connected wallet's payment key hash: the crank's required signer. */
   payeePaymentKeyHash: string;
   nowMs: number;
+  assertCurrent?: () => void | Promise<void>;
   /** Explicit user review for build warnings before the wallet signs. */
   confirmWarnings?: (warnings: readonly string[]) => boolean | Promise<boolean>;
 }): Promise<PayeeCollectOutcome> {
@@ -48,7 +49,8 @@ export async function runPayeeCollect(input: {
     stateDatum,
     payeePaymentKeyHash,
     nowMs,
-    confirmWarnings
+    confirmWarnings,
+    assertCurrent
   } = input;
 
   if (!payeePaymentKeyHash.trim()) {
@@ -57,6 +59,7 @@ export async function runPayeeCollect(input: {
     );
   }
 
+  await assertCurrent?.();
   const validityWindow = getValidityWindow(nowMs);
   const signerKeyHashes = [payeePaymentKeyHash];
   if (
@@ -80,6 +83,7 @@ export async function runPayeeCollect(input: {
     stateDatum
   });
   const lockedUtxos = await fetchScriptUtxos(walletAddress);
+  await assertCurrent?.();
 
   const plan = planPayeeCollect(payment, lockedUtxos, validityWindow, {
     bypassCooldown: crankSignersBypassCooldown(
@@ -114,6 +118,7 @@ export async function runPayeeCollect(input: {
     validityWindowReferenceTimeMs: nowMs
   });
 
+  await assertCurrent?.();
   if (build.warnings?.length) {
     const approved = confirmWarnings
       ? await confirmWarnings(build.warnings)
@@ -123,6 +128,7 @@ export async function runPayeeCollect(input: {
     }
   }
 
-  const txHash = await signAndSubmitTx(wallet, build.txHex);
+  await assertCurrent?.();
+  const txHash = await signAndSubmitTx(wallet, build.txHex, { assertCurrent });
   return { status: "submitted", txHash };
 }

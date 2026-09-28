@@ -3,7 +3,7 @@ import { assertBeneficiaryWithdrawalReviewCurrent } from "./beneficiary-withdraw
 import { assertPreparedTransactionFresh } from "@/lib/mesh/transactions/prepared-transaction-freshness";
 import { queryClientAtom } from "jotai-tanstack-query";
 import { isWorkspaceBuildResultExpired } from "./workspace-build-expiry";
-import { invalidateBuildAtom } from "./atoms/transaction-flow.atoms";
+import { buildRunAtom, invalidateBuildAtom } from "./atoms/transaction-flow.atoms";
 import { txInfoQueryOptions } from "@/lib/query/chain";
 import { invalidateChainQueries } from "@/lib/query/invalidation";
 import { beneficiaryPreparationActiveAtom, consolidateWalletInputsAtom } from "./atoms/forms/consolidate-form.atoms";
@@ -19,7 +19,7 @@ import {
   resolveSpentSttRef,
 } from "@/components/user/workspace/atoms/wallet-state-update.atoms";
 import { resetLockFundsFormAtom } from "@/components/user/workspace/atoms/forms/lock-funds-form.atoms";
-import { resetTransferFormAtom } from "@/components/user/workspace/atoms/forms/transfer-form.atoms";
+import { resetTransferFormAtom, transferRecipientModeAtom, transferCustomAddressAtom, transferSelectedUnitAtom, transferDisplayAmountAtom } from "@/components/user/workspace/atoms/forms/transfer-form.atoms";
 import { sttExtraTransfersAtom, sttWalletInputsAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { selectedOrphanInputsAtom } from "./atoms/forms/orphan-inputs.atoms";
 import {
@@ -28,7 +28,7 @@ import {
   SUBMIT_CONFIRMATION_MAX_ATTEMPTS,
   SUBMIT_CONFIRMATION_POLL_MS
 } from "@/components/user/workspace/constants";
-import { formatBuildError, waitFor } from "@/components/user/workspace/helpers";
+import { formatBuildError, safeStringify, waitFor } from "@/components/user/workspace/helpers";
 import { OwnedMessageError } from "./helpers/build-errors";
 import type { resolveWorkspaceTransactionInputs } from "@/components/user/workspace/workspace-transaction-inputs";
 import { schedulePostSubmitRefresh } from "@/components/user/workspace/workspace-transaction-refresh";
@@ -224,6 +224,14 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
       ...jotaiStore.get(walletStateSubmissionsAtom), [submissionUnit]: true
     });
     const submittedOrphanDraft = jotaiStore.get(selectedOrphanInputsAtom);
+    // Broadcasting can outlive the reviewed draft. Include raw editor text because
+    // the transaction snapshot normalizes amounts and recipient addresses.
+    const readDraftSnapshot = () => safeStringify([
+      jotaiStore.get(workspaceTransactionSnapshotAtom), jotaiStore.get(buildRunAtom),
+      jotaiStore.get(transferRecipientModeAtom), jotaiStore.get(transferCustomAddressAtom),
+      jotaiStore.get(transferSelectedUnitAtom), jotaiStore.get(transferDisplayAmountAtom)
+    ]);
+    const submittedDraftSnapshot = readDraftSnapshot();
     let txHash: string;
     try {
       const submissionOwner: WorkspaceSubmissionOwnership | undefined = submissionUnit
@@ -314,6 +322,7 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
     }
 
     if (!isCurrent()) return;
+    const mayClearSubmittedDraft = readDraftSnapshot() === submittedDraftSnapshot;
     if (selectedAction === "use-beneficiary" && jotaiStore.get(selectedOrphanInputsAtom) === submittedOrphanDraft) {
       jotaiStore.set(selectedOrphanInputsAtom, null);
     }
@@ -337,6 +346,7 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
       // send re-aims the next payout at the signer's own wallet, which is the default
       // `transfer-form.atoms.ts` deliberately removed on a wallet with several owners.
       runPostSubmitTask("clear-payouts", () => {
+        if (!mayClearSubmittedDraft) return;
         jotaiStore.set(sttExtraTransfersAtom, []);
         jotaiStore.set(resetTransferFormAtom);
       });
@@ -347,7 +357,7 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
     if (selectedAction === "distribute-beneficiaries") {
       runPostSubmitTask("clear-distributed-input", () => jotaiStore.set(sttWalletInputsAtom, []));
     }
-    if (selectedAction === "lock-funds") {
+    if (selectedAction === "lock-funds" && mayClearSubmittedDraft) {
       // Same reason: the receipt read "You are adding 10 ₳ to the selected wallet."
       // after the 10 ₳ had already been locked.
       runPostSubmitTask("clear-lock-funds", () => jotaiStore.set(resetLockFundsFormAtom));

@@ -5,6 +5,7 @@ import { fireEvent, render as queryRender, screen, waitFor, within } from "@test
 const render = (callback: ReactNode, options?: RenderOptions) => queryRender(callback, { wrapper: createQueryTestWrapper().wrapper, ...options });
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { StashedProposalDraft } from "./stash";
+import type * as Rebuild from "@/lib/proposals/rebuild";
 
 const stash = vi.hoisted(() => ({
   draft: null as StashedProposalDraft | null,
@@ -28,7 +29,10 @@ vi.mock("@/lib/proposals/client", () => ({
 vi.mock("@/lib/proposals/serialization", () => ({
   resolveProposalBodyHash: () => "bb".repeat(32)
 }));
-vi.mock("@/lib/proposals/rebuild", () => ({ buildProposalTx: builder.build }));
+vi.mock("@/lib/proposals/rebuild", async (importOriginal) => ({
+  ...await importOriginal<typeof Rebuild>(),
+  buildProposalTx: builder.build
+}));
 vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams("wallet=unit-1")
 }));
@@ -40,6 +44,7 @@ import { createDefaultStateForm, type UserFormState } from "@/lib/contracts/stat
 import type { CreateProposalRequest, ProposalBuildContext } from "@/lib/proposals/types";
 import { CreateProposalPanel } from "./create-proposal-panel";
 import { proposalKeys } from "@/lib/proposals/query";
+import { getValidityWindow } from "@/lib/mesh/transactions/internals/core";
 
 const PROPOSER = "aa".repeat(28);
 const OTHER = "bb".repeat(28);
@@ -60,7 +65,9 @@ function user(id: string, wallet: string, power: string): UserFormState {
 }
 
 // A multisig draft whose proposer holds 2 of the 3 required power on their own.
-function multisigDraft(): StashedProposalDraft {
+type SttBuildContext = Extract<ProposalBuildContext, { builder: "stt-spend" }>;
+
+function multisigDraft(): StashedProposalDraft & { buildContext: SttBuildContext } {
   const stateForm = createDefaultStateForm();
   stateForm.multiSigThresholdMode = "some";
   stateForm.multiSigThreshold = "3";
@@ -75,7 +82,7 @@ function multisigDraft(): StashedProposalDraft {
     } as unknown as ProposalBuildContext,
     proposerKeyHash: PROPOSER,
     stateForm
-  });
+  }) as StashedProposalDraft & { buildContext: SttBuildContext };
 }
 
 function draft(overrides: Partial<StashedProposalDraft> = {}): StashedProposalDraft {
@@ -220,16 +227,45 @@ describe("choosing who signs", () => {
     });
   });
 
+  it("rebuilds selected co-signers with a fresh validity window without changing the draft", async () => {
+    const original = multisigDraft();
+    const staleTime = Date.now() - 60 * 60_000;
+    original.buildContext.input.validityWindowReferenceTimeMs = staleTime;
+    stash.draft = original;
+    renderPanel();
+    fireEvent.click(screen.getByRole("checkbox"));
+    fireEvent.click(screen.getByRole("button", { name: /save request/i }));
+
+    await waitFor(() => expect(client.create).toHaveBeenCalledTimes(1));
+    const rebuiltContext = builder.build.mock.calls[0]![1] as SttBuildContext;
+    expect(getValidityWindow(rebuiltContext.input.validityWindowReferenceTimeMs).latestTimeMs)
+      .toBeGreaterThan(Date.now());
+    expect(rebuiltContext.input.validityWindowReferenceTimeMs).toBeUndefined();
+    expect(rebuiltContext.input).toEqual({
+      sttInputTxHash: "11".repeat(32),
+      requiredSignerKeyHashes: [OTHER]
+    });
+    const body = client.create.mock.calls[0]![0] as CreateProposalRequest;
+    expect(body.buildContext).toBe(rebuiltContext);
+    expect(original.buildContext.input.validityWindowReferenceTimeMs).toBe(staleTime);
+    expect(original.unsignedTxHex).toBe("80");
+  });
+
   it("saves the stashed transaction as it is when nobody else is listed", async () => {
     const own = multisigDraft();
     own.stateForm!.multiSigThreshold = "2";
+    const staleTime = Date.now() - 60 * 60_000;
+    own.buildContext.input.validityWindowReferenceTimeMs = staleTime;
     stash.draft = own;
     renderPanel();
     fireEvent.click(screen.getByRole("button", { name: /save request/i }));
 
     await waitFor(() => expect(client.create).toHaveBeenCalledTimes(1));
     expect(builder.build).not.toHaveBeenCalled();
-    expect(client.create).toHaveBeenCalledWith(expect.objectContaining({ unsignedTxHex: "80" }));
+    expect(client.create).toHaveBeenCalledWith(expect.objectContaining({
+      unsignedTxHex: "80", buildContext: own.buildContext
+    }));
+    expect(own.buildContext.input.validityWindowReferenceTimeMs).toBe(staleTime);
   });
 
   it("refuses to rebuild under a wallet other than the one that built the draft", async () => {

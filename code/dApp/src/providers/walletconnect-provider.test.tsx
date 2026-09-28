@@ -57,6 +57,47 @@ beforeEach(() => {
   mocks.disconnect.mockClear();
 });
 
+it("does not restore a saved session after a pending pairing was cancelled", async () => {
+  let ready!: (value: typeof signClient) => void;
+  mocks.getSignClient.mockReturnValue(new Promise((resolve) => { ready = resolve; }));
+  mocks.sessions = [{ topic: "saved" }];
+  render(<WalletConnectProvider><Probe /></WalletConnectProvider>);
+  await act(async () => { screen.getByRole("button", { name: "pair" }).click(); });
+  await act(async () => { screen.getByRole("button", { name: "cancel" }).click(); });
+  await act(async () => { ready(signClient); });
+
+  expect(screen.getByTestId("status").textContent).toBe("idle");
+  expect(screen.getByTestId("topic").textContent).toBe("none");
+  expect(mocks.connect).not.toHaveBeenCalled();
+  expect(mocks.listeners.has("session_update")).toBe(true);
+});
+
+it("does not replace a newer explicit connection with a delayed restore", async () => {
+  let restoreReady!: (value: typeof signClient) => void;
+  mocks.getSignClient.mockReturnValueOnce(new Promise((resolve) => { restoreReady = resolve; }));
+  mocks.sessions = [{ topic: "saved" }];
+  mocks.connect.mockResolvedValue({ uri: "wc:new@2", approval: async () => ({ topic: "new" }) });
+  render(<WalletConnectProvider><Probe /></WalletConnectProvider>);
+  await act(async () => { screen.getByRole("button", { name: "pair" }).click(); });
+  expect(screen.getByTestId("topic").textContent).toBe("new");
+  await act(async () => { restoreReady(signClient); });
+
+  expect(screen.getByTestId("status").textContent).toBe("connected");
+  expect(screen.getByTestId("topic").textContent).toBe("new");
+  expect(mocks.listeners.has("session_update")).toBe(true);
+});
+
+it("keeps a delayed restore error off screen after cancellation", async () => {
+  let rejectRestore!: (reason: Error) => void;
+  mocks.getSignClient.mockReturnValueOnce(new Promise((_, reject) => { rejectRestore = reject; }));
+  render(<WalletConnectProvider><Probe /></WalletConnectProvider>);
+  await act(async () => { screen.getByRole("button", { name: "cancel" }).click(); });
+  await act(async () => { rejectRestore(new Error("restore failed")); });
+
+  expect(screen.getByTestId("status").textContent).toBe("idle");
+  expect(screen.getByTestId("error").textContent).toBe("");
+});
+
 it("removes its singleton client listeners when the provider unmounts", async () => {
   const view = render(
     <WalletConnectProvider>

@@ -1,6 +1,6 @@
 "use client";
-import { beneficiaryPreparationActiveAtom } from "./atoms/forms/consolidate-form.atoms";
 import { RecoveryFallbackView } from "./recovery-fallback-view";
+
 import { useTranslations } from "next-intl";
 
 import { activeBuildAtom, activeSubmitAtom, buildDiagnosticIdAtom, buildErrorAtom, buildErrorExpectedAtom, buildErrorStaleInputsAtom, previewAtom, submitConfirmedAtom, submitHashAtom, workspaceSessionAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
@@ -31,7 +31,6 @@ export function WorkspaceReviewRailView() {
   const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceReviewRailView");
   const proposalI18n = useTranslations("ComponentsUserProposalsReviewDock");
   const state = useWorkspaceActions();
-  const preparationEnabled = useAtomValue(beneficiaryPreparationActiveAtom);
   const activeBuild = useAtomValue(activeBuildAtom);
   const activeSubmit = useAtomValue(activeSubmitAtom);
   const session = useAtomValue(workspaceSessionAtom);
@@ -42,7 +41,6 @@ export function WorkspaceReviewRailView() {
   const preview = useAtomValue(previewAtom);
   const activeInferredSttStateForm = useAtomValue(activeInferredSttStateFormAtom);
   const selectedAction = useAtomValue(selectedActionAtom);
-  const preparationActive = preparationEnabled && selectedAction === "consolidate-utxo";
   const selectedWizardActionDescriptor = useAtomValue(selectedWizardActionDescriptorAtom);
   const submitHash = useAtomValue(submitHashAtom);
   const signingActions = useAtomValue(selectedSigningActionAvailabilityAtom);
@@ -59,7 +57,6 @@ export function WorkspaceReviewRailView() {
     blockingReadinessIssues,
     buildAndSubmitSelectedActionTx,
     buildSelectedActionTx,
-    submitTransactionPreview,
     handleSaveProposalFromBuild,
     lastActionDisplayLabel,
     previewMatchesSelectedAction,
@@ -75,32 +72,15 @@ export function WorkspaceReviewRailView() {
     action: typeof selectedAction; session: typeof session;
   } | null>(null);
   const directActionPending = clickedAction?.action === selectedAction && clickedAction.session === session;
-  const reviewBeforeSigning =
-    preparationActive ||
-    selectedAction === "use-beneficiary" ||
-    selectedAction === "stop-beneficiary-stream" ||
-    selectedAction === "distribute-beneficiaries" ||
-    selectedAction === "use" ||
-    selectedAction === "wallet-withdraw" ||
-    selectedAction === "update-state" ||
-    selectedAction === "mint" ||
-    selectedAction === "lock-funds" ||
-    selectedAction === "set-intended-stake-credential";
 
+  // One press builds (or reuses the still-current prepared transaction) and then
+  // signs; the wallet prompt is the confirmation step.
   async function runDirectAction() {
     if (directActionPending || preparingProposal || activeSubmit || walletStateUpdating || reviewPrimaryActionDisabled) return;
     const click = { action: selectedAction, session };
     setClickedAction(click);
     try {
-      if (reviewBeforeSigning) {
-        if (previewMatchesSelectedAction && preview?.txHex) {
-          await submitTransactionPreview(preview);
-        } else {
-          await buildSelectedActionTx(signingActions.directAuthorityPath ?? undefined);
-        }
-      } else {
-        await buildAndSubmitSelectedActionTx(signingActions.directAuthorityPath ?? undefined);
-      }
+      await buildAndSubmitSelectedActionTx(signingActions.directAuthorityPath ?? undefined);
     } finally {
       setClickedAction(current => current === click ? null : current);
     }
@@ -254,29 +234,13 @@ export function WorkspaceReviewRailView() {
                     submitConfirmed={submitConfirmed}
                     lastActionLabel={lastActionDisplayLabel}
                     isBuilding={approvalOnly ? preparingProposal : directActionPending && !activeSubmit}
-                    autoSignPending={!approvalOnly && !reviewBeforeSigning && directActionPending}
+                    autoSignPending={!approvalOnly && directActionPending}
                     isSubmitting={activeSubmit}
                     primaryActionLabel={
                       walletStateUpdating ? i18n("updatingWalletState")
                         : approvalOnly ? approvalActionLabel
                         : directActionPending && !activeSubmit ? proposalI18n("preparing")
-                        : preparationActive
-                          ? previewMatchesSelectedAction && preview?.txHex
-                            ? i18n("confirmPreparation") : i18n("previewPreparation")
-                        : selectedAction === "distribute-beneficiaries"
-                          ? previewMatchesSelectedAction && preview?.txHex
-                            ? i18n("confirmDistribution") : i18n("previewDistribution")
-                        : selectedAction === "stop-beneficiary-stream"
-                          ? previewMatchesSelectedAction && preview?.txHex
-                            ? i18n("confirmStreamStop") : i18n("previewStreamStop")
-                        : selectedAction === "use-beneficiary"
-                          ? previewMatchesSelectedAction && preview?.txHex
-                            ? i18n("confirmBeneficiaryWithdrawal") : i18n("previewBeneficiaryWithdrawal")
-                        : reviewBeforeSigning
-                          ? previewMatchesSelectedAction && preview?.txHex
-                            ? i18n("confirmAction", { action: activeActionDefinition.label })
-                            : i18n("previewAction", { action: activeActionDefinition.label })
-                          : reviewPrimaryActionLabel
+                        : reviewPrimaryActionLabel
                     }
                     primaryActionKind={approvalOnly ? "approval" : "direct"}
                     primaryActionDisabled={

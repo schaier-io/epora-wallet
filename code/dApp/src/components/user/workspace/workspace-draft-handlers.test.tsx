@@ -9,11 +9,14 @@ import {
   sttInputOutputIndexAtom,
   sttInputTxHashAtom,
   sttStateFormAtom,
+  sttProofOfLifeOverrideModeAtom,
+  sttProofOfLifeSpecificDateTimeAtom,
   sttWalletInputsAtom
 } from "./atoms/forms/stt-spend-form.atoms";
 import { useWorkspaceDraftHandlers } from "./workspace-draft-handlers";
+import { withdrawAmountAtom, withdrawRewardAddressAtom } from "./atoms/forms/withdraw-form.atoms";
 
-describe("beneficiary stream stop draft", () => {
+describe.each(["stop-beneficiary-stream", "renew-proof-of-life"] as const)("%s draft", action => {
   it.each(["resetActionDraft", "clearActionDraft"] as const)(
     "%s reloads the detected STT after a previous spend",
     (method) => {
@@ -22,6 +25,10 @@ describe("beneficiary stream stop draft", () => {
       store.set(sttInputOutputIndexAtom, "0");
       store.set(beneficiaryStreamStopIdAtom, "7");
       store.set(sttWalletInputsAtom, [{ txHash: "33".repeat(32), outputIndex: 0 }]);
+      store.set(sttProofOfLifeOverrideModeAtom, "specific");
+      store.set(sttProofOfLifeSpecificDateTimeAtom, "2030-01-01T00:00");
+      store.set(withdrawAmountAtom, "12345");
+      store.set(withdrawRewardAddressAtom, "stake_test_saved");
       const currentForm = { ...createDefaultStateForm(), walletName: "Current wallet" };
       const selectedDetectedToken: DetectedSttToken = {
         policyId: "44".repeat(28), assetNameHex: "01", unit: `${"44".repeat(28)}01`,
@@ -44,12 +51,16 @@ describe("beneficiary stream stop draft", () => {
         wrapper: ({ children }: { children: ReactNode }) => <Provider store={store}>{children}</Provider>
       });
 
-      act(() => result.current[method]("stop-beneficiary-stream"));
+      act(() => result.current[method](action));
 
       expect(store.get(sttInputTxHashAtom)).toBe(selectedDetectedToken.utxo.input.txHash);
       expect(store.get(sttInputOutputIndexAtom)).toBe("2");
       expect(store.get(sttStateFormAtom)).toEqual(currentForm);
-      expect(store.get(beneficiaryStreamStopIdAtom)).toBe("");
+      if (action === "stop-beneficiary-stream") expect(store.get(beneficiaryStreamStopIdAtom)).toBe("");
+      expect(store.get(sttProofOfLifeOverrideModeAtom)).toBe("auto");
+      expect(store.get(sttProofOfLifeSpecificDateTimeAtom)).toBe("");
+      expect(store.get(withdrawAmountAtom)).toBe("12345");
+      expect(store.get(withdrawRewardAddressAtom)).toBe("stake_test_saved");
       expect(store.get(sttWalletInputsAtom)).toEqual([]);
       expect(clearPreviewResult).toHaveBeenCalledOnce();
       expect(clearBuildMessages).toHaveBeenCalledOnce();

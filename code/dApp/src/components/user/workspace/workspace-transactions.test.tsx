@@ -69,6 +69,9 @@ beforeEach(() => {
   mocks.signAndSubmitTx.mockReset().mockResolvedValue("ff".repeat(32));
   mocks.buildPreparation.mockReset();
   mocks.freshness.mockReset().mockResolvedValue(undefined);
+  // Submitting with a detected token persists a pending wallet-state record; a
+  // later test's fresh store would otherwise hydrate it and read as "updating".
+  window.localStorage.clear();
 });
 
 function detectedToken(datum: ConstrData | null): NonNullable<WorkspaceTransactionsCtx["selectedDetectedToken"]> {
@@ -154,12 +157,13 @@ it("a stop target edit during build cannot lead to signing", async () => {
   expect(setBuildError).toHaveBeenCalledWith(expect.stringMatching(/stale/i));
 });
 
-it("a stop build always returns for explicit confirmation before signing", async () => {
-  const { ctx } = contextFor(createStore(), null);
+it("a stop build signs in the same press when the draft held still", async () => {
+  const { ctx, setBuildError } = contextFor(createStore(), null);
   ctx.selectedAction = "stop-beneficiary-stream";
   ctx.effectiveSttAction = "stop-beneficiary-stream";
   await createWorkspaceTransactions(ctx).buildAndSubmitSelectedActionTx();
-  expect(mocks.signAndSubmitTx).not.toHaveBeenCalled();
+  expect(mocks.signAndSubmitTx).toHaveBeenCalledWith({}, "84a1", { assertCurrent: expect.any(Function) as unknown });
+  expect(setBuildError).not.toHaveBeenCalledWith(expect.anything());
 });
 
 it("an exact input edit during build cannot lead to signing", async () => {
@@ -171,20 +175,33 @@ it("an exact input edit during build cannot lead to signing", async () => {
   expect(mocks.signAndSubmitTx).not.toHaveBeenCalled();
   expect(setBuildError).toHaveBeenCalledWith(expect.stringMatching(/stale/i));
 });
-it("exact distribution returns for explicit confirmation before signing", async () => {
-  const { ctx } = contextFor(createStore(), null);
+it("exact distribution signs in the same press when the draft held still", async () => {
+  const { ctx, setBuildError } = contextFor(createStore(), null);
   ctx.selectedAction = "distribute-beneficiaries";
   ctx.effectiveSttAction = "distribute-beneficiaries";
   await createWorkspaceTransactions(ctx).buildAndSubmitSelectedActionTx();
-  expect(mocks.signAndSubmitTx).not.toHaveBeenCalled();
+  expect(mocks.signAndSubmitTx).toHaveBeenCalledWith({}, "84a1", { assertCurrent: expect.any(Function) as unknown });
+  expect(setBuildError).not.toHaveBeenCalledWith(expect.anything());
 });
 
-it("preparation always returns for a separate confirmation before signing", async () => {
-  const store = createStore(); store.set(beneficiaryPreparationActiveAtom, true);
-  const { ctx } = contextFor(store, null);
+it("preparation signs in the same press when the draft held still", async () => {
+  const store = createStore();
+  store.set(beneficiaryPreparationActiveAtom, true);
+  store.set(beneficiaryPreparationPoolAssetsAtom, [{ unit: "lovelace", quantity: "3000000" }]);
+  store.set(consolidateSttInputHashAtom, "aa".repeat(32));
+  store.set(consolidateSttInputIndexAtom, "1");
+  store.set(consolidateWalletInputsAtom, [{ txHash: "bb".repeat(32), outputIndex: 0 }]);
+  const { ctx, setBuildError } = contextFor(store, null);
   ctx.selectedAction = "consolidate-utxo"; ctx.effectiveSttAction = "consolidate-utxo";
+  ctx.activePaymentKeyHash = "11".repeat(28);
+  ctx.activeInferredSttStateForm = createDefaultStateForm();
+  ctx.selectedDetectedToken = detectedToken(stateFormToDatum(ctx.activeInferredSttStateForm));
+  ctx.withBuildGuard = (_label, run) => run({ wallet: ctx.activeWallet! });
+  mocks.buildPreparation.mockResolvedValueOnce({ txHex: "prepared" });
   await createWorkspaceTransactions(ctx).buildAndSubmitSelectedActionTx();
-  expect(mocks.signAndSubmitTx).not.toHaveBeenCalled();
+  expect(mocks.signAndSubmitTx).toHaveBeenCalledWith({}, "prepared",
+    expect.objectContaining({ assertCurrent: expect.any(Function) as unknown }));
+  expect(setBuildError).not.toHaveBeenCalledWith(expect.anything());
 });
 it("editing the requested preparation pool during build prevents signing", async () => {
   const store = createStore(); store.set(beneficiaryPreparationActiveAtom, true);
