@@ -428,10 +428,10 @@ export function deriveAssetName(referenceUtxo: { txHash: string; outputIndex: nu
 // A zero-quantity row carries no value, but Mesh's `toValue` writes it into the
 // multiasset map verbatim and the ledger rejects outputs holding zero-quantity
 // assets, so a row the editors seed as "0" and never fill in fails the
-// transaction after signing. Drop them the way the mint path does. Callers pass
-// rows that already passed `assertValidAssetList`, so quantities are integers.
+// transaction after signing. Drop them the way the mint path does. Only an
+// all-zeros quantity drops; anything malformed stays for the guards to refuse.
 export function dropZeroQuantityAssets(assets: Asset[]) {
-  return assets.filter((asset) => BigInt(asset.quantity) !== 0n);
+  return assets.filter((asset) => !/^0+$/.test(asset.quantity.trim()));
 }
 
 export function normalizeMintStarterAssets(

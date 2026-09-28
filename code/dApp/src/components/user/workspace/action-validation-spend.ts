@@ -348,7 +348,6 @@ export function computeSpendActionErrors(
     pushFieldError(useAllowanceErrors, i18n("limitedWithdrawal"), useAllowancePreview.error);
   }
   try {
-    serializeWalletOutputs(sttWalletOutputs);
     serializeTransfers(sttExtraTransfers);
   } catch (error) {
     pushFieldError(

@@ -65,10 +65,11 @@ export function serializeWalletOutputs(
     const amount = output.amount.filter(
       (asset) => asset.unit.trim().length > 0 && hasPositiveQuantity(asset.quantity)
     );
-    // An output whose every row was zero is not an output: an empty value list
-    // fails min-UTxO downstream with a message that names nothing the user did.
-    // Refuse it here instead, where the validation probes turn the throw into a
-    // field error naming the row.
+    // An output with no positive row has no amount the user chose. Mesh would
+    // not fail it: `sanitizeOutputs` tops any output without lovelace up to min
+    // ADA, so it would silently send ADA nobody entered. This also refuses an
+    // output that had no rows at all. The validation probes turn the throw into
+    // a field error naming the row.
     if (amount.length === 0) {
       throw new Error(`Locked output ${index + 1} needs an amount greater than zero.`);
     }

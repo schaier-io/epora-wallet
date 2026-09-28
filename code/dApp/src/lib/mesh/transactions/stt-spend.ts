@@ -2,7 +2,7 @@ import { buildBeneficiaryDistributionTx } from "./beneficiary-distribution";
 import { readCallerForwardedState, validateSttSpendInput } from "./internals/stt-spend-preflight";
 import { deriveSttSpendActionState } from "./stt-spend-action-state";
 import { resolveStreamingPayoutFundingSource } from "./stt-spend-payout";
-import { WALLET_SPEND_VALIDATOR, addExtraRequiredSigners, buildTransactionWithReestimatedLimits, classifyStreamingPayoutBatch, createInputRefKey, createStateForwarding, createStreamingPayoutBuild, createTxPreview, decodeConstrDatumFromUtxo, ensureUniqueWalletInputRefs, resolveExactWalletInputUtxos, resolveStreamingAdaPayoutTopUps, runStateForwarding, getValidityWindow, mergeAssetLists, mergeAssetsByUnit, mergeRestrictedSttAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, setupTransaction, subtractSelectedInputRemainder, validateForwardedStateDatum, withStage } from "./internals";
+import { WALLET_SPEND_VALIDATOR, dropZeroQuantityAssets, addExtraRequiredSigners, buildTransactionWithReestimatedLimits, classifyStreamingPayoutBatch, createInputRefKey, createStateForwarding, createStreamingPayoutBuild, createTxPreview, decodeConstrDatumFromUtxo, ensureUniqueWalletInputRefs, resolveExactWalletInputUtxos, resolveStreamingAdaPayoutTopUps, runStateForwarding, getValidityWindow, mergeAssetLists, mergeAssetsByUnit, mergeRestrictedSttAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, setupTransaction, subtractSelectedInputRemainder, validateForwardedStateDatum, withStage } from "./internals";
 import { prepareManagedStreamingPayments } from "./internals/streaming-asset-proof";
 import { validateBeneficiaryDestinations } from "@/lib/contracts/state-validation-streaming";
 import { type OnChainStructuredAction, buildSttSpendRedeemerData, buildWalletSpendRedeemerData, resolveStructuredOnChainAction } from "@/lib/contracts/action-data";
@@ -257,7 +257,7 @@ export async function buildSttSpendTx(
             for (const walletOutput of walletOutputs) {
               tx.sendAssets(
                 recipientWithOptionalInlineDatum(walletAddress, walletOutput.inlineDatum),
-                walletOutput.amount
+                dropZeroQuantityAssets(walletOutput.amount)
               );
             }
 
@@ -355,7 +355,7 @@ export async function buildSttSpendTx(
                       transfer.address,
                       transfer.inlineDatum
                     ),
-                    transfer.amount
+                    dropZeroQuantityAssets(transfer.amount)
                   );
                   continue;
                 }
