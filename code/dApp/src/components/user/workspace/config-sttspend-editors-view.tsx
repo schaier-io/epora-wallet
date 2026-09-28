@@ -284,7 +284,9 @@ export function SttSpendEditorsView() {
                               id={`userSttTransferAmountInput-${controlId}`}
                               value={currentValue}
                               onChange={(text) => {
-                                const parsed = parseAdaToLovelace(text);
+                                // An emptied box means zero, as it did for the raw input;
+                                // skipping it left the old amount staged.
+                                const parsed = text.trim() === "" ? "0" : parseAdaToLovelace(text);
                                 if (parsed !== null) {
                                   updateSttTransferAmount(asset.unit, parsed, asset.quantity);
                                 }

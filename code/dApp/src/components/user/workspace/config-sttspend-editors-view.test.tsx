@@ -14,7 +14,9 @@ const holder = vi.hoisted(() => ({
   unlockTime: undefined as number | null | undefined,
   sttWalletInputs: [] as Array<{ txHash: string; outputIndex: number }>,
   consolidateWalletInputs: [] as Array<{ txHash: string; outputIndex: number }>,
-  refreshLockedContractUtxos: vi.fn()
+  refreshLockedContractUtxos: vi.fn(),
+  transferAssets: [] as Array<{ unit: string; quantity: string }>,
+  updateSttTransferAmount: vi.fn()
 }));
 
 // The selector, the manual ref editor, and the date field are surfaces of their own (E11,
@@ -89,6 +91,17 @@ vi.mock(
   }
 );
 
+vi.mock(
+  "@/components/user/workspace/atoms/workspace-transfer-derivations.atoms",
+  async (importOriginal) => {
+    const { atom } = await import("jotai");
+    return {
+      ...(await importOriginal<Record<string, unknown>>()),
+      availableLockedTransferAssetsAtom: atom(() => holder.transferAssets)
+    };
+  }
+);
+
 vi.mock("@/components/user/workspace/workspace-actions-context", () => ({
   useWorkspaceActions: () => ({
     activeFieldErrors: {},
@@ -96,7 +109,7 @@ vi.mock("@/components/user/workspace/workspace-actions-context", () => ({
     addSttTransferRecipient: vi.fn(),
     applySuggestedLockedInputs: vi.fn(),
     refreshLockedContractUtxos: holder.refreshLockedContractUtxos,
-    updateSttTransferAmount: vi.fn()
+    updateSttTransferAmount: holder.updateSttTransferAmount
   })
 }));
 
@@ -538,4 +551,36 @@ it("exact distribution does not render generic input, transfer or advanced edito
 it("recovery preparation owns its inputs and does not show generic Consolidate editors", () => {
   const { container } = renderView({ selectedAction: "consolidate-utxo", preparationActive: true, tab: CONSOLIDATE_TAB });
   expect(container).toBeEmptyDOMElement();
+});
+
+describe("quick transfer builder amounts", () => {
+  function renderQuickTransfer(assets: Array<{ unit: string; quantity: string }>) {
+    holder.transferAssets = assets;
+    holder.updateSttTransferAmount.mockClear();
+    renderView({
+      selectedAction: "consolidate-utxo",
+      tab: { ...CONSOLIDATE_TAB, showTransfers: true, showQuickTransferBuilder: true }
+    });
+    return document.querySelector<HTMLInputElement>('[id^="userSttTransferAmountInput-"]')!;
+  }
+
+  it("shows the ADA row in ADA and stages what the user typed as lovelace", () => {
+    const input = renderQuickTransfer([{ unit: "lovelace", quantity: "5000000" }]);
+    expect(input.value).toBe("5");
+
+    fireEvent.change(input, { target: { value: "2" } });
+    expect(holder.updateSttTransferAmount).toHaveBeenLastCalledWith("lovelace", "2000000", "5000000");
+  });
+
+  it("stages zero when the ADA box is emptied instead of keeping the old amount", () => {
+    const input = renderQuickTransfer([{ unit: "lovelace", quantity: "5000000" }]);
+    fireEvent.change(input, { target: { value: "" } });
+    expect(holder.updateSttTransferAmount).toHaveBeenLastCalledWith("lovelace", "0", "5000000");
+  });
+
+  it("keeps token rows in raw units", () => {
+    const input = renderQuickTransfer([{ unit: `${"ab".repeat(28)}544f4b454e`, quantity: "700" }]);
+    expect(input.type).toBe("number");
+    expect(input.value).toBe("700");
+  });
 });
