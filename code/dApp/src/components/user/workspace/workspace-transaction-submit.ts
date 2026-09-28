@@ -9,7 +9,7 @@ import { invalidateChainQueries } from "@/lib/query/invalidation";
 import { beneficiaryPreparationActiveAtom, consolidateWalletInputsAtom } from "./atoms/forms/consolidate-form.atoms";
 import { recoveryCapacityFailureAtom, recoveryCapacitySignatureAtom } from "./atoms/recovery-capacity.atoms";
 import { recordRecoveryCapacityFailure } from "./recovery-capacity-model";
-import { workspaceSessionAtom, previewSignatureAtom, buildDiagnosticIdAtom, mintConfirmationRunAtom, submitConfirmedAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
+import { workspaceSessionAtom, previewSignatureAtom, buildDiagnosticIdAtom, mintConfirmationRunAtom, submitConfirmedAtom, submitConfirmationUnseenAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import {
   beginWalletStateUpdateAtom,
   walletStateUpdatingAtom,
@@ -328,6 +328,7 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
     }
     setSubmitHash(txHash);
     jotaiStore.set(submitConfirmedAtom, false);
+    jotaiStore.set(submitConfirmationUnseenAtom, false);
     runPostSubmitTask("confirmation", () => watchTransactionConfirmation(txHash));
     runPostSubmitTask("activity", () => addSubmittedTransactionToActivity(txHash));
     if (
@@ -408,6 +409,15 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
         await invalidateChainQueries(client);
       }
       return;
+    }
+
+    // The poll ran out without the indexer seeing the hash: indexer lag, or the tx
+    // lost an input race. Say so. Without this write the banner's spinner ran on
+    // with no third state to land in. `isCurrent()` only, not the pending-wallet
+    // check above: a pending wallet-state update keeps this hash current even
+    // after its own confirmation watcher takes over.
+    if (isCurrent()) {
+      jotaiStore.set(submitConfirmationUnseenAtom, true);
     }
   }
 

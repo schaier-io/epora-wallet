@@ -160,6 +160,61 @@ it("shows and disables wallet-state refresh across action navigation", () => {
   expect(reviewPanelProps.latest.secondaryActionDisabled).toBe(true);
 });
 
+it("keeps the Done acknowledgement live through the wallet-state wait", () => {
+  // The acknowledgement is not a second transaction, and the amber banner may be
+  // describing exactly this wait, so the button stays enabled and reads as Done.
+  const dismiss = vi.fn();
+  const combined = vi.fn();
+  renderRail({
+    selectedAction: "wallet-vote",
+    previewMatchesSelectedAction: false,
+    buildSelectedActionTx: vi.fn(),
+    buildAndSubmitSelectedActionTx: combined,
+    handleSaveProposalFromBuild: vi.fn(),
+    seedStore: (store) => {
+      const walletUnit = "ab".repeat(28) + "01";
+      store.set(routeStateAtom, { ...store.get(routeStateAtom), selectedWalletUnit: walletUnit });
+      store.set(beginWalletStateUpdateAtom, {
+        walletUnit,
+        submittedTxHash: "aa".repeat(32),
+        spentRef: { txHash: "bb".repeat(32), outputIndex: 0 }
+      });
+    },
+    stateOverrides: {
+      reviewSubmitAwaitingAcknowledgement: true,
+      reviewPrimaryActionLabel: "Done",
+      dismissSubmitState: dismiss
+    }
+  });
+
+  expect(reviewPanelProps.latest.primaryActionLabel).toBe("Done");
+  expect(reviewPanelProps.latest.primaryActionDisabled).toBe(false);
+  (reviewPanelProps.latest.onPrimaryAction as () => void)();
+  expect(dismiss).toHaveBeenCalledTimes(1);
+  expect(combined).not.toHaveBeenCalled();
+});
+
+it("dismisses the submitted banner on Done without building anything", () => {
+  const dismiss = vi.fn();
+  const combined = vi.fn();
+  renderRail({
+    selectedAction: "wallet-vote",
+    previewMatchesSelectedAction: false,
+    buildSelectedActionTx: vi.fn(),
+    buildAndSubmitSelectedActionTx: combined,
+    handleSaveProposalFromBuild: vi.fn(),
+    stateOverrides: {
+      reviewSubmitAwaitingAcknowledgement: true,
+      reviewPrimaryActionLabel: "Done",
+      dismissSubmitState: dismiss
+    }
+  });
+
+  (reviewPanelProps.latest.onPrimaryAction as () => void)();
+  expect(dismiss).toHaveBeenCalledTimes(1);
+  expect(combined).not.toHaveBeenCalled();
+});
+
 it("signs a beneficiary withdrawal on the first press even without a built preview", () => {
   const build = vi.fn();
   const submit = vi.fn();

@@ -130,9 +130,11 @@
     "somethingNeedsAttention": "Something needs attention",
     "toClearThis": "To clear this",
     "transactionSubmitted": "Submitted. Waiting for confirmation.",
+    "transactionNotSeenOnChainYet": "Not seen on chain yet.",
     "viewTransactionOnCardanoscan": "View transaction on Cardanoscan",
     "whatWillHappen": "What will happen",
     "transactionConfirmed": "Transaction confirmed",
+    "theChainIndexersHaveNotSeenThis": "The chain indexers have not seen this transaction within the waiting window. They can lag, or the transaction lost an input race and never landed. The explorer link below shows whether it landed. The wallet balance reads fresh either way.",
     "viewTransactionHashOnCardanoscan": "View transaction on Cardanoscan: {hash}"
   },
   "ComponentsUserReviewPanelPreview": {

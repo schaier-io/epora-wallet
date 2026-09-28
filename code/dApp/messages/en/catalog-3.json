@@ -190,6 +190,7 @@
     "enterAnAdaAmountLike": "Enter an ADA amount, for example 1.5."
   },
   "ComponentsUserWorkspaceEditorsFocusedPeopleEditor": {
+    "person": "Person",
     "aCardanoWalletHasToBeLinkedTo": "A Cardano wallet has to be linked to a person before they can use this smart wallet.",
     "addASpenderThenLinkTheCardanoWallet": "Add a spender, then link the Cardano wallet they will sign with.",
     "addASpenderThenSetHowMuchThey": "Add a spender, then set how much they may spend each day.",

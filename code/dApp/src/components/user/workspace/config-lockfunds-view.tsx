@@ -24,6 +24,10 @@ export function LockFundsConfigView() {
   const i18n = useTranslations("ComponentsUserWorkspaceConfigLockfundsView");
   const state = useWorkspaceActions();
   const copyFeedback = useAtomValue(copyFeedbackAtom);
+  // The exact string `copyTextToClipboard` stores in the atom, not a hardcoded
+  // literal: a future locale translates the label, and a literal comparison
+  // never matches the stored translation again.
+  const addressCopiedLabel = i18n("walletAddressCopied");
   const lockingContract = useAtomValue(lockingContractAtom);
   const walletReceiveAddress = useAtomValue(walletReceiveAddressAtom);
   const walletBalanceSummary = useAtomValue(walletBalanceSummaryAtom);
@@ -94,21 +98,21 @@ export function LockFundsConfigView() {
                         onClick={() =>
                           void copyTextToClipboard(
                             walletReceiveAddress ?? lockingContract.address,
-                            i18n("walletAddressCopied")
+                            addressCopiedLabel
                           )
                         }
                         title={
-                          copyFeedback === "Wallet address copied"
+                          copyFeedback === addressCopiedLabel
                             ? i18n("addressCopied")
                             : i18n("copyAddress")
                         }
                         aria-label={
-                          copyFeedback === "Wallet address copied"
+                          copyFeedback === addressCopiedLabel
                             ? i18n("addressCopied")
                             : i18n("copyAddress")
                         }
                       >
-                        {copyFeedback === "Wallet address copied" ? (
+                        {copyFeedback === addressCopiedLabel ? (
                           <CheckCircle2 className="h-3.5 w-3.5" />
                         ) : (
                           <Copy className="h-3.5 w-3.5" />

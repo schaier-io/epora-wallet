@@ -9,8 +9,9 @@ import { useWorkspaceTransactionPrebuild } from "./use-workspace-transaction-pre
 import { walletStateUpdatingAtom } from "./atoms/wallet-state-update.atoms";
 import { activeSttAuthorityOptionsAtom, walletOperatorOptionsAtom, selectedSigningActionAvailabilityAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
 import { setupStateAtom } from "@/components/user/workspace/atoms/workspace-setup-state.atoms";
+import { submitConfirmedAtom, submitConfirmationUnseenAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 
 import type { UserOverviewSection } from "@/components/user/flow-types";
 
@@ -365,10 +366,9 @@ export function usePermissionWalletWorkspaceState() {
   });
   // These actions leave the workspace ready to run again: what they staged is cleared
   // at submit, so the button goes back to its own label and the readiness gate below holds
-  // it shut until something new is staged. It used to freeze at a disabled "Done" -- a dead
-  // control whose only escape was `Clear form` in a different card. The submitted
-  // transaction and its hash stay on screen in the block underneath. `mint` is excluded on
-  // purpose: it creates one wallet, and its own overlay owns the after-state.
+  // it shut until something new is staged. The submitted transaction and its hash stay on
+  // screen in the block underneath. `mint` is excluded on purpose: it creates one wallet,
+  // and its own overlay owns the after-state.
   const preparationActive = useAtomValue(beneficiaryPreparationActiveAtom);
   const repeatableJustSubmitted =
     Boolean(submitHash) &&
@@ -378,12 +378,16 @@ export function usePermissionWalletWorkspaceState() {
       selectedAction === "distribute-beneficiaries" ||
       (selectedAction === "consolidate-utxo" && preparationActive) ||
       selectedAction === "lock-funds");
-  const reviewPrimaryActionLabel =
-    submitHash && !repeatableJustSubmitted
-      ? i18n("done")
-      : activeSubmit
-        ? i18n("confirming")
-        : activeActionDefinition.label;
+  // A one-shot action (update-state, withdraw, vote, and the rest) used to end at a
+  // disabled "Done" -- a dead control. It is now an acknowledgement: pressing it clears
+  // the submitted banner and re-arms the rail, and the readiness gates decide what the
+  // button means next, exactly as they do for the repeatable actions above.
+  const reviewSubmitAwaitingAcknowledgement = Boolean(submitHash) && !repeatableJustSubmitted;
+  const reviewPrimaryActionLabel = reviewSubmitAwaitingAcknowledgement
+    ? i18n("done")
+    : activeSubmit
+      ? i18n("confirming")
+      : activeActionDefinition.label;
 
   // Once the mint confirms, capture a celebration snapshot (wallet name, policy,
   // unit) ONCE. Held in its own state so it survives the confirmation polling and
@@ -405,10 +409,16 @@ export function usePermissionWalletWorkspaceState() {
   // over at 100%.
   const reviewPrimaryActionDisabled =
     activeSubmit ||
-    (Boolean(submitHash) && !repeatableJustSubmitted) ||
     hasFieldErrors(activeFieldErrors) ||
     activeReadinessIssues.some((issue) => issue.blocking);
-   
+
+  const dismissSubmitState = useCallback(() => {
+    setSubmitHash(null);
+    jotaiStore.set(submitConfirmedAtom, false);
+    jotaiStore.set(submitConfirmationUnseenAtom, false);
+    clearPreviewResult();
+  }, [setSubmitHash, jotaiStore, clearPreviewResult]);
+
   const {
     flowAvailability,
     guidedEverydayActions,
@@ -615,6 +625,8 @@ export function usePermissionWalletWorkspaceState() {
     reviewReceipt,
     reviewPrimaryActionLabel,
     reviewPrimaryActionDisabled,
+    reviewSubmitAwaitingAcknowledgement,
+    dismissSubmitState,
     lastActionDisplayLabel,
     mintSetupSteps,
     showSharedReferenceSetup,

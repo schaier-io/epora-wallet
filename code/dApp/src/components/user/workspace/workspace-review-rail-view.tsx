@@ -3,7 +3,7 @@ import { RecoveryFallbackView } from "./recovery-fallback-view";
 
 import { useTranslations } from "next-intl";
 
-import { activeBuildAtom, activeSubmitAtom, buildDiagnosticIdAtom, buildErrorAtom, buildErrorExpectedAtom, buildErrorStaleInputsAtom, previewAtom, submitConfirmedAtom, submitHashAtom, workspaceSessionAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
+import { activeBuildAtom, activeSubmitAtom, buildDiagnosticIdAtom, buildErrorAtom, buildErrorExpectedAtom, buildErrorStaleInputsAtom, previewAtom, submitConfirmedAtom, submitConfirmationUnseenAtom, submitHashAtom, workspaceSessionAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { activeSttStateFormAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { activeInferredSttStateFormAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import { selectedWizardActionDescriptorAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
@@ -46,6 +46,7 @@ export function WorkspaceReviewRailView() {
   const signingActions = useAtomValue(selectedSigningActionAvailabilityAtom);
   const sttStateForm = useAtomValue(activeSttStateFormAtom);
   const submitConfirmed = useAtomValue(submitConfirmedAtom);
+  const submitConfirmationUnseen = useAtomValue(submitConfirmationUnseenAtom);
   const walletStateUpdating = useAtomValue(walletStateUpdatingAtom);
   const {
     actionDrafts,
@@ -66,6 +67,8 @@ export function WorkspaceReviewRailView() {
     reviewReceipt,
     reviewPrimaryActionLabel,
     reviewPrimaryActionDisabled,
+    reviewSubmitAwaitingAcknowledgement,
+    dismissSubmitState,
   } = state;
   const [preparingProposal, setPreparingProposal] = useState(false);
   const [clickedAction, setClickedAction] = useState<{
@@ -232,12 +235,15 @@ export function WorkspaceReviewRailView() {
                     buildDiagnosticId={buildDiagnosticId}
                     submitHash={submitHash}
                     submitConfirmed={submitConfirmed}
+                    submitConfirmationUnseen={submitConfirmationUnseen}
                     lastActionLabel={lastActionDisplayLabel}
                     isBuilding={approvalOnly ? preparingProposal : directActionPending && !activeSubmit}
                     autoSignPending={!approvalOnly && directActionPending}
                     isSubmitting={activeSubmit}
                     primaryActionLabel={
-                      walletStateUpdating ? i18n("updatingWalletState")
+                      // The "Done" acknowledgement outranks the wait label: the
+                      // button is live during the wait, so it must not read as one.
+                      walletStateUpdating && !reviewSubmitAwaitingAcknowledgement ? i18n("updatingWalletState")
                         : approvalOnly ? approvalActionLabel
                         : directActionPending && !activeSubmit ? proposalI18n("preparing")
                         : reviewPrimaryActionLabel
@@ -248,11 +254,24 @@ export function WorkspaceReviewRailView() {
                         ? transactionInFlight ||
                           preparingProposal ||
                           Boolean(approvalBlockedReason)
-                        : directActionPending || preparingProposal || walletStateUpdating || reviewPrimaryActionDisabled
+                        : // The "Done" acknowledgement stays live while the wallet-state
+                          // wait runs: acknowledging the receipt is not a second
+                          // transaction, and the amber banner may be describing exactly
+                          // that wait. `runDirectAction` still refuses a real action.
+                          directActionPending ||
+                          preparingProposal ||
+                          (walletStateUpdating && !reviewSubmitAwaitingAcknowledgement) ||
+                          reviewPrimaryActionDisabled
                     }
                     onPrimaryAction={() => {
                       if (approvalOnly) {
                         void saveAsApprovalRequest();
+                        return;
+                      }
+                      // "Done" after a one-shot submit: acknowledge the receipt and
+                      // re-arm the rail instead of sitting on a dead control.
+                      if (reviewSubmitAwaitingAcknowledgement) {
+                        dismissSubmitState();
                         return;
                       }
                       void runDirectAction();

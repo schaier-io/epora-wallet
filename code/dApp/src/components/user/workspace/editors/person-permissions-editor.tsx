@@ -166,7 +166,7 @@ export function PersonPermissionsEditor({
   return (
     <div className="user-surface user-list-item space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <PersonHeading person={user}>{personLabel("Person", user)}</PersonHeading>
+        <PersonHeading person={user}>{personLabel(i18n("person"), user)}</PersonHeading>
         <DestructiveRemoveButton
           label={i18n("remove")}
           confirmTitle={i18n("removeConfirmTitle")}

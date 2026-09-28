@@ -79,6 +79,8 @@ type ReviewPanelProps = {
   submitHash: string | null;
   /** The submitted tx has been seen on chain (bounded post-submit poll). */
   submitConfirmed?: boolean;
+  /** The bounded poll ran out without the tx being seen on chain. */
+  submitConfirmationUnseen?: boolean;
   lastActionLabel: string;
   isBuilding: boolean;
   autoSignPending?: boolean;
@@ -137,6 +139,7 @@ export function UserReviewPanel({
   buildDiagnosticId,
   submitHash,
   submitConfirmed = false,
+  submitConfirmationUnseen = false,
   lastActionLabel,
   isBuilding,
   autoSignPending = false,
@@ -428,23 +431,34 @@ export function UserReviewPanel({
             aria-live="polite"
             className={cn(
               "rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 sm:p-4 text-sm text-emerald-100",
-              submitConfirmed && "confirmed-pulse"
+              submitConfirmed && "confirmed-pulse",
+              submitConfirmationUnseen && !submitConfirmed &&
+                "border-amber-500/40 bg-amber-500/10 text-amber-100"
             )}
           >
             <div className="flex min-w-0 items-start gap-2.5">
               {submitConfirmed ? (
                 <ConfirmedCheck className="mt-0.5 text-emerald-300" />
+              ) : submitConfirmationUnseen ? (
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
               ) : (
                 <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-emerald-300" />
               )}
               <div className="min-w-0 flex-1 space-y-2">
                 <div>
-                  <p className="font-medium text-emerald-50">
+                  <p className={cn("font-medium", submitConfirmationUnseen && !submitConfirmed ? "text-amber-50" : "text-emerald-50")}>
                     {submitConfirmed
                       ? i18n("transactionConfirmed")
-                      : i18n("transactionSubmitted")}
+                      : submitConfirmationUnseen
+                        ? i18n("transactionNotSeenOnChainYet")
+                        : i18n("transactionSubmitted")}
                   </p>
                 </div>
+                {submitConfirmationUnseen && !submitConfirmed ? (
+                  <p className="text-xs leading-relaxed">
+                    {i18n("theChainIndexersHaveNotSeenThis")}
+                  </p>
+                ) : null}
                 <a
                   href={buildCardanoscanTransactionUrl(submitHash)}
                   target="_blank"
