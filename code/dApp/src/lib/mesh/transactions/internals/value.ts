@@ -434,6 +434,18 @@ export function dropZeroQuantityAssets(assets: Asset[]) {
   return assets.filter((asset) => !/^0+$/.test(asset.quantity.trim()));
 }
 
+// Drops zero rows, then refuses a list that had rows and has none left. Mesh's
+// `sanitizeOutputs` tops an output without lovelace up to min ADA, so letting an
+// all-zero list through would pay ADA nobody entered. An empty list stays
+// allowed: that caller asked for a min-ADA output.
+export function positiveOutputAmount(assets: Asset[], label: string) {
+  const kept = dropZeroQuantityAssets(assets);
+  if (assets.length > 0 && kept.length === 0) {
+    throw new Error(`${label}: every asset row is zero. Enter an amount greater than zero.`);
+  }
+  return kept;
+}
+
 export function normalizeMintStarterAssets(
   starterAssets: Asset[] | undefined,
   fallbackLovelace: string | undefined

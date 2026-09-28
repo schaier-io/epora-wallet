@@ -60,7 +60,6 @@ function runPreview(params: {
       datum
     } as Parameters<typeof computeAllowancePreview>[0]["selectedDetectedToken"],
     activeInferredSttStateForm: params.state,
-    sttWalletOutputs: [],
     sttExtraTransfers: params.transfers,
     sttWalletInputs: [{ txHash: POOL_TX, outputIndex: 0 }],
     lockedContractUtxos: [POOL_UTXO]

@@ -3,7 +3,7 @@ import defaultMessages from "@/i18n/generated/default-en/LibMeshTransactionsSttS
 import { type RuntimeTxBuilder } from "./internals/budget-runtime-builder";
 import { resolveBeneficiaryPreparation, validateBeneficiaryPreparationInput, type PreparationConsolidateInput, type PreparationOutputEvidence } from "./internals/beneficiary-preparation";
 import { assertBeneficiaryPreparationOutputs } from "./internals/beneficiary-preparation-output-checks";
-import { WALLET_SPEND_VALIDATOR, dropZeroQuantityAssets, addExtraRequiredSigners, assertValidAssetList, assertValidConsolidationLayout, assertValidConstrData, assertValidWalletInputRefs, assertValidWalletOutputs, buildTransactionWithReestimatedLimits, createInputRefKey, createStateForwarding, createTxPreview, ensureUniqueWalletInputRefs, mergeAssetLists, mergeRestrictedSttAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, redeemValueWithRequiredReferenceScript, resolveExactWalletInputUtxos, resolveReferenceScript, runStateForwarding, setupTransaction, validateForwardedStateDatum, withStage } from "./internals";
+import { WALLET_SPEND_VALIDATOR, positiveOutputAmount, addExtraRequiredSigners, assertValidAssetList, assertValidConsolidationLayout, assertValidConstrData, assertValidWalletInputRefs, assertValidWalletOutputs, buildTransactionWithReestimatedLimits, createInputRefKey, createStateForwarding, createTxPreview, ensureUniqueWalletInputRefs, mergeAssetLists, mergeRestrictedSttAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, redeemValueWithRequiredReferenceScript, resolveExactWalletInputUtxos, resolveReferenceScript, runStateForwarding, setupTransaction, validateForwardedStateDatum, withStage } from "./internals";
 import { formatConsolidationPreview } from "./preview-copy";
 import { buildSttSpendRedeemerData, buildWalletSpendRedeemerData, resolveStructuredOnChainAction } from "@/lib/contracts/action-data";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
@@ -201,10 +201,10 @@ export async function buildConsolidateUtxosTx(
                 walletAddress
               ).migratesAddress;
 
-              for (const walletOutput of walletOutputs) {
+              for (const [index, walletOutput] of walletOutputs.entries()) {
                 tx.sendAssets(
                   recipientWithOptionalInlineDatum(walletAddress, walletOutput.inlineDatum),
-                  dropZeroQuantityAssets(walletOutput.amount)
+                  positiveOutputAmount(walletOutput.amount, `Consolidated output ${index + 1}`)
                 );
               }
             }
