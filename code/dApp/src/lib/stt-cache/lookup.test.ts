@@ -139,3 +139,41 @@ test("a deleted cursor wallet does not restart the list", async () => {
   assert.deepEqual(second.wallets.map((wallet) => wallet.id), ["wallet-025", "wallet-026"]);
   assert.equal(second.nextCursor, null);
 });
+
+test("a last page that fills exactly returns no cursor", async () => {
+  const ids = Array.from({ length: STT_LOOKUP_WALLET_PAGE_SIZE * 2 }, (_, index) =>
+    `wallet-${String(index).padStart(3, "0")}`
+  );
+  const db = dbWithParticipants(
+    ids.map((id, index) => participantRow(id, new Date((ids.length - index) * 1000)))
+  );
+
+  const first = await lookupSttWallets({ paymentKeyHash: "aa".repeat(28) }, { db, chainClient });
+  assert.equal(first.nextCursor, `wallet-${String(STT_LOOKUP_WALLET_PAGE_SIZE - 1).padStart(3, "0")}`);
+  const second = await lookupSttWallets(
+    { paymentKeyHash: "aa".repeat(28), cursor: first.nextCursor! },
+    { db, chainClient }
+  );
+  assert.equal(second.wallets.length, STT_LOOKUP_WALLET_PAGE_SIZE);
+  assert.equal(second.nextCursor, null);
+});
+
+test("an unknown cursor starts after its position in id order", async () => {
+  const ids = ["wallet-a", "wallet-c", "wallet-e"];
+  const db = dbWithParticipants(
+    ids.map((id, index) => participantRow(id, new Date((ids.length - index) * 1000)))
+  );
+
+  const between = await lookupSttWallets(
+    { paymentKeyHash: "aa".repeat(28), cursor: "wallet-b" },
+    { db, chainClient }
+  );
+  assert.deepEqual(between.wallets.map((wallet) => wallet.id), ["wallet-c", "wallet-e"]);
+
+  const pastEnd = await lookupSttWallets(
+    { paymentKeyHash: "aa".repeat(28), cursor: "zzz" },
+    { db, chainClient }
+  );
+  assert.deepEqual(pastEnd.wallets, []);
+  assert.equal(pastEnd.nextCursor, null);
+});
