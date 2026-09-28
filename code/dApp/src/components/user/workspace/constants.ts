@@ -53,6 +53,10 @@ export const SEND_FUNDS_REFRESH_RETRY_MS = 1000;
 export const SUBMIT_CONFIRMATION_MAX_ATTEMPTS = 20;
 export const SUBMIT_CONFIRMATION_INITIAL_DELAY_MS = 10_000;
 export const SUBMIT_CONFIRMATION_POLL_MS = 15_000;
+// After the banner says "not seen on chain yet", keep checking at a slower pace so
+// a late confirmation still turns it green: 25 attempts at 60s ≈ 25 more minutes.
+export const SUBMIT_CONFIRMATION_LATE_MAX_ATTEMPTS = 25;
+export const SUBMIT_CONFIRMATION_LATE_POLL_MS = 60_000;
 
 // A confirmed transaction can reach the transaction index before its continuing
 // STT UTxO reaches address/asset lookup. Retry the exact wallet briefly.

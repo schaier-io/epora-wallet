@@ -1,6 +1,7 @@
 "use client";
 import { cardanoNetworkId } from "@/lib/cardano-network";
 import { beneficiaryPreparationActiveAtom } from "./atoms/forms/consolidate-form.atoms";
+import { resolveReviewSubmitState } from "./review-submit-state";
 import { useTranslations } from "next-intl";
 
 import { useAtomValue } from "jotai";
@@ -364,26 +365,11 @@ export function usePermissionWalletWorkspaceState() {
       ? signingActions.directAuthorityPath ?? undefined : "multisig",
     buildSelectedActionTx
   });
-  // These actions leave the workspace ready to run again: what they staged is cleared
-  // at submit, so the button goes back to its own label and the readiness gate below holds
-  // it shut until something new is staged. The submitted transaction and its hash stay on
-  // screen in the block underneath. `mint` is excluded on purpose: it creates one wallet,
-  // and its own overlay owns the after-state.
+  // What the primary button means after a submit; see `resolveReviewSubmitState`.
   const preparationActive = useAtomValue(beneficiaryPreparationActiveAtom);
-  const repeatableJustSubmitted =
-    Boolean(submitHash) &&
-    (selectedAction === "use" ||
-      selectedAction === "use-allowance" ||
-      selectedAction === "use-beneficiary" ||
-      selectedAction === "distribute-beneficiaries" ||
-      (selectedAction === "consolidate-utxo" && preparationActive) ||
-      selectedAction === "lock-funds");
-  // A one-shot action (update-state, withdraw, vote, and the rest) used to end at a
-  // disabled "Done" -- a dead control. It is now an acknowledgement: pressing it clears
-  // the submitted banner and re-arms the rail, and the readiness gates decide what the
-  // button means next, exactly as they do for the repeatable actions above.
-  const reviewSubmitAwaitingAcknowledgement = Boolean(submitHash) && !repeatableJustSubmitted;
-  const reviewPrimaryActionLabel = reviewSubmitAwaitingAcknowledgement
+  const reviewSubmitState = resolveReviewSubmitState(submitHash, selectedAction, preparationActive);
+  const reviewSubmitAwaitingAcknowledgement = reviewSubmitState.awaitingAcknowledgement;
+  const reviewPrimaryActionLabel = reviewSubmitState.showsDone
     ? i18n("done")
     : activeSubmit
       ? i18n("confirming")
@@ -409,6 +395,7 @@ export function usePermissionWalletWorkspaceState() {
   // over at 100%.
   const reviewPrimaryActionDisabled =
     activeSubmit ||
+    reviewSubmitState.doneLocked ||
     hasFieldErrors(activeFieldErrors) ||
     activeReadinessIssues.some((issue) => issue.blocking);
 

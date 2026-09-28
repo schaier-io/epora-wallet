@@ -25,6 +25,8 @@ import { selectedOrphanInputsAtom } from "./atoms/forms/orphan-inputs.atoms";
 import {
   MINT_CONFIRMATION_MAX_ATTEMPTS,
   SUBMIT_CONFIRMATION_INITIAL_DELAY_MS,
+  SUBMIT_CONFIRMATION_LATE_MAX_ATTEMPTS,
+  SUBMIT_CONFIRMATION_LATE_POLL_MS,
   SUBMIT_CONFIRMATION_MAX_ATTEMPTS,
   SUBMIT_CONFIRMATION_POLL_MS
 } from "@/components/user/workspace/constants";
@@ -385,6 +387,8 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
     const session = jotaiStore.get(workspaceSessionAtom);
     const isCurrent = () => jotaiStore.get(workspaceSessionAtom) === session && jotaiStore.get(submitHashAtom) === txHash;
     const client = jotaiStore.get(queryClientAtom);
+    const seenOnChain = () =>
+      client.fetchQuery({ ...txInfoQueryOptions(txHash), staleTime: 0, retry: false }).catch(() => null);
     for (let attempt = 1; attempt <= SUBMIT_CONFIRMATION_MAX_ATTEMPTS; attempt += 1) {
       await waitFor(
         attempt === 1 ? SUBMIT_CONFIRMATION_INITIAL_DELAY_MS : SUBMIT_CONFIRMATION_POLL_MS
@@ -397,9 +401,7 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
         return;
       }
 
-      const confirmed = await client.fetchQuery({
-        ...txInfoQueryOptions(txHash), staleTime: 0, retry: false
-      }).catch(() => null);
+      const confirmed = await seenOnChain();
       if (!confirmed) {
         continue;
       }
@@ -416,8 +418,22 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
     // with no third state to land in. `isCurrent()` only, not the pending-wallet
     // check above: a pending wallet-state update keeps this hash current even
     // after its own confirmation watcher takes over.
-    if (isCurrent()) {
-      jotaiStore.set(submitConfirmationUnseenAtom, true);
+    if (!isCurrent()) return;
+    jotaiStore.set(submitConfirmationUnseenAtom, true);
+
+    // Keep looking, slower: a tx the indexers see after the window must still turn
+    // the banner green. It stops as soon as "Done", a new build, or a reset
+    // replaces the hash.
+    for (let attempt = 1; attempt <= SUBMIT_CONFIRMATION_LATE_MAX_ATTEMPTS; attempt += 1) {
+      await waitFor(SUBMIT_CONFIRMATION_LATE_POLL_MS);
+      if (!isCurrent()) return;
+      if (!(await seenOnChain())) continue;
+      if (isCurrent()) {
+        jotaiStore.set(submitConfirmationUnseenAtom, false);
+        jotaiStore.set(submitConfirmedAtom, true);
+        await invalidateChainQueries(client);
+      }
+      return;
     }
   }
 

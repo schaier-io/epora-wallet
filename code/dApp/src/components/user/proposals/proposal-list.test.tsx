@@ -3,8 +3,9 @@ import { describe, expect, it, vi } from "vitest";
 import type { ComponentProps } from "react";
 import { ProposalList } from "./proposal-list";
 
+const search = vi.hoisted(() => ({ query: "wallet=unit-1" }));
 vi.mock("next/navigation", () => ({
-  useSearchParams: () => new URLSearchParams("wallet=unit-1")
+  useSearchParams: () => new URLSearchParams(search.query)
 }));
 import type {
   ProposalListItemDto,
@@ -76,6 +77,24 @@ describe("the approval queue row", () => {
       "href",
       "/user?wallet=unit-1"
     );
+  });
+  it("links an empty queue to the plain wallet page when no wallet is pinned", () => {
+    search.query = "";
+    try {
+      renderList(undefined, { proposals: [] });
+      expect(screen.getByRole("link", { name: "Open wallet" })).toHaveAttribute("href", "/user");
+    } finally {
+      search.query = "wallet=unit-1";
+    }
+  });
+  it("encodes the pinned wallet into the link", () => {
+    search.query = "wallet=a%26b";
+    try {
+      renderList(undefined, { proposals: [] });
+      expect(screen.getByRole("link", { name: "Open wallet" })).toHaveAttribute("href", "/user?wallet=a%26b");
+    } finally {
+      search.query = "wallet=unit-1";
+    }
   });
   it("marks a request that is on its way to the chain", () => {
     // The row stays SUBMITTING when the chain accepted the tx but the record did
