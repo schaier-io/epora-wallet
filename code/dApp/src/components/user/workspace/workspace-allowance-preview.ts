@@ -2,6 +2,7 @@
 
 import { getUserFacingErrorMessage } from "@/lib/utils/errors";
 import type { UTxO } from "@meshsdk/core";
+import type { PayoutTransfer } from "@/lib/types/contracts";
 
 import {
   stateFormToDatum,
@@ -80,7 +81,15 @@ export function computeAllowancePreview(params: AllowancePreviewParams): Allowan
       const perDayAllowance = positiveAllowanceEntries(user);
       return perDayAllowance.length > 0 ? [{ userId: user.id, perDayAllowance }] : [];
     });
-    const serializedTransfers = serializeTransfers(sttExtraTransfers);
+    // A stale draft can carry a row set that no longer serializes (every row left
+    // at zero). The validation gate refuses such a draft with a field error, so
+    // there is nothing to preview; answer "no computation" instead of throwing.
+    let serializedTransfers: PayoutTransfer[];
+    try {
+      serializedTransfers = serializeTransfers(sttExtraTransfers);
+    } catch {
+      serializedTransfers = [];
+    }
     if (serializedTransfers.length === 0) {
       return {
         configuredAllowances,

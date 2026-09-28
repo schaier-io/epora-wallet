@@ -145,3 +145,22 @@ test("a sufficient daily limit resolves the spender and the effective allowance"
     { unit: "lovelace", quantity: "2000000" }
   ]);
 });
+
+test("a stale draft whose transfer rows all read zero previews as no computation", () => {
+  // The serializer refuses such a transfer with a row-naming throw; the
+  // validation gate surfaces it as a field error, and the preview degrades to
+  // "no computation" instead of throwing mid-render.
+  const result = runPreview({
+    state: stateFormWithSpender("5"),
+    transfers: [
+      {
+        address: RECIPIENT,
+        amount: [{ unit: "lovelace", quantity: "0" }],
+        inlineDatum: NO_INLINE_DATUM
+      }
+    ]
+  });
+
+  assert.equal(result.computation, null);
+  assert.equal(result.error, null);
+});
