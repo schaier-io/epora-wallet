@@ -625,9 +625,6 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
 
     if (!nextPreview?.txHex) return;
 
-    // Recovery actions need a separate click after the built preview is visible.
-    if ((selectedAction === "consolidate-utxo" && beneficiaryPreparationActive) || selectedAction === "use-beneficiary" || selectedAction === "stop-beneficiary-stream" || selectedAction === "distribute-beneficiaries") return;
-
     await submitTransactionPreview(nextPreview, {
       allowExistingSubmitHash: true,
       requireCurrentPreview: false
