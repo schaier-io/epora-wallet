@@ -115,7 +115,10 @@ const txResponses = {
     true
   ),
   "500": jsonError("Unexpected server error."),
-  "502": jsonError("The chain data provider is unavailable.")
+  "502": jsonError("The chain data provider is unavailable."),
+  "503": jsonError(
+    "The shared STT reference server needed to build this transaction is unavailable (`SHARED_HELPER_UNAVAILABLE`). Retry later."
+  )
 };
 
 function txOperation(

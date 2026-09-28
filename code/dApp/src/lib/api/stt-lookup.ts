@@ -123,7 +123,7 @@ export const SttLookupResponseSchema = z
         historyBackfillCursor: z.string().nullable()
       })
       .meta({
-        description: "Freshness of the cache behind this answer, and whether this request triggered a background sync."
+        description: "Cache freshness. This endpoint only reads the cache and never triggers a background sync, so both trigger flags are always false; the lastSyncedAt timestamps carry the freshness."
       })
   })
   .meta({

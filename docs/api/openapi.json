@@ -590,6 +590,16 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "The shared STT reference server needed to build this transaction is unavailable (`SHARED_HELPER_UNAVAILABLE`). Retry later.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           }
         }
       }
@@ -727,6 +737,16 @@
           },
           "502": {
             "description": "The chain data provider is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The shared STT reference server needed to build this transaction is unavailable (`SHARED_HELPER_UNAVAILABLE`). Retry later.",
             "content": {
               "application/json": {
                 "schema": {
@@ -878,6 +898,16 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "The shared STT reference server needed to build this transaction is unavailable (`SHARED_HELPER_UNAVAILABLE`). Retry later.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           }
         }
       }
@@ -1015,6 +1045,16 @@
           },
           "502": {
             "description": "The chain data provider is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The shared STT reference server needed to build this transaction is unavailable (`SHARED_HELPER_UNAVAILABLE`). Retry later.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1166,6 +1206,16 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "The shared STT reference server needed to build this transaction is unavailable (`SHARED_HELPER_UNAVAILABLE`). Retry later.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           }
         }
       }
@@ -1303,6 +1353,16 @@
           },
           "502": {
             "description": "The chain data provider is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The shared STT reference server needed to build this transaction is unavailable (`SHARED_HELPER_UNAVAILABLE`). Retry later.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1454,6 +1514,16 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "The shared STT reference server needed to build this transaction is unavailable (`SHARED_HELPER_UNAVAILABLE`). Retry later.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           }
         }
       }
@@ -1598,6 +1668,16 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "The shared STT reference server needed to build this transaction is unavailable (`SHARED_HELPER_UNAVAILABLE`). Retry later.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           }
         }
       }
@@ -1735,6 +1815,16 @@
           },
           "502": {
             "description": "The chain data provider is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The shared STT reference server needed to build this transaction is unavailable (`SHARED_HELPER_UNAVAILABLE`). Retry later.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3070,7 +3160,7 @@
             "description": "Remove one user or beneficiary. The entry is spliced out and value is preserved, so `outputDatum` and `outputAssets` are ignored."
           }
         ],
-        "description": "Spend the wallet's state-thread token, forwarding its State. `action` selects which of the twelve transitions to build.",
+        "description": "Spend the wallet's state-thread token, forwarding its State. `action` selects which of the eleven transitions to build.",
         "type": "object"
       },
       "CredentialHash": {
@@ -4144,7 +4234,7 @@
               "historyBackfillCursor"
             ],
             "additionalProperties": false,
-            "description": "Freshness of the cache behind this answer, and whether this request triggered a background sync."
+            "description": "Cache freshness. This endpoint only reads the cache and never triggers a background sync, so both trigger flags are always false; the lastSyncedAt timestamps carry the freshness."
           }
         },
         "required": [
