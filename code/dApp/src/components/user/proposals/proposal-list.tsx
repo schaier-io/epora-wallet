@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 
 import {
@@ -99,6 +100,10 @@ export function ProposalList({
   onLoadMore
 }: ProposalListProps) {
   const i18n = useTranslations("ComponentsUserProposalsProposalList");
+  // The empty-state's "Open wallet" keeps the pinned `?wallet=`: landing on
+  // `/user` without one lets the app auto-pick its default and silently switch
+  // the wallet under a multi-wallet user (the hazard `top-nav.tsx` documents).
+  const walletUnit = useSearchParams().get("wallet");
   return (
     // `flex-1`: the wrapper sizes this list to the pane height, so the rows scroll inside
     // the column instead of stretching the page beside the full-height detail pane.
@@ -151,7 +156,12 @@ export function ProposalList({
           <p>
             {i18n("noApprovalRequestsYetBuildATransactionOn")}
           </p>
-          <Link href="/user" className={buttonVariants({ variant: "outline" })}>{i18n("openWallet")}</Link>
+          <Link
+            href={walletUnit ? `/user?wallet=${encodeURIComponent(walletUnit)}` : "/user"}
+            className={buttonVariants({ variant: "outline" })}
+          >
+            {i18n("openWallet")}
+          </Link>
         </div>
       ) : null}
 

@@ -234,8 +234,11 @@ The request body is capped at 4 KB.
 
 #### Paging through wallets
 
-Wallets come back 25 per page, newest activity first. The page size is fixed and
-not a request parameter.
+Wallets come back 25 per page, ordered by wallet `id`. The page size is fixed
+and not a request parameter. Order by id keeps pages stable: a wallet that sees
+new activity between two requests does not move to a page you already read.
+A wallet created during a scan shows up only if its id sorts after your cursor;
+start a new scan to be sure you see it.
 
 `nextCursor` is `null` on the last page. Otherwise it is the `id` of the last
 wallet in the page. Send it back as `cursor` to get the next page:
@@ -258,7 +261,10 @@ names. The address above participates in exactly one wallet, so page 1 returns
 that wallet with `"nextCursor": null`, and passing its id as a cursor returns
 `{"ids": [], "nextCursor": null}`. That is the mechanism, at a scale of one.
 
-An unknown cursor is not an error. It restarts from the first wallet.
+An unknown cursor is not an error. The page starts after that id in id order,
+so a cursor for a wallet deleted since the last page resumes where it left off.
+Send back only a `nextCursor` the API returned: an arbitrary string can sort
+after every wallet id and return an empty last page.
 
 Loop until `nextCursor` is `null`:
 
@@ -682,7 +688,7 @@ carries the category, the message carries the specifics.
 | `429` | You are over the rate limit. |
 | `500` | Unexpected server error. |
 | `502` | The chain data provider is unreachable. |
-| `503` | Health only: the app is up but its database is down. |
+| `503` | Health: the app is up but its database is down or the indexer is stale. `mint` and `stt-spend`: you left `sttSpendReference` empty and the shared STT reference server is unavailable (`SHARED_HELPER_UNAVAILABLE`). Retry later, or pass `sttSpendReference`. |
 
 A body that is not JSON returns `400`, and so does one nested past 64 levels:
 

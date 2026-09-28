@@ -26,7 +26,9 @@ import {
 } from "@/lib/contracts/state-form";
 
 import { resolveAssetIdentity } from "@/lib/cardano-assets";
+import { formatLovelaceAsAda, parseAdaToLovelace } from "@/lib/units/lovelace";
 import { DisclosureSection, GuidedDateTimeField, GuidedLockedUtxoSelector, InlineFieldError, WalletInputRefsEditor } from "@/components/user/workspace/editors";
+import { AdaAmountInput } from "@/components/user/workspace/editors/config-form-primitives";
 import { formatAmountSummary, formatDurationMillisLabel, formatTimestampLabel, formatTransferControlId, getFirstFieldError, supportsSttFundPoolInputs } from "@/components/user/workspace/helpers";
 
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
@@ -231,6 +233,16 @@ export function SttSpendEditorsView() {
                   {availableLockedTransferAssets.map((asset) => {
                     const controlId = formatTransferControlId(asset.unit);
                     const currentValue = sttTransferAmounts[asset.unit] ?? asset.quantity;
+                    // ADA rows read and type in ₳; the stored amount stays lovelace.
+                    // Raw lovelace under the ADA label staged a 10^6-smaller output
+                    // than the number the user typed.
+                    const isLovelaceRow = asset.unit === "lovelace";
+                    const shownAmount = isLovelaceRow
+                      ? formatLovelaceAsAda(currentValue)
+                      : currentValue;
+                    const shownAvailable = isLovelaceRow
+                      ? formatLovelaceAsAda(asset.quantity)
+                      : asset.quantity;
 
                     return (
                       <div
@@ -243,7 +255,7 @@ export function SttSpendEditorsView() {
                               {i18n("sendAmount")}{resolveAssetIdentity(asset.unit).symbol})
                             </Label>
                             <span className="text-xs text-muted-foreground">
-                              {currentValue} / {asset.quantity}
+                              {shownAmount} / {shownAvailable}
                             </span>
                           </div>
                           <input
@@ -259,7 +271,7 @@ export function SttSpendEditorsView() {
                             className="h-10 w-full cursor-pointer accent-primary"
                           />
                           <p className="wrap-anywhere text-xs text-muted-foreground">
-                            {i18n("availableFromChosenFundPools")} {asset.quantity}{" "}
+                            {i18n("availableFromChosenFundPools")} {shownAvailable}{" "}
                             {resolveAssetIdentity(asset.unit).symbol}
                           </p>
                         </div>
@@ -267,17 +279,32 @@ export function SttSpendEditorsView() {
                           <Label htmlFor={`userSttTransferAmountInput-${controlId}`}>
                             {i18n("exactAmount_0e91d5")}
                           </Label>
-                          <Input
-                            id={`userSttTransferAmountInput-${controlId}`}
-                            type="number"
-                            min="0"
-                            max={asset.quantity}
-                            step="1"
-                            value={currentValue}
-                            onChange={(event) =>
-                              updateSttTransferAmount(asset.unit, event.target.value, asset.quantity)
-                            }
-                          />
+                          {isLovelaceRow ? (
+                            <AdaAmountInput
+                              id={`userSttTransferAmountInput-${controlId}`}
+                              value={currentValue}
+                              onChange={(text) => {
+                                // An emptied box means zero, as it did for the raw input;
+                                // skipping it left the old amount staged.
+                                const parsed = text.trim() === "" ? "0" : parseAdaToLovelace(text);
+                                if (parsed !== null) {
+                                  updateSttTransferAmount(asset.unit, parsed, asset.quantity);
+                                }
+                              }}
+                            />
+                          ) : (
+                            <Input
+                              id={`userSttTransferAmountInput-${controlId}`}
+                              type="number"
+                              min="0"
+                              max={asset.quantity}
+                              step="1"
+                              value={currentValue}
+                              onChange={(event) =>
+                                updateSttTransferAmount(asset.unit, event.target.value, asset.quantity)
+                              }
+                            />
+                          )}
                         </div>
                       </div>
                     );

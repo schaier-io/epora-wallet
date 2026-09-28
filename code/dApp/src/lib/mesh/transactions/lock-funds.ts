@@ -1,4 +1,4 @@
-import { assertValidAssetList, assertValidOptionalConstrData, buildTransactionWithReestimatedLimits, createEmptyExecutionValidatorLabels, createTxPreview, recipientWithOptionalInlineDatum, setupTransaction } from "./internals";
+import { assertValidAssetList, assertValidOptionalConstrData, buildTransactionWithReestimatedLimits, createEmptyExecutionValidatorLabels, createTxPreview, dropZeroQuantityAssets, recipientWithOptionalInlineDatum, setupTransaction } from "./internals";
 import { formatLockFundsPreview } from "./preview-copy";
 import { resolveWalletContinuingOutputAddress } from "@/lib/contracts/blueprint";
 import { type BuildResult, type ContractConfig, type LockFundsFormInput } from "@/lib/types/contracts";
@@ -20,6 +20,13 @@ export async function buildLockFundsTx(
 
   assertValidAssetList(input.assets, "Lock funds assets");
   assertValidOptionalConstrData(input.inlineDatum, "Lock funds inline datum");
+  // The editors seed new rows at "0"; a row left there reaches Mesh's output
+  // verbatim and the ledger rejects the signed transaction. Zero rows carry no
+  // value, so they are dropped here rather than rejected.
+  const assets = dropZeroQuantityAssets(input.assets);
+  if (assets.length === 0) {
+    throw new Error("Every asset row is zero. Enter an amount greater than zero.");
+  }
   const walletPolicyId = config.walletPolicyId;
   const walletAssetNameHex = config.walletAssetNameHex;
   // Deposit to the wallet's canonical address: a staking (Some) wallet receives
@@ -38,7 +45,7 @@ export async function buildLockFundsTx(
 
       tx.sendAssets(
         recipientWithOptionalInlineDatum(walletAddress, input.inlineDatum),
-        input.assets
+        assets
       );
 
       return {
@@ -47,7 +54,7 @@ export async function buildLockFundsTx(
         diagnostics: {
           ...setupDiagnostics,
           walletAddress,
-          assetCount: input.assets.length,
+          assetCount: assets.length,
           inlineDatum: input.inlineDatum
         },
         executionLabels: createEmptyExecutionValidatorLabels()
@@ -60,7 +67,7 @@ export async function buildLockFundsTx(
     txHex: prepared.txHex,
     preview: createTxPreview(
       "lock-funds",
-      formatLockFundsPreview(input.assets.length, walletAddress),
+      formatLockFundsPreview(assets.length, walletAddress),
       prepared.txHex
     ),
     estimatedFeeLovelace: prepared.estimatedFeeLovelace,

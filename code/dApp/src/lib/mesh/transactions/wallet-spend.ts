@@ -1,4 +1,4 @@
-import { WALLET_SPEND_VALIDATOR, assertValidConstrData, assertValidPayoutTransfers, buildReferenceScriptDiagnostics, buildTransactionWithReestimatedLimits, createInputRefKey, createTxPreview, describeReferenceScriptUsage, findUtxo, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, setupTransaction, withStage } from "./internals";
+import { WALLET_SPEND_VALIDATOR, positiveOutputAmount, assertValidConstrData, assertValidPayoutTransfers, buildReferenceScriptDiagnostics, buildTransactionWithReestimatedLimits, createInputRefKey, createTxPreview, describeReferenceScriptUsage, findUtxo, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, setupTransaction, withStage } from "./internals";
 import { formatWalletSpendPreview } from "./preview-copy";
 import { getWalletSpendScript, resolveScriptAddress } from "@/lib/contracts/blueprint";
 import { type BuildResult, type ContractConfig, type WalletSpendFormInput } from "@/lib/types/contracts";
@@ -57,7 +57,7 @@ export async function buildWalletSpendTx(
       for (const output of input.outputs) {
         tx.sendAssets(
           recipientWithOptionalInlineDatum(output.address, output.inlineDatum),
-          output.amount
+          positiveOutputAmount(output.amount, `Output to ${output.address}`)
         );
       }
 

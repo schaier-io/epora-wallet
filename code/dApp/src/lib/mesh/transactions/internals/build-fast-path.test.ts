@@ -104,6 +104,27 @@ test("unlabelled Plutus mint still prepares twice and evaluates both builds", as
   assert.equal(result.executionUnits.redeemers.length, 1);
 });
 
+test("deposit drops a zero-quantity row instead of writing it into the output", async () => {
+  const { wallet, fetcher } = fixture();
+  const result = await buildLockFundsTx(wallet, CONFIG, {
+    assets: [{ unit: "lovelace", quantity: "2000000" }, { unit: TOKEN, quantity: "0" }]
+  }, fetcher);
+  const outputs = deserializeTx(result.txHex).body().outputs() as CstTransactionOutput[];
+  assert.equal(outputs[0]!.amount().coin().toString(), "2000000");
+  assert.equal([...(outputs[0]!.amount().multiasset()?.entries() ?? [])].length, 0);
+  assert.match(result.preview.summary, /Lock 1 asset entry /);
+});
+
+test("deposit refuses a list whose every row is zero", async () => {
+  const { wallet, fetcher } = fixture();
+  await assert.rejects(
+    buildLockFundsTx(wallet, CONFIG, {
+      assets: [{ unit: "lovelace", quantity: "0" }, { unit: TOKEN, quantity: "00" }]
+    }, fetcher),
+    /Every asset row is zero/
+  );
+});
+
 test("deposit fast path still rejects insufficient funds", async () => {
   const { wallet, fetcher } = fixture();
   await assert.rejects(buildLockFundsTx(wallet, CONFIG, {

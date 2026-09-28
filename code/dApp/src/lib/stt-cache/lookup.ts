@@ -162,28 +162,23 @@ export async function lookupSttWallets(
     groupedMatches.set(participant.walletId, current);
   }
 
-  const sortedMatches = [...groupedMatches.values()].sort((left, right) => {
-    if ((right.wallet.lastSeenBlockTime ?? -1) !== (left.wallet.lastSeenBlockTime ?? -1)) {
-      return (right.wallet.lastSeenBlockTime ?? -1) - (left.wallet.lastSeenBlockTime ?? -1);
-    }
+  // Pages have to stay stable while wallets change under them: `lastSeenBlockTime`
+  // moves on every wallet touch, so ordering by it let a wallet cross a page
+  // boundary between two requests and be served twice or skipped. Order by the
+  // immutable wallet id and page with a keyset predicate instead, which also
+  // makes a deleted cursor wallet mean "skip it" rather than "restart the list"
+  // (the old `findIndex` + 1 answered page 1 again, looping conformant clients).
+  const sortedMatches = [...groupedMatches.values()].sort((left, right) =>
+    left.wallet.id < right.wallet.id ? -1 : left.wallet.id > right.wallet.id ? 1 : 0
+  );
 
-    if ((right.wallet.lastSeenBlockHeight ?? -1) !== (left.wallet.lastSeenBlockHeight ?? -1)) {
-      return (right.wallet.lastSeenBlockHeight ?? -1) - (left.wallet.lastSeenBlockHeight ?? -1);
-    }
-
-    return left.wallet.unit.localeCompare(right.wallet.unit, "en");
-  });
-
-  const startIndex = cursor
-    ? Math.max(
-        sortedMatches.findIndex((match) => match.wallet.id === cursor) + 1,
-        0
-      )
-    : 0;
-  const page = sortedMatches.slice(startIndex, startIndex + STT_LOOKUP_WALLET_PAGE_SIZE);
+  const pagedMatches = cursor
+    ? sortedMatches.filter((match) => match.wallet.id > cursor)
+    : sortedMatches;
+  const page = pagedMatches.slice(0, STT_LOOKUP_WALLET_PAGE_SIZE);
   const pageWalletIds = page.map((entry) => entry.wallet.id);
   const nextCursor =
-    startIndex + STT_LOOKUP_WALLET_PAGE_SIZE < sortedMatches.length
+    pagedMatches.length > STT_LOOKUP_WALLET_PAGE_SIZE
       ? page.at(-1)?.wallet.id ?? null
       : null;
 
