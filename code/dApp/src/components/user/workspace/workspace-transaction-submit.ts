@@ -423,7 +423,9 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
 
     // Keep looking, slower: a tx the indexers see after the window must still turn
     // the banner green. It stops as soon as "Done", a new build, or a reset
-    // replaces the hash.
+    // replaces the hash. Not for mint: its overlay runs its own confirmation
+    // watch, and its locked "Done" never clears the hash to stop this loop.
+    if (selectedAction === "mint") return;
     for (let attempt = 1; attempt <= SUBMIT_CONFIRMATION_LATE_MAX_ATTEMPTS; attempt += 1) {
       await waitFor(SUBMIT_CONFIRMATION_LATE_POLL_MS);
       if (!isCurrent()) return;

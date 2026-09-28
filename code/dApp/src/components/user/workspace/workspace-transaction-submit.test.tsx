@@ -763,3 +763,21 @@ it("stops the late poll once the submitted banner is dismissed", async () => {
   await vi.advanceTimersByTimeAsync(SUBMIT_CONFIRMATION_LATE_POLL_MS * 3);
   expect(fetchRead.mock.calls.length).toBe(readsAtUnseen);
 });
+
+it("leaves a late mint confirmation to the mint overlay's own watch", async () => {
+  vi.useFakeTimers();
+  const fetchRead = vi.fn(async () => new Response(JSON.stringify({ error: "not indexed" }), { status: 404 }));
+  vi.stubGlobal("fetch", fetchRead);
+  const deps = makeDeps({ selectedAction: "mint" });
+  deps.setSubmitHash = vi.fn(hash => deps.jotaiStore.set(submitHashAtom, hash));
+  await createWorkspaceTransactionSubmit(deps).submitTransactionPreview({
+    ...preview,
+    preview: { action: "mint", summary: "Mint" }
+  } as unknown as BuildResult);
+  await vi.advanceTimersByTimeAsync(FIRST_WINDOW_MS);
+  expect(deps.jotaiStore.get(submitConfirmationUnseenAtom)).toBe(true);
+  const readsAtUnseen = fetchRead.mock.calls.length;
+
+  await vi.advanceTimersByTimeAsync(SUBMIT_CONFIRMATION_LATE_POLL_MS * 3);
+  expect(fetchRead.mock.calls.length).toBe(readsAtUnseen);
+});
