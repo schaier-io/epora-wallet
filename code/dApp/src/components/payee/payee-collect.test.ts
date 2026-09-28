@@ -211,6 +211,22 @@ test("a wallet with no locked funds at all is refused before a transaction is bu
   assert.match(plan.reason, /holds 0 ADA of the 50 ADA owed/);
 });
 
+test("a token refusal names the asset the way the row above it does", () => {
+  // The row heading decodes the datum's hex asset name; the refusal used to echo
+  // the raw bytes, so it read "0 544f4b454e of the 38 544f4b454e" under a row
+  // headed "38 TOKEN per day".
+  const plan = planPayeeCollect(
+    payment({ policyId: "aa".repeat(28), assetName: "544f4b454e", amountPerDay: 10 }),
+    [],
+    window(START + 10 * DAY_MS)
+  );
+
+  assert.equal(plan.status, "blocked");
+  if (plan.status !== "blocked") return;
+  assert.match(plan.reason, /0 TOKEN of the 100 TOKEN owed/);
+  assert.doesNotMatch(plan.reason, /544f4b454e/);
+});
+
 test("an unreadable payout address refuses rather than paying the wrong place", () => {
   const plan = planPayeeCollect(
     payment({ payoutAddress: "" }),
