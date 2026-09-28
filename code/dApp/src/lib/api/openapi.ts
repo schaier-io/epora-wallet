@@ -115,11 +115,16 @@ const txResponses = {
     true
   ),
   "500": jsonError("Unexpected server error."),
-  "502": jsonError("The chain data provider is unavailable."),
-  "503": jsonError(
-    "The shared STT reference server needed to build this transaction is unavailable (`SHARED_HELPER_UNAVAILABLE`). Retry later."
-  )
+  "502": jsonError("The chain data provider is unavailable.")
 };
+
+// Only these two routes look up the shared STT reference server, and only when
+// the request leaves `sttSpendReference` empty. The other routes answer 400
+// when they need a reference and none is given.
+const SHARED_REFERENCE_OPERATIONS = new Set(["buildMintTx", "buildSttSpendTx"]);
+const sharedReferenceUnavailable = jsonError(
+  "The request left `sttSpendReference` empty and the shared STT reference server is unavailable (`SHARED_HELPER_UNAVAILABLE`). Retry later, or pass `sttSpendReference`."
+);
 
 function txOperation(
   operationId: string,
@@ -134,7 +139,9 @@ function txOperation(
     tags: ["Transactions"],
     parameters: betaConsentParameters,
     requestBody: { content: { "application/json": { schema } } },
-    responses: txResponses
+    responses: SHARED_REFERENCE_OPERATIONS.has(operationId)
+      ? { ...txResponses, "503": sharedReferenceUnavailable }
+      : txResponses
   };
 }
 

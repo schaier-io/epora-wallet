@@ -688,7 +688,7 @@ carries the category, the message carries the specifics.
 | `429` | You are over the rate limit. |
 | `500` | Unexpected server error. |
 | `502` | The chain data provider is unreachable. |
-| `503` | Health only: the app is up but its database is down. |
+| `503` | Health: the app is up but its database is down or the indexer is stale. `mint` and `stt-spend`: you left `sttSpendReference` empty and the shared STT reference server is unavailable (`SHARED_HELPER_UNAVAILABLE`). Retry later, or pass `sttSpendReference`. |
 
 A body that is not JSON returns `400`, and so does one nested past 64 levels:
 
