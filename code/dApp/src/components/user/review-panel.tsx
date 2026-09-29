@@ -385,11 +385,17 @@ export function UserReviewPanel({
                 {/* Same chip as the non-completion branch below: a bare hash is readable
                     nowhere but an explorer, and the celebration is exactly when the reader
                     wants proof the chain accepted it. */}
+                {/* `max-w-full` caps the pill at its column. The completion card's text
+                    column beside the 40px icon is 174px in the 260px rail at 1280-1535,
+                    against this chip's 173px of content: a 1px margin no font metric gets
+                    to spend. The cap makes the hash wrap mid-string instead of the pill
+                    crossing the card's border. Same contract as the mint overlay's chip
+                    (`editors/primitives.tsx`). */}
                 <a
                   href={buildCardanoscanTransactionUrl(submitHash)}
                   target="_blank"
                   rel="noreferrer noopener"
-                  className="inline-flex items-center gap-1.5 rounded-md border border-emerald-300/30 bg-emerald-400/10 px-2 py-1 font-mono text-xs text-emerald-50 transition-colors hover:border-emerald-300/60 hover:bg-emerald-400/20"
+                  className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-emerald-300/30 bg-emerald-400/10 px-2 py-1 font-mono text-xs text-emerald-50 transition-colors hover:border-emerald-300/60 hover:bg-emerald-400/20"
                   title={i18n("viewTransactionOnCardanoscan")}
                   // Without this the link announces as its own visible text, a
                   // truncated hash, which says neither where it goes nor what the
@@ -397,7 +403,7 @@ export function UserReviewPanel({
                   // value, which is otherwise nowhere on this card.
                   aria-label={i18n("viewTransactionHashOnCardanoscan", { hash: submitHash })}
                 >
-                  {formatCompactHash(submitHash)}
+                  <span className="min-w-0 break-all">{formatCompactHash(submitHash)}</span>
                   <ExternalLink className="h-3 w-3 shrink-0" />
                 </a>
                 {completion.actionLabel && completion.onAction ? (
@@ -463,7 +469,7 @@ export function UserReviewPanel({
                   href={buildCardanoscanTransactionUrl(submitHash)}
                   target="_blank"
                   rel="noreferrer noopener"
-                  className="inline-flex items-center gap-1.5 rounded-md border border-emerald-300/30 bg-emerald-400/10 px-2 py-1 font-mono text-xs text-emerald-50 transition-colors hover:border-emerald-300/60 hover:bg-emerald-400/20"
+                  className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-emerald-300/30 bg-emerald-400/10 px-2 py-1 font-mono text-xs text-emerald-50 transition-colors hover:border-emerald-300/60 hover:bg-emerald-400/20"
                   title={i18n("viewTransactionOnCardanoscan")}
                   // Without this the link announces as its own visible text, a
                   // truncated hash, which says neither where it goes nor what the
@@ -471,7 +477,7 @@ export function UserReviewPanel({
                   // value, which is otherwise nowhere on this card.
                   aria-label={i18n("viewTransactionHashOnCardanoscan", { hash: submitHash })}
                 >
-                  {formatCompactHash(submitHash)}
+                  <span className="min-w-0 break-all">{formatCompactHash(submitHash)}</span>
                   <ExternalLink className="h-3 w-3 shrink-0" />
                 </a>
               </div>

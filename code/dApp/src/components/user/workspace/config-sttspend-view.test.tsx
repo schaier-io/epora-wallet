@@ -24,7 +24,14 @@ vi.mock("@/components/user/workspace/editors", () => ({
   // control points at, only while there is a message to show.
   InlineFieldError: ({ id, message }: { id?: string; message?: string | null }) =>
     message ? <p id={id}>{message}</p> : null,
-  SearchableAssetUnitDropdown: () => <div data-testid="asset-dropdown" />,
+  // Fires onChange so tests can drive the asset switch; renders otherwise bare.
+  SearchableAssetUnitDropdown: ({ onChange }: { onChange?: (unit: string) => void }) => (
+    <button
+      type="button"
+      data-testid="asset-dropdown"
+      onClick={() => onChange?.("unit-two")}
+    />
+  ),
   StateFormEditor: () => null
 }));
 vi.mock("@/components/user/workspace/config-sttspend-editors-view", () => ({
@@ -399,7 +406,7 @@ describe("recipient rejection descriptions", () => {
         ...view
       }
     });
-    fireEvent.click(screen.getByRole("button", { name: "Add another recipient" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add recipient" }));
   }
 
   function danglingDescriptions() {
@@ -455,6 +462,21 @@ describe("recipient rejection descriptions", () => {
   });
 });
 
+
+// The effect writes through an updater so an already-applied pick is a no-op
+// for the submit-receipt watcher. Resolve the updater the way jotai would.
+function expectAppliedPick(setter: ReturnType<typeof vi.fn>, expected: string) {
+  const calls = setter.mock.calls as Array<[unknown]>;
+  const arg = calls.at(-1)?.[0];
+  expect(typeof arg).toBe("function");
+  const apply = arg as (current: string) => string;
+  // Differing current: the suggested pick wins.
+  expect(apply("stale")).toBe(expected);
+  // Same-value current: the guard returns the current unchanged, so the
+  // submit-receipt watcher never sees a write.
+  expect(apply(expected)).toBe(expected);
+}
+
 describe("the automatic authorization path", () => {
   const TWO_PATHS = [
     { value: "admin", label: "Owner" },
@@ -468,7 +490,7 @@ describe("the automatic authorization path", () => {
       view: { activeSttAuthorityOptions: TWO_PATHS, setSttAuthorityPath }
     });
 
-    expect(setSttAuthorityPath).toHaveBeenCalledWith("admin");
+    expectAppliedPick(setSttAuthorityPath, "admin");
   });
 
   it("does not render a manual path selector", () => {
@@ -492,7 +514,7 @@ describe("the automatic authorization path", () => {
     };
     rerenderView(rerender, store);
 
-    expect(setSttAuthorityPath).toHaveBeenCalledWith("admin");
+    expectAppliedPick(setSttAuthorityPath, "admin");
   });
 
   it("does not apply a path the wallet does not offer", () => {
@@ -541,4 +563,69 @@ describe("send authorization choice", () => {
 
     expect(screen.queryByLabelText("Authorization path")).not.toBeInTheDocument();
   });
+});
+
+/**
+ * The composer used to read "How much" before the asset that decides the unit and
+ * what "Max" fills, and its button said "Add another recipient" while the list was
+ * still empty. The reading order now follows the dependency, and the button names
+ * what the click does until a payout is actually staged.
+ */
+describe("recipient-first composer layout", () => {
+  const FUNDED = {
+    availableLockedTransferAssets: [{ unit: "lovelace", quantity: "14000000" }]
+  };
+
+  it("reads asset before the amount and names the first add honestly", () => {
+    const { container } = renderView({
+      address: "addr_test1_locking",
+      view: { ...FUNDED, sttExtraTransfers: [] }
+    });
+
+    const text = container.textContent ?? "";
+    expect(text.indexOf("Asset")).toBeLessThan(text.indexOf("How much"));
+    expect(screen.getByRole("button", { name: "Add recipient" })).toBeTruthy();
+  });
+
+  it("says another once a payout is staged", () => {
+    renderView({
+      address: "addr_test1_locking",
+      view: {
+        ...FUNDED,
+        sttExtraTransfers: [
+          {
+            address: "addr_test1_staged",
+            amount: [{ unit: "lovelace", quantity: "14000000" }],
+            inlineDatum: { mode: "none" as const, customAlternative: "" }
+          }
+        ]
+      }
+    });
+
+    expect(screen.getByRole("button", { name: "Add another recipient" })).toBeTruthy();
+  });
+});
+
+/**
+ * The typed amount belonged to the previous asset's unit: 14 meant 14 ADA, and
+ * against a token it would stage 14 tokens with Max silently re-aimed. Switching
+ * the asset starts the box empty instead.
+ */
+it("clears the amount when the asset changes", () => {
+  const setTransferDisplayAmount = vi.fn();
+  renderView({
+    address: "addr_test1_locking",
+    view: {
+      availableLockedTransferAssets: [
+        { unit: "lovelace", quantity: "14000000" },
+        { unit: "unit-two", quantity: "500" }
+      ],
+      transferDisplayAmount: "14",
+      setTransferDisplayAmount
+    }
+  });
+
+  fireEvent.click(screen.getByTestId("asset-dropdown"));
+  expect(setTransferDisplayAmount).toHaveBeenCalledWith("");
+  expect(setTransferDisplayAmount).toHaveBeenCalledTimes(1);
 });

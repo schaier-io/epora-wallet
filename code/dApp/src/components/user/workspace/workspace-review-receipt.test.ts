@@ -307,3 +307,35 @@ test("the send receipt counts fund pools only when there are none to spend", () 
   assert.equal(funding?.tone, "warning");
   assert.equal(funding?.detail, undefined);
 });
+
+/**
+ * `sttExtraTransfersAtom` merges the un-added live row so balance arithmetic and
+ * field validation see a half-filled form ("Never discard a partial row"). With
+ * only the amount typed, that row's address is still empty, and the receipt used
+ * to render it as a real payout: "You are sending 14 ₳." over "Recipient / 14 ₳
+ * to -", the amount twice and no address anywhere. A receipt is neither balance
+ * arithmetic nor validation, so addressless rows stay out of it.
+ */
+test("a typed amount without a recipient never renders as a payout row", () => {
+  const receipt = computeReviewReceipt(sendCtx([transfer("", "14000000")]));
+
+  assert.equal(receipt.summary, "");
+  const recipient = receipt.items.find((item) => item.label === "Recipient");
+  assert.equal(recipient?.value, "None added yet");
+  assert.equal(recipient?.tone, "warning");
+});
+
+test("a partial live row beside a staged payout does not repeat the receipt", () => {
+  const receipt = computeReviewReceipt(
+    sendCtx([transfer(ADDRESS_ONE, "14000000"), transfer("", "14000000")])
+  );
+
+  assert.match(receipt.summary, /14 ₳/);
+  const recipientRows = receipt.items.filter((item) =>
+    item.label.startsWith("Recipient")
+  );
+  assert.equal(recipientRows.length, 1);
+  assert.match(recipientRows[0]?.value ?? "", /to /);
+  assert.match(recipientRows[0]?.value ?? "", /addr_test1qr.../);
+  assert.equal(recipientRows[0]?.copyValue, ADDRESS_ONE);
+});
