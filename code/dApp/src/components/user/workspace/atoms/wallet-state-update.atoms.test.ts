@@ -70,10 +70,10 @@ test("a refused submission removes only the record it wrote", () => {
   const newer = { ...PENDING, submittedTxHash: "ef".repeat(32) };
   store.set(beginWalletStateUpdateAtom, newer);
   store.set(discardWalletStateUpdateAtom, PENDING);
-  assert.deepEqual(store.get(pendingWalletStateUpdateAtom), newer);
+  assert.deepEqual(store.get(pendingWalletStateUpdatesAtom)[PENDING.walletUnit], newer);
 
   store.set(discardWalletStateUpdateAtom, newer);
-  assert.equal(store.get(pendingWalletStateUpdateAtom), null);
+  assert.equal(store.get(pendingWalletStateUpdatesAtom)[PENDING.walletUnit], undefined);
 });
 
 // #433: changing the screen cannot prove that a broadcast is no longer pending.
