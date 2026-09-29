@@ -45,14 +45,15 @@ function koiosBaseUrl(network: KoiosNetwork): string {
 export async function requestKoiosCredentialUtxos(
   paymentCredentialHex: string,
   network: KoiosNetwork = CARDANO_NETWORK,
-  offset = 0
+  offset = 0,
+  // All attempts share one deadline, including response body reads. A paged
+  // lookup passes its own, so every page draws on the same budget.
+  signal: AbortSignal = AbortSignal.timeout(LOOKUP_TIMEOUT_MS)
 ) {
   if (!/^[0-9a-f]{56}$/i.test(paymentCredentialHex)) {
     throw new Error("Koios payment credential must be a 56-character hex hash.");
   }
   const url = `${koiosBaseUrl(network)}/credential_utxos${offset > 0 ? `?offset=${offset}` : ""}`;
-  // All attempts share the original deadline, including response body reads.
-  const signal = AbortSignal.timeout(LOOKUP_TIMEOUT_MS);
   const options = {
     method: "POST",
     signal,
@@ -85,12 +86,19 @@ export async function fetchKoiosCredentialUtxoRows(
   paymentCredentialHex: string,
   network: KoiosNetwork = CARDANO_NETWORK
 ): Promise<KoiosUtxo[]> {
-  const rows: KoiosUtxo[] = [];
+  // Offset pages are read one after another, not as a snapshot. A UTxO created
+  // between two reads shifts the rows, so a later page can repeat a row it
+  // already served. Key rows by output reference to list each UTxO once.
+  // A UTxO spent between two reads shifts rows the other way, and one row can
+  // be skipped. Keying cannot restore it; the next lookup lists it again.
+  const rows = new Map<string, KoiosUtxo>();
+  const signal = AbortSignal.timeout(LOOKUP_TIMEOUT_MS);
   for (let page = 0; page < MAX_PAGES; page++) {
     const response = await requestKoiosCredentialUtxos(
       paymentCredentialHex,
       network,
-      page * KOIOS_PAGE_ROWS
+      page * KOIOS_PAGE_ROWS,
+      signal
     );
     const text = await response.text();
     if (!response.ok) {
@@ -105,9 +113,11 @@ export async function fetchKoiosCredentialUtxoRows(
     if (!Array.isArray(pageRows)) {
       throw new Error("Koios credential_utxos returned a malformed response.");
     }
-    rows.push(...(pageRows as KoiosUtxo[]));
+    for (const row of pageRows as KoiosUtxo[]) {
+      rows.set(`${row.tx_hash}#${row.tx_index}`, row);
+    }
     if (pageRows.length < KOIOS_PAGE_ROWS) {
-      return rows;
+      return [...rows.values()];
     }
   }
   throw new Error("Koios credential_utxos returned more UTxOs than one lookup reads.");
