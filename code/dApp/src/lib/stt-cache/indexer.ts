@@ -1,4 +1,4 @@
-import type { Prisma, PrismaClient } from "@/generated/prisma";
+import type { PrismaClient } from "@/generated/prisma";
 import { getPrisma } from "@/lib/prisma";
 import { decodeDatumFromUtxo } from "@/lib/mesh/datum";
 import { createDefaultSttChainClient } from "@/lib/stt-cache/chain";
@@ -14,6 +14,7 @@ import {
 } from "@/lib/stt-cache/domain";
 import {
   fetchAndPersistTransaction,
+  lockWalletReconcile,
   persistTransactionInfo,
   readChainTransactionPosition,
   readSyncCursor,
@@ -416,26 +417,6 @@ export async function reconcileCurrentWallets(
     lastSyncedAt: lastSyncedAt?.toISOString() ?? null,
     deadlineReached
   };
-}
-
-/**
- * Hold the reconcile lock for one wallet for the rest of the transaction.
- *
- * The chain reads happen before the write, so two reconciles of the same wallet can
- * overlap: the background collection walk and the targeted reconcile a proposal files
- * inline. Without this the pass that read the older UTxO could commit last and
- * overwrite `currentTxHash`, the datum and the participants with stale values, while
- * `selectLatestSeen` kept the newer freshness metadata. The lock makes the read of the
- * persisted position (the wallet row and the chain position of its `currentTxHash`
- * transaction) and the snapshot comparison and write that depend on it one step; the
- * slot and index comparison in `snapshotIsBehindStored` is what orders two such passes.
- *
- * `pg_advisory_xact_lock` returns void and Prisma cannot deserialize a void column, so
- * the call is projected to a boolean, as in `lib/proposals/store.ts`.
- */
-async function lockWalletReconcile(tx: Prisma.TransactionClient, unit: string) {
-  const lockKey = `${STT_CACHE_NETWORK}:reconcile:${unit}`;
-  await tx.$queryRaw`SELECT (pg_advisory_xact_lock(hashtextextended(${lockKey}, 0)) IS NULL) AS locked`;
 }
 
 /**

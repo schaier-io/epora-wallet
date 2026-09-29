@@ -153,6 +153,35 @@ test("reconcileWalletUnit still closes a known wallet whose State UTxO is gone",
  * inline reconcile completes the state, and the owner's key is then a participant
  * while a key that holds no membership still is not.
  */
+/**
+ * The skeleton write read the row and then created it outside any lock. Two first writes of
+ * one new wallet (the background sync and an owner's first proposal, or two tabs) both saw no
+ * row, and the second create hit the unique (network, unit) constraint.
+ */
+test("concurrent first writes of one new wallet both succeed", async () => {
+  const fixture = createSttFixture();
+  const chainClient = createMockChainClient();
+  // Separate clients hold separate connections, like two server instances.
+  const clients = await Promise.all(Array.from({ length: 4 }, () => createTestDatabaseClient()));
+  try {
+    await Promise.all(
+      clients.map((client) =>
+        fetchAndPersistTransaction(
+          chainClient,
+          client,
+          fixture.mintTransaction.hash,
+          new Date(),
+          fixture.transactionPageEntry
+        )
+      )
+    );
+  } finally {
+    await Promise.all(clients.map((client) => client.$disconnect()));
+  }
+
+  assert.equal(await db.sttWallet.count({ where: { unit: fixture.unit } }), 1);
+});
+
 test("a partial ACTIVE skeleton reads as unindexed until the targeted reconcile completes it", async () => {
   const fixture = createSttFixture();
   const chainClient = createMockChainClient();

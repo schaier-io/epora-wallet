@@ -155,6 +155,29 @@ export async function readChainTransactionPosition(
   return { slot: parseChainSlot(row?.slot), txIndex: row?.txIndex ?? null };
 }
 
+/**
+ * Hold the reconcile lock for one wallet for the rest of the transaction.
+ *
+ * The chain reads happen before the write, so two reconciles of the same wallet can
+ * overlap: the background collection walk and the targeted reconcile a proposal files
+ * inline. Without this the pass that read the older UTxO could commit last and
+ * overwrite `currentTxHash`, the datum and the participants with stale values, while
+ * `selectLatestSeen` kept the newer freshness metadata. The lock makes the read of the
+ * persisted position (the wallet row and the chain position of its `currentTxHash`
+ * transaction) and the snapshot comparison and write that depend on it one step; the
+ * slot and index comparison in `snapshotIsBehindStored` is what orders two such passes.
+ *
+ * The wallet skeleton write takes the same lock, so two first writes of one new wallet
+ * cannot both miss the row and race to create it.
+ *
+ * `pg_advisory_xact_lock` returns void and Prisma cannot deserialize a void column, so
+ * the call is projected to a boolean, as in `lib/proposals/store.ts`.
+ */
+export async function lockWalletReconcile(tx: Prisma.TransactionClient, unit: string) {
+  const lockKey = `${STT_CACHE_NETWORK}:reconcile:${unit}`;
+  await tx.$queryRaw`SELECT (pg_advisory_xact_lock(hashtextextended(${lockKey}, 0)) IS NULL) AS locked`;
+}
+
 async function upsertWalletSkeleton(
   db: PrismaClient,
   unit: string,
@@ -165,55 +188,58 @@ async function upsertWalletSkeleton(
     now: Date;
   }
 ) {
-  const identity = buildWalletIdentity(unit);
-  const existing = await db.sttWallet.findUnique({
-    where: {
-      network_unit: {
-        network: STT_CACHE_NETWORK,
-        unit
+  return db.$transaction(async (tx) => {
+    await lockWalletReconcile(tx, unit);
+    const identity = buildWalletIdentity(unit);
+    const existing = await tx.sttWallet.findUnique({
+      where: {
+        network_unit: {
+          network: STT_CACHE_NETWORK,
+          unit
+        }
       }
-    }
-  });
+    });
 
-  if (!existing) {
-    return db.sttWallet.create({
+    if (!existing) {
+      return tx.sttWallet.create({
+        data: {
+          ...identity,
+          status: options.initialStatus,
+          currentTxHash: null,
+          currentOutputIndex: null,
+          currentDatumJson: null,
+          lastSeenBlockHeight: options.blockHeight,
+          lastSeenBlockTime: options.blockTime,
+          lastSyncedAt: options.now
+        }
+      });
+    }
+
+    const latestSeen = selectLatestSeen(
+      {
+        blockHeight: existing.lastSeenBlockHeight,
+        blockTime: existing.lastSeenBlockTime
+      },
+      {
+        blockHeight: options.blockHeight,
+        blockTime: options.blockTime
+      }
+    );
+
+    return tx.sttWallet.update({
+      where: {
+        id: existing.id
+      },
       data: {
-        ...identity,
-        status: options.initialStatus,
-        currentTxHash: null,
-        currentOutputIndex: null,
-        currentDatumJson: null,
-        lastSeenBlockHeight: options.blockHeight,
-        lastSeenBlockTime: options.blockTime,
+        policyId: identity.policyId,
+        assetNameHex: identity.assetNameHex,
+        sttScriptAddress: identity.sttScriptAddress,
+        walletScriptAddress: identity.walletScriptAddress,
+        lastSeenBlockHeight: latestSeen.blockHeight,
+        lastSeenBlockTime: latestSeen.blockTime,
         lastSyncedAt: options.now
       }
     });
-  }
-
-  const latestSeen = selectLatestSeen(
-    {
-      blockHeight: existing.lastSeenBlockHeight,
-      blockTime: existing.lastSeenBlockTime
-    },
-    {
-      blockHeight: options.blockHeight,
-      blockTime: options.blockTime
-    }
-  );
-
-  return db.sttWallet.update({
-    where: {
-      id: existing.id
-    },
-    data: {
-      policyId: identity.policyId,
-      assetNameHex: identity.assetNameHex,
-      sttScriptAddress: identity.sttScriptAddress,
-      walletScriptAddress: identity.walletScriptAddress,
-      lastSeenBlockHeight: latestSeen.blockHeight,
-      lastSeenBlockTime: latestSeen.blockTime,
-      lastSyncedAt: options.now
-    }
   });
 }
 
