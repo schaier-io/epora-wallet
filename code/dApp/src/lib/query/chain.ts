@@ -6,8 +6,11 @@ export const addressUtxosQueryOptions = (address: string) => queryOptions({
   queryKey: queryKeys.addressUtxos(address),
   queryFn: ({ signal }) => new ServerFetcher({ signal }).fetchAddressUTxOs(address)
 });
+// A transaction the indexer has returned does not change. Misses are errors, which
+// hold no data, so an unindexed hash is still fetched again on the next read.
 export const txInfoQueryOptions = (hash: string) => queryOptions({
   queryKey: queryKeys.txInfo(hash),
+  staleTime: Infinity,
   queryFn: ({ signal }) => new ServerFetcher({ signal }).fetchTxInfo(hash)
 });
 export const accountInfoQueryOptions = (address: string) => queryOptions({

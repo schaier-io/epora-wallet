@@ -388,7 +388,7 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
     const isCurrent = () => jotaiStore.get(workspaceSessionAtom) === session && jotaiStore.get(submitHashAtom) === txHash;
     const client = jotaiStore.get(queryClientAtom);
     const seenOnChain = () =>
-      client.fetchQuery({ ...txInfoQueryOptions(txHash), staleTime: 0, retry: false }).catch(() => null);
+      client.fetchQuery({ ...txInfoQueryOptions(txHash), retry: false }).catch(() => null);
     for (let attempt = 1; attempt <= SUBMIT_CONFIRMATION_MAX_ATTEMPTS; attempt += 1) {
       await waitFor(
         attempt === 1 ? SUBMIT_CONFIRMATION_INITIAL_DELAY_MS : SUBMIT_CONFIRMATION_POLL_MS
