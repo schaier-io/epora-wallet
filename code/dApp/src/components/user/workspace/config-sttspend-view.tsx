@@ -96,7 +96,11 @@ export function SttSpendConfigView() {
     if (!activeSttAuthorityOptions.some((option) => option.value === suggestedAuthorityPath)) {
       return;
     }
-    setSttAuthorityPath(suggestedAuthorityPath);
+    // Same-value guard: the options atom can recompute with a new array identity
+    // after a chain-cache invalidation. Writing the value it already holds must
+    // not look like a draft change to the submit-receipt watcher in
+    // `useConfigSttSpendState`.
+    setSttAuthorityPath((current) => (current === suggestedAuthorityPath ? current : suggestedAuthorityPath));
   }, [
     activeSttAuthorityOptions,
     setSttAuthorityPath,
@@ -368,7 +372,29 @@ export function SttSpendConfigView() {
                   {i18n("checkingThisWalletSFunds")}
                 </p>
               ) : availableLockedTransferAssets.length > 0 ? (
-                <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)_auto]">
+                <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)_auto]">
+                  {/* Asset before the amount: the asset decides the unit, the placeholder
+                      and what "Max" fills, so the reading order follows the dependency.
+                      (The two swapped places, and the amount box led with a unit its
+                      dropdown had not chosen yet.) */}
+                  <div className="space-y-1">
+                    <Label htmlFor="walletAssetSelect">{i18n("asset")}</Label>
+                    <SearchableAssetUnitDropdown
+                      id="walletAssetSelect"
+                      value={transferSelectedUnit}
+                      options={availableLockedTransferAssetOptions}
+                      onChange={(unit) => {
+                        setPayoutRejection(null);
+                        // The typed amount belonged to the previous asset's unit: 14
+                        // meant 14 ADA, and against a token it would stage 14 tokens.
+                        // Max now targets the new asset, so the box starts empty
+                        // instead of keeping a number that no longer means anything.
+                        setTransferDisplayAmount("");
+                        setTransferSelectedUnit(unit);
+                      }}
+                    />
+                    <InlineFieldError id="walletAssetSelect-error" message={assetRejection} />
+                  </div>
                   <div className="space-y-1">
                     <Label htmlFor="walletTransferAmount">
                       {transferSelectedUnit === "lovelace" ? i18n("howMuchAda") : i18n("howMuch")}
@@ -415,19 +441,6 @@ export function SttSpendConfigView() {
                     </div>
                     <InlineFieldError id="walletTransferAmount-error" message={amountRejection} />
                   </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="walletAssetSelect">{i18n("asset")}</Label>
-                    <SearchableAssetUnitDropdown
-                      id="walletAssetSelect"
-                      value={transferSelectedUnit}
-                      options={availableLockedTransferAssetOptions}
-                      onChange={(unit) => {
-                        setPayoutRejection(null);
-                        setTransferSelectedUnit(unit);
-                      }}
-                    />
-                    <InlineFieldError id="walletAssetSelect-error" message={assetRejection} />
-                  </div>
                   <div className="flex items-end">
                     <Button
                       type="button"
@@ -435,7 +448,11 @@ export function SttSpendConfigView() {
                       onClick={() => setPayoutRejection(addSimpleTransferRecipient())}
                       disabled={availableLockedTransferAssets.length === 0}
                     >
-                      {i18n("addPayout")}
+                      {/* "Another" is only true once a payout is staged; with an empty
+                          list the button adds the FIRST one and said otherwise. */}
+                      {sttExtraTransfers.length === 0
+                        ? i18n("addRecipient")
+                        : i18n("addPayout")}
                     </Button>
                   </div>
                 </div>

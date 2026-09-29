@@ -546,3 +546,33 @@ test("the header carries the network status dot in exactly one place", () => {
     `${HEADER} no longer keeps the network dot to one place at a time.`
   );
 });
+
+// Grid auto-placement puts an item in the first free cell. With the sidebar shown and a
+// composer open, `lg` defines two columns -- 280px sidebar + main -- so the rail landed in
+// row 2, column 1: the whole review panel, squeezed into the sidebar's 280px column below
+// the sidebar card. Measured at 1152x800 with the send composer open: rail 280px wide,
+// 909px tall, under the sidebar, while the rail's own column exists only from `xl`. Below
+// `lg` it already stacks full width; the span makes the wrapped band match the stacked
+// state instead of the sidebar column.
+//
+// The span has to ride the sidebar's presence. The mint flow runs no sidebar, and its grid
+// is one column below `xl`: an unconditional `lg:col-span-2` there would force a second
+// implicit column into that one-column grid and split the main panel's width.
+//
+// Blind spot: string matches, like rules 11 and 12. They prove the span and its gate are
+// written, not that the rail renders full-width.
+const RAIL = "src/components/user/workspace/workspace-review-rail-view.tsx";
+
+test("the wrapped review rail spans the row, not the sidebar column", () => {
+  const rail = readFileSync(RAIL, "utf8");
+  const layout = readFileSync(SHELL, "utf8");
+
+  assert.ok(
+    rail.includes("lg:col-span-2 xl:col-span-1"),
+    `${RAIL} must span both \`lg\` columns and give the span back at \`xl\`, where the rail gets its own third column.`
+  );
+  assert.ok(
+    layout.includes("spanFullRowAtLg={showGuidedSidebar}"),
+    `${SHELL} must gate the span on the sidebar's presence: the mint flow's one-column grid must not grow an implicit second column.`
+  );
+});
