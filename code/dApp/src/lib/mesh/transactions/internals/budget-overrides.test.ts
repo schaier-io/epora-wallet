@@ -212,15 +212,15 @@ test("findAdjustableChangeOutputIndex prefers a clean change output at/after the
   assert.equal(findAdjustableChangeOutputIndex(builder, 1), 2);
 });
 
-test("findAdjustableChangeOutputIndex falls back to a change-addressed output and returns -1 when none exists", () => {
-  const fallback = {
+test("findAdjustableChangeOutputIndex never picks a prepared output, even one at the change address", () => {
+  const prepared = {
     meshTxBuilderBody: {
       changeAddress: CHANGE,
-      outputs: [{ address: CHANGE, amount: [] }]
+      outputs: [{ address: CHANGE, amount: [] }, { address: CHANGE, amount: [], datum: { tag: 1 } }]
     }
   } as unknown as RuntimeTxBuilder;
-  // prepared count exceeds every index, so only the address-based fallback predicates can match.
-  assert.equal(findAdjustableChangeOutputIndex(fallback, 5), 0);
+  // A payout to the signer's own address is still a reviewed output whose amount a validator checks.
+  assert.equal(findAdjustableChangeOutputIndex(prepared, 5), -1);
 
   const none = {
     meshTxBuilderBody: {
@@ -229,6 +229,25 @@ test("findAdjustableChangeOutputIndex falls back to a change-addressed output an
     }
   } as unknown as RuntimeTxBuilder;
   assert.equal(findAdjustableChangeOutputIndex(none, 5), -1);
+});
+
+test("manual budget rebalance refuses to move a fee delta into a prepared self-payout", () => {
+  const builder = {
+    meshTxBuilderBody: {
+      fee: "200000",
+      changeAddress: CHANGE,
+      outputs: [{ address: CHANGE, amount: [{ unit: "lovelace", quantity: "2000000" }] }]
+    },
+    calculateFee: () => 210_000n,
+    completeUnbalancedSync: () => "tx-hex"
+  } as unknown as RuntimeTxBuilder;
+  const overrides = { certificateBudgets: [], spendBudgetsByRef: new Map(), mintBudgets: [], rewardBudgets: [], voteBudgets: [] };
+
+  assert.throws(
+    () => applyManualBudgetOverrides({ txBuilder: builder } as unknown as Transaction, overrides, 1),
+    /Could not locate a change output/
+  );
+  assert.equal(builder.meshTxBuilderBody.outputs![0]!.amount[0]!.quantity, "2000000");
 });
 
 test("getPreparedOutputCount reads the builder output count, defaulting to zero", () => {
