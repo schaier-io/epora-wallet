@@ -141,3 +141,28 @@ it("does not start another attempt after the shared deadline expires", async () 
   expect(fetchMock).toHaveBeenCalledTimes(1);
   expect(timeout).toHaveBeenCalledExactlyOnceWith(15_000);
 });
+
+// Koios caps every response at 1000 rows; the rest sit behind `offset`
+// (docs/sources/koios/specs/results/koiosapi-mainnet.yaml, "Pagination (offset/limit)").
+it("reads every page when a credential holds more than 1000 UTxOs", async () => {
+  const row = (index: number) => ({
+    tx_hash: index.toString(16).padStart(64, "0"),
+    tx_index: 0,
+    address: "addr_test1wallet",
+    value: "1000000"
+  });
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce(new Response(JSON.stringify(Array.from({ length: 1000 }, (_, i) => row(i)))))
+    .mockResolvedValueOnce(new Response(JSON.stringify(Array.from({ length: 1000 }, (_, i) => row(1000 + i)))))
+    .mockResolvedValueOnce(new Response(JSON.stringify([row(2000)])));
+  vi.stubGlobal("fetch", fetchMock);
+
+  const result = await fetchCredentialUtxosFromKoios("cc".repeat(28));
+
+  expect(result).toHaveLength(2001);
+  expect(fetchMock.mock.calls.map(([url]) => url as string)).toEqual([
+    "https://koios.example/api/v1/credential_utxos",
+    "https://koios.example/api/v1/credential_utxos?offset=1000",
+    "https://koios.example/api/v1/credential_utxos?offset=2000"
+  ]);
+});

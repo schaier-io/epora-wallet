@@ -19,11 +19,23 @@ const MAX_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 500;
 const MAX_RETRY_DELAY_MS = 1_000;
 const RETRYABLE_STATUSES = new Set([502, 503, 504]);
+// Koios answers at most this many rows per request and serves the rest behind
+// `offset` (Koios API spec, "Pagination (offset/limit)").
+const KOIOS_PAGE_ROWS = 1000;
+// Bounds one lookup: 20 pages is 20,000 UTxOs at a single payment credential.
+const MAX_PAGES = 20;
+
+export class KoiosCredentialLookupError extends Error {
+  constructor(readonly status: number, readonly body: string) {
+    super(`Koios credential_utxos failed (${status}): ${body.slice(0, 200)}`);
+  }
+}
 
 export type KoiosNetwork = keyof typeof KOIOS_URLS;
 
 export function isKoiosNetwork(network: string): network is KoiosNetwork {
-  return network in KOIOS_URLS;
+  // Own keys only: `in` also accepted inherited names such as "toString".
+  return Object.hasOwn(KOIOS_URLS, network);
 }
 
 function koiosBaseUrl(network: KoiosNetwork): string {
@@ -32,12 +44,13 @@ function koiosBaseUrl(network: KoiosNetwork): string {
 
 export async function requestKoiosCredentialUtxos(
   paymentCredentialHex: string,
-  network: KoiosNetwork = CARDANO_NETWORK
+  network: KoiosNetwork = CARDANO_NETWORK,
+  offset = 0
 ) {
   if (!/^[0-9a-f]{56}$/i.test(paymentCredentialHex)) {
     throw new Error("Koios payment credential must be a 56-character hex hash.");
   }
-  const url = `${koiosBaseUrl(network)}/credential_utxos`;
+  const url = `${koiosBaseUrl(network)}/credential_utxos${offset > 0 ? `?offset=${offset}` : ""}`;
   // All attempts share the original deadline, including response body reads.
   const signal = AbortSignal.timeout(LOOKUP_TIMEOUT_MS);
   const options = {
@@ -67,26 +80,44 @@ export async function requestKoiosCredentialUtxos(
   }
 }
 
+/** Every `credential_utxos` row for one payment credential, across all Koios pages. */
+export async function fetchKoiosCredentialUtxoRows(
+  paymentCredentialHex: string,
+  network: KoiosNetwork = CARDANO_NETWORK
+): Promise<KoiosUtxo[]> {
+  const rows: KoiosUtxo[] = [];
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const response = await requestKoiosCredentialUtxos(
+      paymentCredentialHex,
+      network,
+      page * KOIOS_PAGE_ROWS
+    );
+    const text = await response.text();
+    if (!response.ok) {
+      throw new KoiosCredentialLookupError(response.status, text);
+    }
+    let pageRows: unknown;
+    try {
+      pageRows = JSON.parse(text);
+    } catch {
+      throw new Error("Koios credential_utxos returned invalid JSON.");
+    }
+    if (!Array.isArray(pageRows)) {
+      throw new Error("Koios credential_utxos returned a malformed response.");
+    }
+    rows.push(...(pageRows as KoiosUtxo[]));
+    if (pageRows.length < KOIOS_PAGE_ROWS) {
+      return rows;
+    }
+  }
+  throw new Error("Koios credential_utxos returned more UTxOs than one lookup reads.");
+}
+
 export async function fetchCredentialUtxosFromKoios(
   paymentCredentialHex: string,
   network: KoiosNetwork = CARDANO_NETWORK
 ) {
-  const response = await requestKoiosCredentialUtxos(paymentCredentialHex, network);
-  const text = await response.text();
-  if (!response.ok) {
-    throw new Error(
-      `Koios credential_utxos failed (${response.status}): ${text.slice(0, 200)}`
-    );
-  }
-
-  let rows: unknown;
-  try {
-    rows = JSON.parse(text);
-  } catch {
-    throw new Error("Koios credential_utxos returned invalid JSON.");
-  }
-  if (!Array.isArray(rows)) {
-    throw new Error("Koios credential_utxos returned a malformed response.");
-  }
-  return mapKoiosCredentialUtxos(rows as KoiosUtxo[]);
+  return mapKoiosCredentialUtxos(
+    await fetchKoiosCredentialUtxoRows(paymentCredentialHex, network)
+  );
 }
