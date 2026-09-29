@@ -16,10 +16,17 @@ export function getUserFacingErrorMessage(error: unknown, fallback: string): str
   const message = extractErrorMessage(error, "").trim();
   const errorCode =
     typeof error === "object" && error !== null && "code" in error ? error.code : undefined;
+  // A CIP-30 wallet rejects with a plain `{ code, info }` object, not an Error. The code
+  // alone is ambiguous across CIP-30 error kinds, so the decision words in `info` decide.
+  const walletInfo =
+    typeof error === "object" && error !== null && "info" in error && typeof error.info === "string"
+      ? error.info
+      : "";
 
   if (
     errorCode === 4001 ||
     errorCode === "4001" ||
+    isWalletRejectionMessage(walletInfo) ||
     /(?:user|request).*(?:reject|declin|deni|cancel)|(?:reject|declin|deni|cancel).*(?:user|request)/i.test(
       message
     )
@@ -38,6 +45,7 @@ export function getUserFacingErrorMessage(error: unknown, fallback: string): str
   return fallback;
 }
 import { createDefaultTranslator } from "@/i18n/default-translator";
+import { isWalletRejectionMessage } from "@/lib/utils/wallet-rejection-patterns";
 import defaultMessages from "@/i18n/generated/default-en/LibUtilsErrors.json";
 
 const i18n = createDefaultTranslator("LibUtilsErrors", defaultMessages);
