@@ -151,7 +151,8 @@ it("keeps selected orphan values when the recovery Send flow opens", async () =>
     lockingContractAddress: "wallet-a",
     refreshLockedContractUtxos: test.result.current.refreshLockedContractUtxos,
     selectedAction: "use-beneficiary", wizardSelectedAction: "use-beneficiary",
-    sttExtraTransfers: [], sttWalletInputs: [], setSttWalletInputs: vi.fn(), suggestedLockedInputs: []
+    sttExtraTransfers: [], sttWalletInputs: [], setSttWalletInputs: vi.fn(), suggestedLockedInputs: [],
+    selectedLockedContractAssets: [], requestedLockedAssetTotals: []
   }));
   await waitFor(() => expect(chain.fetchAddressUTxOs).toHaveBeenCalledTimes(1));
   expect(test.store.get(selectedOrphanInputsAtom)).toBe(recoveryDraft);

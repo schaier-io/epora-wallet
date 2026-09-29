@@ -21,6 +21,8 @@ function run(overrides: Partial<WorkspaceSendActionEffectsCtx>) {
       sttWalletInputs: [],
       setSttWalletInputs,
       suggestedLockedInputs: suggested,
+      selectedLockedContractAssets: [],
+      requestedLockedAssetTotals: [],
       ...overrides
     } as WorkspaceSendActionEffectsCtx)
   );
@@ -55,6 +57,30 @@ describe("useWorkspaceSendActionEffects", () => {
     expect(setSttWalletInputs).not.toHaveBeenCalled();
   });
 
+  // A second, larger payout must not keep the smaller first pick: the builder would
+  // refuse the draft ("no longer cover") instead of drawing from the chosen pools.
+  it("re-seeds when the chosen pools no longer cover the staged payouts", () => {
+    const { setSttWalletInputs } = run({
+      selectedAction: "use",
+      sttExtraTransfers: [{} as WorkspaceSendActionEffectsCtx["sttExtraTransfers"][number]],
+      sttWalletInputs: [{ txHash: "bb".repeat(32), outputIndex: 0 }],
+      selectedLockedContractAssets: [{ unit: "lovelace", quantity: "10000000" }],
+      requestedLockedAssetTotals: [{ unit: "lovelace", quantity: "60000000" }]
+    });
+    expect(setSttWalletInputs).toHaveBeenCalledWith(suggested);
+  });
+
+  it("keeps a chosen pick that still covers the staged payouts", () => {
+    const { setSttWalletInputs } = run({
+      selectedAction: "use",
+      sttExtraTransfers: [{} as WorkspaceSendActionEffectsCtx["sttExtraTransfers"][number]],
+      sttWalletInputs: [{ txHash: "bb".repeat(32), outputIndex: 0 }],
+      selectedLockedContractAssets: [{ unit: "lovelace", quantity: "60000000" }],
+      requestedLockedAssetTotals: [{ unit: "lovelace", quantity: "60000000" }]
+    });
+    expect(setSttWalletInputs).not.toHaveBeenCalled();
+  });
+
   it.each(["use", "use-allowance", "use-beneficiary"] as const)(
     "refreshes funds when %s opens",
     (selectedAction) => {
@@ -80,7 +106,9 @@ describe("useWorkspaceSendActionEffects", () => {
       sttExtraTransfers: [],
       sttWalletInputs: [],
       setSttWalletInputs: vi.fn(),
-      suggestedLockedInputs: suggested
+      suggestedLockedInputs: suggested,
+      selectedLockedContractAssets: [],
+      requestedLockedAssetTotals: []
     };
     const { rerender } = renderHook(
       ({ wizardSelectedAction }: { wizardSelectedAction: WorkspaceSendActionEffectsCtx["wizardSelectedAction"] }) =>

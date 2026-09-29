@@ -180,6 +180,7 @@ export function usePermissionWalletWorkspaceState() {
     streamingPaymentPayoutRows,
     streamingPaymentPayoutTransfers,
     requestedLockedAssetTotals,
+    selectedLockedContractAssets,
     suggestedLockedInputs
   } = useWorkspaceTransferDerivations();
 
@@ -543,12 +544,14 @@ export function usePermissionWalletWorkspaceState() {
     networkId,
     previousAutoMintStateRef,
     refreshLockedContractUtxos,
+    requestedLockedAssetTotals,
     resetSharedReferencePreview,
     resolvedSelectedTask,
     selectableWizardActionKinds,
     selectedAction,
     selectedDetectedToken,
     selectedDetectedTokenUnit,
+    selectedLockedContractAssets,
     setBuildError,
     setBuildErrorExpected,
     setLastActionLabel,
