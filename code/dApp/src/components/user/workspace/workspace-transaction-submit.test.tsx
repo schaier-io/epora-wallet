@@ -122,6 +122,27 @@ it("clears the transfer recipient after a send so the next payout is not aimed a
   expect(deps.jotaiStore.get(transferDisplayAmountAtom)).toBe("");
 });
 
+it.each(["use", "use-allowance", "use-beneficiary"] as const)(
+  "clears the fund pools a %s send consumed so the next send is not built on spent inputs",
+  async (selectedAction) => {
+    vi.useFakeTimers();
+    const deps = makeDeps({ selectedAction });
+    deps.jotaiStore.set(sttWalletInputsAtom, [{ txHash: "aa".repeat(32), outputIndex: 0 }]);
+    await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
+    expect(mocks.signAndSubmitTx).toHaveBeenCalledOnce();
+    expect(deps.jotaiStore.get(sttWalletInputsAtom)).toEqual([]);
+  }
+);
+
+it("keeps the selected fund pools when the wallet rejects submission", async () => {
+  const deps = makeDeps({ selectedAction: "use" });
+  const inputs = [{ txHash: "aa".repeat(32), outputIndex: 0 }];
+  deps.jotaiStore.set(sttWalletInputsAtom, inputs);
+  mocks.signAndSubmitTx.mockRejectedValueOnce(new Error("User declined signing"));
+  await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
+  expect(deps.jotaiStore.get(sttWalletInputsAtom)).toEqual(inputs);
+});
+
 it("keeps the transfer recipient when the wallet rejects submission", async () => {
   const deps = makeDeps({ selectedAction: "use" });
   deps.jotaiStore.set(transferRecipientModeAtom, "my-address");

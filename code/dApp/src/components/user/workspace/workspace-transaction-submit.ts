@@ -345,9 +345,13 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
       // The transfer form is cleared with them. Leaving Recipient on "My address" after a
       // send re-aims the next payout at the signer's own wallet, which is the default
       // `transfer-form.atoms.ts` deliberately removed on a wallet with several owners.
+      // The fund pools go too: this transaction spent them. Left selected, the seeding
+      // effect skips the next payout (it seeds only an empty selection) and the next
+      // build fails on inputs that no longer exist.
       runPostSubmitTask("clear-payouts", () => {
         if (!mayClearSubmittedDraft) return;
         jotaiStore.set(sttExtraTransfersAtom, []);
+        jotaiStore.set(sttWalletInputsAtom, []);
         jotaiStore.set(resetTransferFormAtom);
       });
     }
