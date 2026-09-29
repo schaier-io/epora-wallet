@@ -111,6 +111,18 @@ function loadWalletRuntime() {
 // generic error classifier, which reads "did not respond" as a network fault.
 class KnownConnectError extends Error {}
 
+// CIP-30 APIErrorCode.AccountChange.
+const CIP30_ACCOUNT_CHANGE_CODE = -4;
+
+function isCip30AccountChange(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === CIP30_ACCOUNT_CHANGE_CODE
+  );
+}
+
 function sameWalletList(current: Wallet[], next: Wallet[]) {
   return (
     current.length === next.length &&
@@ -249,8 +261,17 @@ export function WalletProvider({ children }: PropsWithChildren) {
       setActiveRewardAddress(rewardAddress);
       setActivePaymentKeyHash(paymentKeyHash);
       setNetworkId(id);
-    } catch {
-      // Keep the last known identity. A failed read is not evidence that the account changed.
+    } catch (error) {
+      // Keep the last known identity. A failed read is not evidence that the account changed,
+      // except CIP-30 APIError AccountChange (-4): that api object is dead, and the caller
+      // must enable the wallet again.
+      if (
+        isCip30AccountChange(error) &&
+        activeWalletRef.current === wallet &&
+        accountSyncGenerationRef.current === generation
+      ) {
+        return "account-changed" as const;
+      }
     }
   }, [setActiveAddress, setActivePaymentKeyHash, setActiveRewardAddress, setNetworkId]);
 
@@ -454,7 +475,26 @@ export function WalletProvider({ children }: PropsWithChildren) {
 
     const refreshOnReturn = () => {
       void refreshWallets();
-      void syncActiveAccount();
+      void syncActiveAccount().then(async (result) => {
+        const walletName = activeWalletNameRef.current;
+        if (result !== "account-changed" || !walletName) return;
+        // Same rule as the restore after a reload: enable() outside a user gesture can hang
+        // on an approval popup nobody asked for. Re-enable silently only when the new
+        // account already authorized this site; otherwise drop the stale identity and wait
+        // for a click. A failed re-enable clears the identity and names the error.
+        const injected = window.cardano?.[walletName] as
+          | { isEnabled?: () => Promise<boolean> }
+          | undefined;
+        const authorized = injected?.isEnabled
+          ? await injected.isEnabled().catch(() => false)
+          : false;
+        if (activeWalletNameRef.current !== walletName) return;
+        if (!authorized) {
+          disconnectWallet();
+          return;
+        }
+        connect(walletName, true).catch(() => {});
+      });
     };
 
     const refreshOnVisible = () => {
@@ -478,7 +518,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
       );
       document.removeEventListener("visibilitychange", refreshOnVisible);
     };
-  }, [refreshWallets, syncActiveAccount]);
+  }, [connect, disconnectWallet, refreshWallets, syncActiveAccount]);
 
   useEffect(() => {
     if (activeWallet) {
