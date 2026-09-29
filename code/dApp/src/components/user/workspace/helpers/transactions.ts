@@ -1,6 +1,5 @@
 import { countAddressUtxos, countAssetUtxos } from "./asset-amounts";
 import { normalizeBlockTimeMs } from "./formatters";
-import { RECENT_WALLET_TRANSACTION_FETCH_PAGES } from "@/components/user/workspace/constants";
 import { ServerFetcher } from "@/lib/mesh/server-fetcher";
 import { type WalletInputRef } from "@/lib/types/contracts";
 import { type TransactionInfo } from "@meshsdk/common";
@@ -235,31 +234,4 @@ export function findMatchingLockedUtxo(utxos: UTxO[], ref: WalletInputRef) {
 export async function fetchScriptUtxos(address: string) {
   const fetcher = new ServerFetcher();
   return fetcher.fetchAddressUTxOs(address);
-}
-
-export async function fetchAddressTransactions(
-  address: string,
-  maxPage = RECENT_WALLET_TRANSACTION_FETCH_PAGES
-) {
-  const fetcher = new ServerFetcher();
-  const transactions = await fetcher.fetchAddressTxs(address, {
-    maxPage,
-    order: "desc"
-  });
-  return transactions.map(normalizeTransactionIo);
-}
-
-export async function fetchTransactionsByHash(txHashes: string[]) {
-  if (txHashes.length === 0) {
-    return [];
-  }
-
-  const fetcher = new ServerFetcher();
-  const results = await Promise.allSettled(
-    txHashes.map((txHash) => fetcher.fetchTxInfo(txHash))
-  );
-
-  return results.flatMap((result) =>
-    result.status === "fulfilled" ? [normalizeTransactionIo(result.value)] : []
-  );
 }

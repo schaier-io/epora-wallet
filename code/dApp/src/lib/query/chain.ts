@@ -24,9 +24,3 @@ export const protocolParametersQueryOptions = (epoch?: number) => queryOptions({
   staleTime: queryPolicy.protocolStaleMs,
   queryFn: ({ signal }) => new ServerFetcher({ signal }).fetchProtocolParameters(epoch)
 });
-export const assetMetadataQueryOptions = (unit: string) => queryOptions({
-  queryKey: queryKeys.assetMetadata(unit),
-  staleTime: queryPolicy.metadataStaleMs,
-  gcTime: queryPolicy.metadataGcMs,
-  queryFn: ({ signal }) => new ServerFetcher({ signal }).fetchAssetMetadata(unit)
-});
