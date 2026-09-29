@@ -8,6 +8,8 @@ export const addressUtxosQueryOptions = (address: string) => queryOptions({
 });
 // A transaction the indexer has returned does not change. Misses are errors, which
 // hold no data, so an unindexed hash is still fetched again on the next read.
+// Accepted risk: a rolled-back tx stays "found" until gc evicts the entry
+// (chainGcMs). Spends still re-check their inputs live before signing.
 export const txInfoQueryOptions = (hash: string) => queryOptions({
   queryKey: queryKeys.txInfo(hash),
   staleTime: Infinity,

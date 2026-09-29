@@ -22,6 +22,8 @@ export async function readUsableWalletReplacement(
 ) {
   const fetcher = new ServerFetcher({ signal });
   // The confirmation watcher and activity read the same entry, so one hit serves all.
+  // The query owns its request signal. An abort here only stops this reader; the
+  // shared read finishes and fills the cache for the other readers.
   const readTxInfo = (hash: string) => client.fetchQuery({ ...txInfoQueryOptions(hash), retry: false });
   try {
     await readTxInfo(pending.submittedTxHash);
