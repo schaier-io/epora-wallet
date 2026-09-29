@@ -81,6 +81,135 @@ describe("useWorkspaceSendActionEffects", () => {
     expect(setSttWalletInputs).not.toHaveBeenCalled();
   });
 
+  // Unchecking one pool to swap it for another briefly leaves the pick short. The
+  // staged payouts did not change, so the reader's edit must not snap back.
+  it("lets the reader edit a pick while the staged payouts stay the same", () => {
+    const setSttWalletInputs = vi.fn();
+    const transfer = {} as WorkspaceSendActionEffectsCtx["sttExtraTransfers"][number];
+    const requested = [{ unit: "lovelace", quantity: "60000000" }];
+    const base = {
+      lockingContractAddress: "wallet-a",
+      refreshLockedContractUtxos: vi.fn(() => Promise.resolve()),
+      selectedAction: "use",
+      wizardSelectedAction: "use",
+      sttExtraTransfers: [transfer],
+      setSttWalletInputs,
+      suggestedLockedInputs: suggested,
+      requestedLockedAssetTotals: requested
+    };
+    const { rerender } = renderHook((ctx: WorkspaceSendActionEffectsCtx) => useWorkspaceSendActionEffects(ctx), {
+      initialProps: {
+        ...base,
+        sttWalletInputs: suggested,
+        selectedLockedContractAssets: requested
+      } as WorkspaceSendActionEffectsCtx
+    });
+    rerender({
+      ...base,
+      sttWalletInputs: [{ txHash: "bb".repeat(32), outputIndex: 0 }],
+      selectedLockedContractAssets: [{ unit: "lovelace", quantity: "10000000" }]
+    } as WorkspaceSendActionEffectsCtx);
+    expect(setSttWalletInputs).not.toHaveBeenCalled();
+
+    rerender({
+      ...base,
+      requestedLockedAssetTotals: [{ unit: "lovelace", quantity: "70000000" }],
+      sttWalletInputs: [{ txHash: "bb".repeat(32), outputIndex: 0 }],
+      selectedLockedContractAssets: [{ unit: "lovelace", quantity: "10000000" }]
+    } as WorkspaceSendActionEffectsCtx);
+    expect(setSttWalletInputs).toHaveBeenCalledWith(suggested);
+  });
+
+  // A larger payout staged while funds reload finds no suggestion yet. The check
+  // must wait for the suggestion instead of being used up by that empty run.
+  it("re-seeds once a suggestion arrives for a payout staged during a reload", () => {
+    const setSttWalletInputs = vi.fn();
+    const stalePick = [{ txHash: "bb".repeat(32), outputIndex: 0 }];
+    const base = {
+      lockingContractAddress: "wallet-a",
+      refreshLockedContractUtxos: vi.fn(() => Promise.resolve()),
+      selectedAction: "use",
+      wizardSelectedAction: "use",
+      sttExtraTransfers: [{} as WorkspaceSendActionEffectsCtx["sttExtraTransfers"][number]],
+      setSttWalletInputs,
+      sttWalletInputs: stalePick,
+      selectedLockedContractAssets: [{ unit: "lovelace", quantity: "10000000" }]
+    };
+    const { rerender } = renderHook((ctx: WorkspaceSendActionEffectsCtx) => useWorkspaceSendActionEffects(ctx), {
+      initialProps: {
+        ...base,
+        suggestedLockedInputs: suggested,
+        requestedLockedAssetTotals: [{ unit: "lovelace", quantity: "10000000" }]
+      } as WorkspaceSendActionEffectsCtx
+    });
+    rerender({
+      ...base,
+      suggestedLockedInputs: [],
+      requestedLockedAssetTotals: [{ unit: "lovelace", quantity: "60000000" }]
+    } as WorkspaceSendActionEffectsCtx);
+    rerender({
+      ...base,
+      suggestedLockedInputs: suggested,
+      requestedLockedAssetTotals: [{ unit: "lovelace", quantity: "60000000" }]
+    } as WorkspaceSendActionEffectsCtx);
+    expect(setSttWalletInputs).toHaveBeenCalledWith(suggested);
+  });
+
+  // The reader's edit is newer than a request change that arrived during a reload.
+  it("keeps a reader edit made after a request change that waited for a suggestion", () => {
+    const setSttWalletInputs = vi.fn();
+    const requested = [{ unit: "lovelace", quantity: "60000000" }];
+    const base = {
+      lockingContractAddress: "wallet-a",
+      refreshLockedContractUtxos: vi.fn(() => Promise.resolve()),
+      selectedAction: "use",
+      wizardSelectedAction: "use",
+      sttExtraTransfers: [{} as WorkspaceSendActionEffectsCtx["sttExtraTransfers"][number]],
+      setSttWalletInputs
+    };
+    const { rerender } = renderHook((ctx: WorkspaceSendActionEffectsCtx) => useWorkspaceSendActionEffects(ctx), {
+      initialProps: {
+        ...base,
+        suggestedLockedInputs: [],
+        sttWalletInputs: suggested,
+        selectedLockedContractAssets: requested,
+        requestedLockedAssetTotals: requested
+      } as WorkspaceSendActionEffectsCtx
+    });
+    const edited = {
+      ...base,
+      sttWalletInputs: [{ txHash: "bb".repeat(32), outputIndex: 0 }],
+      selectedLockedContractAssets: [{ unit: "lovelace", quantity: "10000000" }],
+      requestedLockedAssetTotals: requested
+    };
+    rerender({ ...edited, suggestedLockedInputs: [] } as WorkspaceSendActionEffectsCtx);
+    rerender({ ...edited, suggestedLockedInputs: suggested } as WorkspaceSendActionEffectsCtx);
+    expect(setSttWalletInputs).not.toHaveBeenCalled();
+  });
+
+  // A refresh that drops a picked UTxO shortens the pick without any reader edit.
+  it("re-seeds when a refresh leaves the same pick short", () => {
+    const setSttWalletInputs = vi.fn();
+    const pick = [{ txHash: "bb".repeat(32), outputIndex: 0 }];
+    const requested = [{ unit: "lovelace", quantity: "60000000" }];
+    const base = {
+      lockingContractAddress: "wallet-a",
+      refreshLockedContractUtxos: vi.fn(() => Promise.resolve()),
+      selectedAction: "use",
+      wizardSelectedAction: "use",
+      sttExtraTransfers: [{} as WorkspaceSendActionEffectsCtx["sttExtraTransfers"][number]],
+      setSttWalletInputs,
+      suggestedLockedInputs: suggested,
+      sttWalletInputs: pick,
+      requestedLockedAssetTotals: requested
+    };
+    const { rerender } = renderHook((ctx: WorkspaceSendActionEffectsCtx) => useWorkspaceSendActionEffects(ctx), {
+      initialProps: { ...base, selectedLockedContractAssets: requested } as WorkspaceSendActionEffectsCtx
+    });
+    rerender({ ...base, selectedLockedContractAssets: [] } as WorkspaceSendActionEffectsCtx);
+    expect(setSttWalletInputs).toHaveBeenCalledWith(suggested);
+  });
+
   it.each(["use", "use-allowance", "use-beneficiary"] as const)(
     "refreshes funds when %s opens",
     (selectedAction) => {
