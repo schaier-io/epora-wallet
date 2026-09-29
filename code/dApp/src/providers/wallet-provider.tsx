@@ -267,6 +267,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
       // must enable the wallet again.
       if (
         isCip30AccountChange(error) &&
+        isMountedRef.current &&
         activeWalletRef.current === wallet &&
         accountSyncGenerationRef.current === generation
       ) {
