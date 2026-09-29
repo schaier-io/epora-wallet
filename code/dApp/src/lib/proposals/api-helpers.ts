@@ -87,11 +87,15 @@ export function reconcileBodyHash(txHex: string, claimedBodyHash: string): strin
 
 const HEX = /^[0-9a-fA-F]+$/;
 
+// Lower-cased because stored hashes are the resolver's lower-case hex and the store
+// guards compare them with `!==`: an upper-case hash from a client passed this
+// schema, then answered 409 "rebuilt" for a body that never changed.
 export const txBodyHashSchema = z
   .string()
   .trim()
   .length(64)
-  .regex(HEX, proposalCopy.expectedBodyHash());
+  .regex(HEX, proposalCopy.expectedBodyHash())
+  .transform((hash) => hash.toLowerCase());
 
 export const hexSchema = z.string().trim().min(1).regex(HEX, proposalCopy.expectedHex());
 
