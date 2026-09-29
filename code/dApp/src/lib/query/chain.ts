@@ -6,8 +6,13 @@ export const addressUtxosQueryOptions = (address: string) => queryOptions({
   queryKey: queryKeys.addressUtxos(address),
   queryFn: ({ signal }) => new ServerFetcher({ signal }).fetchAddressUTxOs(address)
 });
+// A transaction the indexer has returned does not change. Misses are errors, which
+// hold no data, so an unindexed hash is still fetched again on the next read.
+// Accepted risk: a rolled-back tx stays "found" until gc evicts the entry
+// (chainGcMs). Spends still re-check their inputs live before signing.
 export const txInfoQueryOptions = (hash: string) => queryOptions({
   queryKey: queryKeys.txInfo(hash),
+  staleTime: Infinity,
   queryFn: ({ signal }) => new ServerFetcher({ signal }).fetchTxInfo(hash)
 });
 export const accountInfoQueryOptions = (address: string) => queryOptions({
@@ -18,10 +23,4 @@ export const protocolParametersQueryOptions = (epoch?: number) => queryOptions({
   queryKey: queryKeys.protocolParameters(epoch),
   staleTime: queryPolicy.protocolStaleMs,
   queryFn: ({ signal }) => new ServerFetcher({ signal }).fetchProtocolParameters(epoch)
-});
-export const assetMetadataQueryOptions = (unit: string) => queryOptions({
-  queryKey: queryKeys.assetMetadata(unit),
-  staleTime: queryPolicy.metadataStaleMs,
-  gcTime: queryPolicy.metadataGcMs,
-  queryFn: ({ signal }) => new ServerFetcher({ signal }).fetchAssetMetadata(unit)
 });

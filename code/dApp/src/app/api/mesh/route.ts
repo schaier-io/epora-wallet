@@ -25,8 +25,7 @@ const RequestSchema = z.object({
 // Raised 10x from 120/20 on 2026-09-01. Opening or switching a smart wallet is already tens
 // of POSTs to this route, because the browser fans out one RPC call per item:
 // `use-detected-stt-tokens.ts` fetches one script-UTxO set per smart wallet on the policy,
-// and `helpers/transactions.ts` `fetchTransactionsByHash` issues one `fetchTxInfo` per
-// transaction hash, which `use-wallet-activity.ts` calls twice per refresh. Ordinary use hit
+// and wallet activity reads one `fetchTxInfo` per anchor transaction. Ordinary use hit
 // the old floor and answered 429 to a user who had clicked twice.
 //
 // These are per-caller floors, not a Blockfrost quota guarantee: deployment-wide spend is

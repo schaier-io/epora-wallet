@@ -12,7 +12,8 @@ import {
   sharedSttReferenceStoreErrorAtom,
   sharedSttReferenceStoreLoadingAtom
 } from "./atoms/workspace-data.atoms";
-import { configAtom } from "./atoms/workspace-config.atoms";
+import { configAtom, resetConfigAtom } from "./atoms/workspace-config.atoms";
+import { resetWorkspaceDataAtom } from "./atoms/workspace-data.atoms";
 import { useSharedSttReference } from "./use-shared-stt-reference";
 
 const REFERENCE = `${"cd".repeat(32)}#3`;
@@ -70,4 +71,17 @@ it("keeps the configured reference consistent with retained ready data after a t
   await waitFor(() => expect(store.get(sharedSttReferenceStoreErrorAtom)).not.toBeNull());
   expect(store.get(sharedSttReferenceStoreAtom)?.status).toBe("ready");
   expect(store.get(configAtom).sttSpendReference).toBe(REFERENCE);
+});
+
+it("mirrors the reference again after a disconnect resets the config", async () => {
+  const { store } = setup();
+  await waitFor(() => expect(store.get(configAtom).sttSpendReference).toBe(REFERENCE));
+  act(() => {
+    store.set(isConnectingAtom, false);
+    store.set(resetWorkspaceDataAtom);
+    store.set(resetConfigAtom);
+  });
+  expect(store.get(configAtom).sttSpendReference).toBe("");
+  act(() => store.set(isConnectingAtom, true));
+  await waitFor(() => expect(store.get(configAtom).sttSpendReference).toBe(REFERENCE));
 });

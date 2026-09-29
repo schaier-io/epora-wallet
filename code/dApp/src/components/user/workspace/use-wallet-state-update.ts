@@ -6,6 +6,7 @@ import { queryClientAtom } from "jotai-tanstack-query";
 import type { QueryClient } from "@tanstack/react-query";
 import { ServerFetcher } from "@/lib/mesh/server-fetcher";
 import { assertExactInputUnspent } from "@/lib/mesh/transactions/internals/utxo";
+import { txInfoQueryOptions } from "@/lib/query/chain";
 import { sttWalletQueryOptions } from "@/lib/query/stt-inventory";
 import { invalidateChainQueries } from "@/lib/query/invalidation";
 import { STT_STATE_REFRESH_POLL_MS } from "./constants";
@@ -20,8 +21,12 @@ export async function readUsableWalletReplacement(
   client: QueryClient, pending: PendingWalletStateUpdate, signal: AbortSignal
 ) {
   const fetcher = new ServerFetcher({ signal });
+  // The confirmation watcher and activity read the same entry, so one hit serves all.
+  // The query owns its request signal. An abort here only stops this reader; the
+  // shared read finishes and fills the cache for the other readers.
+  const readTxInfo = (hash: string) => client.fetchQuery({ ...txInfoQueryOptions(hash), retry: false });
   try {
-    await fetcher.fetchTxInfo(pending.submittedTxHash);
+    await readTxInfo(pending.submittedTxHash);
   } catch (error) {
     const original = await fetcher.get(`txs/${pending.spentRef.txHash}/utxos`) as {
       outputs?: { output_index?: number; consumed_by_tx?: unknown }[]
@@ -32,7 +37,7 @@ export async function readUsableWalletReplacement(
     if (typeof spentBy === "string" && /^[0-9a-f]{64}$/i.test(spentBy)) {
       // Another transaction may win the race. Follow the confirmed spender instead
       // of waiting forever for our rejected candidate to appear.
-      await fetcher.fetchTxInfo(spentBy);
+      await readTxInfo(spentBy);
     } else {
       // Only chain progress plus a verified original input can release a submission
       // whose acceptance is unknown. A browser clock or timeout is insufficient.

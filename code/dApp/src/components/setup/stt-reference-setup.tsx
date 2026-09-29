@@ -4,6 +4,7 @@ import { cardanoNetworkId } from "@/lib/cardano-network";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
 import { WalletConnectionDialog } from "@/components/layout/wallet-panel";
 import { Badge } from "@/components/ui/badge";
@@ -15,10 +16,8 @@ import {
   SUBMIT_CONFIRMATION_MAX_ATTEMPTS,
   SUBMIT_CONFIRMATION_POLL_MS
 } from "@/components/user/workspace/constants";
-import {
-  detectSharedSttReferenceStore,
-  type SharedSttReferenceStoreInfo
-} from "@/lib/mesh/detection";
+import { type SharedSttReferenceStoreInfo } from "@/lib/mesh/detection";
+import { sharedReferenceQueryOptions } from "@/lib/query/shared-reference";
 import { saveSttReference } from "@/lib/mesh/stt-reference-storage";
 import {
   buildDeploySharedSttReferenceTx,
@@ -40,6 +39,12 @@ const busyPhaseLabels: Partial<Record<SetupPhase, "checking" | "building" | "sub
 
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
+// Every read refreshes the shared entry, so the workspace sees the result on arrival
+// instead of a "missing" it cached before setup. Retries stay in the poll below.
+function readStore(queryClient: QueryClient) {
+  return queryClient.fetchQuery({ ...sharedReferenceQueryOptions(), staleTime: 0, retry: false });
+}
+
 export function SttReferenceSetup({
   initialStore
 }: {
@@ -49,6 +54,7 @@ export function SttReferenceSetup({
   const router = useRouter();
   const { activeAddress, activeWallet, activePaymentKeyHash, isDemoWallet, networkId } = useWalletContext();
   const [connectionOpen, setConnectionOpen] = useState(false);
+  const queryClient = useQueryClient();
   const [store, setStore] = useState(initialStore);
   const [preview, setPreview] = useState<BuildResult | null>(null);
   const [submittedReference, setSubmittedReference] = useState<string | null>(null);
@@ -88,7 +94,7 @@ export function SttReferenceSetup({
     if (store || initialStore) return;
     let cancelled = false;
 
-    void detectSharedSttReferenceStore()
+    void readStore(queryClient)
       .then((result) => {
         if (cancelled || !mounted.current) return;
         setStore(result);
@@ -105,7 +111,7 @@ export function SttReferenceSetup({
     return () => {
       cancelled = true;
     };
-  }, [detectAttempt, i18n, initialStore, router, store]);
+  }, [detectAttempt, i18n, initialStore, queryClient, router, store]);
 
   const connected = Boolean(activeWallet && activeAddress);
   const canBuild = connected && !isDemoWallet && networkId === cardanoNetworkId() && phase === "idle" && !submittedReference;
@@ -154,7 +160,7 @@ export function SttReferenceSetup({
       // one line further down anyway.
       if (!mounted.current) return;
       try {
-        const result = await detectSharedSttReferenceStore();
+        const result = await readStore(queryClient);
         if (!mounted.current) return;
         setStore(result);
         if (result.status === "ready" && result.activeReference === reference) {
