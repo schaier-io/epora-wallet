@@ -29,7 +29,7 @@ function reserve(context: ReturnType<typeof createQueryTestWrapper>) {
   const stateInput = `${a.utxo.input.txHash}#0`;
   const reservation = payeePendingInputKey(policy, stateInput);
   context.store.set(beginPayeeInputActionAtom, { policyId: policy, stateInput, streamKey: "stream", action: "collect" });
-  context.store.set(markPayeeInputSubmittedAtom, { key: reservation, txHash: "submitted" });
+  context.store.set(markPayeeInputSubmittedAtom, { key: reservation, txHash: "submitted", validUntilMs: Number.MAX_SAFE_INTEGER });
   return reservation;
 }
 beforeEach(() => { chain.detect.mockReset().mockResolvedValue(info([])); });

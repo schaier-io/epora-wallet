@@ -97,7 +97,7 @@ function reserveSubmittedInput(assetNameHex = "00") {
   const stateInput = `${token(assetNameHex).utxo.input.txHash}#0`;
   const key = payeePendingInputKey(policyId, stateInput);
   context.store.set(beginPayeeInputActionAtom, { policyId, stateInput, streamKey: "stream-1", action: "collect" });
-  context.store.set(markPayeeInputSubmittedAtom, { key, txHash: "submitted-tx" });
+  context.store.set(markPayeeInputSubmittedAtom, { key, txHash: "submitted-tx", validUntilMs: Number.MAX_SAFE_INTEGER });
   return key;
 }
 
