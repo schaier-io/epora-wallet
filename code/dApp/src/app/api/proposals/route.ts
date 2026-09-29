@@ -29,6 +29,7 @@ import {
 } from "@/lib/proposals/validation";
 import { assertProposalTransactionBinding } from "@/lib/proposals/transaction-binding";
 import { proposalCopy } from "@/lib/proposals/copy";
+import { decodeRequiredSigners } from "@/lib/proposals/verify";
 import {
   DEFAULT_PROPOSAL_PAGE_SIZE,
   MAX_PROPOSAL_CURSOR_LENGTH,
@@ -135,6 +136,17 @@ export async function POST(request: Request) {
       buildContext
     });
     const txBodyHash = reconcileBodyHash(body.unsignedTxHex, body.txBodyHash);
+    // The builder lists the building wallet's key. A body that lists keys but
+    // not the caller's was built by another wallet (a stashed draft saved after
+    // switching wallets), and the caller would own a request they cannot sign.
+    // An empty list is left alone: older builds list nobody.
+    const listedSigners = decodeRequiredSigners(body.unsignedTxHex);
+    if (
+      listedSigners.length > 0 &&
+      !listedSigners.includes(auth.session.paymentKeyHash.toLowerCase())
+    ) {
+      return jsonError(proposalCopy.notListedSigner(), 403);
+    }
 
     // A replay of an already-stored save answers with the original before the
     // rate limit is asked for a token: the save would write no new row, so a

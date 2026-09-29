@@ -460,7 +460,8 @@
     "witnessCountRange": "A proposal signature must contain between 1 and 16 wallet-key signatures.",
     "witnessSetTooLarge": "This signature exceeds the {maxBytes}-byte proposal limit.",
     "witnessSignerMismatch": "This signature was not made by the signed-in wallet.",
-    "stateTransitionUnresolved": "The complete wallet State transition could not be checked. Signing is blocked."
+    "stateTransitionUnresolved": "The complete wallet State transition could not be checked. Signing is blocked.",
+    "notListedSigner": "The signed-in wallet is not listed as a signer of this transaction."
   },
   "LibUserFlowActionDefinitions": {
     "addFunds": "Add funds",
