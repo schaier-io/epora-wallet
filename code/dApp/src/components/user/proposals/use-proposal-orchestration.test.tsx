@@ -14,6 +14,7 @@ import type {
 } from "@/lib/proposals/types";
 
 import type * as BetaConsentModule from "@/lib/legal/browser-beta-consent";
+import { ProposalRequestError as ProposalRequestErrorClass } from "@/lib/proposals/client";
 
 const consentCheck = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/legal/browser-beta-consent", async (original) => ({
@@ -58,10 +59,12 @@ vi.mock("@/lib/proposals/assemble", () => ({
 }));
 
 vi.mock("@/lib/proposals/client", async () => {
-  const actual = await vi.importActual<{ getProposalErrorMessage: ProposalErrorMessage }>(
-    "@/lib/proposals/client"
-  );
+  const actual = await vi.importActual<{
+    getProposalErrorMessage: ProposalErrorMessage;
+    ProposalRequestError: typeof ProposalRequestErrorClass;
+  }>("@/lib/proposals/client");
   return {
+    ProposalRequestError: actual.ProposalRequestError,
     cancelProposal: dependencies.cancelProposal,
     deleteProposal: dependencies.deleteProposal,
     fetchProposal: dependencies.fetchProposal,
@@ -1149,6 +1152,44 @@ it("keeps the broadcast candidate and actual body expiry after an uncertain POST
   expect(test.store.get(walletStateSubmissionsAtom)[proposal("proposal-1").walletUnit]).toBeUndefined();
 });
 
+// A 4xx from the submit route is answered before the claim or the broadcast, so the
+// chain cannot hold the transaction. Keeping the record would show "Updating wallet
+// state" until its expiry, or forever for a body without one.
+it.each([400, 401, 403, 404, 413, 429])(
+  "drops the pending State record after a definite %i refusal",
+  async (status) => {
+    dependencies.verifyProposal.mockResolvedValue(verification("valid", true));
+    dependencies.markProposalSubmitted.mockRejectedValue(
+      new ProposalRequestErrorClass("Refused.", status)
+    );
+    const test = createQueryTestWrapper();
+    const { result } = renderHook(() => useProposalOrchestration({
+      proposalId: "proposal-1", sessionKeyHash: SIGNER_KEY_HASH, onChanged: vi.fn()
+    }), { wrapper: test.wrapper });
+    await waitFor(() => expect(result.current.canSubmit).toBe(true));
+    await act(async () => result.current.handleSubmit());
+    expect(test.store.get(pendingWalletStateUpdatesAtom)[proposal("proposal-1").walletUnit]).toBeUndefined();
+    expect(result.current.actionError).toBe("Refused.");
+    expect(result.current.canSubmit).toBe(true);
+  }
+);
+
+// 409 can come after the broadcast (the row changed while submitting) and 5xx hides an
+// unknown outcome, so both keep the broadcast candidate.
+it.each([409, 500, 503])("keeps the pending State record after an uncertain %i", async (status) => {
+  dependencies.verifyProposal.mockResolvedValue(verification("valid", true));
+  dependencies.markProposalSubmitted.mockRejectedValue(
+    new ProposalRequestErrorClass("Unknown.", status)
+  );
+  const test = createQueryTestWrapper();
+  const { result } = renderHook(() => useProposalOrchestration({
+    proposalId: "proposal-1", sessionKeyHash: SIGNER_KEY_HASH, onChanged: vi.fn()
+  }), { wrapper: test.wrapper });
+  await waitFor(() => expect(result.current.canSubmit).toBe(true));
+  await act(async () => result.current.handleSubmit());
+  expect(test.store.get(pendingWalletStateUpdatesAtom)[proposal("proposal-1").walletUnit]?.submittedTxHash)
+    .toBe(TX_BODY_HASH);
+});
 
 it("refuses a proposal wallet signature when current beta consent is absent", async () => {
   consentCheck.mockRejectedValue(new BetaConsentRequiredError());

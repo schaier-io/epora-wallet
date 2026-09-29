@@ -5,6 +5,7 @@ import { createStore } from "jotai";
 import {
   beginWalletStateUpdateAtom,
   completeWalletStateUpdateAtom,
+  discardWalletStateUpdateAtom,
   isSttConsumingWorkspaceAction,
   pendingWalletStateUpdateAtom, pendingWalletStateUpdatesAtom, WALLET_STATE_RECORD_PREFIX
 } from "./wallet-state-update.atoms";
@@ -61,6 +62,17 @@ test("an older refresh cannot complete a newer pending update", () => {
   store.set(beginWalletStateUpdateAtom, newer);
   assert.equal(store.set(completeWalletStateUpdateAtom, { pending: PENDING, replacementRef: NEXT }), false);
   assert.deepEqual(store.get(pendingWalletStateUpdateAtom), newer);
+});
+
+test("a refused submission removes only the record it wrote", () => {
+  const store = createStore();
+  const newer = { ...PENDING, submittedTxHash: "ef".repeat(32) };
+  store.set(beginWalletStateUpdateAtom, newer);
+  store.set(discardWalletStateUpdateAtom, PENDING);
+  assert.deepEqual(store.get(pendingWalletStateUpdateAtom), newer);
+
+  store.set(discardWalletStateUpdateAtom, newer);
+  assert.equal(store.get(pendingWalletStateUpdateAtom), null);
 });
 
 // #433: changing the screen cannot prove that a broadcast is no longer pending.

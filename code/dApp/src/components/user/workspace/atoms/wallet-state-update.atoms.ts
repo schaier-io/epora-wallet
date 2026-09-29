@@ -192,6 +192,18 @@ export const beginWalletStateUpdateAtom = atom(
   }
 );
 
+// Undoes `beginWalletStateUpdateAtom` for a submission the server refused before any
+// broadcast. Only the record this submission wrote goes: another tab may have stored a
+// newer one for the same wallet since, and that one still guards a live broadcast.
+export const discardWalletStateUpdateAtom = atom(
+  null,
+  (get, set, pending: Pick<PendingWalletStateUpdate, "walletUnit" | "submittedTxHash">) => {
+    const latest = readPendingUpdatesOr(get(pendingWalletStateUpdatesAtom));
+    if (latest[pending.walletUnit]?.submittedTxHash !== pending.submittedTxHash) return;
+    set(writePendingWalletRecordAtom, { unit: pending.walletUnit, pending: null });
+  }
+);
+
 const DRAFT_REF_PAIRS = [
   [sttInputTxHashAtom, sttInputOutputIndexAtom],
   [consolidateSttInputHashAtom, consolidateSttInputIndexAtom],
