@@ -37,6 +37,8 @@ type WalletHistory = TransactionInfo[];
 // or locked UTxO) reuses fresh history and only reads the new anchor transactions.
 // The slot is written, never fetched through Query: the activity query reads history
 // with its own signal and retries, so there is no shared in-flight read to join.
+// A read writes the slot only if its state is unchanged since the read began, so an
+// older read cannot overwrite newer history or clear a later invalidation.
 export function walletHistoryQueryKey(input: WalletActivityInput) {
   return [...queryKeys.chain, "wallet-activity", input.walletAddress, input.sttScriptAddress, input.sttUnit, "history"] as const;
 }
@@ -62,7 +64,9 @@ async function readWalletHistory(input: WalletActivityInput, client: QueryClient
   for (const transaction of history) {
     client.setQueryData(queryKeys.txInfo(transaction.hash), transaction);
   }
-  client.setQueryData(walletHistoryQueryKey(input), history);
+  if (client.getQueryState(walletHistoryQueryKey(input)) === cached) {
+    client.setQueryData(walletHistoryQueryKey(input), history);
+  }
   return history;
 }
 

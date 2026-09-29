@@ -117,3 +117,18 @@ it("reads fresh history for every anchor set after one invalidation", async () =
   expect(second.map(item => item.hash)).toContain(fresh.hash);
   expect(second.map(item => item.hash)).not.toContain(old.hash);
 });
+it("an older history read cannot overwrite history written after an invalidation", async () => {
+  const { queryClient } = createQueryTestWrapper();
+  const input = { walletAddress: "a", sttScriptAddress: null, sttUnit: null };
+  const touching = (hash: string) => ({ ...transaction, hash, outputs: [{ input: { txHash: hash, outputIndex: 0 }, output: { address: "a", amount: [] } }] });
+  const old = touching("aa".repeat(32));
+  const fresh = touching("ef".repeat(32));
+  let releaseOld!: (items: unknown[]) => void;
+  chain.fetchAddressTxs.mockReturnValueOnce(new Promise((resolve) => { releaseOld = resolve; })).mockResolvedValueOnce([fresh]);
+  const slow = queryClient.fetchQuery(walletActivityQueryOptions({ ...input, anchorTxHashes: [transaction.hash] }, queryClient));
+  await queryClient.invalidateQueries({ queryKey: walletHistoryQueryKey(input), exact: true, refetchType: "none" });
+  await queryClient.fetchQuery(walletActivityQueryOptions({ ...input, anchorTxHashes: [] }, queryClient));
+  releaseOld([old]);
+  await slow;
+  expect(queryClient.getQueryData<{ hash: string }[]>(walletHistoryQueryKey(input))?.map((item) => item.hash)).toEqual([fresh.hash]);
+});
