@@ -5,7 +5,8 @@ import { queryClientAtom } from "jotai-tanstack-query";
 import { configAtom } from "./atoms/workspace-config.atoms";
 import { workspaceSessionAtom } from "./atoms/transaction-flow.atoms";
 import { sharedReferenceBuildErrorAtom, sharedReferencePreviewAtom, sharedReferenceSubmitHashAtom } from "./atoms/workspace-data.atoms";
-import { sharedReferenceQueryAtom, sharedReferenceQueryOptions } from "./queries/shared-reference.atoms";
+import { sharedReferenceQueryAtom } from "./queries/shared-reference.atoms";
+import { sharedReferenceQueryOptions } from "@/lib/query/shared-reference";
 
 export function useSharedSttReference() {
   const client = useAtomValue(queryClientAtom);
