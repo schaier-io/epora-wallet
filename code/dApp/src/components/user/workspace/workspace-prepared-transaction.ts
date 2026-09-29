@@ -63,7 +63,9 @@ function walletStateAllowsSubmission(store: { get: Getter }, owner?: WorkspaceSu
   if (selected && selected !== owner.walletUnit) return false;
   const pending = store.get(pendingWalletStateUpdatesAtom);
   if ((pending[owner.walletUnit] ?? null) !== owner.pending) return false;
-  // With no selection the ordinary guard covers every wallet. Preserve that scope.
+  // With no selection the ordinary guard counts every wallet's signing flag, but no
+  // longer their pending records. This owner's own flag set it, so refuse while any
+  // other wallet signs or waits, as the selected-wallet case refuses a mismatch.
   return Boolean(selected) || (!Object.keys(pending).some(unit => unit !== owner.walletUnit) &&
     !Object.entries(store.get(walletStateSubmissionsAtom)).some(([unit, active]) => active && unit !== owner.walletUnit));
 }
