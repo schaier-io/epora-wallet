@@ -199,6 +199,43 @@ describe("review rail live regions", () => {
     expect(status.textContent).not.toContain("\u2014");
   });
 
+  /**
+   * The chip is `inline-flex` with no width cap, so its width is its content: 19
+   * monospace characters, 173px measured. In the completion card the text column
+   * beside the 40px icon is 174px in the 260px rail at 1280-1535. One pixel of
+   * margin is not a contract; the mint overlay's hash chip already takes the
+   * cap-and-wrap contract (`max-w-full` on the pill, `min-w-0 break-all` on the
+   * text), so both rail chips take it too.
+   *
+   * Blind spot: class assertions prove the contract ships, not the rendered pixels.
+   */
+  it("caps the submitted hash chip at its column and wraps the hash inside it", () => {
+    render(<UserReviewPanel {...BASE} submitHash={"ab".repeat(32)} />);
+
+    const chip = screen.getByRole("link", { name: /Cardanoscan/ });
+    expect(chip.className).toContain("max-w-full");
+    expect(chip.querySelector("span")?.className).toContain("break-all");
+  });
+
+  it("caps the completion card's hash chip the same way", () => {
+    render(
+      <UserReviewPanel
+        {...BASE}
+        submitHash={"ab".repeat(32)}
+        completion={{
+          title: "Creating wallet",
+          description: "Your wallet is moving to the chain.",
+          statusLabel: "Submitted. Waiting for confirmation.",
+          progress: 40
+        }}
+      />
+    );
+
+    const chip = screen.getByRole("link", { name: /Cardanoscan/ });
+    expect(chip.className).toContain("max-w-full");
+    expect(chip.querySelector("span")?.className).toContain("break-all");
+  });
+
   const ISSUES: Pick<ComponentProps<typeof UserReviewPanel>, "readinessIssues" | "fieldErrors"> = {
     readinessIssues: [
       {

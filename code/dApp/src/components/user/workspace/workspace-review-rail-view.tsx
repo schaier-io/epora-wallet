@@ -14,6 +14,7 @@ import { walletStateUpdatingAtom } from "@/components/user/workspace/atoms/walle
 import { useAtomValue } from "jotai";
 import { useRef, useState } from "react";
 
+import { cn } from "@/lib/utils/cn";
 import { hasFieldErrors } from "@/components/user/workspace/helpers";
 import { Button } from "@/components/ui/button";
 import { normalizeWalletName } from "@/lib/contracts/state-wallet-name";
@@ -28,7 +29,20 @@ import {
 
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 
-export function WorkspaceReviewRailView() {
+export function WorkspaceReviewRailView({
+  spanFullRowAtLg = false
+}: {
+  /**
+   * Grid auto-placement puts the rail in the first free cell. With the sidebar shown and
+   * a composer open, `lg` defines two columns (280px sidebar + main), so the rail landed
+   * in row 2, column 1: the whole review panel squeezed into the sidebar's 280px column,
+   * measured 280x909 at 1152x800 with the send composer open. The span lays it across
+   * both columns instead, matching how it already stacks below `lg`. `xl` takes the span
+   * back: there the rail owns its own third column again. The mint flow runs no sidebar
+   * and a one-column grid below `xl`, so it must never carry the span.
+   */
+  spanFullRowAtLg?: boolean;
+}) {
   const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceReviewRailView");
   const proposalI18n = useTranslations("ComponentsUserProposalsReviewDock");
   const state = useWorkspaceActions();
@@ -215,7 +229,10 @@ export function WorkspaceReviewRailView() {
               // 1px `border-b`) with 15px to spare, and the max-height spends the same 80px:
               // 100dvh - 80px top - 8px bottom. The top adds, and the max-height
               // subtracts, `--beta-notice-h`: the sticky BetaNotice below the TopNav.
-              className="order-3 flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden scroll-mt-[calc(5rem+var(--beta-notice-h,0px))] xl:sticky xl:top-[calc(5rem+var(--beta-notice-h,0px))] xl:max-h-[calc(100dvh-5.5rem-var(--beta-notice-h,0px))] xl:self-start"
+              className={cn(
+                "order-3 flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden scroll-mt-[calc(5rem+var(--beta-notice-h,0px))] xl:sticky xl:top-[calc(5rem+var(--beta-notice-h,0px))] xl:max-h-[calc(100dvh-5.5rem-var(--beta-notice-h,0px))] xl:self-start",
+                spanFullRowAtLg && "lg:col-span-2 xl:col-span-1"
+              )}
             >
               <div className="user-scrollbar min-h-0 min-w-0 flex-1 overflow-y-auto">
                   <UserReviewPanel

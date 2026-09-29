@@ -33,6 +33,7 @@
   },
   "ComponentsUserWorkspaceConfigSttspendView": {
     "addPayout": "Add another recipient",
+    "addRecipient": "Add recipient",
     "addrTest": "addr_test...",
     "asset": "Asset",
     "authorizationPath": "Authorization path",

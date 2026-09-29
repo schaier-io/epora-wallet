@@ -222,8 +222,21 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
       selectedAction === "use-allowance" ||
       selectedAction === "use-beneficiary"
     ) {
+      // `sttExtraTransfersAtom` merges the un-added live row so balance arithmetic
+      // and field validation see a half-filled form ("Never discard a partial
+      // row"). Rendering a half-filled row as a payout printed the amount twice
+      // with no address ("14 ₳ to -"), so the receipt keeps only complete rows:
+      // an address AND a positive quantity. Same predicate shape as
+      // `streamingPayoutAmountIsSelected`. Field errors name whatever is missing.
+      const namedTransfers = sttExtraTransfers.filter(
+        (transfer) =>
+          transfer.address.trim().length > 0 &&
+          transfer.amount.some(
+            (asset) => /^\d+$/.test(asset.quantity) && BigInt(asset.quantity) > 0n
+          )
+      );
       const transferAmount = mergeAmountLists(
-        sttExtraTransfers.map((transfer) => transfer.amount)
+        namedTransfers.map((transfer) => transfer.amount)
       );
 
       // Name the recipients. `1 recipient` told the user nothing they could check, and the
@@ -231,7 +244,7 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
       // The short form scans in the narrow review rail. The copy control carries the full
       // address without printing the same destination again below it.
       const recipientItems: ReviewReceiptItem[] =
-        sttExtraTransfers.length === 0
+        namedTransfers.length === 0
           ? [
               {
                 label: i18n("recipient_903432"),
@@ -242,8 +255,8 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
                 tone: "warning" as const
               }
             ]
-          : sttExtraTransfers.map((transfer, index) => ({
-              label: sttExtraTransfers.length === 1 ? i18n("recipient_903432") : i18n("recipientValue1", { value1: index + 1 }),
+          : namedTransfers.map((transfer, index) => ({
+              label: namedTransfers.length === 1 ? i18n("recipient_903432") : i18n("recipientValue1", { value1: index + 1 }),
               value: i18n("amountToRecipient", {
                 amount: formatReceiptAmountSummary(transfer.amount),
                 recipient: shortenAddress(transfer.address)
@@ -265,7 +278,7 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
         // something the reader decided about this send, and the count said nothing they
         // could act on. See the FUNDING row below for the one case where it does.
         summary:
-          sttExtraTransfers.length > 0
+          namedTransfers.length > 0
             ? i18n("youAreSendingAmount", {
                 amount: formatReceiptAmountSummary(transferAmount)
               })
@@ -281,7 +294,7 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
               }]
             : []),
           // Only worth a row once it is more than the one recipient row already says.
-          ...(sttExtraTransfers.length > 1
+          ...(namedTransfers.length > 1
             ? [
                 {
                   label: i18n("total"),

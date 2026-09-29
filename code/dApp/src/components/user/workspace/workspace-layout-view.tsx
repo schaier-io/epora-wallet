@@ -39,7 +39,7 @@ export function WorkspaceLayoutView() {
             <WorkspaceMainPanelView />
 
             {hasActiveComposer ? (
-              <WorkspaceReviewRailView />
+              <WorkspaceReviewRailView spanFullRowAtLg={showGuidedSidebar} />
             ) : null}
           </div>
   );
