@@ -18,6 +18,7 @@ const serverEnvSchema = z.object({
   SHARED_STT_REFERENCE: z.string().regex(/^[0-9a-fA-F]{64}#(?:0|[1-9][0-9]*)$/).optional(),
   DATABASE_URL: z.string().optional(),
   STT_SYNC_SECRET: z.string().optional(),
+  CRON_SECRET: z.string().optional(),
   PROPOSAL_AUTH_SECRET: z.string().optional(),
   KOIOS_URL: z.url().optional(),
   NEXT_PUBLIC_SITE_URL: z.url().optional(),
@@ -85,7 +86,7 @@ const KNOWN_WEAK_SECRETS = new Set([
 ]);
 
 function assertStrongProductionSecret(
-  key: "PROPOSAL_AUTH_SECRET" | "STT_SYNC_SECRET",
+  key: "PROPOSAL_AUTH_SECRET" | "STT_SYNC_SECRET" | "CRON_SECRET",
   value: string,
   env: ServerEnv
 ): string {
@@ -124,6 +125,13 @@ export function getProposalAuthSecret(env: ServerEnv = getServerEnv()): string {
 export function getSttSyncSecret(env: ServerEnv = getServerEnv()): string | undefined {
   const value = env.STT_SYNC_SECRET;
   return value ? assertStrongProductionSecret("STT_SYNC_SECRET", value, env) : undefined;
+}
+
+// Vercel Cron's bearer secret. The sync route accepts it on its own, so it has
+// to meet the same production bar as STT_SYNC_SECRET.
+export function getCronSecret(env: ServerEnv = getServerEnv()): string | undefined {
+  const value = env.CRON_SECRET;
+  return value ? assertStrongProductionSecret("CRON_SECRET", value, env) : undefined;
 }
 
 const DEFAULT_SITE_URL = "http://localhost:3000";

@@ -9,7 +9,7 @@ import {
   RequestBodyTooDeepError,
   RequestBodyTooLargeError
 } from "@/lib/http/request-body";
-import { getSttSyncSecret } from "@/lib/env/server-env";
+import { getCronSecret, getSttSyncSecret } from "@/lib/env/server-env";
 import { logger, serializeError } from "@/lib/observability/logger";
 import { getTranslations } from "next-intl/server";
 
@@ -49,7 +49,7 @@ function isAuthorized(request: Request) {
   // Vercel Cron sends `Authorization: Bearer $CRON_SECRET`. Same value as
   // STT_SYNC_SECRET is fine; a distinct cron secret is also accepted, and a
   // deploy may set only one of the two.
-  const secrets = [getSttSyncSecret(), process.env.CRON_SECRET].filter(
+  const secrets = [getSttSyncSecret(), getCronSecret()].filter(
     (secret): secret is string => Boolean(secret)
   );
   if (secrets.length === 0) {

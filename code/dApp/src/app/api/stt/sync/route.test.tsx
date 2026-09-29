@@ -19,7 +19,8 @@ vi.mock("@/lib/env/server-env", async (importOriginal) => {
   const actual = await importOriginal<typeof ServerEnv>();
   return {
     ...actual,
-    getSttSyncSecret: () => actual.getSttSyncSecret(actual.parseServerEnv(process.env))
+    getSttSyncSecret: () => actual.getSttSyncSecret(actual.parseServerEnv(process.env)),
+    getCronSecret: () => actual.getCronSecret(actual.parseServerEnv(process.env))
   };
 });
 vi.mock("next-intl/server", () => ({

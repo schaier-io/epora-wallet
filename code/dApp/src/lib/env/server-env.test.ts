@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  getCronSecret,
   getProposalAuthSecret,
   getSiteUrl,
   getSttSyncSecret,
@@ -89,6 +90,18 @@ test("production STT sync accepts a generated-length secret", () => {
   const secret = "another-secure-random-production-secret-1234";
   const env = parseServerEnv({ NODE_ENV: "production", STT_SYNC_SECRET: secret });
   assert.equal(getSttSyncSecret(env), secret);
+});
+
+// The sync route accepts CRON_SECRET on its own, so it must meet the same
+// production bar as STT_SYNC_SECRET.
+test("production CRON_SECRET must be strong when set", () => {
+  const missing = parseServerEnv({ NODE_ENV: "production" });
+  const weak = parseServerEnv({ NODE_ENV: "production", CRON_SECRET: "secret" });
+  const strong = "another-secure-random-production-secret-1234";
+
+  assert.equal(getCronSecret(missing), undefined);
+  assert.throws(() => getCronSecret(weak), /CRON_SECRET/);
+  assert.equal(getCronSecret(parseServerEnv({ NODE_ENV: "production", CRON_SECRET: strong })), strong);
 });
 
 test("getSiteUrl precedence: explicit > VERCEL_URL > localhost", () => {
