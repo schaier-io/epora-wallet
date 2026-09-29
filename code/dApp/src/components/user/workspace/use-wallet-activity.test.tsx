@@ -13,7 +13,7 @@ vi.mock("./queries/wallet-identity.atoms", async () => {
 });
 vi.mock("./queries/token-identity.atoms", async () => ({ selectedDetectedTokenAtom: (await import("jotai")).atom(null) }));
 vi.mock("./queries/activity-inputs.atoms", async () => ({ activityAnchorTxHashesAtom: (await import("jotai")).atom(["cd".repeat(32)]) }));
-import { walletActivityQueryOptions, walletTransactionsAtom } from "./queries/activity-query.atoms";
+import { walletActivityQueryOptions, walletHistoryQueryKey, walletTransactionsAtom } from "./queries/activity-query.atoms";
 import { useWalletActivity } from "./use-wallet-activity";
 const transaction = { hash: "cd".repeat(32), inputs: [], outputs: [], blockTime: 1, slot: "1" };
 beforeEach(() => {
@@ -75,4 +75,45 @@ it("treats only a missing transaction as an empty anchor", async () => {
   expect(await queryClient.fetchQuery(walletActivityQueryOptions({ walletAddress: "a", sttScriptAddress: null, sttUnit: null, anchorTxHashes: [transaction.hash] }, queryClient))).toEqual([]);
   chain.fetchTxInfo.mockRejectedValueOnce(Object.assign(new Error("unavailable"), { status: 503 }));
   await expect(queryClient.fetchQuery(walletActivityQueryOptions({ walletAddress: "b", sttScriptAddress: null, sttUnit: null, anchorTxHashes: [transaction.hash] }, queryClient))).rejects.toThrow("unavailable");
+});
+it("a changed anchor set reuses fresh address history and reads only the new anchor", async () => {
+  const { queryClient } = createQueryTestWrapper();
+  const input = { walletAddress: "a", sttScriptAddress: null, sttUnit: null };
+  await queryClient.fetchQuery(walletActivityQueryOptions({ ...input, anchorTxHashes: [transaction.hash] }, queryClient));
+  await queryClient.fetchQuery(walletActivityQueryOptions({ ...input, anchorTxHashes: [transaction.hash, "ef".repeat(32)] }, queryClient));
+  expect(chain.fetchAddressTxs).toHaveBeenCalledTimes(1);
+  expect(chain.fetchTxInfo).toHaveBeenCalledTimes(2);
+});
+it("an explicit refresh pages address history again", async () => {
+  const test = setup();
+  await waitFor(() => expect(test.result.current.activity.loading).toBe(false));
+  const pages = chain.fetchAddressTxs.mock.calls.length;
+  await act(async () => { await test.result.current.refreshWalletTransactions(); });
+  expect(chain.fetchAddressTxs.mock.calls.length).toBe(pages + 1);
+});
+it("lets the activity query own history retries", async () => {
+  const { queryClient } = createQueryTestWrapper();
+  queryClient.setDefaultOptions({ queries: { ...queryClient.getDefaultOptions().queries, retry: 1, retryDelay: 0 } });
+  chain.fetchAddressTxs.mockRejectedValue(Object.assign(new Error("rate limited"), { status: 429 }));
+  const options = walletActivityQueryOptions({ walletAddress: "a", sttScriptAddress: null, sttUnit: null, anchorTxHashes: [] }, queryClient);
+  await expect(queryClient.fetchQuery({ ...options, retry: 1, retryDelay: 0 })).rejects.toThrow("rate limited");
+  expect(chain.fetchAddressTxs).toHaveBeenCalledTimes(2);
+});
+it("reads fresh history for every anchor set after one invalidation", async () => {
+  const { queryClient } = createQueryTestWrapper();
+  const input = { walletAddress: "a", sttScriptAddress: null, sttUnit: null };
+  const touching = (hash: string) => ({ ...transaction, hash, outputs: [{ input: { txHash: hash, outputIndex: 0 }, output: { address: "a", amount: [] } }] });
+  const old = touching("aa".repeat(32));
+  const fresh = touching("ef".repeat(32));
+  chain.fetchAddressTxs.mockResolvedValueOnce([old]);
+  await queryClient.fetchQuery(walletActivityQueryOptions({ ...input, anchorTxHashes: [] }, queryClient));
+  await queryClient.invalidateQueries({ queryKey: walletHistoryQueryKey(input), exact: true, refetchType: "none" });
+  chain.fetchAddressTxs.mockResolvedValue([fresh]);
+  const [first, second] = await Promise.all([
+    queryClient.fetchQuery({ ...walletActivityQueryOptions({ ...input, anchorTxHashes: [] }, queryClient), staleTime: 0 }),
+    queryClient.fetchQuery(walletActivityQueryOptions({ ...input, anchorTxHashes: [transaction.hash] }, queryClient))
+  ]);
+  expect(first.map(item => item.hash)).toEqual([fresh.hash]);
+  expect(second.map(item => item.hash)).toContain(fresh.hash);
+  expect(second.map(item => item.hash)).not.toContain(old.hash);
 });
