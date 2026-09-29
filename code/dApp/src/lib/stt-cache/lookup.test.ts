@@ -2,22 +2,26 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { PrismaClient } from "@/generated/prisma";
 import { lookupSttWallets } from "./lookup";
-import { STT_LOOKUP_WALLET_PAGE_SIZE } from "./domain";
+import { STT_CACHE_NETWORK, STT_LOOKUP_WALLET_PAGE_SIZE } from "./domain";
 import type { SttChainClient } from "./types";
 
 type ParticipantRow = {
   walletId: string;
   role: string;
-  wallet: Record<string, unknown>;
+  wallet: Record<string, unknown> & { network: string };
 };
 
-function participantRow(walletId: string, lastSeenBlockTime: Date | null): ParticipantRow {
+function participantRow(
+  walletId: string,
+  lastSeenBlockTime: Date | null,
+  network: string = STT_CACHE_NETWORK
+): ParticipantRow {
   return {
     walletId,
     role: "owner",
     wallet: {
       id: walletId,
-      network: "preprod",
+      network,
       policyId: "pp".repeat(28),
       assetNameHex: "stt",
       unit: `${"pp".repeat(28)}stt`,
@@ -33,16 +37,38 @@ function participantRow(walletId: string, lastSeenBlockTime: Date | null): Parti
   };
 }
 
+type WalletQuery = {
+  where?: {
+    network?: string;
+    id?: { gt?: string };
+  };
+  take?: number;
+};
+
+// Honours the query shape the lookup sends, so paging happens where the database would do it.
+function findWallets(rows: ParticipantRow[], { where, take }: WalletQuery = {}) {
+  const byId = new Map<string, { wallet: ParticipantRow["wallet"]; roles: string[] }>();
+  for (const row of rows) {
+    const entry = byId.get(row.walletId) ?? { wallet: row.wallet, roles: [] };
+    entry.roles.push(row.role);
+    byId.set(row.walletId, entry);
+  }
+  const matches = [...byId.entries()]
+    .filter(([, entry]) => !where?.network || entry.wallet.network === where.network)
+    .filter(([id]) => !where?.id?.gt || id > where.id.gt)
+    .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+    .map(([, entry]) => ({
+      ...entry.wallet,
+      participants: entry.roles.map((role) => ({ role })),
+      walletTransactions: []
+    }));
+  return take === undefined ? matches : matches.slice(0, take);
+}
+
 function dbWithParticipants(rows: ParticipantRow[]): PrismaClient {
   return {
     sttSyncCursor: { findUnique: async () => null },
-    sttParticipant: { findMany: async () => rows },
-    sttWallet: {
-      findMany: async ({ where }: { where?: { id?: { in?: string[] } } }) =>
-        rows
-          .filter((row) => where?.id?.in?.includes(row.walletId) ?? true)
-          .map((row) => ({ ...row.wallet, walletTransactions: [] }))
-    }
+    sttWallet: { findMany: async (query?: WalletQuery) => findWallets(rows, query) }
   } as unknown as PrismaClient;
 }
 
@@ -64,7 +90,6 @@ const chainClient = {
 test("public lookup reads cached rows without triggering any chain reconciliation", async () => {
   const db = {
     sttSyncCursor: { findUnique: async () => null },
-    sttParticipant: { findMany: async () => [] },
     sttWallet: { findMany: async () => [] }
   } as unknown as PrismaClient;
 
@@ -176,4 +201,33 @@ test("an unknown cursor starts after its position in id order", async () => {
   );
   assert.deepEqual(pastEnd.wallets, []);
   assert.equal(pastEnd.nextCursor, null);
+});
+
+test("a wallet cached for another network is never listed", async () => {
+  const db = dbWithParticipants([
+    participantRow("wallet-a", null),
+    participantRow("wallet-b", null, STT_CACHE_NETWORK === "mainnet" ? "preprod" : "mainnet")
+  ]);
+
+  const result = await lookupSttWallets({ paymentKeyHash: "aa".repeat(28) }, { db, chainClient });
+
+  assert.deepEqual(result.wallets.map((wallet) => wallet.id), ["wallet-a"]);
+});
+
+test("a key in more wallets than a page reads only one page of wallets", async () => {
+  const ids = Array.from({ length: STT_LOOKUP_WALLET_PAGE_SIZE * 4 }, (_, index) =>
+    `wallet-${String(index).padStart(3, "0")}`
+  );
+  const db = dbWithParticipants(ids.map((id) => participantRow(id, null)));
+  const findMany = db.sttWallet.findMany as unknown as (query?: WalletQuery) => Promise<unknown[]>;
+  const returned: number[] = [];
+  (db.sttWallet as unknown as { findMany: typeof findMany }).findMany = async (query) => {
+    const rows = await findMany(query);
+    returned.push(rows.length);
+    return rows;
+  };
+
+  await lookupSttWallets({ paymentKeyHash: "aa".repeat(28) }, { db, chainClient });
+
+  assert.ok(Math.max(...returned) <= STT_LOOKUP_WALLET_PAGE_SIZE + 1);
 });
