@@ -94,11 +94,23 @@ export const walletActivityInputAtom = atom((get): WalletActivityInput => ({
   sttUnit: get(selectedDetectedTokenAtom)?.unit ?? null,
   anchorTxHashes: get(activityAnchorTxHashesAtom)
 }));
-export const walletActivityQueryAtom = atomWithQuery((get) => ({
-  ...walletActivityQueryOptions(get(walletActivityInputAtom), get(queryClientAtom)),
-  enabled: get(chainReadsEnabledAtom) && Boolean(get(walletActivityInputAtom).walletAddress),
-  refetchInterval: queryPolicy.activePollMs
-}));
+// A submit or a new locked UTxO changes only the anchors, and so the key. Keep the
+// previous rows while the new entry loads instead of blanking the feed, but only for
+// the same wallet: every key part except the trailing anchors must match.
+function sameWalletActivity(previous: readonly unknown[], input: WalletActivityInput) {
+  const wallet = walletHistoryQueryKey(input).slice(0, -1);
+  return previous.length === wallet.length + 1 && wallet.every((part, index) => previous[index] === part);
+}
+export const walletActivityQueryAtom = atomWithQuery((get) => {
+  const input = get(walletActivityInputAtom);
+  return {
+    ...walletActivityQueryOptions(input, get(queryClientAtom)),
+    enabled: get(chainReadsEnabledAtom) && Boolean(input.walletAddress),
+    placeholderData: (previous: TransactionInfo[] | undefined, previousQuery?: { queryKey: readonly unknown[] }) =>
+      previousQuery && sameWalletActivity(previousQuery.queryKey, input) ? previous : undefined,
+    refetchInterval: queryPolicy.activePollMs
+  };
+});
 const EMPTY_ACTIVITY: WalletTransactionSummary = { items: [], loading: false, error: null };
 export const walletTransactionsAtom = atom((get): WalletTransactionSummary => {
   if (!get(chainReadsEnabledAtom) || !get(walletActivityInputAtom).walletAddress) return EMPTY_ACTIVITY;
