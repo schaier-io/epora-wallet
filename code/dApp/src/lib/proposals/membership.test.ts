@@ -13,6 +13,7 @@ import { createTestDatabaseClient, resetTestDatabase } from "@/lib/stt-cache/tes
 const ALICE = "a1".repeat(28); // participant of wallet A
 const BOB = "b2".repeat(28); // participant of wallet B
 const MALLORY = "cc".repeat(28); // participant of nothing
+const CAROL = "c3".repeat(28); // allowance spender (USER) of wallet A
 
 const UNIT_A = "aaaaaaaa0001";
 const UNIT_B = "bbbbbbbb0002";
@@ -41,7 +42,7 @@ describe("proposal wallet membership", { skip: DB_SKIP }, () => {
     await db.sttParticipant.createMany({
       data: participantKeyHashes.map((paymentKeyHash, index) => ({
         walletId: wallet.id,
-        role: "signer",
+        role: "ADMIN_USER",
         participantKey: `${unit}-${index}`,
         paymentKeyHash
       }))
@@ -82,7 +83,7 @@ describe("proposal wallet membership", { skip: DB_SKIP }, () => {
     await db.sttParticipant.create({
       data: {
         walletId: walletB.id,
-        role: "signer",
+        role: "ADMIN_USER",
         participantKey: `${UNIT_B}-alice`,
         paymentKeyHash: ALICE
       }
@@ -90,6 +91,25 @@ describe("proposal wallet membership", { skip: DB_SKIP }, () => {
 
     const units = await participantWalletUnits(db, ALICE);
     assert.deepEqual([...units].sort(), [UNIT_A, UNIT_B].sort());
+  });
+
+  test("beneficiaries and payment recipients are not proposal participants", async () => {
+    // Recovery contacts and streaming-payment payees are recorded on the wallet, but they
+    // hold no signing power, so they must not read, create or sign its approval requests.
+    const walletA = await db.sttWallet.findFirstOrThrow({ where: { unit: UNIT_A } });
+    await db.sttParticipant.createMany({
+      data: [
+        { walletId: walletA.id, role: "BENEFICIARY", participantKey: `${UNIT_A}-heir`, paymentKeyHash: MALLORY },
+        { walletId: walletA.id, role: "STREAMING_PAYMENT_RECIPIENT", participantKey: `${UNIT_A}-payee`, paymentKeyHash: BOB },
+        { walletId: walletA.id, role: "USER", participantKey: `${UNIT_A}-spender`, paymentKeyHash: CAROL }
+      ]
+    });
+
+    assert.equal(await walletParticipantExists(db, UNIT_A, MALLORY), false);
+    assert.equal(await walletParticipantExists(db, UNIT_A, BOB), false);
+    assert.equal(await walletParticipantExists(db, UNIT_A, CAROL), true);
+    assert.deepEqual(await participantWalletUnits(db, MALLORY), []);
+    assert.deepEqual(await participantWalletUnits(db, BOB), [UNIT_B]);
   });
 
   test("walletIsIndexed separates an unindexed wallet from a non-member", async () => {
