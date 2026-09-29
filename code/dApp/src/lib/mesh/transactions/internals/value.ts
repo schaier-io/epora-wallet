@@ -177,10 +177,13 @@ export function assertOutputMeetsMinimumLovelace(
   if (!amount.some((asset) => asset.unit === "lovelace" || asset.unit === "")) {
     return;
   }
-  const minimum = calculateMinimumLovelaceForOutput(
-    buildMeshOutput(address, amount, datum),
-    (tx.txBuilder as RuntimeTxBuilder)._protocolParams
-  );
+  const protocolParams =
+    (tx.txBuilder as RuntimeTxBuilder)._protocolParams ?? DEFAULT_PROTOCOL_PARAMETERS;
+  // The sizing helper adds one byte of headroom, which suits a top-up. A refusal
+  // must use the ledger floor itself, so an output at exactly the floor passes.
+  const minimum =
+    calculateMinimumLovelaceForOutput(buildMeshOutput(address, amount, datum), protocolParams) -
+    BigInt(protocolParams.coinsPerUtxoSize);
   const lovelace = getLovelaceQuantity(amount);
   if (lovelace < minimum) {
     throw new Error(

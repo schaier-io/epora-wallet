@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { Transaction } from "@meshsdk/core";
+import { getOutputMinLovelace, type Transaction } from "@meshsdk/core";
 import {
   assertOutputMeetsMinimumLovelace,
   deriveAssetName,
@@ -295,5 +295,26 @@ test("assertOutputMeetsMinimumLovelace accepts an output at or above the floor",
 test("assertOutputMeetsMinimumLovelace leaves an output without lovelace to Mesh", () => {
   assert.doesNotThrow(() =>
     assertOutputMeetsMinimumLovelace(TX, ADDRESS, [{ unit: NATIVE, quantity: "5" }], "Output")
+  );
+});
+
+// The refusal must use the ledger floor, (160 + output bytes) * coinsPerUtxoSize,
+// with no headroom: an output at exactly that floor is valid on chain.
+test("assertOutputMeetsMinimumLovelace accepts exactly the ledger floor and refuses one below", () => {
+  const datum = { alternative: 0, fields: [] };
+  const withLovelace = (quantity: bigint) => [
+    { unit: "lovelace", quantity: quantity.toString() },
+    { unit: NATIVE, quantity: "5" }
+  ];
+  const floor = getOutputMinLovelace({
+    address: ADDRESS,
+    amount: withLovelace(2_000_000n),
+    datum: { type: "Inline", data: { type: "Mesh", content: datum } }
+  });
+  assert.doesNotThrow(() =>
+    assertOutputMeetsMinimumLovelace(TX, ADDRESS, withLovelace(floor), "Output", datum)
+  );
+  assert.throws(() =>
+    assertOutputMeetsMinimumLovelace(TX, ADDRESS, withLovelace(floor - 1n), "Output", datum)
   );
 });
