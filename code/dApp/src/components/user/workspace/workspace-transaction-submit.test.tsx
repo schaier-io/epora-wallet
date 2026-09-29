@@ -184,7 +184,7 @@ it("retains the submitted State ref across action navigation for the readiness w
   await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
   deps.jotaiStore.set(resetFlowAtom);
   await vi.advanceTimersByTimeAsync(12_000);
-  expect(deps.jotaiStore.get(pendingWalletStateUpdateAtom)?.spentRef).toEqual(spent);
+  expect(deps.jotaiStore.get(pendingWalletStateUpdatesAtom)[walletUnit]?.spentRef).toEqual(spent);
   expect(deps.jotaiStore.get(sttInputTxHashAtom)).toBe(spent.txHash);
 });
 
@@ -679,8 +679,10 @@ it("invalidates the preview when a chain freshness check fails", async () => {
 // #433: a pending State update must block signing, including an old callback.
 it("does not sign another preview while the wallet State is pending", async () => {
   const deps = makeDeps();
+  const unit = "ab".repeat(28) + "01";
+  deps.jotaiStore.set(routeStateAtom, { ...deps.jotaiStore.get(routeStateAtom), selectedWalletUnit: unit });
   deps.jotaiStore.set(pendingWalletStateUpdateAtom, {
-    walletUnit: "ab".repeat(28) + "01", submittedTxHash: TX_HASH,
+    walletUnit: unit, submittedTxHash: TX_HASH,
     spentRef: { txHash: "cd".repeat(32), outputIndex: 0 }
   });
   await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);

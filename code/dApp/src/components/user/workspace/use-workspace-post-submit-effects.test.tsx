@@ -16,6 +16,7 @@ import {
 describe("useWorkspacePostSubmitEffects", () => {
   it("retires pending work on wallet selection changes but preserves action navigation", () => {
     const store = createStore();
+    store.set(routeStateAtom, { ...store.get(routeStateAtom), selectedWalletUnit: "policy01" });
     const wrapper = ({ children }: PropsWithChildren) => <Provider store={store}>{children}</Provider>;
     const ctx: WorkspacePostSubmitEffectsCtx = {
       mintCelebrationRef: { current: null },

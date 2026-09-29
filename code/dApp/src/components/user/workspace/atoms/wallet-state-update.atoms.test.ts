@@ -7,7 +7,8 @@ import {
   completeWalletStateUpdateAtom,
   discardWalletStateUpdateAtom,
   isSttConsumingWorkspaceAction,
-  pendingWalletStateUpdateAtom, pendingWalletStateUpdatesAtom, WALLET_STATE_RECORD_PREFIX
+  pendingWalletStateUpdateAtom, pendingWalletStateUpdatesAtom, WALLET_STATE_RECORD_PREFIX,
+  walletStateUpdatingAtom
 } from "./wallet-state-update.atoms";
 import { consolidateSttInputHashAtom, consolidateSttInputIndexAtom } from "./forms/consolidate-form.atoms";
 import { publishSttInputHashAtom, publishSttInputIndexAtom } from "./forms/publish-form.atoms";
@@ -53,7 +54,7 @@ test("replacement compare-and-swaps all five draft refs and preserves user edits
   }
   assert.equal(store.get(voteSttInputHashAtom), "ee".repeat(32));
   assert.equal(store.get(voteSttInputIndexAtom), String(SPENT.outputIndex));
-  assert.equal(store.get(pendingWalletStateUpdateAtom), null);
+  assert.equal(store.get(pendingWalletStateUpdatesAtom)[PENDING.walletUnit], undefined);
 });
 
 test("an older refresh cannot complete a newer pending update", () => {
@@ -61,7 +62,7 @@ test("an older refresh cannot complete a newer pending update", () => {
   const newer = { ...PENDING, submittedTxHash: "ef".repeat(32) };
   store.set(beginWalletStateUpdateAtom, newer);
   assert.equal(store.set(completeWalletStateUpdateAtom, { pending: PENDING, replacementRef: NEXT }), false);
-  assert.deepEqual(store.get(pendingWalletStateUpdateAtom), newer);
+  assert.deepEqual(store.get(pendingWalletStateUpdatesAtom)[PENDING.walletUnit], newer);
 });
 
 test("a refused submission removes only the record it wrote", () => {
@@ -89,6 +90,15 @@ test("wallet switches and workspace resets preserve each wallet's wait", async (
   assert.deepEqual(store.get(pendingWalletStateUpdateAtom), PENDING);
 });
 
+// Creating a wallet clears the selection. Another wallet's wait must not gate it.
+test("without a selected wallet another wallet's wait does not gate the workspace", () => {
+  const store = createStore();
+  store.set(beginWalletStateUpdateAtom, PENDING);
+  assert.deepEqual(store.get(pendingWalletStateUpdatesAtom)[PENDING.walletUnit], PENDING);
+  assert.equal(store.get(pendingWalletStateUpdateAtom), null);
+  assert.equal(store.get(walletStateUpdatingAtom), false);
+});
+
 test("a fresh store restores a persisted wait before wallet actions resume", () => {
   const entries = new Map<string, string>();
   const descriptor = Object.getOwnPropertyDescriptor(globalThis, "window");
@@ -108,7 +118,7 @@ test("a fresh store restores a persisted wait before wallet actions resume", () 
     assert.ok(entries.get(WALLET_STATE_RECORD_PREFIX + PENDING.walletUnit)?.includes(PENDING.submittedTxHash));
     const restored = createStore();
     unsubscribe = restored.sub(pendingWalletStateUpdatesAtom, () => {});
-    assert.deepEqual(restored.get(pendingWalletStateUpdateAtom), PENDING);
+    assert.deepEqual(restored.get(pendingWalletStateUpdatesAtom)[PENDING.walletUnit], PENDING);
   } finally {
     unsubscribe();
     if (descriptor) Object.defineProperty(globalThis, "window", descriptor);
@@ -120,7 +130,7 @@ test("the unchanged spent reference cannot complete a wait", () => {
   const store = createStore();
   store.set(beginWalletStateUpdateAtom, PENDING);
   assert.equal(store.set(completeWalletStateUpdateAtom, { pending: PENDING, replacementRef: SPENT }), false);
-  assert.deepEqual(store.get(pendingWalletStateUpdateAtom), PENDING);
+  assert.deepEqual(store.get(pendingWalletStateUpdatesAtom)[PENDING.walletUnit], PENDING);
 });
 
 test("an inaccessible browser store cannot silently accept a durable record", () => {

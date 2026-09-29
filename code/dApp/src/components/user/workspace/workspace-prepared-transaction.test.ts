@@ -155,6 +155,7 @@ test("wallet session changes reject a prepared transaction", () => {
 
 test("pending wallet State refresh blocks the prepared transaction", () => {
   const store = createStore();
+  store.set(routeStateAtom, { ...store.get(routeStateAtom), selectedWalletUnit: "wallet" });
   const prepared = prepare(store);
   store.set(pendingWalletStateUpdateAtom, {
     walletUnit: "wallet", submittedTxHash: TX_HASH, spentRef: { txHash: TX_HASH, outputIndex: 0 }
