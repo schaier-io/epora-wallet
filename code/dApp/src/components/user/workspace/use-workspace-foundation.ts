@@ -133,10 +133,6 @@ export function useWorkspaceFoundation() {
   // wallet list refreshes mid-confirmation, so the celebration must read this
   // snapshot (not the live form value) to show the name actually minted.
   const [mintedWalletName, setMintedWalletName] = useAtom(mintedWalletNameAtom);
-  // Timers for the staggered post-submit refresh (deposit/send/admin). The
-  // immediate refresh after a submit runs before the tx confirms, so we re-poll
-  // a few times so the balance/UTxOs update on their own once the tx lands.
-  const postSubmitRefreshTimersRef = useRef<number[]>([]);
   // The progress overlay can be dismissed (Esc/X) without cancelling the mint.
   // Keyed by the submission it was dismissed for, so a fresh submit (new
   // submitHash) re-shows it during render, so no effect is needed.
@@ -394,7 +390,6 @@ export function useWorkspaceFoundation() {
     mintCelebrationRef,
     mintedWalletName,
     setMintedWalletName,
-    postSubmitRefreshTimersRef,
     dismissedSubmitHash,
     setDismissedSubmitHash,
     preview,

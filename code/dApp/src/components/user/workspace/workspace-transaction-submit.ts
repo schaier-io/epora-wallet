@@ -14,7 +14,6 @@ import {
   beginWalletStateUpdateAtom,
   walletStateUpdatingAtom,
   walletStateSubmissionsAtom,
-  pendingWalletStateUpdateAtom,
   pendingWalletStateUpdatesAtom,
   resolveSpentSttRef,
 } from "@/components/user/workspace/atoms/wallet-state-update.atoms";
@@ -33,7 +32,6 @@ import {
 import { formatBuildError, safeStringify, waitFor } from "@/components/user/workspace/helpers";
 import { OwnedMessageError } from "./helpers/build-errors";
 import type { resolveWorkspaceTransactionInputs } from "@/components/user/workspace/workspace-transaction-inputs";
-import { schedulePostSubmitRefresh } from "@/components/user/workspace/workspace-transaction-refresh";
 import type { WorkspaceTransactionsCtx } from "@/components/user/workspace/workspace-transactions-types";
 import { normalizeWalletName } from "@/lib/contracts/state-wallet-name";
 import { signAndSubmitTx } from "@/lib/mesh/transactions";
@@ -83,7 +81,6 @@ type SubmitDeps = Pick<
   | "refreshPermissionWalletSummaries"
   | "refreshWalletBalance"
   | "lockingContract"
-  | "postSubmitRefreshTimersRef"
   | "watchMintCreationConfirmation"
 > & {
   mintStateForm: ReturnType<typeof resolveWorkspaceTransactionInputs>["mintStateForm"];
@@ -366,14 +363,12 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
       runPostSubmitTask("clear-lock-funds", () => jotaiStore.set(resetLockFundsFormAtom));
     }
     runPostSubmitTask("chain-cache", () => invalidateChainQueries(jotaiStore.get(queryClientAtom)));
+    // The immediate refresh above runs before the tx confirms. The confirmation
+    // watcher refreshes again once the tx lands.
     if (selectedAction === "mint") {
       runPostSubmitTask("mint-confirmation", () =>
         watchMintCreationConfirmation(txHash, transactionPreview.createdWalletUnit)
       );
-    } else {
-      // The immediate refresh above runs before the tx confirms; re-poll over
-      // the next ~75s so the wallet updates itself once the tx lands.
-      runPostSubmitTask("refresh-poll", () => schedulePostSubmitRefresh(deps));
     }
   }
 
@@ -394,30 +389,24 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
         attempt === 1 ? SUBMIT_CONFIRMATION_INITIAL_DELAY_MS : SUBMIT_CONFIRMATION_POLL_MS
       );
 
-      // A newer build/submit (or a flow reset) replaced the hash: this run is stale.
-      const pending = jotaiStore.get(pendingWalletStateUpdateAtom);
-      if (jotaiStore.get(workspaceSessionAtom) !== session ||
-        (jotaiStore.get(submitHashAtom) !== txHash && pending?.submittedTxHash !== txHash)) {
-        return;
-      }
+      // Only a wallet or session change retires this run. "Done", a newer build or
+      // a reset clears the banner, but balances must still refresh when the tx lands.
+      if (jotaiStore.get(workspaceSessionAtom) !== session) return;
 
       const confirmed = await seenOnChain();
       if (!confirmed) {
         continue;
       }
 
-      if (isCurrent()) {
-        jotaiStore.set(submitConfirmedAtom, true);
-        await invalidateChainQueries(client);
-      }
+      if (jotaiStore.get(workspaceSessionAtom) !== session) return;
+      if (isCurrent()) jotaiStore.set(submitConfirmedAtom, true);
+      await invalidateChainQueries(client);
       return;
     }
 
     // The poll ran out without the indexer seeing the hash: indexer lag, or the tx
     // lost an input race. Say so. Without this write the banner's spinner ran on
-    // with no third state to land in. `isCurrent()` only, not the pending-wallet
-    // check above: a pending wallet-state update keeps this hash current even
-    // after its own confirmation watcher takes over.
+    // with no third state to land in. Only while the banner still shows this hash.
     if (!isCurrent()) return;
     jotaiStore.set(submitConfirmationUnseenAtom, true);
 

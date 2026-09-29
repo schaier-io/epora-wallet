@@ -93,9 +93,8 @@ type RefreshFields = {
   refreshWalletBalance: ReturnType<typeof useWalletBalance>["refreshWalletBalance"];
 };
 
-// Refs that outlive a single build (pending refresh timers, captured proposal).
+// Refs that outlive a single build (captured proposal).
 type PostSubmitRefs = {
-  postSubmitRefreshTimersRef: MutableRefObject<number[]>;
   proposalCaptureRef: MutableRefObject<ProposalCapture | null>;
 };
 

@@ -22,9 +22,6 @@ const mocks = vi.hoisted(() => ({ freshness: vi.fn(), signAndSubmitTx: vi.fn(), 
 
 vi.mock("@/lib/mesh/transactions/prepared-transaction-freshness", () => ({ assertPreparedTransactionFresh: mocks.freshness }));
 vi.mock("@/lib/mesh/transactions", () => ({ signAndSubmitTx: mocks.signAndSubmitTx, buildBeneficiaryPreparationTx: mocks.buildPreparation, buildMintStateTokenTx: mocks.buildMint }));
-vi.mock("@/components/user/workspace/workspace-transaction-refresh", () => ({
-  schedulePostSubmitRefresh: vi.fn()
-}));
 
 import { createWorkspaceTransactions } from "./workspace-transactions";
 

@@ -17,7 +17,6 @@ vi.mock("@/lib/mesh/transactions", () => ({
   getValidityWindow: () => ({ earliestTimeMs: 1750000000000, latestTimeMs: 1750000240000 })
 }));
 vi.mock("@/lib/mesh/transactions/prepared-transaction-freshness", () => ({ assertPreparedTransactionFresh: mocks.freshness }));
-vi.mock("./workspace-transaction-refresh", () => ({ schedulePostSubmitRefresh: vi.fn() }));
 
 // Empty unsigned transaction with an explicit future TTL. No ledger submission occurs.
 const result: BuildResult = {
