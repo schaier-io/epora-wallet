@@ -9,7 +9,8 @@ import {
   type GovernanceActionsResponseDto
 } from "@/lib/api/governance-actions";
 import { clientKey, rateLimit } from "@/lib/http/rate-limit";
-import { meshHttpStatus } from "@/lib/mesh/http-error";
+import { meshHttpStatus, meshUpstreamFailure } from "@/lib/mesh/http-error";
+import { PROVIDER_UNAVAILABLE_MESSAGE } from "@/lib/http/tx-route-errors";
 import { logger, serializeError } from "@/lib/observability/logger";
 
 export const runtime = "nodejs";
@@ -130,6 +131,15 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: GOV_ACTION_ID_INVALID_MESSAGE }, { status: 400 });
     }
     logger.error("api.governance_action_lookup_failed", { err: serializeError(error) });
+    const upstream = meshUpstreamFailure(error);
+    if (upstream) {
+      return NextResponse.json(
+        { error: PROVIDER_UNAVAILABLE_MESSAGE },
+        upstream.status === 429
+          ? { status: 429, headers: { "Retry-After": upstream.retryAfterSeconds } }
+          : { status: 502 }
+      );
+    }
     return NextResponse.json({ error: "Governance action lookup failed." }, { status: 500 });
   }
 }
