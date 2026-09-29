@@ -198,3 +198,15 @@ it("refreshes selected State and full inventory through one shared full request"
   await waitFor(() => expect(test.result.current.tokens).toEqual([next, b]));
   refreshed.forEach(result => expect(result?.tokens).toEqual([next, b]));
 });
+
+// Creating a wallet clears the selection. Another wallet's pending State must not
+// stop the inventory read or the refresh that finds the new wallet.
+it("keeps inventory and detection running without a selection while another wallet's State is pending", async () => {
+  const test = setup("");
+  act(() => test.store.set(pendingWalletStateUpdateAtom, { walletUnit: b.unit, submittedTxHash: "submitted", spentRef: b.utxo.input }));
+  expect(test.store.get(pendingWalletStateUpdateAtom)).toBeNull();
+  await waitFor(() => expect(test.result.current.tokens).toEqual([a, b]));
+  let result: Awaited<ReturnType<typeof test.result.current.refreshDetectedTokens>> = null;
+  await act(async () => { result = await test.result.current.refreshDetectedTokens({ knownUnit: a.unit }); });
+  expect(result).not.toBeNull();
+});

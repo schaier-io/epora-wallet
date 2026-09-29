@@ -234,6 +234,38 @@ describe("POST /api/proposals", () => {
     expect(store.createProposalRecord).not.toHaveBeenCalled();
   });
 
+  // One input, one output, and `required_signers` [aa…aa, bb…bb]: the same bytes
+  // `verify.test.ts` decodes. CALLER is aa…aa, so it is listed here.
+  const TX_LISTING_CALLER =
+    "84a500d9010281825820111111111111111111111111111111111111111111111111111111111111111100018182581d6033c378cee41b2e15ac848f7f6f1d2f78155ab12d93b713de898d855f1a001e84800200075820bdaa99eb158414dea0a91d6c727e2268574b23efe6e08ab3b841abe8059a030c0ed9010282581caaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa581cbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbba0f5d90103a0";
+  // The same transaction with aa…aa swapped for cc…cc: the caller is not listed.
+  const TX_LISTING_OTHERS = TX_LISTING_CALLER.replace("aa".repeat(28), "cc".repeat(28));
+
+  it("rejects a transaction whose listed signers leave out the signed-in wallet", async () => {
+    // A draft built by another wallet lists that wallet's key. Saved under this
+    // session, the caller becomes the creator of a request they cannot sign.
+    store.isWalletParticipant.mockResolvedValue(true);
+    store.createProposalRecord.mockResolvedValue({ id: "proposal-1" });
+
+    const response = await POST(createRequest({ unsignedTxHex: TX_LISTING_OTHERS }));
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({
+      error: "The signed-in wallet is not listed as a signer of this transaction."
+    });
+    expect(store.createProposalRecord).not.toHaveBeenCalled();
+  });
+
+  it("saves a transaction whose listed signers include the signed-in wallet", async () => {
+    store.isWalletParticipant.mockResolvedValue(true);
+    store.createProposalRecord.mockResolvedValue({ id: "proposal-1" });
+
+    const response = await POST(createRequest({ unsignedTxHex: TX_LISTING_CALLER }));
+
+    expect(response.status).toBe(201);
+    expect(store.createProposalRecord).toHaveBeenCalledTimes(1);
+  });
+
   it("rejects an authenticated caller who is not a wallet participant", async () => {
     store.isWalletParticipant.mockResolvedValue(false);
     // The wallet IS indexed, so the absent participant row really does mean "not a member".

@@ -58,6 +58,8 @@ for (const [name, invalidate] of [
 ] as const) {
   test(`${name} immediately aborts pending work and settles without its underlying promise`, async () => {
     const store = createStore();
+    // A pending State record gates only its own wallet, so the build runs on it.
+    store.set(routeStateAtom, route => ({ ...route, selectedWalletUnit: "wallet" }));
     const pending = deferred();
     let signal!: AbortSignal;
     const promise = runWorkspaceBuild(store, "mint", received => { signal = received; return pending.promise; });

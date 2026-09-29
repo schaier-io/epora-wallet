@@ -28,7 +28,8 @@ export class PayeeCollectBlockedError extends Error {
  * would have to render in red.
  */
 export type PayeeCollectOutcome =
-  | { status: "submitted"; txHash: string }
+  /** `validUntilMs` is the transaction's upper validity bound: past it, the tx can never land. */
+  | { status: "submitted"; txHash: string; validUntilMs: number }
   | { status: "declined" };
 
 export async function runPayeeCollect(input: {
@@ -130,5 +131,5 @@ export async function runPayeeCollect(input: {
 
   await assertCurrent?.();
   const txHash = await signAndSubmitTx(wallet, build.txHex, { assertCurrent });
-  return { status: "submitted", txHash };
+  return { status: "submitted", txHash, validUntilMs: validityWindow.latestTimeMs };
 }

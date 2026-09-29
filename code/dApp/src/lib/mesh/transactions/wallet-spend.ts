@@ -1,4 +1,4 @@
-import { WALLET_SPEND_VALIDATOR, positiveOutputAmount, assertValidConstrData, assertValidPayoutTransfers, buildReferenceScriptDiagnostics, buildTransactionWithReestimatedLimits, createInputRefKey, createTxPreview, describeReferenceScriptUsage, findUtxo, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, setupTransaction, withStage } from "./internals";
+import { WALLET_SPEND_VALIDATOR, assertOutputMeetsMinimumLovelace, positiveOutputAmount, assertValidConstrData, assertValidPayoutTransfers, buildReferenceScriptDiagnostics, buildTransactionWithReestimatedLimits, createInputRefKey, createTxPreview, describeReferenceScriptUsage, findUtxo, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, setupTransaction, withStage } from "./internals";
 import { formatWalletSpendPreview } from "./preview-copy";
 import { getWalletSpendScript, resolveScriptAddress } from "@/lib/contracts/blueprint";
 import { type BuildResult, type ContractConfig, type WalletSpendFormInput } from "@/lib/types/contracts";
@@ -55,9 +55,12 @@ export async function buildWalletSpendTx(
       });
 
       for (const output of input.outputs) {
+        const label = `Output to ${output.address}`;
+        const amount = positiveOutputAmount(output.amount, label);
+        assertOutputMeetsMinimumLovelace(tx, output.address, amount, label, output.inlineDatum);
         tx.sendAssets(
           recipientWithOptionalInlineDatum(output.address, output.inlineDatum),
-          positiveOutputAmount(output.amount, `Output to ${output.address}`)
+          amount
         );
       }
 

@@ -1,3 +1,5 @@
+import { parseRetryAfterMs } from "@/lib/http/retry-after";
+
 // Mesh's BlockfrostProvider throws every HTTP failure as a JSON string built by
 // its parseHttpError: `{ data, headers, status }` when the server answered,
 // `{ code, message }` or the raw request when it did not.
@@ -33,6 +35,27 @@ export function meshHttpRetryAfter(error: unknown): string | null {
   if (/^\d+$/.test(value)) return Number.isFinite(Number(value)) ? value : null;
   const timestamp = Date.parse(value);
   return Number.isFinite(timestamp) && new Date(timestamp).toUTCString() === value ? value : null;
+}
+
+// Used when Blockfrost answers 429 without a Retry-After: the public API
+// promises that every 429 carries one, in seconds.
+export const UPSTREAM_RETRY_AFTER_FALLBACK_SECONDS = 1;
+
+// A Blockfrost rate limit or outage is not our bug, so a read route must not
+// answer it as a 500. An upstream 429 stays a 429, so the caller backs off for
+// as long as Blockfrost asks; an upstream 5xx is a bad gateway, a 502. Every
+// other failure returns null and stays the route's own decision.
+export function meshUpstreamFailure(
+  error: unknown
+): { status: 429; retryAfterSeconds: string } | { status: 502 } | null {
+  const status = meshHttpStatus(error);
+  if (status === 429) {
+    // Blockfrost may send an HTTP date; the public contract is seconds.
+    const delayMs = parseRetryAfterMs(meshHttpRetryAfter(error));
+    const seconds = delayMs === undefined ? UPSTREAM_RETRY_AFTER_FALLBACK_SECONDS : Math.ceil(delayMs / 1_000);
+    return { status, retryAfterSeconds: String(seconds) };
+  }
+  return status !== null && status >= 500 ? { status: 502 } : null;
 }
 
 // Blockfrost's evaluate endpoint answers HTTP 200 carrying an Ogmios

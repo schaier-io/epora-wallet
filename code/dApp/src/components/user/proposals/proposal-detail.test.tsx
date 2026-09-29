@@ -363,7 +363,8 @@ describe("what the buttons are waiting for", () => {
       effect: { inputs: [{ txHash: "11".repeat(32), outputIndex: 0, live: true, isSttState: true }], outputs: [], feeLovelace: "200000" },
       signers: {
         authorityPath: "multisig",
-        requiredSigners: [],
+        // The reader (dd…dd) holds power, so Sign is theirs to press.
+        requiredSigners: [{ keyHash: "dd".repeat(28), power: 1, isAdmin: false }],
         signedKeyHashes: [],
         satisfiedPower: 0,
         threshold: 1,

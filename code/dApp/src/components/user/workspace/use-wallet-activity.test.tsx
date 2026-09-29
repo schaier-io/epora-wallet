@@ -1,5 +1,5 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { useAtomValue } from "jotai";
+import { useAtomValue, type PrimitiveAtom } from "jotai";
 import { beforeEach, expect, it, vi } from "vitest";
 import { createQueryTestWrapper } from "@/test/query-client";
 import { activeAddressAtom, isConnectingAtom } from "@/providers/wallet.atoms";
@@ -15,6 +15,7 @@ vi.mock("./queries/wallet-identity.atoms", async () => {
 vi.mock("./queries/token-identity.atoms", async () => ({ selectedDetectedTokenAtom: (await import("jotai")).atom(null) }));
 vi.mock("./queries/activity-inputs.atoms", async () => ({ activityAnchorTxHashesAtom: (await import("jotai")).atom(["cd".repeat(32)]) }));
 import { walletActivityQueryOptions, walletHistoryQueryKey, walletTransactionsAtom } from "./queries/activity-query.atoms";
+import { activityAnchorTxHashesAtom } from "./queries/activity-inputs.atoms";
 import { useWalletActivity } from "./use-wallet-activity";
 const transaction = { hash: "cd".repeat(32), inputs: [], outputs: [], blockTime: 1, slot: "1" };
 beforeEach(() => {
@@ -171,4 +172,18 @@ it("an explicit refresh stops an older read from writing an already invalidated 
   expect(queryClient.getQueryState(walletHistoryQueryKey(input))?.isInvalidated).toBe(true);
   releases[1]([touching("ef".repeat(32))]);
   await act(async () => { await refresh; });
+});
+// A submit or a new locked UTxO changes the anchor set and so the query key. The feed
+// keeps the same wallet's rows while the new anchor loads, and never shows them for another wallet.
+it("keeps the wallet's feed while a changed anchor set loads, but not across wallets", async () => {
+  const test = setup();
+  await waitFor(() => expect(test.result.current.activity.items).toEqual([transaction]));
+  const anchors = activityAnchorTxHashesAtom as unknown as PrimitiveAtom<string[]>;
+  chain.fetchTxInfo.mockImplementation(() => new Promise(() => {}));
+  act(() => test.store.set(anchors, [transaction.hash, "ef".repeat(32)]));
+  await waitFor(() => expect(chain.fetchTxInfo).toHaveBeenCalledTimes(2));
+  expect(test.result.current.activity).toMatchObject({ items: [transaction], loading: false });
+  chain.fetchAddressTxs.mockImplementation(() => new Promise(() => {}));
+  act(() => test.store.set(activeAddressAtom, "wallet-b"));
+  expect(test.result.current.activity).toMatchObject({ items: [], loading: true });
 });

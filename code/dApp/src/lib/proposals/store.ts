@@ -16,6 +16,7 @@ import {
   mapDetail
 } from "./store-logic";
 import { validateVKeyWitnessSet } from "./witness-validation";
+import { decodeRequiredSigners } from "./verify";
 import {
   createProposalRecord as createProposalRow,
   findDeduplicableProposal,
@@ -88,9 +89,15 @@ export async function upsertProposalSignature(args: {
 }): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
   const proposal = await getPrisma().multiSigProposal.findUnique({
     where: { id: args.proposalId },
-    select: { txBodyHash: true, status: true }
+    select: { txBodyHash: true, status: true, unsignedTxHex: true }
   });
-  const guard = evaluateProposalSignatureGuard(proposal, args.expectedBodyHash);
+  // Decoded from the same row the body-hash check reads, so the listed signers
+  // belong to the body this witness signs.
+  const guard = evaluateProposalSignatureGuard(
+    proposal && { ...proposal, requiredSigners: decodeRequiredSigners(proposal.unsignedTxHex) },
+    args.expectedBodyHash,
+    args.signerKeyHash
+  );
   if (!guard.ok) {
     return guard;
   }

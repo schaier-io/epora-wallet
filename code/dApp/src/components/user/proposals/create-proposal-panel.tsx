@@ -100,18 +100,25 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
     try {
       let buildContext = draft.buildContext;
       let unsignedTxHex = draft.unsignedTxHex;
-      if (coSigners.length > 0) {
+      // The stash belongs to the browser tab, not to a wallet: a draft wallet A
+      // built is still there after the user switches to wallet B, and saving it
+      // would file A's transaction under B's session. So the connected wallet
+      // must be the proposer on every save, not only on a co-signer rebuild.
+      // Older drafts carry no proposer; the server's required-signer check
+      // covers those.
+      const wrongWallet = Boolean(
+        draft.proposerKeyHash &&
+          activePaymentKeyHash?.toLowerCase() !== draft.proposerKeyHash.toLowerCase()
+      );
+      if (wrongWallet || (coSigners.length > 0 && !activeWallet)) {
+        setError(i18n("connectTheWalletThatBuiltThisRequest"));
+        return;
+      }
+      if (coSigners.length > 0 && activeWallet) {
         // The stashed transaction lists the proposer alone. Listing the chosen
         // co-signers changes the body, so it is built again with them in it. The
         // builder lists the connected wallet's own key, and the set was checked
         // against the proposer's, so both have to be the same wallet.
-        if (
-          !activeWallet ||
-          activePaymentKeyHash?.toLowerCase() !== draft.proposerKeyHash?.toLowerCase()
-        ) {
-          setError(i18n("connectTheWalletThatBuiltThisRequest"));
-          return;
-        }
         buildContext = refreshContextForRebuild(applyCoSigners(draft.buildContext, coSigners));
         unsignedTxHex = (await buildProposalTx(activeWallet, buildContext)).txHex;
       }

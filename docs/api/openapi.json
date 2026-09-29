@@ -121,7 +121,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. The limit is 300 requests per 60 seconds, per client address.",
+            "description": "Rate limit exceeded. The limit is 300 requests per 60 seconds, per client address. The same status, with the chain data provider's message, means the provider is rate-limiting this deployment; `Retry-After` then carries the provider's delay, or 1 second when it gives none.",
             "headers": {
               "Retry-After": {
                 "required": true,
@@ -143,6 +143,16 @@
           },
           "500": {
             "description": "Unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The chain data provider is unavailable.",
             "content": {
               "application/json": {
                 "schema": {
@@ -208,7 +218,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. The limit is 300 requests per 60 seconds, per client address.",
+            "description": "Rate limit exceeded. The limit is 300 requests per 60 seconds, per client address. The same status, with the chain data provider's message, means the provider is rate-limiting this deployment; `Retry-After` then carries the provider's delay, or 1 second when it gives none.",
             "headers": {
               "Retry-After": {
                 "required": true,
@@ -230,6 +240,16 @@
           },
           "500": {
             "description": "Unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The chain data provider is unavailable.",
             "content": {
               "application/json": {
                 "schema": {

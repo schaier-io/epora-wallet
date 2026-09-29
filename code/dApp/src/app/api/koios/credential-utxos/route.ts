@@ -1,8 +1,9 @@
 import { CARDANO_NETWORK } from "@/lib/cardano-network";
 import { NextResponse } from "next/server";
 import {
+  fetchKoiosCredentialUtxoRows,
   isKoiosNetwork,
-  requestKoiosCredentialUtxos
+  KoiosCredentialLookupError
 } from "@/lib/discovery/koios-server";
 import { clientKey, rateLimit } from "@/lib/http/rate-limit";
 import { readBoundedJson, RequestBodyTooLargeError } from "@/lib/http/request-body";
@@ -23,6 +24,7 @@ export const runtime = "nodejs";
 // orphan / stake-address ("Franken" UTxO) discovery needs.
 //
 //   POST /api/koios/credential-utxos  { paymentCredential: "<56-hex>", network? }
+//     (`network`, when sent, must equal the deployment's own network)
 //     → Koios `credential_utxos` rows (passed through; the client maps them)
 //
 // Trade-off vs. the old direct-from-browser design: the app server now sees the
@@ -38,21 +40,32 @@ export async function POST(request: Request) {
       { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
     );
   }
-  let payload: { paymentCredential?: string; network?: string };
+  let payload: unknown;
   try {
-    payload = (await readBoundedJson(request, 2 * 1024)) as {
-      paymentCredential?: string;
-      network?: string;
-    };
+    payload = await readBoundedJson(request, 2 * 1024);
   } catch (error) {
     if (error instanceof RequestBodyTooLargeError) {
       return NextResponse.json({ error: error.message }, { status: 413 });
     }
     return NextResponse.json({ error: i18n("invalidJsonBody") }, { status: 400 });
   }
+  if (typeof payload !== "object" || payload === null || Array.isArray(payload)) {
+    return NextResponse.json({ error: i18n("invalidJsonBody") }, { status: 400 });
+  }
+  const body = payload as { paymentCredential?: unknown; network?: unknown };
 
-  const paymentCredential = payload.paymentCredential?.trim();
-  const network = payload.network?.trim() || CARDANO_NETWORK;
+  const paymentCredential =
+    typeof body.paymentCredential === "string" ? body.paymentCredential.trim() : "";
+  // The deployment decides the network. A client may still name it, but only as a check:
+  // letting the body choose sent a preprod deployment's lookups to mainnet Koios.
+  const requestedNetwork = typeof body.network === "string" ? body.network.trim() : "";
+  if (requestedNetwork && requestedNetwork !== CARDANO_NETWORK) {
+    return NextResponse.json(
+      { error: i18n("unknownNetworkExpectedPreprodPreviewOrMainnet") },
+      { status: 400 }
+    );
+  }
+  const network = CARDANO_NETWORK;
 
   if (!paymentCredential) {
     return NextResponse.json(
@@ -75,27 +88,20 @@ export async function POST(request: Request) {
   }
 
   try {
-    const response = await requestKoiosCredentialUtxos(paymentCredential, network);
-
-    const text = await response.text();
-    if (!response.ok) {
+    // Pass Koios's UTxO rows straight through, every page of them; the client maps them
+    // to its DiscoveredUtxo shape.
+    return NextResponse.json(await fetchKoiosCredentialUtxoRows(paymentCredential, network));
+  } catch (error) {
+    if (error instanceof KoiosCredentialLookupError) {
       logger.error("api.koios_credential_lookup_upstream_failed", {
-        upstreamStatus: response.status,
-        upstreamBody: text.slice(0, 200)
+        upstreamStatus: error.status,
+        upstreamBody: error.body.slice(0, 200)
       });
       return NextResponse.json(
-        { error: i18n("koiosCredentialLookupFailedValue1", { value1: response.status }) },
+        { error: i18n("koiosCredentialLookupFailedValue1", { value1: error.status }) },
         { status: 502 }
       );
     }
-
-    // Pass Koios's UTxO rows straight through; the client maps them to its
-    // DiscoveredUtxo shape.
-    return new NextResponse(text, {
-      status: 200,
-      headers: { "content-type": "application/json" }
-    });
-  } catch (error) {
     logger.error("api.koios_credential_lookup_failed", { err: serializeError(error) });
     return NextResponse.json({ error: i18n("koiosCredentialLookupFailed") }, { status: 502 });
   }

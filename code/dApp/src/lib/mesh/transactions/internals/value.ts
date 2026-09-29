@@ -8,6 +8,7 @@ import { Datum, PlutusV1Script, PlutusV2Script, PlutusV3Script, Script, Transact
 import { blake2b } from "ethereum-cryptography/blake2b";
 import { bytesToHex, hexToBytes } from "ethereum-cryptography/utils";
 import { formatAmountPreview } from "../preview-copy";
+import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 
 export function redeemValueWithRequiredReferenceScript(
   tx: Transaction,
@@ -158,6 +159,37 @@ export function calculateMinimumLovelaceForOutput(
   const outputSize = BigInt(UTXO_SIZE_OVERHEAD_BYTES + outputCbor.length / 2 + 1);
 
   return outputSize * BigInt(protocolParams.coinsPerUtxoSize);
+}
+
+
+
+// Mesh adds min ADA only to an output that has no lovelace at all
+// (@meshsdk/transaction 1.9.1 `sanitizeOutputs`). An output that keeps some
+// lovelace below the ledger floor passes the build, and the ledger rejects the
+// transaction after the signer approved it. Refuse it before signing instead.
+export function assertOutputMeetsMinimumLovelace(
+  tx: Transaction,
+  address: string,
+  amount: Asset[],
+  label: string,
+  datum?: ConstrData
+) {
+  if (!amount.some((asset) => asset.unit === "lovelace" || asset.unit === "")) {
+    return;
+  }
+  const protocolParams =
+    (tx.txBuilder as RuntimeTxBuilder)._protocolParams ?? DEFAULT_PROTOCOL_PARAMETERS;
+  // The sizing helper adds one byte of headroom, which suits a top-up. A refusal
+  // must use the ledger floor itself, so an output at exactly the floor passes.
+  const minimum =
+    calculateMinimumLovelaceForOutput(buildMeshOutput(address, amount, datum), protocolParams) -
+    BigInt(protocolParams.coinsPerUtxoSize);
+  const lovelace = getLovelaceQuantity(amount);
+  if (lovelace < minimum) {
+    throw new Error(
+      `${label} holds ${formatLovelaceAsAda(lovelace)} ADA, but a Cardano output needs at least ${formatLovelaceAsAda(minimum)} ADA. Change the amounts so this output keeps at least that much, or nothing.`
+    );
+  }
 }
 
 

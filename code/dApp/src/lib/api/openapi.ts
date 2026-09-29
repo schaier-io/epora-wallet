@@ -7,6 +7,7 @@ import { ApiErrorSchema } from "./errors";
 import { HealthResponseSchema } from "./health";
 import { GovernanceActionsQuerySchema, GovernanceActionsResponseSchema } from "./governance-actions";
 import { PoolsQuerySchema, PoolsResponseSchema } from "./pools";
+import { UPSTREAM_RETRY_AFTER_FALLBACK_SECONDS } from "@/lib/mesh/http-error";
 import { SttLookupRequestSchema, SttLookupResponseSchema } from "./stt-lookup";
 import { BuildResultSchema } from "./tx-result";
 import {
@@ -78,6 +79,11 @@ const tooManyRequests = (
   }),
   content: { "application/json": { schema: ApiErrorSchema } }
 });
+
+// The chain lookups forward Blockfrost's own rate limit instead of hiding it
+// behind a 500 (meshUpstreamFailure).
+const UPSTREAM_RATE_LIMITED =
+  ` The same status, with the chain data provider's message, means the provider is rate-limiting this deployment; \`Retry-After\` then carries the provider's delay, or ${UPSTREAM_RETRY_AFTER_FALLBACK_SECONDS} second when it gives none.`;
 
 const betaConsentParameters = [{
   in: "header" as const,
@@ -306,8 +312,9 @@ export function buildOpenApiDocument() {
             },
             "400": jsonError("The pool id is missing or malformed."),
             "404": jsonError("No pool exists with that id."),
-            "429": tooManyRequests(RATE_LIMITS.pools),
-            "500": jsonError("Unexpected server error.")
+            "429": tooManyRequests(RATE_LIMITS.pools, UPSTREAM_RATE_LIMITED),
+            "500": jsonError("Unexpected server error."),
+            "502": jsonError("The chain data provider is unavailable.")
           }
         }
       },
@@ -325,8 +332,9 @@ export function buildOpenApiDocument() {
             },
             "400": jsonError("The governance action id is missing or malformed."),
             "404": jsonError("No governance action exists with that id."),
-            "429": tooManyRequests(RATE_LIMITS.governanceActions),
-            "500": jsonError("Unexpected server error.")
+            "429": tooManyRequests(RATE_LIMITS.governanceActions, UPSTREAM_RATE_LIMITED),
+            "500": jsonError("Unexpected server error."),
+            "502": jsonError("The chain data provider is unavailable.")
           }
         }
       },

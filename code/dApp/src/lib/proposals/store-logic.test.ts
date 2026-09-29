@@ -114,6 +114,21 @@ test("evaluateProposalSignatureGuard rejects signing a rebuilt body", () => {
   });
 });
 
+test("evaluateProposalSignatureGuard rejects a signer the body does not list", () => {
+  const listed = { status: "OPEN", txBodyHash: BODY, requiredSigners: ["aa".repeat(28)] };
+  assert.deepEqual(evaluateProposalSignatureGuard(listed, BODY, "bb".repeat(28)), {
+    ok: false,
+    status: 403,
+    error: "The signed-in wallet is not listed as a signer of this transaction."
+  });
+  assert.deepEqual(evaluateProposalSignatureGuard(listed, BODY, "AA".repeat(28)), { ok: true });
+  // A body that lists nobody leaves the choice to the wallet's rule.
+  assert.deepEqual(
+    evaluateProposalSignatureGuard({ ...listed, requiredSigners: [] }, BODY, "bb".repeat(28)),
+    { ok: true }
+  );
+});
+
 test("evaluateProposalSignatureGuard accepts an open proposal on the reviewed body", () => {
   assert.deepEqual(evaluateProposalSignatureGuard({ status: "OPEN", txBodyHash: BODY }, BODY), {
     ok: true

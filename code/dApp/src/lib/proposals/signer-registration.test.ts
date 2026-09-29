@@ -16,7 +16,7 @@ function keyHash(): string {
   return randomUUID().replace(/-/g, "").repeat(2).slice(0, 56);
 }
 
-async function seedWallet(participantKeyHashes: string[]) {
+async function seedWallet(participantKeyHashes: string[], role = "USER") {
   const unit = `unit_${randomUUID().replace(/-/g, "")}`;
   const wallet = await getPrisma().sttWallet.create({
     data: {
@@ -28,8 +28,8 @@ async function seedWallet(participantKeyHashes: string[]) {
       walletScriptAddress: `addr_wallet_${unit}`,
       participants: {
         create: participantKeyHashes.map((paymentKeyHash, index) => ({
-          role: "USER",
-          participantKey: `USER:${index}:${paymentKeyHash}`,
+          role,
+          participantKey: `${role}:${index}:${paymentKeyHash}`,
           paymentKeyHash
         }))
       }
@@ -93,4 +93,25 @@ test("a registered key from another wallet is not reported", { skip: DB_SKIP }, 
   await recordSignerRegistration(getPrisma(), outsiderKey);
 
   assert.deepEqual(await registeredWalletSignerKeyHashes(getPrisma(), unit), []);
+});
+
+// A recovery contact or payee is recorded on the wallet but cannot co-sign, so the
+// co-signer picker must not offer them.
+test("a registered beneficiary or payee is not reported as a signer", { skip: DB_SKIP }, async (t) => {
+  const heirKey = keyHash();
+  const payeeKey = keyHash();
+  const heirWallet = await seedWallet([heirKey], "BENEFICIARY");
+  const payeeWallet = await seedWallet([payeeKey], "STREAMING_PAYMENT_RECIPIENT");
+  t.after(async () => {
+    await getPrisma().sttWallet.deleteMany({ where: { id: { in: [heirWallet.walletId, payeeWallet.walletId] } } });
+    await getPrisma().signerRegistration.deleteMany({
+      where: { paymentKeyHash: { in: [heirKey, payeeKey] } }
+    });
+  });
+
+  await recordSignerRegistration(getPrisma(), heirKey);
+  await recordSignerRegistration(getPrisma(), payeeKey);
+
+  assert.deepEqual(await registeredWalletSignerKeyHashes(getPrisma(), heirWallet.unit), []);
+  assert.deepEqual(await registeredWalletSignerKeyHashes(getPrisma(), payeeWallet.unit), []);
 });

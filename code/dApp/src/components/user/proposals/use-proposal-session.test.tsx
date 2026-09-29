@@ -24,7 +24,7 @@ const dependencies = vi.hoisted(() => ({
   walletContext: {
     activeWallet: { signData: vi.fn() },
     activeAddress: "addr_test1session",
-    activePaymentKeyHash: "cc".repeat(28),
+    activePaymentKeyHash: "cc".repeat(28) as string | null,
     isDemoWallet: false
   }
 }));
@@ -65,7 +65,31 @@ beforeEach(() => {
   dependencies.walletContext.activeWallet = { signData: vi.fn() };
   dependencies.walletContext.activeAddress = SESSION.address;
   dependencies.walletContext.activePaymentKeyHash = SESSION.paymentKeyHash;
+  dependencies.walletContext.isDemoWallet = false;
   dependencies.signOutProposals.mockReset();
+});
+
+it("treats a leftover session as foreign while the demo wallet is connected", async () => {
+  // The demo wallet has no payment key, and a missing key alone is not a mismatch (it is the
+  // reconnect gap after a reload). The demo wallet can never own a session, so a cookie from
+  // an earlier real wallet must not list that key's requests under the demo address.
+  dependencies.walletContext.isDemoWallet = true;
+  dependencies.walletContext.activePaymentKeyHash = null;
+  dependencies.walletContext.activeAddress = "addr_test1demo";
+
+  const { result } = renderHook(() => useProposalSession());
+  await waitFor(() => expect(result.current.session).toEqual(SESSION));
+
+  expect(result.current.connectedWalletMismatch).toBe(true);
+});
+
+it("keeps a session through the reconnect gap when no wallet key is known yet", async () => {
+  dependencies.walletContext.activePaymentKeyHash = null;
+
+  const { result } = renderHook(() => useProposalSession());
+  await waitFor(() => expect(result.current.session).toEqual(SESSION));
+
+  expect(result.current.connectedWalletMismatch).toBe(false);
 });
 
 it("reports an initial proposal-session service failure", async () => {
