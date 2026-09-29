@@ -119,10 +119,29 @@ test("reconcileWalletUnit answers false for a policy unit with no live wallet UT
 
   assert.equal(await reconcileWalletUnit(fixture.unit, { db, chainClient }), false);
 
-  // The cache write still happened; only the answer changed.
+  // No row for a unit the cache has never seen. `POST /api/proposals` reconciles any unit a
+  // signed-in caller names, so writing one here let a caller fill the table with rows for
+  // made-up asset names; `walletIsIndexed` ignores CLOSED rows, so each retry wrote again.
+  assert.equal(await db.sttWallet.count({ where: { unit: fixture.unit } }), 0);
+});
+
+test("reconcileWalletUnit still closes a known wallet whose State UTxO is gone", async () => {
+  const fixture = createSttFixture();
+  const live = createMockChainClient();
+  assert.equal(await reconcileWalletUnit(fixture.unit, { db, chainClient: live }), true);
+
+  const closed = {
+    ...live,
+    async fetchAddressUTxOs() {
+      return [];
+    }
+  };
+  assert.equal(await reconcileWalletUnit(fixture.unit, { db, chainClient: closed }), false);
+
   const wallet = await db.sttWallet.findFirstOrThrow({ where: { unit: fixture.unit } });
   assert.equal(wallet.status, "CLOSED");
   assert.equal(wallet.currentTxHash, null);
+  assert.equal(await db.sttParticipant.count({ where: { walletId: wallet.id } }), 0);
 });
 
 /**

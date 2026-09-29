@@ -449,7 +449,10 @@ async function reconcileWalletAsset(
   db: PrismaClient,
   chainClient: SttChainClient,
   now: Date,
-  unit: string
+  unit: string,
+  // False on the on-demand path: a caller-named unit with no live UTxO and no row is not
+  // evidence of a wallet, so no CLOSED row is created for it.
+  recordUnknownClosed = true
 ): Promise<{ indexed: boolean; processedTransactions: number }> {
   const identity = buildWalletIdentity(unit, getSttPolicyId());
   const scriptUtxos = await chainClient.fetchAddressUTxOs(identity.sttScriptAddress, unit);
@@ -559,6 +562,15 @@ async function reconcileWalletAsset(
     // Same lock as the live branch: an ACTIVE write and this CLOSED write must not
     // interleave their participant rewrites.
     await lockWalletReconcile(tx, identity.unit);
+    if (
+      !recordUnknownClosed &&
+      !(await tx.sttWallet.findUnique({
+        where: { network_unit: { network: STT_CACHE_NETWORK, unit: identity.unit } },
+        select: { id: true }
+      }))
+    ) {
+      return;
+    }
     const wallet = await tx.sttWallet.upsert({
       where: {
         network_unit: {
@@ -624,7 +636,8 @@ export async function reconcileWalletUnit(
     getDb(options),
     getChainClient(options),
     getNow(options),
-    walletUnit
+    walletUnit,
+    false
   );
   return reconciled.indexed;
 }
