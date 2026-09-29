@@ -32,7 +32,10 @@ export const SttLookupRequestSchema = z
       .trim()
       .min(1)
       .optional()
-      .meta({ description: "`nextCursor` from a previous response." })
+      .meta({
+        description:
+          "`nextCursor` from a previous response. Exclusive: the page starts after this wallet id. An unknown id is not an error; the page starts after it in id order."
+      })
   })
   .superRefine((value, context) => {
     const hasPaymentKeyHash = typeof value.paymentKeyHash === "string";
@@ -108,7 +111,9 @@ export const SttLookupResponseSchema = z
     nextCursor: z.string().nullable().meta({
       description: "Pass back as `cursor` for the next page. `null` on the last page."
     }),
-    wallets: z.array(SttLookupWalletSchema),
+    wallets: z.array(SttLookupWalletSchema).meta({
+      description: "One page of matching wallets, ordered by wallet id. Stable across pages: a wallet that is touched between two requests never moves to a page already served. A wallet created during a scan appears only if its id sorts after the cursor."
+    }),
     sync: z
       .object({
         recentHeadTriggered: z.boolean(),
@@ -118,7 +123,7 @@ export const SttLookupResponseSchema = z
         historyBackfillCursor: z.string().nullable()
       })
       .meta({
-        description: "Freshness of the cache behind this answer, and whether this request triggered a background sync."
+        description: "Cache freshness. This endpoint only reads the cache and never triggers a background sync, so both trigger flags are always false; the lastSyncedAt timestamps carry the freshness."
       })
   })
   .meta({

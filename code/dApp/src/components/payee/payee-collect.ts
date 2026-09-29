@@ -18,6 +18,7 @@ import {
   suggestLockedInputsForSpend
 } from "@/lib/user-flow/wallet-input-selection";
 import type { PayoutTransfer, WalletInputRef } from "@/lib/types/contracts";
+import { resolveAssetIdentity } from "@/lib/cardano-assets";
 import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 import { createDefaultTranslator, defaultFormatter } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/ComponentsPayeePayeeCollect.json";
@@ -46,14 +47,14 @@ function heldQuantity(utxo: UTxO, unit: string): bigint {
 }
 
 // Amounts in a refusal have to read in the same unit as the row above them, or "holds 12 of
-// the 38 owed" turns into two numbers a million apart.
+// the 38 owed" turns into two numbers a million apart. The label goes through the same
+// decoder the row uses, so the sentence names the asset the way the row does instead of
+// echoing the raw datum bytes (`544f4b454e` under a row headed `TOKEN`).
 function describeAmount(quantity: bigint, payment: PayeeStreamingPayment): string {
   if (payment.policyId.length === 0 && payment.assetName.length === 0) {
     return `${formatLovelaceAsAda(quantity)} ADA`;
   }
-  const label = payment.assetName.length > 0
-    ? payment.assetName
-    : `${payment.policyId.slice(0, 8)}\u2026`;
+  const label = resolveAssetIdentity(`${payment.policyId}${payment.assetName}`).symbol;
   return `${defaultFormatter.number(quantity)} ${label}`;
 }
 

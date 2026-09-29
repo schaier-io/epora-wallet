@@ -1,5 +1,9 @@
 import { StrictMode } from "react";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { ReactElement } from "react";
+import { act, fireEvent, render as renderBare, screen, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query/keys";
+import { getSttMintPolicyId } from "@/lib/contracts/blueprint";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -56,6 +60,9 @@ vi.mock("@/components/layout/wallet-panel", () => ({
 vi.mock("@/lib/mesh/detection", () => ({
   detectSharedSttReferenceStore: mocks.detect
 }));
+vi.mock("@/lib/contracts/blueprint", () => ({
+  getSttMintPolicyId: () => "policy"
+}));
 vi.mock("@/lib/mesh/stt-reference-storage", () => ({
   saveSttReference: mocks.save
 }));
@@ -74,6 +81,15 @@ vi.mock("@/components/user/workspace/constants", () => ({
 }));
 
 const { SttReferenceSetup } = await import("./stt-reference-setup");
+
+// The page reads the shared reference through the app QueryClient.
+let queryClient = new QueryClient();
+function render(ui: ReactElement) {
+  queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
+  return renderBare(ui, {
+    wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  });
+}
 
 const missingStore = {
   activeReference: null,
@@ -201,6 +217,34 @@ describe("STT reference setup", () => {
 
     expect(mocks.detect).toHaveBeenCalledTimes(2);
     expect(mocks.replace).toHaveBeenCalledWith("/");
+    vi.useRealTimers();
+  });
+
+  it("leaves the confirmed reference in the shared cache the workspace reads", async () => {
+    vi.useFakeTimers();
+    const reference = `${"ef".repeat(32)}#0`;
+    const ready = { ...missingStore, activeReference: reference, matchingCount: 1, matchingReferences: [reference], status: "ready" };
+    mocks.build.mockResolvedValue({
+      preview: { summary: "Deploy reference with 5 ADA" },
+      referenceScriptOutputIndex: 0,
+      signerAddress: "addr_test1_signer",
+      txHex: "84a400"
+    });
+    mocks.signAndSubmit.mockResolvedValue("ef".repeat(32));
+    mocks.detect.mockResolvedValue(ready);
+
+    render(<SttReferenceSetup initialStore={missingStore} />);
+    // The workspace checked before setup and cached "missing" as fresh.
+    queryClient.setQueryData(queryKeys.sharedReference(getSttMintPolicyId()), missingStore);
+    fireEvent.click(screen.getByRole("button", { name: "Build setup transaction" }));
+    await act(async () => undefined);
+    fireEvent.click(screen.getByRole("button", { name: "Sign and deploy" }));
+    await act(async () => {
+      await vi.runAllTimersAsync();
+    });
+
+    expect(mocks.replace).toHaveBeenCalledWith("/");
+    expect(queryClient.getQueryData(queryKeys.sharedReference(getSttMintPolicyId()))).toEqual(ready);
     vi.useRealTimers();
   });
 

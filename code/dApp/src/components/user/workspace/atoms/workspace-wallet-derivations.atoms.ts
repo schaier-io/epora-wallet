@@ -25,8 +25,7 @@ import { withdrawRewardAddressAtom } from "@/components/user/workspace/atoms/for
 import { serializeScriptDrepId, serializeScriptRewardAddress } from "@/lib/cardano-addresses";
 import {
   sttExtraTransfersAtom,
-  sttWalletInputsAtom,
-  sttWalletOutputsAtom
+  sttWalletInputsAtom
 } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
 import { effectiveSttActionAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
@@ -50,7 +49,6 @@ export const useAllowancePreviewAtom = atom((get) =>
     activePaymentKeyHash: get(activePaymentKeyHashAtom),
     selectedDetectedToken: get(selectedDetectedTokenAtom),
     activeInferredSttStateForm: get(activeInferredSttStateFormAtom),
-    sttWalletOutputs: get(sttWalletOutputsAtom),
     sttExtraTransfers: get(sttExtraTransfersAtom),
     sttWalletInputs: get(sttWalletInputsAtom),
     lockedContractUtxos: get(lockedContractUtxosAtom)

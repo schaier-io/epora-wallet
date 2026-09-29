@@ -1,7 +1,12 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { ComponentProps } from "react";
 import { ProposalList } from "./proposal-list";
+
+const search = vi.hoisted(() => ({ query: "wallet=unit-1" }));
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(search.query)
+}));
 import type {
   ProposalListItemDto,
   ProposalValidity,
@@ -64,9 +69,32 @@ function renderList(
 }
 
 describe("the approval queue row", () => {
-  it("links an empty queue to the wallet", () => {
+  it("links an empty queue to the wallet, keeping the pinned wallet", () => {
     renderList(undefined, { proposals: [] });
-    expect(screen.getByRole("link", { name: "Open wallet" })).toHaveAttribute("href", "/user");
+    // Dropping `?wallet=` here let the wallet page auto-pick its default and
+    // silently switch the wallet under a multi-wallet user.
+    expect(screen.getByRole("link", { name: "Open wallet" })).toHaveAttribute(
+      "href",
+      "/user?wallet=unit-1"
+    );
+  });
+  it("links an empty queue to the plain wallet page when no wallet is pinned", () => {
+    search.query = "";
+    try {
+      renderList(undefined, { proposals: [] });
+      expect(screen.getByRole("link", { name: "Open wallet" })).toHaveAttribute("href", "/user");
+    } finally {
+      search.query = "wallet=unit-1";
+    }
+  });
+  it("encodes the pinned wallet into the link", () => {
+    search.query = "wallet=a%26b";
+    try {
+      renderList(undefined, { proposals: [] });
+      expect(screen.getByRole("link", { name: "Open wallet" })).toHaveAttribute("href", "/user?wallet=a%26b");
+    } finally {
+      search.query = "wallet=unit-1";
+    }
   });
   it("marks a request that is on its way to the chain", () => {
     // The row stays SUBMITTING when the chain accepted the tx but the record did

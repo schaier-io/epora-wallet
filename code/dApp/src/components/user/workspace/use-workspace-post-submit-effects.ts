@@ -17,7 +17,7 @@ import { type MintCelebration } from "@/components/user/workspace/atoms/transact
 /**
  * The post-submit mint-celebration effects, extracted from the controller hook. When a mint
  * confirmation lands they raise the celebration overlay (deduped via a ref against the
- * just-celebrated wallet unit); a second effect clears any pending post-submit refresh timers
+ * just-celebrated wallet unit); a second effect retires the build and submit state
  * on unmount. Display + cleanup only; no signing. A hook (owns useEffect), called once.
  */
 export interface WorkspacePostSubmitEffectsCtx {
@@ -25,7 +25,6 @@ export interface WorkspacePostSubmitEffectsCtx {
   mintConfirmation: MintConfirmationState | null;
   mintStateForm: StateFormState;
   mintedWalletName: string;
-  postSubmitRefreshTimersRef: MutableRefObject<number[]>;
   setMintCelebration: Dispatch<SetStateAction<MintCelebration | null>>;
 }
 
@@ -35,7 +34,6 @@ export function useWorkspacePostSubmitEffects(ctx: WorkspacePostSubmitEffectsCtx
     mintConfirmation,
     mintStateForm,
     mintedWalletName,
-    postSubmitRefreshTimersRef,
     setMintCelebration
   } = ctx;
 
@@ -77,10 +75,7 @@ export function useWorkspacePostSubmitEffects(ctx: WorkspacePostSubmitEffectsCtx
     () => () => {
       invalidateBuild();
       setActiveSubmit(false);
-      const timers = postSubmitRefreshTimersRef.current;
-      postSubmitRefreshTimersRef.current = [];
-      timers.forEach((id) => window.clearTimeout(id));
     },
-    [postSubmitRefreshTimersRef, session, invalidateBuild, setActiveSubmit]
+    [session, invalidateBuild, setActiveSubmit]
   );
 }

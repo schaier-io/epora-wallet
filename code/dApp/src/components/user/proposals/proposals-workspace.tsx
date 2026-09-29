@@ -1,7 +1,7 @@
 "use client";
 import { useTranslations } from "next-intl";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FileSignature, Loader2, LogOut } from "lucide-react";
@@ -69,10 +69,6 @@ export function ProposalsWorkspace() {
   // state that keeps both columns: a wallet with requests is the common case, and holding
   // the grid avoids a column appearing under the reader as the rows arrive.
   const listOnly = proposals.length === 0 && !selectedId && !loading;
-  // Whether this session opened the proposal from the list. If it did, the detail's Back
-  // button should retrace that step; if the user arrived on the link directly there is
-  // nothing of ours behind it, and `router.back()` would leave the app.
-  const openedFromListRef = useRef(false);
 
   /** The proposals URL with `changes` applied, keeping every other param (notably `wallet`). */
   const buildUrl = useCallback(
@@ -93,19 +89,16 @@ export function ProposalsWorkspace() {
 
   const handleSelect = useCallback(
     (id: string) => {
-      openedFromListRef.current = true;
       router.push(buildUrl({ proposal: id }));
     },
     [buildUrl, router]
   );
 
+  // Always lands on the list, not on whatever entry happens to sit behind this
+  // one: the list column stays interactive on `lg`, so detail A -> detail B ->
+  // "Back to list" retraced into detail A under the old `router.back()`.
   const handleBackToList = useCallback(() => {
-    if (openedFromListRef.current) {
-      openedFromListRef.current = false;
-      router.back();
-      return;
-    }
-    router.replace(buildUrl({ proposal: null }));
+    router.push(buildUrl({ proposal: null }));
   }, [buildUrl, router]);
 
   const handleChanged = useCallback(() => {
@@ -158,7 +151,6 @@ export function ProposalsWorkspace() {
           onCreated={(id) => {
             // `replace`, so Back from the new proposal returns to wherever the user was
             // before they opened the create panel rather than re-opening an empty one.
-            openedFromListRef.current = false;
             router.replace(buildUrl({ create: null, proposal: id }));
             void refresh();
           }}

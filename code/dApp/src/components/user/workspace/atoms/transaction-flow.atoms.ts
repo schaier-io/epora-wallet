@@ -70,6 +70,11 @@ export const submitHashAtom = atom<string | null>(null);
 /** True once the last submitted tx has been seen on chain (bounded poll). The
  * review rail's "Confirming on-chain" spinner flips to a confirmed headline. */
 export const submitConfirmedAtom = atom(false);
+/** True when the bounded confirmation poll ran out without the tx being seen on
+ * chain. The banner's spinner has to end somewhere: an indexer lag or a lost
+ * input race leaves the tx unseen, and an endless "submitting" read as a hang.
+ * The hash and the explorer link stay up either way. */
+export const submitConfirmationUnseenAtom = atom(false);
 /** The built-but-not-yet-submitted transaction awaiting review/sign. */
 export const previewAtom = atom<BuildResult | null>(null);
 /** The action signature the current `preview` was built for (staleness guard). */
@@ -117,6 +122,7 @@ export const buildStartedAtom = atom(null, (_get, set, label: string) => {
   set(buildErrorStaleInputsAtom, false);
   set(submitHashAtom, null);
   set(submitConfirmedAtom, false);
+  set(submitConfirmationUnseenAtom, false);
   set(mintConfirmationAtom, null);
 });
 
@@ -154,6 +160,7 @@ export const submitStartedAtom = atom(null, (_get, set) => {
 export const submitSucceededAtom = atom(null, (_get, set, hash: string) => {
   set(submitHashAtom, hash);
   set(submitConfirmedAtom, false);
+  set(submitConfirmationUnseenAtom, false);
 });
 
 export const submitSettledAtom = atom(null, (_get, set) => {
@@ -177,6 +184,7 @@ export const resetFlowAtom = atom(null, (_get, set) => {
   set(buildErrorStaleInputsAtom, false);
   set(submitHashAtom, null);
   set(submitConfirmedAtom, false);
+  set(submitConfirmationUnseenAtom, false);
   set(mintConfirmationAtom, null);
 });
 
@@ -208,6 +216,7 @@ export const resetAllFlowAtom = atom(null, (get, set) => {
   set(buildErrorStaleInputsAtom, false);
   set(submitHashAtom, null);
   set(submitConfirmedAtom, false);
+  set(submitConfirmationUnseenAtom, false);
   set(previewAtom, null);
   set(previewSignatureAtom, null);
   set(lastActionLabelAtom, "");

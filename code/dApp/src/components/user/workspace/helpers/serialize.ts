@@ -10,6 +10,14 @@ function parseNonNegativeIntegerString(value: string, label: string) {
   return Number(normalized);
 }
 
+// The editors seed rows at "0"; a row left there reaches the transaction output
+// verbatim and the ledger rejects zero-quantity assets after signing. A row
+// with no positive amount is not value, so it never serializes.
+function hasPositiveQuantity(quantity: string) {
+  const trimmed = quantity.trim();
+  return trimmed.length > 0 && !/^0+$/.test(trimmed);
+}
+
 function serializeOptionalConstrPreset(
   preset: OptionalConstrPresetForm,
   label: string
@@ -53,27 +61,44 @@ export function serializeRequiredConstrPreset(
 export function serializeWalletOutputs(
   outputs: WalletScriptOutputFormState[]
 ): WalletScriptOutput[] {
-  return outputs.map((output, index) => ({
-    amount: output.amount.filter(
-      (asset) => asset.unit.trim().length > 0 && asset.quantity.trim().length > 0
-    ),
-    inlineDatum: serializeOptionalConstrPreset(
-      output.inlineDatum,
-      `Locked output ${index + 1} inline datum`
-    )
-  }));
+  return outputs.map((output, index) => {
+    const amount = output.amount.filter(
+      (asset) => asset.unit.trim().length > 0 && hasPositiveQuantity(asset.quantity)
+    );
+    // An output with no positive row has no amount the user chose. Mesh would
+    // not fail it: `sanitizeOutputs` tops any output without lovelace up to min
+    // ADA, so it would silently send ADA nobody entered. This also refuses an
+    // output that had no rows at all. The validation probes turn the throw into
+    // a field error naming the row.
+    if (amount.length === 0) {
+      throw new Error(`Locked output ${index + 1} needs an amount greater than zero.`);
+    }
+    return {
+      amount,
+      inlineDatum: serializeOptionalConstrPreset(
+        output.inlineDatum,
+        `Locked output ${index + 1} inline datum`
+      )
+    };
+  });
 }
 
 export function serializeTransfers(transfers: TransferFormState[]): PayoutTransfer[] {
-  return transfers.map((transfer, index) => ({
-    address: transfer.address.trim(),
-    amount: transfer.amount.filter(
-      (asset) => asset.unit.trim().length > 0 && asset.quantity.trim().length > 0
-    ),
-    inlineDatum: serializeOptionalConstrPreset(
-      transfer.inlineDatum,
-      `Transfer ${index + 1} inline datum`
-    )
-  }));
+  return transfers.map((transfer, index) => {
+    const amount = transfer.amount.filter(
+      (asset) => asset.unit.trim().length > 0 && hasPositiveQuantity(asset.quantity)
+    );
+    if (amount.length === 0) {
+      throw new Error(`Transfer ${index + 1} needs an amount greater than zero.`);
+    }
+    return {
+      address: transfer.address.trim(),
+      amount,
+      inlineDatum: serializeOptionalConstrPreset(
+        transfer.inlineDatum,
+        `Transfer ${index + 1} inline datum`
+      )
+    };
+  });
 }
 

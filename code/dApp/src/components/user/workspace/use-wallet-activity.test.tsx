@@ -3,6 +3,7 @@ import { useAtomValue } from "jotai";
 import { beforeEach, expect, it, vi } from "vitest";
 import { createQueryTestWrapper } from "@/test/query-client";
 import { activeAddressAtom, isConnectingAtom } from "@/providers/wallet.atoms";
+import { invalidateChainQueries } from "@/lib/query/invalidation";
 
 const chain = vi.hoisted(() => ({ fetchAddressTxs: vi.fn(), fetchTxInfo: vi.fn() }));
 vi.mock("@/lib/mesh/server-fetcher", () => ({ ServerFetcher: class { fetchAddressTxs = chain.fetchAddressTxs; fetchTxInfo = chain.fetchTxInfo; } }));
@@ -13,7 +14,7 @@ vi.mock("./queries/wallet-identity.atoms", async () => {
 });
 vi.mock("./queries/token-identity.atoms", async () => ({ selectedDetectedTokenAtom: (await import("jotai")).atom(null) }));
 vi.mock("./queries/activity-inputs.atoms", async () => ({ activityAnchorTxHashesAtom: (await import("jotai")).atom(["cd".repeat(32)]) }));
-import { walletActivityQueryOptions, walletTransactionsAtom } from "./queries/activity-query.atoms";
+import { walletActivityQueryOptions, walletHistoryQueryKey, walletTransactionsAtom } from "./queries/activity-query.atoms";
 import { useWalletActivity } from "./use-wallet-activity";
 const transaction = { hash: "cd".repeat(32), inputs: [], outputs: [], blockTime: 1, slot: "1" };
 beforeEach(() => {
@@ -75,4 +76,99 @@ it("treats only a missing transaction as an empty anchor", async () => {
   expect(await queryClient.fetchQuery(walletActivityQueryOptions({ walletAddress: "a", sttScriptAddress: null, sttUnit: null, anchorTxHashes: [transaction.hash] }, queryClient))).toEqual([]);
   chain.fetchTxInfo.mockRejectedValueOnce(Object.assign(new Error("unavailable"), { status: 503 }));
   await expect(queryClient.fetchQuery(walletActivityQueryOptions({ walletAddress: "b", sttScriptAddress: null, sttUnit: null, anchorTxHashes: [transaction.hash] }, queryClient))).rejects.toThrow("unavailable");
+});
+it("a changed anchor set reuses fresh address history and reads only the new anchor", async () => {
+  const { queryClient } = createQueryTestWrapper();
+  const input = { walletAddress: "a", sttScriptAddress: null, sttUnit: null };
+  await queryClient.fetchQuery(walletActivityQueryOptions({ ...input, anchorTxHashes: [transaction.hash] }, queryClient));
+  await queryClient.fetchQuery(walletActivityQueryOptions({ ...input, anchorTxHashes: [transaction.hash, "ef".repeat(32)] }, queryClient));
+  expect(chain.fetchAddressTxs).toHaveBeenCalledTimes(1);
+  expect(chain.fetchTxInfo).toHaveBeenCalledTimes(2);
+});
+it("an explicit refresh pages address history again", async () => {
+  const test = setup();
+  await waitFor(() => expect(test.result.current.activity.loading).toBe(false));
+  const pages = chain.fetchAddressTxs.mock.calls.length;
+  await act(async () => { await test.result.current.refreshWalletTransactions(); });
+  expect(chain.fetchAddressTxs.mock.calls.length).toBe(pages + 1);
+});
+it("lets the activity query own history retries", async () => {
+  const { queryClient } = createQueryTestWrapper();
+  queryClient.setDefaultOptions({ queries: { ...queryClient.getDefaultOptions().queries, retry: 1, retryDelay: 0 } });
+  chain.fetchAddressTxs.mockRejectedValue(Object.assign(new Error("rate limited"), { status: 429 }));
+  const options = walletActivityQueryOptions({ walletAddress: "a", sttScriptAddress: null, sttUnit: null, anchorTxHashes: [] }, queryClient);
+  await expect(queryClient.fetchQuery({ ...options, retry: 1, retryDelay: 0 })).rejects.toThrow("rate limited");
+  expect(chain.fetchAddressTxs).toHaveBeenCalledTimes(2);
+});
+it("reads fresh history for every anchor set after one invalidation", async () => {
+  const { queryClient } = createQueryTestWrapper();
+  const input = { walletAddress: "a", sttScriptAddress: null, sttUnit: null };
+  const touching = (hash: string) => ({ ...transaction, hash, outputs: [{ input: { txHash: hash, outputIndex: 0 }, output: { address: "a", amount: [] } }] });
+  const old = touching("aa".repeat(32));
+  const fresh = touching("ef".repeat(32));
+  chain.fetchAddressTxs.mockResolvedValueOnce([old]);
+  await queryClient.fetchQuery(walletActivityQueryOptions({ ...input, anchorTxHashes: [] }, queryClient));
+  await queryClient.invalidateQueries({ queryKey: walletHistoryQueryKey(input), exact: true, refetchType: "none" });
+  chain.fetchAddressTxs.mockResolvedValue([fresh]);
+  const [first, second] = await Promise.all([
+    queryClient.fetchQuery({ ...walletActivityQueryOptions({ ...input, anchorTxHashes: [] }, queryClient), staleTime: 0 }),
+    queryClient.fetchQuery(walletActivityQueryOptions({ ...input, anchorTxHashes: [transaction.hash] }, queryClient))
+  ]);
+  expect(first.map(item => item.hash)).toEqual([fresh.hash]);
+  expect(second.map(item => item.hash)).toContain(fresh.hash);
+  expect(second.map(item => item.hash)).not.toContain(old.hash);
+});
+it("an older history read cannot overwrite history written after an invalidation", async () => {
+  const { queryClient } = createQueryTestWrapper();
+  const input = { walletAddress: "a", sttScriptAddress: null, sttUnit: null };
+  const touching = (hash: string) => ({ ...transaction, hash, outputs: [{ input: { txHash: hash, outputIndex: 0 }, output: { address: "a", amount: [] } }] });
+  const old = touching("aa".repeat(32));
+  const fresh = touching("ef".repeat(32));
+  let releaseOld!: (items: unknown[]) => void;
+  chain.fetchAddressTxs.mockReturnValueOnce(new Promise((resolve) => { releaseOld = resolve; })).mockResolvedValueOnce([fresh]);
+  const slow = queryClient.fetchQuery(walletActivityQueryOptions({ ...input, anchorTxHashes: [transaction.hash] }, queryClient));
+  await queryClient.invalidateQueries({ queryKey: walletHistoryQueryKey(input), exact: true, refetchType: "none" });
+  await queryClient.fetchQuery(walletActivityQueryOptions({ ...input, anchorTxHashes: [] }, queryClient));
+  releaseOld([old]);
+  await slow;
+  expect(queryClient.getQueryData<{ hash: string }[]>(walletHistoryQueryKey(input))?.map((item) => item.hash)).toEqual([fresh.hash]);
+});
+it("a history read that spans a repeated chain invalidation does not write the slot", async () => {
+  const { queryClient } = createQueryTestWrapper();
+  const input = { walletAddress: "a", sttScriptAddress: null, sttUnit: null };
+  const touching = (hash: string) => ({ ...transaction, hash, outputs: [{ input: { txHash: hash, outputIndex: 0 }, output: { address: "a", amount: [] } }] });
+  const old = touching("aa".repeat(32));
+  const fresh = touching("ef".repeat(32));
+  chain.fetchAddressTxs.mockResolvedValueOnce([old]);
+  await queryClient.fetchQuery(walletActivityQueryOptions({ ...input, anchorTxHashes: [] }, queryClient));
+  await invalidateChainQueries(queryClient);
+  let releaseOld!: (items: unknown[]) => void;
+  chain.fetchAddressTxs.mockReturnValueOnce(new Promise((resolve) => { releaseOld = resolve; })).mockResolvedValueOnce([fresh]);
+  const slow = queryClient.fetchQuery(walletActivityQueryOptions({ ...input, anchorTxHashes: [transaction.hash] }, queryClient));
+  await invalidateChainQueries(queryClient);
+  releaseOld([old]);
+  await slow;
+  const next = await queryClient.fetchQuery(walletActivityQueryOptions({ ...input, anchorTxHashes: [] }, queryClient));
+  expect(next.map((item) => item.hash)).toEqual([fresh.hash]);
+});
+it("an explicit refresh stops an older read from writing an already invalidated slot", async () => {
+  const { queryClient, wrapper } = createQueryTestWrapper();
+  const { result } = renderHook(() => useWalletActivity(), { wrapper });
+  const input = { walletAddress: "a", sttScriptAddress: null, sttUnit: null };
+  const touching = (hash: string) => ({ ...transaction, hash, outputs: [{ input: { txHash: hash, outputIndex: 0 }, output: { address: "a", amount: [] } }] });
+  chain.fetchAddressTxs.mockResolvedValueOnce([touching("aa".repeat(32))]);
+  await queryClient.fetchQuery(walletActivityQueryOptions({ ...input, anchorTxHashes: [] }, queryClient));
+  await queryClient.invalidateQueries({ queryKey: walletHistoryQueryKey(input), exact: true, refetchType: "none" });
+  const releases: ((items: unknown[]) => void)[] = [];
+  chain.fetchAddressTxs.mockImplementation(() => new Promise((resolve) => { releases.push(resolve); }));
+  const slow = queryClient.fetchQuery(walletActivityQueryOptions({ ...input, anchorTxHashes: [transaction.hash] }, queryClient));
+  await waitFor(() => expect(releases).toHaveLength(1));
+  let refresh!: Promise<void>;
+  act(() => { refresh = result.current.runWalletTransactionsRefresh({ ...input, anchorTxHashes: [] }); });
+  await waitFor(() => expect(releases).toHaveLength(2));
+  releases[0]([touching("bb".repeat(32))]);
+  await slow;
+  expect(queryClient.getQueryState(walletHistoryQueryKey(input))?.isInvalidated).toBe(true);
+  releases[1]([touching("ef".repeat(32))]);
+  await act(async () => { await refresh; });
 });

@@ -7,8 +7,7 @@ import { QueryObserver } from "@tanstack/react-query";
 import { createAppQueryClient } from "@/lib/query/client";
 import { queryKeys } from "@/lib/query/keys";
 import { activeAddressAtom } from "@/providers/wallet.atoms";
-import { resetAllFlowAtom, resetFlowAtom, submitHashAtom, submitConfirmedAtom } from "./atoms/transaction-flow.atoms";
-import { schedulePostSubmitRefresh } from "./workspace-transaction-refresh";
+import { resetAllFlowAtom, resetFlowAtom, submitHashAtom, submitConfirmedAtom, submitConfirmationUnseenAtom } from "./atoms/transaction-flow.atoms";
 import { parseWorkspaceRouteState } from "@/components/user/workspace-controller";
 import { routeStateAtom } from "./atoms/workspace-route.atoms";
 import { currentRecoveryCapacityFailureAtom } from "./atoms/recovery-capacity.atoms";
@@ -25,7 +24,14 @@ import { beginWalletStateUpdateAtom, pendingWalletStateUpdatesAtom, pendingWalle
 import { selectedOrphanInputsAtom } from "./atoms/forms/orphan-inputs.atoms";
 import { transferRecipientModeAtom, transferCustomAddressAtom, transferDisplayAmountAtom } from "./atoms/forms/transfer-form.atoms";
 import type { BuildResult } from "@/lib/types/contracts";
-import { DEFAULT_LOCK_ASSETS, DEFAULT_OPTIONAL_CONSTR_PRESET } from "./constants";
+import {
+  DEFAULT_LOCK_ASSETS,
+  DEFAULT_OPTIONAL_CONSTR_PRESET,
+  SUBMIT_CONFIRMATION_INITIAL_DELAY_MS,
+  SUBMIT_CONFIRMATION_LATE_POLL_MS,
+  SUBMIT_CONFIRMATION_MAX_ATTEMPTS,
+  SUBMIT_CONFIRMATION_POLL_MS
+} from "./constants";
 
 const mocks = vi.hoisted(() => ({ freshness: vi.fn(), signAndSubmitTx: vi.fn(), captureClientError: vi.fn() }));
 
@@ -33,9 +39,6 @@ vi.mock("@/lib/observability/sentry-client-forward", () => ({ captureClientError
 
 vi.mock("@/lib/mesh/transactions/prepared-transaction-freshness", () => ({ assertPreparedTransactionFresh: mocks.freshness }));
 vi.mock("@/lib/mesh/transactions", () => ({ signAndSubmitTx: mocks.signAndSubmitTx }));
-vi.mock("@/components/user/workspace/workspace-transaction-refresh", () => ({
-  schedulePostSubmitRefresh: vi.fn()
-}));
 
 import { createWorkspaceTransactionSubmit } from "./workspace-transaction-submit";
 import { writeRecentRecipientsToStorage } from "./helpers/recent-recipients";
@@ -77,7 +80,6 @@ function makeDeps(overrides: Record<string, unknown> = {}) {
     refreshPermissionWalletSummaries: vi.fn().mockResolvedValue(undefined),
     refreshWalletBalance: vi.fn().mockResolvedValue(undefined),
     lockingContract: { address: "addr_test1lock" },
-    postSubmitRefreshTimersRef: { current: [] },
     watchMintCreationConfirmation: vi.fn().mockResolvedValue(undefined),
     mintStateForm: { walletName: "Test wallet" },
     sttExtraTransfers: [{ address: "addr_test1recipient", amount: [] }],
@@ -320,7 +322,6 @@ for (const transition of ["wallet switch", "unmount"] as const) {
   for (const outcome of ["success", "failure"] as const) {
     it(`ignores submit ${outcome} after ${transition}`, async () => {
       const deps = makeDeps();
-      vi.mocked(schedulePostSubmitRefresh).mockClear();
       let settle!: () => void;
       mocks.signAndSubmitTx.mockImplementationOnce(() => new Promise((resolve, reject) => {
         settle = () => outcome === "success" ? resolve(TX_HASH) : reject(new Error("late submit failure"));
@@ -335,7 +336,6 @@ for (const transition of ["wallet switch", "unmount"] as const) {
       expect(deps.setActiveSubmit).toHaveBeenCalledExactlyOnceWith(true);
       expect(deps.refreshLockedContractUtxos).not.toHaveBeenCalled();
       expect(deps.refreshWalletBalance).not.toHaveBeenCalled();
-      expect(schedulePostSubmitRefresh).not.toHaveBeenCalled();
       expect(deps.submitInFlightRef.current).toBeNull();
     });
   }
@@ -400,7 +400,7 @@ for (const firstToSettle of ["old wallet", "new wallet"] as const) {
 }
 
 
-it("refreshes all transaction-dependent data when confirmation arrives at 85 seconds", async () => {
+it("refreshes transaction-dependent data once at submit and once when confirmation arrives at 85 seconds", async () => {
   vi.useFakeTimers();
   const started = Date.now();
   vi.stubGlobal("fetch", vi.fn(async () => Date.now() - started < 85_000
@@ -419,18 +419,40 @@ it("refreshes all transaction-dependent data when confirmation arrives at 85 sec
       ...(index === 4 ? { meta: { chainDependent: true } } : {}) });
     return { observer, stop: observer.subscribe(() => {}) };
   });
-  const realRefresh = await vi.importActual<{ schedulePostSubmitRefresh: typeof schedulePostSubmitRefresh }>("./workspace-transaction-refresh");
   try {
     await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
-    realRefresh.schedulePostSubmitRefresh(deps);
     await vi.advanceTimersByTimeAsync(75_000);
     expect(deps.jotaiStore.get(submitConfirmedAtom)).toBe(false);
-    reads.forEach(read => { expect(read).toHaveBeenCalledTimes(5); read.mockClear(); });
+    reads.forEach(read => { expect(read).toHaveBeenCalledTimes(1); read.mockClear(); });
     await vi.advanceTimersByTimeAsync(10_000);
     expect(deps.jotaiStore.get(submitConfirmedAtom)).toBe(true);
     reads.forEach(read => expect(read).toHaveBeenCalledTimes(1));
     observers.forEach(({ observer }) => expect(observer.getCurrentResult().data).toBe(started + 85_000));
   } finally { observers.forEach(({ stop }) => stop()); }
+});
+
+it("still refreshes balances on confirmation after the submitted banner is dismissed", async () => {
+  vi.useFakeTimers();
+  const started = Date.now();
+  vi.stubGlobal("fetch", vi.fn(async () => Date.now() - started < 30_000
+    ? new Response(JSON.stringify({ error: "not indexed" }), { status: 404 })
+    : new Response(JSON.stringify({ result: { hash: TX_HASH } }))));
+  const deps = makeDeps();
+  deps.setSubmitHash = vi.fn(hash => deps.jotaiStore.set(submitHashAtom, hash));
+  const client = deps.jotaiStore.get(queryClientAtom);
+  const key = queryKeys.addressUtxos("wallet-a");
+  const read = vi.fn(async () => Date.now());
+  client.setQueryData(key, started);
+  const stop = new QueryObserver(client, { queryKey: key, queryFn: read }).subscribe(() => {});
+  try {
+    await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
+    await vi.advanceTimersByTimeAsync(0);
+    read.mockClear();
+    deps.jotaiStore.set(submitHashAtom, null);
+    await vi.advanceTimersByTimeAsync(45_000);
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(deps.jotaiStore.get(submitConfirmedAtom)).toBe(false);
+  } finally { stop(); }
 });
 
 it("cannot publish confirmation after the signer changes during its pending read", async () => {
@@ -716,4 +738,61 @@ it("stops before broadcast when the pending guard cannot be persisted", async ()
   } finally {
     Object.defineProperty(window, "localStorage", storageDescriptor);
   }
+});
+
+const FIRST_WINDOW_MS =
+  SUBMIT_CONFIRMATION_INITIAL_DELAY_MS + SUBMIT_CONFIRMATION_POLL_MS * (SUBMIT_CONFIRMATION_MAX_ATTEMPTS - 1);
+
+it("turns an unseen banner green when the transaction confirms after the first window", async () => {
+  vi.useFakeTimers();
+  let indexed = false;
+  vi.stubGlobal("fetch", vi.fn(async () => indexed
+    ? new Response(JSON.stringify({ result: { hash: TX_HASH } }))
+    : new Response(JSON.stringify({ error: "not indexed" }), { status: 404 })));
+  const deps = makeDeps();
+  deps.setSubmitHash = vi.fn(hash => deps.jotaiStore.set(submitHashAtom, hash));
+  await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
+
+  await vi.advanceTimersByTimeAsync(FIRST_WINDOW_MS);
+  expect(deps.jotaiStore.get(submitConfirmationUnseenAtom)).toBe(true);
+  expect(deps.jotaiStore.get(submitConfirmedAtom)).toBe(false);
+
+  indexed = true;
+  await vi.advanceTimersByTimeAsync(SUBMIT_CONFIRMATION_LATE_POLL_MS);
+  expect(deps.jotaiStore.get(submitConfirmedAtom)).toBe(true);
+  expect(deps.jotaiStore.get(submitConfirmationUnseenAtom)).toBe(false);
+});
+
+it("stops the late poll once the submitted banner is dismissed", async () => {
+  vi.useFakeTimers();
+  const fetchRead = vi.fn(async () => new Response(JSON.stringify({ error: "not indexed" }), { status: 404 }));
+  vi.stubGlobal("fetch", fetchRead);
+  const deps = makeDeps();
+  deps.setSubmitHash = vi.fn(hash => deps.jotaiStore.set(submitHashAtom, hash));
+  await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
+  await vi.advanceTimersByTimeAsync(FIRST_WINDOW_MS);
+  expect(deps.jotaiStore.get(submitConfirmationUnseenAtom)).toBe(true);
+  const readsAtUnseen = fetchRead.mock.calls.length;
+
+  deps.jotaiStore.set(submitHashAtom, null);
+  await vi.advanceTimersByTimeAsync(SUBMIT_CONFIRMATION_LATE_POLL_MS * 3);
+  expect(fetchRead.mock.calls.length).toBe(readsAtUnseen);
+});
+
+it("leaves a late mint confirmation to the mint overlay's own watch", async () => {
+  vi.useFakeTimers();
+  const fetchRead = vi.fn(async () => new Response(JSON.stringify({ error: "not indexed" }), { status: 404 }));
+  vi.stubGlobal("fetch", fetchRead);
+  const deps = makeDeps({ selectedAction: "mint" });
+  deps.setSubmitHash = vi.fn(hash => deps.jotaiStore.set(submitHashAtom, hash));
+  await createWorkspaceTransactionSubmit(deps).submitTransactionPreview({
+    ...preview,
+    preview: { action: "mint", summary: "Mint" }
+  } as unknown as BuildResult);
+  await vi.advanceTimersByTimeAsync(FIRST_WINDOW_MS);
+  expect(deps.jotaiStore.get(submitConfirmationUnseenAtom)).toBe(true);
+  const readsAtUnseen = fetchRead.mock.calls.length;
+
+  await vi.advanceTimersByTimeAsync(SUBMIT_CONFIRMATION_LATE_POLL_MS * 3);
+  expect(fetchRead.mock.calls.length).toBe(readsAtUnseen);
 });

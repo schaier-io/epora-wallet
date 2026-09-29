@@ -12,6 +12,7 @@ function provider() {
     gets: string[] = [];
     evaluations: string[] = [];
     inputReads = 0;
+    addressReads: [string, string | undefined][] = [];
 
     async fetchProtocolParameters(epoch?: number) {
       this.parameterEpochs.push(epoch);
@@ -31,6 +32,11 @@ function provider() {
     async evaluateTx(tx: string) {
       this.evaluations.push(tx);
       return [];
+    }
+
+    async fetchAddressUTxOs(address: string, asset?: string) {
+      this.addressReads.push([address, asset]);
+      return [{ input: { txHash: address, outputIndex: 0 }, output: { address, amount: [{ unit: "lovelace", quantity: "1" }] } }];
     }
 
     async fetchUTxOs() {
@@ -136,4 +142,35 @@ test("freshness reads and evaluation remain uncached and bound to the provider",
   assert.equal(source.gets.length, 4);
   assert.equal(source.inputReads, 2);
   assert.deepEqual(source.evaluations, ["tx", "tx"]);
+});
+
+test("address UTxO reads are shared per address and asset within one build", async () => {
+  const { source, fetcher } = provider();
+  const scoped = createBuildParameterFetcher(fetcher);
+  const [first, second] = await Promise.all([
+    scoped.fetchAddressUTxOs("addr_a"), scoped.fetchAddressUTxOs("addr_a")
+  ]);
+  first[0]!.output.amount[0]!.quantity = "99";
+  assert.equal(second[0]!.output.amount[0]!.quantity, "1");
+  assert.equal((await scoped.fetchAddressUTxOs("addr_a"))[0]!.output.amount[0]!.quantity, "1");
+  await scoped.fetchAddressUTxOs("addr_a", "unit");
+  await scoped.fetchAddressUTxOs("addr_b");
+  assert.deepEqual(source.addressReads, [["addr_a", undefined], ["addr_a", "unit"], ["addr_b", undefined]]);
+
+  await createBuildParameterFetcher(fetcher).fetchAddressUTxOs("addr_a");
+  assert.equal(source.addressReads.length, 4);
+});
+
+test("rejected address reads retry instead of poisoning the final pass", async () => {
+  const { fetcher } = provider();
+  let calls = 0;
+  fetcher.fetchAddressUTxOs = async () => {
+    if (++calls === 1) throw new Error("address unavailable");
+    return [];
+  };
+  const scoped = createBuildParameterFetcher(fetcher);
+  await assert.rejects(scoped.fetchAddressUTxOs("addr"), /address unavailable/);
+  await scoped.fetchAddressUTxOs("addr");
+  await scoped.fetchAddressUTxOs("addr");
+  assert.equal(calls, 2);
 });

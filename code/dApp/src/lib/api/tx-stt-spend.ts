@@ -197,7 +197,7 @@ export const SttSpendTxRequestSchema = z
   .meta({
     id: "SttSpendTxRequest",
     description:
-      "Spend the wallet's state-thread token, forwarding its State. `action` selects which of the twelve transitions to build."
+      "Spend the wallet's state-thread token, forwarding its State. `action` selects which of the eleven transitions to build."
   });
 
 export type SttSpendTxRequestDto = z.infer<typeof SttSpendTxRequestSchema>;

@@ -162,7 +162,6 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     refreshPermissionWalletSummaries,
     refreshWalletBalance,
     lockingContract,
-    postSubmitRefreshTimersRef: ctx.postSubmitRefreshTimersRef,
     watchMintCreationConfirmation,
     mintStateForm,
     sttExtraTransfers

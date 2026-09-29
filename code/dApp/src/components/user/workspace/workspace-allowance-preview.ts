@@ -2,6 +2,7 @@
 
 import { getUserFacingErrorMessage } from "@/lib/utils/errors";
 import type { UTxO } from "@meshsdk/core";
+import type { PayoutTransfer } from "@/lib/types/contracts";
 
 import {
   stateFormToDatum,
@@ -22,8 +23,8 @@ import { getValidityWindow } from "@/lib/mesh/transactions";
 import {
   type WalletInputRef } from "@/lib/types/contracts";
 import { positiveAllowanceEntries } from "@/components/user/workspace/wallet-access-summary";
-import { cloneStateForm, findMatchingLockedUtxo, resolveOperatorActionAlternative, serializeTransfers, serializeWalletOutputs } from "@/components/user/workspace/helpers";
-import { type SttSpendActionMode, type TransferFormState, type WalletScriptOutputFormState } from "@/components/user/workspace/types";
+import { cloneStateForm, findMatchingLockedUtxo, resolveOperatorActionAlternative, serializeTransfers } from "@/components/user/workspace/helpers";
+import { type SttSpendActionMode, type TransferFormState } from "@/components/user/workspace/types";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceWorkspaceAllowancePreview.json";
 
@@ -35,7 +36,6 @@ export interface AllowancePreviewParams {
   activePaymentKeyHash: string | null;
   selectedDetectedToken: DetectedSttToken | null;
   activeInferredSttStateForm: StateFormState;
-  sttWalletOutputs: WalletScriptOutputFormState[];
   sttExtraTransfers: TransferFormState[];
   sttWalletInputs: WalletInputRef[];
   lockedContractUtxos: UTxO[];
@@ -57,7 +57,6 @@ export function computeAllowancePreview(params: AllowancePreviewParams): Allowan
     activePaymentKeyHash,
     selectedDetectedToken,
     activeInferredSttStateForm,
-    sttWalletOutputs,
     sttExtraTransfers,
     sttWalletInputs,
     lockedContractUtxos
@@ -80,7 +79,16 @@ export function computeAllowancePreview(params: AllowancePreviewParams): Allowan
       const perDayAllowance = positiveAllowanceEntries(user);
       return perDayAllowance.length > 0 ? [{ userId: user.id, perDayAllowance }] : [];
     });
-    const serializedTransfers = serializeTransfers(sttExtraTransfers);
+    // A draft that does not serialize (every row left at zero, or a malformed
+    // inline datum) has nothing to preview. The validation gate reports the same
+    // serializer error as a field error, so answer "no computation" here instead
+    // of throwing.
+    let serializedTransfers: PayoutTransfer[];
+    try {
+      serializedTransfers = serializeTransfers(sttExtraTransfers);
+    } catch {
+      serializedTransfers = [];
+    }
     if (serializedTransfers.length === 0) {
       return {
         configuredAllowances,
@@ -97,7 +105,6 @@ export function computeAllowancePreview(params: AllowancePreviewParams): Allowan
           cloneStateForm(activeInferredSttStateForm),
           resolveOperatorActionAlternative("admin")
         );
-      const serializedWalletOutputs = serializeWalletOutputs(sttWalletOutputs);
       const walletInputAmounts = sttWalletInputs.map((walletInputRef) => {
         const resolved = findMatchingLockedUtxo(lockedContractUtxos, walletInputRef);
 
@@ -116,7 +123,9 @@ export function computeAllowancePreview(params: AllowancePreviewParams): Allowan
         stateDatum: sourceDatum,
         allowanceSignerKeyHash: activePaymentKeyHash,
         walletInputAmounts,
-        walletOutputs: serializedWalletOutputs,
+        // The builder sends no wallet outputs for use-allowance, and the server
+        // derives the datum from what it receives, so the preview must too.
+        walletOutputs: [],
         extraTransfers: serializedTransfers,
         // The builder's own window, so the preview and the transaction it
         // previews agree down to the slot. The reset decision is anchored to

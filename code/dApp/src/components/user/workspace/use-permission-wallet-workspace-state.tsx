@@ -1,6 +1,7 @@
 "use client";
 import { cardanoNetworkId } from "@/lib/cardano-network";
 import { beneficiaryPreparationActiveAtom } from "./atoms/forms/consolidate-form.atoms";
+import { resolveReviewSubmitState } from "./review-submit-state";
 import { useTranslations } from "next-intl";
 
 import { useAtomValue } from "jotai";
@@ -9,8 +10,9 @@ import { useWorkspaceTransactionPrebuild } from "./use-workspace-transaction-pre
 import { walletStateUpdatingAtom } from "./atoms/wallet-state-update.atoms";
 import { activeSttAuthorityOptionsAtom, walletOperatorOptionsAtom, selectedSigningActionAvailabilityAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
 import { setupStateAtom } from "@/components/user/workspace/atoms/workspace-setup-state.atoms";
+import { submitConfirmedAtom, submitConfirmationUnseenAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 
 import type { UserOverviewSection } from "@/components/user/flow-types";
 
@@ -78,7 +80,6 @@ export function usePermissionWalletWorkspaceState() {
     mintCelebrationRef,
     mintedWalletName,
     setMintedWalletName,
-    postSubmitRefreshTimersRef,
     preview,
     setPreview,
     previewSignature,
@@ -327,7 +328,6 @@ export function usePermissionWalletWorkspaceState() {
     jotaiStore,
     lockingContract,
     networkId,
-    postSubmitRefreshTimersRef,
     preview,
     previewMatchesSelectedAction,
     proposalCaptureRef,
@@ -363,27 +363,15 @@ export function usePermissionWalletWorkspaceState() {
       ? signingActions.directAuthorityPath ?? undefined : "multisig",
     buildSelectedActionTx
   });
-  // These actions leave the workspace ready to run again: what they staged is cleared
-  // at submit, so the button goes back to its own label and the readiness gate below holds
-  // it shut until something new is staged. It used to freeze at a disabled "Done" -- a dead
-  // control whose only escape was `Clear form` in a different card. The submitted
-  // transaction and its hash stay on screen in the block underneath. `mint` is excluded on
-  // purpose: it creates one wallet, and its own overlay owns the after-state.
+  // What the primary button means after a submit; see `resolveReviewSubmitState`.
   const preparationActive = useAtomValue(beneficiaryPreparationActiveAtom);
-  const repeatableJustSubmitted =
-    Boolean(submitHash) &&
-    (selectedAction === "use" ||
-      selectedAction === "use-allowance" ||
-      selectedAction === "use-beneficiary" ||
-      selectedAction === "distribute-beneficiaries" ||
-      (selectedAction === "consolidate-utxo" && preparationActive) ||
-      selectedAction === "lock-funds");
-  const reviewPrimaryActionLabel =
-    submitHash && !repeatableJustSubmitted
-      ? i18n("done")
-      : activeSubmit
-        ? i18n("confirming")
-        : activeActionDefinition.label;
+  const reviewSubmitState = resolveReviewSubmitState(submitHash, selectedAction, preparationActive);
+  const reviewSubmitAwaitingAcknowledgement = reviewSubmitState.awaitingAcknowledgement;
+  const reviewPrimaryActionLabel = reviewSubmitState.showsDone
+    ? i18n("done")
+    : activeSubmit
+      ? i18n("confirming")
+      : activeActionDefinition.label;
 
   // Once the mint confirms, capture a celebration snapshot (wallet name, policy,
   // unit) ONCE. Held in its own state so it survives the confirmation polling and
@@ -405,10 +393,17 @@ export function usePermissionWalletWorkspaceState() {
   // over at 100%.
   const reviewPrimaryActionDisabled =
     activeSubmit ||
-    (Boolean(submitHash) && !repeatableJustSubmitted) ||
+    reviewSubmitState.doneLocked ||
     hasFieldErrors(activeFieldErrors) ||
     activeReadinessIssues.some((issue) => issue.blocking);
-   
+
+  const dismissSubmitState = useCallback(() => {
+    setSubmitHash(null);
+    jotaiStore.set(submitConfirmedAtom, false);
+    jotaiStore.set(submitConfirmationUnseenAtom, false);
+    clearPreviewResult();
+  }, [setSubmitHash, jotaiStore, clearPreviewResult]);
+
   const {
     flowAvailability,
     guidedEverydayActions,
@@ -546,7 +541,6 @@ export function usePermissionWalletWorkspaceState() {
     mintStateForm,
     mintedWalletName,
     networkId,
-    postSubmitRefreshTimersRef,
     previousAutoMintStateRef,
     refreshLockedContractUtxos,
     resetSharedReferencePreview,
@@ -615,6 +609,8 @@ export function usePermissionWalletWorkspaceState() {
     reviewReceipt,
     reviewPrimaryActionLabel,
     reviewPrimaryActionDisabled,
+    reviewSubmitAwaitingAcknowledgement,
+    dismissSubmitState,
     lastActionDisplayLabel,
     mintSetupSteps,
     showSharedReferenceSetup,

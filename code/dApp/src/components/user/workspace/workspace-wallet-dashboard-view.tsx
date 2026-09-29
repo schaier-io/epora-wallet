@@ -163,6 +163,9 @@ export function compactActivityTimestamp(
 export function WorkspaceWalletDashboardView() {
   const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceWalletDashboardView");
   const state = useWorkspaceActions();
+  // Same label the copy handler stores, for the same reason as
+  // `config-lockfunds-view.tsx`: compare against what was written, not a literal.
+  const addressCopiedLabel = i18n("walletAddressCopied");
   const wealthSeriesForAsset = useAtomValue(wealthSeriesForAssetAtom);
   const walletTransactions = useAtomValue(walletTransactionsAtom);
   const recentWalletActivityEvents = useAtomValue(recentWalletActivityEventsAtom);
@@ -233,11 +236,11 @@ export function WorkspaceWalletDashboardView() {
                           if (lockingContract.address) {
                             void copyTextToClipboard(
                               lockingContract.address,
-                              i18n("walletAddressCopied")
+                              addressCopiedLabel
                             );
                           }
                         }}
-                        addressCopied={copyFeedback === "Wallet address copied"}
+                        addressCopied={copyFeedback === addressCopiedLabel}
                         onSend={() => openWorkspaceIntent("send", "use")}
                         onReceive={() => openWorkspaceIntent("add-funds", "lock-funds")}
                       />
