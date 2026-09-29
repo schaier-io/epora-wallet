@@ -4,6 +4,7 @@ import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import type { TransactionInfo } from "@meshsdk/common";
 import { ServerFetcher } from "@/lib/mesh/server-fetcher";
 import { txInfoQueryOptions } from "@/lib/query/chain";
+import { chainGeneration } from "@/lib/query/invalidation";
 import { queryKeys, queryPolicy } from "@/lib/query/keys";
 import { chainReadsEnabledAtom } from "@/providers/wallet.atoms";
 import { RECENT_STT_TRANSACTION_FETCH_PAGES, RECENT_WALLET_TRANSACTION_FETCH_PAGES } from "../constants";
@@ -37,8 +38,9 @@ type WalletHistory = TransactionInfo[];
 // or locked UTxO) reuses fresh history and only reads the new anchor transactions.
 // The slot is written, never fetched through Query: the activity query reads history
 // with its own signal and retries, so there is no shared in-flight read to join.
-// A read writes the slot only if its state is unchanged since the read began, so an
-// older read cannot overwrite newer history or clear a later invalidation.
+// A read writes the slot only if its state and the chain generation are unchanged
+// since the read began, so an older read cannot overwrite newer history or outlive
+// an invalidation (which is a no-op on a missing or already invalidated slot).
 export function walletHistoryQueryKey(input: WalletActivityInput) {
   return [...queryKeys.chain, "wallet-activity", input.walletAddress, input.sttScriptAddress, input.sttUnit, "history"] as const;
 }
@@ -48,6 +50,7 @@ async function readWalletHistory(input: WalletActivityInput, client: QueryClient
   if (cached?.data && !cached.isInvalidated && Date.now() - cached.dataUpdatedAt < queryPolicy.chainStaleMs) {
     return cached.data;
   }
+  const generation = chainGeneration(client);
   const fetcher = new ServerFetcher({ signal });
   const [walletItems, sttItems] = await Promise.all([
     fetcher.fetchAddressTxs(input.walletAddress, { maxPage: RECENT_WALLET_TRANSACTION_FETCH_PAGES, order: "desc" })
@@ -64,7 +67,7 @@ async function readWalletHistory(input: WalletActivityInput, client: QueryClient
   for (const transaction of history) {
     client.setQueryData(queryKeys.txInfo(transaction.hash), transaction);
   }
-  if (client.getQueryState(walletHistoryQueryKey(input)) === cached) {
+  if (client.getQueryState(walletHistoryQueryKey(input)) === cached && chainGeneration(client) === generation) {
     client.setQueryData(walletHistoryQueryKey(input), history);
   }
   return history;

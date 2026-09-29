@@ -3,6 +3,7 @@ import { useAtomValue } from "jotai";
 import { beforeEach, expect, it, vi } from "vitest";
 import { createQueryTestWrapper } from "@/test/query-client";
 import { activeAddressAtom, isConnectingAtom } from "@/providers/wallet.atoms";
+import { invalidateChainQueries } from "@/lib/query/invalidation";
 
 const chain = vi.hoisted(() => ({ fetchAddressTxs: vi.fn(), fetchTxInfo: vi.fn() }));
 vi.mock("@/lib/mesh/server-fetcher", () => ({ ServerFetcher: class { fetchAddressTxs = chain.fetchAddressTxs; fetchTxInfo = chain.fetchTxInfo; } }));
@@ -131,4 +132,22 @@ it("an older history read cannot overwrite history written after an invalidation
   releaseOld([old]);
   await slow;
   expect(queryClient.getQueryData<{ hash: string }[]>(walletHistoryQueryKey(input))?.map((item) => item.hash)).toEqual([fresh.hash]);
+});
+it("a history read that spans a repeated chain invalidation does not write the slot", async () => {
+  const { queryClient } = createQueryTestWrapper();
+  const input = { walletAddress: "a", sttScriptAddress: null, sttUnit: null };
+  const touching = (hash: string) => ({ ...transaction, hash, outputs: [{ input: { txHash: hash, outputIndex: 0 }, output: { address: "a", amount: [] } }] });
+  const old = touching("aa".repeat(32));
+  const fresh = touching("ef".repeat(32));
+  chain.fetchAddressTxs.mockResolvedValueOnce([old]);
+  await queryClient.fetchQuery(walletActivityQueryOptions({ ...input, anchorTxHashes: [] }, queryClient));
+  await invalidateChainQueries(queryClient);
+  let releaseOld!: (items: unknown[]) => void;
+  chain.fetchAddressTxs.mockReturnValueOnce(new Promise((resolve) => { releaseOld = resolve; })).mockResolvedValueOnce([fresh]);
+  const slow = queryClient.fetchQuery(walletActivityQueryOptions({ ...input, anchorTxHashes: [transaction.hash] }, queryClient));
+  await invalidateChainQueries(queryClient);
+  releaseOld([old]);
+  await slow;
+  const next = await queryClient.fetchQuery(walletActivityQueryOptions({ ...input, anchorTxHashes: [] }, queryClient));
+  expect(next.map((item) => item.hash)).toEqual([fresh.hash]);
 });

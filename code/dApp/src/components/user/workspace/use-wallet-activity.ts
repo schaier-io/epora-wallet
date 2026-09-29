@@ -5,6 +5,7 @@ import { queryClientAtom } from "jotai-tanstack-query";
 import { workspaceSessionAtom } from "./atoms/transaction-flow.atoms";
 import type { TransactionInfo } from "@meshsdk/common";
 import { activityPageIndexAtom } from "./atoms/workspace-activity.atoms";
+import { bumpChainGeneration } from "@/lib/query/invalidation";
 import { mergeAndSortTransactions } from "./helpers/transactions";
 import { walletActivityInputAtom, walletActivityQueryAtom, walletActivityQueryOptions, walletHistoryQueryKey, type WalletActivityInput } from "./queries/activity-query.atoms";
 
@@ -17,6 +18,7 @@ export function useWalletActivity() {
     if (!input.walletAddress) return;
     const session = store.get(workspaceSessionAtom);
     const options = walletActivityQueryOptions(input, client);
+    bumpChainGeneration(client);
     await Promise.all([options.queryKey, walletHistoryQueryKey(input)].map(queryKey =>
       client.invalidateQueries({ queryKey, exact: true, refetchType: "none" })));
     if (store.get(workspaceSessionAtom) !== session) return;
