@@ -108,11 +108,14 @@ export function useWorkspaceReconcileEffects(ctx: WorkspaceReconcileEffectsCtx):
 
   useEffect(() => {
     // Reconcile-on-change (preserves user input); updater bails when unchanged.
-     
+    // A payout that lands meanwhile (the payee collects) lowers the due amount, so a
+    // kept whole amount above it is clamped down; validation would block it otherwise.
     setStreamingPaymentPayoutAmounts((current) => {
       const next = streamingPaymentPayoutRows.reduce<Record<string, string>>((accumulator, row) => {
+        const kept = current[row.streamingPayment.id] ?? row.configuredAmount;
+        const due = /^\d+$/.test(row.dueAmount) ? row.dueAmount : "0";
         accumulator[row.streamingPayment.id] =
-          current[row.streamingPayment.id] ?? row.configuredAmount;
+          /^\d+$/.test(kept) && BigInt(kept) > BigInt(due) ? due : kept;
         return accumulator;
       }, {});
       const sameKeys =
