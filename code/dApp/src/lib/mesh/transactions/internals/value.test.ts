@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import type { Transaction } from "@meshsdk/core";
 import {
+  assertOutputMeetsMinimumLovelace,
   deriveAssetName,
   getLovelaceQuantity,
   mergeAssetLists,
@@ -270,4 +272,28 @@ test("recipientWithOptionalInlineDatum attaches an inline datum only when provid
     address: "addr_test1qexample",
     datum: { value: datum, inline: true }
   });
+});
+
+const ADDRESS = "addr_test1vqg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygxrcya6";
+// No `_protocolParams` on the builder: the helper falls back to Mesh's defaults.
+const TX = { txBuilder: {} } as unknown as Transaction;
+
+test("assertOutputMeetsMinimumLovelace refuses lovelace below the output floor", () => {
+  assert.throws(
+    () => assertOutputMeetsMinimumLovelace(TX, ADDRESS, [{ unit: "lovelace", quantity: "200000" }], "Wallet remainder"),
+    /^Error: Wallet remainder holds 0\.2 ADA, but a Cardano output needs at least [\d.]+ ADA\./
+  );
+});
+
+test("assertOutputMeetsMinimumLovelace accepts an output at or above the floor", () => {
+  assert.doesNotThrow(() =>
+    assertOutputMeetsMinimumLovelace(TX, ADDRESS, [{ unit: "lovelace", quantity: "2000000" }], "Output")
+  );
+});
+
+// Mesh tops an output with no lovelace up to min ADA itself.
+test("assertOutputMeetsMinimumLovelace leaves an output without lovelace to Mesh", () => {
+  assert.doesNotThrow(() =>
+    assertOutputMeetsMinimumLovelace(TX, ADDRESS, [{ unit: NATIVE, quantity: "5" }], "Output")
+  );
 });

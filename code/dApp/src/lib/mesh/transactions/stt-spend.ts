@@ -2,7 +2,7 @@ import { buildBeneficiaryDistributionTx } from "./beneficiary-distribution";
 import { readCallerForwardedState, validateSttSpendInput } from "./internals/stt-spend-preflight";
 import { deriveSttSpendActionState } from "./stt-spend-action-state";
 import { resolveStreamingPayoutFundingSource } from "./stt-spend-payout";
-import { WALLET_SPEND_VALIDATOR, positiveOutputAmount, addExtraRequiredSigners, buildTransactionWithReestimatedLimits, classifyStreamingPayoutBatch, createInputRefKey, createStateForwarding, createStreamingPayoutBuild, createTxPreview, decodeConstrDatumFromUtxo, ensureUniqueWalletInputRefs, resolveExactWalletInputUtxos, resolveStreamingAdaPayoutTopUps, runStateForwarding, getLovelaceQuantity, getValidityWindow, mergeAssetLists, mergeAssetsByUnit, mergeRestrictedSttAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, sendAssetsWithOptionalInlineDatumAndReferenceScript, setupTransaction, subtractSelectedInputRemainder, validateForwardedStateDatum, withStage } from "./internals";
+import { WALLET_SPEND_VALIDATOR, assertOutputMeetsMinimumLovelace, positiveOutputAmount, addExtraRequiredSigners, buildTransactionWithReestimatedLimits, classifyStreamingPayoutBatch, createInputRefKey, createStateForwarding, createStreamingPayoutBuild, createTxPreview, decodeConstrDatumFromUtxo, ensureUniqueWalletInputRefs, resolveExactWalletInputUtxos, resolveStreamingAdaPayoutTopUps, runStateForwarding, getLovelaceQuantity, getValidityWindow, mergeAssetLists, mergeAssetsByUnit, mergeRestrictedSttAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, sendAssetsWithOptionalInlineDatumAndReferenceScript, setupTransaction, subtractSelectedInputRemainder, validateForwardedStateDatum, withStage } from "./internals";
 import { prepareManagedStreamingPayments } from "./internals/streaming-asset-proof";
 import { validateBeneficiaryDestinations } from "@/lib/contracts/state-validation-streaming";
 import { type OnChainStructuredAction, buildSttSpendRedeemerData, buildWalletSpendRedeemerData, resolveStructuredOnChainAction } from "@/lib/contracts/action-data";
@@ -258,13 +258,17 @@ export async function buildSttSpendTx(
             walletOutputCount = walletOutputs.length;
 
             for (const [index, walletOutput] of walletOutputs.entries()) {
+              const label = `Wallet output ${index + 1}`;
+              const amount = positiveOutputAmount(walletOutput.amount, label);
+              assertOutputMeetsMinimumLovelace(tx, walletAddress, amount, label, walletOutput.inlineDatum);
               tx.sendAssets(
                 recipientWithOptionalInlineDatum(walletAddress, walletOutput.inlineDatum),
-                positiveOutputAmount(walletOutput.amount, `Wallet output ${index + 1}`)
+                amount
               );
             }
 
             if (autoReturnedWalletAssets.length > 0) {
+              assertOutputMeetsMinimumLovelace(tx, walletAddress, autoReturnedWalletAssets, "Wallet remainder");
               tx.sendAssets(
                 recipientWithOptionalInlineDatum(walletAddress),
                 autoReturnedWalletAssets

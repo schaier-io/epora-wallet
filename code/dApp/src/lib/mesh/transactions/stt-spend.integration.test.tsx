@@ -986,6 +986,73 @@ describe("buildSttSpendTx ADA payout integration", () => {
     );
   });
 
+  // Mesh adds min ADA only to an output with no lovelace at all
+  // (@meshsdk/transaction 1.9.1 `sanitizeOutputs`). A wallet remainder that
+  // keeps a little lovelace passes through and the ledger rejects it after
+  // the signer has already approved.
+  it("refuses a wallet remainder below min-UTxO before signing", async () => {
+    const sttScript = getSttSpendScript();
+    const policyId = getSttMintPolicyId();
+    const stateAddress = resolveScriptAddress(sttScript);
+    const walletScript = getWalletSpendScript({ sttPolicyId: policyId, sttAssetNameHex: ASSET_NAME });
+    const walletAddress = resolveScriptAddress(walletScript);
+    const stateForm = withFallbackAdminUserInStateForm(createDefaultStateForm(), PAYMENT_KEY_HASH);
+    const stateDatum = stateFormToDatum(stateForm);
+    const stateAmount = [
+      { unit: "lovelace", quantity: "2000000" },
+      { unit: `${policyId}${ASSET_NAME}`, quantity: "1" }
+    ];
+    const stateUtxo = {
+      input: { txHash: STATE_TX_HASH, outputIndex: 0 },
+      output: { address: stateAddress, amount: stateAmount, plutusData: serializeData(stateDatum, "Mesh") }
+    } as UTxO;
+    const referenceUtxo = {
+      input: { txHash: REFERENCE_TX_HASH, outputIndex: 0 },
+      output: {
+        address: PAYMENT_ADDRESS,
+        amount: [{ unit: "lovelace", quantity: "2000000" }],
+        scriptRef: String(toScriptRef(sttScript).toCbor()),
+        scriptHash: resolveScriptHash(sttScript.code, sttScript.version)
+      }
+    } as UTxO;
+    const walletInput = {
+      input: { txHash: "55".repeat(32), outputIndex: 0 },
+      output: { address: walletAddress, amount: [{ unit: "lovelace", quantity: "4000000" }] }
+    } as UTxO;
+    chain.addressUtxos.set(stateAddress, [stateUtxo]);
+    chain.referencedUtxos.set(`${STATE_TX_HASH}#0`, stateUtxo);
+    chain.referencedUtxos.set(`${REFERENCE_TX_HASH}#0`, referenceUtxo);
+    chain.referencedUtxos.set("55".repeat(32) + "#0", walletInput);
+    const wallet = {
+      getUtxos: async () => [adaUtxo("aa", "20000000"), adaUtxo("bb", "7000000")],
+      getChangeAddress: async () => PAYMENT_ADDRESS,
+      getUsedAddresses: async () => [PAYMENT_ADDRESS],
+      getUnusedAddresses: async () => []
+    } as unknown as BrowserWallet;
+
+    await expect(buildSttSpendTx(
+      wallet,
+      {
+        walletPolicyId: policyId,
+        walletAssetNameHex: ASSET_NAME,
+        sttAssetNameHex: ASSET_NAME,
+        sttSpendReference: `${REFERENCE_TX_HASH}#0`
+      },
+      "use",
+      {
+        sttInputTxHash: STATE_TX_HASH,
+        sttInputOutputIndex: 0,
+        outputDatum: stateDatum,
+        outputAssets: stateAmount,
+        authorityPath: "admin",
+        walletInputs: [walletInput.input],
+        walletOutputs: [],
+        extraTransfers: [{ address: PAYOUT_ADDRESS, amount: [{ unit: "lovelace", quantity: "3800000" }] }],
+        validityWindowReferenceTimeMs: REFERENCE_TIME_MS
+      }
+    )).rejects.toThrow(/Wallet remainder holds 0\.2 ADA.*needs at least/);
+  });
+
   it("keeps settlement at 300k and permits ordinary change without a wallet-script input", async () => {
     const script = getSttSpendScript();
     const policyId = getSttMintPolicyId();
