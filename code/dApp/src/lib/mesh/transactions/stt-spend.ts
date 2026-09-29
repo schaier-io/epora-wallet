@@ -2,7 +2,7 @@ import { buildBeneficiaryDistributionTx } from "./beneficiary-distribution";
 import { readCallerForwardedState, validateSttSpendInput } from "./internals/stt-spend-preflight";
 import { deriveSttSpendActionState } from "./stt-spend-action-state";
 import { resolveStreamingPayoutFundingSource } from "./stt-spend-payout";
-import { WALLET_SPEND_VALIDATOR, positiveOutputAmount, addExtraRequiredSigners, buildTransactionWithReestimatedLimits, classifyStreamingPayoutBatch, createInputRefKey, createStateForwarding, createStreamingPayoutBuild, createTxPreview, decodeConstrDatumFromUtxo, ensureUniqueWalletInputRefs, resolveExactWalletInputUtxos, resolveStreamingAdaPayoutTopUps, runStateForwarding, getValidityWindow, mergeAssetLists, mergeAssetsByUnit, mergeRestrictedSttAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, setupTransaction, subtractSelectedInputRemainder, validateForwardedStateDatum, withStage } from "./internals";
+import { WALLET_SPEND_VALIDATOR, positiveOutputAmount, addExtraRequiredSigners, buildTransactionWithReestimatedLimits, classifyStreamingPayoutBatch, createInputRefKey, createStateForwarding, createStreamingPayoutBuild, createTxPreview, decodeConstrDatumFromUtxo, ensureUniqueWalletInputRefs, resolveExactWalletInputUtxos, resolveStreamingAdaPayoutTopUps, runStateForwarding, getLovelaceQuantity, getValidityWindow, mergeAssetLists, mergeAssetsByUnit, mergeRestrictedSttAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, sendAssetsWithOptionalInlineDatumAndReferenceScript, setupTransaction, subtractSelectedInputRemainder, validateForwardedStateDatum, withStage } from "./internals";
 import { prepareManagedStreamingPayments } from "./internals/streaming-asset-proof";
 import { validateBeneficiaryDestinations } from "@/lib/contracts/state-validation-streaming";
 import { type OnChainStructuredAction, buildSttSpendRedeemerData, buildWalletSpendRedeemerData, resolveStructuredOnChainAction } from "@/lib/contracts/action-data";
@@ -21,6 +21,8 @@ import type { UTxO } from "@meshsdk/core";
 import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
 
 const i18n = createDefaultTranslator("LibMeshTransactionsSttSpend", defaultMessages);
+
+type TransferTopUp = { address: string; topUpLovelace: bigint; finalOutputLovelace: bigint };
 
 export async function buildSttSpendTx(
   wallet: WalletSource,
@@ -110,6 +112,7 @@ export async function buildSttSpendTx(
         payoutBuild.setupOptions
       );
       const { tx, fetcher, setupDiagnostics, signerAddress } = setup;
+      const transferTopUps: TransferTopUp[] = [];
       // Co-signers of an approval request: the validator reads `extra_signatories`,
       // which holds only the body's required signers, so a co-signer has to be
       // listed here for their signature to count. Every listed key must then sign.
@@ -350,13 +353,25 @@ export async function buildSttSpendTx(
             afterOutput: () => {
               for (const transfer of effectiveExtraTransfers) {
                 if (action !== "payout-streaming-payment") {
-                  tx.sendAssets(
-                    recipientWithOptionalInlineDatum(
-                      transfer.address,
-                      transfer.inlineDatum
-                    ),
-                    positiveOutputAmount(transfer.amount, `Transfer to ${transfer.address}`)
+                  // Raised to min-UTxO like a payout: a plain sendAssets kept a small
+                  // amount as typed, and the ledger rejected the output after signing.
+                  // The validator constrains only wallet outputs, so the extra ADA
+                  // comes from the connected wallet and the review names it.
+                  const amount = positiveOutputAmount(transfer.amount, `Transfer to ${transfer.address}`);
+                  const output = sendAssetsWithOptionalInlineDatumAndReferenceScript(
+                    tx,
+                    transfer.address,
+                    amount,
+                    transfer.inlineDatum
                   );
+                  const topUpLovelace = getLovelaceQuantity(output.amount) - getLovelaceQuantity(amount);
+                  if (topUpLovelace > 0n) {
+                    transferTopUps.push({
+                      address: transfer.address,
+                      topUpLovelace,
+                      finalOutputLovelace: getLovelaceQuantity(output.amount)
+                    });
+                  }
                   continue;
                 }
 
@@ -405,6 +420,7 @@ export async function buildSttSpendTx(
           adaPayout: streamingPayoutBatch && streamingPayoutBatch !== "empty"
             ? payoutBuild.adaPayout
             : undefined,
+          transferTopUps,
           referenceScriptUsage: forwarding.referenceScriptUsage
         },
         resolveAdjustableLovelaceOutput: payoutBuild.absorbsFundingChange
@@ -440,6 +456,18 @@ export async function buildSttSpendTx(
   const warnings = Array.isArray(prepared.context?.warnings)
     ? [...(prepared.context.warnings as string[])]
     : [];
+  const transferTopUps = Array.isArray(prepared.context?.transferTopUps)
+    ? (prepared.context.transferTopUps as TransferTopUp[])
+    : [];
+  for (const topUp of transferTopUps) {
+    warnings.push(
+      i18n("transferMinimumAdaTopUp", {
+        topUpAda: formatLovelaceAsAda(topUp.topUpLovelace),
+        address: topUp.address,
+        finalOutputAda: formatLovelaceAsAda(topUp.finalOutputLovelace)
+      })
+    );
+  }
   for (const payoutTopUp of payoutTopUps) {
     warnings.push(
       i18n("adaPayoutTopUp", {
