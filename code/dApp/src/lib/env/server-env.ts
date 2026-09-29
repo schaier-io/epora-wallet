@@ -118,9 +118,12 @@ export function getProposalAuthSecret(env: ServerEnv = getServerEnv()): string {
   return DEV_FALLBACK_PROPOSAL_SECRET;
 }
 
-export function getSttSyncSecret(env: ServerEnv = getServerEnv()): string {
-  const value = requireServerEnv("STT_SYNC_SECRET", env);
-  return assertStrongProductionSecret("STT_SYNC_SECRET", value, env);
+// Optional: the sync route also accepts CRON_SECRET, so a deploy may set only
+// that one. A weak value still throws, so a configured secret never authorizes
+// below the production bar.
+export function getSttSyncSecret(env: ServerEnv = getServerEnv()): string | undefined {
+  const value = env.STT_SYNC_SECRET;
+  return value ? assertStrongProductionSecret("STT_SYNC_SECRET", value, env) : undefined;
 }
 
 const DEFAULT_SITE_URL = "http://localhost:3000";

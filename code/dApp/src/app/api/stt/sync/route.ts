@@ -46,16 +46,18 @@ function isAuthorized(request: Request) {
   if (!candidate) {
     return false;
   }
-  if (bearerMatches(candidate, getSttSyncSecret())) {
-    return true;
-  }
   // Vercel Cron sends `Authorization: Bearer $CRON_SECRET`. Same value as
-  // STT_SYNC_SECRET is fine; a distinct cron secret is also accepted.
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) {
-    return false;
+  // STT_SYNC_SECRET is fine; a distinct cron secret is also accepted, and a
+  // deploy may set only one of the two.
+  const secrets = [getSttSyncSecret(), process.env.CRON_SECRET].filter(
+    (secret): secret is string => Boolean(secret)
+  );
+  if (secrets.length === 0) {
+    // Fail closed, loudly: with no secret configured nobody can sync, and a
+    // 401 would hide the misconfiguration behind "wrong secret".
+    throw new Error("Neither STT_SYNC_SECRET nor CRON_SECRET is set; the STT sync route cannot authorize any request.");
   }
-  return bearerMatches(candidate, cronSecret);
+  return secrets.some((secret) => bearerMatches(candidate, secret));
 }
 
 async function handleSttSync(request: Request) {

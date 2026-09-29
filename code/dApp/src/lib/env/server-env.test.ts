@@ -77,11 +77,11 @@ test("production proposal authentication accepts a generated-length secret", () 
   assert.equal(getProposalAuthSecret(env), secret);
 });
 
-test("production STT sync rejects missing or weak secrets", () => {
+test("production STT sync rejects a weak secret and leaves a missing one to CRON_SECRET", () => {
   const missing = parseServerEnv({ NODE_ENV: "production" });
   const weak = parseServerEnv({ NODE_ENV: "production", STT_SYNC_SECRET: "change-me" });
 
-  assert.throws(() => getSttSyncSecret(missing), /Missing STT_SYNC_SECRET/);
+  assert.equal(getSttSyncSecret(missing), undefined);
   assert.throws(() => getSttSyncSecret(weak), /at least 32 random characters/);
 });
 
