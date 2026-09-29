@@ -199,7 +199,7 @@ it("shares a confirmed transaction read through the txInfo query cache", async (
   const fetch = rpc({ consumedBy: null });
   const queryClient = client();
   const txInfoCalls = () => fetch.mock.calls.filter(([, init]) =>
-    JSON.parse(String(init?.body)).method === "fetchTxInfo").length;
+    (JSON.parse(String(init?.body)) as { method: string }).method === "fetchTxInfo").length;
 
   await readUsableWalletReplacement(queryClient, PENDING, new AbortController().signal);
   await readUsableWalletReplacement(queryClient, PENDING, new AbortController().signal);
@@ -210,7 +210,7 @@ it("keeps polling an unindexed transaction instead of caching the miss", async (
   const fetch = rpc({ confirmed: false });
   const queryClient = client();
   const txInfoCalls = () => fetch.mock.calls.filter(([, init]) =>
-    JSON.parse(String(init?.body)).method === "fetchTxInfo").length;
+    (JSON.parse(String(init?.body)) as { method: string }).method === "fetchTxInfo").length;
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
     await readUsableWalletReplacement(queryClient, { ...PENDING, invalidHereafter: 10 },
