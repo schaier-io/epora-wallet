@@ -19,7 +19,11 @@ test("translates rejected wallet requests without exposing provider text", () =>
 
 test("translates a CIP-30 decline, which rejects with a plain { code, info } object", () => {
   // Mesh's BrowserWallet.signTx passes the wallet's rejection through unwrapped.
-  for (const info of ["user declined sign tx", "User declined to sign the transaction."]) {
+  for (const info of [
+    "user declined sign tx",
+    "User declined to sign the transaction.",
+    "request denied by user"
+  ]) {
     assert.equal(
       getUserFacingErrorMessage({ code: 2, info }, "Failed to stop the payment."),
       "The request was cancelled in your wallet. Nothing was submitted."

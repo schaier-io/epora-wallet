@@ -27,8 +27,10 @@ export function getUserFacingErrorMessage(error: unknown, fallback: string): str
     errorCode === 4001 ||
     errorCode === "4001" ||
     isWalletRejectionMessage(walletInfo) ||
-    /(?:user|request).*(?:reject|declin|deni|cancel)|(?:reject|declin|deni|cancel).*(?:user|request)/i.test(
-      message
+    [message, walletInfo].some((text) =>
+      /(?:user|request).*(?:reject|declin|deni|cancel)|(?:reject|declin|deni|cancel).*(?:user|request)/i.test(
+        text
+      )
     )
   ) {
     return i18n("requestCancelled");
