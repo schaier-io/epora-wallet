@@ -136,7 +136,7 @@ function verification(
     effect: { inputs: [{ txHash: "11".repeat(32), outputIndex: 0, isSttState: true, live: true }], outputs: [], feeLovelace: "200000", validUntilMs: null },
     signers: {
       authorityPath: "multisig",
-      requiredSigners: [],
+      requiredSigners: [{ keyHash: SIGNER_KEY_HASH, power: 1, isAdmin: false }],
       signedKeyHashes: [],
       satisfiedPower: satisfied ? 1 : 0,
       threshold: 1,
@@ -1189,6 +1189,21 @@ it.each([409, 500, 503])("keeps the pending State record after an uncertain %i",
   await act(async () => result.current.handleSubmit());
   expect(test.store.get(pendingWalletStateUpdatesAtom)[proposal("proposal-1").walletUnit]?.submittedTxHash)
     .toBe(TX_BODY_HASH);
+});
+
+// A witness from a key the transaction does not list adds no power on-chain, and the
+// server refuses to store it. The button must not walk the wallet through signing first.
+it("does not offer signing to a session whose key the transaction does not list", async () => {
+  const review = verification("valid");
+  review.signers!.requiredSigners = [{ keyHash: "ee".repeat(28), power: 1, isAdmin: false }];
+  dependencies.verifyProposal.mockResolvedValue(review);
+  const { result } = renderHook(() => useProposalOrchestration({
+    proposalId: "proposal-1", sessionKeyHash: SIGNER_KEY_HASH, onChanged: vi.fn()
+  }));
+  await waitFor(() => expect(result.current.verification?.validity).toBe("valid"));
+  expect(result.current.canSign).toBe(false);
+  await act(async () => result.current.handleSign());
+  expect(dependencies.wallet.signTx).not.toHaveBeenCalled();
 });
 
 it("refuses a proposal wallet signature when current beta consent is absent", async () => {

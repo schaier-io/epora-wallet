@@ -53,7 +53,7 @@ function verification(detail: ProposalDetailDto): ProposalVerification {
     stateTransition: { txBodyHash: detail.txBodyHash, outputIndex: 0, changes: [] },
     effect: { inputs: [{ txHash: "11".repeat(32), outputIndex: 0, live: true, isSttState: true }], outputs: [], feeLovelace: "200000", validUntilMs: null },
     signers: {
-      authorityPath: "multisig", requiredSigners: [],
+      authorityPath: "multisig", requiredSigners: [{ keyHash: SIGNER, power: 1, isAdmin: false }],
       signedKeyHashes: detail.signerKeyHashes,
       satisfiedPower: detail.signatureCount, threshold: 1,
       satisfied: detail.signatureCount > 0

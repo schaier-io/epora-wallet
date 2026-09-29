@@ -214,7 +214,14 @@ export function useProposalOrchestration({
   const walletStateUpdating = Boolean(currentDetail && (pendingWalletUpdates[currentDetail.walletUnit] || walletStateSubmissions[currentDetail.walletUnit]));
   const verifiedSttInputs = isVerifiedValid && currentVerification?.bodyHashMatches
     ? currentVerification.effect.inputs.filter((input) => input.isSttState) : [];
-  const canSign = Boolean(isOpen && isVerifiedValid && !alreadySigned && !walletStateUpdating);
+  // `requiredSigners` is the listed keys, or every key with power when the body lists
+  // none. A witness from any other key adds nothing on-chain and the server refuses it.
+  const sessionIsSigner = Boolean(
+    currentVerification?.signers?.requiredSigners.some(
+      (signer) => signer.keyHash.toLowerCase() === sessionKeyHash.toLowerCase()
+    )
+  );
+  const canSign = Boolean(isOpen && isVerifiedValid && sessionIsSigner && !alreadySigned && !walletStateUpdating);
   const canSubmit = Boolean(
     isOpen && isVerifiedValid && currentVerification?.signers?.satisfied &&
     verifiedSttInputs.length === 1 && !walletStateUpdating
