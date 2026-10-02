@@ -682,10 +682,10 @@ carries the category, the message carries the specifics.
 | Status | Means |
 |---|---|
 | `400` | Your request is invalid, or the wallet's on-chain state forbids the action. |
-| `404` | The thing you named does not exist. Pool lookups only. |
+| `404` | The thing you named does not exist. Pool and governance action lookups only. |
 | `410` | The wallet-spend route is retired. Use `POST /api/v1/tx/stt-spend` with action `use`. |
 | `413` | The body is over the limit: 32 KB for build routes, 4 KB for lookups. |
-| `429` | You are over the rate limit. |
+| `429` | You are over the rate limit. On pool and governance action lookups, it can also mean the chain data provider is rate-limiting this service. |
 | `500` | Unexpected server error. |
 | `502` | The chain data provider is unreachable. |
 | `503` | Health: the app is up but its database is down or the indexer is stale. `mint` and `stt-spend`: you left `sttSpendReference` empty and the shared STT reference server is unavailable (`SHARED_HELPER_UNAVAILABLE`). Retry later, or pass `sttSpendReference`. |
@@ -761,6 +761,11 @@ content-type: application/json
 ```
 
 Wait that long, then retry. Retrying sooner spends your next window.
+
+The pool and governance action lookups also answer `429` when the chain data
+provider rate-limits this service. That body reads the same as a `502`, and
+`Retry-After` carries the provider's delay in seconds, or `1` when the provider
+gives none.
 
 ### Why the build cap is so much tighter
 

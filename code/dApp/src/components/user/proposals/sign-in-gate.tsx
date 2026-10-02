@@ -28,9 +28,16 @@ export function SignInGate({ session }: { session: ProposalSessionController }) 
   // to this card.
   //
   // A ref, not state: this is a latch the effect reads and clears, and clearing it through
-  // setState inside the effect would be a cascading render. It also holds while the chooser
-  // is open, so cancelling the connect simply never fires it.
+  // setState inside the effect would be a cascading render.
   const signInWhenConnected = useRef(false);
+
+  // Closing the chooser without a connection ends the press. Left armed, the latch fired
+  // on a later connect from the top nav and popped `signData` with no press behind it.
+  // An effect, not `onOpenChange`: the chooser also closes itself on a successful
+  // connect, and only here is it known whether that connect landed.
+  useEffect(() => {
+    if (!connectOpen && !canSignIn) signInWhenConnected.current = false;
+  }, [connectOpen, canSignIn]);
 
   useEffect(() => {
     if (!signInWhenConnected.current) return;

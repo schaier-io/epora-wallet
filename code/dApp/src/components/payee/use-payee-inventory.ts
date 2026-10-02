@@ -32,7 +32,9 @@ export function usePayeeInventory(enabled = true) {
     reconcile({
       policyId,
       inputKeys: new Set(snapshot.tokens.map((token) => `${token.utxo.input.txHash}#${token.utxo.input.outputIndex}`)),
-      fullReadRevision: snapshot.inventoryRead.revision
+      fullReadRevision: snapshot.inventoryRead.revision,
+      // The read's own time, not now: a cached snapshot adopted later proves nothing newer.
+      scannedAtMs: snapshot.fullScanAt ?? 0
     });
   }, [client, options.queryKey, policyId, query.data, query.isError, reconcile]);
 

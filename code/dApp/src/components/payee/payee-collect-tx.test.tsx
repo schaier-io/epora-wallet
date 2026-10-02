@@ -196,7 +196,7 @@ describe("runPayeeCollect", () => {
         nowMs: 1,
         confirmWarnings
       })
-    ).resolves.toEqual({ status: "submitted", txHash: "88".repeat(32) });
+    ).resolves.toEqual({ status: "submitted", txHash: "88".repeat(32), validUntilMs: 2 });
 
     expect(confirmWarnings).toHaveBeenCalledWith([
       "ADA payout top-up: extra sent to the payee 7 ADA."
@@ -254,7 +254,7 @@ describe("runPayeeCollect", () => {
         payeePaymentKeyHash: PAYEE_KEY_HASH,
         nowMs: 1
       })
-    ).resolves.toEqual({ status: "submitted", txHash: "88".repeat(32) });
+    ).resolves.toEqual({ status: "submitted", txHash: "88".repeat(32), validUntilMs: 2 });
   });
 
   it("forwards every selected fund pool to the payout builder", async () => {
@@ -269,7 +269,7 @@ describe("runPayeeCollect", () => {
         payeePaymentKeyHash: PAYEE_KEY_HASH,
         nowMs: 1
       })
-    ).resolves.toEqual({ status: "submitted", txHash: "88".repeat(32) });
+    ).resolves.toEqual({ status: "submitted", txHash: "88".repeat(32), validUntilMs: 2 });
 
     expect(mocks.buildSttSpendTx).toHaveBeenCalledWith(
       expect.anything(),

@@ -368,6 +368,71 @@ it("keeps replacement identity when an old focus scan resolves in the same batch
   expect(screen.getByTestId("payment-key").textContent).toBe("bb".repeat(28));
 });
 
+it("re-enables the wallet when a focus read reports a CIP-30 account change", async () => {
+  // CIP-30 APIError AccountChange (-4): the old api object is dead and the dapp must call
+  // enable() again. Keeping the old identity left every later wallet call failing.
+  inject({ lace: { isEnabled: async () => true } });
+  const oldWallet = {
+    ...fakeWallet("addr_test1old"),
+    getUsedAddresses: vi.fn().mockResolvedValueOnce(["addr_test1old"])
+  };
+  mocks.enable.mockResolvedValueOnce(oldWallet).mockResolvedValueOnce(fakeWallet("addr_test1new"));
+  mocks.resolvePaymentKeyHash.mockReturnValueOnce("aa".repeat(28)).mockReturnValueOnce("bb".repeat(28));
+  renderProvider();
+  await act(async () => {
+    await latest.current!.connectWallet("lace");
+  });
+  oldWallet.getUsedAddresses.mockRejectedValue({ code: -4, info: "account changed" });
+
+  act(() => window.dispatchEvent(new Event("focus")));
+
+  await waitFor(() => expect(screen.getByTestId("address").textContent).toBe("addr_test1new"));
+  expect(mocks.enable).toHaveBeenCalledTimes(2);
+  expect(screen.getByTestId("payment-key").textContent).toBe("bb".repeat(28));
+});
+
+it("drops the identity without prompting when the changed account has not authorized the site", async () => {
+  inject({ lace: { isEnabled: async () => false } });
+  const wallet = {
+    ...fakeWallet("addr_test1old"),
+    getUsedAddresses: vi.fn().mockResolvedValueOnce(["addr_test1old"])
+  };
+  mocks.enable.mockResolvedValueOnce(wallet);
+  renderProvider();
+  await act(async () => {
+    await latest.current!.connectWallet("lace");
+  });
+  wallet.getUsedAddresses.mockRejectedValue({ code: -4, info: "account changed" });
+
+  act(() => window.dispatchEvent(new Event("focus")));
+
+  await waitFor(() => expect(screen.getByTestId("address").textContent).toBe("none"));
+  expect(mocks.enable).toHaveBeenCalledTimes(1);
+  expect(screen.getByTestId("wallet").textContent).toBe("none");
+});
+
+it("keeps the identity when a focus read fails for another reason", async () => {
+  inject({ lace: {} });
+  const wallet = {
+    ...fakeWallet("addr_test1old"),
+    getUsedAddresses: vi.fn().mockResolvedValueOnce(["addr_test1old"])
+  };
+  mocks.enable.mockResolvedValueOnce(wallet);
+  renderProvider();
+  await act(async () => {
+    await latest.current!.connectWallet("lace");
+  });
+  wallet.getUsedAddresses.mockRejectedValue({ code: -2, info: "internal error" });
+
+  await act(async () => {
+    window.dispatchEvent(new Event("focus"));
+    await Promise.resolve();
+  });
+
+  expect(mocks.enable).toHaveBeenCalledTimes(1);
+  expect(screen.getByTestId("address").textContent).toBe("addr_test1old");
+});
+
 it("does not rescan installed wallets when only the active wallet changes", async () => {
   inject({ lace: {} });
   mocks.enable.mockResolvedValue(fakeWallet());

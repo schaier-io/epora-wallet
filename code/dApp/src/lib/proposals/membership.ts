@@ -1,10 +1,15 @@
 import type { PrismaClient } from "@/generated/prisma";
-import { STT_CACHE_NETWORK } from "@/lib/stt-cache/domain";
+import { STT_CACHE_NETWORK, type SttParticipantRoleValue } from "@/lib/stt-cache/domain";
 
 // Wallet-membership queries backing proposal authorization. Kept free of
 // "server-only" and taking an explicit PrismaClient (like the stt-cache
 // indexer) so the security-critical scoping can be unit-tested against a real
 // database. store.ts composes these with the shared prisma singleton.
+
+// Only keys with signing power take part in approval requests. Recovery contacts
+// (BENEFICIARY) and streaming-payment payees are recorded on the wallet too, but
+// they cannot sign for it, so they must not read, create or sign its requests.
+export const PROPOSAL_PARTICIPANT_ROLES: SttParticipantRoleValue[] = ["ADMIN_USER", "USER"];
 
 // True when `paymentKeyHash` is an indexed participant of the STT wallet
 // identified by `walletUnit`. Membership comes from the chain indexer, which
@@ -17,6 +22,7 @@ export async function walletParticipantExists(
   const count = await db.sttParticipant.count({
     where: {
       paymentKeyHash,
+      role: { in: PROPOSAL_PARTICIPANT_ROLES },
       wallet: { network: STT_CACHE_NETWORK, unit: walletUnit }
     }
   });
@@ -61,7 +67,11 @@ export async function participantWalletUnits(
   paymentKeyHash: string
 ): Promise<string[]> {
   const memberships = await db.sttParticipant.findMany({
-    where: { paymentKeyHash, wallet: { network: STT_CACHE_NETWORK } },
+    where: {
+      paymentKeyHash,
+      role: { in: PROPOSAL_PARTICIPANT_ROLES },
+      wallet: { network: STT_CACHE_NETWORK }
+    },
     select: { wallet: { select: { unit: true } } }
   });
   return [...new Set(memberships.map((membership) => membership.wallet.unit))];

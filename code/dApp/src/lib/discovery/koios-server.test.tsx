@@ -141,3 +141,68 @@ it("does not start another attempt after the shared deadline expires", async () 
   expect(fetchMock).toHaveBeenCalledTimes(1);
   expect(timeout).toHaveBeenCalledExactlyOnceWith(15_000);
 });
+
+// Koios caps every response at 1000 rows; the rest sit behind `offset`
+// (docs/sources/koios/specs/results/koiosapi-mainnet.yaml, "Pagination (offset/limit)").
+it("reads every page when a credential holds more than 1000 UTxOs", async () => {
+  const row = (index: number) => ({
+    tx_hash: index.toString(16).padStart(64, "0"),
+    tx_index: 0,
+    address: "addr_test1wallet",
+    value: "1000000"
+  });
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce(new Response(JSON.stringify(Array.from({ length: 1000 }, (_, i) => row(i)))))
+    .mockResolvedValueOnce(new Response(JSON.stringify(Array.from({ length: 1000 }, (_, i) => row(1000 + i)))))
+    .mockResolvedValueOnce(new Response(JSON.stringify([row(2000)])));
+  vi.stubGlobal("fetch", fetchMock);
+
+  const result = await fetchCredentialUtxosFromKoios("cc".repeat(28));
+
+  expect(result).toHaveLength(2001);
+  expect(fetchMock.mock.calls.map(([url]) => url as string)).toEqual([
+    "https://koios.example/api/v1/credential_utxos",
+    "https://koios.example/api/v1/credential_utxos?offset=1000",
+    "https://koios.example/api/v1/credential_utxos?offset=2000"
+  ]);
+});
+
+it("gives the whole paged lookup one deadline, not one per page", async () => {
+  const pageRows = (start: number, length: number) => Array.from({ length }, (_, i) => ({
+    tx_hash: (start + i).toString(16).padStart(64, "0"),
+    tx_index: 0,
+    address: "addr_test1wallet",
+    value: "1000000"
+  }));
+  const timeout = vi.spyOn(AbortSignal, "timeout");
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce(new Response(JSON.stringify(pageRows(0, 1000))))
+    .mockResolvedValueOnce(new Response(JSON.stringify(pageRows(1000, 1))));
+  vi.stubGlobal("fetch", fetchMock);
+
+  await fetchCredentialUtxosFromKoios("cc".repeat(28));
+
+  expect(timeout).toHaveBeenCalledExactlyOnceWith(15_000);
+  const [first, second] = fetchMock.mock.calls.map(([, init]) => (init as RequestInit).signal);
+  expect(second).toBe(first);
+});
+
+// Offset pages are not a snapshot: a UTxO created between two page reads shifts
+// the rows, so the next page can repeat the last row of the one before.
+it("lists a UTxO that two pages both return only once", async () => {
+  const row = (index: number) => ({
+    tx_hash: index.toString(16).padStart(64, "0"),
+    tx_index: 0,
+    address: "addr_test1wallet",
+    value: "1000000"
+  });
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce(new Response(JSON.stringify(Array.from({ length: 1000 }, (_, i) => row(i)))))
+    .mockResolvedValueOnce(new Response(JSON.stringify([row(999), row(1000)])));
+  vi.stubGlobal("fetch", fetchMock);
+
+  const result = await fetchCredentialUtxosFromKoios("cc".repeat(28));
+
+  expect(result).toHaveLength(1001);
+  expect(new Set(result.map((utxo) => `${utxo.txHash}#${utxo.outputIndex}`)).size).toBe(1001);
+});

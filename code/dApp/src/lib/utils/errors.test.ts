@@ -17,6 +17,27 @@ test("translates rejected wallet requests without exposing provider text", () =>
   );
 });
 
+test("translates a CIP-30 decline, which rejects with a plain { code, info } object", () => {
+  // Mesh's BrowserWallet.signTx passes the wallet's rejection through unwrapped.
+  for (const info of [
+    "user declined sign tx",
+    "User declined to sign the transaction.",
+    "request denied by user"
+  ]) {
+    assert.equal(
+      getUserFacingErrorMessage({ code: 2, info }, "Failed to stop the payment."),
+      "The request was cancelled in your wallet. Nothing was submitted."
+    );
+  }
+});
+
+test("does not treat a CIP-30 error with another cause as a decline", () => {
+  assert.equal(
+    getUserFacingErrorMessage({ code: 1, info: "proof generation failed" }, "Failed to stop the payment."),
+    "Failed to stop the payment."
+  );
+});
+
 test("does not treat an unrelated 4001 value as a rejected wallet request", () => {
   assert.equal(
     getUserFacingErrorMessage(new Error("request failed after 4001 ms"), "Signing failed."),

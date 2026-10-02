@@ -284,6 +284,23 @@ describe("choosing who signs", () => {
     expect(client.create).not.toHaveBeenCalled();
   });
 
+  it("refuses to save a draft built by another wallet even with nobody else listed", async () => {
+    // The stash is per browser tab, not per wallet: a draft wallet A built stays
+    // there after the user switches to wallet B. Saving it unchanged would file
+    // A's transaction under B's session.
+    const own = multisigDraft();
+    own.stateForm!.multiSigThreshold = "2";
+    stash.draft = own;
+    builder.keyHash = OTHER;
+    renderPanel();
+    fireEvent.click(screen.getByRole("button", { name: /save request/i }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(/Connect the wallet that built this request/)
+    );
+    expect(client.create).not.toHaveBeenCalled();
+  });
+
   it("asks for the wallet when co-signers are chosen but no wallet is connected", async () => {
     builder.wallet = null;
     stash.draft = multisigDraft();

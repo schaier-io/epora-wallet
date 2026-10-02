@@ -157,10 +157,10 @@ export function findAdjustableChangeOutputIndex(
   // predicate is the safe fallback for when the appended change output's address
   // doesn't string-match changeAddress (e.g. an encoding/normalization
   // difference), it still can't select a recipient, because recipients are
-  // below the prepared boundary. The final two address-only predicates cover the
-  // rare exact-change case where Mesh appended nothing, in which the only output
-  // at changeAddress is a self-send and is still value-preserving to adjust. So
-  // no predicate can divert value to a third party.
+  // below the prepared boundary. When Mesh appended nothing (exact change) there is
+  // no candidate and the caller refuses the build: a prepared output at
+  // changeAddress is still a reviewed payout, possibly with a datum or an amount a
+  // validator checks, so moving the fee delta into it is not a harmless self-send.
   const candidatePredicates = [
     (index: number, output: { address?: string; datum?: unknown }) =>
       index >= preparedOutputCount &&
@@ -171,13 +171,7 @@ export function findAdjustableChangeOutputIndex(
       index >= preparedOutputCount &&
       typeof changeAddress === "string" &&
       output.address === changeAddress,
-    (index: number) => index >= preparedOutputCount,
-    (_index: number, output: { address?: string; datum?: unknown }) =>
-      typeof changeAddress === "string" &&
-      output.address === changeAddress &&
-      typeof output.datum === "undefined",
-    (_index: number, output: { address?: string }) =>
-      typeof changeAddress === "string" && output.address === changeAddress
+    (index: number) => index >= preparedOutputCount
   ] as const;
 
   for (const predicate of preservePreparedOutputs ? candidatePredicates.slice(0, 1) : candidatePredicates) {

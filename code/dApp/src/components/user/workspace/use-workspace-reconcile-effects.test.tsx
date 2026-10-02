@@ -76,4 +76,32 @@ describe("useWorkspaceReconcileEffects", () => {
       });
     });
   });
+
+  // A payout that lands after first render (the payee collects) lowers the due amount.
+  // The kept amount must follow it down, or validation blocks with "exceeds due".
+  it("clamps a kept payout amount when its due amount drops below it", async () => {
+    const store = createStore();
+    const state = createDefaultStateForm();
+    const row = (dueAmount: string, configuredAmount: string) => ({
+      streamingPayment: createDefaultStreamingPaymentFormState("1"),
+      dueAmount,
+      cleanupRequired: false,
+      configuredAmount,
+      unit: "lovelace"
+    });
+    const props: WorkspaceReconcileEffectsCtx = { activeAddress: null, autoMintStateForm: state,
+      availableLockedTransferAssets: [], previousAutoMintStateRef: { current: cloneStateForm(state) },
+      streamingPaymentPayoutRows: [row("5000000", "5000000")] };
+    const view = renderHook(useWorkspaceReconcileEffects, { initialProps: props,
+      wrapper: ({ children }: PropsWithChildren) => <Provider store={store}>{children}</Provider> });
+    await waitFor(() => expect(store.get(streamingPaymentPayoutAmountsAtom)).toEqual({ "1": "5000000" }));
+
+    view.rerender({ ...props, streamingPaymentPayoutRows: [row("2000000", "5000000")] });
+    await waitFor(() => expect(store.get(streamingPaymentPayoutAmountsAtom)).toEqual({ "1": "2000000" }));
+
+    // An amount the reader lowered below the due amount stays theirs.
+    store.set(streamingPaymentPayoutAmountsAtom, { "1": "1000000" });
+    view.rerender({ ...props, streamingPaymentPayoutRows: [row("1500000", "1000000")] });
+    await waitFor(() => expect(store.get(streamingPaymentPayoutAmountsAtom)).toEqual({ "1": "1000000" }));
+  });
 });

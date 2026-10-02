@@ -35,6 +35,12 @@ vi.mock("@/components/user/workspace/workspace-actions-context", () => ({
   })
 }));
 
+// A settled feed. The real query stays pending in jsdom and disables the refresh button.
+vi.mock("@/components/user/workspace/queries/activity-query.atoms", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  walletTransactionsAtom: (await import("jotai")).atom({ items: [], loading: false, error: null })
+}));
+
 const { WorkspaceHeaderView } = await import(
   "@/components/user/workspace/workspace-header-view"
 );
@@ -195,5 +201,17 @@ describe("workspace header", () => {
 
     await waitFor(() => expect(actions.refreshDetectedTokens).toHaveBeenCalledOnce());
     expect(actions.refreshPermissionWalletSummaries).not.toHaveBeenCalled();
+  });
+
+  // The State datum comes from token detection, which the summary refresh does not run.
+  it("re-reads the selected wallet's State as well as its summary", () => {
+    actions.refreshDetectedTokens.mockResolvedValue(null);
+    actions.refreshWorkspaceSummary.mockResolvedValue(undefined);
+    renderWith({ assets: [], loading: false, error: null }, false, null, true);
+
+    fireEvent.click(screen.getByRole("button", { name: "Refresh wallet funds, summaries, and recent activity" }));
+
+    expect(actions.refreshWorkspaceSummary).toHaveBeenCalledWith(true);
+    expect(actions.refreshDetectedTokens).toHaveBeenCalledWith({ keepSelection: true });
   });
 });

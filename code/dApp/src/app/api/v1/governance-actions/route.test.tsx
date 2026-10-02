@@ -27,8 +27,8 @@ const PROPOSAL = {
   expired_epoch: null
 };
 
-function meshHttpError(status: number) {
-  return JSON.stringify({ data: { status_code: status }, headers: {}, status });
+function meshHttpError(status: number, headers: Record<string, string> = {}) {
+  return JSON.stringify({ data: { status_code: status }, headers, status });
 }
 
 async function actionOf(response: Response): Promise<Record<string, unknown>> {
@@ -112,7 +112,33 @@ it("answers 404 only when Blockfrost has no such action", async () => {
 });
 
 it("does not report an upstream failure as a missing action", async () => {
-  mocks.get.mockRejectedValue(meshHttpError(429));
+  mocks.get.mockRejectedValue(meshHttpError(503));
+
+  expect((await get(GOV_ACTION_ID)).status).not.toBe(404);
+});
+
+it("passes Blockfrost's rate limit on as a 429 with its Retry-After", async () => {
+  // A 500 told the client our server broke, and gave it no hint when to retry.
+  mocks.get.mockRejectedValue(meshHttpError(429, { "retry-after": "20" }));
+
+  const response = await get(GOV_ACTION_ID);
+
+  expect(response.status).toBe(429);
+  expect(response.headers.get("Retry-After")).toBe("20");
+  expect(await response.json()).toEqual({ error: "The chain data provider is unavailable. Try again shortly." });
+});
+
+it("answers a Blockfrost outage as 502, not as our own 500", async () => {
+  mocks.get.mockRejectedValue(meshHttpError(500));
+
+  const response = await get(GOV_ACTION_ID);
+
+  expect(response.status).toBe(502);
+  expect(await response.json()).toEqual({ error: "The chain data provider is unavailable. Try again shortly." });
+});
+
+it("keeps 500 for a failure that is not the provider's", async () => {
+  mocks.get.mockRejectedValue(new TypeError("boom"));
 
   const response = await get(GOV_ACTION_ID);
 

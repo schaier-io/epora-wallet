@@ -159,8 +159,11 @@ export function useProposalSession(): ProposalSessionController {
   // A MISSING key is deliberately not a mismatch. The wallet layer reconnects after the first
   // paint, so reading that gap as "a different wallet" would flash the sign-in gate on every
   // load. Only a key that is present and different contradicts the session.
+  // The demo wallet is the exception: it never has a key and can never sign in, so any
+  // session it sees was left behind by an earlier real wallet.
   const connectedWalletMismatch = Boolean(
-    session && activePaymentKeyHash && activePaymentKeyHash !== session.paymentKeyHash
+    session &&
+      (isDemoWallet || (activePaymentKeyHash && activePaymentKeyHash !== session.paymentKeyHash))
   );
 
   return {

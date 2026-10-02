@@ -108,11 +108,13 @@ const writePendingWalletRecordAtom = atom(null, (get, set, {
 });
 // Signing is guarded before a submitted hash exists. Confirmed submissions use durable records.
 export const walletStateSubmissionsAtom = atom<Record<string, boolean>>({});
+// Scoped to the selected wallet. With no selection (landing, create wallet) another
+// wallet's wait must not gate building, inventory or detection. The landing resume
+// reads every record itself in `useWalletStateUpdate`.
 export const pendingWalletStateUpdateAtom = atom(
   get => {
-    const updates = get(pendingWalletStateUpdatesAtom);
     const unit = get(routeStateAtom).selectedWalletUnit;
-    return unit ? updates[unit] ?? null : Object.values(updates)[0] ?? null;
+    return unit ? get(pendingWalletStateUpdatesAtom)[unit] ?? null : null;
   },
   (get, set, pending: PendingWalletStateUpdate | null) => {
     if (pending) set(writePendingWalletRecordAtom, { unit: pending.walletUnit, pending });
@@ -189,6 +191,18 @@ export const beginWalletStateUpdateAtom = atom(
   null,
   (_get, set, pending: PendingWalletStateUpdate) => {
     set(pendingWalletStateUpdateAtom, pending);
+  }
+);
+
+// Undoes `beginWalletStateUpdateAtom` for a submission the server refused before any
+// broadcast. Only the record this submission wrote goes: another tab may have stored a
+// newer one for the same wallet since, and that one still guards a live broadcast.
+export const discardWalletStateUpdateAtom = atom(
+  null,
+  (get, set, pending: Pick<PendingWalletStateUpdate, "walletUnit" | "submittedTxHash">) => {
+    const latest = readPendingUpdatesOr(get(pendingWalletStateUpdatesAtom));
+    if (latest[pending.walletUnit]?.submittedTxHash !== pending.submittedTxHash) return;
+    set(writePendingWalletRecordAtom, { unit: pending.walletUnit, pending: null });
   }
 );
 

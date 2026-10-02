@@ -6,6 +6,7 @@ import { normalizeWalletName } from "@/lib/contracts/state-wallet-name";
 import { parseJsonSafe } from "@/lib/proposals/serialization";
 import type { ConstrData } from "@/lib/types/contracts";
 import {
+  STT_CACHE_NETWORK,
   STT_LOOKUP_DEFAULT_TX_LIMIT,
   STT_LOOKUP_MAX_TX_LIMIT,
   STT_LOOKUP_WALLET_PAGE_SIZE,
@@ -136,59 +137,30 @@ export async function lookupSttWallets(
     };
   }
 
-  const participantMatches = await db.sttParticipant.findMany({
-    where: {
-      paymentKeyHash: resolvedLookup.normalizedPaymentKeyHash
-    },
-    include: {
-      wallet: true
-    }
-  });
-
-  const groupedMatches = new Map<
-    string,
-    {
-      wallet: (typeof participantMatches)[number]["wallet"];
-      roles: Set<(typeof participantMatches)[number]["role"]>;
-    }
-  >();
-
-  for (const participant of participantMatches) {
-    const current = groupedMatches.get(participant.walletId) ?? {
-      wallet: participant.wallet,
-      roles: new Set<(typeof participantMatches)[number]["role"]>()
-    };
-    current.roles.add(participant.role);
-    groupedMatches.set(participant.walletId, current);
-  }
-
   // Pages have to stay stable while wallets change under them: `lastSeenBlockTime`
   // moves on every wallet touch, so ordering by it let a wallet cross a page
   // boundary between two requests and be served twice or skipped. Order by the
   // immutable wallet id and page with a keyset predicate instead, which also
   // makes a deleted cursor wallet mean "skip it" rather than "restart the list"
   // (the old `findIndex` + 1 answered page 1 again, looping conformant clients).
-  const sortedMatches = [...groupedMatches.values()].sort((left, right) =>
-    left.wallet.id < right.wallet.id ? -1 : left.wallet.id > right.wallet.id ? 1 : 0
-  );
-
-  const pagedMatches = cursor
-    ? sortedMatches.filter((match) => match.wallet.id > cursor)
-    : sortedMatches;
-  const page = pagedMatches.slice(0, STT_LOOKUP_WALLET_PAGE_SIZE);
-  const pageWalletIds = page.map((entry) => entry.wallet.id);
-  const nextCursor =
-    pagedMatches.length > STT_LOOKUP_WALLET_PAGE_SIZE
-      ? page.at(-1)?.wallet.id ?? null
-      : null;
-
-  const wallets = await db.sttWallet.findMany({
+  // The page is cut in the database: this route is public, and loading every
+  // match for a key listed in many wallets cost a full scan per request. The
+  // query runs on wallets, not participants: Prisma applies `distinct` in memory
+  // and then drops `take` from the SQL, so a distinct participant query still
+  // read every row.
+  const pageWallets = await db.sttWallet.findMany({
     where: {
-      id: {
-        in: pageWalletIds
-      }
+      network: STT_CACHE_NETWORK,
+      participants: { some: { paymentKeyHash: resolvedLookup.normalizedPaymentKeyHash } },
+      ...(cursor ? { id: { gt: cursor } } : {})
     },
+    orderBy: { id: "asc" },
+    take: STT_LOOKUP_WALLET_PAGE_SIZE + 1,
     include: {
+      participants: {
+        where: { paymentKeyHash: resolvedLookup.normalizedPaymentKeyHash },
+        select: { role: true }
+      },
       walletTransactions: {
         take: txLimit,
         orderBy: [
@@ -208,53 +180,45 @@ export async function lookupSttWallets(
       }
     }
   });
-
-  const walletById = new Map(wallets.map((wallet) => [wallet.id, wallet]));
+  const wallets = pageWallets.slice(0, STT_LOOKUP_WALLET_PAGE_SIZE);
+  const nextCursor =
+    pageWallets.length > STT_LOOKUP_WALLET_PAGE_SIZE ? wallets.at(-1)?.id ?? null : null;
 
   return {
     normalizedPaymentKeyHash: resolvedLookup.normalizedPaymentKeyHash,
     sourceAddress: resolvedLookup.sourceAddress,
     nextCursor,
-    wallets: page.flatMap((entry) => {
-      const wallet = walletById.get(entry.wallet.id);
-      if (!wallet) {
-        return [];
-      }
-
-      return [
-        {
-          id: wallet.id,
-          network: wallet.network,
-          policyId: wallet.policyId,
-          assetNameHex: wallet.assetNameHex,
-          unit: wallet.unit,
-          sttScriptAddress: wallet.sttScriptAddress,
-          walletScriptAddress: wallet.walletScriptAddress,
-          status: wallet.status as SttLookupWallet["status"],
-          currentTxHash: wallet.currentTxHash,
-          currentOutputIndex: wallet.currentOutputIndex,
-          lastSeenBlockHeight: wallet.lastSeenBlockHeight,
-          lastSeenBlockTime: wallet.lastSeenBlockTime,
-          matchedRoles: [...entry.roles].sort() as SttLookupWallet["matchedRoles"],
-          stateSummary: buildStateSummary(wallet.currentDatumJson),
-          recentTransactions: wallet.walletTransactions.map((relation) => ({
-            txHash: relation.chainTransaction.txHash,
-            transitionKind:
-              relation.transitionKind as SttLookupWallet["recentTransactions"][number]["transitionKind"],
-            slot: relation.chainTransaction.slot,
-            txIndex: relation.txIndex,
-            block: relation.chainTransaction.block,
-            blockHeight: relation.chainTransaction.blockHeight,
-            blockTime: relation.chainTransaction.blockTime,
-            fees: relation.chainTransaction.fees,
-            size: relation.chainTransaction.size,
-            deposit: relation.chainTransaction.deposit,
-            invalidBefore: relation.chainTransaction.invalidBefore,
-            invalidAfter: relation.chainTransaction.invalidAfter
-          }))
-        }
-      ];
-    }),
+    wallets: wallets.map((wallet) => ({
+      id: wallet.id,
+      network: wallet.network,
+      policyId: wallet.policyId,
+      assetNameHex: wallet.assetNameHex,
+      unit: wallet.unit,
+      sttScriptAddress: wallet.sttScriptAddress,
+      walletScriptAddress: wallet.walletScriptAddress,
+      status: wallet.status as SttLookupWallet["status"],
+      currentTxHash: wallet.currentTxHash,
+      currentOutputIndex: wallet.currentOutputIndex,
+      lastSeenBlockHeight: wallet.lastSeenBlockHeight,
+      lastSeenBlockTime: wallet.lastSeenBlockTime,
+      matchedRoles: [...new Set(wallet.participants.map((participant) => participant.role))].sort() as SttLookupWallet["matchedRoles"],
+      stateSummary: buildStateSummary(wallet.currentDatumJson),
+      recentTransactions: wallet.walletTransactions.map((relation) => ({
+        txHash: relation.chainTransaction.txHash,
+        transitionKind:
+          relation.transitionKind as SttLookupWallet["recentTransactions"][number]["transitionKind"],
+        slot: relation.chainTransaction.slot,
+        txIndex: relation.txIndex,
+        block: relation.chainTransaction.block,
+        blockHeight: relation.chainTransaction.blockHeight,
+        blockTime: relation.chainTransaction.blockTime,
+        fees: relation.chainTransaction.fees,
+        size: relation.chainTransaction.size,
+        deposit: relation.chainTransaction.deposit,
+        invalidBefore: relation.chainTransaction.invalidBefore,
+        invalidAfter: relation.chainTransaction.invalidAfter
+      }))
+    })),
     sync: {
       recentHeadTriggered: false,
       reconcileTriggered: false,

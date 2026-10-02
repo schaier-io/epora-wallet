@@ -256,6 +256,10 @@ export function WorkspaceHeaderView() {
           type="button"
           onClick={() => {
             if (selectedDetectedToken) {
+              // The State datum comes from token detection, which the summary refresh
+              // does not run. Without it the State stays stale until the next poll.
+              void refreshDetectedTokens({ keepSelection: true })
+                .catch(error => console.error("[workspace:refresh-state]", error));
               void refreshWorkspaceSummary(true);
               return;
             }

@@ -15,7 +15,13 @@ vi.mock("@/providers/wallet-provider", () => ({
 }));
 
 vi.mock("@/components/layout/wallet-panel", () => ({
-  WalletConnectionDialog: ({ open }: { open: boolean }) => open ? <div>Wallet chooser</div> : null
+  WalletConnectionDialog: ({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) =>
+    open ? (
+      <div>
+        Wallet chooser
+        <button type="button" onClick={() => onOpenChange(false)}>Close chooser</button>
+      </div>
+    ) : null
 }));
 
 function controller(
@@ -185,6 +191,34 @@ describe("proposals sign-in gate", () => {
     render(<SignInGate session={session} />);
 
     expect(session.signIn).not.toHaveBeenCalled();
+  });
+
+  // Closing the chooser without connecting ends the press. A wallet connected later from
+  // the top nav is a different intent, and a signData popup then is one nobody asked for.
+  it("disarms the sign-in when the chooser closes without a connection", () => {
+    const session = controller();
+    const { rerender } = render(<SignInGate session={session} />);
+
+    fireEvent.click(screen.getByRole("button", { name: connectLabel }));
+    fireEvent.click(screen.getByRole("button", { name: "Close chooser" }));
+
+    wallet.activeAddress = "addr_test1real";
+    rerender(<SignInGate session={session} />);
+
+    expect(session.signIn).not.toHaveBeenCalled();
+  });
+
+  // The chooser closes itself on a successful connect, so the close alone cannot disarm.
+  it("still signs in when the chooser closes because the wallet connected", () => {
+    const session = controller();
+    const { rerender } = render(<SignInGate session={session} />);
+
+    fireEvent.click(screen.getByRole("button", { name: connectLabel }));
+    wallet.activeAddress = "addr_test1real";
+    fireEvent.click(screen.getByRole("button", { name: "Close chooser" }));
+    rerender(<SignInGate session={session} />);
+
+    expect(session.signIn).toHaveBeenCalledTimes(1);
   });
 
   // The demo wallet cannot sign, so arming must not turn into a call it will reject.

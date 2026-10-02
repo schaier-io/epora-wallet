@@ -196,8 +196,8 @@ function deferred<T>() {
 }
 
 /** The mocked `runPayeeCollect` outcome, matching the real function's contract. */
-function submittedCollect(txHash: string): { status: "submitted"; txHash: string } {
-  return { status: "submitted", txHash };
+function submittedCollect(txHash: string): { status: "submitted"; txHash: string; validUntilMs: number } {
+  return { status: "submitted", txHash, validUntilMs: NOW + 60_000 };
 }
 
 beforeEach(() => {
@@ -684,7 +684,10 @@ describe("a row", () => {
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
     });
-    expect(screen.getByRole("button", { name: "Collect payment" })).toBeEnabled();
+    // The mocked scan keeps both rows; on chain the spent input would take them away.
+    const freed = screen.getAllByRole("button", { name: "Collect payment" });
+    expect(freed).toHaveLength(2);
+    freed.forEach((button) => expect(button).toBeEnabled());
   });
 
   it("keeps the success announcement when refresh removes the settled row", async () => {
@@ -706,6 +709,27 @@ describe("a row", () => {
       "Sent. The list updates after the next refresh."
     );
     expect(screen.queryByRole("button", { name: "Collect payment" })).toBeNull();
+  });
+
+  it("frees a submitted collect whose validity window passed while its State input stayed unspent", async () => {
+    const current = payment();
+    const token = detectedTokenFor(current);
+    chain.scan.mockReturnValue(scanOf([current]));
+    chain.detect.mockResolvedValue({ tokens: [token] });
+    await renderView();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Collect payment" }));
+    });
+    expect(screen.getByRole("button", { name: "Collected" })).toBeDisabled();
+
+    // The mocked window closes a minute after submit; the dropped transaction
+    // can no longer land, so the next full scan that still sees the input frees it.
+    await act(async () => { await vi.advanceTimersByTimeAsync(10 * 60_000); });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    });
+    expect(screen.getByRole("button", { name: "Collect payment" })).toBeEnabled();
   });
 
   it("ignores a slower refresh that a newer one has already replaced", async () => {

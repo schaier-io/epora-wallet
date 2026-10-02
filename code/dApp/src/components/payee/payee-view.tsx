@@ -230,12 +230,10 @@ export function PayeeView() {
           return;
         }
         submitted = true;
-        markStateInputSubmitted({ key: inputKey, txHash: outcome.txHash });
+        markStateInputSubmitted({ key: inputKey, txHash: outcome.txHash, validUntilMs: outcome.validUntilMs });
+        // The lease now shows this row as sent. A local copy would outlive a lease freed on expiry.
+        setCollectStates((prev) => ({ ...prev, [key]: { status: "idle" } }));
         if (!isCurrent()) return;
-        setCollectStates((prev) => ({
-          ...prev,
-          [key]: { status: "done", txHash: outcome.txHash }
-        }));
         setActionAnnouncement(i18n("sentTheListUpdatesAfterTheNextRefresh"));
         // Re-read the advanced paid-out total and the shared cooldown stamp.
         await loadTokens();
@@ -336,9 +334,9 @@ export function PayeeView() {
           }
         });
         submitted = true;
-        markStateInputSubmitted({ key: inputKey, txHash });
+        markStateInputSubmitted({ key: inputKey, txHash, validUntilMs: validityWindow.latestTimeMs });
+        setShortenStates((prev) => ({ ...prev, [key]: { status: "idle" } }));
         if (stopSessionRef.current !== session) return;
-        setShortenStates((prev) => ({ ...prev, [key]: { status: "done", txHash } }));
         setActionAnnouncement(i18n("sentTheListUpdatesAfterTheNextRefresh"));
         // Re-read the shortened end date and shared cooldown stamp.
         await loadTokens();

@@ -73,7 +73,7 @@ async function seedWalletWithParticipants(
   await db.sttParticipant.createMany({
     data: participantKeyHashes.map((paymentKeyHash, index) => ({
       walletId: wallet.id,
-      role: "signer",
+      role: "ADMIN_USER",
       participantKey: `${unit}-${index}`,
       paymentKeyHash
     }))

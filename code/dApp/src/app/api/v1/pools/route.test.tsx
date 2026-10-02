@@ -14,8 +14,8 @@ import { GET } from "./route";
 
 const POOL_ID = "pool1pu5jlj4q9w9jlxeu370a3c9myx47md5j5m2str0naunn2q3lkdy";
 
-function meshHttpError(status: number) {
-  return JSON.stringify({ data: { status_code: status }, headers: {}, status });
+function meshHttpError(status: number, headers: Record<string, string> = {}) {
+  return JSON.stringify({ data: { status_code: status }, headers, status });
 }
 
 function get() {
@@ -37,7 +37,44 @@ it("answers 404 only when Blockfrost has no such pool", async () => {
 it("does not report an upstream failure as a missing pool", async () => {
   // A 429 or 5xx used to fold into "not found", sending the user to fix a pool id
   // that was fine.
+  mocks.get.mockRejectedValue(meshHttpError(503));
+
+  const response = await get();
+
+  expect(response.status).not.toBe(404);
+});
+
+it("passes Blockfrost's rate limit on as a 429 with its Retry-After", async () => {
+  // A 500 told the client our server broke, and gave it no hint when to retry.
+  mocks.get.mockRejectedValue(meshHttpError(429, { "Retry-After": "20" }));
+
+  const response = await get();
+
+  expect(response.status).toBe(429);
+  expect(response.headers.get("Retry-After")).toBe("20");
+  expect(await response.json()).toEqual({ error: "The chain data provider is unavailable. Try again shortly." });
+});
+
+it("still sends a Retry-After when Blockfrost's 429 has none", async () => {
   mocks.get.mockRejectedValue(meshHttpError(429));
+
+  const response = await get();
+
+  expect(response.status).toBe(429);
+  expect(Number(response.headers.get("Retry-After"))).toBeGreaterThan(0);
+});
+
+it("answers a Blockfrost outage as 502, not as our own 500", async () => {
+  mocks.get.mockRejectedValue(meshHttpError(503));
+
+  const response = await get();
+
+  expect(response.status).toBe(502);
+  expect(await response.json()).toEqual({ error: "The chain data provider is unavailable. Try again shortly." });
+});
+
+it("keeps 500 for a failure that is not the provider's", async () => {
+  mocks.get.mockRejectedValue(new TypeError("boom"));
 
   const response = await get();
 

@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type * as ServerEnv from "@/lib/env/server-env";
 
 const sync = vi.hoisted(() => ({
   runSttBackgroundSync: vi.fn()
@@ -12,9 +13,16 @@ vi.mock("@/lib/stt-cache/sync-lock", () => ({
     result: await run()
   }))
 }));
-vi.mock("@/lib/env/server-env", () => ({
-  getSttSyncSecret: () => "sync-secret"
-}));
+// The real getter, re-parsed on each call so vi.stubEnv drives it (the module
+// caches its parse otherwise).
+vi.mock("@/lib/env/server-env", async (importOriginal) => {
+  const actual = await importOriginal<typeof ServerEnv>();
+  return {
+    ...actual,
+    getSttSyncSecret: () => actual.getSttSyncSecret(actual.parseServerEnv(process.env)),
+    getCronSecret: () => actual.getCronSecret(actual.parseServerEnv(process.env))
+  };
+});
 vi.mock("next-intl/server", () => ({
   getTranslations: async () => (key: string) => key
 }));
@@ -36,6 +44,9 @@ describe("POST /api/stt/sync", () => {
   beforeEach(() => {
     sync.runSttBackgroundSync.mockReset();
     sync.runSttBackgroundSync.mockResolvedValue({ walletsUpdated: 0 });
+    vi.unstubAllEnvs();
+    vi.stubEnv("STT_SYNC_SECRET", "sync-secret");
+    vi.stubEnv("CRON_SECRET", "");
   });
 
   it("uses default budgets when the request has no body", async () => {
@@ -72,6 +83,8 @@ describe("GET /api/stt/sync", () => {
     sync.runSttBackgroundSync.mockReset();
     sync.runSttBackgroundSync.mockResolvedValue({ walletsUpdated: 0 });
     vi.unstubAllEnvs();
+    vi.stubEnv("STT_SYNC_SECRET", "sync-secret");
+    vi.stubEnv("CRON_SECRET", "");
   });
 
   it("accepts the Vercel cron bearer and uses default budgets", async () => {
@@ -96,6 +109,46 @@ describe("GET /api/stt/sync", () => {
     );
 
     expect(response.status).toBe(401);
+    expect(sync.runSttBackgroundSync).not.toHaveBeenCalled();
+  });
+
+  function cronRequest(authorization: string) {
+    return GET(
+      new Request("http://localhost/api/stt/sync", {
+        method: "GET",
+        headers: { authorization }
+      })
+    );
+  }
+
+  it("accepts the cron bearer when only CRON_SECRET is set", async () => {
+    // A missing STT_SYNC_SECRET used to throw before CRON_SECRET was tried, so
+    // every cron call on such a deploy answered 500.
+    vi.stubEnv("STT_SYNC_SECRET", "");
+    vi.stubEnv("CRON_SECRET", "cron-secret");
+
+    const response = await cronRequest("Bearer cron-secret");
+
+    expect(response.status).toBe(200);
+    expect(sync.runSttBackgroundSync).toHaveBeenCalledOnce();
+  });
+
+  it("answers 401 to a wrong bearer when only CRON_SECRET is set", async () => {
+    vi.stubEnv("STT_SYNC_SECRET", "");
+    vi.stubEnv("CRON_SECRET", "cron-secret");
+
+    const response = await cronRequest("Bearer wrong-secret");
+
+    expect(response.status).toBe(401);
+    expect(sync.runSttBackgroundSync).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when neither secret is configured", async () => {
+    vi.stubEnv("STT_SYNC_SECRET", "");
+
+    const response = await cronRequest("Bearer anything");
+
+    expect(response.status).toBe(500);
     expect(sync.runSttBackgroundSync).not.toHaveBeenCalled();
   });
 });

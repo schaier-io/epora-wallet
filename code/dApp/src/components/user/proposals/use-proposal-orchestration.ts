@@ -4,7 +4,7 @@ import { BetaConsentRequiredError, requireBrowserBetaConsent } from "@/lib/legal
 import { useTranslations } from "next-intl";
 import { deserializeTx } from "@/lib/mesh/cst";
 import { useAtomValue, useStore } from "jotai";
-import { beginWalletStateUpdateAtom, pendingWalletStateUpdatesAtom, walletStateSubmissionsAtom } from "../workspace/atoms/wallet-state-update.atoms";
+import { beginWalletStateUpdateAtom, discardWalletStateUpdateAtom, pendingWalletStateUpdatesAtom, walletStateSubmissionsAtom } from "../workspace/atoms/wallet-state-update.atoms";
 
 // Orchestration for the proposal detail view: observes shared queries and owns the
 // sign / submit / rebuild / cancel handlers so proposal-detail.tsx stays a thin view.
@@ -21,6 +21,7 @@ import {
   markProposalSubmitted,
   parseProposalBuildContext,
   parseProposalSummary,
+  ProposalRequestError,
   rebuildProposal,
   signProposal
 } from "@/lib/proposals/client";
@@ -32,6 +33,11 @@ import { queryPolicy } from "@/lib/query/keys";
 import { invalidateChainQueries } from "@/lib/query/invalidation";
 import { useProposalVerification } from "./use-proposal-verification";
 import { useWalletContext } from "@/providers/wallet-provider";
+
+// Statuses `/api/proposals/[id]/submit` answers only before it claims the row: session,
+// rate limit, id, access, and payload checks. 409 is left out because it also reports
+// a row that changed after the broadcast; 5xx and network errors hide the outcome.
+const SUBMIT_REFUSED_BEFORE_BROADCAST = new Set([400, 401, 403, 404, 413, 429]);
 
 type ProposalOrchestrationArgs = {
   proposalId: string;
@@ -208,7 +214,14 @@ export function useProposalOrchestration({
   const walletStateUpdating = Boolean(currentDetail && (pendingWalletUpdates[currentDetail.walletUnit] || walletStateSubmissions[currentDetail.walletUnit]));
   const verifiedSttInputs = isVerifiedValid && currentVerification?.bodyHashMatches
     ? currentVerification.effect.inputs.filter((input) => input.isSttState) : [];
-  const canSign = Boolean(isOpen && isVerifiedValid && !alreadySigned && !walletStateUpdating);
+  // `requiredSigners` is the listed keys, or every key with power when the body lists
+  // none. A witness from any other key adds nothing on-chain and the server refuses it.
+  const sessionIsSigner = Boolean(
+    currentVerification?.signers?.requiredSigners.some(
+      (signer) => signer.keyHash.toLowerCase() === sessionKeyHash.toLowerCase()
+    )
+  );
+  const canSign = Boolean(isOpen && isVerifiedValid && sessionIsSigner && !alreadySigned && !walletStateUpdating);
   const canSubmit = Boolean(
     isOpen && isVerifiedValid && currentVerification?.signers?.satisfied &&
     verifiedSttInputs.length === 1 && !walletStateUpdating
@@ -329,6 +342,12 @@ export function useProposalOrchestration({
       void invalidateChainQueries(queryClient);
       await apply(submitted, actionProposalId, lifecycleToken);
     } catch (caught) {
+      // A refusal the route answers before its claim cannot have reached the chain, so
+      // the record written above would only block this wallet until it expires.
+      if (caught instanceof ProposalRequestError && caught.status !== undefined &&
+          SUBMIT_REFUSED_BEFORE_BROADCAST.has(caught.status)) {
+        store.set(discardWalletStateUpdateAtom, { walletUnit: detail.walletUnit, submittedTxHash: detail.txBodyHash });
+      }
       if (isCurrentLifecycle(actionProposalId, lifecycleToken)) {
         setActionError(getProposalErrorMessage(caught, i18n("submissionFailed")));
       }

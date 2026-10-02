@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@/generated/prisma";
 import { STT_CACHE_NETWORK } from "@/lib/stt-cache/domain";
+import { PROPOSAL_PARTICIPANT_ROLES } from "@/lib/proposals/membership";
 
 // Which wallet keys have finished registering, i.e. completed the CIP-30
 // sign-in at least once. Kept free of "server-only" and taking an explicit
@@ -41,6 +42,7 @@ export async function registeredWalletSignerKeyHashes(
   const participants = await db.sttParticipant.findMany({
     where: {
       paymentKeyHash: { not: null },
+      role: { in: PROPOSAL_PARTICIPANT_ROLES },
       wallet: { network: STT_CACHE_NETWORK, unit: walletUnit }
     },
     select: { paymentKeyHash: true }

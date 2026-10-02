@@ -92,9 +92,14 @@ export function mapDetail(
 // body hash the signer reviewed. The body-hash check is the fund-safety gate:
 // it rejects signing a body that was rebuilt out from under the signer between
 // fetch and submit. Pure so the precondition can be tested without a database.
+//
+// `requiredSigners` is the body's decoded `required_signers`. When it is non-empty,
+// a witness from any other key adds no power on-chain, so it is refused before
+// storage rather than counted by the UI as a signature.
 export function evaluateProposalSignatureGuard(
-  proposal: { txBodyHash: string; status: string } | null,
-  expectedBodyHash: string
+  proposal: { txBodyHash: string; status: string; requiredSigners?: string[] } | null,
+  expectedBodyHash: string,
+  signerKeyHash?: string
 ): GuardResult {
   if (!proposal) {
     return { ok: false, status: 404, error: proposalCopy.notFound() };
@@ -108,6 +113,14 @@ export function evaluateProposalSignatureGuard(
       status: 409,
       error: proposalCopy.rebuiltBeforeSigning()
     };
+  }
+  const listed = proposal.requiredSigners ?? [];
+  if (
+    signerKeyHash !== undefined &&
+    listed.length > 0 &&
+    !listed.includes(signerKeyHash.toLowerCase())
+  ) {
+    return { ok: false, status: 403, error: proposalCopy.notListedSigner() };
   }
   return { ok: true };
 }

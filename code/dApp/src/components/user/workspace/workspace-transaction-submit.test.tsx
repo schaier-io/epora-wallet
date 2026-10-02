@@ -122,6 +122,27 @@ it("clears the transfer recipient after a send so the next payout is not aimed a
   expect(deps.jotaiStore.get(transferDisplayAmountAtom)).toBe("");
 });
 
+it.each(["use", "use-allowance", "use-beneficiary"] as const)(
+  "clears the fund pools a %s send consumed so the next send is not built on spent inputs",
+  async (selectedAction) => {
+    vi.useFakeTimers();
+    const deps = makeDeps({ selectedAction });
+    deps.jotaiStore.set(sttWalletInputsAtom, [{ txHash: "aa".repeat(32), outputIndex: 0 }]);
+    await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
+    expect(mocks.signAndSubmitTx).toHaveBeenCalledOnce();
+    expect(deps.jotaiStore.get(sttWalletInputsAtom)).toEqual([]);
+  }
+);
+
+it("keeps the selected fund pools when the wallet rejects submission", async () => {
+  const deps = makeDeps({ selectedAction: "use" });
+  const inputs = [{ txHash: "aa".repeat(32), outputIndex: 0 }];
+  deps.jotaiStore.set(sttWalletInputsAtom, inputs);
+  mocks.signAndSubmitTx.mockRejectedValueOnce(new Error("User declined signing"));
+  await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
+  expect(deps.jotaiStore.get(sttWalletInputsAtom)).toEqual(inputs);
+});
+
 it("keeps the transfer recipient when the wallet rejects submission", async () => {
   const deps = makeDeps({ selectedAction: "use" });
   deps.jotaiStore.set(transferRecipientModeAtom, "my-address");
@@ -163,7 +184,7 @@ it("retains the submitted State ref across action navigation for the readiness w
   await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
   deps.jotaiStore.set(resetFlowAtom);
   await vi.advanceTimersByTimeAsync(12_000);
-  expect(deps.jotaiStore.get(pendingWalletStateUpdateAtom)?.spentRef).toEqual(spent);
+  expect(deps.jotaiStore.get(pendingWalletStateUpdatesAtom)[walletUnit]?.spentRef).toEqual(spent);
   expect(deps.jotaiStore.get(sttInputTxHashAtom)).toBe(spent.txHash);
 });
 
@@ -658,8 +679,10 @@ it("invalidates the preview when a chain freshness check fails", async () => {
 // #433: a pending State update must block signing, including an old callback.
 it("does not sign another preview while the wallet State is pending", async () => {
   const deps = makeDeps();
+  const unit = "ab".repeat(28) + "01";
+  deps.jotaiStore.set(routeStateAtom, { ...deps.jotaiStore.get(routeStateAtom), selectedWalletUnit: unit });
   deps.jotaiStore.set(pendingWalletStateUpdateAtom, {
-    walletUnit: "ab".repeat(28) + "01", submittedTxHash: TX_HASH,
+    walletUnit: unit, submittedTxHash: TX_HASH,
     spentRef: { txHash: "cd".repeat(32), outputIndex: 0 }
   });
   await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
