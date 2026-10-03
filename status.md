@@ -103,3 +103,53 @@ Wallet-signed terms acceptance is deferred. The beta uses a browser/API acknowle
 - REPORTED: a second full adversarial review after rebase found no in-scope issues.
 - Completed, release. VERIFIED: `gh stack submit --auto` returned `Pushed and synced 5 branches`. Draft PRs are [wallet recovery #693](https://github.com/schaier-io/epora-wallet/pull/693), [signature writes #694](https://github.com/schaier-io/epora-wallet/pull/694), [input liveness #695](https://github.com/schaier-io/epora-wallet/pull/695), [deposits #696](https://github.com/schaier-io/epora-wallet/pull/696), and [governance drafts #697](https://github.com/schaier-io/epora-wallet/pull/697).
 - Next: review the stack from #693 upward. No merge, deployment, or migration ran. Local fixtures do not establish live ledger or PostgreSQL behavior.
+## Transaction preparation, 2026-10-03
+
+Owner: implementer. Status: Completed.
+VERIFIED: Changed the review rail, transaction cache reuse, and their tests.
+VERIFIED: `vitest run` on the six preparation and submission suites returned `Tests 156 passed (156)`.
+VERIFIED: The final regression tests against the original source returned `Tests 4 failed | 44 passed (48)`, exit 1.
+VERIFIED: `tsc --noEmit --incremental false` and ESLint on the four changed TypeScript files returned exit 0.
+VERIFIED: `node scripts/check-file-length.mjs` returned `File length OK: 771 source files checked, none over 750 lines.`
+REPORTED: The independent adversarial review found no introduced defects. Its four-suite run returned `Tests 119 passed (119)`.
+Limit: Mocked wallet and provider tests do not measure deployed behavior or network latency.
+Next: Check the button flow with a connected wallet in the browser.
+
+## Build speed, 2026-10-03
+
+Owner: implementer. Status: Completed.
+VERIFIED: Updated `utxo.ts`, `state-forwarding.ts`, `build-parameter-fetcher.ts`, `budget.ts`, and four tests in `code/dApp/src/lib/mesh/transactions/internals/`.
+VERIFIED: Input metadata and unspent-status reads now run together. Raw latest parameters are prefetched before script builds and cached within one build.
+VERIFIED: The full internals and cancellation run returned `# tests 251`, `# pass 251`, `# fail 0`.
+VERIFIED: The six workspace and submission suites returned `Tests 156 passed (156)`.
+VERIFIED: Final tests against the original four source files returned `# tests 61`, `# pass 55`, `# fail 6`, exit 1.
+VERIFIED: Type checking and changed-file lint returned exit 0. The file-length check returned `File length OK: 771 source files checked, none over 750 lines.`
+REPORTED: The independent adversarial review found no introduced defects. Its focused run returned `tests 61`, `pass 61`, `fail 0`.
+Limit: Tests use mocked providers. Stage timings measure successful builds only. Overlapping work means stage durations are not additive.
+Next: Run one transaction build and inspect `[tx-build:timings]` in the browser console. Real network speed remains unmeasured.
+
+## Additional build caches, 2026-10-03
+
+Owner: implementer. Status: Completed.
+VERIFIED: Latest protocol parameters, cost models, and build raw parameters share a provider response for 5 seconds. Signing raw reads bypass this cache. Explicit epoch requests retain the SDK path (`blockfrost-server.ts`).
+VERIFIED: `blueprint.ts` caches script code, hashes, and addresses in separate 128-entry maps. Keys include script code, version, parameters where applicable, and address network.
+VERIFIED: `build-parameter-fetcher.ts` shares input metadata across draft and final passes. It shares unspent status within each pass and resets status before the final pass (`budget.ts`). Configured reference reads run together (`reference-scripts.ts`).
+VERIFIED: The Node suite covering parameters, Blockfrost, build internals, cancellation, and script addresses returned `# tests 276`, `# pass 276`, `# fail 0`.
+VERIFIED: Six Vitest suites covering script caches, RPC calls, submission, and workspace behavior returned `Tests 135 passed (135)`.
+VERIFIED: Disabling parameter, input metadata, and status caches while retaining tests returned `# tests 19`, `# pass 14`, `# fail 5`, exit 1. Restored sources returned `# tests 19`, `# pass 19`, `# fail 0`.
+VERIFIED: Original `HEAD` script source with final cache tests returned `Tests 4 failed | 2 passed (6)`, exit 1. Restored source returned `Tests 6 passed (6)`.
+VERIFIED: Type checking and changed-file ESLint returned exit 0. File-length validation returned `File length OK: 771 source files checked, none over 750 lines.`
+VERIFIED: A local Node benchmark used 30 warm samples per operation. Median STT policy derivation changed from `22.797167 ms` to `0.009792 ms`. Median wallet hash derivation changed from `15.723458 ms` to `0.014916 ms`.
+REPORTED: The second independent adversarial review found no remaining introduced defects. The first pass found a historical-epoch regression. Explicit epoch SDK delegation and its regression test corrected it.
+Limit: Provider tests use mocks. The benchmark measures repeated CPU work, not full build time or network latency. Cold derivations still compute their first result.
+Next: Run one browser transaction build and inspect `[tx-build:timings]`.
+
+## PR preparation, 2026-10-03
+
+VERIFIED: Applied the performance changes onto `origin/main` at `e198fb71`. Preserved upstream transport retries, submission phases, and existing status records.
+VERIFIED correction: The first conflict resolution left two undefined `activeBuild` references in the review rail. The component run returned `Tests 31 failed | 145 passed (176)`. Removed both background-progress expressions and restored quiet-build expectations.
+VERIFIED correction: Pending protocol requests previously had infinite cache expiry. A deferred-provider regression test returned `tests 8`, `pass 7`, `fail 1`. Pending entries now expire after `MESH_READ_TIMEOUT_MS`. The same test file returned `tests 8`, `pass 8`, `fail 0`.
+VERIFIED: Final Node validation returned `tests 277`, `pass 277`, `fail 0`. Final component validation returned `Tests 176 passed (176)`.
+VERIFIED: Type checking and changed-file ESLint returned exit 0. File-length validation returned `File length OK: 781 source files checked, none over 750 lines.`
+REPORTED: Fresh independent reviews of build reads and button behavior found no remaining introduced defects.
+Limit: These tests do not measure deployed build latency. The benchmark above remains a local CPU measurement.

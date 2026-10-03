@@ -552,7 +552,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
   const factorySnapshot = jotaiStore.get(workspaceTransactionSnapshotAtom);
   const factorySession = jotaiStore.get(workspaceSessionAtom);
 
-  async function buildSelectedActionTx(authorityPathOverride?: AuthorityPath) {
+  async function buildSelectedAction(authorityPathOverride: AuthorityPath | undefined, checkFreshness: boolean) {
     const stillCurrent = () => jotaiStore.get(workspaceTransactionSnapshotAtom) === factorySnapshot &&
       jotaiStore.get(workspaceSessionAtom) === factorySession;
     if (!stillCurrent()) return null;
@@ -565,7 +565,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
       jotaiStore.get(previewAtom) === prepared.result && preparedWorkspaceTransactionIsCurrent(jotaiStore, prepared)) {
       const checkedRun = jotaiStore.get(buildRunAtom);
       try {
-        await assertPreparedTransactionFresh(prepared.result.txHex);
+        if (checkFreshness) await assertPreparedTransactionFresh(prepared.result.txHex);
         if (!stillCurrent() || jotaiStore.get(buildRunAtom) !== checkedRun) return null;
         if (jotaiStore.get(preparedWorkspaceTransactionAtom) === prepared &&
           preparedWorkspaceTransactionIsCurrent(jotaiStore, prepared)) {
@@ -597,6 +597,10 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     return result;
   }
 
+  async function buildSelectedActionTx(authorityPathOverride?: AuthorityPath) {
+    return buildSelectedAction(authorityPathOverride, true);
+  }
+
   async function buildAndSubmitSelectedActionTx(authorityPathOverride?: AuthorityPath) {
     if (activeSubmit) {
       return;
@@ -608,7 +612,8 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     const draftBeforeBuild = safeStringify(resolveWorkspaceTransactionInputs(jotaiStore));
     const sessionBeforeBuild = jotaiStore.get(workspaceSessionAtom);
     const identityBeforeBuild = jotaiStore.get(workspaceBuildIdentityAtom);
-    const pending = buildSelectedActionTx(authorityPathOverride);
+    // Submission checks chain freshness before signing and again before broadcast.
+    const pending = buildSelectedAction(authorityPathOverride, false);
     const nextPreview = await pending;
     const accepted = jotaiStore.get(preparedWorkspaceTransactionAtom);
 
