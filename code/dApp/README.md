@@ -66,9 +66,15 @@ Open [http://localhost:3000](http://localhost:3000).
 ## Environment
 
 - `BLOCKFROST_PREPROD_PROJECT_ID`: Blockfrost API key for preprod.
-- `DATABASE_URL`: Prisma connection string. Local development defaults to
+- `DATABASE_URL`: Runtime connection string. Use the pooled Neon URL in Vercel.
+  Local development uses
   `postgresql://postgres@localhost:5432/wallet`; make sure the `wallet` database
   exists locally.
+- `DATABASE_URL_UNPOOLED`: Direct connection string for Prisma CLI commands,
+  including deployment migrations. Set it in each Vercel deployment to the same
+  database as `DATABASE_URL`, with pooling disabled in the Neon Connect dialog.
+  When blank or unset, CLI commands fall back to `DATABASE_URL` for local use.
+  `pnpm test` clears this variable before pushing its isolated local test schema.
 - `STT_SYNC_SECRET`: Shared secret for the protected background STT sync route.
 - `CRON_SECRET`: Vercel Cron bearer for `GET /api/stt/sync`. Set it in the Vercel
   project to the same value as `STT_SYNC_SECRET`. Not needed for local `pnpm dev`.
