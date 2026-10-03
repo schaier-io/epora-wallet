@@ -7,6 +7,7 @@ import {
   type UserFormState
 } from "@/lib/contracts/state-form";
 import { formatLovelaceAsAda } from "@/lib/units/lovelace";
+import { formats } from "@/i18n/config";
 import { createDefaultTranslator, defaultFormatter } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceWorkspaceStateDiff.json";
 
@@ -28,6 +29,7 @@ const i18n = createDefaultTranslator("ComponentsUserWorkspaceWorkspaceStateDiff"
  */
 
 const NO_CHANGES_LABEL = i18n("noChanges");
+const MILLISECONDS_PER_MINUTE = 60_000;
 
 function shortenKey(value: string): string {
   const trimmed = value.trim();
@@ -68,11 +70,18 @@ function formatOption(mode: "none" | "some", value: string, unset: string): stri
 // unnamed time here read as the reader's wall clock and was not: the same instant
 // showed as 11:33 in the editor input beside it and 03:33 PM in this row.
 function formatTimestamp(value: string): string {
-  const asNumber = Number(value);
-  if (!Number.isFinite(asNumber) || asNumber <= 0) {
+  const timestamp = Number(value);
+  if (!Number.isSafeInteger(timestamp) || timestamp <= 0 || Number.isNaN(new Date(timestamp).getTime())) {
     return value.trim() || i18n("unset");
   }
-  return defaultFormatter.dateTime(asNumber, "shortWithZone");
+  if (timestamp % MILLISECONDS_PER_MINUTE !== 0) {
+    return defaultFormatter.dateTime(timestamp, {
+      ...formats.dateTime.shortWithZone,
+      second: "2-digit",
+      fractionalSecondDigits: 3
+    });
+  }
+  return defaultFormatter.dateTime(timestamp, "shortWithZone");
 }
 
 function change(before: string, after: string): string {
@@ -98,7 +107,11 @@ function describeUser(user: UserFormState): string {
     keys: formatKeyList(user.wallets),
     power,
     checkIn,
-    limit: limitSegment
+    limit: limitSegment,
+    remaining: user.remainingAllowance.length > 0
+      ? formatAllowance(user.remainingAllowance)
+      : i18n("none"),
+    reset: formatTimestamp(user.nextAllowanceReset)
   });
 }
 

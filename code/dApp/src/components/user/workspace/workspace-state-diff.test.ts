@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { buildStateChangeItems, diffStateForms } from "@/components/user/workspace/workspace-state-diff";
 import { defaultFormatter } from "@/i18n/default-translator";
+import { formats } from "@/i18n/config";
 import {
   createDefaultStateForm,
   stateFormFromDatum,
@@ -58,8 +59,9 @@ test("a raised spending limit is reported even though the person count is unchan
 
   const items = diffStateForms(before, after);
   assert.equal(items.length, 1);
-  assert.match(items[0]!.value, /no daily limit → /);
-  assert.match(items[0]!.value, /10000 ₳/);
+  const [previous, next] = items[0]!.value.split(" → ");
+  assert.match(previous!, /no daily limit/);
+  assert.match(next!, /daily limit 10000 ₳/);
 });
 
 test("a five-ADA daily limit is not divided by a million on the way to the review", () => {
@@ -75,6 +77,60 @@ test("a five-ADA daily limit is not divided by a million on the way to the revie
   assert.match(items[0]!.value, /daily limit 5 ₳/);
   assert.doesNotMatch(items[0]!.value, /0\.00000/);
 });
+
+test("changing the remaining allowance appears in the review", () => {
+  const before = baseForm();
+  Object.assign(before.users[0]!, {
+    isAdmin: false,
+    perDayAllowance: [{ policyId: "", assetName: "", amount: "5" }],
+    remainingAllowance: [{ policyId: "", assetName: "", amount: "3" }],
+    nextAllowanceReset: "1800000000000"
+  });
+  const after = structuredClone(before);
+  after.users[0]!.remainingAllowance[0]!.amount = "5";
+
+  const { items } = buildStateChangeItems(before, after, []);
+  assert.equal(items[0]!.label, "Person changed");
+  assert.match(items[0]!.value, /left to spend 3 ₳/);
+  assert.match(items[0]!.value, /left to spend 5 ₳/);
+});
+
+test("changing the allowance reset time appears in the review", () => {
+  const before = baseForm();
+  before.users[0]!.nextAllowanceReset = "1800000000000";
+  const after = structuredClone(before);
+  after.users[0]!.nextAllowanceReset = "1800086400000";
+
+  const { items } = buildStateChangeItems(before, after, []);
+  assert.equal(items[0]!.label, "Person changed");
+  for (const form of [before, after]) {
+    assert.ok(items[0]!.value.includes(defaultFormatter.dateTime(
+      Number(form.users[0]!.nextAllowanceReset), "shortWithZone"
+    )));
+  }
+});
+
+for (const [previous, next] of [
+  ["1800000000123", "1800000000000"],
+  ["18446744073709551615", "18446744073709551614"]
+]) {
+  test(`the reset review preserves precision for ${previous} to ${next}`, () => {
+    const before = baseForm();
+    before.users[0]!.nextAllowanceReset = previous!;
+    const after = structuredClone(before);
+    after.users[0]!.nextAllowanceReset = next!;
+
+    const { items } = buildStateChangeItems(before, after, []);
+    assert.equal(items[0]!.label, "Person changed");
+    if (previous === "1800000000123") {
+      assert.match(items[0]!.value, /:00\.123/);
+      assert.match(items[0]!.value, /UTC/);
+    } else {
+      assert.ok(items[0]!.value.includes(previous!));
+      assert.ok(items[0]!.value.includes(next!));
+    }
+  });
+}
 
 for (const assetName of ["5553444d", ""]) {
   test(`an allowance policy edit shows both full asset units (asset name: ${assetName || "empty"})`, () => {
@@ -244,7 +300,9 @@ test("a changed recovery-contact wait is reported", () => {
   // It names its zone: this row is read right before a signature, and the app does
   // not format in the reader's own zone.
   assert.ok(
-    items[0]!.value.endsWith(`after ${defaultFormatter.dateTime(1790955182000, "shortWithZone")}`),
+    items[0]!.value.endsWith(`after ${defaultFormatter.dateTime(1790955182000, {
+      ...formats.dateTime.shortWithZone, second: "2-digit", fractionalSecondDigits: 3
+    })}`),
     items[0]!.value
   );
   assert.match(items[0]!.value, /UTC/, items[0]!.value);
@@ -355,3 +413,39 @@ test("a payout address edit is visible even when its shortened forms would match
   assert.ok(items[0]!.value.includes(first));
   assert.ok(items[0]!.value.includes(second));
 });
+
+for (const field of ["unlockAfter", "startDate", "endDate", "proofOfLifeUnlockTime"] as const) {
+  for (const [previous, next] of [
+    ["1800000000123", "1800000000000"],
+    ["18446744073709551615", "18446744073709551614"]
+  ] as const) {
+    test(`the ${field} review preserves exact timestamps (${previous})`, () => {
+      const before = scheduleForm("", "");
+      if (field === "unlockAfter") {
+        before.beneficiaries = [{
+          id: "1", wallets: [], payoutAddress: "addr_test_one", weight: "1",
+          unlockAfterMode: "some", unlockAfter: previous
+        }];
+      } else if (field === "proofOfLifeUnlockTime") {
+        before.proofOfLifeUnlockTimeMode = "some";
+        before.proofOfLifeUnlockTime = previous;
+      } else {
+        before.streamingPayments[0]![field] = previous;
+      }
+      const after = structuredClone(before);
+      if (field === "unlockAfter") after.beneficiaries[0]!.unlockAfter = next;
+      else if (field === "proofOfLifeUnlockTime") after.proofOfLifeUnlockTime = next;
+      else after.streamingPayments[0]![field] = next;
+
+      const { items } = buildStateChangeItems(before, after, []);
+      assert.notEqual(items[0]!.label, "No changes");
+      if (previous === "1800000000123") {
+        assert.match(items[0]!.value, /:00\.123/);
+        assert.match(items[0]!.value, /UTC/);
+      } else {
+        assert.ok(items[0]!.value.includes(previous));
+        assert.ok(items[0]!.value.includes(next));
+      }
+    });
+  }
+}
