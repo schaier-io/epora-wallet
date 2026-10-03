@@ -1,7 +1,7 @@
 import { beneficiaryPreparationActiveAtom } from "./atoms/forms/consolidate-form.atoms";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
-import { createRef } from "react";
+import { createRef, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { activeBuildAtom, activeSubmitAtom, submitPhaseAtom, submitSucceededAtom, buildErrorAtom, buildErrorStaleInputsAtom, previewAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
@@ -39,6 +39,7 @@ vi.mock("@/components/user/review-panel", () => ({
         data-build-error={(props.buildError as string | null | undefined) ?? ""}
       >
         Review panel
+        {props.primaryActionNotice as ReactNode}
       </div>
     );
   }
@@ -173,6 +174,23 @@ it("shows the wallet-state warning inside the blocked action's right review rail
     }
   });
   expect(screen.getByRole("region", { name: "Review and confirm" })).toHaveTextContent("Updating this wallet");
+});
+
+it("hides the update notice when the current action has a submitted receipt", () => {
+  renderRail({
+    selectedAction: "use", previewMatchesSelectedAction: false,
+    buildSelectedActionTx: vi.fn(), handleSaveProposalFromBuild: vi.fn(),
+    seedStore: store => {
+      const unit = "ab".repeat(28) + "01";
+      store.set(routeStateAtom, { ...store.get(routeStateAtom), selectedWalletUnit: unit });
+      store.set(submitSucceededAtom, "ab".repeat(32));
+      store.set(beginWalletStateUpdateAtom, {
+        walletUnit: unit, submittedTxHash: "ab".repeat(32),
+        spentRef: { txHash: "cd".repeat(32), outputIndex: 0 }
+      });
+    }
+  });
+  expect(screen.queryByText("Updating this wallet")).toBeNull();
 });
 
 it("shows and disables wallet-state refresh across action navigation", () => {

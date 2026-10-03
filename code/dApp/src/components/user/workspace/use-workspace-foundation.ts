@@ -194,11 +194,11 @@ export function useWorkspaceFoundation() {
     [writeBuildError]
   );
 
-  const clearBuildMessages = useCallback(() => {
+  const clearBuildMessages = useCallback((options?: { preserveReceipt?: boolean }) => {
     setBuildError(null);
     setBuildErrorExpected(false);
     setBuildDiagnosticId(null);
-    setSubmitHash(null);
+    if (!options?.preserveReceipt) setSubmitHash(null);
     setMintConfirmation(null);
     jotaiStore.set(mintConfirmationRunAtom, jotaiStore.get(mintConfirmationRunAtom) + 1);
   }, [jotaiStore, setBuildError, setBuildErrorExpected, setBuildDiagnosticId, setSubmitHash, setMintConfirmation]);

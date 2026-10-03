@@ -30,6 +30,10 @@ const BASE: ComponentProps<typeof UserReviewPanel> = {
 };
 
 describe("review rail live regions", () => {
+  it("puts the action notice directly above the primary button", () => {
+    render(<UserReviewPanel {...BASE} primaryActionNotice={<div data-testid="action-notice">Updating wallet</div>} />);
+    expect(screen.getByRole("button", { name: "Send funds" }).previousElementSibling).toBe(screen.getByTestId("action-notice"));
+  });
   it("stacks direct signing above an approval request and describes the request", () => {
     const { container } = render(
       <UserReviewPanel

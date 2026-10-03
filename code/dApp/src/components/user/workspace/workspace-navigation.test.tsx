@@ -53,6 +53,14 @@ function navigationContext(store: ReturnType<typeof createStore>) {
 describe("update-state draft routing", () => {
   beforeEach(() => dispatchWorkspaceAction.mockClear());
 
+  it("preserves the accepted receipt when opening another action", () => {
+    const store = createStore();
+    const context = navigationContext(store);
+    const { result } = renderHook(() => useWorkspaceNavigation(context as never));
+    act(() => result.current.openWorkspaceIntent("add-funds", "lock-funds"));
+    expect(context.clearBuildMessages).toHaveBeenCalledWith({ preserveReceipt: true });
+  });
+
   it("selects the normalized cold-route draft and restores raw State for stream management", () => {
     const store = createStore();
     const form = createDefaultStateForm();
