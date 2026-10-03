@@ -328,7 +328,8 @@ test("an invalidated final mint scan settles as delayed", async () => {
   );
 });
 
-test("a confirmed mint refreshes each shared balance once and uses the canonical staking address", async (t) => {
+for (const currentRef of ["mint", "updated", "legacy"] as const) {
+test(`a confirmed mint refreshes each shared balance once and uses the canonical staking address (${currentRef})`, async (t) => {
   t.mock.method(globalThis, "fetch", async () => new Response(JSON.stringify({ result: { hash: HASH } })));
   const form = createDefaultStateForm();
   form.intendedStakeCredential = resolveWalletStakeScriptCredentialData({ sttPolicyId: "aa".repeat(28), sttAssetNameHex: "01" });
@@ -343,7 +344,7 @@ test("a confirmed mint refreshes each shared balance once and uses the canonical
     unit: `${"aa".repeat(28)}01`,
     scriptAddress: "addr_test1stt",
     utxo: {
-      input: { txHash: HASH, outputIndex: 0 },
+      input: { txHash: currentRef === "updated" ? "ef".repeat(32) : HASH, outputIndex: 0 },
       output: { address: "addr_test1stt", amount: [] }
     },
     datum: stateFormToDatum(form)
@@ -368,7 +369,7 @@ test("a confirmed mint refreshes each shared balance once and uses the canonical
     await client.invalidateQueries({ queryKey: balanceKey, exact: true });
   };
   try {
-    await createWorkspaceFlowHandlers(ctx).watchMintCreationConfirmation(HASH, createdToken.unit);
+    await createWorkspaceFlowHandlers(ctx).watchMintCreationConfirmation(HASH, currentRef === "legacy" ? undefined : createdToken.unit);
   } finally {
     stop();
     Object.defineProperty(globalThis, "window", {
@@ -387,7 +388,7 @@ test("a confirmed mint refreshes each shared balance once and uses the canonical
   }));
   assert.equal(balanceReads, 1);
   assert.equal(legacyRefreshes, 0);
-  assert.equal(requestedUnit, createdToken.unit);
+  assert.equal(requestedUnit, currentRef === "legacy" ? undefined : createdToken.unit);
   assert.equal(calls.refreshLockedContractUtxos, undefined);
   assert.equal(calls.refreshPermissionWalletSummaries, undefined);
   assert.deepEqual(calls.runWalletTransactionsRefresh, [[{
@@ -400,6 +401,30 @@ test("a confirmed mint refreshes each shared balance once and uses the canonical
     (calls.setMintConfirmation?.at(-1)?.[0] as { phase?: string } | undefined)?.phase,
     "confirmed"
   );
+});
+
+}
+
+test("mint confirmation rejects another wallet unit even when its current hash matches", async () => {
+  const expectedUnit = `${"aa".repeat(28)}01`;
+  const token = {
+    policyId: "aa".repeat(28), assetNameHex: "02", unit: `${"aa".repeat(28)}02`,
+    scriptAddress: "addr_test1stt",
+    utxo: { input: { txHash: HASH, outputIndex: 0 }, output: { address: "addr_test1stt", amount: [] } },
+    datum: stateFormToDatum(createDefaultStateForm())
+  };
+  const originalWindow = globalThis.window;
+  Object.defineProperty(globalThis, "window", {
+    configurable: true, value: { setTimeout: (callback: () => void) => (callback(), 0) }
+  });
+  const { ctx, calls } = makeCtx({ refreshDetectedTokens: async () => ({ tokens: [token] }) });
+  try {
+    await createWorkspaceFlowHandlers(ctx).watchMintCreationConfirmation(HASH, expectedUnit);
+  } finally {
+    Object.defineProperty(globalThis, "window", { configurable: true, value: originalWindow });
+  }
+  assert.equal((calls.setMintConfirmation?.at(-1)?.[0] as { phase?: string })?.phase, "delayed");
+  assert.equal(calls.runWalletTransactionsRefresh, undefined);
 });
 
 test("an invalidated scan cannot overwrite a newer mint confirmation run", async () => {

@@ -411,6 +411,37 @@ it("drops the identity without prompting when the changed account has not author
   expect(screen.getByTestId("wallet").textContent).toBe("none");
 });
 
+it("drops a dead account when recovery authorization stalls and ignores its late answer", async () => {
+  vi.useFakeTimers();
+  try {
+    let authorize!: (value: boolean) => void;
+    const isEnabled = vi.fn(() => new Promise<boolean>((resolve) => { authorize = resolve; }));
+    inject({ lace: { isEnabled } });
+    const wallet = {
+      ...fakeWallet("addr_test1old"),
+      getUsedAddresses: vi.fn().mockResolvedValueOnce(["addr_test1old"])
+    };
+    mocks.enable.mockResolvedValueOnce(wallet);
+    renderProvider();
+    await act(async () => { await latest.current!.connectWallet("lace"); });
+    wallet.getUsedAddresses.mockRejectedValue({ code: -4, info: "account changed" });
+    await act(async () => { window.dispatchEvent(new Event("focus")); });
+    expect(isEnabled).toHaveBeenCalledOnce();
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(90_000); });
+    expect(latest.current!.activeWallet).toBeNull();
+    expect(latest.current!.activeAddress).toBeNull();
+    expect(screen.getByTestId("ready").textContent).toBe("false");
+    expect(vi.getTimerCount()).toBe(0);
+
+    await act(async () => { authorize(true); });
+    expect(mocks.enable).toHaveBeenCalledOnce();
+    expect(latest.current!.activeWallet).toBeNull();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
 it.each([false, true])(
   "keeps a newer manual connection when focus authorization resolves %s",
   async (authorized) => {

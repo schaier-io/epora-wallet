@@ -2,7 +2,7 @@
 import { formatTimestampLabel } from "@/components/user/workspace/helpers/formatters";
 import { useTranslations } from "next-intl";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -45,6 +45,11 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
   const [busy, setBusy] = useState(false);
   const queryClient = useQueryClient();
   const saveInFlight = useRef(false);
+  const saveLifecycle = useRef(0);
+  useLayoutEffect(() => {
+    saveLifecycle.current += 1;
+    return () => { saveLifecycle.current += 1; };
+  }, [activeWallet, activePaymentKeyHash]);
   // The save outlives a navigation (the await keeps running after unmount), so
   // its completion must know whether the user is still here. Set inside the
   // effect, not at initialization, so a StrictMode remount reads `true` again.
@@ -98,6 +103,7 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
       return;
     }
     saveInFlight.current = true;
+    const lifecycle = saveLifecycle.current;
     setBusy(true);
     setError(null);
     try {
@@ -125,6 +131,7 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
         buildContext = refreshContextForRebuild(applyCoSigners(draft.buildContext, coSigners));
         unsignedTxHex = (await buildProposalTx(activeWallet, buildContext)).txHex;
       }
+      if (!isMountedRef.current || saveLifecycle.current !== lifecycle) return;
       const proposal = await createMutation.mutateAsync({
         walletUnit: draft.walletUnit,
         walletPolicyId: draft.walletPolicyId,
