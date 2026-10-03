@@ -3,13 +3,13 @@ import { beforeEach, expect, it, vi } from "vitest";
 import type * as BlockfrostServer from "@/lib/mesh/blockfrost-server";
 import type * as Logger from "@/lib/observability/logger";
 
-const mocks = vi.hoisted(() => ({ execute: vi.fn(), limit: vi.fn() }));
+const mocks = vi.hoisted(() => ({ execute: vi.fn(), limit: vi.fn(), pair: vi.fn() }));
 vi.mock("@/lib/mesh/blockfrost-server", async (original) => ({
   ...await original<typeof BlockfrostServer>(),
   getBlockfrostProvider: () => ({}),
   executeMeshMethod: mocks.execute
 }));
-vi.mock("@/lib/http/rate-limit", () => ({ clientKey: () => "caller", rateLimit: mocks.limit }));
+vi.mock("@/lib/http/rate-limit", () => ({ clientKey: () => "caller", rateLimit: mocks.limit, rateLimitPair: mocks.pair }));
 vi.mock("@/lib/observability/logger", async (original) => ({
   ...await original<typeof Logger>(),
   logger: { error: vi.fn(), warn: vi.fn() }
@@ -23,13 +23,15 @@ import { logger } from "@/lib/observability/logger";
 
 beforeEach(() => {
   mocks.execute.mockReset();
-  mocks.limit.mockResolvedValue({ ok: true });
+  mocks.limit.mockReset().mockResolvedValue({ ok: true });
+  mocks.pair.mockReset().mockResolvedValue({ primary: { ok: true }, secondary: { ok: true } });
   vi.mocked(logger.error).mockReset();
   vi.mocked(logger.warn).mockReset();
 });
 
-function request(body = '{"method":"fetchAddressUTxOs","args":["address"]}') {
-  return new Request("http://localhost/api/mesh", { method: "POST", body });
+function request(body = '{"method":"fetchAddressUTxOs","args":["address"]}', hint?: string) {
+  return new Request("http://localhost/api/mesh", { method: "POST", body,
+    ...(hint ? { headers: { "X-Mesh-Method": hint } } : {}) });
 }
 
 it("preserves provider rate limits and the retry header", async () => {
@@ -131,4 +133,80 @@ it.each(["submitTx", "evaluateTx"])("never retries %s during an upstream outage"
   mocks.execute.mockRejectedValue(JSON.stringify({ status: 500 }));
   expect((await POST(request(JSON.stringify({ method, args: ["00"] })))).status).toBe(502);
   expect(mocks.execute).toHaveBeenCalledTimes(1);
+});
+
+it.each(["evaluateTx", "submitTx"])("charges both %s buckets with one paired call when hinted", async method => {
+  mocks.execute.mockResolvedValue([]);
+  expect((await POST(request(JSON.stringify({ method, args: ["00"] }), method))).status).toBe(200);
+  expect(mocks.pair).toHaveBeenCalledExactlyOnceWith(
+    { key: "caller", limit: 1200, windowMs: 60_000 },
+    { key: `caller:${method}`, limit: 200, windowMs: 60_000 }
+  );
+  expect(mocks.limit).not.toHaveBeenCalled();
+});
+
+it("rejects the primary bucket before reading invalid JSON", async () => {
+  mocks.pair.mockResolvedValue({ primary: { ok: false, retryAfterSeconds: 17 } });
+  const response = await POST(request("{", "evaluateTx"));
+  expect(response.status).toBe(429);
+  expect(response.headers.get("Retry-After")).toBe("17");
+  expect(mocks.limit).not.toHaveBeenCalled();
+  expect(mocks.execute).not.toHaveBeenCalled();
+});
+
+it("preserves the secondary retry hint and blocks evaluation", async () => {
+  mocks.pair.mockResolvedValue({ primary: { ok: true }, secondary: { ok: false, retryAfterSeconds: 23 } });
+  const response = await POST(request('{"method":"evaluateTx","args":["00"]}', "evaluateTx"));
+  expect(response.status).toBe(429);
+  expect(response.headers.get("Retry-After")).toBe("23");
+  expect(mocks.execute).not.toHaveBeenCalled();
+});
+
+it("checks the actual expensive method when the hint differs", async () => {
+  mocks.limit.mockResolvedValue({ ok: false, retryAfterSeconds: 9 });
+  const response = await POST(request('{"method":"evaluateTx","args":["00"]}', "submitTx"));
+  expect(response.status).toBe(429);
+  expect(mocks.pair).toHaveBeenCalledTimes(1);
+  expect(mocks.limit).toHaveBeenCalledExactlyOnceWith("caller:evaluateTx", 200, 60_000);
+  expect(mocks.execute).not.toHaveBeenCalled();
+});
+
+it.each([undefined, "fetchAddressUTxOs", "EvaluateTx", "untrusted"])("keeps legacy debits for hint %s", async hint => {
+  mocks.execute.mockResolvedValue([]);
+  expect((await POST(request('{"method":"evaluateTx","args":["00"]}', hint))).status).toBe(200);
+  expect(mocks.pair).not.toHaveBeenCalled();
+  expect(mocks.limit.mock.calls).toEqual([["caller", 1200, 60_000], ["caller:evaluateTx", 200, 60_000]]);
+});
+
+it("a false expensive hint does not block an allowed read method", async () => {
+  mocks.pair.mockResolvedValue({ primary: { ok: true }, secondary: { ok: false, retryAfterSeconds: 23 } });
+  mocks.execute.mockResolvedValue([]);
+  expect((await POST(request(undefined, "submitTx"))).status).toBe(200);
+  expect(mocks.limit).not.toHaveBeenCalled();
+});
+
+it("invalid hinted bodies retain their bounded parsing errors", async () => {
+  mocks.pair.mockResolvedValue({ primary: { ok: true }, secondary: { ok: false, retryAfterSeconds: 23 } });
+  expect((await POST(request("{", "evaluateTx"))).status).toBe(400);
+  expect((await POST(request('{"method":"invalid"}', "evaluateTx"))).status).toBe(400);
+  expect(mocks.execute).not.toHaveBeenCalled();
+});
+
+it.each(["success", "input-error", "upstream-error", "rate-error"])("returns only numeric server timing for %s", async outcome => {
+  mocks.execute.mockResolvedValue([]);
+  if (outcome === "upstream-error") mocks.execute.mockRejectedValue(new Error("secret-provider-detail"));
+  if (outcome === "rate-error") mocks.limit.mockResolvedValue({ ok: false, retryAfterSeconds: 5 });
+  const response = await POST(request(outcome === "input-error" ? "{" : undefined));
+  const timing = response.headers.get("Server-Timing");
+  expect(timing).toMatch(/^rate_limit;dur=\d+\.\d, provider;dur=\d+\.\d, total;dur=\d+\.\d$/);
+  expect(timing).not.toContain("secret");
+  if (outcome === "input-error" || outcome === "rate-error") expect(timing).toContain("provider;dur=0.0");
+});
+
+it("returns timed failure when the rate-limit store fails", async () => {
+  mocks.limit.mockRejectedValue(new Error("database unavailable"));
+  const response = await POST(request());
+  expect(response.status).toBe(500);
+  expect(response.headers.get("Server-Timing")).toContain("provider;dur=0.0");
+  expect(mocks.execute).not.toHaveBeenCalled();
 });

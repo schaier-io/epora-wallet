@@ -266,3 +266,39 @@ Turbopack could not bind its worker port in this environment. Webpack did not em
 The existing CI Turbopack build and bundle gate remain unchanged.
 REPORTED: The final cross-layer adversarial review found no functional defects.
 Limit: Deployed cache latency, browser warmup overlap, and live remote evaluation parity remain unmeasured.
+
+
+## Transaction build latency, 2026-10-04
+
+VERIFIED: One branch contains the requested performance changes. It rebased onto `2ca8b150` without conflicts.
+Reference hashes reuse the existing bounded script cache. Wallet selection preloads immutable reference metadata.
+Review entry warms the evaluation worker again. Independent State and reference reads overlap wallet setup.
+Exact evaluation candidates share one owned result within a build pass. Each final pass resets this memo.
+Fresh spent-status checks remain per pass. Existing form prebuild already prepares and reuses the action payload.
+VERIFIED: Matching expensive RPC hints combine caller and method limits in one PostgreSQL statement.
+Existing probabilistic cleanup and mismatched hints can add database queries.
+RPC and API diagnostics report durations without transaction payloads or keys.
+VERIFIED: Full Vitest returned `Tests 2232 passed (2232)`.
+The Node suite returned `tests 1966; pass 1935; fail 0; skipped 31`.
+Skipped database tests were not validated by that suite. The isolated rate-limit PostgreSQL run returned `tests 9; pass 9; fail 0; skipped 0`.
+VERIFIED: Type checking, full ESLint, i18n, OpenAPI, generated fixtures, and helper checks returned exit 0.
+The new main sidebar tests returned `Tests 18 passed (18)` after the rebase.
+VERIFIED: Webpack production build returned exit 0. Local Turbopack failed with `binding to a port: Operation not permitted (os error 1)`.
+Webpack does not emit the route bundle statistics. CI must validate the Turbopack bundle gate.
+REPORTED: Independent adversarial reviews found no remaining defects.
+REPORTED: Source-reverted route tests collected 29 cases, with 11 failures. Restored source passed all 29.
+REPORTED: Source-reverted evaluation tests collected 8 cases, with 8 failures. Restored source passed all 8.
+Limit: Live provider and deployed Vercel latency remain unmeasured. No production latency reduction is claimed.
+
+
+## PR #705 CI schema correction, 2026-10-04
+
+VERIFIED: CI run `37148087493` returned `tests 2008; pass 2007; fail 1; skipped 0`.
+The new schema test failed with `relation "public.ApiRateLimit" does not exist`.
+The prior local nine-test check used `public`. It did not test CI's `stt_test` source schema.
+VERIFIED: A local database with only `stt_test.ApiRateLimit` reproduced `tests 6; pass 5; fail 1`.
+The fixture now copies from `getDatabaseSchema()` and quotes that identifier.
+The same non-public database then returned `tests 9; pass 9; fail 0; skipped 0`.
+VERIFIED: Scoped ESLint and TypeScript checks returned exit 0.
+VERIFIED: PR #705 now reports `baseRefName: dev` and `mergeable: MERGEABLE`.
+Production code remains unchanged. The lesson is to test database fixtures with the same schema isolation as CI.

@@ -242,3 +242,100 @@ test("failed status reads retry within their own pass", async () => {
   await scoped.get(path);
   assert.equal(calls, 2);
 });
+
+test("identical evaluation candidates share work but own their budgets", async () => {
+  const { fetcher } = provider();
+  let calls = 0;
+  const result = [{ tag: "SPEND" as const, index: 0, budget: { mem: 1, steps: 2 } }];
+  fetcher.evaluateTx = async () => { calls++; return result; };
+  const scoped = createBuildParameterFetcher(fetcher);
+  const [first, second] = await Promise.all([scoped.evaluateTx("tx"), scoped.evaluateTx("tx")]);
+  first[0].budget.mem = 99;
+  result[0].budget.steps = 99;
+  assert.equal(second[0].budget.mem, 1);
+  assert.equal((await scoped.evaluateTx("tx"))[0].budget.steps, 2);
+  assert.equal(calls, 1);
+});
+
+test("evaluation reuse includes exact bytes, context, and each build pass", async () => {
+  const { source, fetcher } = provider();
+  const scoped = createBuildParameterFetcher(fetcher);
+  const output = { input: { txHash: "ab".repeat(32), outputIndex: 0 },
+    output: { address: "address", amount: [{ unit: "lovelace", quantity: "1" }] } };
+  await scoped.evaluateTx("tx", [output], []);
+  await scoped.evaluateTx("tx", structuredClone([output]), []);
+  await scoped.evaluateTx("different-tx", [output], []);
+  await scoped.evaluateTx("tx", [output], []);
+  output.output.amount[0].quantity = "2";
+  await scoped.evaluateTx("tx", [output], []);
+  await scoped.evaluateTx("tx", [output], ["chained"]);
+  await scoped.evaluateTx("tx", [output], ["other-chained"]);
+  assert.equal(source.evaluations.length, 6);
+  beginBuildPass(scoped);
+  await scoped.evaluateTx("tx", [output], ["other-chained"]);
+  await scoped.evaluateTx("tx", [output], ["other-chained"]);
+  await createBuildParameterFetcher(fetcher).evaluateTx("tx", [output], ["other-chained"]);
+  assert.equal(source.evaluations.length, 8);
+});
+
+test("rejected evaluation candidates retry without evicting a newer candidate", async () => {
+  const { fetcher } = provider();
+  let rejectOld!: (error: Error) => void;
+  let calls = 0;
+  fetcher.evaluateTx = async tx => {
+    calls++;
+    if (tx === "old" && calls === 1) return new Promise((_, reject) => { rejectOld = reject; });
+    return [];
+  };
+  const scoped = createBuildParameterFetcher(fetcher);
+  const old = scoped.evaluateTx("old");
+  const failure = assert.rejects(old, /offline/);
+  await scoped.evaluateTx("new");
+  rejectOld(new Error("offline"));
+  await failure;
+  await scoped.evaluateTx("new");
+  assert.equal(calls, 2);
+  await scoped.evaluateTx("old");
+  assert.equal(calls, 3);
+});
+
+test("cancelled evaluation results cannot be read from the cache", async () => {
+  const { fetcher } = provider();
+  const controller = new AbortController();
+  Object.defineProperty(fetcher, "signal", { value: controller.signal });
+  let resolve!: (result: []) => void;
+  let calls = 0;
+  fetcher.evaluateTx = async () => { calls++; return new Promise(done => { resolve = done; }); };
+  const scoped = createBuildParameterFetcher(fetcher);
+  const pending = scoped.evaluateTx("tx");
+  const rejected = assert.rejects(pending, { name: "AbortError" });
+  controller.abort();
+  resolve([]);
+  await rejected;
+  await assert.rejects(scoped.evaluateTx("tx"), { name: "AbortError" });
+  assert.equal(calls, 1);
+  await createBuildParameterFetcher(provider().fetcher).evaluateTx("tx");
+});
+
+test("evaluation context remains the exact snapshot used for its cache key", async () => {
+  const { fetcher } = provider();
+  const output = { input: { txHash: "ab".repeat(32), outputIndex: 0 },
+    output: { address: "address", amount: [{ unit: "lovelace", quantity: "1" }] } };
+  const chained = ["original"];
+  const expected = structuredClone([output]);
+  let finish!: () => void;
+  const waiting = new Promise<void>(resolve => { finish = resolve; });
+  fetcher.evaluateTx = async (_, inputs, transactions) => {
+    await waiting;
+    assert.deepEqual(inputs, expected);
+    assert.deepEqual(transactions, ["original"]);
+    return [];
+  };
+  const scoped = createBuildParameterFetcher(fetcher);
+  const pending = scoped.evaluateTx("tx", [output], chained);
+  output.output.amount[0].quantity = "changed";
+  chained[0] = "changed";
+  finish();
+  await pending;
+  await scoped.evaluateTx("tx", expected, ["original"]);
+});

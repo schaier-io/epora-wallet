@@ -2,7 +2,7 @@ import { buildBeneficiaryDistributionTx } from "./beneficiary-distribution";
 import { readCallerForwardedState, validateSttSpendInput } from "./internals/stt-spend-preflight";
 import { deriveSttSpendActionState } from "./stt-spend-action-state";
 import { resolveStreamingPayoutFundingSource } from "./stt-spend-payout";
-import { WALLET_SPEND_VALIDATOR, assertOutputMeetsMinimumLovelace, positiveOutputAmount, addExtraRequiredSigners, buildTransactionWithReestimatedLimits, classifyStreamingPayoutBatch, createInputRefKey, createStateForwarding, createStreamingPayoutBuild, createTxPreview, decodeConstrDatumFromUtxo, ensureUniqueWalletInputRefs, resolveExactWalletInputUtxos, resolveStreamingAdaPayoutTopUps, runStateForwarding, getLovelaceQuantity, getValidityWindow, mergeAssetLists, mergeAssetsByUnit, mergeRestrictedSttAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, sendAssetsWithOptionalInlineDatumAndReferenceScript, setupTransaction, subtractSelectedInputRemainder, validateForwardedStateDatum, withStage } from "./internals";
+import { WALLET_SPEND_VALIDATOR, assertOutputMeetsMinimumLovelace, positiveOutputAmount, addExtraRequiredSigners, buildTransactionWithReestimatedLimits, classifyStreamingPayoutBatch, createInputRefKey, createStateForwarding, createStreamingPayoutBuild, createTxPreview, decodeConstrDatumFromUtxo, ensureUniqueWalletInputRefs, resolveExactWalletInputUtxos, resolveStateForwardingReads, resolveStreamingAdaPayoutTopUps, runStateForwarding, getLovelaceQuantity, getValidityWindow, mergeAssetLists, mergeAssetsByUnit, mergeRestrictedSttAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, sendAssetsWithOptionalInlineDatumAndReferenceScript, setupTransaction, subtractSelectedInputRemainder, validateForwardedStateDatum, withStage } from "./internals";
 import { prepareManagedStreamingPayments } from "./internals/streaming-asset-proof";
 import { validateBeneficiaryDestinations } from "@/lib/contracts/state-validation-streaming";
 import { type OnChainStructuredAction, buildSttSpendRedeemerData, buildWalletSpendRedeemerData, resolveStructuredOnChainAction } from "@/lib/contracts/action-data";
@@ -105,12 +105,20 @@ export async function buildSttSpendTx(
         streamingPayoutBatch ?? "empty",
         walletInputs.length > 0
       );
-      const setup = await setupTransaction(
-        wallet,
-        validityWindowReferenceTimeMs,
-        buildFetcher,
-        payoutBuild.setupOptions
-      );
+      const [setup, resolvedInput] = await Promise.all([
+        setupTransaction(wallet, validityWindowReferenceTimeMs, buildFetcher, payoutBuild.setupOptions),
+        resolveStateForwardingReads(stateForwarding, buildFetcher, {
+          txHash: input.sttInputTxHash,
+          outputIndex: input.sttInputOutputIndex,
+          stage: "stt-spend:fetchScriptUtxos"
+        }, {
+          stage: "stt-spend:resolveSharedSttReferenceScript",
+          details: { action },
+          excludedRefs: walletInputs.map(walletInput =>
+            createInputRefKey(walletInput.txHash, walletInput.outputIndex)
+          )
+        })
+      ]);
       const { tx, fetcher, setupDiagnostics, signerAddress } = setup;
       const transferTopUps: TransferTopUp[] = [];
       // Co-signers of an approval request: the validator reads `extra_signatories`,
@@ -137,6 +145,7 @@ export async function buildSttSpendTx(
       let effectiveExtraTransfers = extraTransfers;
       const forwarding = await runStateForwarding({
         definition: stateForwarding,
+        resolvedInput,
         fetcher,
         tx,
         input: {

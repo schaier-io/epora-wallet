@@ -11,7 +11,7 @@ import {
   type UserFormState
 } from "@/lib/contracts/state-form";
 import type { BuildResult, ContractConfig } from "@/lib/types/contracts";
-import type { WalletSource } from "@/lib/mesh/tx-context";
+import type { TxFetcher, WalletSource } from "@/lib/mesh/tx-context";
 import type * as TransactionInternals from "./internals";
 import type * as Blueprint from "@/lib/contracts/blueprint";
 
@@ -24,9 +24,10 @@ vi.mock("./internals", async (importOriginal) => {
       async (
         _draftStage: string,
         _finalStage: string,
-        build: (overrides: undefined) => Promise<{ context?: Record<string, unknown> }>
+        build: Parameters<typeof TransactionInternals.buildTransactionWithReestimatedLimits>[2],
+        fetcher: TxFetcher = {} as TxFetcher
       ) => {
-        const built = await build(undefined);
+        const built = await build(undefined, fetcher);
         return {
           txHex: "00",
           estimatedFeeLovelace: "1",
@@ -46,6 +47,7 @@ vi.mock("./internals", async (importOriginal) => {
       params: { sttPolicyId: "aa".repeat(28), sttAssetNameHex: "01" }
     })),
     fetchChangeAddressReferenceUtxos: vi.fn(async () => []),
+    resolveStateForwardingReads: vi.fn(async () => ({ inputRef: "state#0" })),
     runStateForwarding: vi.fn(async () => ({
       diagnostics: {},
       referenceScriptUsage: "inline",
