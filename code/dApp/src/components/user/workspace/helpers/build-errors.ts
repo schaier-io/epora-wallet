@@ -202,6 +202,7 @@ function createDiagnosticId(details: string) {
   return `${timestampPart}-${hash.toString(36).padStart(4, "0")}`;
 }
 
+/** Map known build failures to recovery guidance and mark whether the outcome is expected. */
 function resolveBuildErrorOutcome(
   error: unknown,
   fallback: string
@@ -303,6 +304,7 @@ function resolveBuildErrorOutcome(
   ];
 }
 
+/** Find missing or spent input references in nested errors so the UI can offer chain refresh. */
 function extractMissingTransactionInputRef(error: unknown) {
   for (const message of collectBuildErrorMessages(error)) {
     const spentWalletInput = message.match(
