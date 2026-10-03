@@ -93,6 +93,9 @@ jobs:
 
       - run: pnpm test
 
+      # Verify CLI database selection and deployment order without database writes.
+      - run: node --test scripts/prisma-config.test.mjs scripts/deployment-build.test.mjs
+
       # Plain-node smoke checks for the pure user-flow helpers and the lovelace
       # formatting (scripts/test-user-flow-helpers.mjs). They live outside both
       # test suites (node:test owns src/**/*.test.ts, vitest owns *.test.tsx),

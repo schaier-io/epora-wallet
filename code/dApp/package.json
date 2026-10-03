@@ -10,7 +10,7 @@
     "postinstall": "prisma generate && node ./scripts/sync-swagger-ui.mjs",
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
-    "test": "DATABASE_URL='postgresql://postgres@localhost:5432/wallet?schema=stt_test' prisma db push && DATABASE_URL='postgresql://postgres@localhost:5432/wallet?schema=stt_test' node --import tsx --test --test-concurrency=1 'src/**/*.test.ts'",
+    "test": "env -u DATABASE_URL_UNPOOLED DATABASE_URL='postgresql://postgres@localhost:5432/wallet?schema=stt_test' prisma db push && DATABASE_URL='postgresql://postgres@localhost:5432/wallet?schema=stt_test' node --import tsx --test --test-concurrency=1 'src/**/*.test.ts'",
     "test:unit": "env -u DATABASE_URL node --import tsx --test --test-concurrency=1 'src/**/*.test.ts'",
     "test:user-flow-helpers": "node --import tsx scripts/test-user-flow-helpers.ts",
     "test:components": "vitest run",
