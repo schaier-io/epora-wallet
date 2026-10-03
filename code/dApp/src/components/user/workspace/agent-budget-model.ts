@@ -44,7 +44,7 @@ export type AgentBudget = {
 /** The comparison mirrors the on-chain anchor: the reset counts once its stamp has passed. */
 function readResetState(nextAllowanceReset: string, nowMs: number): AgentBudgetResetState {
   const normalized = nextAllowanceReset.trim();
-  if (!/^\d+$/.test(normalized) || normalized === "0") {
+  if (!/^\d+$/.test(normalized)) {
     return { kind: "reset-unknown" };
   }
 
