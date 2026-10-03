@@ -41,6 +41,13 @@ Production processor contracts, hosting regions, and retention settings require 
 The company details and `info@41bit.io` are operator-supplied. An automated Wyoming registry lookup encountered a human-verification page and did not establish company status.
 Wallet-signed terms acceptance is deferred. The beta uses a browser/API acknowledgement.
 
+## Wallet update sidebar, 2026-10-04
+
+- Completed, implementer. VERIFIED: `wallet-state-update-banner.tsx` shows the pending transaction only for a selected blocked action. `workspace-sidebar-view.tsx` mounts it before wallet detection completes. The retry control is removed.
+- VERIFIED: banner regressions returned `Tests 6 failed | 2 passed (8)` before the initial fix. The empty-cache sidebar regression returned `Tests 1 failed | 9 passed (10)` before the placement fix.
+- VERIFIED: the two component suites returned `Tests 18 passed (18)` on the branch based on `dev`. Typecheck, changed-file ESLint, and `git diff --check` exited with code 0. These checks used local dependencies and mocked wallet data. Browser layout was not measured.
+- Next, reviewer: review the PR against `dev`.
+
 ## Error repair, 2026-10-03
 
 - VERIFIED, coordinator: repair layers are `fix/mesh-read-recovery`, `fix/build-error-recovery`, and `fix/signer-schema-readiness`.
