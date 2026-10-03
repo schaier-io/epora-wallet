@@ -371,6 +371,12 @@
     "value1Balance": "{value1} balance",
     "walletBalance": "Wallet balance"
   },
+  "ComponentsUserWorkspaceWalletStateUpdateBanner": {
+    "sendingAndSettingsPause": "A transaction moved this wallet's state and waits for a block. Sending, settings and payouts unlock when it confirms. You can still add funds.",
+    "thisActionUnlocksWhenItConfirms": "A transaction moved this wallet's state and waits for a block. This action unlocks when it confirms. You can still add funds.",
+    "updatingThisWallet": "Updating this wallet",
+    "viewTransactionHashOnCardanoscan": "View transaction {hash} on Cardanoscan"
+  },
   "ComponentsUserWorkspaceWorkspaceAllowancePreview": {
     "connectAWalletBeforeYouContinueSendingFrom": "Connect a wallet before you continue. Sending from an allowance needs its key.",
     "couldNotWorkOutWhichSpenderThisSend": "Could not work out which spender this send belongs to."
