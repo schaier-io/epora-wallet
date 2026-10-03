@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { BlockfrostProvider } from "@meshsdk/core";
 import type * as BlockfrostServer from "./blockfrost-server";
+import type * as BlockfrostReads from "./blockfrost-reads";
 import type { ServerEnv } from "@/lib/env/server-env";
 import { MESH_READ_TIMEOUT_MS } from "./read-retry";
 import type { CardanoNetwork } from "@/lib/cardano-network";
@@ -10,6 +11,11 @@ import { readRegionalInputMetadata, REGIONAL_METADATA_DEADLINE_MS, MAX_REGIONAL_
 import { executeMeshMethod } from "./blockfrost-server";
 import { createServerTxFetcher } from "./server-wallet";
 
+const hydration = vi.hoisted(() => ({ read: vi.fn() }));
+vi.mock("./blockfrost-reads", async original => ({
+  ...await original<typeof BlockfrostReads>(),
+  fetchTxUtxosStrict: hydration.read
+}));
 const cache = vi.hoisted(() => ({ values: new Map<string, unknown>(), get: vi.fn<(key: string) => Promise<unknown>>(), set: vi.fn<(key: string, value: unknown, options?: { ttl: number }) => Promise<void>>(), factory: vi.fn(), waitUntil: vi.fn<(pending: Promise<unknown>) => void>(), provider: undefined as unknown as BlockfrostProvider }));
 vi.mock("@vercel/functions", () => ({ getCache: cache.factory, waitUntil: cache.waitUntil }));
 vi.mock("./blockfrost-server", async original => ({ ...await original<typeof BlockfrostServer>(), getBlockfrostProvider: () => cache.provider }));
@@ -23,6 +29,7 @@ function provider(value = [output()]) {
 async function writes() { await Promise.all(cache.waitUntil.mock.calls.map(([pending]) => pending as Promise<unknown>)); }
 beforeEach(() => {
   vi.clearAllMocks(); cache.values.clear();
+  hydration.read.mockReset().mockImplementation((source: BlockfrostProvider, hash: string, index?: number) => source.fetchUTxOs(hash, index));
   cache.get.mockReset().mockImplementation(async key => cache.values.get(key));
   cache.set.mockReset().mockImplementation(async (key, value) => { cache.values.set(key, structuredClone(value)); });
   cache.factory.mockReset().mockReturnValue(cache);
@@ -31,6 +38,23 @@ beforeEach(() => {
 afterEach(async () => { await writes(); vi.useRealTimers(); vi.unstubAllEnvs(); });
 
 describe("regional immutable input metadata", () => {
+  it("filters transaction outputs before hydration through the trusted RPC path", async () => {
+    const actual = await vi.importActual<typeof BlockfrostReads>("./blockfrost-reads");
+    hydration.read.mockImplementation(actual.fetchTxUtxosStrict);
+    const current = provider();
+    current.source.get.mockResolvedValue({ outputs: [0, 1].map(output_index => ({
+      address: "addr_test_fixture", output_index, amount: [{ unit: "lovelace", quantity: "10000000" }],
+      data_hash: null, inline_datum: "d87980", reference_script_hash: output_index ? "ab".repeat(28) : null
+    })) } as never);
+    await expect(readRegionalInputMetadata(current.provider, HASH, 0, "preprod", {})).resolves.toEqual([
+      { input: { txHash: HASH, outputIndex: 0 }, output: {
+        address: "addr_test_fixture", amount: [{ unit: "lovelace", quantity: "10000000" }],
+        dataHash: undefined, plutusData: "d87980", scriptHash: undefined, scriptRef: undefined
+      } }
+    ]);
+    expect(current.source.get).toHaveBeenCalledExactlyOnceWith(`txs/${HASH}/utxos`);
+    expect(current.source.fetchUTxOs).not.toHaveBeenCalled();
+  });
   it("shares trusted output content across providers and deployments with clones and a TTL", async () => {
     const first = provider();
     const initial = await readRegionalInputMetadata(first.provider, HASH.toUpperCase(), 0, "preprod", env);

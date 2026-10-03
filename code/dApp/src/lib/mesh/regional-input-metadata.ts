@@ -6,6 +6,7 @@ import { CARDANO_NETWORK, type CardanoNetwork } from "@/lib/cardano-network";
 import { getServerEnv, type ServerEnv } from "@/lib/env/server-env";
 import { MESH_READ_TIMEOUT_MS } from "./read-retry";
 import { immutableOutputs } from "./immutable-output-metadata";
+import { fetchTxUtxosStrict } from "./blockfrost-reads";
 
 export const REGIONAL_METADATA_TTL_SECONDS = 60;
 export const REGIONAL_METADATA_DEADLINE_MS = 100;
@@ -42,10 +43,10 @@ export async function readRegionalInputMetadata(
   provider: BlockfrostProvider, hash: string, index?: number,
   network: CardanoNetwork = CARDANO_NETWORK, env: ServerEnv = getServerEnv()
 ): Promise<UTxO[]> {
-  if (!/^[a-fA-F0-9]{64}$/.test(hash) || (index !== undefined && (!Number.isSafeInteger(index) || index < 0))) return provider.fetchUTxOs(hash, index);
+  if (!/^[a-fA-F0-9]{64}$/.test(hash) || (index !== undefined && (!Number.isSafeInteger(index) || index < 0))) return fetchTxUtxosStrict(provider, hash, index);
   const normalized = hash.toLowerCase();
   const key = scopedKey(normalized, index, network, env);
-  if (!key) return provider.fetchUTxOs(hash, index);
+  if (!key) return fetchTxUtxosStrict(provider, hash, index);
   let reads = pendingReads.get(provider);
   if (!reads) { reads = new Map(); pendingReads.set(provider, reads); }
   const entry = reads.get(key);
@@ -55,10 +56,10 @@ export async function readRegionalInputMetadata(
     pending = (async () => {
       let cache: ReturnType<typeof getCache>;
       try { cache = getCache({ namespace: CACHE_NAMESPACE, keyHashFunction: key => createHash("sha256").update(key).digest("hex") }); }
-      catch { return provider.fetchUTxOs(hash, index); }
+      catch { return fetchTxUtxosStrict(provider, hash, index); }
       const cached = cacheable(await bounded(() => cache.get(key)), normalized, index);
       if (cached) return cached;
-      const value = await provider.fetchUTxOs(hash, index);
+      const value = await fetchTxUtxosStrict(provider, hash, index);
       const clean = cacheable(value, normalized, index);
       if (clean) {
         const write = bounded(() => cache.set(key, clean, { ttl: REGIONAL_METADATA_TTL_SECONDS })).then(() => undefined);

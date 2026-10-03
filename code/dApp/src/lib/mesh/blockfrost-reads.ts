@@ -1,7 +1,9 @@
 import { parseAssetUnit, type NativeScript, type UTxO } from "@meshsdk/common";
-import { normalizePlutusScript, toScriptRef } from "@meshsdk/core-cst";
+import { normalizePlutusScript, resolveNativeScriptHash, toScriptRef } from "@meshsdk/core-cst";
+import { resolveScriptHash } from "@meshsdk/core";
 import { z } from "zod";
 import { meshHttpStatus } from "./http-error";
+import { MESH_READ_TIMEOUT_MS } from "./read-retry";
 
 type BlockfrostReader = { get(path: string): Promise<unknown> };
 const PAGE_SIZE = 100;
@@ -16,15 +18,16 @@ const Amount = z.array(z.object({
 })).min(1);
 
 // Wire fields follow blockfrost-openapi/src/schemas/addresses/address_utxo_content.yaml.
-const UtxoPage = z.array(z.object({
+const Output = z.object({
   address: z.string().min(1),
-  tx_hash: Hash32,
   output_index: z.number().int().nonnegative().safe(),
   amount: Amount,
   data_hash: Hash32.nullable(),
   inline_datum: Hex.nullable(),
   reference_script_hash: Hash28.nullable()
-})).max(PAGE_SIZE);
+});
+const UtxoPage = z.array(Output.extend({ tx_hash: Hash32 })).max(PAGE_SIZE);
+const TransactionOutputs = z.object({ outputs: z.array(Output) });
 const AddressPage = z.array(z.object({
   address: z.string().min(1), quantity: Quantity
 })).max(PAGE_SIZE);
@@ -86,38 +89,75 @@ async function readScriptRef(provider: BlockfrostReader, hash: string): Promise<
     }
   }
   try {
-    return String(toScriptRef(script).toCbor());
+    const reference = toScriptRef(script);
+    const actualHash = "version" in script ? resolveScriptHash(script.code, script.version) : resolveNativeScriptHash(script);
+    if (actualHash !== hash.toLowerCase()) {
+      throw new Error("Reference script hash does not match its content.");
+    }
+    return String(reference.toCbor());
   } catch (error) {
     throw new BlockfrostResponseError(path, error);
   }
 }
 
+export const MAX_SCRIPT_CACHE_ENTRIES = 128;
+export const SCRIPT_CACHE_TTL_MS = 60_000;
+const SCRIPT_READ_CONCURRENCY = 8;
+type ScriptEntry = { promise: Promise<string>; expiresAt: number };
+const scriptCaches = new WeakMap<BlockfrostReader, Map<string, ScriptEntry>>();
+
+function readCachedScriptRef(provider: BlockfrostReader, hash: string): Promise<string> {
+  const normalized = hash.toLowerCase();
+  let cache = scriptCaches.get(provider);
+  if (!cache) { cache = new Map(); scriptCaches.set(provider, cache); }
+  let entry = cache.get(normalized);
+  if (!entry || entry.expiresAt <= Date.now()) {
+    const owner = cache;
+    const current: ScriptEntry = {
+      expiresAt: Date.now() + MESH_READ_TIMEOUT_MS,
+      promise: Promise.resolve().then(() => readScriptRef(provider, normalized))
+    };
+    owner.delete(normalized);
+    owner.set(normalized, current);
+    while (owner.size > MAX_SCRIPT_CACHE_ENTRIES) owner.delete(owner.keys().next().value!);
+    void current.promise.then(() => {
+      if (owner.get(normalized) === current) current.expiresAt = Date.now() + SCRIPT_CACHE_TTL_MS;
+    }, () => { if (owner.get(normalized) === current) owner.delete(normalized); });
+    entry = current;
+  }
+  return entry.promise;
+}
+
+async function hydrateOutputs(provider: BlockfrostReader, rows: Array<z.infer<typeof Output> & { tx_hash: string }>): Promise<UTxO[]> {
+  const utxos: UTxO[] = [];
+  for (let start = 0; start < rows.length; start += SCRIPT_READ_CONCURRENCY) {
+    utxos.push(...await Promise.all(rows.slice(start, start + SCRIPT_READ_CONCURRENCY).map(async row => ({
+      input: { txHash: row.tx_hash, outputIndex: row.output_index },
+      output: {
+        address: row.address, amount: row.amount,
+        dataHash: row.data_hash ?? undefined, plutusData: row.inline_datum ?? undefined,
+        scriptHash: row.reference_script_hash ?? undefined,
+        scriptRef: row.reference_script_hash ? await readCachedScriptRef(provider, row.reference_script_hash) : undefined
+      }
+    }))));
+  }
+  return utxos;
+}
+
+/** Filter before hydration so unrelated transaction outputs cause no script reads. */
+export async function fetchTxUtxosStrict(provider: BlockfrostReader, hash: string, index?: number): Promise<UTxO[]> {
+  const path = `txs/${encodeURIComponent(hash)}/utxos`;
+  const { outputs } = parseResponse(TransactionOutputs, await provider.get(path), path);
+  const selected = index === undefined ? outputs : outputs.filter(output => output.output_index === index);
+  return hydrateOutputs(provider, selected.map(output => ({ ...output, tx_hash: hash.toLowerCase() })));
+}
+
 export async function fetchAddressUtxosStrict(provider: BlockfrostReader, address: string, asset?: string): Promise<UTxO[]> {
   const path = `/addresses/${encodeURIComponent(address)}/utxos${asset ? `/${encodeURIComponent(asset)}` : ""}`;
   const utxos: UTxO[] = [];
-  const scripts = new Map<string, Promise<string>>();
   for (let page = 1; ; page += 1) {
     const rows = await readPage(provider, `${path}?count=${PAGE_SIZE}&page=${page}&order=asc`, UtxoPage);
-    for (const row of rows) {
-      let scriptRef: string | undefined;
-      if (row.reference_script_hash) {
-        const hash = row.reference_script_hash;
-        const pending = scripts.get(hash) ?? readScriptRef(provider, hash);
-        scripts.set(hash, pending);
-        scriptRef = await pending;
-      }
-      utxos.push({
-        input: { txHash: row.tx_hash, outputIndex: row.output_index },
-        output: {
-          address: row.address,
-          amount: row.amount,
-          dataHash: row.data_hash ?? undefined,
-          plutusData: row.inline_datum ?? undefined,
-          scriptHash: row.reference_script_hash ?? undefined,
-          scriptRef
-        }
-      });
-    }
+    utxos.push(...await hydrateOutputs(provider, rows));
     if (rows.length < PAGE_SIZE) return utxos;
   }
 }
