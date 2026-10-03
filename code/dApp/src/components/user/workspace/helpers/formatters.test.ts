@@ -213,7 +213,7 @@ test("formatActivityAddressLabel identifies this wallet, connected wallet, and o
   assert.equal(formatActivityAddressLabel(other, "walletA"), `${other.slice(0, 12)}...${other.slice(-8)}`);
 });
 
-test("buildAssetSelectionOptions sorts lovelace first, then known before unknown, and builds labels", () => {
+test("buildAssetSelectionOptions sorts ADA first, then decoded names without issuer claims", () => {
   const assets: Asset[] = [
     { unit: TIK, quantity: "7" },
     { unit: USDM, quantity: "42" },
@@ -222,19 +222,22 @@ test("buildAssetSelectionOptions sorts lovelace first, then known before unknown
   const options = buildAssetSelectionOptions(assets);
   assert.deepEqual(
     options.map((option) => option.unit),
-    ["lovelace", USDM, TIK]
+    ["lovelace", TIK, USDM]
   );
 
-  const [lovelace, usdm, tik] = options;
+  const [lovelace, tik, usdm] = options;
   // Lovelace carries a knownMeta with an empty display name; the label falls
   // back to the bare symbol instead of a dangling " · " separator.
   assert.equal(lovelace!.label, "ADA");
   assert.equal(lovelace!.availableLabel, "2.5 ADA available");
   assert.equal(lovelace!.maxQuantity, "2500000");
-  assert.equal(usdm!.label, "USDM · Mehen USDM"); // known meta name appended
+  assert.equal(usdm!.label, "USDM"); // A name alone cannot attest the issuer.
   assert.equal(usdm!.availableLabel, "42 USDM available");
-  assert.equal(tik!.label, "TIK"); // unknown -> symbol only
+  assert.equal(tik!.label, "TIK");
   assert.match(tik!.searchableText, /tik/);
+  assert.ok(usdm!.searchableText.includes(USDM.toLowerCase()));
+  assert.equal(usdm!.maxQuantity, "42");
+  assert.equal(tik!.maxQuantity, "7");
 });
 
 // The proof-of-life prose used to print this value raw, so the shipped 30-day default

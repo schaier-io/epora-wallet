@@ -140,7 +140,13 @@
     "withdrawRequestCancel": "Keep it open",
     "thisRequestCannotGoThroughMakingANewVersion": "This request can no longer go through. Making a new version clears every signature it already has.",
     "thisRequestCannotGoThroughOnlyTheProposer": "This request can no longer go through. Only the proposer can make a new version.",
-    "thisRequestCannotGoThroughBuildItAgain": "This request can no longer go through. Build it again from the wallet page."
+    "thisRequestCannotGoThroughBuildItAgain": "This request can no longer go through. Build it again from the wallet page.",
+    "expiresAt": "Transaction expires: {date}.",
+    "confirmedOnChain": "Confirmed on the blockchain.",
+    "confirmationUnavailable": "Confirmation could not be checked. The check will retry automatically. You can also open the transaction in the explorer.",
+    "rebuildConfirmTitle": "Replace this signed request?",
+    "rebuildConfirmDescription": "Making a new version removes the collected signatures. Each co-signer must sign the new transaction again.",
+    "rebuildConfirmLabel": "Replace and clear signatures"
   },
   "ComponentsUserWorkspaceWorkspaceView": {
     "chooseSmartWallet": "Choose smart wallet",
@@ -155,7 +161,8 @@
     "stillWaitingThisCanTakeAnotherBlock": "Still waiting. This can take another block.",
     "theDemoWalletCannotOpenSmartWallets": "The demo wallet cannot open smart wallets",
     "thisUsuallyTakesAFewSecondsTheSetup": "This usually takes a few seconds. The setup or wallet picker will appear once detection finishes.",
-    "walletWorkspace": "Wallet workspace"
+    "walletWorkspace": "Wallet workspace",
+    "connectRealWallet": "Connect a real wallet"
   },
   "LibUserFlowProofOfLife": {
     "checkInNow": "Check in now",
@@ -234,6 +241,7 @@
     "userDisconnected": "User disconnected"
   },
   "ComponentsUserWorkspaceEditorsSignerInvite": {
+    "shareFailed": "Sharing failed. Copy the link instead.",
     "addTheirWalletIdBelowToInviteThem": "Add their wallet ID below, then you can invite them.",
     "askThisPersonForTheirWalletIdFirst": "Ask this person for their wallet ID first, then add it below.",
     "copyLink": "Copy link",

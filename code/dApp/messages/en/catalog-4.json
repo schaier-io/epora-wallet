@@ -376,7 +376,13 @@
     "sendingAndSettingsPause": "A transaction moved this wallet's state and waits for a block. Sending, settings and payouts unlock when it confirms. You can still add funds.",
     "thisActionUnlocksWhenItConfirms": "A transaction moved this wallet's state and waits for a block. This action unlocks when it confirms. You can still add funds.",
     "updatingThisWallet": "Updating this wallet",
-    "viewTransactionHashOnCardanoscan": "View transaction {hash} on Cardanoscan"
+    "viewTransactionHashOnCardanoscan": "View transaction {hash} on Cardanoscan",
+    "walletStateCheckUnavailable": "The chain check could not complete. Actions that spend this wallet's State wait until the input is verified. You can still add funds.",
+    "walletStateLastCheck": "Last check attempt: {time}",
+    "walletStateSubmittedAt": "Submitted: {time}",
+    "walletStateLastSuccessfulCheck": "Last successful chain check: {time}",
+    "walletStateElapsed": "Waiting for {minutes} minutes",
+    "retryWalletStateCheck": "Retry chain check"
   },
   "ComponentsUserWorkspaceWorkspaceAllowancePreview": {
     "connectAWalletBeforeYouContinueSendingFrom": "Connect a wallet before you continue. Sending from an allowance needs its key.",
@@ -389,6 +395,7 @@
     "walletHome": "Wallet home"
   },
   "ComponentsUserWorkspaceWorkspaceFlowHandlers": {
+    "draftRulesChanged": "Wallet rules changed on-chain. Review your retained edits and reload this form before building.",
     "connectABrowserWalletBeforeContinuing": "Connect a browser wallet before continuing.",
     "connectedWalletIsNotOnPreprodSwitchNetworks": "Connected wallet is on a different network. Switch to the network shown by this app and try again.",
     "demoWalletIsReadOnlyConnectABrowser": "Demo wallet is read-only. Connect a browser wallet before continuing.",
@@ -478,6 +485,17 @@
     "refreshProofOfLifeFor": "Refresh proof of life for {wallet}"
   },
   "ComponentsUserWorkspaceWorkspaceReviewRailView": {
+    "preparingTransaction": "Preparing transaction",
+    "checkingTransaction": "Checking transaction",
+    "waitingForWalletSignature": "Waiting for wallet signature",
+    "sendingTransaction": "Sending transaction",
+    "draftRulesChanged": "Wallet rules changed on-chain for {fields}. Your edits remain here. Review them and reload this form before continuing.",
+    "draftConflictPeople": "people",
+    "draftConflictApprovals": "approval rules",
+    "draftConflictRecovery": "recovery rules",
+    "draftConflictSchedules": "scheduled payments",
+    "draftConflictWalletName": "wallet name",
+    "draftConflictWalletRules": "wallet rules",
     "approvalRequestsCannotRenameThisWallet": "A saved request cannot rename this wallet. Restore the current name first.",
     "updatingWalletState": "Updating wallet state…",
     "approvalRuleNeedsPower": "This rule needs {approvalThreshold} approval power between the co-signers.",

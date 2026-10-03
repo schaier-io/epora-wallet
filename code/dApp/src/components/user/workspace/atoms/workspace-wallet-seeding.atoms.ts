@@ -1,3 +1,4 @@
+import { workspaceDraftBaseAtom, workspaceDraftConflictsAtom, workspaceDraftOwnerAtom, workspaceDraftIdentityAtom } from "./workspace-draft-revision.atoms";
 import { selectedOrphanInputsAtom } from "./forms/orphan-inputs.atoms";
 import { atom } from "jotai";
 
@@ -61,8 +62,11 @@ import type { DetectedSttToken } from "@/lib/mesh/detection";
 /** Replace every wallet-bound action draft when the active detected token changes. */
 export const seedWorkspaceWalletAtom = atom(
   null,
-  (_get, set, token: DetectedSttToken) => {
+  (get, set, token: DetectedSttToken) => {
     const stateForm = stateFormFromDatum(token.datum);
+    set(workspaceDraftOwnerAtom, get(workspaceDraftIdentityAtom));
+    set(workspaceDraftBaseAtom, { token, state: stateForm });
+    set(workspaceDraftConflictsAtom, {});
     const inputTxHash = token.utxo.input.txHash;
     const inputOutputIndex = token.utxo.input.outputIndex.toString();
 

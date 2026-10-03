@@ -41,11 +41,13 @@ export function FocusedPeopleEditor({
   onChange,
   fieldErrors,
   zeroAdminConfirmed,
-  onZeroAdminConfirmedChange
+  onZeroAdminConfirmedChange,
+  showSummary = true
 }: {
   value: StateFormState;
   onChange: (value: StateFormState) => void;
   fieldErrors: FieldErrors;
+  showSummary?: boolean;
   zeroAdminConfirmed?: boolean;
   onZeroAdminConfirmedChange?: (value: boolean) => void;
 }) {
@@ -76,7 +78,7 @@ export function FocusedPeopleEditor({
 
   return (
     <div className="space-y-4">
-      <div className="user-surface user-section-panel rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
+      {showSummary ? <div className="user-surface user-section-panel rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
         <div className="flex w-full flex-wrap items-start gap-x-3 gap-y-2">
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <span className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-border/70 bg-background/60 text-primary">
@@ -98,7 +100,7 @@ export function FocusedPeopleEditor({
             ) : null}
           </div>
         </div>
-      </div>
+      </div> : null}
 
       <ZeroAdminConfirmationCallout
         adminCount={adminCount}

@@ -171,7 +171,10 @@
     "walletHome": "Wallet home",
     "walletId": "Wallet ID",
     "walletIdCopied": "Wallet ID copied",
-    "notInABlockYet": "Not in a block yet. The row comes from the transaction this browser submitted."
+    "notInABlockYet": "Not in a block yet. The row comes from the transaction this browser submitted.",
+    "checkInNow": "Check in now",
+    "managementNotGranted": "Your connected wallet does not have permission for this action.",
+    "openTransactionInExplorer": "Open transaction in explorer (external)"
   },
   "ComponentsUserWorkspaceWorkspaceWalletSelectionDialogView": {
     "ada": "ADA",
@@ -198,7 +201,13 @@
     "youAreARecoveryContactForThisWallet": "You are a recovery contact for this wallet.",
     "youCanSpendFromThisWalletWithinYour": "You can spend from this wallet within your allowance.",
     "youHaveOneSmartWalletSoItWas": "You have one smart wallet, so it was opened for you.",
-    "yourWalletIsOnTheWrongNetwork": "Your wallet is on the wrong network"
+    "yourWalletIsOnTheWrongNetwork": "Your wallet is on the wrong network",
+    "walletIdentity": "Wallet ID: {id}",
+    "loadingBalance": "Loading balance",
+    "balanceUnavailable": "Balance unavailable",
+    "poolsUnavailable": "Pools unavailable",
+    "assetsUnavailable": "Assets unavailable",
+    "copyWalletIdentity": "Copy {name} wallet ID ({id})"
   },
   "Counts": {
     "asset": "{count, plural, one {# asset} other {# assets}}",

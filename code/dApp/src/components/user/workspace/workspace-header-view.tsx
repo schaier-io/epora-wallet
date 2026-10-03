@@ -1,6 +1,9 @@
 "use client";
 import { useTranslations } from "next-intl";
 
+import { detectedSttTokensRefreshingAtom } from "./queries/stt-queries.atoms";
+import { permissionWalletSummariesRefreshingAtom } from "./queries/summary-queries.atoms";
+import { lockedContractUtxosRefreshingAtom } from "./queries/locked-utxos.atoms";
 import { walletTransactionsAtom } from "@/components/user/workspace/atoms/workspace-activity.atoms";
 import { selectedDetectedTokenAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { routeStateAtom } from "@/components/user/workspace/atoms/workspace-route.atoms";
@@ -35,8 +38,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { pageHeadingClass } from "@/components/ui/page-heading";
 
 import {
-  formatLovelaceAsAda,
-  formatLovelaceAsAdaRounded
+  formatLovelaceAsAda
 } from "@/lib/units/lovelace";
 
 import { cn } from "@/lib/utils/cn";
@@ -58,6 +60,10 @@ export function WorkspaceHeaderView() {
   const permissionWalletSummariesLoading = useAtomValue(permissionWalletSummariesLoadingAtom);
   const walletBalanceSummary = useAtomValue(walletBalanceSummaryAtom);
   const lockedContractUtxosLoading = useAtomValue(lockedContractUtxosLoadingAtom);
+  const lockedRefreshing = useAtomValue(lockedContractUtxosRefreshingAtom);
+  const summariesRefreshing = useAtomValue(permissionWalletSummariesRefreshingAtom);
+  const tokensRefreshing = useAtomValue(detectedSttTokensRefreshingAtom);
+  const refreshing = lockedRefreshing || summariesRefreshing || tokensRefreshing || walletTransactions.refreshing;
   const walletLookupFailed =
     walletReady &&
     routeState.workspaceMode === "existing-wallet" &&
@@ -108,16 +114,7 @@ export function WorkspaceHeaderView() {
         ? i18n("walletBalanceUnavailable")
         : browserWalletFundsEmpty
           ? i18n("noAdaAvailable")
-          : i18n("value1AdaAvailable", { value1: formatLovelaceAsAdaRounded(
-              browserWalletFundsLovelace ?? "0",
-              2
-            ) });
-    // The tooltip exists to add the precision the rounded label drops. On an empty wallet it
-    // has none to add: it read "0 ADA available" under a label already saying "No ADA available".
-    const browserWalletFundsTitle =
-      browserWalletFundsLovelace && !browserWalletFundsEmpty
-        ? i18n("value1AdaAvailable", { value1: formatLovelaceAsAda(browserWalletFundsLovelace) })
-        : undefined;
+          : i18n("value1AdaAvailable", { value1: formatLovelaceAsAda(browserWalletFundsLovelace ?? "0") });
     const GuidedWorkspaceHeaderIcon =
       !walletReady
         ? Wallet2
@@ -214,7 +211,6 @@ export function WorkspaceHeaderView() {
       {walletReady ? (
         <span
           className="inline-flex h-8 items-center gap-2 rounded-full border border-border/60 bg-background/45 px-3 text-muted-foreground"
-          title={browserWalletFundsTitle}
         >
           {browserWalletFundsPending ? (
             <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden="true" />
@@ -236,7 +232,7 @@ export function WorkspaceHeaderView() {
             setWalletConnectionDialogOpen(true);
             rescanSmartWalletList();
           }}
-          className="group inline-flex h-8 items-center gap-2 rounded-full border border-border/60 bg-background/45 px-3 text-muted-foreground transition-colors hover:border-sky-300/40 hover:text-foreground"
+          className="group inline-flex min-h-11 sm:min-h-8 items-center gap-2 rounded-full border border-border/60 bg-background/45 px-3 text-muted-foreground transition-colors hover:border-sky-300/40 hover:text-foreground"
           aria-label={i18n("smartWalletsValue1SwitchOrCreateOne", { value1: permissionWalletCards.length })}
         >
           <FolderOpen className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
@@ -256,17 +252,14 @@ export function WorkspaceHeaderView() {
           type="button"
           onClick={() => {
             if (selectedDetectedToken) {
-              // The State datum comes from token detection, which the summary refresh
-              // does not run. Without it the State stays stale until the next poll.
-              void refreshDetectedTokens({ keepSelection: true })
+              void refreshWorkspaceSummary(true)
                 .catch(error => console.error("[workspace:refresh-state]", error));
-              void refreshWorkspaceSummary(true);
               return;
             }
             rescanSmartWalletList();
           }}
           disabled={
-            lockedContractUtxosLoading ||
+            refreshing || lockedContractUtxosLoading ||
             permissionWalletSummariesLoading ||
             walletTransactions.loading ||
             walletTransactions.refreshing
@@ -278,7 +271,7 @@ export function WorkspaceHeaderView() {
           <RefreshCw
             className={cn(
               "h-3.5 w-3.5 transition-transform",
-              (lockedContractUtxosLoading ||
+              (refreshing || lockedContractUtxosLoading ||
                 permissionWalletSummariesLoading ||
                 walletTransactions.loading ||
                 walletTransactions.refreshing) &&

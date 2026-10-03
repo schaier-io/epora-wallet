@@ -72,16 +72,16 @@ export function WalletWithdrawConfigView() {
       {isWalletStakingEnabled ? (
         <div className="rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4">
           {rewards.loading ? (
-            <p className="text-sm text-muted-foreground">
+            <p role="status" className="text-sm text-muted-foreground">
               {i18n("checkingAvailableStakingRewards")}
             </p>
           ) : !walletRewardAddress ? (
-            <p className="text-sm text-amber-100">
+            <p role="alert" className="text-sm text-amber-100">
               {i18n("couldNotDeriveThisWalletSRewardAddress")}
             </p>
           ) : rewards.error ? (
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm text-amber-100">{i18n("couldNotLoadStakingRewards")}</p>
+              <p role="alert" className="text-sm text-amber-100">{i18n("couldNotLoadStakingRewards")}</p>
               <Button type="button" size="sm" variant="outline" onClick={rewards.refresh}>
                 {i18n("checkAgain")}
               </Button>
@@ -92,7 +92,7 @@ export function WalletWithdrawConfigView() {
                 <p className="eyebrow text-muted-foreground">{i18n("availableToClaim")}</p>
                 {hasRewards ? (
                   <>
-                    <p className="mt-1 text-2xl font-semibold text-foreground">
+                    <p role="status" className="mt-1 text-2xl font-semibold text-foreground">
                       {i18n("value1AdaAvailableToClaim", {
                         value1: formatLovelaceAsAda(rewards.rewardsLovelace)
                       })}
@@ -102,7 +102,7 @@ export function WalletWithdrawConfigView() {
                     </p>
                   </>
                 ) : (
-                  <p className="mt-1 text-sm text-muted-foreground">
+                  <p role="status" className="mt-1 text-sm text-muted-foreground">
                     {i18n("noStakingRewardsAreAvailableToClaim")}
                   </p>
                 )}

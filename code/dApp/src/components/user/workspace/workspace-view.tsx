@@ -16,6 +16,7 @@ import {
 import { useEffect } from "react";
 
 import { WalletConnectionDialog } from "@/components/layout/wallet-panel";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -189,11 +190,7 @@ export function WorkspaceView() {
              never leave. One card, not the two-card skeleton grid: nothing is coming, so
              a placeholder for it would be a second false promise.
 
-             No button: the obvious one would open `walletConnectionDialogOpenAtom`, and
-             from a connected demo that atom reaches "Choose smart wallet", not the browser
-             wallet chooser. The top nav's own "Change wallet" calls the same atom, so it
-             lands in the same place. A button labelled for the browser chooser would name
-             something this state cannot reach. */
+             The connection button opens the existing wallet connection dialog. */
           <div className="grid items-start gap-4 lg:grid-cols-2">
             <Card className="user-surface">
               <CardContent className="space-y-3">
@@ -203,6 +200,7 @@ export function WorkspaceView() {
                 <p className="text-xs text-muted-foreground">
                   {i18n("itIsReadOnlyItHoldsNo")}
                 </p>
+                <Button type="button" onClick={() => setWalletConnectionDialogOpen(true)}>{i18n("connectRealWallet")}</Button>
               </CardContent>
             </Card>
           </div>

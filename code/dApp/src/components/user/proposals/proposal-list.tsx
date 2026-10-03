@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { formatTimestampLabel } from "@/components/user/workspace/helpers/formatters";
 import { useTranslations } from "next-intl";
 
 import {
@@ -30,7 +31,7 @@ import {
 type ProposalListProps = {
   proposals: ProposalListItemDto[];
   selectedId: string | null;
-  reportById: Record<string, { validity: ProposalValidity; signers: SignerSatisfaction | null }>;
+  reportById: Record<string, { validity: ProposalValidity; signers: SignerSatisfaction | null; validUntilMs?: number | null }>;
   loading: boolean;
   loadingMore: boolean;
   hasMore: boolean;
@@ -148,7 +149,7 @@ export function ProposalList({
         </div>
       ) : null}
 
-      {!loading && proposals.length === 0 ? (
+      {!loading && !error && proposals.length === 0 ? (
         // `flex-1 justify-center`: the empty box fills its pane, so the two workspace
         // columns agree on height instead of leaving a short card beside a tall one.
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border/60 bg-background/30 p-3 sm:p-4 text-center text-sm text-muted-foreground">
@@ -225,6 +226,7 @@ export function ProposalList({
                     {formatTimestamp(proposal.createdAt)}
                   </span>
                 </div>
+                {proposal.status === "OPEN" && report?.validUntilMs != null ? <p className="mt-1 text-xs text-muted-foreground">{i18n("expiresAt", { date: formatTimestampLabel(report.validUntilMs) })}</p> : null}
                 {/* One whole sentence per branch, not a count glued to a trailing
                     "still to sign." Word order moves between languages, so a sentence
                     assembled from fragments around a variable cannot be translated. */}

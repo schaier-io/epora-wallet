@@ -5,6 +5,7 @@ import { useAtomValue } from "jotai";
 import { useId } from "react";
 
 import { buildKnownAddresses, StateAssetAmountListEditor, WalletHashesEditor } from "./asset-editors";
+import { useSpenderPermissionDraft } from "./use-spender-permission-draft";
 import { ApprovalPowerSlider } from "./approval-power-slider";
 import { GuidedDateTimeField } from "./guided-fields";
 import { Badge } from "@/components/ui/badge";
@@ -150,18 +151,7 @@ export function PersonPermissionsEditor({
           { multiSigPowerMode: "some", multiSigPower: user.multiSigPower.trim() || "1" }
     );
 
-  const toggleSpender = () => {
-    if (!isSpender && !canAddPerDayAllowanceEntry) {
-      return;
-    }
-    if (isSpender) {
-      patch({ perDayAllowance: [], remainingAllowance: [] });
-      return;
-    }
-    patch({
-      perDayAllowance: [{ policyId: "", assetName: "", amount: "" }]
-    });
-  };
+  const toggleSpender = useSpenderPermissionDraft(user, onChange, canAddPerDayAllowanceEntry);
 
   return (
     <div className="user-surface user-list-item space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">

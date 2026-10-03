@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { createStore } from "jotai";
 
@@ -625,5 +626,21 @@ describe("why the spender chip is off", () => {
     expect(
       screen.getByText(/already has 15 spending limits across everyone in it/i)
     ).toBeInTheDocument();
+  });
+});
+
+describe("undoing permission exploration", () => {
+  it("restores the existing limits when Spender is toggled off and on", () => {
+    const original = person({ perDayAllowance: [{ policyId: "", assetName: "", amount: "5000000" }], remainingAllowance: [{ policyId: "", assetName: "", amount: "3000000" }] });
+    const onChange = vi.fn();
+    function Editor() {
+      const [user, setUser] = useState(original);
+      return <PersonPermissionsEditor user={user} onChange={value => { onChange(value); setUser(value); }} onRemove={vi.fn()} approvalPowerCeiling={1} canAddPerDayAllowanceEntry canAddRemainingAllowanceEntry canAddWallet />;
+    }
+    render(<TestProviders><Editor /></TestProviders>);
+    fireEvent.click(chip("Spender"));
+    fireEvent.click(chip("Spender"));
+    expect((onChange.mock.lastCall![0] as UserFormState).perDayAllowance).toEqual(original.perDayAllowance);
+    expect((onChange.mock.lastCall![0] as UserFormState).remainingAllowance).toEqual(original.remainingAllowance);
   });
 });

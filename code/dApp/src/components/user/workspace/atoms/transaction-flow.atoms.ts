@@ -4,6 +4,8 @@ import { routeStateAtom } from "./workspace-route.atoms";
 import { recoveryCapacityFailureAtom } from "./recovery-capacity.atoms";
 import { atom } from "jotai";
 
+import type { SubmitPhase } from "@/lib/mesh/transactions/submit";
+export type { SubmitPhase } from "@/lib/mesh/transactions/submit";
 import type { BuildResult } from "@/lib/types/contracts";
 import type { MintConfirmationState } from "@/components/user/workspace/types";
 
@@ -65,6 +67,8 @@ export const buildErrorExpectedAtom = atom(false);
  * through the foundation's `setBuildError(message, staleInputs)` wrapper, so a plain
  * error can never leave a stale recovery card behind. */
 export const buildErrorStaleInputsAtom = atom(false);
+/** Current transaction submission stage. */
+export const submitPhaseAtom = atom<SubmitPhase | null>(null);
 /** Hash of the last successfully-submitted transaction. */
 export const submitHashAtom = atom<string | null>(null);
 /** True once the last submitted tx has been seen on chain (bounded poll). The
@@ -155,6 +159,7 @@ export const buildSettledAtom = atom(null, (_get, set) => {
 
 export const submitStartedAtom = atom(null, (_get, set) => {
   set(activeSubmitAtom, true);
+  set(submitPhaseAtom, "checking");
 });
 
 export const submitSucceededAtom = atom(null, (_get, set, hash: string) => {
@@ -165,6 +170,7 @@ export const submitSucceededAtom = atom(null, (_get, set, hash: string) => {
 
 export const submitSettledAtom = atom(null, (_get, set) => {
   set(activeSubmitAtom, false);
+  set(submitPhaseAtom, null);
 });
 
 /**
@@ -172,7 +178,8 @@ export const submitSettledAtom = atom(null, (_get, set) => {
  * and the explicit "clear preview" action. (Does not touch `mintCelebration` or
  * `dismissedSubmitHash`, mirroring the legacy `clearPreviewResult`.)
  */
-export const resetFlowAtom = atom(null, (_get, set) => {
+export const resetFlowAtom = atom(null, (get, set) => {
+  if (!get(activeSubmitAtom)) set(submitPhaseAtom, null);
   set(invalidateBuildAtom);
   set(previewAtom, null);
   set(previewSignatureAtom, null);
@@ -209,6 +216,7 @@ export const resetAllFlowAtom = atom(null, (get, set) => {
   set(invalidateBuildAtom);
   set(activeBuildAtom, null);
   set(activeSubmitAtom, false);
+  set(submitPhaseAtom, null);
   set(recoveryCapacityFailureAtom, null);
   set(buildErrorAtom, null);
   set(buildErrorExpectedAtom, false);

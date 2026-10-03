@@ -62,13 +62,13 @@ const ACTION_SILK_SECTION: Partial<Record<UserActionKind, CardSilkSection>> = {
  */
 function riskCopy(
   definition: TaskDefinition,
-  t: (key: "needsReview" | "highRisk") => string
+  t: (key: "moderateRisk" | "highRisk") => string
 ): string | null {
   switch (definition.risk) {
     case "low":
       return null;
     case "medium":
-      return t("needsReview");
+      return t("moderateRisk");
     case "high":
       return t("highRisk");
   }
@@ -106,11 +106,8 @@ export function UserActionConfigurationCard({
   children
 }: UserActionConfigurationCardProps) {
   const i18n = useTranslations("ComponentsUserActionConfigurationCard");
-  // "Clear form" wipes the whole draft in one call, so the button only opens the
-  // confirm dialog; the parent's `onClear` runs after the reader confirms. There is
-  // no cross-form "draft has content" check to gate the dialog on, and clearing an
-  // already-default form costs one click, so the dialog shows on every click.
-  const [confirmingClear, setConfirmingClear] = useState(false);
+  // Both reset operations can discard edits. Run the selected callback only after confirmation.
+  const [pendingReset, setPendingReset] = useState<"clear" | "reload" | null>(null);
   const showSurfaceSummary = !isImplicitLockedInputSurfaceLabel(definition.surfaceLabel);
   // The description used to render only when it ran past 78 characters, and then only inside
   // an info hint. Measured against the action catalogue: 14 of the 15 explanations are shorter
@@ -147,7 +144,7 @@ export function UserActionConfigurationCard({
               inside the card border at every width. */}
           <div className="-mr-2 -mt-1 flex shrink-0 flex-wrap items-center gap-2">
             {selectedDetectedToken && supportsDetectedTokenReset(selectedAction) ? (
-              <Button type="button" size="sm" variant="ghost" onClick={onReset} className="px-2 text-xs">
+              <Button type="button" size="sm" variant="ghost" onClick={() => setPendingReset("reload")} className="px-2 text-xs">
                 <RotateCcw className="h-3.5 w-3.5" />
                 {i18n("reloadDefaults")}
               </Button>
@@ -156,7 +153,7 @@ export function UserActionConfigurationCard({
               type="button"
               size="sm"
               variant="ghost"
-              onClick={() => setConfirmingClear(true)}
+              onClick={() => setPendingReset("clear")}
               className="px-2 text-xs"
             >
               <X className="h-3.5 w-3.5" />
@@ -274,14 +271,12 @@ export function UserActionConfigurationCard({
         {children}
       </CardContent>
     </Card>
-    {/* The confirm step for "Clear form". Same pattern as the warning review in
-        `payee-view.tsx`: title, body, cancel left, destructive confirm right, and
-        Escape or the backdrop dismiss it without clearing. */}
+    {/* Escape and backdrop dismissal keep the draft. */}
     <PopupDialog
-      open={confirmingClear}
-      onOpenChange={setConfirmingClear}
-      title={i18n("clearFormConfirmTitle")}
-      description={i18n("clearFormConfirmBody")}
+      open={pendingReset !== null}
+      onOpenChange={(open) => { if (!open) setPendingReset(null); }}
+      title={i18n(pendingReset === "reload" ? "reloadDefaultsConfirmTitle" : "clearFormConfirmTitle")}
+      description={i18n(pendingReset === "reload" ? "reloadDefaultsConfirmBody" : "clearFormConfirmBody")}
       className="max-w-lg"
     >
       <div className="flex justify-end gap-2">
@@ -289,7 +284,7 @@ export function UserActionConfigurationCard({
           type="button"
           variant="outline"
           size="sm"
-          onClick={() => setConfirmingClear(false)}
+          onClick={() => setPendingReset(null)}
         >
           {i18n("cancel")}
         </Button>
@@ -298,11 +293,13 @@ export function UserActionConfigurationCard({
           variant="destructive"
           size="sm"
           onClick={() => {
-            setConfirmingClear(false);
-            onClear();
+            const action = pendingReset;
+            setPendingReset(null);
+            if (action === "reload") onReset();
+            else if (action === "clear") onClear();
           }}
         >
-          {i18n("clearForm")}
+          {i18n(pendingReset === "reload" ? "reloadDefaults" : "clearForm")}
         </Button>
       </div>
     </PopupDialog>

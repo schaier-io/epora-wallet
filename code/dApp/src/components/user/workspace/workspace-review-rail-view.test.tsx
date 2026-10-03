@@ -4,10 +4,10 @@ import { Provider, createStore } from "jotai";
 import { createRef } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { activeBuildAtom, activeSubmitAtom, buildErrorAtom, buildErrorStaleInputsAtom, previewAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
+import { activeBuildAtom, activeSubmitAtom, submitPhaseAtom, buildErrorAtom, buildErrorStaleInputsAtom, previewAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { sttStateFormAtom, updateStateFormAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { routeStateAtom } from "@/components/user/workspace/atoms/workspace-route.atoms";
-import { beginWalletStateUpdateAtom } from "@/components/user/workspace/atoms/wallet-state-update.atoms";
+import { beginWalletStateUpdateAtom, walletStateSubmissionsAtom } from "@/components/user/workspace/atoms/wallet-state-update.atoms";
 import { activeAddressAtom } from "@/providers/wallet.atoms";
 import { WorkspaceActionsProvider } from "@/components/user/workspace/workspace-actions-context";
 import { parseWorkspaceRouteState } from "@/components/user/workspace-controller";
@@ -748,7 +748,7 @@ describe("approval saving during another transaction", () => {
 });
 
 
-it("keeps background builds quiet and starts progress only on the direct click", async () => {
+it("shows preparation for warm builds and the direct click", async () => {
   let finish!: () => void;
   const pending = new Promise<void>(resolve => { finish = resolve; });
   const submit = vi.fn(() => pending);
@@ -759,8 +759,8 @@ it("keeps background builds quiet and starts progress only on the direct click",
     buildAndSubmitSelectedActionTx: submit,
     seedStore: store => store.set(activeBuildAtom, "payout-streaming-payment")
   });
-  expect(reviewPanelProps.latest.isBuilding).toBe(false);
-  expect(reviewPanelProps.latest.primaryActionLabel).toBe("Continue");
+  expect(reviewPanelProps.latest.isBuilding).toBe(true);
+  expect(reviewPanelProps.latest.primaryActionLabel).toBe("Preparing transaction");
   expect(reviewPanelProps.latest.primaryActionDisabled).toBe(false);
   expect(reviewPanelProps.latest.autoSignPending).toBe(false);
   act(() => { (reviewPanelProps.latest.onPrimaryAction as () => void)(); });
@@ -768,12 +768,12 @@ it("keeps background builds quiet and starts progress only on the direct click",
   expect(reviewPanelProps.latest.isBuilding).toBe(true);
   expect(reviewPanelProps.latest.primaryActionDisabled).toBe(true);
   expect(reviewPanelProps.latest.autoSignPending).toBe(true);
-  expect(reviewPanelProps.latest.primaryActionLabel).toBe("Preparing…");
+  expect(reviewPanelProps.latest.primaryActionLabel).toBe("Preparing transaction");
   act(() => { (reviewPanelProps.latest.onPrimaryAction as () => void)(); });
   expect(submit).toHaveBeenCalledOnce();
   await act(async () => { finish(); await pending; });
-  expect(reviewPanelProps.latest.isBuilding).toBe(false);
-  expect(reviewPanelProps.latest.primaryActionLabel).toBe("Continue");
+  expect(reviewPanelProps.latest.isBuilding).toBe(true);
+  expect(reviewPanelProps.latest.primaryActionLabel).toBe("Preparing transaction");
 });
 
 
@@ -812,4 +812,29 @@ it("does not carry clicked progress into another wallet session", async () => {
   expect(reviewPanelProps.latest.isBuilding).toBe(false);
   expect(reviewPanelProps.latest.autoSignPending).toBe(false);
   await act(async () => { finish(); await pending; });
+});
+
+describe("transaction button phase", () => {
+  it.each([
+    [null, "Checking transaction"],
+    ["checking", "Checking transaction"],
+    ["signing", "Waiting for wallet signature"],
+    ["submitting", "Sending transaction"]
+  ] as const)("shows actual %s phase even while State signing gate is active", (phase, label) => {
+    renderRail({ previewMatchesSelectedAction: true, buildSelectedActionTx: vi.fn(), handleSaveProposalFromBuild: vi.fn(), seedStore: store => {
+      store.set(activeSubmitAtom, true);
+      store.set(walletStateSubmissionsAtom, { policyasset: true });
+      store.set(submitPhaseAtom, phase);
+    } });
+    expect(reviewPanelProps.latest.primaryActionLabel).toBe(label);
+    expect(reviewPanelProps.latest.isSubmitting).toBe(true);
+    expect(reviewPanelProps.latest.isBuilding).toBe(false);
+  });
+  it("keeps Done ahead of the submit phase", () => {
+    renderRail({ previewMatchesSelectedAction: true, buildSelectedActionTx: vi.fn(), handleSaveProposalFromBuild: vi.fn(), stateOverrides: { reviewSubmitAwaitingAcknowledgement: true, reviewPrimaryActionLabel: "Done" }, seedStore: store => {
+      store.set(activeSubmitAtom, true);
+      store.set(submitPhaseAtom, "signing");
+    } });
+    expect(reviewPanelProps.latest.primaryActionLabel).toBe("Done");
+  });
 });

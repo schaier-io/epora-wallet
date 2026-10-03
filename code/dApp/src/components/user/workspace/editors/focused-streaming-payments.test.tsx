@@ -198,7 +198,7 @@ describe("a payment already running", () => {
       existingIds: ["7"]
     });
 
-    const editor = screen.getByText("Scheduled payment 1").closest("fieldset");
+    const editor = screen.getByText("Scheduled payment #7").closest("fieldset");
     expect(editor).not.toBeNull();
     expect(editor!.querySelectorAll(".md\\:grid-cols-2")).toHaveLength(0);
     expect(screen.getByLabelText("Rate period").parentElement).toHaveClass("grid");
@@ -404,5 +404,16 @@ describe("stopping a payment that is already running", () => {
     ).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Now" })).toHaveLength(2);
     expect(screen.queryByRole("button", { name: "Stop as soon as possible" })).not.toBeInTheDocument();
+  });
+});
+
+describe("schedule review scope", () => {
+  it("shows stable identifiers and states the full draft save scope", () => {
+    renderSurface({ value: formWithPayments(["7", "12"]), existingIds: ["12"] });
+    expect(screen.getByText(/Saving applies all schedule changes in this draft/)).toBeInTheDocument();
+    expect(screen.getByText("Scheduled payment #7")).toBeInTheDocument();
+    expect(screen.getByText(/Payment #12:/)).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "per 30 days" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "per 365 days" })).toBeInTheDocument();
   });
 });

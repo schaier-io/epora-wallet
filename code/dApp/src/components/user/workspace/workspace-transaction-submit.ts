@@ -4,12 +4,13 @@ import { assertPreparedTransactionFresh } from "@/lib/mesh/transactions/prepared
 import { queryClientAtom } from "jotai-tanstack-query";
 import { isWorkspaceBuildResultExpired } from "./workspace-build-expiry";
 import { buildRunAtom, invalidateBuildAtom } from "./atoms/transaction-flow.atoms";
-import { txInfoQueryOptions } from "@/lib/query/chain";
+import { watchTransactionConfirmation } from "./watch-transaction-confirmation";
+import { saveDepositReceipt } from "./deposit-receipt";
 import { invalidateChainQueries } from "@/lib/query/invalidation";
 import { beneficiaryPreparationActiveAtom, consolidateWalletInputsAtom } from "./atoms/forms/consolidate-form.atoms";
 import { recoveryCapacityFailureAtom, recoveryCapacitySignatureAtom } from "./atoms/recovery-capacity.atoms";
 import { recordRecoveryCapacityFailure } from "./recovery-capacity-model";
-import { workspaceSessionAtom, previewSignatureAtom, buildDiagnosticIdAtom, mintConfirmationRunAtom, submitConfirmedAtom, submitConfirmationUnseenAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
+import { submitPhaseAtom, workspaceSessionAtom, previewSignatureAtom, buildDiagnosticIdAtom, mintConfirmationRunAtom, submitConfirmedAtom, submitConfirmationUnseenAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import {
   beginWalletStateUpdateAtom,
   walletStateBlocksAction,
@@ -23,14 +24,9 @@ import { sttExtraTransfersAtom, sttWalletInputsAtom } from "@/components/user/wo
 import { selectedOrphanInputsAtom } from "./atoms/forms/orphan-inputs.atoms";
 import { capturePendingActivityInputs, recordPendingActivity } from "./atoms/pending-activity.atoms";
 import {
-  MINT_CONFIRMATION_MAX_ATTEMPTS,
-  SUBMIT_CONFIRMATION_INITIAL_DELAY_MS,
-  SUBMIT_CONFIRMATION_LATE_MAX_ATTEMPTS,
-  SUBMIT_CONFIRMATION_LATE_POLL_MS,
-  SUBMIT_CONFIRMATION_MAX_ATTEMPTS,
-  SUBMIT_CONFIRMATION_POLL_MS
+  MINT_CONFIRMATION_MAX_ATTEMPTS
 } from "@/components/user/workspace/constants";
-import { formatBuildError, safeStringify, waitFor } from "@/components/user/workspace/helpers";
+import { formatBuildError, safeStringify } from "@/components/user/workspace/helpers";
 import { OwnedMessageError } from "./helpers/build-errors";
 import type { resolveWorkspaceTransactionInputs } from "@/components/user/workspace/workspace-transaction-inputs";
 import type { WorkspaceTransactionsCtx } from "@/components/user/workspace/workspace-transactions-types";
@@ -202,6 +198,7 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
 
     submitInFlightRef.current = session;
     setActiveSubmit(true);
+    jotaiStore.set(submitPhaseAtom, "checking");
     setBuildError(null);
     setBuildErrorExpected(false);
 
@@ -245,7 +242,7 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
         ? (transaction: { txHash: string; invalidHereafter?: number }) => {
             assertSnapshot();
             const pending = { walletUnit: submissionOwner.walletUnit,
-              submittedTxHash: transaction.txHash, spentRef: spentSttRef,
+              submittedTxHash: transaction.txHash, spentRef: spentSttRef, submittedAt: Date.now(),
               invalidHereafter: transaction.invalidHereafter };
             jotaiStore.set(beginWalletStateUpdateAtom, pending);
             submissionOwner.pending = pending;
@@ -261,6 +258,9 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
         }
       };
       txHash = await signAndSubmitTx(activeWallet, transactionPreview.txHex, {
+        onPhase: phase => {
+          if (isCurrent() && submitInFlightRef.current === session) jotaiStore.set(submitPhaseAtom, phase);
+        },
         assertCurrent: async () => {
           try {
             assertSnapshot();
@@ -281,9 +281,12 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
         },
         ...(beforeBroadcast ? { beforeBroadcast } : {})
       });
+      if (selectedAction === "lock-funds" && submissionUnit && session.address && session.network !== null) {
+        saveDepositReceipt({ address: session.address, network: session.network, walletUnit: submissionUnit }, txHash);
+      }
       if (spentSttRef && submissionUnit && !jotaiStore.get(pendingWalletStateUpdatesAtom)[submissionUnit]) {
         jotaiStore.set(beginWalletStateUpdateAtom, {
-          walletUnit: submissionUnit, submittedTxHash: txHash, spentRef: spentSttRef
+          walletUnit: submissionUnit, submittedTxHash: txHash, spentRef: spentSttRef, submittedAt: Date.now()
         });
       }
     } catch (error) {
@@ -322,7 +325,10 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
         delete submissions[submissionUnit];
         jotaiStore.set(walletStateSubmissionsAtom, submissions);
       }
-      if (isCurrent()) setActiveSubmit(false);
+      if (isCurrent()) {
+        setActiveSubmit(false);
+        jotaiStore.set(submitPhaseAtom, null);
+      }
       if (submitInFlightRef.current === session) submitInFlightRef.current = null;
     }
 
@@ -334,7 +340,7 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
     setSubmitHash(txHash);
     jotaiStore.set(submitConfirmedAtom, false);
     jotaiStore.set(submitConfirmationUnseenAtom, false);
-    runPostSubmitTask("confirmation", () => watchTransactionConfirmation(txHash));
+    runPostSubmitTask("confirmation", () => watchTransactionConfirmation(jotaiStore, txHash, selectedAction));
     runPostSubmitTask("pending-activity", () => recordPendingActivity(jotaiStore, {
       txHash, txHex: transactionPreview.txHex, walletAddress: pendingActivityWallet, knownUtxos: pendingActivityInputs
     }));
@@ -385,61 +391,6 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
     }
   }
 
-  /**
-   * The review rail's submitted banner promises "your balance updates after the
-   * next block", but nothing ever told it when the block arrived, so the spinner
-   * span forever. Poll a bounded number of times until an indexer sees the hash,
-   * then flip the banner to confirmed and pull the balance once more.
-   */
-  async function watchTransactionConfirmation(txHash: string) {
-    const session = jotaiStore.get(workspaceSessionAtom);
-    const isCurrent = () => jotaiStore.get(workspaceSessionAtom) === session && jotaiStore.get(submitHashAtom) === txHash;
-    const client = jotaiStore.get(queryClientAtom);
-    const seenOnChain = () =>
-      client.fetchQuery({ ...txInfoQueryOptions(txHash), retry: false }).catch(() => null);
-    for (let attempt = 1; attempt <= SUBMIT_CONFIRMATION_MAX_ATTEMPTS; attempt += 1) {
-      await waitFor(
-        attempt === 1 ? SUBMIT_CONFIRMATION_INITIAL_DELAY_MS : SUBMIT_CONFIRMATION_POLL_MS
-      );
-
-      // Only a wallet or session change retires this run. "Done", a newer build or
-      // a reset clears the banner, but balances must still refresh when the tx lands.
-      if (jotaiStore.get(workspaceSessionAtom) !== session) return;
-
-      const confirmed = await seenOnChain();
-      if (!confirmed) {
-        continue;
-      }
-
-      if (jotaiStore.get(workspaceSessionAtom) !== session) return;
-      if (isCurrent()) jotaiStore.set(submitConfirmedAtom, true);
-      await invalidateChainQueries(client);
-      return;
-    }
-
-    // The poll ran out without the indexer seeing the hash: indexer lag, or the tx
-    // lost an input race. Say so. Without this write the banner's spinner ran on
-    // with no third state to land in. Only while the banner still shows this hash.
-    if (!isCurrent()) return;
-    jotaiStore.set(submitConfirmationUnseenAtom, true);
-
-    // Keep looking, slower: a tx the indexers see after the window must still turn
-    // the banner green. It stops as soon as "Done", a new build, or a reset
-    // replaces the hash. Not for mint: its overlay runs its own confirmation
-    // watch, and its locked "Done" never clears the hash to stop this loop.
-    if (selectedAction === "mint") return;
-    for (let attempt = 1; attempt <= SUBMIT_CONFIRMATION_LATE_MAX_ATTEMPTS; attempt += 1) {
-      await waitFor(SUBMIT_CONFIRMATION_LATE_POLL_MS);
-      if (!isCurrent()) return;
-      if (!(await seenOnChain())) continue;
-      if (isCurrent()) {
-        jotaiStore.set(submitConfirmationUnseenAtom, false);
-        jotaiStore.set(submitConfirmedAtom, true);
-        await invalidateChainQueries(client);
-      }
-      return;
-    }
-  }
 
   return { submitTransactionPreview };
 }

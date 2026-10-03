@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { AddressCopyButton } from "@/components/ui/address-copy-button";
 import type { ReactNode } from "react";
 
@@ -15,12 +16,13 @@ export function PersonHeading({
   person: { id: string; wallets: string[] };
   children: ReactNode;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsFocusedPeopleEditor");
   const firstWallet = person.wallets.find((wallet) => wallet.trim().length > 0);
 
   return (
     <div className="flex items-center gap-1.5">
       <p className="font-medium text-foreground">{children}</p>
-      <AddressCopyButton value={firstWallet} />
+      <AddressCopyButton value={firstWallet} label={i18n("copyPersonWalletId", { id: person.id })} />
     </div>
   );
 }

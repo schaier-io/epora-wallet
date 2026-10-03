@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  maximumAllowanceTransfer,
   deriveAllowanceWithdrawalStateDatum,
   nextProofOfLifeUnlockTimeForUser
 } from "@/lib/contracts/use-allowance";
+import { createDefaultStateForm, createDefaultUserFormState, stateFormToDatum } from "./state-form";
 import { MAX_ON_CHAIN_STATE_INTEGER } from "@/lib/contracts/on-chain-integer";
 import type { ConstrData, PayoutTransfer } from "@/lib/types/contracts";
 
@@ -128,4 +130,26 @@ test("admins and users without the renew right leave the unlock time alone", () 
     nextProofOfLifeUnlockTimeForUser(state, { canRenewProofOfLife: false, isAdmin: false }, 0, 1),
     500_000
   );
+});
+
+function maximumInput(remaining = "3") {
+  const form = createDefaultStateForm();
+  const user = createDefaultUserFormState("0");
+  user.wallets = [SIGNER];
+  user.perDayAllowance = [{ policyId: "", assetName: "", amount: "5" }];
+  user.remainingAllowance = [{ policyId: "", assetName: "", amount: remaining }];
+  user.nextAllowanceReset = "200000000";
+  form.users = [user];
+  return { stateDatum: stateFormToDatum(form), allowanceSignerKeyHash: SIGNER, unit: "lovelace", balance: "9000000", stagedTransfers: [], txEarliestTimeMs: 1000000, txLatestTimeMs: 1100000 };
+}
+
+test("allowance Max caps at remaining allowance and deducts staged payouts", () => {
+  assert.equal(maximumAllowanceTransfer(maximumInput()), "3000000");
+  assert.equal(maximumAllowanceTransfer({ ...maximumInput(), stagedTransfers: [transfer("1000000")] }), "2000000");
+  assert.equal(maximumAllowanceTransfer({ ...maximumInput(), balance: "1000000" }), "1000000");
+});
+
+test("allowance Max uses a legal reset and disables a depleted allowance", () => {
+  assert.equal(maximumAllowanceTransfer({ ...maximumInput("0"), txEarliestTimeMs: 200000000, txLatestTimeMs: 200010000 }), "5000000");
+  assert.equal(maximumAllowanceTransfer(maximumInput("0")), null);
 });

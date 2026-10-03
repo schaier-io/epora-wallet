@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils/cn";
 type TimelineEvent = {
   id: string;
   title: string;
+  actionLabel?: string;
   label: string;
   badgeClassName?: string;
   amountSummary: string;
@@ -184,11 +185,13 @@ export function RecentActivityTimeline({
                   onClick={() => onEventClick?.(event)}
                   aria-label={[
                     ...(event.pending ? [i18n("pending")] : []),
+                    event.actionLabel,
                     event.label,
                     event.title,
                     event.timestampDisplay,
                     event.amountSummary
-                  ].join(", ")}
+                  ].filter(Boolean).join(", ")}
+                  title={event.actionLabel}
                   // The focus treatment used to be `focus-visible:bg-background/65`, the same
                   // tint as `hover:`, on top of `outline-none`: a keyboard stop was
                   // indistinguishable from a mouse hover and had no ring at all. The ring

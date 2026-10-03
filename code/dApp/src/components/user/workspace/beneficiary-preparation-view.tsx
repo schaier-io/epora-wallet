@@ -14,6 +14,7 @@ export function BeneficiaryPreparationView() {
   return <section className="space-y-4 rounded-lg border border-border/60 p-4" aria-label={i18n("title")}>
     <h3 className="font-medium">{i18n("title")}</h3>
     <p className="text-sm text-muted-foreground">{i18n("description")}</p>
+    <p className="text-sm font-medium">{i18n(!plan ? "nextStepSelect" : plan.depositShortfall > 0n ? "nextStepFund" : !plan.isReady && plan.pool ? "nextStepAllocate" : "nextStepReview")}</p>
     <p className="text-xs text-muted-foreground">{i18n("rights")}</p>
     <p className="text-xs text-muted-foreground">{i18n("funding")}</p>
     <GuidedLockedUtxoSelector utxos={model.utxos} selectedRefs={model.selectedRefs} onChange={model.setSelectedRefs} helper={i18n("selection")} error={model.discoveryError} />

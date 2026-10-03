@@ -57,3 +57,6 @@ export const detectedSttTokensErrorAtom = atom((get) => {
     : get(sttInventoryQueryAtom).error;
   return error ? getUserFacingErrorMessage(error, i18n("couldnTCheckTheChainForSmartWallets")) : null;
 });
+
+export const detectedSttTokensRefreshingAtom = atom(get => get(chainReadsEnabledAtom) &&
+  (get(sttInventoryQueryAtom).isFetching || get(selectedSttQueryAtom).isFetching));

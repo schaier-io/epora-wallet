@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CountUp, SoftAurora } from "@/components/react-bits/primitives";
+import { SoftAurora } from "@/components/react-bits/primitives";
 import { shortenAddress } from "@/lib/utils/explorer";
 import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 import { walletIdentityPalette } from "@/providers/smart-wallet-display";
@@ -96,7 +96,6 @@ export function WalletHeroCard({
   const formattedBalance = formatLovelaceAsAda(balanceLovelace || "0");
   const [wholeAda, fractionAdaRaw = "00"] = formattedBalance.split(".");
   const fractionAda = fractionAdaRaw.padEnd(2, "0");
-  const wholeNumber = Number((wholeAda || "0").replace(/[^0-9-]/g, "")) || 0;
   return (
     <div
       className="@container relative overflow-hidden rounded-lg border border-primary/20 p-3 sm:p-4 shadow-[0_18px_42px_-28px_hsl(var(--brand-teal)/0.42)]"
@@ -146,7 +145,7 @@ export function WalletHeroCard({
               onClick={onCopyAddress}
               disabled={!address}
               className={cn(
-                "group inline-flex min-w-0 max-w-full items-center gap-2 rounded-full border border-border/40 bg-background/40 px-3 py-1 text-xs text-muted-foreground transition-colors hover:border-emerald-300/40 hover:text-foreground disabled:cursor-not-allowed",
+                "group inline-flex min-h-11 sm:min-h-6 min-w-0 max-w-full items-center gap-2 rounded-full border border-border/40 bg-background/40 px-3 py-1 text-xs text-muted-foreground transition-colors hover:border-emerald-300/40 hover:text-foreground disabled:cursor-not-allowed",
                 addressCopied &&
                   "animate-[copy-pulse_600ms_cubic-bezier(0.22,1,0.36,1)] text-emerald-200"
               )}
@@ -166,7 +165,7 @@ export function WalletHeroCard({
               aria-expanded={fullAddressVisible}
               aria-controls={fullAddressId}
               aria-label={fullAddressVisible ? i18n("hideFullAddress") : i18n("showFullAddress")}
-              className="inline-flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed"
+              className="inline-flex h-11 w-11 sm:h-6 sm:w-6 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed"
             >
               {fullAddressVisible ? (
                 <ChevronUp className="h-3.5 w-3.5" />
@@ -201,12 +200,9 @@ export function WalletHeroCard({
               </>
             ) : (
               <>
-                <CountUp
-                  to={wholeNumber}
-                  duration={900}
-                  decimals={0}
-                  className="min-w-0 max-w-full [overflow-wrap:anywhere] font-display text-4xl font-medium tracking-[-0.025em] text-foreground tabular-nums"
-                />
+                <span className="min-w-0 max-w-full [overflow-wrap:anywhere] font-display text-4xl font-medium tracking-[-0.025em] text-foreground tabular-nums">
+                  {wholeAda}
+                </span>
                 <span className="font-display text-2xl font-medium tracking-[-0.02em] text-muted-foreground tabular-nums">
                   .{fractionAda}
                 </span>

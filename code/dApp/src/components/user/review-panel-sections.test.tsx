@@ -62,3 +62,14 @@ describe("ReviewReceiptCard labels", () => {
     expect(container.querySelectorAll('[class*="amber"]')).toHaveLength(1);
   });
 });
+
+
+it("carries full token policy identity in the receipt disclosure", () => {
+  const policy = "ab".repeat(28);
+  const unit = `${policy}5553444d`;
+  render(<ReviewReceiptCard compact receiptTitle="What will happen" receiptItems={[{label: "Recipient", value: "1 USDM", assetUnits: [unit]}]} />);
+  expect(screen.getByText("Inspect token identities")).toBeInTheDocument();
+  expect(screen.getByText(policy)).toBeInTheDocument();
+  expect(screen.getByText(unit)).toBeInTheDocument();
+  expect(screen.getByText(/Issuer not verified/)).toBeInTheDocument();
+});

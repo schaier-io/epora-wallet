@@ -179,3 +179,30 @@ describe("action configuration card clear confirmation", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });
+
+describe("reload wallet defaults", () => {
+  it("requires confirmation and preserves edits on cancel", () => {
+    const onReset = vi.fn();
+    render(<UserActionConfigurationCard {...BASE} selectedAction="update-state" selectedDetectedToken onReset={onReset} />);
+    fireEvent.click(screen.getByRole("button", { name: "Reload defaults" }));
+    expect(onReset).not.toHaveBeenCalled();
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Cancel" }));
+    expect(onReset).not.toHaveBeenCalled();
+  });
+
+  it("reloads once after confirmation", () => {
+    const onReset = vi.fn();
+    const onClear = vi.fn();
+    render(<UserActionConfigurationCard {...BASE} selectedAction="update-state" selectedDetectedToken onReset={onReset} onClear={onClear} />);
+    fireEvent.click(screen.getByRole("button", { name: "Reload defaults" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Reload defaults" }));
+    expect(onReset).toHaveBeenCalledTimes(1);
+    expect(onClear).not.toHaveBeenCalled();
+  });
+
+  it("describes action risk separately from readiness", () => {
+    render(<UserActionConfigurationCard {...BASE} definition={{ ...BASE.definition, risk: "medium" }} />);
+    expect(screen.getByText("Moderate risk")).toBeInTheDocument();
+    expect(screen.queryByText("Needs review")).not.toBeInTheDocument();
+  });
+});

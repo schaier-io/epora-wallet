@@ -8,7 +8,7 @@ import { queryPolicy } from "@/lib/query/keys";
 
 const MAX_BACKGROUND_VERIFY = 20;
 export const BACKGROUND_PROPOSAL_VERIFICATION_TIMEOUT_MS = 15_000;
-type Reports = Record<string, { validity: ProposalValidity; signers: SignerSatisfaction | null }>;
+type Reports = Record<string, { validity: ProposalValidity; signers: SignerSatisfaction | null; validUntilMs?: number | null }>;
 
 async function waitForVerification<T>(work: Promise<T>) {
   let timeout: ReturnType<typeof setTimeout> | undefined;
@@ -78,7 +78,7 @@ export function useProposalBackgroundVerification(
             unknownFrom(index);
             return reports;
           }
-          reports[proposal.id] = { validity: outcome.value.validity, signers: outcome.value.signers };
+          reports[proposal.id] = { validity: outcome.value.validity, signers: outcome.value.signers, validUntilMs: outcome.value.effect.validUntilMs };
         } catch {
           signal.throwIfAborted();
           reports[proposal.id] = { validity: "unknown", signers: null };

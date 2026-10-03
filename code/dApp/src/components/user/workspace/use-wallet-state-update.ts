@@ -13,7 +13,7 @@ import { STT_STATE_REFRESH_POLL_MS } from "./constants";
 import { routeStateAtom } from "./atoms/workspace-route.atoms";
 import {
   completeWalletStateUpdateAtom, pendingWalletStateUpdatesAtom,
-  type PendingWalletStateUpdate
+  type PendingWalletStateUpdate, walletStateChecksAtom, walletStateRetryAtom
 } from "./atoms/wallet-state-update.atoms";
 
 // #433: a changed reference is not evidence that the output is spendable.
@@ -41,9 +41,17 @@ export async function readUsableWalletReplacement(
     } else {
       // Only chain progress plus a verified original input can release a submission
       // whose acceptance is unknown. A browser clock or timeout is insufficient.
-      if (pending.invalidHereafter === undefined) throw error;
+      const submittedTxMissing = typeof error === "object" && error !== null && "status" in error && error.status === 404;
+      if (pending.invalidHereafter === undefined) {
+        if (submittedTxMissing) return null;
+        throw error;
+      }
       const tip = await fetcher.get("blocks/latest") as { slot?: unknown } | null;
-      if (typeof tip?.slot !== "number" || !Number.isSafeInteger(tip.slot) || tip.slot < pending.invalidHereafter) throw error;
+      if (typeof tip?.slot !== "number" || !Number.isSafeInteger(tip.slot)) throw error;
+      if (tip.slot < pending.invalidHereafter) {
+        if (submittedTxMissing) return null;
+        throw error;
+      }
       await assertExactInputUnspent(fetcher, pending.spentRef, "STT input", true);
       signal.throwIfAborted();
       return { replacementRef: pending.spentRef, expired: true };
@@ -71,12 +79,13 @@ export function useWalletStateUpdate(walletUnit?: string): void {
   const selectedUnit = useAtomValue(routeStateAtom).selectedWalletUnit;
   const updates = useAtomValue(pendingWalletStateUpdatesAtom);
   const unit = walletUnit ?? selectedUnit;
-  const pending = unit === null ? Object.values(updates)[0] : updates[unit];
+  const retry = useAtomValue(walletStateRetryAtom);
   useEffect(() => {
-    if (!pending) return;
+    const pendingUpdates = unit === null ? Object.values(updates) : updates[unit] ? [updates[unit]] : [];
     const abort = new AbortController();
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const poll = async () => {
+    const timers = new Set<ReturnType<typeof setTimeout>>();
+    const poll = async (pending: PendingWalletStateUpdate) => {
+      let phase: "waiting" | "unavailable" = "waiting";
       try {
         const result = await readUsableWalletReplacement(client, pending, abort.signal);
         if (result && store.set(completeWalletStateUpdateAtom, { pending, ...result })) {
@@ -84,11 +93,22 @@ export function useWalletStateUpdate(walletUnit?: string): void {
           return;
         }
       } catch {
-        // Missing, spent, or unavailable data never releases the wait.
+        // Only a completed State check can report normal waiting. Other failures
+        // include missing exact inputs and do not attest a successful chain check.
+        phase = "unavailable";
       }
-      if (!abort.signal.aborted) timer = setTimeout(() => void poll(), STT_STATE_REFRESH_POLL_MS);
+      if (abort.signal.aborted) return;
+      store.set(walletStateChecksAtom, current => ({ ...current, [pending.walletUnit]: {
+        txHash: pending.submittedTxHash, checkedAt: Date.now(), phase,
+        lastSuccessfulAt: phase === "waiting" ? Date.now() : current[pending.walletUnit]?.txHash === pending.submittedTxHash ? current[pending.walletUnit]!.lastSuccessfulAt : null
+      } }));
+      const timer = setTimeout(() => {
+        timers.delete(timer);
+        void poll(pending);
+      }, STT_STATE_REFRESH_POLL_MS);
+      timers.add(timer);
     };
-    void poll();
-    return () => { abort.abort(); clearTimeout(timer); };
-  }, [client, pending, store]);
+    pendingUpdates.forEach(pending => void poll(pending));
+    return () => { abort.abort(); timers.forEach(clearTimeout); };
+  }, [client, updates, unit, retry, store]);
 }

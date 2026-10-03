@@ -326,7 +326,7 @@ export const allocatedLockedContractAssetsAtom = atom((get) =>
   mergeAmountLists([
     ...get(sttWalletOutputsAtom).map((output) => output.amount),
     ...get(stagedSttTransfersAtom).map((transfer) => transfer.amount)
-  ])
+  ].map(amounts => amounts.filter(asset => /^\d+$/.test(asset.quantity.trim()))))
 );
 
 export const transferSourceAssetsAtom = atom((get) => {

@@ -339,3 +339,10 @@ test("a partial live row beside a staged payout does not repeat the receipt", ()
   assert.match(recipientRows[0]?.value ?? "", /addr_test1qr.../);
   assert.equal(recipientRows[0]?.copyValue, ADDRESS_ONE);
 });
+
+
+test("send receipt carries the exact policy unit for each recipient", () => {
+  const unit = `${"ab".repeat(28)}5553444d`;
+  const receipt = computeReviewReceipt(sendCtx([{...transfer(ADDRESS_ONE, "0"), amount: [{unit, quantity: "1"}]}]));
+  assert.deepEqual(receipt.items.find((item) => item.label === "Recipient")?.assetUnits, [unit]);
+});

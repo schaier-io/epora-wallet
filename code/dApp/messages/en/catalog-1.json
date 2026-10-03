@@ -203,6 +203,7 @@
     "whatThisWalletDoes": "what this wallet does"
   },
   "ComponentsLayoutTopNav": {
+    "checkWalletConnection": "Check wallet connection",
     "changeWallet": "Change wallet",
     "connect": "Connect",
     "connectAWallet": "Connect a wallet",
@@ -410,6 +411,7 @@
     "technicalDetails": "Contract details"
   },
   "ComponentsUiCopyButton": {
+    "copyValue": "Copy {value}",
     "copied": "Copied",
     "copy": "Copy",
     "copyBlocked": "Copy blocked",
@@ -429,9 +431,11 @@
     "firstStep": "First step",
     "highRisk": "High risk",
     "moreAboutTitle": "More about {title}",
-    "needsReview": "Needs review",
+    "moderateRisk": "Moderate risk",
     "recommended": "Recommended",
     "reloadDefaults": "Reload defaults",
+    "reloadDefaultsConfirmTitle": "Reload defaults for this form?",
+    "reloadDefaultsConfirmBody": "This replaces your edits in this form with the current wallet defaults. This cannot be undone.",
     "section": "Section",
     "whatChanges": "What changes",
     "whatThisDoes": "What this does",
@@ -533,6 +537,7 @@
     "thisTakesTransactions": "This takes {count} transactions. Sign the first, then choose Re-check to move the rest."
   },
   "ComponentsUserPoolFinder": {
+    "overCapacity": "At or over capacity",
     "clear": "Clear",
     "couldnTReachThePoolLookupTryAgain_fb9241": "Couldn't reach the pool lookup. Try again.",
     "donTHaveOneBrowsePoolsOnPool_b446d3": "Don't have one? Browse pools on <cardanoscan>Cardanoscan</cardanoscan> or <adastat>AdaStat</adastat> and paste the pool id.",
@@ -591,7 +596,10 @@
     "thePeopleWhoHaveToSignWillSee": "The people who have to sign will see this exact transaction and check it before they sign.",
     "title": "Title",
     "whatYouAreAskingFor": "What you are asking for",
-    "whyAreYouAskingForThisTheOthers": "Why are you asking for this? The others read it before they sign."
+    "whyAreYouAskingForThisTheOthers": "Why are you asking for this? The others read it before they sign.",
+    "expiryUnavailable": "The transaction expiry could not be read. Check it before collecting signatures.",
+    "expiresAt": "Transaction expires: {date}. Collect signatures and submit before this time.",
+    "cosignersRefreshExpiry": "Saving with selected co-signers builds a new transaction and refreshes its expiry."
   },
   "ComponentsUserProposalsFormat": {
     "notKnown": "Not known"
@@ -614,6 +622,7 @@
     "finished": "Finished",
     "ended": "Ended",
     "notStarted": "Not started",
-    "active": "Active"
+    "active": "Active",
+    "scheduledPaymentId": "Scheduled payment #{id}"
   }
 }

@@ -67,11 +67,10 @@ export function WorkspaceStreamingExpenseProjectionsView() {
   return (
     <DisclosureSection title={i18n("title")} description={i18n("description")}>
       <div className="mt-3 space-y-2">
-        {projections.map((projection, index) => (
+        {projections.map((projection) => (
           <ProjectionRow
             key={`streaming-expense-projection-${projection.streamingPaymentId}`}
             projection={projection}
-            index={index}
           />
         ))}
       </div>
@@ -81,10 +80,8 @@ export function WorkspaceStreamingExpenseProjectionsView() {
 
 function ProjectionRow({
   projection,
-  index,
 }: {
   projection: StreamingExpenseProjection;
-  index: number;
 }) {
   const i18n = useTranslations(
     "ComponentsUserWorkspaceWorkspaceStreamingExpenseProjectionsView"
@@ -110,7 +107,7 @@ function ProjectionRow({
       <div className="flex w-full flex-wrap items-start gap-x-3 gap-y-2">
         <div className="min-w-0 flex-1 space-y-1">
           <p className="font-medium text-foreground">
-            {i18n("scheduledPaymentValue1", { value1: index + 1 })}
+            {i18n("scheduledPaymentId", { id: projection.streamingPaymentId })}
           </p>
           {/* A bech32 address is one unbroken ~100-character token; without
               break-all it pushes past the row instead of wrapping. */}

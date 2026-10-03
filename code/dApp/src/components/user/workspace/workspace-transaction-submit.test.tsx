@@ -1,12 +1,13 @@
 import { workspaceTransactionSnapshotAtom, preparedWorkspaceTransactionAtom, PREPARED_TRANSACTION_MAX_AGE_MS } from "./workspace-prepared-transaction";
-import { workspaceSessionAtom, buildRunAtom, previewSignatureAtom, buildDiagnosticIdAtom } from "./atoms/transaction-flow.atoms";
+import { activeSubmitAtom, submitPhaseAtom, workspaceSessionAtom, buildRunAtom, previewSignatureAtom, buildDiagnosticIdAtom } from "./atoms/transaction-flow.atoms";
 import { lockFundsAssetsAtom } from "./atoms/forms/lock-funds-form.atoms";
 import { waitFor } from "@testing-library/react";
 import { queryClientAtom } from "jotai-tanstack-query";
 import { QueryObserver } from "@tanstack/react-query";
 import { createAppQueryClient } from "@/lib/query/client";
 import { queryKeys } from "@/lib/query/keys";
-import { activeAddressAtom } from "@/providers/wallet.atoms";
+import { activeAddressAtom, networkIdAtom } from "@/providers/wallet.atoms";
+import { readDepositReceipt } from "./deposit-receipt";
 import { resetAllFlowAtom, resetFlowAtom, submitHashAtom, submitConfirmedAtom, submitConfirmationUnseenAtom } from "./atoms/transaction-flow.atoms";
 import { parseWorkspaceRouteState } from "@/components/user/workspace-controller";
 import { routeStateAtom } from "./atoms/workspace-route.atoms";
@@ -297,7 +298,7 @@ it("signs a warned transaction only after explicit approval", async () => {
         "ADA payout top-up: extra sent to the payee 7 ADA.\n\n" +
         "Continue?"
     );
-    expect(mocks.signAndSubmitTx).toHaveBeenCalledWith({}, "84a1", { assertCurrent: expect.any(Function) as unknown });
+    expect(mocks.signAndSubmitTx).toHaveBeenCalledWith({}, "84a1", { assertCurrent: expect.any(Function) as unknown, onPhase: expect.any(Function) as unknown });
   } finally {
     confirm.mockRestore();
   }
@@ -391,7 +392,7 @@ for (const firstToSettle of ["old wallet", "new wallet"] as const) {
       const newPending = newSubmit.submitTransactionPreview(preview);
       try {
         expect(mocks.signAndSubmitTx).toHaveBeenCalledTimes(2);
-        expect(mocks.signAndSubmitTx).toHaveBeenLastCalledWith(newDeps.activeWallet, preview.txHex, { assertCurrent: expect.any(Function) as unknown });
+        expect(mocks.signAndSubmitTx).toHaveBeenLastCalledWith(newDeps.activeWallet, preview.txHex, { assertCurrent: expect.any(Function) as unknown, onPhase: expect.any(Function) as unknown });
         if (firstToSettle === "old wallet") {
           settleOld();
           await oldPending;
@@ -841,4 +842,79 @@ it("leaves a late mint confirmation to the mint overlay's own watch", async () =
 
   await vi.advanceTimersByTimeAsync(SUBMIT_CONFIRMATION_LATE_POLL_MS * 3);
   expect(fetchRead.mock.calls.length).toBe(readsAtUnseen);
+});
+
+it.each([true, false])("stores a deposit receipt only after accepted submission (%s)", async accepted => {
+  vi.useFakeTimers();
+  const unit = "11".repeat(28) + "01";
+  const deps = makeDeps({ selectedAction: "lock-funds", selectedDetectedToken: { unit } });
+  deps.jotaiStore.set(activeAddressAtom, "account-a");
+  deps.jotaiStore.set(networkIdAtom, 0);
+  deps.jotaiStore.set(routeStateAtom, parseWorkspaceRouteState(new URLSearchParams({ action: "lock-funds", wallet: unit })));
+  if (!accepted) mocks.signAndSubmitTx.mockRejectedValueOnce(new Error("User declined signing"));
+  await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
+  expect(readDepositReceipt({ address: "account-a", network: 0, walletUnit: unit })?.txHash ?? null).toBe(accepted ? TX_HASH : null);
+});
+
+it("keeps an accepted deposit receipt in its original account after navigation during broadcast", async () => {
+  vi.useFakeTimers();
+  const unit = "11".repeat(28) + "01";
+  const deps = makeDeps({ selectedAction: "lock-funds", selectedDetectedToken: { unit } });
+  deps.jotaiStore.set(activeAddressAtom, "account-a");
+  deps.jotaiStore.set(networkIdAtom, 0);
+  deps.jotaiStore.set(routeStateAtom, parseWorkspaceRouteState(new URLSearchParams({ action: "lock-funds", wallet: unit })));
+  const finish = await pendingBroadcast(deps);
+  deps.jotaiStore.set(activeAddressAtom, "account-b");
+  await finish();
+  expect(readDepositReceipt({ address: "account-a", network: 0, walletUnit: unit })?.txHash).toBe(TX_HASH);
+  expect(readDepositReceipt({ address: "account-b", network: 0, walletUnit: unit })).toBeNull();
+});
+
+
+it("ignores old phase callbacks and final cleanup after a replacement wallet starts", async () => {
+  const callbacks: ((phase: "checking" | "signing" | "submitting") => void)[] = [];
+  const settle: (() => void)[] = [];
+  mocks.signAndSubmitTx.mockImplementation((_wallet, _hex, options: { onPhase: typeof callbacks[number] }) => {
+    callbacks.push(options.onPhase);
+    return new Promise<string>(resolve => { settle.push(() => resolve(TX_HASH)); });
+  });
+  const oldDeps = makeDeps();
+  const oldPending = createWorkspaceTransactionSubmit(oldDeps).submitTransactionPreview(preview);
+  expect(oldDeps.jotaiStore.get(submitPhaseAtom)).toBe("checking");
+  callbacks[0]("signing");
+  expect(oldDeps.jotaiStore.get(submitPhaseAtom)).toBe("signing");
+  oldDeps.jotaiStore.set(routeStateAtom, parseWorkspaceRouteState(new URLSearchParams("wallet=wallet-b")));
+  const newDeps = makeDeps({ jotaiStore: oldDeps.jotaiStore, submitInFlightRef: oldDeps.submitInFlightRef });
+  const newPending = createWorkspaceTransactionSubmit(newDeps).submitTransactionPreview(preview);
+  callbacks[1]("submitting");
+  callbacks[0]("checking");
+  expect(newDeps.jotaiStore.get(submitPhaseAtom)).toBe("submitting");
+  settle[0](); await oldPending;
+  expect(newDeps.jotaiStore.get(submitPhaseAtom)).toBe("submitting");
+  settle[1](); await newPending;
+  expect(newDeps.jotaiStore.get(submitPhaseAtom)).toBeNull();
+});
+
+it.each(["preview invalidation", "display reset", "workspace reset"])("tracks the active submission phase through %s", async (reset) => {
+  let report!: (phase: "checking" | "signing" | "submitting") => void;
+  let fail!: () => void;
+  mocks.signAndSubmitTx.mockImplementation((_wallet, _hex, options: { onPhase: typeof report }) => {
+    report = options.onPhase;
+    return new Promise<string>((_resolve, reject) => { fail = () => reject(new Error("cancelled")); });
+  });
+  const deps = makeDeps();
+  const pending = createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
+  report("signing");
+  expect(deps.jotaiStore.get(submitPhaseAtom)).toBe("signing");
+  deps.jotaiStore.set(activeSubmitAtom, true);
+  if (reset === "workspace reset") deps.jotaiStore.set(resetAllFlowAtom);
+  else if (reset === "display reset") deps.jotaiStore.set(resetFlowAtom);
+  else deps.jotaiStore.set(buildRunAtom, deps.jotaiStore.get(buildRunAtom) + 1);
+  expect(deps.jotaiStore.get(submitPhaseAtom)).toBe(reset === "workspace reset" ? null : "signing");
+  report("checking");
+  expect(deps.jotaiStore.get(submitPhaseAtom)).toBe(reset === "workspace reset" ? null : "checking");
+  report("submitting");
+  expect(deps.jotaiStore.get(submitPhaseAtom)).toBe(reset === "workspace reset" ? null : "submitting");
+  fail(); await pending;
+  expect(deps.jotaiStore.get(submitPhaseAtom)).toBeNull();
 });

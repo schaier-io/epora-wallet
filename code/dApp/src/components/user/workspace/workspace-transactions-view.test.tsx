@@ -302,7 +302,7 @@ describe("activity streaming-expense projections", () => {
     expect(toggle).toHaveAttribute("aria-expanded", "false");
     expect(screen.getByText("No activity yet").compareDocumentPosition(toggle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     fireEvent.click(toggle);
-    expect(screen.getByText("Scheduled payment 1")).toBeInTheDocument();
+    expect(screen.getByText("Scheduled payment #5")).toBeInTheDocument();
     expect(screen.getByText("Unpaid now 3 ADA")).toBeInTheDocument();
     expect(screen.getByText(/Projected as of/)).toBeInTheDocument();
   });

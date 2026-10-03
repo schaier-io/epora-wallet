@@ -36,11 +36,12 @@ export function useLockedContractUtxos() {
         await client.invalidateQueries({ queryKey: options.queryKey, exact: true, refetchType: "none" });
         if (store.get(workspaceSessionAtom) !== session || store.get(lockedUtxosRefreshAtom) !== request) return;
         const utxos = await client.fetchQuery(options);
-        if (utxos.length > 0 || attempt === maxAttempts) return;
+        if (utxos.length > 0 || attempt === maxAttempts) return true;
         await new Promise(resolve => setTimeout(resolve, SEND_FUNDS_REFRESH_RETRY_MS));
       }
     } catch {
-      // Query retains the last result and exposes the request error to all readers.
+      // Return failure without rejecting fire-and-forget refresh controls.
+      return false;
     } finally {
       if (store.get(lockedUtxosRefreshAtom) === request) store.set(lockedUtxosRefreshAtom, null);
     }

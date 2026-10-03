@@ -55,7 +55,7 @@ function renderExpandedView() {
   const view = renderView();
   const toggle = screen.getByRole("button", { name: /^Streaming expenses/ });
   expect(toggle).toHaveAttribute("aria-expanded", "false");
-  expect(screen.queryByText("Scheduled payment 1")).not.toBeInTheDocument();
+  expect(screen.queryByText("Scheduled payment #3")).not.toBeInTheDocument();
   fireEvent.click(toggle);
   expect(toggle).toHaveAttribute("aria-expanded", "true");
   return view;
@@ -86,7 +86,7 @@ describe("streaming expense projections in Activity", () => {
     expect(screen.getByRole("region", { name: /^Streaming expenses/ })).toBeInTheDocument();
     // The section and the as-of line already say these are projections; no per-row badge.
     expect(screen.queryByText("Projected")).not.toBeInTheDocument();
-    expect(screen.getByText("Scheduled payment 1")).toBeInTheDocument();
+    expect(screen.getByText("Scheduled payment #3")).toBeInTheDocument();
     expect(screen.getByText("addr_test1payee")).toBeInTheDocument();
     // 3 whole days at 1 ADA/day, accrued but not yet paid out.
     expect(screen.getByText("Unpaid now 3 ADA")).toBeInTheDocument();

@@ -1,9 +1,13 @@
 "use client";
 
 import { StateTransitionReview } from "./state-transition-review";
+import { formatTimestampLabel } from "@/components/user/workspace/helpers/formatters";
 import { useTranslations } from "next-intl";
 
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { txInfoQueryOptions } from "@/lib/query/chain";
+import { queryPolicy } from "@/lib/query/keys";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -54,7 +58,9 @@ export function ProposalDetail({
 }: ProposalDetailProps) {
   const i18n = useTranslations("ComponentsUserProposalsProposalDetail");
   const toast = useToast();
+  const copyGeneration = useRef(0);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [confirmRebuild, setConfirmRebuild] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmWithdraw, setConfirmWithdraw] = useState(false);
   const {
@@ -83,6 +89,20 @@ export function ProposalDetail({
     verifying
   } = useProposalOrchestration({ proposalId, sessionKeyHash, onChanged, refreshRevision });
 
+  const dialogIdentity = `${proposalId}:${detail?.txBodyHash ?? ""}`;
+  useLayoutEffect(() => {
+    copyGeneration.current += 1;
+    return () => { copyGeneration.current += 1; };
+  }, [dialogIdentity]);
+  const [previousDialogIdentity, setPreviousDialogIdentity] = useState(dialogIdentity);
+  if (previousDialogIdentity !== dialogIdentity) {
+    setPreviousDialogIdentity(dialogIdentity);
+    setConfirmRebuild(false);
+    setConfirmDelete(false);
+    setConfirmWithdraw(false);
+    setLinkCopied(false);
+  }
+
   // Why the buttons below are in the state they are in. Sign and Submit are each gated on
   // three separate conditions, and a disabled button is not focusable, so a co-signer used
   // to face two grey buttons with nothing anywhere saying whether they were early, late, or
@@ -90,9 +110,15 @@ export function ProposalDetail({
   // `txBodyHash` is the fallback for requests saved before the column existed: the
   // body hash identifies the same transaction on the explorer.
   const submittedTxHash = detail?.submittedTxHash ?? detail?.txBodyHash ?? null;
+  const confirmation = useQuery({
+    ...txInfoQueryOptions(submittedTxHash ?? ""),
+    enabled: detail?.status === "SUBMITTED" && Boolean(submittedTxHash),
+    retry: false,
+    refetchInterval: (query) => detail?.status === "SUBMITTED" && !query.state.data ? queryPolicy.activePollMs : false
+  });
   const statusNote = ((): string | null => {
     if (detail?.status === "SUBMITTED") {
-      return i18n("submittedWaitingForConfirmation");
+      return confirmation.data ? i18n("confirmedOnChain") : i18n("submittedWaitingForConfirmation");
     }
     if (detail?.status === "SUBMITTING") {
       // The chain may already hold this tx while the record is unfinished; the
@@ -188,9 +214,11 @@ export function ProposalDetail({
             onClick={() => {
               // `window` only exists at event time, and the origin is whatever host the
               // signer is already trusting, never a configured one.
+              const generation = ++copyGeneration.current;
               void copyTextToClipboard(
                 buildProposalShareUrl(window.location.origin, detail.walletUnit, detail.id)
               ).then((ok) => {
+                if (copyGeneration.current !== generation) return;
                 // `setLinkCopied(ok)` used to be the whole handler, so a failure set `false`
                 // over `false` and the button just never changed.
                 if (!ok) {
@@ -198,7 +226,9 @@ export function ProposalDetail({
                   return;
                 }
                 setLinkCopied(true);
-                window.setTimeout(() => setLinkCopied(false), 1800);
+                window.setTimeout(() => {
+                  if (copyGeneration.current === generation) setLinkCopied(false);
+                }, 1800);
               });
             }}
           >
@@ -225,6 +255,8 @@ export function ProposalDetail({
         </div>
       </div>
 
+      {detail.status === "OPEN" && verification?.effect.validUntilMs != null ? <p className="text-sm text-muted-foreground">{i18n("expiresAt", { date: formatTimestampLabel(verification.effect.validUntilMs) })}</p> : null}
+      {detail.status === "SUBMITTED" && confirmation.isError && !confirmation.data ? <p role="status" className="text-xs text-muted-foreground">{i18n("confirmationUnavailable")}</p> : null}
       <Card>
         <CardHeader>
           {/* The note names its author instead of warning the reader about it. The
@@ -380,7 +412,7 @@ export function ProposalDetail({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => void handleRebuild()}
+                onClick={() => detail.signatures.length > 0 ? setConfirmRebuild(true) : void handleRebuild()}
                 disabled={busy !== null}
                 aria-busy={busy === "rebuild"}
               >
@@ -434,6 +466,16 @@ export function ProposalDetail({
         </CardContent>
       </Card>
 
+      <ConfirmDialog
+        open={confirmRebuild}
+        onOpenChange={setConfirmRebuild}
+        title={i18n("rebuildConfirmTitle")}
+        description={i18n("rebuildConfirmDescription")}
+        confirmLabel={i18n("rebuildConfirmLabel")}
+        cancelLabel={i18n("withdrawRequestCancel")}
+        busy={busy === "rebuild"}
+        onConfirm={() => { setConfirmRebuild(false); void handleRebuild(); }}
+      />
       <ConfirmDialog
         open={confirmWithdraw}
         onOpenChange={setConfirmWithdraw}

@@ -57,11 +57,12 @@ describe.each(["stop-beneficiary-stream", "renew-proof-of-life"] as const)("%s d
       expect(store.get(sttInputOutputIndexAtom)).toBe("2");
       expect(store.get(sttStateFormAtom)).toEqual(currentForm);
       if (action === "stop-beneficiary-stream") expect(store.get(beneficiaryStreamStopIdAtom)).toBe("");
-      expect(store.get(sttProofOfLifeOverrideModeAtom)).toBe("auto");
-      expect(store.get(sttProofOfLifeSpecificDateTimeAtom)).toBe("");
+      expect(store.get(sttProofOfLifeOverrideModeAtom)).toBe(action === "renew-proof-of-life" ? "auto" : "specific");
+      expect(store.get(sttProofOfLifeSpecificDateTimeAtom)).toBe(action === "renew-proof-of-life" ? "" : "2030-01-01T00:00");
       expect(store.get(withdrawAmountAtom)).toBe("12345");
       expect(store.get(withdrawRewardAddressAtom)).toBe("stake_test_saved");
-      expect(store.get(sttWalletInputsAtom)).toEqual([]);
+      // These pools belong to the sibling Send draft.
+      expect(store.get(sttWalletInputsAtom)).toEqual([{ txHash: "33".repeat(32), outputIndex: 0 }]);
       expect(clearPreviewResult).toHaveBeenCalledOnce();
       expect(clearBuildMessages).toHaveBeenCalledOnce();
     }

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { SearchableAssetUnitDropdown } from "./asset-unit-dropdown";
@@ -89,7 +89,7 @@ describe("the asset search combobox", () => {
     expect(listbox.closest(".fixed")).not.toBeNull();
   });
 
-  it("moves the highlight with arrows, Home, and End, wrapping at the ends", () => {
+  it("moves the highlight with arrows and preserves text-editing Home and End", () => {
     const { open } = renderDropdown();
     open();
 
@@ -106,7 +106,7 @@ describe("the asset search combobox", () => {
     fireEvent.keyDown(screen.getByRole("combobox"), { key: "ArrowDown" });
     expect(activeId()).toBe("asset-search-listbox-option-0");
     fireEvent.keyDown(screen.getByRole("combobox"), { key: "End" });
-    expect(activeId()).toBe("asset-search-listbox-option-2");
+    expect(activeId()).toBe("asset-search-listbox-option-0");
     fireEvent.keyDown(screen.getByRole("combobox"), { key: "Home" });
     expect(activeId()).toBe("asset-search-listbox-option-0");
     fireEvent.keyDown(screen.getByRole("combobox"), { key: "ArrowUp" });
@@ -291,4 +291,52 @@ describe("the popup placement in a cramped viewport", () => {
     fireEvent.click(screen.getByRole("button")); // reopen, re-measure
     expect(screen.getByRole("listbox").style.maxHeight).toBe("8px");
   });
+});
+
+
+it("Tab follows the form order in both directions and skips hidden controls", () => {
+  render(<><button>Before asset</button><SearchableAssetUnitDropdown id="flow-asset" value="lovelace" options={OPTIONS} onChange={vi.fn()} /><div style={{display: "none"}}><input aria-label="Hidden input" /></div><input aria-label="Amount" /></>);
+  const trigger = screen.getByRole("button", {name: "ADA"});
+  fireEvent.click(trigger);
+  fireEvent.keyDown(screen.getByRole("combobox"), {key: "Tab"});
+  expect(screen.getByRole("textbox", {name: "Amount"})).toHaveFocus();
+  fireEvent.click(trigger);
+  fireEvent.keyDown(screen.getByRole("combobox"), {key: "Tab", shiftKey: true});
+  expect(screen.getByRole("button", {name: "Before asset"})).toHaveFocus();
+});
+
+it("shows the full policy for same-name token choices", () => {
+  renderDropdown({value: LONG_UNIT});
+  expect(screen.getByText(`Policy: ${LONG_UNIT.slice(0, 56)}`)).toBeInTheDocument();
+  expect(screen.getByText("Issuer not verified")).toBeInTheDocument();
+});
+
+
+it("positions above the soft-keyboard viewport and updates on resize", () => {
+  const viewport = Object.assign(new EventTarget(), {height: 400, width: 390, offsetTop: 0, offsetLeft: 0});
+  Object.defineProperty(window, "visualViewport", {configurable: true, value: viewport});
+  const bounds = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({top: 250, bottom: 294, left: 16, right: 374, width: 358, height: 44, x: 16, y: 250, toJSON() {}});
+  try {
+    const {open} = renderDropdown();
+    open();
+    const popup = screen.getByRole("listbox").closest(".fixed") as HTMLElement;
+    expect(popup.style.bottom).not.toBe("");
+    expect(popup.style.top).toBe("");
+    viewport.height = 800;
+    act(() => { viewport.dispatchEvent(new Event("resize")); });
+    expect(popup.style.top).toBe("302px");
+  } finally { bounds.mockRestore(); Object.defineProperty(window, "visualViewport", {configurable: true, value: undefined}); }
+});
+
+it("Tab reaches token identity before later fields and skips closed disclosure contents", () => {
+  render(<><SearchableAssetUnitDropdown id="identity-order" value={LONG_UNIT} options={OPTIONS} onChange={vi.fn()} /><details><summary>More controls</summary><input aria-label="Hidden detail field" /></details><input aria-label="Next amount" /></>);
+  fireEvent.click(screen.getByRole("button", { name: /.+/ }));
+  fireEvent.keyDown(screen.getByRole("combobox"), { key: "Tab" });
+  expect(document.activeElement).toBe(screen.getByText("Asset identity"));
+});
+
+it("names each token identity disclosure with its selected asset", () => {
+  render(<><SearchableAssetUnitDropdown id="identity-one" value={LONG_UNIT} options={OPTIONS} onChange={vi.fn()} /><SearchableAssetUnitDropdown id="identity-two" value="99aa00" options={OPTIONS} onChange={vi.fn()} /></>);
+  expect(screen.getByLabelText(`Asset identity: ${LONG_LABEL}`)).toHaveTextContent("Asset identity");
+  expect(screen.getByLabelText("Asset identity: TOK • Sample Token")).toHaveTextContent("Asset identity");
 });
