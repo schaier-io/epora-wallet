@@ -33,9 +33,9 @@ const RequestSchema = z.object({
 // These are per-caller floors, not a Blockfrost quota guarantee: deployment-wide spend is
 // bounded by Blockfrost's own limits, and `/api/v1/tx/*` keeps its separate deployment-wide
 // ban shield.
-const MESH_RATE_LIMIT = 1200;
+const MESH_RATE_LIMIT = 2400;
 const MESH_RATE_WINDOW_MS = 60_000;
-const EXPENSIVE_METHOD_RATE_LIMIT = 200;
+const EXPENSIVE_METHOD_RATE_LIMIT = 400;
 const MAX_MESH_REQUEST_BYTES = 3 * 1024 * 1024;
 
 type RequestTimings = { rate_limit: number; provider: number };

@@ -34,6 +34,56 @@ function request(body = '{"method":"fetchAddressUTxOs","args":["address"]}', hin
     ...(hint ? { headers: { "X-Mesh-Method": hint } } : {}) });
 }
 
+it("uses the raised general allowance for reads and returns stage timings", async () => {
+  mocks.execute.mockResolvedValue([]);
+  const response = await POST(request());
+  expect(mocks.limit).toHaveBeenCalledWith("caller", 2400, 60_000);
+  expect(mocks.limit).toHaveBeenCalledTimes(1);
+  expect(response.headers.get("Server-Timing")).toMatch(/rate_limit;dur=\d+\.\d+, provider;dur=\d+\.\d+, total;dur=\d+\.\d+/);
+});
+
+it.each(["evaluateTx", "submitTx"])("uses the raised method allowance for %s", async method => {
+  mocks.execute.mockResolvedValue([]);
+  expect((await POST(request(JSON.stringify({ method, args: ["00"] })))).status).toBe(200);
+  expect(mocks.limit).toHaveBeenNthCalledWith(1, "caller", 2400, 60_000);
+  expect(mocks.limit).toHaveBeenNthCalledWith(2, `caller:${method}`, 400, 60_000);
+});
+
+it("preserves general rejection precedence and avoids provider work", async () => {
+  mocks.limit.mockResolvedValue({ ok: false, retryAfterSeconds: 7 });
+  const response = await POST(request('{"method":"evaluateTx","args":["00"]}'));
+  expect(response.status).toBe(429);
+  expect(response.headers.get("Retry-After")).toBe("7");
+  expect(mocks.execute).not.toHaveBeenCalled();
+  expect(response.headers.get("Server-Timing")).toContain("rate_limit;dur=");
+});
+
+it("returns the method rejection after the general bucket permits it", async () => {
+  mocks.limit.mockResolvedValueOnce({ ok: true }).mockResolvedValueOnce({ ok: false, retryAfterSeconds: 9 });
+  const response = await POST(request('{"method":"evaluateTx","args":["00"]}'));
+  expect(response.status).toBe(429);
+  expect(response.headers.get("Retry-After")).toBe("9");
+  expect(mocks.execute).not.toHaveBeenCalled();
+});
+
+it("charges malformed bodies to general allowance before reporting the body error", async () => {
+  mocks.limit.mockResolvedValue({ ok: false, retryAfterSeconds: 4 });
+  expect((await POST(request("{"))).status).toBe(429);
+  expect(mocks.limit).toHaveBeenCalledExactlyOnceWith("caller", 2400, 60_000);
+  expect(mocks.limit).toHaveBeenCalledTimes(1);
+  mocks.limit.mockResolvedValue({ ok: true });
+  expect((await POST(request("{"))).status).toBe(400);
+});
+
+it("rejects a blocked caller before attempting to read its body", async () => {
+  mocks.limit.mockResolvedValue({ ok: false, retryAfterSeconds: 4 });
+  const input = request();
+  const bodyRead = vi.spyOn(input.body!, "getReader");
+  expect((await POST(input)).status).toBe(429);
+  expect(bodyRead).not.toHaveBeenCalled();
+  expect(mocks.execute).not.toHaveBeenCalled();
+});
+
 it("preserves provider rate limits and the retry header", async () => {
   mocks.execute.mockRejectedValue(JSON.stringify({ status: 429, headers: { "retry-after": "17" }, data: { message: "Too many requests" } }));
   const response = await POST(request());
@@ -139,8 +189,8 @@ it.each(["evaluateTx", "submitTx"])("charges both %s buckets with one paired cal
   mocks.execute.mockResolvedValue([]);
   expect((await POST(request(JSON.stringify({ method, args: ["00"] }), method))).status).toBe(200);
   expect(mocks.pair).toHaveBeenCalledExactlyOnceWith(
-    { key: "caller", limit: 1200, windowMs: 60_000 },
-    { key: `caller:${method}`, limit: 200, windowMs: 60_000 }
+    { key: "caller", limit: 2400, windowMs: 60_000 },
+    { key: `caller:${method}`, limit: 400, windowMs: 60_000 }
   );
   expect(mocks.limit).not.toHaveBeenCalled();
 });
@@ -167,7 +217,7 @@ it("checks the actual expensive method when the hint differs", async () => {
   const response = await POST(request('{"method":"evaluateTx","args":["00"]}', "submitTx"));
   expect(response.status).toBe(429);
   expect(mocks.pair).toHaveBeenCalledTimes(1);
-  expect(mocks.limit).toHaveBeenCalledExactlyOnceWith("caller:evaluateTx", 200, 60_000);
+  expect(mocks.limit).toHaveBeenCalledExactlyOnceWith("caller:evaluateTx", 400, 60_000);
   expect(mocks.execute).not.toHaveBeenCalled();
 });
 
@@ -175,7 +225,7 @@ it.each([undefined, "fetchAddressUTxOs", "EvaluateTx", "untrusted"])("keeps lega
   mocks.execute.mockResolvedValue([]);
   expect((await POST(request('{"method":"evaluateTx","args":["00"]}', hint))).status).toBe(200);
   expect(mocks.pair).not.toHaveBeenCalled();
-  expect(mocks.limit.mock.calls).toEqual([["caller", 1200, 60_000], ["caller:evaluateTx", 200, 60_000]]);
+  expect(mocks.limit.mock.calls).toEqual([["caller", 2400, 60_000], ["caller:evaluateTx", 400, 60_000]]);
 });
 
 it("a false expensive hint does not block an allowed read method", async () => {
