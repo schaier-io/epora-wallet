@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { BlockfrostProvider } from "@meshsdk/core";
+import { BlockfrostProvider, type UTxO } from "@meshsdk/core";
 
 import { RECENT_STT_TRANSACTION_FETCH_PAGES } from "@/components/user/workspace/constants";
 import { executeMeshMethod } from "./blockfrost-server";
@@ -166,4 +166,37 @@ test("each network uses its own provider key and rejects a key for another netwo
   }
   assert.throws(() => blockfrostProjectId("mainnet", { BLOCKFROST_MAINNET_PROJECT_ID: "preprodExample" }), /mainnet-prefixed/);
   assert.throws(() => blockfrostProjectId("preprod", { BLOCKFROST_PREPROD_PROJECT_ID: "mainnetExample" }), /preprod-prefixed/);
+});
+
+
+test("RPC evaluation recovers the real Mesh AdditionalUtxoOverlap response without dropping unknown inputs", async () => {
+  const confirmedHash = "ab".repeat(32);
+  const pendingHash = "cd".repeat(32);
+  const input = (txHash: string, outputIndex: number): UTxO => ({
+    input: { txHash, outputIndex }, output: {
+      address: "addr_test1vqg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygxrcya6",
+      amount: [{ unit: "lovelace", quantity: "5000000" }]
+    }
+  });
+  const supplied = [input(confirmedHash, 0), input(confirmedHash, 1), input(pendingHash, 0)];
+  const requests: unknown[] = [];
+  const provider = new BlockfrostProvider("preprod_test");
+  const transport = provider as unknown as { _axiosInstance: { post: (path: string, payload: {
+    cbor: string; additionalUtxoSet: [{ txId: string; index: number }, unknown][]
+  }) => Promise<unknown> } };
+  transport._axiosInstance.post = async (_path, payload) => {
+    requests.push(payload);
+    const overlaps = payload.additionalUtxoSet.map(([ref]) => ref).filter(ref => ref.txId === confirmedHash);
+    return { status: 200, data: { type: "jsonwsp/response", version: "1.0", servicename: "ogmios", methodname: "EvaluateTx",
+      result: overlaps.length ? { EvaluationFailure: { AdditionalUtxoOverlap: overlaps } }
+        : { EvaluationResult: { "spend:0": { memory: 1, steps: 2 } } }
+    } };
+  };
+  const result = await executeMeshMethod(provider, "evaluateTx", ["00", supplied]);
+  assert.deepEqual(result, [{ tag: "SPEND", index: 0, budget: { mem: 1, steps: 2 } }]);
+  assert.equal(requests.length, 2);
+  const retry = requests[1] as { cbor: string; additionalUtxoSet: [{ txId: string; index: number }, unknown][] };
+  assert.equal(retry.cbor, "00");
+  assert.deepEqual(retry.additionalUtxoSet.map(([ref]) => ref), [{ txId: pendingHash, index: 0 }]);
+  assert.equal(supplied.length, 3);
 });

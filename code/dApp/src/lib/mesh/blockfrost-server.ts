@@ -1,3 +1,4 @@
+import { evaluateRemoteTx } from "./remote-evaluation";
 import { MAX_EVALUATION_INPUTS } from "./transactions/internals/constants";
 import { readRegionalInputMetadata } from "./regional-input-metadata";
 import { CARDANO_NETWORK, type CardanoNetwork } from "@/lib/cardano-network";
@@ -326,7 +327,7 @@ export async function executeMeshMethod(
     }
     case "evaluateTx": {
       return toUnknown(
-        provider.evaluateTx(
+        evaluateRemoteTx(provider,
           getStringArg(args, 0, "tx", MAX_TRANSACTION_HEX_LENGTH),
           getOptionalUtxosArg(args, 1, "additionalUtxos"),
           getOptionalStringArrayArg(args, 2, "additionalTxs")
