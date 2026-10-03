@@ -4,7 +4,7 @@ import { executeMeshMethod, getBlockfrostProvider, METHOD_VALUES, MeshRpcInputEr
 import { isScriptEvaluationRejection, meshHttpRetryAfter, meshHttpStatus, meshUpstreamFailure } from "@/lib/mesh/http-error";
 import { retryMeshRead, meshReadRetryDelay } from "@/lib/mesh/read-retry";
 import { parseRetryAfterMs } from "@/lib/http/retry-after";
-import { clientKey, rateLimit } from "@/lib/http/rate-limit";
+import { clientKey, rateLimit, rateLimitPair } from "@/lib/http/rate-limit";
 import { InvalidJsonError, readBoundedJson, RequestBodyTooDeepError, RequestBodyTooLargeError } from "@/lib/http/request-body";
 import { logger, serializeError, serializeErrorDetail } from "@/lib/observability/logger";
 import { getTranslations } from "next-intl/server";
@@ -38,32 +38,61 @@ const MESH_RATE_WINDOW_MS = 60_000;
 const EXPENSIVE_METHOD_RATE_LIMIT = 200;
 const MAX_MESH_REQUEST_BYTES = 3 * 1024 * 1024;
 
-/** Proxy chain methods with bounded read retries and error responses that retain provider details. */
+type RequestTimings = { rate_limit: number; provider: number };
+
+/** Expose durations only. Each response keeps its own request timing state. */
 export async function POST(request: Request) {
+  const started = performance.now();
+  const timings: RequestTimings = { rate_limit: 0, provider: 0 };
+  const response = await handlePost(request, timings);
+  response.headers.set("Server-Timing", [
+    `rate_limit;dur=${timings.rate_limit.toFixed(1)}`,
+    `provider;dur=${timings.provider.toFixed(1)}`,
+    `total;dur=${(performance.now() - started).toFixed(1)}`
+  ].join(", "));
+  return response;
+}
+
+/** Proxy chain methods with bounded retries and provider error details. */
+async function handlePost(request: Request, timings: RequestTimings) {
   const i18n = await getI18n();
   const callerKey = clientKey(request, "mesh");
-  const limit = await rateLimit(callerKey, MESH_RATE_LIMIT, MESH_RATE_WINDOW_MS);
-  if (!limit.ok) {
-    return NextResponse.json(
-      { error: i18n("tooManyRequestsWaitAMomentThenTry") },
-      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
-    );
-  }
-
-  // Named outside the try so the catch can say WHICH call failed: the thrown
-  // provider text alone never identifies the method.
+  const hint = request.headers.get("X-Mesh-Method");
+  const hintedMethod = hint === "evaluateTx" || hint === "submitTx" ? hint : undefined;
+  // Named outside the try so failures identify the actual parsed method.
   let method: string | undefined;
+  const measure = async <T,>(field: keyof RequestTimings, operation: () => Promise<T>): Promise<T> => {
+    const started = performance.now();
+    try { return await operation(); }
+    finally { timings[field] += performance.now() - started; }
+  };
 
   try {
+    // A hint can only add a debit. A missing or different actual method keeps
+    // the original method check after bounded parsing.
+    const initial = await measure("rate_limit", () => hintedMethod
+      ? rateLimitPair(
+        { key: callerKey, limit: MESH_RATE_LIMIT, windowMs: MESH_RATE_WINDOW_MS },
+        { key: `${callerKey}:${hintedMethod}`, limit: EXPENSIVE_METHOD_RATE_LIMIT, windowMs: MESH_RATE_WINDOW_MS }
+      )
+      : rateLimit(callerKey, MESH_RATE_LIMIT, MESH_RATE_WINDOW_MS).then(primary => ({ primary, secondary: undefined })));
+    if (!initial.primary.ok) {
+      return NextResponse.json(
+        { error: i18n("tooManyRequestsWaitAMomentThenTry") },
+        { status: 429, headers: { "Retry-After": String(initial.primary.retryAfterSeconds) } }
+      );
+    }
     const payloadUnknown: unknown = await readBoundedJson(request, MAX_MESH_REQUEST_BYTES);
     const payload = RequestSchema.parse(payloadUnknown);
     method = payload.method;
     if (payload.method === "evaluateTx" || payload.method === "submitTx") {
-      const methodLimit = await rateLimit(
-        `${callerKey}:${payload.method}`,
-        EXPENSIVE_METHOD_RATE_LIMIT,
-        MESH_RATE_WINDOW_MS
-      );
+      const methodLimit = payload.method === hintedMethod ? initial.secondary
+        : await measure("rate_limit", () => rateLimit(
+          `${callerKey}:${payload.method}`,
+          EXPENSIVE_METHOD_RATE_LIMIT,
+          MESH_RATE_WINDOW_MS
+        ));
+      if (!methodLimit) throw new Error("The method rate-limit result is missing.");
       if (!methodLimit.ok) {
         return NextResponse.json(
           { error: i18n("tooManyValue1RequestsPleaseTryAgainShortly", { value1: payload.method }) },
@@ -72,7 +101,7 @@ export async function POST(request: Request) {
       }
     }
     const provider = getBlockfrostProvider();
-    const result: unknown = await retryMeshRead(
+    const result: unknown = await measure("provider", () => retryMeshRead(
       payload.method,
       () => executeMeshMethod(provider, payload.method, payload.args),
       (error, attempt) => {
@@ -81,7 +110,7 @@ export async function POST(request: Request) {
         return parseRetryAfterMs(meshHttpRetryAfter(error)) ?? meshReadRetryDelay(attempt);
       },
       request.signal
-    );
+    ));
 
     return NextResponse.json({ result: result as unknown });
   } catch (error) {

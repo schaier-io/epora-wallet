@@ -45,15 +45,18 @@ function isRpcEnvelope(value: unknown): value is RpcEnvelope {
 async function rpc<T>(method: ChainMethod, args: unknown[], signal?: AbortSignal): Promise<T> {
   signal?.throwIfAborted();
   const payload: ChainRpcRequest = { method, args };
+  const startedAt = performance.now();
 
   const response = await fetch("/api/mesh", {
     method: "POST",
     signal,
     headers: {
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
+      "X-Mesh-Method": method
     },
     body: JSON.stringify(payload)
   }).catch((error: unknown) => {
+    console.debug("[mesh-rpc:timings]", { method, durationMs: performance.now() - startedAt, outcome: "transport-error" });
     signal?.throwIfAborted();
     if (error instanceof TypeError) throw new MeshTransportError(error);
     throw error;
@@ -65,6 +68,7 @@ async function rpc<T>(method: ChainMethod, args: unknown[], signal?: AbortSignal
     return undefined;
   });
   signal?.throwIfAborted();
+  console.debug("[mesh-rpc:timings]", { method, durationMs: performance.now() - startedAt, status: response.status, serverTiming: response.headers.get("Server-Timing") });
   const retryDelay = parseRetryAfterMs(response.headers.get("Retry-After"));
 
   if (!isRpcEnvelope(raw)) {

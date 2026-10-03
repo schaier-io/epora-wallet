@@ -12,67 +12,47 @@ function digestKey(key: string): string {
   return createHash("sha256").update(key).digest("hex");
 }
 
-/**
- * Consume weighted work from a globally shared PostgreSQL bucket. The upsert
- * is a single atomic statement, so concurrent requests and separate serverless
- * instances cannot each obtain an independent allowance.
- */
-export async function consumePostgresRateLimit(
-  key: string,
-  limit: number,
-  windowMs: number,
-  cost = 1
-): Promise<RateLimitResult> {
+export type RateLimitBucket = { key: string; limit: number; windowMs: number; cost?: number };
+
+// Both single and paired debits use the same validation and bounded upsert.
+export function rateLimitBucketStatement(
+  { key, limit, windowMs, cost = 1 }: RateLimitBucket,
+  nowMs: number,
+  condition = Prisma.sql`TRUE`
+): Prisma.Sql {
   if (
-    !Number.isSafeInteger(limit) ||
-    limit < 1 ||
-    limit > MAX_CONFIGURED_LIMIT ||
-    !Number.isSafeInteger(windowMs) ||
-    windowMs < 1 ||
-    windowMs > MAX_WINDOW_MS ||
-    !Number.isSafeInteger(cost) ||
-    cost < 1 ||
-    cost > MAX_CONFIGURED_LIMIT
+    !Number.isSafeInteger(limit) || limit < 1 || limit > MAX_CONFIGURED_LIMIT ||
+    !Number.isSafeInteger(windowMs) || windowMs < 1 || windowMs > MAX_WINDOW_MS ||
+    !Number.isSafeInteger(cost) || cost < 1 || cost > MAX_CONFIGURED_LIMIT
   ) {
     throw new Error("Rate-limit configuration and cost must use positive safe integers.");
   }
-
-  const nowMs = Date.now();
   const now = new Date(nowMs);
   const resetAt = new Date(nowMs + windowMs);
   const bucketKey = digestKey(key);
-  const db = getPrisma();
-  // Store at most one unit above the limit. Oversized work is rejected even on
-  // a fresh or expired bucket, while the counter stays bounded.
   const initialConsumed = Math.min(cost, limit + 1);
-  // Prisma's PostgreSQL adapter applies `?schema=` to generated model queries,
-  // but raw SQL does not inherit that search path. Qualify the table explicitly
-  // so preview/test schemas and production behave identically.
-  const table = Prisma.raw(
-    `${quotePostgresIdentifier(getDatabaseSchema())}."ApiRateLimit"`
-  );
-  const rows = await db.$queryRaw<RateLimitRow[]>(Prisma.sql`
+  // Raw SQL needs an explicit schema even when the Prisma adapter has one.
+  const table = Prisma.raw(`${quotePostgresIdentifier(getDatabaseSchema())}."ApiRateLimit"`);
+  return Prisma.sql`
     INSERT INTO ${table} AS bucket ("key", "requestCount", "expiresAt", "updatedAt")
-    VALUES (${bucketKey}, ${initialConsumed}, ${resetAt}, ${now})
+    SELECT ${bucketKey}, ${initialConsumed}, ${resetAt}, ${now}
+    WHERE ${condition}
     ON CONFLICT ("key") DO UPDATE SET
       "requestCount" = CASE
-        WHEN bucket."expiresAt" <= ${now}
-          THEN ${initialConsumed}
+        WHEN bucket."expiresAt" <= ${now} THEN ${initialConsumed}
         ELSE LEAST(bucket."requestCount" + ${cost}, ${limit + 1})
       END,
       "expiresAt" = CASE
-        WHEN bucket."expiresAt" <= ${now}
-          THEN ${resetAt}
+        WHEN bucket."expiresAt" <= ${now} THEN ${resetAt}
         ELSE bucket."expiresAt"
       END,
       "updatedAt" = ${now}
     RETURNING "requestCount", "expiresAt"
-  `);
-  const row = rows[0];
-  if (!row) {
-    throw new Error("PostgreSQL did not return the consumed rate-limit bucket.");
-  }
+  `;
+}
 
+export async function pruneRateLimitBuckets(nowMs: number): Promise<void> {
+  const db = getPrisma();
   // Bounded cleanup. The indexed delete keeps stale caller rows from becoming
   // permanent storage while retaining recently expired rows for diagnostics.
   if (Math.random() < 0.01) {
@@ -80,6 +60,20 @@ export async function consumePostgresRateLimit(
       where: { expiresAt: { lt: new Date(nowMs - EXPIRED_BUCKET_RETENTION_MS) } }
     });
   }
+}
 
+/** Consume work with one atomic upsert shared across server instances. */
+export async function consumePostgresRateLimit(
+  key: string,
+  limit: number,
+  windowMs: number,
+  cost = 1
+): Promise<RateLimitResult> {
+  const nowMs = Date.now();
+  const statement = rateLimitBucketStatement({ key, limit, windowMs, cost }, nowMs);
+  const rows = await getPrisma().$queryRaw<RateLimitRow[]>(statement);
+  const row = rows[0];
+  if (!row) throw new Error("PostgreSQL did not return the consumed rate-limit bucket.");
+  await pruneRateLimitBuckets(nowMs);
   return resultFromRateLimitRow(row, limit, nowMs);
 }

@@ -20,6 +20,23 @@ function answer(body: string, status: number, headers: Record<string, string> = 
 }
 
 describe("mesh RPC failures", () => {
+  it("sends the method hint and reports timings without transaction contents", async () => {
+    const debug = vi.spyOn(console, "debug").mockImplementation(() => undefined);
+    try {
+      fetchMock.mockResolvedValue(answer('{"result":[]}', 200, {
+        "Server-Timing": "rate_limit;dur=3.2, provider;dur=12.1, total;dur=16.0"
+      }));
+      await new ServerFetcher().evaluateTx("private-transaction");
+      const init = fetchMock.mock.calls[0][1] as RequestInit;
+      expect(new Headers(init.headers).get("X-Mesh-Method")).toBe("evaluateTx");
+      expect(debug).toHaveBeenCalledWith("[mesh-rpc:timings]", expect.objectContaining({
+        method: "evaluateTx", status: 200,
+        serverTiming: "rate_limit;dur=3.2, provider;dur=12.1, total;dur=16.0"
+      }));
+      expect(JSON.stringify(debug.mock.calls)).not.toContain("private-transaction");
+    } finally { debug.mockRestore(); }
+  });
+
   it("reports the status when the proxy answers with a page instead of JSON", async () => {
     // A 502 from a gateway carries an HTML body. Parsing it first threw
     // `SyntaxError: Unexpected token '<'`, which named nothing the reader or
