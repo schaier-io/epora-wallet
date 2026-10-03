@@ -99,7 +99,8 @@ export const activityVisibleEndAtom = atom((get) =>
 );
 
 /**
- * Loading and empty only. This used to fall through to "1 to 5 of 19", which the paging row
+ * Loading, refreshing and empty only. Refreshing is the reader-visible kind (a manual
+ * refresh, or the reload after a submit), never the background poll. This used to fall through to "1 to 5 of 19", which the paging row
  * under the list states as "Showing 1-5 of 19" beside the Previous/Next buttons it belongs
  * to: two spellings of one range, a card apart. `null` means the header shows no badge.
  *
@@ -108,7 +109,8 @@ export const activityVisibleEndAtom = atom((get) =>
  * there are without being told.
  */
 export const activityRangeLabelAtom = atom((get) => {
-  if (get(walletTransactionsAtom).loading) return i18n("refreshing");
+  const activity = get(walletTransactionsAtom);
+  if (activity.loading || activity.refreshing) return i18n("refreshing");
   if (get(recentWalletActivityEventsAtom).length === 0) return i18n("noneShown");
   return null;
 });

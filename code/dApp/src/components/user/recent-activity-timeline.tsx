@@ -38,6 +38,11 @@ type RecentActivityTimelineProps = {
   onEventClick?: (event: TimelineEvent) => void;
   /** Loading + error states drive the inner placeholder. */
   loading?: boolean;
+  /**
+   * A reader-caused reload over rows already shown (after a send, or a manual refresh).
+   * The rows stay; the header says they are being checked.
+   */
+  refreshing?: boolean;
   /** A failed read. Without it an empty list read "No activity yet" when the fetch failed. */
   error?: string | null;
 };
@@ -55,6 +60,7 @@ export function RecentActivityTimeline({
   onSeeAll,
   onEventClick,
   loading,
+  refreshing,
   error
 }: RecentActivityTimelineProps) {
   const i18n = useTranslations("ComponentsUserRecentActivityTimeline");
@@ -69,6 +75,16 @@ export function RecentActivityTimeline({
         <p className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground">
           <ArrowUpDown className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
           {i18n("recentActivity")}
+          {/* Always mounted so the polite region exists before its text arrives; a region
+              mounted together with its text is not reliably announced. */}
+          <span aria-live="polite" className="inline-flex items-center gap-1 text-xs font-normal text-muted-foreground">
+            {refreshing && events.length > 0 ? (
+              <>
+                <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+                {i18n("refreshing")}
+              </>
+            ) : null}
+          </span>
         </p>
         {events.length > 0 && onSeeAll ? (
           <button

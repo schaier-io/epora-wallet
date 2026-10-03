@@ -187,3 +187,38 @@ it("keeps the wallet's feed while a changed anchor set loads, but not across wal
   act(() => test.store.set(activeAddressAtom, "wallet-b"));
   expect(test.result.current.activity).toMatchObject({ items: [], loading: true });
 });
+// The badge-worthy "refreshing" is the read the reader caused: the reload after a submit
+// changed the anchors, or a manual refresh. A background refetch only spins the icon.
+it("raises refreshing while a changed anchor set reloads over the shown rows", async () => {
+  const test = setup();
+  await waitFor(() => expect(test.result.current.activity.items).toEqual([transaction]));
+  expect(test.result.current.activity).toMatchObject({ refreshing: false, fetching: false });
+  let release!: (value: unknown) => void;
+  chain.fetchTxInfo.mockImplementation(() => new Promise(resolve => { release = resolve; }));
+  act(() => test.store.set(activityAnchorTxHashesAtom as unknown as PrimitiveAtom<string[]>, [transaction.hash, "ef".repeat(32)]));
+  await waitFor(() => expect(test.result.current.activity.refreshing).toBe(true));
+  expect(test.result.current.activity).toMatchObject({ items: [transaction], loading: false, fetching: true });
+  await act(async () => release({ ...transaction, hash: "ef".repeat(32) }));
+  await waitFor(() => expect(test.result.current.activity.refreshing).toBe(false));
+});
+it("raises refreshing for a manual refresh until it settles", async () => {
+  const test = setup();
+  await waitFor(() => expect(test.result.current.activity.loading).toBe(false));
+  let release!: (value: unknown[]) => void;
+  chain.fetchAddressTxs.mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
+  let refresh!: Promise<void>;
+  act(() => { refresh = test.result.current.refreshWalletTransactions(); });
+  await waitFor(() => expect(test.result.current.activity.refreshing).toBe(true));
+  await act(async () => { release([]); await refresh; });
+  expect(test.result.current.activity.refreshing).toBe(false);
+});
+it("a background refetch spins but does not raise refreshing", async () => {
+  const test = setup();
+  await waitFor(() => expect(test.result.current.activity.loading).toBe(false));
+  let release!: (value: unknown[]) => void;
+  chain.fetchAddressTxs.mockImplementationOnce(() => new Promise(resolve => { release = resolve; }));
+  act(() => { void invalidateChainQueries(test.queryClient); });
+  await waitFor(() => expect(test.result.current.activity.fetching).toBe(true));
+  expect(test.result.current.activity.refreshing).toBe(false);
+  await act(async () => release([]));
+});

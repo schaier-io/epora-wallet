@@ -237,14 +237,14 @@ export function WorkspaceSidebarView() {
                                       </p>
                                       <Badge
                                         variant={
-                                          walletTransactions.loading ? "secondary" : "outline"
+                                          walletTransactions.loading || walletTransactions.refreshing ? "secondary" : "outline"
                                         }
                                         // `leading-none` keeps the count badge on the 17.5px title
                                         // line; the default `text-xs` leading made this row taller
                                         // than every other two-line row.
                                         className="whitespace-nowrap leading-none"
                                       >
-                                        {walletTransactions.loading
+                                        {walletTransactions.loading || walletTransactions.refreshing
                                           ? i18n("refreshing")
                                           : i18n("value1", { value1: recentWalletActivityEvents.length })}
                                       </Badge>

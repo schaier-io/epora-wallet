@@ -300,12 +300,16 @@ export function WorkspaceTransactionsView() {
                             onClick={() => {
                               void refreshWalletTransactions();
                             }}
-                            disabled={walletTransactions.loading}
+                            disabled={walletTransactions.loading || walletTransactions.refreshing}
+                            aria-busy={walletTransactions.fetching}
                           >
+                            {/* Spins on every read, the 30 s poll included, so a quiet
+                                background check is still visible. Only reader-caused reads
+                                disable the button and raise the badge beside it. */}
                             <RefreshCw
                               className={cn(
                                 "h-4 w-4 transition-transform",
-                                walletTransactions.loading && "animate-spin"
+                                walletTransactions.fetching && "animate-spin"
                               )}
                             />
                             {i18n("refresh")}

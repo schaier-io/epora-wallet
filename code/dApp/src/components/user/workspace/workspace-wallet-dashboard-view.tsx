@@ -294,6 +294,7 @@ export function WorkspaceWalletDashboardView() {
                           };
                         })}
                         loading={walletTransactions.loading}
+                        refreshing={walletTransactions.refreshing}
                         error={walletTransactions.error}
                         onSeeAll={() => openGuidedOverview("transactions")}
                         onEventClick={() => openGuidedOverview("transactions")}

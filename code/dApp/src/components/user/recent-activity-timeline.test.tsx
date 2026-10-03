@@ -36,6 +36,18 @@ describe("recent activity timeline", () => {
     expect(screen.queryByText(/Loading recent activity/)).toBeNull();
   });
 
+  it("says Refreshing in the header over shown rows, and nothing when there are none", () => {
+    const { rerender } = render(<RecentActivityTimeline events={[EVENT]} refreshing />);
+    expect(screen.getByText("Refreshing").closest("[aria-live='polite']")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Funds added/ })).toBeTruthy();
+
+    rerender(<RecentActivityTimeline events={[EVENT]} />);
+    expect(screen.queryByText("Refreshing")).toBeNull();
+
+    rerender(<RecentActivityTimeline events={[]} refreshing />);
+    expect(screen.queryByText("Refreshing")).toBeNull();
+  });
+
   /**
    * The row chevron rested at `text-muted-foreground/0`, fully transparent, so no row
    * showed one and hover was the only cue that a row is a button.
