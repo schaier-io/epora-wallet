@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useAtomValue, useStore } from "jotai";
 import { activeAddressAtom, networkIdAtom } from "@/providers/wallet.atoms";
 import { routeStateAtom } from "./atoms/workspace-route.atoms";
-import { activeSubmitAtom, submitConfirmedAtom, submitConfirmationUnseenAtom, submitHashAtom } from "./atoms/transaction-flow.atoms";
+import { activeSubmitAtom, submitConfirmedAtom, submitConfirmationUnseenAtom, submitHashAtom, workspaceSessionAtom } from "./atoms/transaction-flow.atoms";
 import { DEPOSIT_RECEIPT_EVENT, depositReceiptKey, readDepositReceipt } from "./deposit-receipt";
 import { watchTransactionConfirmation } from "./watch-transaction-confirmation";
 
@@ -14,6 +14,8 @@ export function useDepositReceiptRecovery(): void {
   const address = useAtomValue(activeAddressAtom);
   const network = useAtomValue(networkIdAtom);
   const activeSubmit = useAtomValue(activeSubmitAtom);
+  // Re-enabling the same account replaces the wallet API and retires its previous watch.
+  const session = useAtomValue(workspaceSessionAtom);
   const route = useAtomValue(routeStateAtom);
   const walletUnit = route.selectedWalletUnit;
   const action = route.selectedAction;
@@ -23,12 +25,16 @@ export function useDepositReceiptRecovery(): void {
     const restore = (event?: Event) => {
       if (event instanceof StorageEvent && (event.storageArea !== localStorage ||
         (event.key !== null && event.key !== receiptKey))) return;
-      if (store.get(activeSubmitAtom) || store.get(submitHashAtom)) return;
+      if (store.get(activeSubmitAtom)) return;
       const receipt = readDepositReceipt({ address, network, walletUnit });
       if (!receipt) return;
-      store.set(submitHashAtom, receipt.txHash);
-      store.set(submitConfirmedAtom, false);
-      store.set(submitConfirmationUnseenAtom, false);
+      const currentHash = store.get(submitHashAtom);
+      if (currentHash && (currentHash !== receipt.txHash || store.get(submitConfirmedAtom))) return;
+      if (!currentHash) {
+        store.set(submitHashAtom, receipt.txHash);
+        store.set(submitConfirmedAtom, false);
+        store.set(submitConfirmationUnseenAtom, false);
+      }
       void watchTransactionConfirmation(store, receipt.txHash, "lock-funds").catch(error =>
         console.error("[deposit-receipt:confirmation]", error));
     };
@@ -39,5 +45,5 @@ export function useDepositReceiptRecovery(): void {
       window.removeEventListener("storage", restore);
       window.removeEventListener(DEPOSIT_RECEIPT_EVENT, restore);
     };
-  }, [address, network, walletUnit, action, activeSubmit, store]);
+  }, [address, network, walletUnit, action, activeSubmit, session, store]);
 }
