@@ -3,7 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import test, { type TestContext } from "node:test";
 import { Prisma } from "@/generated/prisma";
 import { getPrisma } from "@/lib/prisma";
-import { quotePostgresIdentifier } from "@/lib/prisma-adapter";
+import { getDatabaseSchema, quotePostgresIdentifier } from "@/lib/prisma-adapter";
 import { consumePostgresRateLimitPair } from "./rate-limit-pair-store";
 import { rateLimitBucketStatement, type RateLimitBucket } from "./rate-limit-store";
 
@@ -69,9 +69,10 @@ test("paired raw SQL uses the configured quoted schema", { skip: DB_SKIP }, asyn
   const schema = `pair"${randomUUID().replaceAll("-", "")}`;
   const db = getPrisma();
   const identifier = Prisma.raw(quotePostgresIdentifier(schema));
+  const sourceSchema = Prisma.raw(quotePostgresIdentifier(getDatabaseSchema()));
   await db.$executeRaw(Prisma.sql`CREATE SCHEMA ${identifier}`);
   t.after(async () => { await db.$executeRaw(Prisma.sql`DROP SCHEMA ${identifier} CASCADE`); });
-  await db.$executeRaw(Prisma.sql`CREATE TABLE ${identifier}."ApiRateLimit" (LIKE public."ApiRateLimit" INCLUDING ALL)`);
+  await db.$executeRaw(Prisma.sql`CREATE TABLE ${identifier}."ApiRateLimit" (LIKE ${sourceSchema}."ApiRateLimit" INCLUDING ALL)`);
   const prior = process.env.DATABASE_URL!;
   const url = new URL(prior);
   url.searchParams.set("schema", schema);

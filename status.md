@@ -289,3 +289,16 @@ REPORTED: Independent adversarial reviews found no remaining defects.
 REPORTED: Source-reverted route tests collected 29 cases, with 11 failures. Restored source passed all 29.
 REPORTED: Source-reverted evaluation tests collected 8 cases, with 8 failures. Restored source passed all 8.
 Limit: Live provider and deployed Vercel latency remain unmeasured. No production latency reduction is claimed.
+
+
+## PR #705 CI schema correction, 2026-10-04
+
+VERIFIED: CI run `37148087493` returned `tests 2008; pass 2007; fail 1; skipped 0`.
+The new schema test failed with `relation "public.ApiRateLimit" does not exist`.
+The prior local nine-test check used `public`. It did not test CI's `stt_test` source schema.
+VERIFIED: A local database with only `stt_test.ApiRateLimit` reproduced `tests 6; pass 5; fail 1`.
+The fixture now copies from `getDatabaseSchema()` and quotes that identifier.
+The same non-public database then returned `tests 9; pass 9; fail 0; skipped 0`.
+VERIFIED: Scoped ESLint and TypeScript checks returned exit 0.
+VERIFIED: PR #705 now reports `baseRefName: dev` and `mergeable: MERGEABLE`.
+Production code remains unchanged. The lesson is to test database fixtures with the same schema isolation as CI.
