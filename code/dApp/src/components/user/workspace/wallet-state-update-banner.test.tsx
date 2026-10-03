@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import { beforeEach, expect, it } from "vitest";
 import { pendingWalletStateUpdateAtom } from "./atoms/wallet-state-update.atoms";
@@ -29,12 +29,23 @@ function renderBanner(selectedAction: UserActionKind | null, pending = true) {
   if (pending) store.set(pendingWalletStateUpdateAtom, {
     walletUnit: UNIT, submittedTxHash: TX_HASH, spentRef: { txHash: "cd".repeat(32), outputIndex: 0 }
   });
-  return render(<Provider store={store}><WalletStateUpdateBanner /></Provider>);
+  return { store, ...render(<Provider store={store}><WalletStateUpdateBanner /></Provider>) };
 }
 
 it("renders nothing while no wallet state update is pending", () => {
-  const { container } = renderBanner(null, false);
-  expect(container).toBeEmptyDOMElement();
+  renderBanner(null, false);
+  expect(screen.getByRole("status")).toBeEmptyDOMElement();
+});
+
+// The live region must exist before its text does, or a screen reader may not announce it.
+it("fills the same live region when an update starts", () => {
+  const { store } = renderBanner(null, false);
+  const region = screen.getByRole("status");
+  act(() => store.set(pendingWalletStateUpdateAtom, {
+    walletUnit: UNIT, submittedTxHash: TX_HASH, spentRef: { txHash: "cd".repeat(32), outputIndex: 0 }
+  }));
+  expect(screen.getByRole("status")).toBe(region);
+  expect(region).toHaveTextContent("Updating this wallet");
 });
 
 it("names what pauses and what still works on the dashboard, with the transaction on one line", () => {
