@@ -60,7 +60,7 @@ test("resetWorkspaceActivityAtom clears the fetched transactions and page index"
 
   store.set(resetWorkspaceActivityAtom);
 
-  assert.deepEqual(store.get(walletTransactionsAtom), { items: [], loading: false, error: null });
+  assert.deepEqual(store.get(walletTransactionsAtom), { items: [], loading: false, fetching: false, refreshing: false, error: null });
   assert.equal(store.get(activityPageIndexAtom), 0);
   for (const key of [activityKey, transactionKey]) assert.equal(client.getQueryData(key), undefined);
   client.clear();
