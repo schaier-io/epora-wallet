@@ -23,8 +23,8 @@ workerScope.onmessage = (event) => {
       workerScope.postMessage({ ok: true, actions });
     } catch (error) {
       // Internal diagnostics trigger remote fallback. The UI does not display this message.
-      const message = error instanceof Error ? error.message : "Local evaluation failed.";
-      workerScope.postMessage({ ok: false, error: message });
+      const failure = error instanceof Error ? error : new Error("Local evaluation failed.");
+      workerScope.postMessage({ ok: false, error: failure.message });
     }
   })();
 };
