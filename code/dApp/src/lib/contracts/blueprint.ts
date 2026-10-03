@@ -58,7 +58,7 @@ function parameterizedScript(title: string, params: string[]): PlutusScript {
   return { code, version };
 }
 
-function cachedScriptHash(script: PlutusScript): string {
+export function resolveCachedScriptHash(script: PlutusScript): string {
   return cachedDerivation(
     scriptHashes,
     JSON.stringify([script.code, script.version]),
@@ -93,7 +93,7 @@ export function getSttMintScript(): PlutusScript {
 
 export function getSttMintPolicyId() {
   const script = getSttScript();
-  return cachedScriptHash(script);
+  return resolveCachedScriptHash(script);
 }
 
 export function getSttSpendScript(): PlutusScript {
@@ -134,7 +134,7 @@ export function resolveWalletSpendScriptHash(params: {
   sttAssetNameHex: string;
 }): string {
   const script = getWalletSpendScript(params);
-  return cachedScriptHash(script);
+  return resolveCachedScriptHash(script);
 }
 
 // On-chain `intended_stake_credential` value that delegates to the wallet's OWN

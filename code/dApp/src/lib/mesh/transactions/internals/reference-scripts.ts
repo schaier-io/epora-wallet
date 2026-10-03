@@ -3,10 +3,10 @@ import { withStage } from "./errors";
 import { formatByteCount, plutusScriptSizeBytes } from "./script-data";
 import { assertExactInputUnspent, createInputRefKey, dedupeUtxos, findUtxo } from "./utxo";
 import { readSavedSttReference } from "@/lib/mesh/stt-reference-storage";
-import { resolveSttReferenceStoreAddress } from "@/lib/contracts/blueprint";
+import { resolveCachedScriptHash, resolveSttReferenceStoreAddress } from "@/lib/contracts/blueprint";
 import { type TxFetcher } from "@/lib/mesh/tx-context";
 import { type LanguageVersion } from "@meshsdk/common";
-import { type UTxO, resolveScriptHash } from "@meshsdk/core";
+import { type UTxO } from "@meshsdk/core";
 import { fromScriptRef } from "@meshsdk/core-cst";
 import { formatReferenceScriptUsage } from "../preview-copy";
 
@@ -129,7 +129,7 @@ function resolveReferenceScriptValidation(
     return null;
   }
 
-  const expectedHash = resolveScriptHash(script.code, script.version);
+  const expectedHash = resolveCachedScriptHash(script);
   if (utxo.output.scriptHash) {
     if (utxo.output.scriptHash !== expectedHash) return null;
   }
@@ -148,7 +148,7 @@ function resolveReferenceScriptValidation(
     return null;
   }
 
-  return resolveScriptHash(parsedScript.code, parsedScript.version) === expectedHash
+  return resolveCachedScriptHash(parsedScript) === expectedHash
     ? (utxo.output.scriptHash ? "hash-verified" : "script-ref-verified")
     : null;
 }
@@ -216,7 +216,7 @@ export async function resolveReferenceScript(
     excludedRefs?: string[];
   }
 ): Promise<ReferenceScriptResolution | null> {
-  const expectedHash = resolveScriptHash(options.script.code, options.script.version);
+  const expectedHash = resolveCachedScriptHash(options.script);
   const scriptSize = plutusScriptSizeBytes(options.script).toString();
   const excludedRefs = new Set(
     (options.excludedRefs ?? []).map((reference) => reference.toLowerCase())
@@ -325,7 +325,7 @@ export async function inspectSharedSttReferenceStore(
   }
 ): Promise<SharedSttReferenceStoreInspection> {
   const storeAddress = resolveSttReferenceStoreAddress();
-  const expectedScriptHash = resolveScriptHash(options.script.code, options.script.version);
+  const expectedScriptHash = resolveCachedScriptHash(options.script);
   const configuredReference = options.configuredReference === undefined
     ? readSavedSttReference()
     : options.configuredReference.trim();
