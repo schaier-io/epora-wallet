@@ -19,7 +19,7 @@ import {
 } from "./workspace-flow-handlers";
 import { OwnedMessageError } from "./helpers/build-errors";
 import { activeSubmitAtom, resetAllFlowAtom, resetFlowAtom, mintConfirmationRunAtom } from "./atoms/transaction-flow.atoms";
-import { beginWalletStateUpdateAtom, pendingWalletStateUpdateAtom } from "./atoms/wallet-state-update.atoms";
+import { beginWalletStateUpdateAtom, pendingWalletStateUpdateAtom, walletStateSubmissionsAtom } from "./atoms/wallet-state-update.atoms";
 import { resolveWalletSpendAddress, resolveWalletStakeScriptCredentialData, resolveWalletContinuingOutputAddressFromState } from "@/lib/contracts/blueprint";
 import { createDefaultStateForm, stateFormToDatum } from "@/lib/contracts/state-form";
 
@@ -126,6 +126,21 @@ test("another wallet's State update does not block a mint without a selected wal
   });
   assert.equal(ran, true);
 });
+
+// A signing still in flight holds every action, on any wallet when none is selected:
+// two signings at once would race for the same signer UTxOs.
+for (const action of ["lock-funds", "mint"]) {
+  test(`a signing in flight blocks ${action}, even without a selected wallet`, async () => {
+    const { ctx } = makeCtx();
+    ctx.jotaiStore.set(walletStateSubmissionsAtom, { "wallet-unit": true });
+    let ran = false;
+    await createWorkspaceFlowHandlers(ctx).withBuildGuard(action, async () => {
+      ran = true;
+      return fakePreview;
+    });
+    assert.equal(ran, false);
+  });
+}
 
 test("stale fund-pool build failure arms the recovery flag and keeps the draft state", async () => {
   const { ctx, calls } = makeCtx();

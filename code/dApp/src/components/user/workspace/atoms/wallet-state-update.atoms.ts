@@ -159,13 +159,18 @@ export function isSttConsumingWorkspaceAction(action: UserActionKind): boolean {
 const WALLET_STATE_INDEPENDENT_ACTIONS = new Set<string>(["mint", "lock-funds"]);
 
 /**
- * Whether `action` must wait for the wallet-state update. Only an action that spends the
- * STT has to: its input is the UTxO the pending transaction just spent. The others stay
- * open, so a wait never locks the whole wallet. An unrecognised label waits. Signing stays
- * one at a time through the submit flow's own in-flight guards.
+ * Whether `action` must wait for the wallet-state update. A signing still in flight holds
+ * every action, as before: one transaction at a time. Once it is submitted, only an action
+ * that spends the STT has to wait, because its input is the UTxO the pending transaction
+ * just spent. The others stay open, so a wait never locks the whole wallet. An
+ * unrecognised label waits.
  */
 export function walletStateBlocksAction(get: Getter, action: string): boolean {
-  return get(walletStateUpdatingAtom) && !WALLET_STATE_INDEPENDENT_ACTIONS.has(action);
+  const unit = get(routeStateAtom).selectedWalletUnit;
+  const submissions = get(walletStateSubmissionsAtom);
+  const signing = unit ? Boolean(submissions[unit]) : Object.values(submissions).some(Boolean);
+  return signing ||
+    (get(pendingWalletStateUpdateAtom) !== null && !WALLET_STATE_INDEPENDENT_ACTIONS.has(action));
 }
 
 export const selectedActionWaitsForWalletStateAtom = atom(get =>
