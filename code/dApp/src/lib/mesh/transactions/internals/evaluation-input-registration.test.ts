@@ -4,6 +4,11 @@ import { DEFAULT_PROTOCOL_PARAMETERS, DEFAULT_V1_COST_MODEL_LIST, DEFAULT_V2_COS
 import { Transaction, resolveScriptHash, type UTxO } from "@meshsdk/core";
 import { toScriptRef } from "@meshsdk/core-cst";
 import type { WalletSource, TxFetcher } from "@/lib/mesh/tx-context";
+import { MAX_EVALUATION_INPUTS } from "./constants";
+import { executeMeshMethod } from "@/lib/mesh/blockfrost-server";
+import type { RuntimeTxBuilder } from "./budget-runtime-builder";
+import { addWalletInput } from "./utxo";
+import type { BlockfrostProvider } from "@meshsdk/core";
 import { setupTransaction } from "./core";
 import { redeemValueWithInlineScript, redeemValueWithRequiredReferenceScript } from "./value";
 import type { ReferenceScriptResolution } from "./reference-scripts";
@@ -65,4 +70,42 @@ test("a real build sends only serialized input outputs to evaluation for a large
   tx.mintAsset(SCRIPT, { assetName: "token", assetQuantity: "1" }, REDEEMER);
   await tx.build();
   assert.ok(evaluations > 0);
+});
+
+
+test("a fragmented-wallet build reaches RPC evaluation with more than 64 required outputs", async () => {
+  const funds = Array.from({ length: 65 }, (_, index): UTxO => ({
+    input: { txHash: (index + 1).toString(16).padStart(64, "0"), outputIndex: 0 },
+    output: { address: ADDRESS, amount: [{ unit: "lovelace", quantity: "4000000" }] }
+  }));
+  const collateral = output("f");
+  const actions = [{ tag: "MINT" as const, index: 0, budget: { mem: 700_000, steps: 300_000_000 } }];
+  let evaluations = 0;
+  const provider = { evaluateTx: async (_hex: string, supplied: UTxO[]) => {
+    evaluations++;
+    assert.equal(supplied.length, 66);
+    return actions;
+  } } as unknown as BlockfrostProvider;
+  const fetcher = {
+    fetchProtocolParameters: async () => DEFAULT_PROTOCOL_PARAMETERS,
+    fetchCostModels: async () => [DEFAULT_V1_COST_MODEL_LIST, DEFAULT_V2_COST_MODEL_LIST, DEFAULT_V3_COST_MODEL_LIST],
+    evaluateTx: (hex: string, supplied?: UTxO[], chained?: string[]) =>
+      executeMeshMethod(provider, "evaluateTx", [hex, supplied, chained])
+  } as TxFetcher;
+  const { tx } = await setupTransaction(wallet([...funds, collateral]), undefined, fetcher);
+  for (const fund of funds) addWalletInput(tx.txBuilder as RuntimeTxBuilder, fund);
+  tx.mintAsset(SCRIPT, { assetName: "token", assetQuantity: "1" }, REDEEMER);
+  const hex = await tx.build();
+  assert.ok(hex.length / 2 < DEFAULT_PROTOCOL_PARAMETERS.maxTxSize);
+  assert.ok(evaluations > 0);
+});
+
+
+test("RPC evaluation retains a bounded additional input set", async () => {
+  let calls = 0;
+  const provider = { evaluateTx: async () => { calls++; return []; } } as unknown as BlockfrostProvider;
+  await executeMeshMethod(provider, "evaluateTx", ["00", Array.from({ length: MAX_EVALUATION_INPUTS }, () => output("1"))]);
+  assert.equal(calls, 1);
+  await assert.rejects(executeMeshMethod(provider, "evaluateTx", ["00", Array.from({ length: MAX_EVALUATION_INPUTS + 1 }, () => output("1"))]), /at most 512 entries/);
+  assert.equal(calls, 1);
 });

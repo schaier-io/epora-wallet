@@ -6,6 +6,7 @@ import type { LocalEvaluationRequest } from "./local-evaluation-worker";
 const mocks = vi.hoisted(() => ({ deserialize: vi.fn(), worker: vi.fn() }));
 vi.mock("@/lib/mesh/cst", () => ({ deserializeTx: mocks.deserialize }));
 vi.mock("./local-evaluation-worker", () => ({ evaluateInWorker: mocks.worker }));
+import { MAX_EVALUATION_INPUTS } from "./constants";
 import { evaluateDraftLocally } from "./local-draft-evaluation";
 import { Transaction } from "@meshsdk/core";
 import { redeemValueWithInlineScript } from "./value";
@@ -67,4 +68,21 @@ describe("local draft input context", () => {
     await expect(evaluateDraftLocally(fetcher, "00")).rejects.toThrow();
     expect(fetcher.get).not.toHaveBeenCalled();
   });
+});
+
+
+it("evaluates more than 64 supplied inputs without extra reads", async () => {
+  const indices = Array.from({ length: 66 }, (_, index) => index + 1);
+  transaction(indices);
+  await evaluateDraftLocally(fetcher, "00", indices.map(output));
+  expect(fetcher.fetchUTxOs).not.toHaveBeenCalled();
+  expect((mocks.worker.mock.calls[0][0] as LocalEvaluationRequest).utxos).toHaveLength(66);
+});
+
+it("rejects inputs beyond the size-based ceiling before reads or worker work", async () => {
+  transaction(Array.from({ length: MAX_EVALUATION_INPUTS + 1 }, (_, index) => index + 1));
+  await expect(evaluateDraftLocally(fetcher, "00")).rejects.toThrow("input limit");
+  expect(fetcher.get).not.toHaveBeenCalled();
+  expect(fetcher.fetchUTxOs).not.toHaveBeenCalled();
+  expect(mocks.worker).not.toHaveBeenCalled();
 });
