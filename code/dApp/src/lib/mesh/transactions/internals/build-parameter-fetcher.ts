@@ -2,6 +2,7 @@ import { ServerFetcher } from "@/lib/mesh/server-fetcher";
 import type { TxFetcher, WalletSource } from "@/lib/mesh/tx-context";
 import { createBuildWalletSource } from "./build-wallet-source";
 import { readImmutableInputMetadata } from "./immutable-input-cache";
+import { evaluateDraftLocally } from "./local-draft-evaluation";
 
 export const LATEST_PROTOCOL_PARAMETERS_PATH = "epochs/latest/parameters";
 
@@ -95,6 +96,7 @@ export function createBuildParameterFetcher(fetcher: TxFetcher): TxFetcher {
   const fetchRawParameters = reuseLatest(() => fetcher instanceof ServerFetcher
     ? fetcher.get(LATEST_PROTOCOL_PARAMETERS_PATH, true) : fetcher.get(LATEST_PROTOCOL_PARAMETERS_PATH));
   let statusReads = new Map<string, Promise<unknown>>();
+  let finalPass = false;
   const get = (path: string) => {
     if (path === LATEST_PROTOCOL_PARAMETERS_PATH) return fetchRawParameters();
     if (!/^txs\/[a-fA-F0-9]{64}\/utxos$/.test(path)) return fetcher.get(path);
@@ -116,13 +118,20 @@ export function createBuildParameterFetcher(fetcher: TxFetcher): TxFetcher {
       if (property === "fetchProtocolParameters") return fetchProtocolParameters;
       if (property === "fetchCostModels") return fetchCostModels;
       if (property === "get") return get;
+      if (property === "evaluateTx") return async (tx: string, utxos?: Parameters<TxFetcher["evaluateTx"]>[1], chained?: string[]) => {
+        if (!finalPass && fetcher instanceof ServerFetcher && typeof Worker !== "undefined" && !chained?.length) {
+          try { return await evaluateDraftLocally(scoped, tx, utxos); }
+          catch { fetcher.signal?.throwIfAborted(); }
+        }
+        return fetcher.evaluateTx(tx, utxos, chained);
+      };
       const value: unknown = Reflect.get(target, property, target);
       return typeof value === "function"
         ? (value as (...args: unknown[]) => unknown).bind(target)
         : value;
     }
   });
-  buildPasses.set(scoped, () => { statusReads = new Map(); });
+  buildPasses.set(scoped, () => { statusReads = new Map(); finalPass = true; });
   buildWallets.set(scoped, new WeakMap());
   return scoped;
 }
