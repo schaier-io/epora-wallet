@@ -150,7 +150,8 @@ export async function setupTransaction(
       const collateralResolution = resolveManualCollateralCandidate(
         spendableWalletUtxos,
         reservedInputRefs,
-        txBuilder._protocolParams
+        txBuilder._protocolParams,
+        changeAddress
       );
 
       if (!collateralResolution.collateral) {

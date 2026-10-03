@@ -355,3 +355,22 @@ This database-free run does not validate the skipped database cases. CI must run
 VERIFIED: Type checking, full ESLint, i18n, and OpenAPI validation returned exit 0.
 REPORTED: Fresh provider review passed 44 Node tests and 24 component tests with no findings.
 REPORTED: Final rate review passed 36 route tests and seven quota-default tests with no findings.
+
+
+## Transaction regression fixes, 2026-10-04
+
+VERIFIED correction: The previous readiness report missed two build paths.
+The new tests fail with the original source: `tests 40; pass 37; fail 3` and `Tests 1 failed | 10 passed (11)`.
+The failures cover the RPC input ceiling and enterprise-to-base collateral return sizing.
+VERIFIED: The fix uses one size-based evaluation ceiling and the actual collateral return address.
+VERIFIED: Focused Node validation returned `tests 64; pass 64; fail 0`.
+VERIFIED: Full Vitest returned `Test Files 223 passed (223); Tests 2274 passed (2274)`.
+VERIFIED: Full Node returned `tests 1997; pass 1964; fail 2; skipped 31`.
+Both failures reported `ERR_SWC_NATIVE_CACHE` because the sandbox blocked the default cache path.
+VERIFIED: Those test files passed with `SWC_NATIVE_BINDING_CACHE=/private/tmp/epora-swc-native`: `tests 10; pass 10; fail 0`.
+The database-free run does not validate the skipped database cases.
+VERIFIED: Type checking, full ESLint, OpenAPI validation, and diff checks returned exit 0.
+VERIFIED: `File length OK: 794 source files checked, none over 750 lines.`
+REPORTED: Independent adversarial review found no findings in the fix diff.
+The RPC regression uses a stub provider; local evaluation tests mock the worker.
+These checks do not establish live provider or chain acceptance.

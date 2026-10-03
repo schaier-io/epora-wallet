@@ -640,3 +640,25 @@ test("canceling fallback discovery prevents the next provider batch", async () =
   await rejected;
   assert.equal(reads, MAX_CONCURRENT_EXACT_INPUT_LOOKUPS);
 });
+
+
+test("setup rejects collateral sized for an enterprise input when its return uses a base address", async () => {
+  const { setupTransaction } = await import("./core");
+  const { DEFAULT_PROTOCOL_PARAMETERS, DEFAULT_V1_COST_MODEL_LIST, DEFAULT_V2_COST_MODEL_LIST, DEFAULT_V3_COST_MODEL_LIST } = await import("@meshsdk/common");
+  const candidate = utxo(HASH_A, 0, "5853380");
+  candidate.output.address = "addr_test1vqg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygxrcya6";
+  const fallback = utxo(HASH_B, 0, "7000000");
+  const wallet = {
+    getUtxos: async () => [candidate, fallback], getChangeAddress: async () => TEST_ADDRESS,
+    getUsedAddresses: async () => [TEST_ADDRESS], getUnusedAddresses: async () => []
+  } as WalletSource;
+  const { tx } = await setupTransaction(wallet, undefined, {
+    fetchProtocolParameters: async () => DEFAULT_PROTOCOL_PARAMETERS,
+    fetchCostModels: async () => [DEFAULT_V1_COST_MODEL_LIST, DEFAULT_V2_COST_MODEL_LIST, DEFAULT_V3_COST_MODEL_LIST]
+  } as TxFetcher);
+  tx.isCollateralNeeded = true;
+  tx.sendLovelace(TEST_ADDRESS, "1000000");
+  const { deserializeTx } = await import("@/lib/mesh/cst");
+  const body = deserializeTx(await tx.build()).body();
+  assert.equal(body.collateral()?.values()[0]?.transactionId().toString(), HASH_B);
+});

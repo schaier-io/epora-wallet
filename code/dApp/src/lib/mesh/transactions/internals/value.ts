@@ -204,10 +204,11 @@ export function assertOutputMeetsMinimumLovelace(
 // the deposit itself.
 export function calculateCollateralReturnMinimumLovelace(
   utxo: UTxO,
-  protocolParams?: Protocol
+  protocolParams?: Protocol,
+  returnAddress = utxo.output.address
 ) {
   return calculateMinimumLovelaceForOutput(
-    buildMeshOutput(utxo.output.address, utxo.output.amount),
+    buildMeshOutput(returnAddress, utxo.output.amount),
     protocolParams
   );
 }

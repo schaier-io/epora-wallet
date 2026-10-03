@@ -91,13 +91,13 @@ export function isReturnFreeCollateral(utxo: UTxO) {
 // output above its own min-UTxO floor. The return-free case above is the one
 // exception. Reference-script UTxOs stay out: they are reserved for their
 // scripts.
-function isCollateralCandidate(utxo: UTxO, protocolParams?: Protocol) {
+function isCollateralCandidate(utxo: UTxO, protocolParams?: Protocol, returnAddress?: string) {
   if (hasReferenceScript(utxo)) return false;
   if (isReturnFreeCollateral(utxo)) return true;
   return (
     getUtxoLovelace(utxo) >=
     BigInt(MIN_COLLATERAL_LOVELACE) +
-      calculateCollateralReturnMinimumLovelace(utxo, protocolParams)
+      calculateCollateralReturnMinimumLovelace(utxo, protocolParams, returnAddress)
   );
 }
 
@@ -119,10 +119,11 @@ function pickCollateralCandidate(candidates: UTxO[]) {
 export function resolveManualCollateralCandidate(
   spendableWalletUtxos: UTxO[],
   reservedRefs: Set<string>,
-  protocolParams?: Protocol
+  protocolParams?: Protocol,
+  returnAddress?: string
 ) {
   const walletCandidates = spendableWalletUtxos.filter((utxo) =>
-    isCollateralCandidate(utxo, protocolParams)
+    isCollateralCandidate(utxo, protocolParams, returnAddress)
   );
   const unreservedCandidates = excludeReservedUtxos(walletCandidates, reservedRefs);
   const counts = {
