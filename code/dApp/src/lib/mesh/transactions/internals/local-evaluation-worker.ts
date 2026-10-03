@@ -6,6 +6,27 @@ export const LOCAL_EVALUATION_IDLE_MS = 30_000;
 let sharedWorker: Worker | undefined;
 let idleTimeout: ReturnType<typeof setTimeout> | undefined;
 let evaluationQueue: Promise<unknown> = Promise.resolve();
+let retainedOwners = 0;
+let workerBusy = false;
+
+function scheduleIdleTermination() {
+  clearTimeout(idleTimeout);
+  if (sharedWorker && !workerBusy && retainedOwners === 0) {
+    idleTimeout = setTimeout(terminateWorker, LOCAL_EVALUATION_IDLE_MS);
+  }
+}
+
+export function retainLocalEvaluationWorker(): () => void {
+  retainedOwners += 1;
+  clearTimeout(idleTimeout);
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    retainedOwners -= 1;
+    scheduleIdleTermination();
+  };
+}
 
 function terminateWorker() {
   clearTimeout(idleTimeout);
@@ -67,12 +88,21 @@ function enqueueWorkerRequest(request: LocalEvaluationRequest | WarmRequest, sig
 function runEvaluation(request: LocalEvaluationRequest | WarmRequest, signal?: AbortSignal): Promise<LocalEvaluationAction[]> {
   signal?.throwIfAborted();
   clearTimeout(idleTimeout);
+  const startedAt = performance.now();
+  const cold = sharedWorker === undefined;
   return new Promise((resolve, reject) => {
     const worker = sharedWorker ??= new Worker(new URL("./local-evaluation.worker.ts", import.meta.url), { type: "module" });
+    workerBusy = true;
     let settled = false;
     const finish = (error?: unknown, actions?: LocalEvaluationAction[]) => {
       if (settled) return;
       settled = true;
+      workerBusy = false;
+      console.debug("[tx-evaluation:worker]", {
+        request: "type" in request ? "warm" : "evaluate", cold,
+        outcome: signal?.aborted ? "cancelled" : error === undefined ? "success" : "failed",
+        elapsedMs: performance.now() - startedAt
+      });
       clearTimeout(timeout);
       signal?.removeEventListener("abort", aborted);
       worker.onmessage = null;
@@ -82,7 +112,7 @@ function runEvaluation(request: LocalEvaluationRequest | WarmRequest, signal?: A
         terminateWorker();
         reject(error);
       } else {
-        idleTimeout = setTimeout(terminateWorker, LOCAL_EVALUATION_IDLE_MS);
+        scheduleIdleTermination();
         resolve(actions!);
       }
     };

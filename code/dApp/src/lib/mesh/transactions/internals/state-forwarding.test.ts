@@ -10,6 +10,7 @@ import {
 import { toScriptRef } from "@meshsdk/core-cst";
 import {
   createStateForwarding,
+  prepareStateForwarding,
   runStateForwarding
 } from "@/lib/mesh/transactions/internals/state-forwarding";
 import { STT_SPEND_VALIDATOR } from "@/lib/mesh/transactions/internals/constants";
@@ -98,6 +99,7 @@ function createFetcher(
 
 function createNoopTransaction(): Transaction {
   const txBuilder = {
+    inputForEvaluation() { return this; },
     _protocolParams: DEFAULT_PROTOCOL_PARAMETERS,
     txOut() {
       return this;
@@ -129,6 +131,39 @@ test("createStateForwarding resolves the State script definition once", () => {
   assert.equal(definition.unit, `${POLICY_ID}${ASSET_NAME}`);
   assert.match(definition.address, /^addr_test1w/);
   assert.equal(definition.configuredReference, `${REFERENCE_TX_HASH}#2`);
+});
+
+test("state and reference preparation overlap before either metadata read completes", async () => {
+  const definition = createStateForwarding({ sttAssetNameHex: ASSET_NAME, walletPolicyId: POLICY_ID,
+    sttSpendReference: `${REFERENCE_TX_HASH}#2` });
+  const stateInput = makeStateInput(definition.address, definition.unit);
+  const referenceInput = makeReferenceInput(definition.address, definition.script);
+  const { fetcher } = createFetcher(stateInput, referenceInput);
+  const read = fetcher.fetchUTxOs.bind(fetcher);
+  let release!: () => void;
+  const blocked = new Promise<void>(resolve => { release = resolve; });
+  const started: string[] = [];
+  fetcher.fetchUTxOs = async (hash, index) => { started.push(hash); await blocked; return read(hash, index); };
+  const pending = prepareStateForwarding({ definition, fetcher,
+    input: { txHash: STATE_TX_HASH, stage: "state" }, reference: { stage: "reference" } });
+  await Promise.resolve();
+  try { assert.deepEqual(started, [STATE_TX_HASH, REFERENCE_TX_HASH]); }
+  finally { release(); }
+  const prepared = await pending;
+  assert.equal(prepared.inputRef, `${STATE_TX_HASH}#1`);
+});
+
+test("preparation rejects a state/reference collision when the state index is omitted", async () => {
+  const definition = createStateForwarding({ sttAssetNameHex: ASSET_NAME, walletPolicyId: POLICY_ID,
+    sttSpendReference: `${STATE_TX_HASH}#1` });
+  const stateInput = makeStateInput(definition.address, definition.unit);
+  Object.assign(stateInput.output, makeReferenceInput(definition.address, definition.script).output, {
+    plutusData: stateInput.output.plutusData, amount: stateInput.output.amount
+  });
+  const { fetcher } = createFetcher(stateInput, stateInput);
+  await assert.rejects(prepareStateForwarding({ definition, fetcher,
+    input: { txHash: STATE_TX_HASH, stage: "state" }, reference: { stage: "reference" } }),
+    /also being spent in this transaction/);
 });
 
 test("runStateForwarding resolves the current State input", async () => {
@@ -294,6 +329,7 @@ test("State forwarding owns phase order, budgets, outputs, and diagnostics", asy
   const { fetcher } = createFetcher(stateInput, referenceInput, calls);
   const spendValidatorsByRef = new Map<string, string>();
   const txBuilder = {
+    inputForEvaluation() { return this; },
     _protocolParams: DEFAULT_PROTOCOL_PARAMETERS,
     txOut(address: string, amount: unknown) {
       calls.push({ name: "txOut", value: { address, amount } });
@@ -364,8 +400,8 @@ test("State forwarding owns phase order, budgets, outputs, and diagnostics", asy
   );
   assert.deepEqual(calls.map((call) => call.name), [
     "fetchStateInput",
-    "afterInput",
     "fetchStateReference",
+    "afterInput",
     "beforeRedeem",
     "redeemValue",
     "afterRedeem",

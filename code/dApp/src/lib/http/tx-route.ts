@@ -104,8 +104,8 @@ export function createTxRoute<Schema extends z.ZodType>(options: TxRouteOptions<
 
       // Exact wallet references each cost provider lookups. Charge them in a
       // separate, higher-capacity bucket before any builder or chain work. The
-      // five-build caller bucket stays unchanged, so six-input transactions are
-      // not mistaken for six separate builds.
+      // build-count caller bucket stays separate, so multi-input transactions
+      // are not mistaken for several builds.
       const walletInputCost = walletInputWorkCost(body);
       if (walletInputCost > 0) {
         // This caller bucket limits repeat attempts. It does not impose a hard
