@@ -82,7 +82,8 @@ describe("mesh RPC failures", () => {
       init.signal?.addEventListener("abort", () => reject(init.signal?.reason), { once: true });
     }));
     const read = new ServerFetcher({ signal: controller.signal }).fetchAddressUTxOs("addr_test1");
-    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ signal: controller.signal });
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit | undefined;
+    expect(init?.signal).toBeInstanceOf(AbortSignal);
     controller.abort();
     await expect(read).rejects.toMatchObject({ name: "AbortError" });
   });
@@ -110,4 +111,39 @@ describe("mesh RPC failures", () => {
       clock.mockRestore();
     }
   });
+});
+
+describe("safe read transport recovery", () => {
+  it("recovers a temporary transport failure", async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValueOnce(answer('{"result":[]}', 200));
+    await expect(new ServerFetcher().fetchUTxOs("00", 0)).resolves.toEqual([]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("limits persistent transport failures to three attempts", async () => {
+    fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
+    await expect(new ServerFetcher().get("txs/00/utxos")).rejects.toThrow("Failed to fetch");
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it.each(["submitTx", "evaluateTx"] as const)("does not retry %s transport failures", async (method) => {
+    fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
+    await expect(new ServerFetcher()[method]("00")).rejects.toThrow("Failed to fetch");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not retry an HTTP failure", async () => {
+    fetchMock.mockResolvedValue(answer('{"error":"busy"}', 503));
+    await expect(new ServerFetcher().fetchUTxOs("00")).rejects.toMatchObject({ status: 503 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+it("does not retry a non-transport TypeError", async () => {
+  const circular: Record<string, unknown> = {};
+  circular.value = circular;
+  await expect(new ServerFetcher().fetchAddressTxs("address", circular))
+    .rejects.toBeInstanceOf(TypeError);
+  expect(fetchMock).not.toHaveBeenCalled();
 });

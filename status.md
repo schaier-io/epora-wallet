@@ -40,3 +40,13 @@ The release record contains post-rebase validation for the consent layer.
 Production processor contracts, hosting regions, and retention settings require operational checks beyond source inspection.
 The company details and `info@41bit.io` are operator-supplied. An automated Wyoming registry lookup encountered a human-verification page and did not establish company status.
 Wallet-signed terms acceptance is deferred. The beta uses a browser/API acknowledgement.
+
+## Error repair, 2026-10-03
+
+- VERIFIED, coordinator: repair layers are `fix/mesh-read-recovery`, `fix/build-error-recovery`, and `fix/signer-schema-readiness`.
+- In Progress, implementer: provider reads and Koios retry handling. Scope: Mesh transport and Koios route tests.
+- Planned, coordinator: spent-input recovery and depleted-funds guidance. Scope: workspace error mapping.
+- Planned, coordinator: signer endpoint readiness and deployment migration command. Scope: signer route and deployment configuration.
+- REPORTED: the pasted event says `public.SignerRegistration` does not exist. The current production schema is not determined.
+- VERIFIED: provider and Koios tests returned `Tests 62 passed (62)`. Mocked requests do not establish live provider availability.
+- Next: verify each layer, then run an independent review. Production migration and publication require user approval.

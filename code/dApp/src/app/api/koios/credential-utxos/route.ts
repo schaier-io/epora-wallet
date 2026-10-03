@@ -8,6 +8,7 @@ import {
 import { clientKey, rateLimit } from "@/lib/http/rate-limit";
 import { readBoundedJson, RequestBodyTooLargeError } from "@/lib/http/request-body";
 import { logger, serializeError } from "@/lib/observability/logger";
+import { UPSTREAM_RETRY_AFTER_FALLBACK_SECONDS } from "@/lib/mesh/http-error";
 import { getTranslations } from "next-intl/server";
 
 const getI18n = () => getTranslations("AppApiKoiosCredentialUtxosRoute");
@@ -103,6 +104,9 @@ export async function POST(request: Request) {
       );
     }
     logger.error("api.koios_credential_lookup_failed", { err: serializeError(error) });
-    return NextResponse.json({ error: i18n("koiosCredentialLookupFailed") }, { status: 502 });
+    return NextResponse.json({ error: i18n("koiosCredentialLookupFailed") }, {
+      status: error instanceof Error && error.name === "TimeoutError" ? 504 : 502,
+      headers: { "Retry-After": String(UPSTREAM_RETRY_AFTER_FALLBACK_SECONDS) }
+    });
   }
 }

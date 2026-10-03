@@ -1,5 +1,6 @@
 import { CARDANO_NETWORK } from "@/lib/cardano-network";
 import "server-only";
+import { waitForReadRetry } from "@/lib/mesh/read-retry";
 
 import { getServerEnv } from "@/lib/env/server-env";
 import { parseRetryAfterMs } from "@/lib/http/retry-after";
@@ -68,7 +69,15 @@ export async function requestKoiosCredentialUtxos(
   };
   for (let attempt = 1; ; attempt++) {
     signal.throwIfAborted();
-    const response = await fetch(url, options);
+    let response: Response;
+    try {
+      response = await fetch(url, options);
+    } catch (error) {
+      signal.throwIfAborted();
+      if (!(error instanceof TypeError) || attempt >= MAX_ATTEMPTS) throw error;
+      await waitForReadRetry(RETRY_DELAY_MS * attempt, signal);
+      continue;
+    }
     const delay = parseRetryAfterMs(response.headers.get("Retry-After"))
       ?? RETRY_DELAY_MS * attempt;
     if (!RETRYABLE_STATUSES.has(response.status) || attempt >= MAX_ATTEMPTS
@@ -77,7 +86,7 @@ export async function requestKoiosCredentialUtxos(
     }
     // Credential lookup is read-only. Release each discarded response before retrying.
     await response.body?.cancel();
-    await new Promise((resolve) => setTimeout(resolve, delay));
+    await waitForReadRetry(delay, signal);
   }
 }
 
