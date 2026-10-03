@@ -19,7 +19,7 @@ import {
   useState,
   type PropsWithChildren
 } from "react";
-import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import { useAtom, useAtomValue, useSetAtom, useStore } from "jotai";
 import {
   activeAddressAtom,
   activePaymentKeyHashAtom,
@@ -168,6 +168,7 @@ async function readWalletIdentity(wallet: BrowserWallet) {
 
 export function WalletProvider({ children }: PropsWithChildren) {
   const i18n = useTranslations("ProvidersWalletProvider");
+  const store = useStore();
   const [installedWallets, setInstalledWallets] = useState<Wallet[]>([]);
   // Wallet identity lives in atoms (single source of truth) so the workspace's derived-atom
   // graph can read it directly, with no context mirror and no sync lag. This provider is the sole writer.
@@ -509,6 +510,8 @@ export function WalletProvider({ children }: PropsWithChildren) {
         accountSyncGenerationRef.current === generation;
       void accountSync.then(async (result) => {
         if (result !== "account-changed" || !walletName || !isCurrent()) return;
+        // Recovery must not replace a connection already awaiting approval.
+        if (store.get(isConnectingAtom)) return;
         // Same rule as the restore after a reload: enable() outside a user gesture can hang
         // on an approval popup nobody asked for. Re-enable silently only when the new
         // account already authorized this site; otherwise drop the stale identity and wait
@@ -549,7 +552,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
       );
       document.removeEventListener("visibilitychange", refreshOnVisible);
     };
-  }, [connect, disconnectWallet, refreshWallets, syncActiveAccount]);
+  }, [connect, disconnectWallet, refreshWallets, store, syncActiveAccount]);
 
   useEffect(() => {
     if (activeWallet) {

@@ -454,6 +454,31 @@ it.each([false, true])(
   }
 );
 
+it.each([false, true])("does not cancel an already pending manual connection on focus (%s)", async (authorized) => {
+  inject({ lace: { isEnabled: async () => authorized }, eternl: {} });
+  const oldWallet = {
+    ...fakeWallet("addr_test1old"),
+    getUsedAddresses: vi.fn().mockResolvedValueOnce(["addr_test1old"])
+  };
+  let approveReplacement!: (wallet: ReturnType<typeof fakeWallet>) => void;
+  mocks.enable.mockResolvedValue(fakeWallet("addr_test1stale")).mockResolvedValueOnce(oldWallet).mockReturnValueOnce(
+    new Promise((resolve) => (approveReplacement = resolve))
+  );
+  renderProvider();
+  await act(async () => { await latest.current!.connectWallet("lace"); });
+  oldWallet.getUsedAddresses.mockRejectedValue({ code: -4, info: "account changed" });
+  let replacement!: Promise<boolean>;
+  act(() => { replacement = latest.current!.connectWallet("eternl"); });
+  await waitFor(() => expect(mocks.enable).toHaveBeenCalledTimes(2));
+  await act(async () => {
+    window.dispatchEvent(new Event("focus"));
+    await Promise.resolve();
+  });
+  await act(async () => { approveReplacement(fakeWallet("addr_test1new")); });
+  expect(await replacement).toBe(true);
+  expect(screen.getByTestId("wallet").textContent).toBe("eternl");
+});
+
 it("keeps the identity when a focus read fails for another reason", async () => {
   inject({ lace: {} });
   const wallet = {
