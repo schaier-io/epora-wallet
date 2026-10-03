@@ -41,6 +41,7 @@ function isRpcEnvelope(value: unknown): value is RpcEnvelope {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/** Read an RPC envelope while preserving provider details, HTTP status, and caller cancellation. */
 async function rpc<T>(method: ChainMethod, args: unknown[], signal?: AbortSignal): Promise<T> {
   signal?.throwIfAborted();
   const payload: ChainRpcRequest = { method, args };
@@ -97,6 +98,7 @@ export class ServerFetcher implements IFetcher, IEvaluator {
     return this.options.signal;
   }
 
+  /** Retry read transport failures within one deadline. Other RPC methods execute once. */
   private rpc<T>(method: ChainMethod, args: unknown[]): Promise<T> {
     return retryMeshRead(
       method,

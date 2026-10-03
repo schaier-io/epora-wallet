@@ -32,6 +32,7 @@ export const runtime = "nodejs";
 // queried payment credential. Acceptable, because the call simply does not work from
 // the browser otherwise.
 
+/** Look up a payment credential on the deployment network, with validation and timeout responses. */
 export async function POST(request: Request) {
   const i18n = await getI18n();
   const limit = await rateLimit(clientKey(request, "koios-credential-utxos"), 300, 60_000);

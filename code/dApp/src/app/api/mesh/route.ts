@@ -38,6 +38,7 @@ const MESH_RATE_WINDOW_MS = 60_000;
 const EXPENSIVE_METHOD_RATE_LIMIT = 200;
 const MAX_MESH_REQUEST_BYTES = 3 * 1024 * 1024;
 
+/** Proxy chain methods with bounded read retries and error responses that retain provider details. */
 export async function POST(request: Request) {
   const i18n = await getI18n();
   const callerKey = clientKey(request, "mesh");

@@ -43,6 +43,7 @@ function koiosBaseUrl(network: KoiosNetwork): string {
   return getServerEnv().KOIOS_URL ?? KOIOS_URLS[network];
 }
 
+/** Fetch one credential page with transient retries that share the supplied deadline. */
 export async function requestKoiosCredentialUtxos(
   paymentCredentialHex: string,
   network: KoiosNetwork = CARDANO_NETWORK,

@@ -7,10 +7,12 @@ const MAX_READ_ATTEMPTS = 3;
 const READ_RETRY_DELAY_MS = 250;
 const MAX_READ_RETRY_DELAY_MS = 1_000;
 
+/** Select read methods for retries. Evaluation and submission execute once. */
 export function isMeshRead(method: ChainMethod): boolean {
   return method !== "submitTx" && method !== "evaluateTx";
 }
 
+/** Wait before a retry and clear the timer when the caller aborts. */
 export function waitForReadRetry(delayMs: number, signal: AbortSignal): Promise<void> {
   signal.throwIfAborted();
   return new Promise((resolve, reject) => {
@@ -28,6 +30,7 @@ export function waitForReadRetry(delayMs: number, signal: AbortSignal): Promise<
 
 // One deadline covers every attempt and backoff. Aborting ends the caller even
 // when the provider cannot cancel its own request; no later attempt starts.
+/** Retry eligible reads within one deadline, with at most three attempts and bounded delays. */
 export async function retryMeshRead<T>(
   method: ChainMethod,
   run: (signal?: AbortSignal) => Promise<T>,
@@ -51,6 +54,7 @@ export async function retryMeshRead<T>(
   }
 }
 
+/** Return the backoff for an attempt. The retry loop rejects delays above its limit. */
 export function meshReadRetryDelay(attempt: number): number {
   return READ_RETRY_DELAY_MS * attempt;
 }
