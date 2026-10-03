@@ -71,17 +71,21 @@ function makeCtx(overrides: Partial<Record<string, unknown>> = {}) {
   return { ctx, calls, client };
 }
 
-test("the central guard blocks every build while wallet State is updating", async () => {
-  const { ctx, calls } = makeCtx();
+function beginSelectedWalletUpdate(ctx: ReturnType<typeof makeCtx>["ctx"]) {
   ctx.jotaiStore.set(routeStateAtom, { ...ctx.jotaiStore.get(routeStateAtom), selectedWalletUnit: "wallet-unit" });
   ctx.jotaiStore.set(beginWalletStateUpdateAtom, {
     walletUnit: "wallet-unit",
     submittedTxHash: "aa".repeat(32),
     spentRef: { txHash: "bb".repeat(32), outputIndex: 0 }
   });
+}
+
+test("the central guard blocks an STT-spending build while wallet State is updating", async () => {
+  const { ctx, calls } = makeCtx();
+  beginSelectedWalletUpdate(ctx);
   let ran = false;
 
-  const result = await createWorkspaceFlowHandlers(ctx).withBuildGuard("mint", async () => {
+  const result = await createWorkspaceFlowHandlers(ctx).withBuildGuard("use", async () => {
     ran = true;
     return fakePreview;
   });
@@ -91,6 +95,21 @@ test("the central guard blocks every build while wallet State is updating", asyn
   assert.deepEqual(calls.setBuildError?.at(-1), ["Updating wallet state…"]);
   assert.deepEqual(calls.setBuildErrorExpected?.at(-1), [true]);
 });
+
+// The wait holds only actions whose input is the STT the pending transaction spent.
+// Adding funds and creating a wallet never touch it, so the wallet is not locked whole.
+for (const action of ["lock-funds", "mint"]) {
+  test(`the wallet State update does not block ${action}`, async () => {
+    const { ctx } = makeCtx();
+    beginSelectedWalletUpdate(ctx);
+    let ran = false;
+    await createWorkspaceFlowHandlers(ctx).withBuildGuard(action, async () => {
+      ran = true;
+      return fakePreview;
+    });
+    assert.equal(ran, true);
+  });
+}
 
 // Creating a wallet clears the selection. Another wallet's wait must not block the mint.
 test("another wallet's State update does not block a mint without a selected wallet", async () => {

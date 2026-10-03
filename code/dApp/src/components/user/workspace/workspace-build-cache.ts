@@ -3,7 +3,7 @@ import { abortable } from "@/lib/mesh/build-cancellation";
 import type { BuildResult } from "@/lib/types/contracts";
 import { workspaceTransactionSnapshotAtom } from "./workspace-prepared-transaction";
 import { isWorkspaceBuildResultExpired, warmBuildResultExpiry } from "./workspace-build-expiry";
-import { walletStateUpdatingAtom } from "./atoms/wallet-state-update.atoms";
+import { walletStateBlocksAction, walletStateUpdatingAtom } from "./atoms/wallet-state-update.atoms";
 import { activeBuildAtom, buildErrorStaleInputsAtom, buildRunAtom, previewSignatureAtom, submitHashAtom, workspaceSessionAtom } from "./atoms/transaction-flow.atoms";
 
 type Store = ReturnType<typeof createStore>;
@@ -21,8 +21,13 @@ export const workspaceBuildIdentityAtom = workspaceTransactionSnapshotAtom;
 export function runWorkspaceBuild(
   store: Store,
   key: string,
-  run: (signal: AbortSignal) => Promise<BuildResult | null>
+  run: (signal: AbortSignal) => Promise<BuildResult | null>,
+  // The action being built. A wallet-state wait cancels only a build of an action that
+  // spends the STT; without a label every build waits, as before.
+  action?: string
 ): Promise<BuildResult | null> {
+  const waitsForWalletState = () => action === undefined
+    ? store.get(walletStateUpdatingAtom) : walletStateBlocksAction(store.get, action);
   const previous = store.get(buildRecordAtom);
   if (previous?.key === key && previous.isCurrent()) {
     return previous.promise;
@@ -47,7 +52,7 @@ export function runWorkspaceBuild(
     promise: Promise.resolve(null),
     isCurrent: () => !hasNewStaleInputError() && !controller.signal.aborted && store.get(buildRecordAtom) === record &&
       store.get(workspaceBuildIdentityAtom) === inputs && store.get(workspaceSessionAtom) === session &&
-      store.get(buildRunAtom) === token && !store.get(walletStateUpdatingAtom) &&
+      store.get(buildRunAtom) === token && !waitsForWalletState() &&
       (store.get(submitHashAtom) === submittedHash || store.get(submitHashAtom) === null),
     cancel: () => {
       release();

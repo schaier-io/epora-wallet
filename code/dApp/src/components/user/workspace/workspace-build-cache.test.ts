@@ -243,3 +243,23 @@ test("a retry can clear a previous stale-input error before continuing", async (
   assert.equal(signal.aborted, true);
   assert.equal(await result, null);
 });
+
+// A wallet-state wait holds only builds that spend the STT. With the action label, an
+// add-funds build survives an update that starts mid-build; a send build is cancelled.
+for (const [action, survives] of [["lock-funds", true], ["mint", true], ["use", false]] as const) {
+  test(`a wallet state update mid-build ${survives ? "keeps" : "cancels"} a ${action} build`, async () => {
+    const store = createStore();
+    store.set(routeStateAtom, route => ({ ...route, selectedWalletUnit: "wallet" }));
+    const pending = deferred();
+    let signal!: AbortSignal;
+    const promise = runWorkspaceBuild(store, action, received => { signal = received; return pending.promise; }, action);
+    store.set(pendingWalletStateUpdateAtom, {
+      walletUnit: "wallet", submittedTxHash: "submitted", spentRef: { txHash: "aa", outputIndex: 0 }
+    });
+    assert.equal(signal.aborted, !survives);
+    const result = preview();
+    pending.resolve(result);
+    assert.equal(await promise, survives ? result : null);
+    store.set(invalidateBuildAtom);
+  });
+}

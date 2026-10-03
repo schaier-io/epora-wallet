@@ -689,6 +689,20 @@ it("does not sign another preview while the wallet State is pending", async () =
   expect(mocks.signAndSubmitTx).not.toHaveBeenCalled();
 });
 
+// The wait holds only actions that spend the STT. Adding funds pays the wallet's address
+// from the signer's own UTxOs, so it signs while the State update is still pending.
+it("still signs an add-funds preview while the wallet State is pending", async () => {
+  const deps = makeDeps({ selectedAction: "lock-funds" });
+  const unit = "ab".repeat(28) + "01";
+  deps.jotaiStore.set(routeStateAtom, { ...deps.jotaiStore.get(routeStateAtom), selectedWalletUnit: unit, selectedAction: "lock-funds" });
+  deps.jotaiStore.set(pendingWalletStateUpdateAtom, {
+    walletUnit: unit, submittedTxHash: TX_HASH,
+    spentRef: { txHash: "cd".repeat(32), outputIndex: 0 }
+  });
+  await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
+  expect(mocks.signAndSubmitTx).toHaveBeenCalledTimes(1);
+});
+
 it("an old wallet callback cannot bypass its wait after selecting another wallet", async () => {
   const unit = "ab".repeat(28) + "01";
   const deps = makeDeps({ selectedDetectedToken: { unit, utxo: { input: { txHash: TX_HASH, outputIndex: 0 } } } });

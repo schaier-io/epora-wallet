@@ -9,7 +9,7 @@ import { selectedDetectedTokenAtom } from "./queries/token-identity.atoms";
 import { activeInferredSttStateFormAtom } from "./queries/wallet-identity.atoms";
 import { spendableWalletUtxosAtom } from "./atoms/workspace-spendable-utxos.atoms";
 import { selectedSigningActionAvailabilityAtom } from "./atoms/workspace-stt-options.atoms";
-import { pendingWalletStateUpdatesAtom, walletStateSubmissionsAtom, walletStateUpdatingAtom, type PendingWalletStateUpdate } from "./atoms/wallet-state-update.atoms";
+import { pendingWalletStateUpdatesAtom, selectedActionWaitsForWalletStateAtom, walletStateSubmissionsAtom, type PendingWalletStateUpdate } from "./atoms/wallet-state-update.atoms";
 import { mintZeroAdminConfirmedAtom } from "./atoms/forms/mint-form.atoms";
 import { sttZeroAdminConfirmedAtom } from "./atoms/forms/stt-spend-form.atoms";
 import { voteZeroAdminConfirmedAtom } from "./atoms/forms/vote-form.atoms";
@@ -57,7 +57,7 @@ export interface WorkspaceSubmissionOwnership {
 }
 
 function walletStateAllowsSubmission(store: { get: Getter }, owner?: WorkspaceSubmissionOwnership) {
-  if (!store.get(walletStateUpdatingAtom)) return true;
+  if (!store.get(selectedActionWaitsForWalletStateAtom)) return true;
   if (!owner || !store.get(walletStateSubmissionsAtom)[owner.walletUnit]) return false;
   const selected = store.get(workspaceSessionAtom).selectedWallet;
   if (selected && selected !== owner.walletUnit) return false;

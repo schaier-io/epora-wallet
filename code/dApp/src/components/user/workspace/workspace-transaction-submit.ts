@@ -12,7 +12,7 @@ import { recordRecoveryCapacityFailure } from "./recovery-capacity-model";
 import { workspaceSessionAtom, previewSignatureAtom, buildDiagnosticIdAtom, mintConfirmationRunAtom, submitConfirmedAtom, submitConfirmationUnseenAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import {
   beginWalletStateUpdateAtom,
-  walletStateUpdatingAtom,
+  walletStateBlocksAction,
   walletStateSubmissionsAtom,
   pendingWalletStateUpdatesAtom,
   resolveSpentSttRef,
@@ -129,15 +129,17 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
   ) {
     if (jotaiStore.get(workspaceSessionAtom) !== sessionAtCreation) return;
     const walletUnit = selectedDetectedToken?.unit;
-    if (walletUnit && (jotaiStore.get(pendingWalletStateUpdatesAtom)[walletUnit] ||
-      jotaiStore.get(walletStateSubmissionsAtom)[walletUnit])) return;
+    // A signing in flight serializes every action on this wallet. A pending STT update
+    // holds only the actions that spend the STT.
+    if (walletUnit && (jotaiStore.get(walletStateSubmissionsAtom)[walletUnit] ||
+      (jotaiStore.get(pendingWalletStateUpdatesAtom)[walletUnit] && walletStateBlocksAction(jotaiStore.get, selectedAction)))) return;
     const { allowExistingSubmitHash = false, requireCurrentPreview = true } = options;
     jotaiStore.set(recoveryCapacityFailureAtom, null);
     const recoverySignature = jotaiStore.get(recoveryCapacitySignatureAtom);
 
     const session = jotaiStore.get(workspaceSessionAtom);
     // Block duplicate calls in this session without blocking a new wallet.
-    if (submitInFlightRef.current === session || jotaiStore.get(walletStateUpdatingAtom)) {
+    if (submitInFlightRef.current === session || walletStateBlocksAction(jotaiStore.get, selectedAction)) {
       return;
     }
 
