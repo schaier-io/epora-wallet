@@ -67,4 +67,3 @@ export async function createOfflineMintFixture(useLocalEvaluation = false, optio
   const built = await build();
   return { utxos, passes, fetcher, built, build, wallet, input };
 }
-

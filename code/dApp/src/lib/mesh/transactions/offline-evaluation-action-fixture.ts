@@ -66,4 +66,3 @@ export async function createOfflineActionFixture(action: OfflineAction, authoriz
     : () => buildSttSpendTx(wallet, config, action === "state-update" ? "update-state" : "use", { sttInputTxHash: stateHash, sttInputOutputIndex: 0, outputDatum: stateDatum, outputAssets: stateAmount, ...(action === "wallet-spend" ? { walletInputs: [walletInput.input] } : {}) }, fetcher);
   return { build, passes, txHexes, fetcher, utxos };
 }
-
