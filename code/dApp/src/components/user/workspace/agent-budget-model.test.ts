@@ -112,7 +112,7 @@ test("a scheduled reset keeps the current window and carries the timestamp", () 
 });
 
 test("a missing reset stamp degrades to unknown without inventing availability", () => {
-  for (const stamp of ["", "0", "abc", "99999999999999999999"]) {
+  for (const stamp of ["", "abc", "99999999999999999999"]) {
     const state = stateWith([
       user({
         id: "5",
@@ -220,4 +220,28 @@ test("matching keys pair limits with their own remaining entries", () => {
       ["40", "60"]
     ]
   );
+});
+
+
+test("a zero reset restores the daily allowance with empty or depleted remaining entries", () => {
+  const ada = { policyId: "", assetName: "", amount: "10" };
+  const token = { policyId: "pid", assetName: "token", amount: "5000" };
+  for (const remainingAllowance of [[], [
+    { ...ada, amount: "0" },
+    { ...token, amount: "0" }
+  ]]) {
+    const state = stateWith([user({
+      perDayAllowance: [ada, token],
+      remainingAllowance,
+      nextAllowanceReset: "0"
+    })]);
+    const [budget] = deriveAgentBudgets(state, NOW_MS);
+
+    assert.equal(budget?.reset.kind, "reset-due");
+    assert.equal(budget?.status, "available");
+    assert.deepEqual(budget?.assets.map(asset => [asset.remaining, asset.spent]), [
+      ["10", "0"],
+      ["5000", "0"]
+    ]);
+  }
 });

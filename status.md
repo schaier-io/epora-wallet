@@ -66,5 +66,9 @@ Wallet-signed terms acceptance is deferred. The beta uses a browser/API acknowle
 - VERIFIED, coordinator: three branches were created before source edits: `fix/wallet-recovery-session`, `fix/proposal-json-errors`, and `fix/allowance-zero-reset`.
 - Completed, implementer, FIX-1: wallet recovery ownership. VERIFIED: `vitest run src/providers/wallet-provider.test.tsx` returned `Tests 39 passed (39)` on current main plus the fix. Three regression cases failed before the fix. Tests use mocked wallets. REPORTED: final independent review found no issues.
 - Completed, implementer, FIX-2: proposal JSON errors. VERIFIED: `vitest run src/app/api/proposals` returned `Tests 71 passed (71)`. With original route source and the new tests, `Tests 12 failed | 2 passed (14)`. Route tests mock authentication and providers. REPORTED: independent adversarial review found no issues.
-- In Progress, implementer, FIX-3: allowance reset display. Scope: `agent-budget-model.ts` and its tests. Next: verify zero reset restores the daily limit.
+- Completed, implementer, FIX-3: allowance reset display. VERIFIED: model/access tests returned `tests 14`, `pass 14`, `fail 0`. Console tests returned `Tests 6 passed (6)`. The model regression with original source returned `tests 11`, `pass 10`, `fail 1`. These checks use local data. REPORTED: independent adversarial review found no issues.
 - VERIFIED correction: FIX-2 includes `PATCH /api/proposals/[id]/rebuild`. The earlier POST-only scope was too narrow.
+- VERIFIED, coordinator: the final combined component run returned `Test Files 9 passed (9)` and `Tests 116 passed (116)`. The separate model/access run returned `tests 14`, `pass 14`, `fail 0`. Counts cover these selected tests, not the full repository suite.
+- VERIFIED: `tsc --noEmit` exited 0. The file limit check returned `File length OK: 781 source files checked, none over 750 lines.`
+- VERIFIED: tests used existing dependencies linked from the main checkout. Prisma client generation used a placeholder localhost URL. No database migration ran.
+- Next: review the three fixes and CI before merging.
