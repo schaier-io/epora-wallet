@@ -434,7 +434,7 @@ export function SearchableAssetUnitDropdown({
 
       {value && value !== "lovelace" ? (
         <details className="mt-1 text-xs text-muted-foreground">
-          <summary className="cursor-pointer min-h-11 sm:min-h-6 flex items-center rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{i18n("assetIdentity")}</summary>
+          <summary aria-label={i18n("assetIdentityFor", { asset: selectedOption?.label ?? value })} className="cursor-pointer min-h-11 sm:min-h-6 flex items-center rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{i18n("assetIdentity")}</summary>
           <p className="break-all select-all font-mono">{i18n("policyId", { policy: splitAssetUnit(value).policyId || value })}</p>
           <p>{i18n("unverifiedIssuer")}</p>
         </details>

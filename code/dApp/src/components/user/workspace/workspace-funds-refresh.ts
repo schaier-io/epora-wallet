@@ -16,7 +16,14 @@ type WorkspaceSummaryRefreshDeps = {
 
 export async function refreshWorkspaceSummary(deps: WorkspaceSummaryRefreshDeps, includeWalletTransactions: boolean) {
   const session = deps.jotaiStore.get(workspaceSessionAtom);
-  await deps.refreshDetectedTokens?.({ keepSelection: true });
+  let detectionError: unknown;
+  let detectionFailed = false;
+  try {
+    if (await deps.refreshDetectedTokens?.({ keepSelection: true }) === null) return;
+  } catch (error) {
+    detectionError = error;
+    detectionFailed = true;
+  }
   if (deps.jotaiStore.get(workspaceSessionAtom) !== session) return;
   const walletAddress = deps.jotaiStore.get(lockingContractAtom).address;
   // Both readers join the same pending Query request for the selected address.
@@ -28,4 +35,5 @@ export async function refreshWorkspaceSummary(deps: WorkspaceSummaryRefreshDeps,
   if (includeWalletTransactions && walletAddress && deps.jotaiStore.get(workspaceSessionAtom) === session) {
     await deps.refreshWalletTransactions();
   }
+  if (detectionFailed) throw detectionError;
 }

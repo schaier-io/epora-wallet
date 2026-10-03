@@ -34,11 +34,12 @@ export function CopyButton({
   variant = "outline",
   size = "sm",
   onCopied,
+  "aria-label": suppliedAccessibleLabel,
   ...props
 }: CopyButtonProps) {
   const i18n = useTranslations("ComponentsUiCopyButton");
   const resolvedLabel = label ?? i18n("copy");
-  const accessibleLabel = label ?? i18n("copyValue", { value: value.length > 28 ? `${value.slice(0, 12)}…${value.slice(-8)}` : value });
+  const accessibleLabel = suppliedAccessibleLabel ?? label ?? i18n("copyValue", { value: value.length > 28 ? `${value.slice(0, 12)}…${value.slice(-8)}` : value });
   const resolvedCopiedLabel = copiedLabel ?? i18n("copied");
   const [result, setResult] = useState<"idle" | "copied" | "blocked">("idle");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -73,7 +74,7 @@ export function CopyButton({
       variant={variant}
       size={size}
       onClick={handleClick}
-      aria-label={accessibleLabel}
+      aria-label={blocked ? i18n("copyBlocked") : copied ? resolvedCopiedLabel : accessibleLabel}
       className={cn(
         hideLabel ? "px-2" : undefined,
         copied && "text-emerald-200",

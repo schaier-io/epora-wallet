@@ -94,3 +94,34 @@ it("reports a failed funds refresh instead of claiming recovery succeeded", asyn
   chain.funds.mockRejectedValue(new Error("Indexer unavailable"));
   await expect(test.refresh()).rejects.toThrow("Could not refresh wallet chain state.");
 });
+
+it("refreshes independent funds and activity after detection rejects, then reports that failure", async () => {
+  const test = setup();
+  const detectionError = new Error("State indexer unavailable");
+  const refreshLockedContractUtxos = vi.fn().mockResolvedValue(true);
+  const refreshPermissionWalletSummaries = vi.fn().mockResolvedValue(true);
+  await expect(refreshWorkspaceSummary({
+    jotaiStore: test.store, walletAddress: test.result.current.address,
+    refreshDetectedTokens: vi.fn().mockRejectedValue(detectionError),
+    refreshLockedContractUtxos, refreshPermissionWalletSummaries,
+    refreshWalletTransactions: test.refreshWalletTransactions
+  }, true)).rejects.toBe(detectionError);
+  expect(refreshLockedContractUtxos).toHaveBeenCalledWith("canonical-aa");
+  expect(refreshPermissionWalletSummaries).toHaveBeenCalledOnce();
+  expect(test.refreshWalletTransactions).toHaveBeenCalledOnce();
+});
+
+it("stops independent refreshes when detection returns a skipped result", async () => {
+  const test = setup();
+  const refreshLockedContractUtxos = vi.fn();
+  const refreshPermissionWalletSummaries = vi.fn();
+  await refreshWorkspaceSummary({
+    jotaiStore: test.store, walletAddress: test.result.current.address,
+    refreshDetectedTokens: vi.fn().mockResolvedValue(null),
+    refreshLockedContractUtxos, refreshPermissionWalletSummaries,
+    refreshWalletTransactions: test.refreshWalletTransactions
+  }, true);
+  expect(refreshLockedContractUtxos).not.toHaveBeenCalled();
+  expect(refreshPermissionWalletSummaries).not.toHaveBeenCalled();
+  expect(test.refreshWalletTransactions).not.toHaveBeenCalled();
+});

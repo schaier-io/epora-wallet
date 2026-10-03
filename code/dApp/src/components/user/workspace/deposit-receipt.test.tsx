@@ -86,3 +86,15 @@ it("rejects malformed stored data and stores no signing material", () => {
   const stored = JSON.parse(localStorage.getItem(depositReceiptKey(owner))!) as Record<string, unknown>;
   expect(Object.keys(stored).sort()).toEqual(["submittedAt", "txHash"]);
 });
+
+it("ignores unrelated storage events but restores a matching receipt event", () => {
+  const { store, wrapper } = setup();
+  renderHook(useDepositReceiptRecovery, { wrapper });
+  localStorage.setItem(depositReceiptKey(owner), JSON.stringify({ txHash: hash, submittedAt: 0 }));
+  act(() => window.dispatchEvent(new StorageEvent("storage", { key: "other-key", storageArea: localStorage })));
+  expect(store.get(submitHashAtom)).toBeNull();
+  act(() => window.dispatchEvent(new StorageEvent("storage", { key: depositReceiptKey(owner), storageArea: sessionStorage })));
+  expect(store.get(submitHashAtom)).toBeNull();
+  act(() => window.dispatchEvent(new StorageEvent("storage", { key: depositReceiptKey(owner), storageArea: localStorage })));
+  expect(store.get(submitHashAtom)).toBe(hash);
+});

@@ -334,3 +334,9 @@ it("Tab reaches token identity before later fields and skips closed disclosure c
   fireEvent.keyDown(screen.getByRole("combobox"), { key: "Tab" });
   expect(document.activeElement).toBe(screen.getByText("Asset identity"));
 });
+
+it("names each token identity disclosure with its selected asset", () => {
+  render(<><SearchableAssetUnitDropdown id="identity-one" value={LONG_UNIT} options={OPTIONS} onChange={vi.fn()} /><SearchableAssetUnitDropdown id="identity-two" value="99aa00" options={OPTIONS} onChange={vi.fn()} /></>);
+  expect(screen.getByLabelText(`Asset identity: ${LONG_LABEL}`)).toHaveTextContent("Asset identity");
+  expect(screen.getByLabelText("Asset identity: TOK • Sample Token")).toHaveTextContent("Asset identity");
+});

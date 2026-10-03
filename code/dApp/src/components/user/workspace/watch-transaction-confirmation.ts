@@ -1,4 +1,4 @@
-import type { createStore } from "jotai/vanilla";
+import type { createStore, ExtractAtomValue } from "jotai/vanilla";
 import type { UserActionKind } from "@/components/user/flow-types";
 import { queryClientAtom } from "jotai-tanstack-query";
 import { txInfoQueryOptions } from "@/lib/query/chain";
@@ -7,13 +7,32 @@ import { workspaceSessionAtom, submitHashAtom, submitConfirmedAtom, submitConfir
 import { SUBMIT_CONFIRMATION_INITIAL_DELAY_MS, SUBMIT_CONFIRMATION_LATE_MAX_ATTEMPTS, SUBMIT_CONFIRMATION_LATE_POLL_MS, SUBMIT_CONFIRMATION_MAX_ATTEMPTS, SUBMIT_CONFIRMATION_POLL_MS } from "./constants";
 import { waitFor } from "@/components/user/workspace/helpers";
 
+type Store = ReturnType<typeof createStore>;
+type ActiveWatch = { session: ExtractAtomValue<typeof workspaceSessionAtom>; promise: Promise<void> };
+const activeWatches = new WeakMap<Store, Map<string, ActiveWatch>>();
+
+/** Share polling for the same transaction in the same wallet session. Allow retries after it settles. */
+export function watchTransactionConfirmation(store: Store, txHash: string, selectedAction: UserActionKind): Promise<void> {
+  const session = store.get(workspaceSessionAtom);
+  const watches = activeWatches.get(store) ?? new Map<string, ActiveWatch>();
+  activeWatches.set(store, watches);
+  const active = watches.get(txHash);
+  if (active?.session === session) return active.promise;
+  const watch: ActiveWatch = { session, promise: Promise.resolve() };
+  watch.promise = pollTransactionConfirmation(store, txHash, selectedAction).finally(() => {
+    if (watches.get(txHash) === watch) watches.delete(txHash);
+  });
+  watches.set(txHash, watch);
+  return watch.promise;
+}
+
   /**
    * The review rail's submitted banner promises "your balance updates after the
    * next block", but nothing ever told it when the block arrived, so the spinner
    * span forever. Poll a bounded number of times until an indexer sees the hash,
    * then flip the banner to confirmed and pull the balance once more.
    */
-export async function watchTransactionConfirmation(jotaiStore: ReturnType<typeof createStore>, txHash: string, selectedAction: UserActionKind) {
+async function pollTransactionConfirmation(jotaiStore: Store, txHash: string, selectedAction: UserActionKind) {
     const session = jotaiStore.get(workspaceSessionAtom);
     const isCurrent = () => jotaiStore.get(workspaceSessionAtom) === session && jotaiStore.get(submitHashAtom) === txHash;
     const client = jotaiStore.get(queryClientAtom);

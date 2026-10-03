@@ -378,6 +378,7 @@
   "ComponentsUserWorkspaceEditorsPrimitives": {
     "policyId": "Policy: {policy}",
     "assetIdentity": "Asset identity",
+    "assetIdentityFor": "Asset identity: {asset}",
     "unverifiedIssuer": "Issuer not verified",
     "chooseAnAsset": "Choose an asset",
     "close": "Close",

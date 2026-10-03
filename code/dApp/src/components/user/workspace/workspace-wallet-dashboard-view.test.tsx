@@ -4,6 +4,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import { selectableWizardActionKindsAtom } from "./atoms/workspace-detected-token.atoms";
 
+const dashboardFixture = vi.hoisted(() => ({ home: false, values: new Map<unknown, unknown>() }));
+
 const transactionsModule = vi.hoisted(() => ({ requested: false }));
 
 vi.mock("@/components/user/workspace/workspace-transactions-view", () => {
@@ -14,6 +16,7 @@ vi.mock("@/components/user/workspace/workspace-transactions-view", () => {
 vi.mock("jotai", async (importOriginal) => ({
   ...(await importOriginal<typeof Jotai>()),
   useAtomValue: (atom: unknown) => {
+    if (dashboardFixture.home && dashboardFixture.values.has(atom)) return dashboardFixture.values.get(atom);
     if (atom === selectableWizardActionKindsAtom) return new Set();
     return { unit: "detected-wallet" };
   }
@@ -21,7 +24,7 @@ vi.mock("jotai", async (importOriginal) => ({
 
 vi.mock("@/components/user/workspace/workspace-actions-context", () => ({
   useWorkspaceActions: () => ({
-    resolvedGuidedOverviewSection: "transactions"
+    resolvedGuidedOverviewSection: dashboardFixture.home ? "home" : "transactions"
   })
 }));
 
@@ -119,4 +122,41 @@ describe("the Home activity timestamp", () => {
       "Time not available"
     );
   });
+});
+
+vi.mock("@/components/user/wallet-hero-card", () => ({ WalletHeroCard: () => null }));
+vi.mock("@/components/user/locked-assets-panel", () => ({ LockedAssetsOverviewPanel: () => null }));
+vi.mock("@/components/user/recent-activity-timeline", () => ({ RecentActivityTimeline: () => null }));
+vi.mock("@/components/user/workspace/wallet-access-overview", () => ({ WalletAccessOverview: () => null }));
+vi.mock("@/components/user/workspace/agent-spending-console", () => ({ AgentSpendingConsole: () => null }));
+vi.mock("@/components/user/card-silk-background", () => ({ CardSilkBackground: () => null }));
+
+it.each([false, true])("connects disabled management buttons to visible reasons (populated owners: %s)", async populated => {
+  const identity = await import("./atoms/workspace-wallet-derivations.atoms");
+  const data = await import("./atoms/workspace-data.atoms");
+  const activity = await import("./atoms/workspace-activity.atoms");
+  const detection = await import("./atoms/workspace-detected-token.atoms");
+  const { createDefaultStateForm, createDefaultUserFormState } = await import("@/lib/contracts/state-form");
+  const form = createDefaultStateForm();
+  if (populated) form.users = [{ ...createDefaultUserFormState(), isAdmin: true }];
+  dashboardFixture.values = new Map([
+    [identity.activeInferredSttStateFormAtom, form],
+    [identity.totalLockedContractAssetsAtom, []],
+    [identity.lockingContractAtom, { address: "wallet-address" }],
+    [data.lockedContractUtxosAtom, []],
+    [detection.selectedDetectedTokenAtom, { unit: "token", assetNameHex: "01", utxo: { input: { txHash: "11".repeat(32), outputIndex: 0 } } }],
+    [activity.displayedWalletActivityEventsAtom, []]
+  ] as [unknown, unknown][]);
+  dashboardFixture.home = true;
+  try {
+    render(<WorkspaceWalletDashboardView />);
+    const buttons = screen.getAllByRole("button").filter(button => (button as HTMLButtonElement).disabled);
+    expect(buttons).toHaveLength(4);
+    for (const button of buttons) {
+      expect(button).toHaveAccessibleDescription("Your connected wallet does not have permission for this action.");
+      expect(button).not.toHaveAttribute("title");
+      const reason = document.getElementById(button.getAttribute("aria-describedby")!);
+      expect(reason).toBeVisible();
+    }
+  } finally { dashboardFixture.home = false; dashboardFixture.values.clear(); }
 });

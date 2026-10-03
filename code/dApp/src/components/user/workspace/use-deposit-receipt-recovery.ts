@@ -5,7 +5,7 @@ import { useAtomValue, useStore } from "jotai";
 import { activeAddressAtom, networkIdAtom } from "@/providers/wallet.atoms";
 import { routeStateAtom } from "./atoms/workspace-route.atoms";
 import { activeSubmitAtom, submitConfirmedAtom, submitConfirmationUnseenAtom, submitHashAtom } from "./atoms/transaction-flow.atoms";
-import { DEPOSIT_RECEIPT_EVENT, readDepositReceipt } from "./deposit-receipt";
+import { DEPOSIT_RECEIPT_EVENT, depositReceiptKey, readDepositReceipt } from "./deposit-receipt";
 import { watchTransactionConfirmation } from "./watch-transaction-confirmation";
 
 /** Restore the deposit receipt only in Receive, without blocking other wallet actions. */
@@ -19,7 +19,10 @@ export function useDepositReceiptRecovery(): void {
   const action = route.selectedAction;
   useEffect(() => {
     if (!address || network === null || !walletUnit || action !== "lock-funds") return;
-    const restore = () => {
+    const receiptKey = depositReceiptKey({ address, network, walletUnit });
+    const restore = (event?: Event) => {
+      if (event instanceof StorageEvent && (event.storageArea !== localStorage ||
+        (event.key !== null && event.key !== receiptKey))) return;
       if (store.get(activeSubmitAtom) || store.get(submitHashAtom)) return;
       const receipt = readDepositReceipt({ address, network, walletUnit });
       if (!receipt) return;

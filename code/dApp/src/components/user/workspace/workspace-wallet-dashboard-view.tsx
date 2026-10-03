@@ -51,7 +51,7 @@ import { buildCardanoscanTransactionUrl, approximateBlockTimeMsFromSlot, formatW
 
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 import { useAtomValue } from "jotai";
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useId, useState } from "react";
 import { copyFeedbackAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
 import { WalletAccessOverview } from "@/components/user/workspace/wallet-access-overview";
 import { AgentSpendingConsole } from "@/components/user/workspace/agent-spending-console";
@@ -163,6 +163,7 @@ export function compactActivityTimestamp(
 export function WorkspaceWalletDashboardView() {
   const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceWalletDashboardView");
   const state = useWorkspaceActions();
+  const managementReasonId = useId();
   // Same label the copy handler stores, for the same reason as
   // `config-lockfunds-view.tsx`: compare against what was written, not a literal.
   const addressCopiedLabel = i18n("walletAddressCopied");
@@ -468,7 +469,7 @@ export function WorkspaceWalletDashboardView() {
                                           type="button"
                                           onClick={row.onClick}
                                           disabled={!row.canAct}
-                                          title={!row.canAct ? i18n("managementNotGranted") : undefined}
+                                          aria-describedby={!row.canAct ? `${managementReasonId}-${row.id}` : undefined}
                                           className="mt-2 inline-flex items-center gap-1 rounded-full border border-dashed border-border/60 px-2 py-0.5 text-xs font-medium text-foreground/90 transition-[color,background-color,border-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-primary/40 hover:bg-primary/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
                                         >
                                           <Plus className="h-3 w-3" aria-hidden="true" />
@@ -503,7 +504,7 @@ export function WorkspaceWalletDashboardView() {
                                           type="button"
                                           onClick={row.onClick}
                                           disabled={!row.canAct}
-                                          title={!row.canAct ? i18n("managementNotGranted") : undefined}
+                                          aria-describedby={!row.canAct ? `${managementReasonId}-${row.id}` : undefined}
                                           className="mt-2 inline-flex items-center gap-1 rounded-sm text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
                                         >
                                           {row.cta}
@@ -511,7 +512,7 @@ export function WorkspaceWalletDashboardView() {
                                         </button>
                                       </>
                                     )}
-                                    {!row.canAct ? <p className="mt-1 text-xs text-muted-foreground">{i18n("managementNotGranted")}</p> : null}
+                                    {!row.canAct ? <p id={`${managementReasonId}-${row.id}`} className="mt-1 text-xs text-muted-foreground">{i18n("managementNotGranted")}</p> : null}
                                   </div>
                                 </div>
                               );
