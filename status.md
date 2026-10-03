@@ -60,3 +60,10 @@ Wallet-signed terms acceptance is deferred. The beta uses a browser/API acknowle
 - REPORTED: [review finding on PR 673](https://github.com/schaier-io/epora-wallet/pull/673#discussion_r4173319746) identified the risk when Preview shares a production database.
 - VERIFIED: `build:deploy` now runs migrations only when `VERCEL_ENV` is `production`. Deployment tests returned `tests 5`, `pass 5`, `fail 0`, after `fail 3` before the guard.
 - REPORTED: the independent review returned a clean result. VERIFIED: tests used stub commands. No live database settings changed.
+
+## Bug fixes, 2026-10-04
+
+- VERIFIED, coordinator: three branches were created before source edits: `fix/wallet-recovery-session`, `fix/proposal-json-errors`, and `fix/allowance-zero-reset`.
+- In Progress, implementer, FIX-1: wallet recovery ownership. Scope: `wallet-provider.tsx` and its tests. Next: reproduce stale authorization after reconnect.
+- Planned, implementer, FIX-2: proposal JSON errors. Scope: proposal POST routes and their tests. Next: verify HTTP 400 for malformed and deep bodies.
+- Planned, implementer, FIX-3: allowance reset display. Scope: `agent-budget-model.ts` and its tests. Next: verify zero reset restores the daily limit.
