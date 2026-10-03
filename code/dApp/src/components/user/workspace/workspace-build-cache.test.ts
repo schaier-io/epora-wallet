@@ -6,7 +6,7 @@ import type { BuildResult } from "@/lib/types/contracts";
 import { activePaymentKeyHashAtom, activeAddressAtom } from "@/providers/wallet.atoms";
 import { runWorkspaceBuild } from "./workspace-build-cache";
 import { buildErrorStaleInputsAtom, buildRunAtom, invalidateBuildAtom, previewSignatureAtom, resetAllFlowAtom, submitHashAtom } from "./atoms/transaction-flow.atoms";
-import { pendingWalletStateUpdateAtom } from "./atoms/wallet-state-update.atoms";
+import { pendingWalletStateUpdateAtom, walletStateSubmissionsAtom } from "./atoms/wallet-state-update.atoms";
 import { mintStarterAssetsAtom } from "./atoms/forms/mint-form.atoms";
 import { routeStateAtom } from "./atoms/workspace-route.atoms";
 import { renderNowMsAtom } from "./atoms/workspace-ui.atoms";
@@ -243,3 +243,45 @@ test("a retry can clear a previous stale-input error before continuing", async (
   assert.equal(signal.aborted, true);
   assert.equal(await result, null);
 });
+
+// A wallet-state wait holds only builds that spend the STT. With the action label, an
+// add-funds build survives an update that starts mid-build; a send build is cancelled.
+for (const [action, survives] of [["lock-funds", true], ["mint", true], ["use", false]] as const) {
+  test(`a wallet state update mid-build ${survives ? "keeps" : "cancels"} a ${action} build`, async () => {
+    const store = createStore();
+    store.set(routeStateAtom, route => ({ ...route, selectedWalletUnit: "wallet" }));
+    const pending = deferred();
+    let signal!: AbortSignal;
+    const promise = runWorkspaceBuild(store, action, received => { signal = received; return pending.promise; }, action);
+    store.set(pendingWalletStateUpdateAtom, {
+      walletUnit: "wallet", submittedTxHash: "submitted", spentRef: { txHash: "aa", outputIndex: 0 }
+    });
+    assert.equal(signal.aborted, !survives);
+    const result = preview();
+    pending.resolve(result);
+    assert.equal(await promise, survives ? result : null);
+    store.set(invalidateBuildAtom);
+  });
+}
+
+// During a pending update the updating flag is already true, so a signing that starts
+// mid-build changes only the submission flags. It must still cancel the build, even if
+// the signing ends before the build resolves.
+for (const action of ["lock-funds", "mint"] as const) {
+  test(`a signing that starts mid-build cancels a ${action} build during a wallet state update`, async () => {
+    const store = createStore();
+    store.set(routeStateAtom, route => ({ ...route, selectedWalletUnit: "wallet" }));
+    store.set(pendingWalletStateUpdateAtom, {
+      walletUnit: "wallet", submittedTxHash: "submitted", spentRef: { txHash: "aa", outputIndex: 0 }
+    });
+    const pending = deferred();
+    let signal!: AbortSignal;
+    const promise = runWorkspaceBuild(store, action, received => { signal = received; return pending.promise; }, action);
+    store.set(walletStateSubmissionsAtom, { wallet: true });
+    store.set(walletStateSubmissionsAtom, {});
+    assert.equal(signal.aborted, true);
+    pending.resolve(preview());
+    assert.equal(await promise, null);
+    store.set(invalidateBuildAtom);
+  });
+}

@@ -268,7 +268,8 @@ export function WorkspaceHeaderView() {
           disabled={
             lockedContractUtxosLoading ||
             permissionWalletSummariesLoading ||
-            walletTransactions.loading
+            walletTransactions.loading ||
+            walletTransactions.refreshing
           }
           className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/60 bg-background/45 text-muted-foreground transition-colors hover:border-sky-300/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
           aria-label={refreshLabel}
@@ -279,7 +280,8 @@ export function WorkspaceHeaderView() {
               "h-3.5 w-3.5 transition-transform",
               (lockedContractUtxosLoading ||
                 permissionWalletSummariesLoading ||
-                walletTransactions.loading) &&
+                walletTransactions.loading ||
+                walletTransactions.refreshing) &&
                 "animate-spin"
             )}
           />

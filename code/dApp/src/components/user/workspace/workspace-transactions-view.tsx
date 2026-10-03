@@ -50,6 +50,7 @@ export function WorkspaceTransactionsView() {
     wealthSeriesForAsset,
     walletTransactions,
     recentWalletActivityEvents,
+    displayedWalletActivityEvents,
     activityPageCount,
     normalizedActivityPageIndex,
     paginatedWalletActivityEvents,
@@ -300,12 +301,16 @@ export function WorkspaceTransactionsView() {
                             onClick={() => {
                               void refreshWalletTransactions();
                             }}
-                            disabled={walletTransactions.loading}
+                            disabled={walletTransactions.loading || walletTransactions.refreshing}
+                            aria-busy={walletTransactions.fetching}
                           >
+                            {/* Spins on every read, the 30 s poll included, so a quiet
+                                background check is still visible. Only reader-caused reads
+                                disable the button and raise the badge beside it. */}
                             <RefreshCw
                               className={cn(
                                 "h-4 w-4 transition-transform",
-                                walletTransactions.loading && "animate-spin"
+                                walletTransactions.fetching && "animate-spin"
                               )}
                             />
                             {i18n("refresh")}
@@ -329,7 +334,7 @@ export function WorkspaceTransactionsView() {
                       {lockingContract.address &&
                       !walletTransactions.error &&
                       walletTransactions.loading &&
-                      recentWalletActivityEvents.length === 0 ? (
+                      displayedWalletActivityEvents.length === 0 ? (
                         <div
                           className="flex min-h-[min(320px,45vh)] flex-col items-center justify-center gap-3 rounded-lg border border-border/60 bg-muted/10 p-3 text-center sm:p-4"
                           aria-live="polite"
@@ -346,7 +351,7 @@ export function WorkspaceTransactionsView() {
                       {lockingContract.address &&
                       !walletTransactions.error &&
                       !walletTransactions.loading &&
-                      recentWalletActivityEvents.length === 0 ? (
+                      displayedWalletActivityEvents.length === 0 ? (
                         // Last leg of the address-set states: loaded, no error, zero
                         // events. Without it the section renders nothing, which reads
                         // as a broken page rather than a wallet with no history yet.
@@ -374,15 +379,19 @@ export function WorkspaceTransactionsView() {
                         </div>
                       ) : null}
 
-                      {lockingContract.address && recentWalletActivityEvents.length > 0 ? (
+                      {lockingContract.address && displayedWalletActivityEvents.length > 0 ? (
                         <AnimatedList className="space-y-2" stagger={45} distance={12} reveal="mount">
                           {paginatedWalletActivityEvents.map((activity) => {
                             const transaction = activity.transaction;
+                            // A pending row has no block yet: its time is when this tab
+                            // submitted it, and the line says it is waiting for a block.
+                            const pending = activity.pendingSince !== undefined;
                             // Freshly submitted txs read back without a block time; the slot
                             // converts close enough that "just now" beats "Time not available".
-                            const blockTime =
-                              normalizeBlockTimeMs(transaction.blockTime) ??
-                              approximateBlockTimeMsFromSlot(transaction.slot);
+                            const blockTime = pending
+                              ? activity.pendingSince ?? null
+                              : normalizeBlockTimeMs(transaction.blockTime) ??
+                                approximateBlockTimeMsFromSlot(transaction.slot);
                             const timestampLabel = formatWalletTransactionTime(
                               blockTime ?? undefined
                             );
@@ -395,19 +404,26 @@ export function WorkspaceTransactionsView() {
                             // it, since "1d ago" says nothing about which day that was. The
                             // slot survives in the tooltip, where an explorer-ready reference
                             // is actually useful.
-                            const timestampDisplay =
-                              [relativeLabel, timestampLabel].filter(Boolean).join(" · ") ||
-                              i18n("timeNotAvailable");
-                            const timestampTooltip = timestampLabel
-                              ? i18n("timestamplabelSlotValue2", { timestampLabel: timestampLabel, value2: transaction.slot })
-                              : i18n("slotValue1", { value1: transaction.slot });
+                            const timestampDisplay = pending
+                              ? i18n("submittedRelativeWaitingForABlock", { relative: relativeLabel ?? "" })
+                              : [relativeLabel, timestampLabel].filter(Boolean).join(" · ") ||
+                                i18n("timeNotAvailable");
+                            const timestampTooltip = pending
+                              ? i18n("notInABlockYet")
+                              : timestampLabel
+                                ? i18n("timestamplabelSlotValue2", { timestampLabel: timestampLabel, value2: transaction.slot })
+                                : i18n("slotValue1", { value1: transaction.slot });
                             const cardanoscanUrl = buildCardanoscanTransactionUrl(transaction.hash);
                             const txCopyFeedbackLabel = i18n("txHashCopiedValue1_81ef78", { value1: transaction.hash });
 
                             return (
                               <details
                                 key={activity.id}
-                                className="group rounded-lg border border-border/60 bg-background/40 transition-[background-color,border-color,box-shadow] duration-200 open:border-emerald-400/25 open:bg-background/55 open:shadow-[0_18px_44px_-36px_rgba(45,212,191,0.55)]"
+                                className={cn(
+                                  "group rounded-lg border border-border/60 bg-background/40 transition-[background-color,border-color,box-shadow] duration-200 open:border-emerald-400/25 open:bg-background/55 open:shadow-[0_18px_44px_-36px_rgba(45,212,191,0.55)]",
+                                  // Dashed: drawn from the submitted body, not yet from the chain.
+                                  pending && "border-dashed border-amber-400/40 bg-amber-500/5"
+                                )}
                               >
                                 <summary className="list-none cursor-pointer p-3 [&::-webkit-details-marker]:hidden">
                                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -417,6 +433,15 @@ export function WorkspaceTransactionsView() {
                                       </span>
                                       <div className="min-w-0 flex-1">
                                         <div className="flex min-w-0 flex-wrap items-center gap-2">
+                                          {pending ? (
+                                            <Badge
+                                              variant="outline"
+                                              className="shrink-0 gap-1 border-amber-400/40 bg-amber-500/15 text-amber-200"
+                                            >
+                                              <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+                                              {i18n("pending")}
+                                            </Badge>
+                                          ) : null}
                                           <Badge
                                             variant="outline"
                                             className={cn("shrink-0", activity.badgeClassName)}
@@ -550,7 +575,7 @@ export function WorkspaceTransactionsView() {
                               </details>
                             );
                           })}
-                          {recentWalletActivityEvents.length > WALLET_ACTIVITY_PAGE_SIZE ? (
+                          {displayedWalletActivityEvents.length > WALLET_ACTIVITY_PAGE_SIZE ? (
                             <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/60 bg-background/30 px-3 py-2">
                               {/* One templated string, not "Showing" + range + "of" + count
                                   assembled around the numbers: word order moves between
@@ -560,7 +585,7 @@ export function WorkspaceTransactionsView() {
                                 {i18n("showingRangeOfTotal", {
                                   start: activityVisibleStart,
                                   end: activityVisibleEnd,
-                                  total: recentWalletActivityEvents.length
+                                  total: displayedWalletActivityEvents.length
                                 })}
                               </p>
                               <div className="flex items-center gap-1.5">

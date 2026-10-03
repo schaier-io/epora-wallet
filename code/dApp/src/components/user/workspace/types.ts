@@ -57,7 +57,16 @@ export type WalletBalanceSummary = {
 
 export type WalletTransactionSummary = {
   items: TransactionInfo[];
+  /** First load: no rows yet. */
   loading: boolean;
+  /** Any read in flight, the 30 s background poll included. Drives the quiet icon spin. */
+  fetching: boolean;
+  /**
+   * A read the reader caused and should see: a manual refresh, or the reload after a
+   * submit changed the anchor set. The background poll never sets it, so the
+   * "Refreshing" badge does not flicker every 30 s.
+   */
+  refreshing: boolean;
   error: string | null;
 };
 
@@ -163,6 +172,11 @@ export type WalletActivityEvent = {
   details: Array<{ label: string; value: string }>;
   inputUtxos: UTxO[];
   outputUtxos: UTxO[];
+  /**
+   * Set on a row decoded from a transaction this tab submitted that no block holds yet:
+   * the submit time in ms. Absent on confirmed rows.
+   */
+  pendingSince?: number;
 };
 
 export type SetupProgressStep = {

@@ -17,7 +17,7 @@ import {
   updateStateFormAtom, sttInputTxHashAtom, sttInputOutputIndexAtom
 } from "./atoms/forms/stt-spend-form.atoms";
 import { buildRunAtom, resetFlowAtom, workspaceSessionAtom } from "./atoms/transaction-flow.atoms";
-import { pendingWalletStateUpdateAtom } from "./atoms/wallet-state-update.atoms";
+import { pendingWalletStateUpdateAtom, walletStateSubmissionsAtom } from "./atoms/wallet-state-update.atoms";
 import {
   PREPARED_TRANSACTION_MAX_AGE_MS, type PreparedWorkspaceTransaction,
   preparedWorkspaceTransactionIsCurrent, workspaceTransactionSnapshotAtom
@@ -162,6 +162,25 @@ test("pending wallet State refresh blocks the prepared transaction", () => {
   });
   assert.equal(preparedWorkspaceTransactionIsCurrent(store, prepared, BUILT_AT), false);
 });
+
+// Adding funds and creating a wallet do not spend the STT, so a pending update leaves
+// their prepared transaction current. A signing still in flight holds them all.
+for (const action of ["lock-funds", "mint"] as const) {
+  test(`pending wallet State refresh keeps a prepared ${action} transaction`, () => {
+    const store = createStore();
+    store.set(routeStateAtom, { ...store.get(routeStateAtom), selectedWalletUnit: "wallet", selectedAction: action });
+    const prepared = prepare(store);
+    store.set(pendingWalletStateUpdateAtom, {
+      walletUnit: "wallet", submittedTxHash: TX_HASH, spentRef: { txHash: TX_HASH, outputIndex: 0 }
+    });
+    assert.equal(preparedWorkspaceTransactionIsCurrent(store, prepared, BUILT_AT), true);
+    store.set(walletStateSubmissionsAtom, { wallet: true });
+    assert.equal(preparedWorkspaceTransactionIsCurrent(store, prepared, BUILT_AT), false);
+    // Its own submit set that flag. It owns no State record, and the STT update it does
+    // not spend must not make its details read as stale.
+    assert.equal(preparedWorkspaceTransactionIsCurrent(store, prepared, BUILT_AT, { walletUnit: "wallet", pending: null }), true);
+  });
+}
 
 test("age limit and clock rollback reject prepared transactions", () => {
   const store = createStore();

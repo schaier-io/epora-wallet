@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 import { useAtomValue } from "jotai";
 import { useQueryClient } from "@tanstack/react-query";
 import { useWorkspaceTransactionPrebuild } from "./use-workspace-transaction-prebuild";
-import { walletStateUpdatingAtom } from "./atoms/wallet-state-update.atoms";
+import { selectedActionWaitsForWalletStateAtom } from "./atoms/wallet-state-update.atoms";
 import { activeSttAuthorityOptionsAtom, walletOperatorOptionsAtom, selectedSigningActionAvailabilityAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
 import { setupStateAtom } from "@/components/user/workspace/atoms/workspace-setup-state.atoms";
 import { submitConfirmedAtom, submitConfirmationUnseenAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
@@ -354,7 +354,7 @@ export function usePermissionWalletWorkspaceState() {
     refreshWalletBalance
   });
   const signingActions = useAtomValue(selectedSigningActionAvailabilityAtom);
-  const walletStateUpdating = useAtomValue(walletStateUpdatingAtom);
+  const walletStateUpdating = useAtomValue(selectedActionWaitsForWalletStateAtom);
   useWorkspaceTransactionPrebuild({
     enabled: Boolean(activeWallet) && !isDemoWallet && networkId === cardanoNetworkId() && !walletStateUpdating &&
       (routeState.workspaceMode === "new-wallet" || Boolean(wizardSelectedAction)) &&

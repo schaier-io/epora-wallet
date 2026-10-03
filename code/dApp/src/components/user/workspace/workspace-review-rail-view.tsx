@@ -10,7 +10,7 @@ import { activeInferredSttStateFormAtom } from "@/components/user/workspace/atom
 import { selectedWizardActionDescriptorAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { selectedActionAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
 import { selectedSigningActionAvailabilityAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
-import { walletStateUpdatingAtom } from "@/components/user/workspace/atoms/wallet-state-update.atoms";
+import { selectedActionWaitsForWalletStateAtom } from "@/components/user/workspace/atoms/wallet-state-update.atoms";
 import { useAtomValue } from "jotai";
 import { useRef, useState } from "react";
 
@@ -62,7 +62,8 @@ export function WorkspaceReviewRailView({
   const sttStateForm = useAtomValue(activeSttStateFormAtom);
   const submitConfirmed = useAtomValue(submitConfirmedAtom);
   const submitConfirmationUnseen = useAtomValue(submitConfirmationUnseenAtom);
-  const walletStateUpdating = useAtomValue(walletStateUpdatingAtom);
+  // Only an action that spends the STT waits; adding funds stays open during the update.
+  const walletStateUpdating = useAtomValue(selectedActionWaitsForWalletStateAtom);
   const {
     actionDrafts,
     activeActionDefinition,

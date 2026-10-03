@@ -2,7 +2,7 @@
 // State-acquisition hook for WorkspaceTransactionsView: bundles every atom
 // subscription and workspace action the activity view needs into one object.
 import { wealthSeriesAtom, wealthSeriesForAssetAtom } from "@/components/user/workspace/atoms/workspace-transfer-derivations.atoms";
-import { activityPageCountAtom, activityRangeLabelAtom, activityVisibleEndAtom, activityVisibleStartAtom, normalizedActivityPageIndexAtom, paginatedWalletActivityEventsAtom, recentWalletActivityEventsAtom, walletTransactionsAtom } from "@/components/user/workspace/atoms/workspace-activity.atoms";
+import { activityPageCountAtom, activityRangeLabelAtom, displayedWalletActivityEventsAtom, activityVisibleEndAtom, activityVisibleStartAtom, normalizedActivityPageIndexAtom, paginatedWalletActivityEventsAtom, recentWalletActivityEventsAtom, walletTransactionsAtom } from "@/components/user/workspace/atoms/workspace-activity.atoms";
 import { selectedDetectedTokenAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { lockingContractAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import { activeAddressAtom } from "@/providers/wallet.atoms";
@@ -16,6 +16,7 @@ export function useWorkspaceActivityState() {
   const wealthSeriesForAsset = useAtomValue(wealthSeriesForAssetAtom);
   const walletTransactions = useAtomValue(walletTransactionsAtom);
   const recentWalletActivityEvents = useAtomValue(recentWalletActivityEventsAtom);
+  const displayedWalletActivityEvents = useAtomValue(displayedWalletActivityEventsAtom);
   const activityPageCount = useAtomValue(activityPageCountAtom);
   const normalizedActivityPageIndex = useAtomValue(normalizedActivityPageIndexAtom);
   const paginatedWalletActivityEvents = useAtomValue(paginatedWalletActivityEventsAtom);
@@ -40,6 +41,7 @@ export function useWorkspaceActivityState() {
     wealthSeriesForAsset,
     walletTransactions,
     recentWalletActivityEvents,
+    displayedWalletActivityEvents,
     activityPageCount,
     normalizedActivityPageIndex,
     paginatedWalletActivityEvents,
