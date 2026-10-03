@@ -17,7 +17,6 @@ import { useWorkspaceActions } from "@/components/user/workspace/workspace-actio
 import { WorkspaceWalletDashboardView } from "@/components/user/workspace/workspace-wallet-dashboard-view";
 import { SetupCheckpointCardView } from "@/components/user/workspace/workspace-setup-checkpoint-view";
 import { WorkspaceActionConfigView } from "@/components/user/workspace/workspace-action-config-view";
-import { WalletStateUpdateBanner } from "@/components/user/workspace/wallet-state-update-banner";
 import { reachableApprovalPower } from "@/components/user/workspace/helpers";
 import type { UserActionKind } from "@/components/user/flow-types";
 import type {
@@ -106,8 +105,6 @@ export function WorkspaceMainPanelView() {
             // content. The sidebar keeps its `pr-2`, where the cards it holds sit inside a card
             // whose right edge the thumb would otherwise cross.
             <div className="user-scrollbar order-1 min-h-0 overflow-y-auto lg:order-2">
-              {/* Above the dashboard and every action page alike: the wait is wallet-wide. */}
-              <WalletStateUpdateBanner />
               {selectedDetectedToken && !wizardSelectedAction ? (
               <WorkspaceWalletDashboardView />
               ) : (

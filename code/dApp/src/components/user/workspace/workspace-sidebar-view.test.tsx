@@ -2,8 +2,9 @@ import "@/test/mock-workspace-queries";
 import { detectedSttTokensAtom, detectedSttTokensErrorAtom, detectedSttTokensLoadingAtom } from "@/test/workspace-query-fixtures";
 import { render, screen } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { pendingWalletStateUpdateAtom } from "./atoms/wallet-state-update.atoms";
 import { routeStateAtom } from "@/components/user/workspace/atoms/workspace-route.atoms";
 import { parseWorkspaceRouteState } from "@/components/user/workspace-controller";
 
@@ -29,6 +30,18 @@ vi.mock("@/components/user/workspace/workspace-actions-context", () => ({
     openGuidedOverview: vi.fn()
   })
 }));
+
+beforeEach(() => {
+  const data = new Map<string, string>();
+  Object.defineProperty(window, "localStorage", { configurable: true, value: {
+    get length() { return data.size; },
+    key: (index: number) => [...data.keys()][index] ?? null,
+    getItem: (key: string) => data.get(key) ?? null,
+    setItem: (key: string, value: string) => { data.set(key, value); },
+    removeItem: (key: string) => { data.delete(key); },
+    clear: () => data.clear()
+  } });
+});
 
 const { WorkspaceSidebarView } = await import(
   "@/components/user/workspace/workspace-sidebar-view"
@@ -65,6 +78,23 @@ describe("workspace sidebar, no wallet open", () => {
       </Provider>
     );
   }
+
+  it("shows the blocked action's pending transaction before wallet detection completes", () => {
+    const unit = `${"ab".repeat(28)}01`;
+    const txHash = "cd".repeat(32);
+    const store = createStore();
+    store.set(detectedSttTokensAtom, []);
+    store.set(detectedSttTokensLoadingAtom, true);
+    store.set(routeStateAtom, parseWorkspaceRouteState(new URLSearchParams(`wallet=${unit}&action=send`)));
+    store.set(pendingWalletStateUpdateAtom, {
+      walletUnit: unit, submittedTxHash: txHash,
+      spentRef: { txHash: "ef".repeat(32), outputIndex: 0 }
+    });
+    render(<Provider store={store}><WorkspaceSidebarView /></Provider>);
+    expect(screen.getByRole("status")).toHaveTextContent("This action unlocks when it confirms.");
+    expect(screen.getByRole("link", { name: `View transaction ${txHash} on Cardanoscan` })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Retry chain check" })).toBeNull();
+  });
 
   it("keeps a cached wallet open after a failed scan, leaving the error to the header", () => {
     renderSidebar(false, "Inventory refresh failed.", true);
