@@ -370,10 +370,10 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
         jotaiStore.set(resetTransferFormAtom);
       });
     }
-    if (selectedAction === "consolidate-utxo" && jotaiStore.get(beneficiaryPreparationActiveAtom)) {
+    if (selectedAction === "consolidate-utxo" && jotaiStore.get(beneficiaryPreparationActiveAtom) && mayClearSubmittedDraft) {
       runPostSubmitTask("clear-prepared-inputs", () => jotaiStore.set(consolidateWalletInputsAtom, []));
     }
-    if (selectedAction === "distribute-beneficiaries") {
+    if (selectedAction === "distribute-beneficiaries" && mayClearSubmittedDraft) {
       runPostSubmitTask("clear-distributed-input", () => jotaiStore.set(sttWalletInputsAtom, []));
     }
     if (selectedAction === "lock-funds" && mayClearSubmittedDraft) {
