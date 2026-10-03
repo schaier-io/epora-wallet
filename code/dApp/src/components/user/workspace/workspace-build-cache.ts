@@ -3,7 +3,7 @@ import { abortable } from "@/lib/mesh/build-cancellation";
 import type { BuildResult } from "@/lib/types/contracts";
 import { workspaceTransactionSnapshotAtom } from "./workspace-prepared-transaction";
 import { isWorkspaceBuildResultExpired, warmBuildResultExpiry } from "./workspace-build-expiry";
-import { walletStateBlocksAction, walletStateUpdatingAtom } from "./atoms/wallet-state-update.atoms";
+import { walletStateBlocksAction, walletStateSubmissionsAtom, walletStateUpdatingAtom } from "./atoms/wallet-state-update.atoms";
 import { activeBuildAtom, buildErrorStaleInputsAtom, buildRunAtom, previewSignatureAtom, submitHashAtom, workspaceSessionAtom } from "./atoms/transaction-flow.atoms";
 
 type Store = ReturnType<typeof createStore>;
@@ -69,7 +69,7 @@ export function runWorkspaceBuild(
     if (!record.isCurrent()) record.cancel();
   };
   store.set(buildRecordAtom, record);
-  for (const watched of [workspaceBuildIdentityAtom, workspaceSessionAtom, buildRunAtom, walletStateUpdatingAtom, submitHashAtom, buildErrorStaleInputsAtom]) {
+  for (const watched of [workspaceBuildIdentityAtom, workspaceSessionAtom, buildRunAtom, walletStateUpdatingAtom, walletStateSubmissionsAtom, submitHashAtom, buildErrorStaleInputsAtom]) {
     unsubscribe.push(store.sub(watched, invalidate));
   }
   // Install ownership and subscriptions before the builder can synchronously change state.
