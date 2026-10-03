@@ -8,6 +8,7 @@ import {
 import { clientKey, rateLimit } from "@/lib/http/rate-limit";
 import { readBoundedJson, RequestBodyTooLargeError } from "@/lib/http/request-body";
 import { logger, serializeError } from "@/lib/observability/logger";
+import { UPSTREAM_RETRY_AFTER_FALLBACK_SECONDS } from "@/lib/mesh/http-error";
 import { getTranslations } from "next-intl/server";
 
 const getI18n = () => getTranslations("AppApiKoiosCredentialUtxosRoute");
@@ -31,6 +32,7 @@ export const runtime = "nodejs";
 // queried payment credential. Acceptable, because the call simply does not work from
 // the browser otherwise.
 
+/** Look up a payment credential on the deployment network, with validation and timeout responses. */
 export async function POST(request: Request) {
   const i18n = await getI18n();
   const limit = await rateLimit(clientKey(request, "koios-credential-utxos"), 300, 60_000);
@@ -103,6 +105,9 @@ export async function POST(request: Request) {
       );
     }
     logger.error("api.koios_credential_lookup_failed", { err: serializeError(error) });
-    return NextResponse.json({ error: i18n("koiosCredentialLookupFailed") }, { status: 502 });
+    return NextResponse.json({ error: i18n("koiosCredentialLookupFailed") }, {
+      status: error instanceof Error && error.name === "TimeoutError" ? 504 : 502,
+      headers: { "Retry-After": String(UPSTREAM_RETRY_AFTER_FALLBACK_SECONDS) }
+    });
   }
 }

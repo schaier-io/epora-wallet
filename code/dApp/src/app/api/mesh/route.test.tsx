@@ -112,3 +112,23 @@ it("keeps an evaluator failure that is not a script rejection loud", async () =>
     expect.objectContaining({ method: "evaluateTx" })
   );
 });
+
+it("recovers a transient upstream read before logging an error", async () => {
+  mocks.execute.mockRejectedValueOnce(JSON.stringify({ status: 500 })).mockResolvedValueOnce([]);
+  expect((await POST(request())).status).toBe(200);
+  expect(mocks.execute).toHaveBeenCalledTimes(2);
+  expect(logger.error).not.toHaveBeenCalled();
+});
+
+it("bounds upstream read retries and maps an exhausted outage to 502", async () => {
+  mocks.execute.mockRejectedValue(JSON.stringify({ status: 503 }));
+  expect((await POST(request())).status).toBe(502);
+  expect(mocks.execute).toHaveBeenCalledTimes(3);
+  expect(logger.error).toHaveBeenCalledTimes(1);
+});
+
+it.each(["submitTx", "evaluateTx"])("never retries %s during an upstream outage", async (method) => {
+  mocks.execute.mockRejectedValue(JSON.stringify({ status: 500 }));
+  expect((await POST(request(JSON.stringify({ method, args: ["00"] })))).status).toBe(502);
+  expect(mocks.execute).toHaveBeenCalledTimes(1);
+});

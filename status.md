@@ -40,3 +40,23 @@ The release record contains post-rebase validation for the consent layer.
 Production processor contracts, hosting regions, and retention settings require operational checks beyond source inspection.
 The company details and `info@41bit.io` are operator-supplied. An automated Wyoming registry lookup encountered a human-verification page and did not establish company status.
 Wallet-signed terms acceptance is deferred. The beta uses a browser/API acknowledgement.
+
+## Error repair, 2026-10-03
+
+- VERIFIED, coordinator: repair layers are `fix/mesh-read-recovery`, `fix/build-error-recovery`, and `fix/signer-schema-readiness`.
+- Completed, implementer: provider reads and Koios retry handling. Evidence: `Tests 62 passed (62)`.
+- Completed, coordinator: spent-input recovery and depleted-funds guidance. Evidence: `tests 76`, `pass 76`, `fail 0`.
+- Completed, coordinator: signer endpoint readiness and deployment migration command. Evidence: `Tests 4 passed (4)` and `tests 2`, `pass 2`, `fail 0`.
+- REPORTED: the pasted event says `public.SignerRegistration` does not exist. The current production schema is not determined.
+- VERIFIED: provider and Koios tests returned `Tests 62 passed (62)`. Mocked requests do not establish live provider availability.
+- VERIFIED: submission, freshness, and recovery-view checks returned `Tests 60 passed (60)`. These are local tests.
+- VERIFIED: final combined runs returned `Tests 126 passed (126)` and `tests 78`, `pass 78`, `fail 0`. Tests used existing local dependencies.
+- REPORTED: independent reviews of each layer returned a clean result. VERIFIED: no live migration or deployment ran.
+- Next: obtain Sentry event URLs and verify the affected deployment. Production migration and publication require user approval.
+
+## Review correction, 2026-10-03
+
+- VERIFIED correction: the earlier `build:deploy` command ran migrations in every environment. That allowed a preview build to migrate its configured database.
+- REPORTED: [review finding on PR 673](https://github.com/schaier-io/epora-wallet/pull/673#discussion_r4173319746) identified the risk when Preview shares a production database.
+- VERIFIED: `build:deploy` now runs migrations only when `VERCEL_ENV` is `production`. Deployment tests returned `tests 5`, `pass 5`, `fail 0`, after `fail 3` before the guard.
+- REPORTED: the independent review returned a clean result. VERIFIED: tests used stub commands. No live database settings changed.

@@ -1,3 +1,4 @@
+import { retryMeshRead, meshReadRetryDelay, MESH_CLIENT_READ_TIMEOUT_MS } from "./read-retry";
 import { parseRetryAfterMs } from "@/lib/http/retry-after";
 export { parseRetryAfterMs } from "@/lib/http/retry-after";
 import type {
@@ -30,10 +31,17 @@ export class MeshRpcError extends Error {
   }
 }
 
+class MeshTransportError extends TypeError {
+  constructor(cause: TypeError) {
+    super(cause.message, { cause });
+  }
+}
+
 function isRpcEnvelope(value: unknown): value is RpcEnvelope {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/** Read an RPC envelope while preserving provider details, HTTP status, and caller cancellation. */
 async function rpc<T>(method: ChainMethod, args: unknown[], signal?: AbortSignal): Promise<T> {
   signal?.throwIfAborted();
   const payload: ChainRpcRequest = { method, args };
@@ -45,6 +53,10 @@ async function rpc<T>(method: ChainMethod, args: unknown[], signal?: AbortSignal
       "Content-Type": "application/json"
     },
     body: JSON.stringify(payload)
+  }).catch((error: unknown) => {
+    signal?.throwIfAborted();
+    if (error instanceof TypeError) throw new MeshTransportError(error);
+    throw error;
   });
 
   // Preserve the HTTP status when a gateway returns a non-JSON error page.
@@ -86,8 +98,15 @@ export class ServerFetcher implements IFetcher, IEvaluator {
     return this.options.signal;
   }
 
+  /** Retry read transport failures within one deadline. Other RPC methods execute once. */
   private rpc<T>(method: ChainMethod, args: unknown[]): Promise<T> {
-    return rpc(method, args, this.options.signal);
+    return retryMeshRead(
+      method,
+      (signal) => rpc<T>(method, args, signal),
+      (error, attempt) => error instanceof MeshTransportError ? meshReadRetryDelay(attempt) : undefined,
+      this.options.signal,
+      MESH_CLIENT_READ_TIMEOUT_MS
+    );
   }
 
   fetchAccountInfo(address: string): Promise<AccountInfo> {

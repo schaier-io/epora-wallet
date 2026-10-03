@@ -1,4 +1,5 @@
 {
+  "availableFundsCannotCoverTransaction": "The available funds cannot cover this transaction and its fees. Leave enough ADA for each output. Reduce the amount or add funds, then try again.",
   "failedToBuildTransaction": "Failed to build transaction",
   "fundPoolMissinginputrefHasAlreadyBeenSpentReload": "Fund pool {missingInputRef} has already been spent. Reload the fund pools, remove that one, then try again.",
   "fundPoolMissinginputrefHasAlreadyBeenSpentReload_aff0e8": "Fund pool {missingInputRef} has already been spent. Reload the fund pools, then try again.",

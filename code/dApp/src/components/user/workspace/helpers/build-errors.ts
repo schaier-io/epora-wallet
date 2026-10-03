@@ -202,6 +202,7 @@ function createDiagnosticId(details: string) {
   return `${timestampPart}-${hash.toString(36).padStart(4, "0")}`;
 }
 
+/** Map known build failures to recovery guidance and mark whether the outcome is expected. */
 function resolveBuildErrorOutcome(
   error: unknown,
   fallback: string
@@ -210,6 +211,10 @@ function resolveBuildErrorOutcome(
 
   if (declinedToSign(error)) {
     return [USER_DECLINED_TO_SIGN, true];
+  }
+
+  if (allMessages.some((message) => message.includes("UTxO Fully Depleted"))) {
+    return [i18n("availableFundsCannotCoverTransaction"), true];
   }
 
   if (allMessages.some((message) => message.includes("Maximum Input Count Exceeded"))) {
@@ -299,8 +304,15 @@ function resolveBuildErrorOutcome(
   ];
 }
 
+/** Find missing or spent input references in nested errors so the UI can offer chain refresh. */
 function extractMissingTransactionInputRef(error: unknown) {
   for (const message of collectBuildErrorMessages(error)) {
+    const spentWalletInput = message.match(
+      /\bWallet input ([0-9a-f]{64})#(\d+) was already spent by [0-9a-f]{64}(?:\.|$)/i
+    );
+    if (spentWalletInput && Number.isSafeInteger(Number(spentWalletInput[2]))) {
+      return `${spentWalletInput[1]!.toLowerCase()}#${Number(spentWalletInput[2])}`;
+    }
     // Three spellings of one event, the chain moving on under the draft: the ledger
     // rejecting an input it no longer has ("Unknown transaction input..."), our own
     // builder failing to resolve a selected input against current chain state
