@@ -12,6 +12,7 @@ import { useAtomValueRawSync } from "jotai";
 
 import { useEffect } from "react";
 import { useLocalEvaluationWarmup } from "./use-local-evaluation-warmup";
+import { useWorkspaceBuildPreparation } from "./use-workspace-build-preparation";
 
 import type {
   UserFlowBranch
@@ -20,7 +21,7 @@ import type {
 import { type useWalletContext } from "@/providers/wallet-provider";
 import { type useWorkspacePermissionWalletCards } from "@/components/user/workspace/use-workspace-permission-wallet-cards";
 import { type useStore } from "jotai";
-import { mintConfirmationRunAtom
+import { mintConfirmationRunAtom, workspaceSessionAtom
 } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { type useSharedSttReference } from "@/components/user/workspace/use-shared-stt-reference";
 import { type Dispatch, type SetStateAction } from "react";
@@ -82,6 +83,8 @@ export function useWorkspaceWalletSessionEffects(ctx: WorkspaceWalletSessionEffe
   const { routeState, commitRouteState, dispatch: dispatchWorkspaceAction, isRouteStateCurrent } = useWorkspaceRouteState();
   const activePaymentKeyHash = useAtomValueRawSync(activePaymentKeyHashAtom);
   const selectedDetectedToken = useAtomValueRawSync(selectedDetectedTokenAtom);
+  const config = useAtomValueRawSync(configAtom);
+  const session = useAtomValueRawSync(workspaceSessionAtom);
   const selectedTokenCapabilityMap = useAtomValueRawSync(selectedTokenCapabilityMapAtom);
   // The selected wallet's own rules say the connected key holds no role in it.
   //
@@ -106,7 +109,12 @@ export function useWorkspaceWalletSessionEffects(ctx: WorkspaceWalletSessionEffe
       selectedTokenCapabilityMap &&
       !holdsAnyRole(selectedTokenCapabilityMap)
   );
-  useLocalEvaluationWarmup({ walletReady: walletReady && !selectedWalletIsForeign, selectedWalletUnit: selectedDetectedTokenUnit, isRouteStateCurrent });
+  const selectionReady = walletReady && !selectedWalletIsForeign && isRouteStateCurrent &&
+    selectedDetectedToken?.unit === selectedDetectedTokenUnit;
+  useLocalEvaluationWarmup({ walletReady: selectionReady, selectedWalletUnit: selectedDetectedTokenUnit,
+    isRouteStateCurrent, flowStep: routeState.flowStep, session });
+  useWorkspaceBuildPreparation({ enabled: selectionReady, selectedWalletUnit: selectedDetectedTokenUnit,
+    config, sttInput: selectedDetectedToken?.utxo.input, session });
 
   useEffect(() => {
     if (selectedDetectedToken && isRouteStateCurrent && walletReady) {

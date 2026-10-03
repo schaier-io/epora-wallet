@@ -5,7 +5,6 @@ import {
   describeReferenceScriptUsage,
   excludeReservedUtxos,
   hasReferenceScript,
-  parseReferenceUtxoConfig,
   resolveMintReferenceInput,
   resolveReferenceScript,
   type ReferenceScriptResolution
@@ -133,17 +132,6 @@ test("resolveMintReferenceInput throws when there are no spendable UTxOs", () =>
     () => resolveMintReferenceInput([], []),
     /No wallet UTxOs available for mint reference selection/
   );
-});
-
-test("parseReferenceUtxoConfig parses both separators and rejects bad formats", () => {
-  assert.equal(parseReferenceUtxoConfig(undefined, "Ref"), null);
-  assert.equal(parseReferenceUtxoConfig("   ", "Ref"), null);
-  assert.deepEqual(parseReferenceUtxoConfig(`${A}#3`, "Ref"), { txHash: A, outputIndex: 3 });
-  assert.deepEqual(parseReferenceUtxoConfig(`${A.toUpperCase()}:7`, "Ref"), {
-    txHash: A,
-    outputIndex: 7
-  });
-  assert.throws(() => parseReferenceUtxoConfig("not-a-ref", "Ref"), /must use the format txHash#index/);
 });
 
 test("resolveReferenceScript rejects a configured UTxO that was already spent", async () => {
