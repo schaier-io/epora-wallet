@@ -64,6 +64,7 @@ Wallet-signed terms acceptance is deferred. The beta uses a browser/API acknowle
 ## Bug fixes, 2026-10-04
 
 - VERIFIED, coordinator: three branches were created before source edits: `fix/wallet-recovery-session`, `fix/proposal-json-errors`, and `fix/allowance-zero-reset`.
-- In Progress, implementer, FIX-1: wallet recovery ownership. Scope: `wallet-provider.tsx` and its tests. Next: reproduce stale authorization after reconnect.
-- Planned, implementer, FIX-2: proposal JSON errors. Scope: proposal POST routes and their tests. Next: verify HTTP 400 for malformed and deep bodies.
-- Planned, implementer, FIX-3: allowance reset display. Scope: `agent-budget-model.ts` and its tests. Next: verify zero reset restores the daily limit.
+- Completed, implementer, FIX-1: wallet recovery ownership. VERIFIED: `vitest run src/providers/wallet-provider.test.tsx` returned `Tests 39 passed (39)` on current main plus the fix. Three regression cases failed before the fix. Tests use mocked wallets. REPORTED: final independent review found no issues.
+- Completed, implementer, FIX-2: proposal JSON errors. VERIFIED: `vitest run src/app/api/proposals` returned `Tests 71 passed (71)`. With original route source and the new tests, `Tests 12 failed | 2 passed (14)`. Route tests mock authentication and providers. REPORTED: independent adversarial review found no issues.
+- In Progress, implementer, FIX-3: allowance reset display. Scope: `agent-budget-model.ts` and its tests. Next: verify zero reset restores the daily limit.
+- VERIFIED correction: FIX-2 includes `PATCH /api/proposals/[id]/rebuild`. The earlier POST-only scope was too narrow.
