@@ -163,7 +163,8 @@ test("inventory starts the address lookup before policy discovery finishes", asy
   const policyPending = new Promise<void>((resolve) => { finishPolicy = resolve; });
   const unit = `${getSttMintPolicyId()}01`;
   globalThis.fetch = async (_url, init) => {
-    assert.equal(init?.signal, controller.signal);
+    assert.ok(init?.signal instanceof AbortSignal);
+    assert.equal(init.signal.aborted, false);
     const { method } = JSON.parse(String(init?.body)) as MeshCall;
     methods.push(method);
     if (method === "fetchCollectionAssets") {
@@ -179,6 +180,31 @@ test("inventory starts the address lookup before policy discovery finishes", asy
     assert.deepEqual((await pending).tokens.map((token) => token.unit), [unit]);
   } finally {
     finishPolicy();
+    await pending.catch(() => {});
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("inventory cancellation aborts both pending discovery reads", async () => {
+  const originalFetch = globalThis.fetch;
+  const controller = new AbortController();
+  const signals: AbortSignal[] = [];
+  globalThis.fetch = async (_url, init) => {
+    assert.ok(init?.signal instanceof AbortSignal);
+    signals.push(init.signal);
+    return new Promise<Response>(() => {});
+  };
+  const pending = detectSttInfo(undefined, controller.signal);
+  try {
+    assert.equal(signals.length, 2);
+    controller.abort();
+    await assert.rejects(pending, { name: "AbortError" });
+    for (const signal of signals) {
+      assert.equal(signal.aborted, true);
+      assert.equal(signal.reason, controller.signal.reason);
+    }
+  } finally {
+    controller.abort();
     await pending.catch(() => {});
     globalThis.fetch = originalFetch;
   }
