@@ -152,10 +152,12 @@ test("deposit refuses positive ADA below the output minimum", async () => {
 
 test("deposit uses fetched protocol parameters for its output minimum", async () => {
   const { wallet, fetcher } = fixture();
-  fetcher.fetchProtocolParameters = async () => ({
+  const protocol = {
     ...DEFAULT_PROTOCOL_PARAMETERS,
     coinsPerUtxoSize: DEFAULT_PROTOCOL_PARAMETERS.coinsPerUtxoSize * 2
-  });
+  };
+  fetcher.fetchProtocolParameters = async () => protocol;
+  fetcher.get = async () => createOfflineBuildParameters(protocol, COST_MODELS);
   await assert.rejects(buildLockFundsTx(wallet, CONFIG, {
     assets: [{ unit: "lovelace", quantity: "1000000" }]
   }, fetcher), /Cardano output needs at least/);
