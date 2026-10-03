@@ -21,6 +21,7 @@ const MAX_UNIT_LENGTH = 200;
 // GET /api/proposals/wallets/:unit/signers: which of this wallet's indexed
 // participants have completed the wallet sign-in. The owner needs this to tell
 // a co-signer who is ready from one who still has to register.
+/** Return registered wallet signers to members, or a safe error when storage is unavailable. */
 export async function GET(_request: Request, context: RouteContext) {
   const i18n = await getI18n();
   const auth = await requireSession();

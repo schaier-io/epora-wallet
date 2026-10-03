@@ -8,6 +8,7 @@ import test from "node:test";
 const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 const vercel = JSON.parse(readFileSync(new URL("../vercel.json", import.meta.url), "utf8"));
 
+/** Run the deployment command with stub CLIs and record their order without accessing a database. */
 function runDeploymentBuild(t, migrationExit, deploymentEnvironment = "production") {
   const directory = mkdtempSync(path.join(tmpdir(), "wallet-deploy-build-"));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
