@@ -2,6 +2,7 @@ import { CARDANO_NETWORK, type CardanoNetwork } from "@/lib/cardano-network";
 import { paymentCredentialHash } from "@/lib/cardano-addresses";
 import { getBlockfrostProvider } from "@/lib/mesh/blockfrost-server";
 import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
+import { readBuildParameters } from "./protocol-parameter-cache";
 import { deserializeAddress } from "@meshsdk/core";
 
 /** A caller-supplied address the server cannot build from. Routes map it to 400. */
@@ -73,11 +74,27 @@ export function createAddressWalletSource(address: string): WalletSource {
   };
 }
 
+const serverBuildFetchers = new WeakMap<ReturnType<typeof getBlockfrostProvider>, TxFetcher>();
+
 /**
  * Chain access for a server-side build: Blockfrost directly, rather than the
  * browser's `/api/mesh` proxy, which exists only to keep the project id out of
  * the client and would make the server call itself over HTTP.
  */
 export function createServerTxFetcher(): TxFetcher {
-  return getBlockfrostProvider();
+  const provider = getBlockfrostProvider();
+  let fetcher = serverBuildFetchers.get(provider);
+  if (!fetcher) {
+    fetcher = new Proxy(provider, {
+      get(target, property) {
+        if (property === "fetchBuildParameters") return () => readBuildParameters(provider);
+        const value: unknown = Reflect.get(target, property, target);
+        return typeof value === "function"
+          ? (value as (...args: unknown[]) => unknown).bind(target)
+          : value;
+      }
+    });
+    serverBuildFetchers.set(provider, fetcher);
+  }
+  return fetcher;
 }

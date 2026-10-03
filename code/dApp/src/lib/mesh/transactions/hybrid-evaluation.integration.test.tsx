@@ -1,8 +1,8 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OfflineEvaluatorScalus } from "@meshsdk/core-cst";
-import type { IFetcher, RedeemerTagType } from "@meshsdk/common";
-import { createOfflineMintFixture, DEFAULT_OFFLINE_COST_MODELS } from "./offline-evaluation-mint-fixture";
+import { DEFAULT_PROTOCOL_PARAMETERS, type IFetcher, type RedeemerTagType } from "@meshsdk/common";
+import { createOfflineMintFixture, createOfflineBuildParameters, DEFAULT_OFFLINE_COST_MODELS } from "./offline-evaluation-mint-fixture";
 import { createOfflineActionFixture } from "./offline-evaluation-action-fixture";
 import type { LocalEvaluationRequest, LocalEvaluationAction } from "./internals/local-evaluation-worker";
 
@@ -92,7 +92,7 @@ describe("hybrid evaluation with actual project scripts", () => {
     const fixture = await mintContext();
     const original = fixture.fetcher.get;
     fixture.fetcher.get = async path => path === "epochs/latest/parameters"
-      ? { cost_models_raw: { PlutusV3: DEFAULT_OFFLINE_COST_MODELS[2] } }
+      ? { ...createOfflineBuildParameters(DEFAULT_PROTOCOL_PARAMETERS, DEFAULT_OFFLINE_COST_MODELS), cost_models_raw: { PlutusV3: DEFAULT_OFFLINE_COST_MODELS[2] } }
       : original(path);
     await fixture.build();
     expect(worker.evaluate).not.toHaveBeenCalled();

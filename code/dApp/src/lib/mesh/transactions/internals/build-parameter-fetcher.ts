@@ -1,3 +1,4 @@
+import { parseBuildParameters, protocolFromBuildParameters } from "@/lib/mesh/protocol-parameter-cache";
 import { ServerFetcher } from "@/lib/mesh/server-fetcher";
 import type { TxFetcher, WalletSource } from "@/lib/mesh/tx-context";
 import { createBuildWalletSource } from "./build-wallet-source";
@@ -70,11 +71,21 @@ function reuseReads<Args extends unknown[], Value>(
 // One wrapper per build shares parameter, address and wallet reads across passes.
 // Input metadata is immutable. Status reads are shared only within one pass.
 export function createBuildParameterFetcher(fetcher: TxFetcher): TxFetcher {
+  const fetchRawParameters = fetcher.fetchBuildParameters
+    ? reuseLatest(async () => parseBuildParameters(await fetcher.fetchBuildParameters!()))
+    : reuseLatest(() => fetcher instanceof ServerFetcher
+      ? fetcher.get(LATEST_PROTOCOL_PARAMETERS_PATH, true) : fetcher.get(LATEST_PROTOCOL_PARAMETERS_PATH));
   const fetchProtocolParameters = reuseLatest(
-    (epoch) => fetcher.fetchProtocolParameters(epoch)
+    async (epoch) => epoch !== undefined || !fetcher.fetchBuildParameters
+      ? fetcher.fetchProtocolParameters(epoch)
+      : protocolFromBuildParameters(parseBuildParameters(await fetchRawParameters()))
   );
   const fetchCostModels = reuseLatest(
-    (epoch) => fetcher.fetchCostModels(epoch),
+    async (epoch) => {
+      if (epoch !== undefined || !fetcher.fetchBuildParameters) return fetcher.fetchCostModels(epoch);
+      const raw = parseBuildParameters(await fetchRawParameters());
+      return [raw.cost_models_raw.PlutusV1, raw.cost_models_raw.PlutusV2, raw.cost_models_raw.PlutusV3];
+    },
     // Mesh falls back to defaults for invalid results. Let the next pass retry.
     (value) => Array.isArray(value) && value.length > 0
   );
@@ -93,8 +104,6 @@ export function createBuildParameterFetcher(fetcher: TxFetcher): TxFetcher {
     fetcher.signal?.throwIfAborted();
     return value;
   };
-  const fetchRawParameters = reuseLatest(() => fetcher instanceof ServerFetcher
-    ? fetcher.get(LATEST_PROTOCOL_PARAMETERS_PATH, true) : fetcher.get(LATEST_PROTOCOL_PARAMETERS_PATH));
   let statusReads = new Map<string, Promise<unknown>>();
   let finalPass = false;
   const get = (path: string) => {

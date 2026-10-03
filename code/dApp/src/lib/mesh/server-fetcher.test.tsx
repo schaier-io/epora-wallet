@@ -151,7 +151,7 @@ it("does not retry a non-transport TypeError", async () => {
 
 
 it("only the build wrapper opts raw parameters into the server cache", async () => {
-  fetchMock.mockResolvedValue(answer('{"result":{"epoch":600}}', 200));
+  fetchMock.mockResolvedValue(answer('{"result":{"epoch":600,"protocol_major_ver":10,"protocol_minor_ver":0,"cost_models_raw":{"PlutusV3":[1]}}}', 200));
   const fetcher = new ServerFetcher();
   await createBuildParameterFetcher(fetcher).get("epochs/latest/parameters");
   await fetcher.get("epochs/latest/parameters");

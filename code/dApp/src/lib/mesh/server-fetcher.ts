@@ -146,6 +146,10 @@ export class ServerFetcher implements IFetcher, IEvaluator {
     return this.rpc("fetchCollectionAssets", [policyId, cursor]);
   }
 
+  fetchBuildParameters(): Promise<unknown> {
+    return this.get("epochs/latest/parameters", true);
+  }
+
   fetchProtocolParameters(epoch?: number): Promise<Protocol> {
     return this.rpc("fetchProtocolParameters", [epoch]);
   }

@@ -22,6 +22,10 @@ const RawParameters = z.object({
 }).passthrough();
 
 type Snapshot = z.infer<typeof RawParameters>;
+
+export function parseBuildParameters(raw: unknown): Snapshot {
+  return RawParameters.parse(raw);
+}
 type Entry = { promise: Promise<Snapshot>; expiresAt: number };
 const caches = new WeakMap<BlockfrostProvider, Map<string, Entry>>();
 
@@ -35,7 +39,7 @@ export async function readBuildParameters(provider: BlockfrostProvider, epoch?: 
     if (cache.size >= MAX_PARAMETER_CACHE_ENTRIES) cache.delete(cache.keys().next().value!);
     const owner = cache;
     entry = { expiresAt: Date.now() + MESH_READ_TIMEOUT_MS, promise: Promise.resolve().then(async () => {
-      const raw = RawParameters.parse(await provider.get(`epochs/${key}/parameters`));
+      const raw = parseBuildParameters(await provider.get(`epochs/${key}/parameters`));
       if (epoch !== undefined && raw.epoch !== epoch) throw new Error("Protocol parameter epoch does not match the request.");
       return raw;
     }) };

@@ -4,6 +4,7 @@ import { resolveScriptHash, resolveScriptHashDRepId, serializeData, serializeRew
 import { getSttMintPolicyId, getSttSpendScript, getWalletSpendScript, getWalletWithdrawScript, getWalletPublishScript, getWalletVoteScript, resolveScriptAddress } from "@/lib/contracts/blueprint";
 import { createDefaultStateForm, stateFormToDatum, withFallbackAdminUserInStateForm } from "@/lib/contracts/state-form";
 import { ServerFetcher } from "@/lib/mesh/server-fetcher";
+import { createOfflineBuildParameters } from "./offline-evaluation-mint-fixture";
 import { buildSttSpendTx } from "./stt-spend";
 import { buildWalletWithdrawTx } from "./wallet-withdraw";
 import { buildWalletPublishTx, buildWalletVoteTx } from "./wallet-governance";
@@ -18,6 +19,7 @@ export type OfflineAction = "state-update" | "wallet-spend" | "withdraw" | "publ
 
 export async function createOfflineActionFixture(action: OfflineAction, authorized = true, options?: { costModels?: number[][]; protocolParameters?: Protocol }) {
   const costModels = options?.costModels ?? COST_MODELS;
+  const protocolParameters = options?.protocolParameters ?? DEFAULT_PROTOCOL_PARAMETERS;
   // Different immutable fixtures must never reuse a transaction reference.
   const actionIndex = ["state-update", "wallet-spend", "withdraw", "publish", "vote"].indexOf(action);
   const stateHash = (0x30 + actionIndex + (authorized ? 0 : 0x10)).toString(16).repeat(32);
@@ -38,11 +40,11 @@ export async function createOfflineActionFixture(action: OfflineAction, authoriz
   const walletInput: UTxO = { input: { txHash: "66".repeat(32), outputIndex: 0 }, output: { address: resolveScriptAddress(getWalletSpendScript(params)), amount: [{ unit: "lovelace", quantity: "10000000" }] } };
   if (action === "wallet-spend") utxos.push(walletInput);
   const fetcher = new ServerFetcher();
-  fetcher.fetchProtocolParameters = async () => options?.protocolParameters ?? DEFAULT_PROTOCOL_PARAMETERS;
+  fetcher.fetchProtocolParameters = async () => protocolParameters;
   fetcher.fetchCostModels = async () => costModels;
   fetcher.fetchUTxOs = async (hash, index) => utxos.filter(utxo => utxo.input.txHash === hash && (index === undefined || utxo.input.outputIndex === index));
   fetcher.fetchAddressUTxOs = async address => utxos.filter(utxo => utxo.output.address === address);
-  fetcher.get = async path => path.includes("epochs/latest/parameters") ? { cost_models_raw: { PlutusV1: costModels[0], PlutusV2: costModels[1], PlutusV3: costModels[2] } } : { outputs: utxos.filter(utxo => path.includes(utxo.input.txHash)).map(utxo => ({ output_index: utxo.input.outputIndex, consumed_by_tx: null })) };
+  fetcher.get = async path => path.includes("epochs/latest/parameters") ? createOfflineBuildParameters(protocolParameters, costModels) : { outputs: utxos.filter(utxo => path.includes(utxo.input.txHash)).map(utxo => ({ output_index: utxo.input.outputIndex, consumed_by_tx: null })) };
   const evaluator = new OfflineEvaluatorScalus(fetcher, "preprod", undefined, costModels);
   const passes: Awaited<ReturnType<typeof evaluator.evaluateTx>>[] = [];
   const txHexes: string[] = [];

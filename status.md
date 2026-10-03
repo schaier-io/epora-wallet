@@ -182,3 +182,17 @@ Production callers discard this diagnostic and use remote evaluation. It is not 
 VERIFIED: The i18n audit returned `No internal sentinels, raw user-facing errors, or static visible text bypass i18n.`
 Worker and hybrid tests returned `Tests 30 passed (30)`.
 REPORTED: The final independent adversarial review found no defects and independently returned `Tests 30 passed (30)`.
+## Vercel build caches, 2026-10-04
+
+Owner: coordinator. Status: In Progress.
+VERIFIED: The original five-layer stack rebased onto `main` at `7ad0e18`.
+Both conflicting status records were retained. `git range-diff` showed identical source patches.
+VERIFIED: Three new branches were created before source edits for protocol sharing, regional metadata, and worker warmup.
+VERIFIED: Protocol and actual-script checks returned `Tests 72 passed (72)`.
+Selected parameter and build-wrapper Node checks returned `tests 20; pass 20; fail 0`.
+REPORTED: The independent protocol review found no defects.
+VERIFIED correction: The earlier 24 failures also reproduce on the feature's unchanged baseline, which already includes the memory cache.
+Disabling only the metadata cache returned `Tests 51 passed (51)` for those two suites.
+Their test transports reuse transaction hashes with different output content.
+Next: Make cache sharing explicit, then complete regional metadata caching and worker warmup.
+Limit: Local tests do not establish deployed cache latency or live evaluator parity.
