@@ -72,6 +72,9 @@ import {
   stateFormFromDatum,
   stateFormToDatum
 } from "@/lib/contracts/state-form";
+import { resolveWalletSpendScriptHash } from "@/lib/contracts/blueprint";
+import { serializeScriptDrepId, serializeScriptRewardAddress } from "@/lib/cardano-addresses";
+import { buildVoteJson } from "@/lib/governance/vote-json";
 import type { DetectedSttToken } from "@/lib/mesh/detection";
 
 type Store = ReturnType<typeof createStore>;
@@ -272,7 +275,7 @@ test("wallet seeding gives each action an independent State form", () => {
   }
 });
 
-test("wallet seeding preserves choices and payloads that are not wallet-bound", () => {
+test("wallet seeding preserves choices that are not wallet-bound", () => {
   const store = createStore();
   const selectedPool = { id: "pool" } as never;
   store.set(sttAuthorityPathAtom, "multisig");
@@ -294,6 +297,30 @@ test("wallet seeding preserves choices and payloads that are not wallet-bound", 
   assert.equal(store.get(withdrawRewardAddressAtom), "stake_test");
   assert.equal(store.get(withdrawAmountAtom), "42");
   assert.equal(store.get(selectedStakePoolAtom), selectedPool);
-  assert.equal(store.get(publishCertificateJsonAtom), '{"certificate":"kept"}');
-  assert.equal(store.get(voteJsonAtom), '{"vote":"kept"}');
+  assert.equal(store.get(publishCertificateJsonAtom), "{}");
+  assert.equal(store.get(voteJsonAtom), "{}");
+});
+
+
+test("switching wallets clears certificate and vote payloads with the previous wallet credentials", () => {
+  const store = createStore();
+  const policyId = "aa".repeat(28);
+  const first = { ...detectedToken("one", "Wallet one", 1), policyId, assetNameHex: "01", unit: `${policyId}01` };
+  const second = { ...detectedToken("two", "Wallet two", 2), policyId, assetNameHex: "02", unit: `${policyId}02` };
+  const hash = resolveWalletSpendScriptHash({ sttPolicyId: policyId, sttAssetNameHex: first.assetNameHex });
+  store.set(seedWorkspaceWalletAtom, first);
+  store.set(publishCertificateJsonAtom, JSON.stringify({
+    type: "VoteDelegation", stakeKeyAddress: serializeScriptRewardAddress(hash, 0), drep: { alwaysAbstain: null }
+  }));
+  store.set(voteJsonAtom, buildVoteJson(serializeScriptDrepId(hash), {
+    txHash: "bb".repeat(32), txIndex: 0, voteKind: "Yes"
+  }));
+
+  store.set(seedWorkspaceWalletAtom, second);
+
+  assert.equal(store.get(configAtom).walletAssetNameHex, second.assetNameHex);
+  assert.equal(store.get(publishCertificateJsonAtom), "{}");
+  assert.equal(store.get(voteJsonAtom), "{}");
+  assert.equal(store.get(publishSttInputHashAtom), second.utxo.input.txHash);
+  assert.equal(store.get(voteSttInputHashAtom), second.utxo.input.txHash);
 });

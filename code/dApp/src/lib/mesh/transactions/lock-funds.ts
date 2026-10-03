@@ -1,4 +1,4 @@
-import { assertValidAssetList, assertValidOptionalConstrData, buildTransactionWithReestimatedLimits, createEmptyExecutionValidatorLabels, createTxPreview, dropZeroQuantityAssets, recipientWithOptionalInlineDatum, setupTransaction } from "./internals";
+import { assertOutputMeetsMinimumLovelace, assertValidAssetList, assertValidOptionalConstrData, buildTransactionWithReestimatedLimits, createEmptyExecutionValidatorLabels, createTxPreview, dropZeroQuantityAssets, recipientWithOptionalInlineDatum, setupTransaction } from "./internals";
 import { formatLockFundsPreview } from "./preview-copy";
 import { resolveWalletContinuingOutputAddress } from "@/lib/contracts/blueprint";
 import { type BuildResult, type ContractConfig, type LockFundsFormInput } from "@/lib/types/contracts";
@@ -43,6 +43,7 @@ export async function buildLockFundsTx(
     async (_overrides, buildFetcher) => {
       const { tx, signerAddress, setupDiagnostics } = await setupTransaction(wallet, undefined, buildFetcher);
 
+      assertOutputMeetsMinimumLovelace(tx, walletAddress, assets, "Deposit", input.inlineDatum);
       tx.sendAssets(
         recipientWithOptionalInlineDatum(walletAddress, input.inlineDatum),
         assets

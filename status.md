@@ -72,3 +72,34 @@ Wallet-signed terms acceptance is deferred. The beta uses a browser/API acknowle
 - VERIFIED: `tsc --noEmit` exited 0. The file limit check returned `File length OK: 781 source files checked, none over 750 lines.`
 - VERIFIED: tests used existing dependencies linked from the main checkout. Prisma client generation used a placeholder localhost URL. No database migration ran.
 - Next: review the three fixes and CI before merging.
+
+## dApp bug review, 2026-10-04
+
+- Completed, coordinator. VERIFIED: reviewed API and proposal paths, transaction builders, workspace state, and providers at `06c3a69a`. This was a source review with local reproductions, not an exhaustive audit.
+- VERIFIED: `wallet-provider.tsx:500-524` can cancel a manual connection that started before the focus check. The reproduction returned `Tests 2 failed | 36 skipped (38)` with `expected false to be true` for both authorization outcomes.
+- VERIFIED: `proposals/store.ts:111-127` can overwrite a new signature with a delayed signature for the previous body. The local reproduction returned `{"oldResult":{"ok":true},"newResult":{"ok":true},"currentBody":"new-body","storedWitnessBody":"old-body","currentSignatureLost":true}`. Database transport and witness validation were mocked.
+- VERIFIED: `proposals/verify.ts:138-143` omits reference inputs from its liveness check. The local reproduction returned `"validity":"valid"` and `"reasons":[]` for a transaction with a spent reference input. Chain reads were mocked.
+- VERIFIED: `transactions/lock-funds.ts:46-49` built a deposit below the local minimum-output calculation. The real Mesh build returned `{"built":true,"outputLovelace":"1","minimumLovelace":"853380"}`. The minimum includes sizing headroom; no ledger submission ran.
+- VERIFIED: `workspace-wallet-seeding.atoms.ts:107-118` preserves governance payloads when changing wallets. The reproduction returned `"walletAssetName":"02"`, but retained wallet 01's certificate address and DRep ID. INFERRED: credential and script mismatch can prevent the next governance transaction. Ledger acceptance was not tested.
+- VERIFIED: unit command `env -u DATABASE_URL node --import tsx --test --test-concurrency=1 'src/**/*.test.ts'` returned `tests 1904`, `pass 1878`, `fail 0`, `skipped 26`. Skipped tests do not establish database behavior.
+- VERIFIED: component command `node node_modules/vitest/vitest.mjs run --maxWorkers=2` returned `Test Files 204 passed (204)` and `Tests 2050 passed (2050)`. These existing tests did not catch the reproduced bugs.
+- VERIFIED: `tsc --noEmit --incremental false` exited with code 0 after local Prisma client generation. The earlier typecheck lacked that generated client. Tests used existing local dependencies and Node v24.21.0.
+- Next, coordinator: fix the five reported paths and add regression tests. Source files, databases, and deployments were not changed.
+
+## dApp bug fixes, 2026-10-04
+
+- Completed, implementer: five fixes have separate PR layers. VERIFIED: the local stack starts at `fix/wallet-focus-connect-race` and ends at `fix/governance-draft-wallet-switch`.
+- VERIFIED: wallet regressions returned `Tests 2 failed | 38 skipped (40)` before the source change. The wallet and toast suites then returned `Tests 48 passed (48)`.
+- REPORTED: an independent adversarial review of the wallet change found no in-scope issues. VERIFIED: recovery reads the live connection atom before starting another connection.
+- VERIFIED: signature regressions returned `2 failed | 1 passed (3)` with the source reverted. The concurrency and route suites then returned `Tests 7 passed (7)`. Database transport and row locks were modeled locally.
+- VERIFIED: reference and collateral regressions returned `tests 8`, `pass 0`, `fail 8` with the source reverted. The verification, binding, and State transition suites then returned `tests 58`, `pass 58`, `fail 0`.
+- VERIFIED: deposit regressions returned `tests 9`, `pass 6`, `fail 3` before the fix. Minimum-value and zero-row suites then returned `tests 38`, `pass 38`, `fail 0`.
+- VERIFIED: governance seeding regressions returned `tests 4`, `pass 2`, `fail 2` before the fix. Seeding and session-selection suites then returned `tests 10`, `pass 10`, `fail 0`.
+- REPORTED: independent adversarial reviews of each fix and the complete patch found no in-scope issues. Source and tests were reviewed; this was not an external audit.
+- VERIFIED: the full unit command returned `tests 1917`, `pass 1891`, `fail 0`, `skipped 26`. The full component command returned `Test Files 205 passed (205)` and `Tests 2055 passed (2055)`. Commands match the review record above, with component workers limited to two.
+- VERIFIED: typecheck and changed-file ESLint exited with code 0. The length check returned `File length OK: 781 source files checked, none over 750 lines.`
+- VERIFIED correction: the preceding full-suite counts describe the stack before rebasing. Main advanced to `7ad0e182` during this run. The rebase preserved its wallet recovery checks and added the pending-connection guard. Both status records were retained.
+- VERIFIED: the wallet regressions still failed against updated main: `Tests 2 failed | 41 skipped (43)`. With the fix restored, the rebased full unit suite returned `tests 1918`, `pass 1892`, `fail 0`, `skipped 26`. Components returned `Test Files 206 passed (206)` and `Tests 2072 passed (2072)`. Typecheck exited 0.
+- REPORTED: a second full adversarial review after rebase found no in-scope issues.
+- Completed, release. VERIFIED: `gh stack submit --auto` returned `Pushed and synced 5 branches`. Draft PRs are [wallet recovery #693](https://github.com/schaier-io/epora-wallet/pull/693), [signature writes #694](https://github.com/schaier-io/epora-wallet/pull/694), [input liveness #695](https://github.com/schaier-io/epora-wallet/pull/695), [deposits #696](https://github.com/schaier-io/epora-wallet/pull/696), and [governance drafts #697](https://github.com/schaier-io/epora-wallet/pull/697).
+- Next: review the stack from #693 upward. No merge, deployment, or migration ran. Local fixtures do not establish live ledger or PostgreSQL behavior.
