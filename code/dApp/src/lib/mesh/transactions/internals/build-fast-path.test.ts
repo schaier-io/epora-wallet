@@ -131,3 +131,43 @@ test("deposit fast path still rejects insufficient funds", async () => {
     assets: [{ unit: "lovelace", quantity: "200000000" }]
   }, fetcher));
 });
+
+test("deposit refuses positive ADA below the output minimum", async () => {
+  const { wallet, fetcher } = fixture();
+  await assert.rejects(buildLockFundsTx(wallet, CONFIG, {
+    assets: [{ unit: "lovelace", quantity: "1" }]
+  }, fetcher), /Cardano output needs at least/);
+});
+
+test("deposit uses fetched protocol parameters for its output minimum", async () => {
+  const { wallet, fetcher } = fixture();
+  fetcher.fetchProtocolParameters = async () => ({
+    ...DEFAULT_PROTOCOL_PARAMETERS,
+    coinsPerUtxoSize: DEFAULT_PROTOCOL_PARAMETERS.coinsPerUtxoSize * 2
+  });
+  await assert.rejects(buildLockFundsTx(wallet, CONFIG, {
+    assets: [{ unit: "lovelace", quantity: "1000000" }]
+  }, fetcher), /Cardano output needs at least/);
+});
+
+test("deposit includes its inline datum when checking the output minimum", async () => {
+  const { wallet, fetcher } = fixture();
+  const assets = [{ unit: "lovelace", quantity: "1000000" }];
+  const plain = await buildLockFundsTx(wallet, CONFIG, { assets }, fetcher);
+  assert.equal((deserializeTx(plain.txHex).body().outputs() as CstTransactionOutput[])[0]!.amount().coin().toString(), "1000000");
+  await assert.rejects(buildLockFundsTx(wallet, CONFIG, {
+    assets,
+    inlineDatum: { alternative: 0, fields: ["ab".repeat(300)] }
+  }, fetcher), /Cardano output needs at least/);
+});
+
+test("deposit keeps automatic ADA for native assets after dropping zero ADA", async () => {
+  const { wallet, fetcher } = fixture();
+  const result = await buildLockFundsTx(wallet, CONFIG, {
+    assets: [{ unit: TOKEN, quantity: "3" }, { unit: "lovelace", quantity: "0" }]
+  }, fetcher);
+  const output = (deserializeTx(result.txHex).body().outputs() as CstTransactionOutput[])[0]!;
+  assert.ok(BigInt(output.amount().coin().toString()) > 0n);
+  assert.equal(new Map([...(output.amount().multiasset()?.entries() ?? [])]
+    .map(([unit, quantity]) => [unit.toString(), quantity.toString()])).get(TOKEN), "3");
+});
