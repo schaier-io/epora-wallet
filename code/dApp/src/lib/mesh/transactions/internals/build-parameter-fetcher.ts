@@ -106,6 +106,42 @@ export function createBuildParameterFetcher(fetcher: TxFetcher): TxFetcher {
   };
   let statusReads = new Map<string, Promise<unknown>>();
   let finalPass = false;
+  // Reuse only the last exact evaluation candidate in this pass. A final pass
+  // always starts a new remote evaluation, even when its draft bytes match.
+  let evaluation: { key: string; pending: ReturnType<TxFetcher["evaluateTx"]> } | undefined;
+  const evaluateTx: TxFetcher["evaluateTx"] = async (tx, utxos, chained) => {
+    fetcher.signal?.throwIfAborted();
+    const [inputSnapshot, chainedSnapshot] = structuredClone([utxos, chained] as const);
+    const key = JSON.stringify([tx, inputSnapshot, chainedSnapshot]);
+    if (evaluation?.key !== key) {
+      const phase = finalPass ? "final" : "draft";
+      const pending = (async () => {
+        if (phase === "draft" && fetcher instanceof ServerFetcher && typeof Worker !== "undefined" && !chainedSnapshot?.length) {
+          const started = performance.now();
+          try {
+            const actions = await evaluateDraftLocally(scoped, tx, inputSnapshot);
+            fetcher.signal?.throwIfAborted();
+            console.debug("[tx-build:evaluation]", { phase, source: "local", outcome: "success", durationMs: performance.now() - started });
+            return actions;
+          } catch (error) {
+            const reason = fetcher.signal?.aborted ? "aborted"
+              : error instanceof Error && error.message === "Local evaluation timed out." ? "timeout" : "evaluation-error";
+            console.debug("[tx-build:evaluation]", { phase, source: "local", outcome: reason === "aborted" ? "cancelled" : "fallback", reason, durationMs: performance.now() - started });
+            fetcher.signal?.throwIfAborted();
+          }
+        }
+        return fetcher.evaluateTx(tx, inputSnapshot, chainedSnapshot);
+      })().then(actions => {
+        fetcher.signal?.throwIfAborted();
+        return structuredClone(actions);
+      });
+      evaluation = { key, pending };
+      pending.catch(() => { if (evaluation?.pending === pending) evaluation = undefined; });
+    }
+    const actions = await evaluation.pending;
+    fetcher.signal?.throwIfAborted();
+    return structuredClone(actions);
+  };
   const get = (path: string) => {
     if (path === LATEST_PROTOCOL_PARAMETERS_PATH) return fetchRawParameters();
     if (!/^txs\/[a-fA-F0-9]{64}\/utxos$/.test(path)) return fetcher.get(path);
@@ -127,20 +163,14 @@ export function createBuildParameterFetcher(fetcher: TxFetcher): TxFetcher {
       if (property === "fetchProtocolParameters") return fetchProtocolParameters;
       if (property === "fetchCostModels") return fetchCostModels;
       if (property === "get") return get;
-      if (property === "evaluateTx") return async (tx: string, utxos?: Parameters<TxFetcher["evaluateTx"]>[1], chained?: string[]) => {
-        if (!finalPass && fetcher instanceof ServerFetcher && typeof Worker !== "undefined" && !chained?.length) {
-          try { return await evaluateDraftLocally(scoped, tx, utxos); }
-          catch { fetcher.signal?.throwIfAborted(); }
-        }
-        return fetcher.evaluateTx(tx, utxos, chained);
-      };
+      if (property === "evaluateTx") return evaluateTx;
       const value: unknown = Reflect.get(target, property, target);
       return typeof value === "function"
         ? (value as (...args: unknown[]) => unknown).bind(target)
         : value;
     }
   });
-  buildPasses.set(scoped, () => { statusReads = new Map(); finalPass = true; });
+  buildPasses.set(scoped, () => { statusReads = new Map(); evaluation = undefined; finalPass = true; });
   buildWallets.set(scoped, new WeakMap());
   return scoped;
 }

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
+import { StrictMode } from "react";
 import { warmLocalEvaluationWorker } from "@/lib/mesh/transactions/internals/local-evaluation-worker";
 import { useLocalEvaluationWarmup } from "./use-local-evaluation-warmup";
 
@@ -41,5 +42,49 @@ describe("wallet selection evaluation warmup", () => {
     renderHook(() => useLocalEvaluationWarmup(ready));
     await Promise.resolve();
     expect(warmLocalEvaluationWorker).toHaveBeenCalledTimes(1);
+  });
+
+  it("warms again on review entry without warming on review exit", () => {
+    const { rerender } = renderHook(props => useLocalEvaluationWarmup(props), {
+      initialProps: { ...ready, flowStep: "configure" as "configure" | "review" }
+    });
+    rerender({ ...ready, flowStep: "review" });
+    expect(warmLocalEvaluationWorker).toHaveBeenCalledTimes(2);
+    rerender({ ...ready, flowStep: "review" });
+    expect(warmLocalEvaluationWorker).toHaveBeenCalledTimes(2);
+    rerender({ ...ready, flowStep: "configure" });
+    expect(warmLocalEvaluationWorker).toHaveBeenCalledTimes(2);
+    rerender({ ...ready, flowStep: "review" });
+    expect(warmLocalEvaluationWorker).toHaveBeenCalledTimes(3);
+  });
+
+  it("warms once for a selection opened directly in review", () => {
+    renderHook(() => useLocalEvaluationWarmup({ ...ready, flowStep: "review" }));
+    expect(warmLocalEvaluationWorker).toHaveBeenCalledTimes(1);
+  });
+
+  it("restarts aborted mount warmup during Strict Mode effect replay", () => {
+    renderHook(() => useLocalEvaluationWarmup(ready), { wrapper: StrictMode });
+    const signals = vi.mocked(warmLocalEvaluationWorker).mock.calls.map(call => call[0]!);
+    expect(signals).toHaveLength(2);
+    expect(signals[0]!.aborted).toBe(true);
+    expect(signals[1]!.aborted).toBe(false);
+  });
+
+  it("warms again when the current route becomes ready", () => {
+    const { rerender } = renderHook(props => useLocalEvaluationWarmup(props), { initialProps: ready });
+    rerender({ ...ready, isRouteStateCurrent: false });
+    rerender(ready);
+    expect(warmLocalEvaluationWorker).toHaveBeenCalledTimes(2);
+  });
+
+  it("cancels warmup when the wallet session changes", () => {
+    const { rerender } = renderHook(props => useLocalEvaluationWarmup(props), {
+      initialProps: { ...ready, session: {} }
+    });
+    const signal = vi.mocked(warmLocalEvaluationWorker).mock.calls[0]![0]!;
+    rerender({ ...ready, session: {} });
+    expect(signal.aborted).toBe(true);
+    expect(warmLocalEvaluationWorker).toHaveBeenCalledTimes(2);
   });
 });

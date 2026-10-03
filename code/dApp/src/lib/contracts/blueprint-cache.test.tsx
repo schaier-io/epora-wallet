@@ -47,6 +47,17 @@ describe("blueprint derivation caches", () => {
     expect(sdk.resolveScriptHash).toHaveBeenCalledTimes(3);
   });
 
+  it("keys public script hashes by exact code and version", async () => {
+    const { resolveCachedScriptHash } = await import("./blueprint");
+    const script = { code: "code", version: "V3" as const };
+    const hash = resolveCachedScriptHash(script);
+    expect(resolveCachedScriptHash({ ...script })).toBe(hash);
+    expect(sdk.resolveScriptHash).toHaveBeenCalledTimes(1);
+    expect(resolveCachedScriptHash({ ...script, code: "different" })).not.toBe(hash);
+    expect(resolveCachedScriptHash({ ...script, version: "V2" })).not.toBe(hash);
+    expect(sdk.resolveScriptHash).toHaveBeenCalledTimes(3);
+  });
+
   it("keys addresses by script code, version and network", async () => {
     const { resolveScriptAddress } = await import("./blueprint");
     const script = { code: "code", version: "V3" as const };

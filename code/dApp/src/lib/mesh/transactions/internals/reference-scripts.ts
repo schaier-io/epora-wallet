@@ -3,12 +3,14 @@ import { withStage } from "./errors";
 import { formatByteCount, plutusScriptSizeBytes } from "./script-data";
 import { assertExactInputUnspent, createInputRefKey, dedupeUtxos, findUtxo } from "./utxo";
 import { readSavedSttReference } from "@/lib/mesh/stt-reference-storage";
-import { resolveSttReferenceStoreAddress } from "@/lib/contracts/blueprint";
+import { resolveCachedScriptHash, resolveSttReferenceStoreAddress } from "@/lib/contracts/blueprint";
 import { type TxFetcher } from "@/lib/mesh/tx-context";
 import { type LanguageVersion } from "@meshsdk/common";
-import { type UTxO, resolveScriptHash } from "@meshsdk/core";
+import { type UTxO } from "@meshsdk/core";
 import { fromScriptRef } from "@meshsdk/core-cst";
 import { formatReferenceScriptUsage } from "../preview-copy";
+import { parseReferenceUtxoConfig } from "./reference-utxo-config";
+export { parseReferenceUtxoConfig } from "./reference-utxo-config";
 
 export type ReferenceScriptResolution = {
   utxo: UTxO;
@@ -82,25 +84,6 @@ function getInlineScriptDiagnostics(
 
 
 
-export function parseReferenceUtxoConfig(value: string | undefined, label: string) {
-  const normalized = value?.trim() ?? "";
-  if (!normalized) {
-    return null;
-  }
-
-  const match = normalized.match(/^([0-9a-f]{64})(?:#|:)(\d+)$/i);
-  if (!match) {
-    throw new Error(`${label} must use the format txHash#index.`);
-  }
-
-  return {
-    txHash: match[1]!.toLowerCase(),
-    outputIndex: Number(match[2])
-  };
-}
-
-
-
 export function hasReferenceScript(utxo: UTxO) {
   return typeof utxo.output.scriptRef === "string" && utxo.output.scriptRef.length > 0;
 }
@@ -129,7 +112,7 @@ function resolveReferenceScriptValidation(
     return null;
   }
 
-  const expectedHash = resolveScriptHash(script.code, script.version);
+  const expectedHash = resolveCachedScriptHash(script);
   if (utxo.output.scriptHash) {
     if (utxo.output.scriptHash !== expectedHash) return null;
   }
@@ -148,7 +131,7 @@ function resolveReferenceScriptValidation(
     return null;
   }
 
-  return resolveScriptHash(parsedScript.code, parsedScript.version) === expectedHash
+  return resolveCachedScriptHash(parsedScript) === expectedHash
     ? (utxo.output.scriptHash ? "hash-verified" : "script-ref-verified")
     : null;
 }
@@ -216,7 +199,7 @@ export async function resolveReferenceScript(
     excludedRefs?: string[];
   }
 ): Promise<ReferenceScriptResolution | null> {
-  const expectedHash = resolveScriptHash(options.script.code, options.script.version);
+  const expectedHash = resolveCachedScriptHash(options.script);
   const scriptSize = plutusScriptSizeBytes(options.script).toString();
   const excludedRefs = new Set(
     (options.excludedRefs ?? []).map((reference) => reference.toLowerCase())
@@ -325,7 +308,7 @@ export async function inspectSharedSttReferenceStore(
   }
 ): Promise<SharedSttReferenceStoreInspection> {
   const storeAddress = resolveSttReferenceStoreAddress();
-  const expectedScriptHash = resolveScriptHash(options.script.code, options.script.version);
+  const expectedScriptHash = resolveCachedScriptHash(options.script);
   const configuredReference = options.configuredReference === undefined
     ? readSavedSttReference()
     : options.configuredReference.trim();
