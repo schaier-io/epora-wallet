@@ -196,3 +196,17 @@ Disabling only the metadata cache returned `Tests 51 passed (51)` for those two 
 Their test transports reuse transaction hashes with different output content.
 Next: Make cache sharing explicit, then complete regional metadata caching and worker warmup.
 Limit: Local tests do not establish deployed cache latency or live evaluator parity.
+
+## Unified protocol fixture correction (2026-10-04)
+
+VERIFIED: The full Node run collected `tests 1942`, with `pass 1910`, `fail 6`, and `skipped 26`.
+The six failures came from two test fixtures that lacked the new raw protocol snapshot.
+Fixtures now supply the same complete synthetic response used by the evaluation tests.
+Unified-read assertions expect one raw read and zero separate protocol/model reads.
+The generic-provider test retains optional prefetch retry coverage.
+Wallet cancellation tests mock the snapshot capability and perform no real RPC.
+VERIFIED: The two corrected suites returned `tests 15; pass 15; fail 0`.
+The earlier full Node run was a failed validation run, not a production-network measurement.
+
+Next: Propagate this fixture correction, then add worker warmup.
+REPORTED: The final independent adversarial fixture review found no defects. It returned `tests 15; pass 15; fail 0`.

@@ -3,6 +3,7 @@ import test from "node:test";
 import { DEFAULT_PROTOCOL_PARAMETERS } from "@meshsdk/common";
 import { ServerFetcher } from "@/lib/mesh/server-fetcher";
 import type { WalletSource } from "@/lib/mesh/tx-context";
+import { createOfflineBuildParameters, DEFAULT_OFFLINE_COST_MODELS } from "../offline-evaluation-mint-fixture";
 import { createBuildParameterFetcher, resolveBuildWalletSource } from "./build-parameter-fetcher";
 import { createBuildWalletSource } from "./build-wallet-source";
 import { setupTransaction } from "./core";
@@ -24,6 +25,7 @@ function fixture() {
   };
   const fetcher = new ServerFetcher();
   fetcher.fetchProtocolParameters = async () => DEFAULT_PROTOCOL_PARAMETERS;
+  fetcher.fetchBuildParameters = async () => createOfflineBuildParameters(DEFAULT_PROTOCOL_PARAMETERS, DEFAULT_OFFLINE_COST_MODELS);
   return { wallet, calls, fetcher };
 }
 
@@ -103,6 +105,7 @@ test("canceling a build blocks later reads and a new build reads the wallet agai
   const controller = new AbortController();
   const canceledFetcher = new ServerFetcher({ signal: controller.signal });
   canceledFetcher.fetchProtocolParameters = fetcher.fetchProtocolParameters;
+  canceledFetcher.fetchBuildParameters = fetcher.fetchBuildParameters;
   let release!: () => void;
   let started!: () => void;
   const pending = new Promise<void>((resolve) => { release = resolve; });

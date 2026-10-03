@@ -11,6 +11,7 @@ import { deserializeTx, type CstTransactionOutput } from "@/lib/mesh/cst";
 import { ServerFetcher } from "@/lib/mesh/server-fetcher";
 import type { WalletSource } from "@/lib/mesh/tx-context";
 import type { ContractConfig } from "@/lib/types/contracts";
+import { createOfflineBuildParameters } from "../offline-evaluation-mint-fixture";
 import { buildLockFundsTx } from "../lock-funds";
 import { buildTransactionWithReestimatedLimits } from "./budget";
 import { setupTransaction } from "./core";
@@ -54,7 +55,7 @@ function fixture() {
   };
   fetcher.get = async () => {
     calls.rawParameters++;
-    return { cost_models_raw: { PlutusV1: COST_MODELS[0], PlutusV2: COST_MODELS[1], PlutusV3: COST_MODELS[2] } };
+    return createOfflineBuildParameters(DEFAULT_PROTOCOL_PARAMETERS, COST_MODELS);
   };
   return { wallet, fetcher, calls };
 }
@@ -65,7 +66,7 @@ test("deposit builds once without evaluation and preserves assets, datum, fee, a
     assets: [{ unit: "lovelace", quantity: "2000000" }, { unit: TOKEN, quantity: "3" }],
     inlineDatum: { alternative: 0, fields: [] }
   }, fetcher);
-  assert.deepEqual(calls, { utxos: 1, protocol: 1, costModels: 1, evaluations: 0, rawParameters: 0 });
+  assert.deepEqual(calls, { utxos: 1, protocol: 0, costModels: 0, evaluations: 0, rawParameters: 1 });
   const tx = deserializeTx(result.txHex);
   const outputs = tx.body().outputs() as CstTransactionOutput[];
   assert.equal(outputs[0]!.amount().coin().toString(), "2000000");
@@ -102,8 +103,8 @@ test("unlabelled Plutus mint still prepares twice and evaluates both builds", as
   assert.equal(preparations, 2);
   assert.equal(calls.utxos, 1);
   assert.equal(calls.evaluations, 2);
-  assert.equal(calls.protocol, 1);
-  assert.equal(calls.costModels, 1);
+  assert.equal(calls.protocol, 0);
+  assert.equal(calls.costModels, 0);
   assert.equal(calls.rawParameters, 1);
   assert.equal(deserializeTx(result.txHex).witnessSet().redeemers()?.size(), 1);
   assert.equal(result.executionUnits.redeemers.length, 1);
@@ -183,8 +184,18 @@ test("deposit keeps automatic ADA for native assets after dropping zero ADA", as
 });
 
 
-test("failed raw-parameter prefetch retries at hash refresh", async () => {
+test("generic providers retry failed optional raw-parameter prefetch at hash refresh", async () => {
   const { wallet, fetcher, calls } = fixture();
+  // Generic providers retain separate typed and raw reads. Only this path has an optional prefetch.
+  const genericFetcher = new Proxy(fetcher, {
+    get(target, property) {
+      if (property === "fetchBuildParameters") return undefined;
+      const value: unknown = Reflect.get(target, property, target);
+      return typeof value === "function"
+        ? (value as (...args: unknown[]) => unknown).bind(target)
+        : value;
+    }
+  });
   const get = fetcher.get.bind(fetcher);
   let rawAttempts = 0;
   fetcher.get = async path => {
@@ -199,7 +210,7 @@ test("failed raw-parameter prefetch retries at hash refresh", async () => {
     tx.isCollateralNeeded = true;
     tx.sendAssets(ADDRESS, [{ unit: `${policy}01`, quantity: "1" }]);
     return { tx, signerAddress, diagnostics: {}, executionLabels: createEmptyExecutionValidatorLabels() };
-  }, fetcher);
+  }, genericFetcher);
   assert.equal(rawAttempts, 2);
   assert.equal(calls.evaluations, 2);
 });
