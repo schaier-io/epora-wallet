@@ -287,7 +287,9 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
         }
 
         const createdToken = detected.tokens.find(
-          (token) => token.utxo.input.txHash.toLowerCase() === txHash.toLowerCase()
+          (token) => expectedWalletUnit
+            ? token.unit.toLowerCase() === expectedWalletUnit.toLowerCase()
+            : token.utxo.input.txHash.toLowerCase() === txHash.toLowerCase()
         );
         const createdWallet = createdToken
           ? {
