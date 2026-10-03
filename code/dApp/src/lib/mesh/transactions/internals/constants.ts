@@ -7,6 +7,11 @@ export const MIN_COLLATERAL_LOVELACE = 5_000_000;
 
 export const CARDANO_MAX_TX_SIZE_BYTES = 16_384;
 
+// Each serialized input contains a 32-byte transaction hash. Ignoring CBOR
+// overhead gives a conservative ceiling for all input kinds within the size cap.
+const TRANSACTION_HASH_SIZE_BYTES = 32;
+export const MAX_EVALUATION_INPUTS = Math.floor(CARDANO_MAX_TX_SIZE_BYTES / TRANSACTION_HASH_SIZE_BYTES);
+
 
 // Validity-window offsets (ms) for built transactions, asymmetric by design:
 // the small past offset tolerates clock skew. The future offset is the signing

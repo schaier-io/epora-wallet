@@ -40,7 +40,7 @@
     "timerExtension": "Proof of life extension",
     "unnamed": "unnamed",
     "unset": "unset",
-    "userDescription": "{role} · {keys} · approval power {power} · {checkIn} · {limit}",
+    "userDescription": "{role} · {keys} · approval power {power} · {checkIn} · {limit} · left to spend {remaining} · limit resets after {reset}",
     "value1Added": "{value1} added",
     "value1Changed": "{value1} changed",
     "value1Removed": "{value1} removed"

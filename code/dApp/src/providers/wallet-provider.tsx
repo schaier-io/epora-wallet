@@ -520,7 +520,11 @@ export function WalletProvider({ children }: PropsWithChildren) {
           | { isEnabled?: () => Promise<boolean> }
           | undefined;
         const authorized = injected?.isEnabled
-          ? await injected.isEnabled().catch(() => false)
+          ? await withTimeout(
+              injected.isEnabled(),
+              WALLET_RESPONSE_TIMEOUT_MS,
+              i18n("walletDidNotRespond", { walletName })
+            ).catch(() => false)
           : false;
         if (!isCurrent()) return;
         if (!authorized) {
@@ -552,7 +556,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
       );
       document.removeEventListener("visibilitychange", refreshOnVisible);
     };
-  }, [connect, disconnectWallet, refreshWallets, store, syncActiveAccount]);
+  }, [connect, disconnectWallet, i18n, refreshWallets, store, syncActiveAccount]);
 
   useEffect(() => {
     if (activeWallet) {

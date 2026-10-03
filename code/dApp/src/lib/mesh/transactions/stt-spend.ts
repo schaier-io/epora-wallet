@@ -1,8 +1,9 @@
 import { buildBeneficiaryDistributionTx } from "./beneficiary-distribution";
 import { readCallerForwardedState, validateSttSpendInput } from "./internals/stt-spend-preflight";
+import { prepareStateForwarding } from "./internals/state-forwarding";
 import { deriveSttSpendActionState } from "./stt-spend-action-state";
 import { resolveStreamingPayoutFundingSource } from "./stt-spend-payout";
-import { WALLET_SPEND_VALIDATOR, assertOutputMeetsMinimumLovelace, positiveOutputAmount, addExtraRequiredSigners, buildTransactionWithReestimatedLimits, classifyStreamingPayoutBatch, createInputRefKey, createStateForwarding, createStreamingPayoutBuild, createTxPreview, decodeConstrDatumFromUtxo, ensureUniqueWalletInputRefs, resolveExactWalletInputUtxos, resolveStateForwardingReads, resolveStreamingAdaPayoutTopUps, runStateForwarding, getLovelaceQuantity, getValidityWindow, mergeAssetLists, mergeAssetsByUnit, mergeRestrictedSttAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, sendAssetsWithOptionalInlineDatumAndReferenceScript, setupTransaction, subtractSelectedInputRemainder, validateForwardedStateDatum, withStage } from "./internals";
+import { WALLET_SPEND_VALIDATOR, assertOutputMeetsMinimumLovelace, positiveOutputAmount, addExtraRequiredSigners, buildTransactionWithReestimatedLimits, classifyStreamingPayoutBatch, createInputRefKey, createStateForwarding, createStreamingPayoutBuild, createTxPreview, decodeConstrDatumFromUtxo, ensureUniqueWalletInputRefs, resolveExactWalletInputUtxos, resolveStreamingAdaPayoutTopUps, runStateForwarding, getLovelaceQuantity, getValidityWindow, mergeAssetLists, mergeAssetsByUnit, mergeRestrictedSttAssets, recipientWithOptionalInlineDatum, redeemValueWithInlineScript, sendAssetsWithOptionalInlineDatumAndReferenceScript, setupTransaction, subtractSelectedInputRemainder, validateForwardedStateDatum, withStage } from "./internals";
 import { prepareManagedStreamingPayments } from "./internals/streaming-asset-proof";
 import { validateBeneficiaryDestinations } from "@/lib/contracts/state-validation-streaming";
 import { type OnChainStructuredAction, buildSttSpendRedeemerData, buildWalletSpendRedeemerData, resolveStructuredOnChainAction } from "@/lib/contracts/action-data";
@@ -70,6 +71,7 @@ export async function buildSttSpendTx(
     : readCallerForwardedState(input);
 
   validateSttSpendInput(action, input);
+  ensureUniqueWalletInputRefs(walletInputs);
   const streamingPayoutBatch =
     action === "payout-streaming-payment"
       ? classifyStreamingPayoutBatch(extraTransfers)
@@ -105,18 +107,21 @@ export async function buildSttSpendTx(
         streamingPayoutBatch ?? "empty",
         walletInputs.length > 0
       );
-      const [setup, resolvedInput] = await Promise.all([
+      const inputOptions = {
+        txHash: input.sttInputTxHash,
+        outputIndex: input.sttInputOutputIndex,
+        stage: "stt-spend:fetchScriptUtxos"
+      };
+      const referenceOptions = {
+        stage: "stt-spend:resolveSharedSttReferenceScript",
+        details: { action },
+        excludedRefs: walletInputs.map(walletInput => createInputRefKey(walletInput.txHash, walletInput.outputIndex))
+      };
+      const [setup, preparedState, exactWalletInputs] = await Promise.all([
         setupTransaction(wallet, validityWindowReferenceTimeMs, buildFetcher, payoutBuild.setupOptions),
-        resolveStateForwardingReads(stateForwarding, buildFetcher, {
-          txHash: input.sttInputTxHash,
-          outputIndex: input.sttInputOutputIndex,
-          stage: "stt-spend:fetchScriptUtxos"
-        }, {
-          stage: "stt-spend:resolveSharedSttReferenceScript",
-          details: { action },
-          excludedRefs: walletInputs.map(walletInput =>
-            createInputRefKey(walletInput.txHash, walletInput.outputIndex)
-          )
+        prepareStateForwarding({ definition: stateForwarding, fetcher: buildFetcher, input: inputOptions, reference: referenceOptions }),
+        withStage("stt-spend:resolveWalletInputs", () => resolveExactWalletInputUtxos(buildFetcher, walletInputs, walletPaymentScriptHash), {
+          action, walletPaymentScriptHash
         })
       ]);
       const { tx, fetcher, setupDiagnostics, signerAddress } = setup;
@@ -145,22 +150,11 @@ export async function buildSttSpendTx(
       let effectiveExtraTransfers = extraTransfers;
       const forwarding = await runStateForwarding({
         definition: stateForwarding,
-        resolvedInput,
         fetcher,
         tx,
-        input: {
-          txHash: input.sttInputTxHash,
-          outputIndex: input.sttInputOutputIndex,
-          stage: "stt-spend:fetchScriptUtxos",
-          details: setupDiagnostics
-        },
-        reference: {
-          stage: "stt-spend:resolveSharedSttReferenceScript",
-          details: { ...setupDiagnostics, action },
-          excludedRefs: (input.walletInputs ?? []).map((walletInput) =>
-            createInputRefKey(walletInput.txHash, walletInput.outputIndex)
-          )
-        },
+        resolvedInput: preparedState,
+        input: inputOptions,
+        reference: referenceOptions,
         spendValidatorsByRef,
         afterInput: ({ input: stateInput }) => {
           const scriptInput = stateInput.input;
@@ -201,8 +195,6 @@ export async function buildSttSpendTx(
           value: { scriptInput, earliestTimeMs, latestTimeMs }
         }) => {
           if (walletInputs.length > 0) {
-            ensureUniqueWalletInputRefs(walletInputs);
-
             if (!walletScript) {
               throw new Error("Wallet spend script is not available for the selected STT flow.");
             }
@@ -217,22 +209,6 @@ export async function buildSttSpendTx(
               stateDatum: decodeConstrDatumFromUtxo(scriptInput)
             });
             walletAddress = resolvedWalletAddress;
-            const exactWalletInputs = await withStage(
-              "stt-spend:resolveWalletInputs",
-              async () =>
-                resolveExactWalletInputUtxos(
-                  fetcher,
-                  walletInputs,
-                  walletPaymentScriptHash
-                ),
-              {
-                ...setupDiagnostics,
-                action,
-                walletAddress: resolvedWalletAddress,
-                walletPaymentScriptHash
-              }
-            );
-
             for (const walletInput of exactWalletInputs) {
               spendValidatorsByRef.set(
                 createInputRefKey(walletInput.input.txHash, walletInput.input.outputIndex),

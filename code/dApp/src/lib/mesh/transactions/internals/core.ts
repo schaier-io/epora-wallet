@@ -12,7 +12,7 @@ import { createStageError, withStage } from "./errors";
 import { excludeReservedUtxos, hasReferenceScript } from "./reference-scripts";
 import { applyManualCollateral, createInputRefKey, resolveChangeAddress, resolveManualCollateralCandidate, resolveWalletUtxos } from "./utxo";
 import { ServerFetcher } from "@/lib/mesh/server-fetcher";
-import { deserializeTx } from "@/lib/mesh/cst";
+import { deserializeTx, type CstCollection, type CstTransactionInput } from "@/lib/mesh/cst";
 import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
 import { type ContractConfig } from "@/lib/types/contracts";
 import { type IInitiator } from "@meshsdk/common";
@@ -127,10 +127,16 @@ export async function setupTransaction(
     initiator: safeInitiator,
     fetcher,
     evaluator: {
-      evaluateTx: (txHex, additionalUtxos, additionalTxs) =>
-        (deserializeTx(txHex).witnessSet().redeemers()?.size() ?? 0) === 0
-          ? Promise.resolve([])
-          : fetcher.evaluateTx(txHex, additionalUtxos, additionalTxs)
+      evaluateTx: (txHex, additionalUtxos, additionalTxs) => {
+        const transaction = deserializeTx(txHex);
+        if ((transaction.witnessSet().redeemers()?.size() ?? 0) === 0) return Promise.resolve([]);
+        const body = transaction.body();
+        const inputs = body.inputs() as CstCollection<CstTransactionInput>;
+        const refs = [...inputs.values(), ...(body.collateral()?.values() ?? []), ...(body.referenceInputs()?.values() ?? [])];
+        const required = new Set(refs.map(ref => createInputRefKey(ref.transactionId().toString(), Number(ref.index()))));
+        const relevantUtxos = additionalUtxos?.filter(utxo => required.has(createInputRefKey(utxo.input.txHash, utxo.input.outputIndex)));
+        return fetcher.evaluateTx(txHex, relevantUtxos, additionalTxs);
+      }
     },
     selector: options?.selector
   });
@@ -144,7 +150,8 @@ export async function setupTransaction(
       const collateralResolution = resolveManualCollateralCandidate(
         spendableWalletUtxos,
         reservedInputRefs,
-        txBuilder._protocolParams
+        txBuilder._protocolParams,
+        changeAddress
       );
 
       if (!collateralResolution.collateral) {
@@ -241,6 +248,7 @@ export async function setupTransaction(
 
       txBuilder.protocolParams?.(protocolParams);
       txBuilder.selectUtxosFrom?.(spendableWalletUtxos);
+      for (const utxo of spendableWalletUtxos) txBuilder.inputForEvaluation(utxo);
       tx.setChangeAddress(changeAddress).setRequiredSigners([signerAddress]);
       tx.setNetwork(NETWORK);
 

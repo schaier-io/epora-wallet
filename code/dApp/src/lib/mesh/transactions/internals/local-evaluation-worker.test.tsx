@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { evaluateInWorker, warmLocalEvaluationWorker, LOCAL_EVALUATION_IDLE_MS, LOCAL_EVALUATION_TIMEOUT_MS, type LocalEvaluationRequest } from "./local-evaluation-worker";
+import { evaluateInWorker, retainLocalEvaluationWorker, warmLocalEvaluationWorker, LOCAL_EVALUATION_IDLE_MS, LOCAL_EVALUATION_TIMEOUT_MS, type LocalEvaluationRequest } from "./local-evaluation-worker";
 
 const request: LocalEvaluationRequest = { txHex: "80", utxos: [], network: "preprod", costModels: [[1], [2], [3]] };
 const action = { tag: "MINT", index: 0, budget: { mem: 20, steps: 40 } };
@@ -18,6 +18,70 @@ beforeEach(() => { vi.useFakeTimers(); FakeWorker.instances = []; vi.stubGlobal(
 afterEach(async () => { await vi.runAllTimersAsync(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 describe("local evaluation worker lifetime", () => {
+  it("keeps the worker warm past idle expiry while an editor owns it", async () => {
+    const release = retainLocalEvaluationWorker();
+    const warm = warmLocalEvaluationWorker();
+    await vi.advanceTimersByTimeAsync(0);
+    latest().onmessage!({ data: { ok: true, ready: true } });
+    await warm;
+    await vi.advanceTimersByTimeAsync(LOCAL_EVALUATION_IDLE_MS * 2);
+    expect(latest().terminate).not.toHaveBeenCalled();
+    const evaluation = evaluateInWorker(request);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(FakeWorker.instances).toHaveLength(1);
+    latest().onmessage!({ data: { ok: true, actions: [action] } });
+    await evaluation;
+    release();
+    await vi.advanceTimersByTimeAsync(LOCAL_EVALUATION_IDLE_MS - 1);
+    expect(latest().terminate).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(latest().terminate).toHaveBeenCalledTimes(1);
+  });
+
+  it("waits for all owners and permits repeated release", async () => {
+    const first = retainLocalEvaluationWorker();
+    const second = retainLocalEvaluationWorker();
+    const warm = warmLocalEvaluationWorker();
+    await vi.advanceTimersByTimeAsync(0);
+    latest().onmessage!({ data: { ok: true, ready: true } });
+    await warm;
+    first();
+    first();
+    await vi.advanceTimersByTimeAsync(LOCAL_EVALUATION_IDLE_MS);
+    expect(latest().terminate).not.toHaveBeenCalled();
+    second();
+    await vi.advanceTimersByTimeAsync(LOCAL_EVALUATION_IDLE_MS);
+    expect(latest().terminate).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not end an active request when its final owner leaves", async () => {
+    const release = retainLocalEvaluationWorker();
+    const evaluation = evaluateInWorker(request);
+    await vi.advanceTimersByTimeAsync(0);
+    release();
+    expect(latest().terminate).not.toHaveBeenCalled();
+    latest().onmessage!({ data: { ok: true, actions: [action] } });
+    await evaluation;
+    await vi.advanceTimersByTimeAsync(LOCAL_EVALUATION_IDLE_MS);
+    expect(latest().terminate).toHaveBeenCalledTimes(1);
+  });
+
+  it("recreates a failed worker without losing editor ownership", async () => {
+    const release = retainLocalEvaluationWorker();
+    const failed = evaluateInWorker(request);
+    await vi.advanceTimersByTimeAsync(0);
+    latest().onerror!();
+    await expect(failed).rejects.toThrow("worker failed");
+    const next = evaluateInWorker(request);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(FakeWorker.instances).toHaveLength(2);
+    latest().onmessage!({ data: { ok: true, actions: [action] } });
+    await next;
+    await vi.advanceTimersByTimeAsync(LOCAL_EVALUATION_IDLE_MS);
+    expect(latest().terminate).not.toHaveBeenCalled();
+    release();
+  });
+
   it("warms only the runtime and reuses it for evaluation", async () => {
     const warm = warmLocalEvaluationWorker();
     await vi.advanceTimersByTimeAsync(0);

@@ -16,6 +16,8 @@ export function redeemValueWithRequiredReferenceScript(
   referenceScript: ReferenceScriptResolution,
   redeemer: { data: ConstrData; budget?: Budget }
 ) {
+  tx.txBuilder.inputForEvaluation(value);
+  tx.txBuilder.inputForEvaluation(referenceScript.utxo);
   tx.redeemValue({
     value,
     script: referenceScript.utxo,
@@ -31,6 +33,7 @@ export function redeemValueWithInlineScript(
   script: { code: string; version: LanguageVersion },
   redeemer: { data: ConstrData; budget?: Budget }
 ) {
+  tx.txBuilder.inputForEvaluation(value);
   tx.redeemValue({
     value,
     script,
@@ -201,10 +204,11 @@ export function assertOutputMeetsMinimumLovelace(
 // the deposit itself.
 export function calculateCollateralReturnMinimumLovelace(
   utxo: UTxO,
-  protocolParams?: Protocol
+  protocolParams?: Protocol,
+  returnAddress = utxo.output.address
 ) {
   return calculateMinimumLovelaceForOutput(
-    buildMeshOutput(utxo.output.address, utxo.output.amount),
+    buildMeshOutput(returnAddress, utxo.output.amount),
     protocolParams
   );
 }

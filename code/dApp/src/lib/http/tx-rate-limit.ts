@@ -46,7 +46,9 @@
  * sustainable figure, which at 70 requests per build is only 8 builds per
  * minute for the whole deployment: too low to serve more than one active user.
  *
- * The number worth changing is not this cap. It is the 70.
+ * These measurements describe the earlier defaults and build path.
+ * The current defaults below double the previous allowances at the user's
+ * request. Provider work per build has not been remeasured on the deployment.
  */
 
 export type TxRateLimits = {
@@ -59,19 +61,17 @@ export type TxRateLimits = {
 };
 
 export const TX_RATE_LIMIT_DEFAULTS: TxRateLimits = {
-  perClientRequests: 5,
+  perClientRequests: 10,
   perClientWindowMs: 60_000,
-  globalRequests: 25,
+  globalRequests: 50,
   globalWindowMs: 60_000,
-  // Each exact wallet input costs two Blockfrost reads per prepare pass, and a
-  // script build prepares twice. Keep this work in a separate bucket so a valid
-  // transaction with more than five inputs is not rejected by the five-build
-  // caller cap. The default global window budgets 120 refs, or about 480 such
-  // reads. One transaction may exceed the per-client budget and exhaust that
-  // caller's window. The deployment budget still rejects work above 120 refs.
+  // Keep input work in a separate bucket so a valid transaction with more
+  // inputs is not rejected by the build-count caller cap. The default global
+  // window budgets 240 refs. One transaction may exceed the per-client budget and exhaust that
+  // caller's window. The deployment budget still rejects work above 240 refs.
   // This protects the provider without an on-chain input cap.
-  perClientWalletInputs: 40,
-  globalWalletInputs: 120
+  perClientWalletInputs: 80,
+  globalWalletInputs: 240
 };
 
 /** The key every caller shares, so the deployment-wide bucket is one bucket. */

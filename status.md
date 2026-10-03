@@ -302,3 +302,75 @@ The same non-public database then returned `tests 9; pass 9; fail 0; skipped 0`.
 VERIFIED: Scoped ESLint and TypeScript checks returned exit 0.
 VERIFIED: PR #705 now reports `baseRefName: dev` and `mergeable: MERGEABLE`.
 Production code remains unchanged. The lesson is to test database fixtures with the same schema isolation as CI.
+## Transaction build performance fixes, 2026-10-04
+
+Owner: coordinator. Status: Local source complete.
+VERIFIED: `core.ts` registers known inputs for evaluation and selects metadata for serialized transaction references.
+VERIFIED: `state-forwarding.ts` and `stt-spend.ts` overlap independent preparation reads.
+VERIFIED: `blockfrost-reads.ts` filters indexed outputs before script hydration and bounds the shared verified-script cache.
+VERIFIED: `use-local-evaluation-warmup.ts` retains the worker during visible editing and supports new-wallet mint warmup.
+VERIFIED: `build-parameter-fetcher.ts` records fixed-code evaluation diagnostics without transaction contents.
+VERIFIED: `/api/mesh` returns `Server-Timing` values for `rate_limit`, `execute`, and `total`.
+VERIFIED: Mesh defaults changed from 1200 to 2400 general requests and from 200 to 400 expensive requests per caller.
+VERIFIED: Transaction build defaults changed from 5 to 10 per caller and from 25 to 50 per deployment.
+VERIFIED: Input-work defaults changed from 40 to 80 per caller and from 120 to 240 per deployment.
+All windows remain 60000 milliseconds. Existing environment overrides retain priority.
+
+VERIFIED: The component suite returned `Test Files 217 passed (217); Tests 2207 passed (2207)`.
+VERIFIED: Type checking, full ESLint, and the complete i18n gate returned exit 0.
+VERIFIED: OpenAPI validation returned `OpenAPI document is in sync`.
+VERIFIED: Source length returned `File length OK: 791 source files checked, none over 750 lines.`
+VERIFIED: The unchanged PostgreSQL quota tests returned `tests 3; pass 3; fail 0` against an isolated local database.
+The application database and its schema were not changed. The isolated server has stopped.
+REPORTED: Independent adversarial reviews of all four layers ended with clean full passes.
+VERIFIED correction: A paired quota-query experiment moved body parsing before the general gate.
+The experiment was removed. The general gate still rejects blocked callers before it reads their bodies.
+VERIFIED: The first full Node run returned `tests 1968; pass 1940; fail 2; skipped 26`.
+Both failures reported `ERR_SWC_NATIVE_CACHE` because the sandbox blocked the compiler cache lock.
+The two affected suites passed with a writable cache: `tests 10; pass 10; fail 0`.
+VERIFIED: The production build failed to fetch Google Fonts with `ENOTFOUND fonts.googleapis.com`.
+Automatic approval review rejected the network retry because the current message did not approve that external call.
+Limit: Production compilation, deployed latency, and browser memory use remain unverified.
+Next: Obtain approval for the production build's Google Fonts request. Push and deployment require separate approval.
+
+VERIFIED: The full Node rerun used `SWC_NATIVE_BINDING_CACHE=/private/tmp/epora-tx-swc-cache`.
+It returned exit 0 with `tests 1968; pass 1942; fail 0; skipped 26`.
+The skipped cases did not run in that database-free suite. The isolated quota run above covers its three database tests.
+
+## PR stack reconciliation, 2026-10-04
+
+VERIFIED: `origin/main` advanced from `2ca8b150` to `f4e9d276`.
+The rebase preserves its `resolvedInput` preparation API and exact evaluation cache.
+VERIFIED correction: The earlier `execute` timing name described the original branch.
+The rebased route keeps main's `rate_limit`, `provider`, and `total` names.
+It also keeps main's hinted paired quota check before body parsing.
+REPORTED: Independent input review passed 21 Node tests and 49 component tests with no findings.
+REPORTED: Worker review found a diagnostic format conflict.
+The resolution preserves main's `[tx-build:evaluation]` format.
+The second review passed 62 component tests and found no remaining issues.
+
+VERIFIED: Full rebased Vitest returned `Test Files 222 passed (222); Tests 2265 passed (2265)`.
+VERIFIED: Full rebased Node tests returned `tests 1979; pass 1948; fail 0; skipped 31`.
+This database-free run does not validate the skipped database cases. CI must run those cases with PostgreSQL.
+VERIFIED: Type checking, full ESLint, i18n, and OpenAPI validation returned exit 0.
+REPORTED: Fresh provider review passed 44 Node tests and 24 component tests with no findings.
+REPORTED: Final rate review passed 36 route tests and seven quota-default tests with no findings.
+
+
+## Transaction regression fixes, 2026-10-04
+
+VERIFIED correction: The previous readiness report missed two build paths.
+The new tests fail with the original source: `tests 40; pass 37; fail 3` and `Tests 1 failed | 10 passed (11)`.
+The failures cover the RPC input ceiling and enterprise-to-base collateral return sizing.
+VERIFIED: The fix uses one size-based evaluation ceiling and the actual collateral return address.
+VERIFIED: Focused Node validation returned `tests 64; pass 64; fail 0`.
+VERIFIED: Full Vitest returned `Test Files 223 passed (223); Tests 2274 passed (2274)`.
+VERIFIED: Full Node returned `tests 1997; pass 1964; fail 2; skipped 31`.
+Both failures reported `ERR_SWC_NATIVE_CACHE` because the sandbox blocked the default cache path.
+VERIFIED: Those test files passed with `SWC_NATIVE_BINDING_CACHE=/private/tmp/epora-swc-native`: `tests 10; pass 10; fail 0`.
+The database-free run does not validate the skipped database cases.
+VERIFIED: Type checking, full ESLint, OpenAPI validation, and diff checks returned exit 0.
+VERIFIED: `File length OK: 794 source files checked, none over 750 lines.`
+REPORTED: Independent adversarial review found no findings in the fix diff.
+The RPC regression uses a stub provider; local evaluation tests mock the worker.
+These checks do not establish live provider or chain acceptance.

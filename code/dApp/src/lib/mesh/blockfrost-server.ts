@@ -1,3 +1,4 @@
+import { MAX_EVALUATION_INPUTS } from "./transactions/internals/constants";
 import { readRegionalInputMetadata } from "./regional-input-metadata";
 import { CARDANO_NETWORK, type CardanoNetwork } from "@/lib/cardano-network";
 import { BlockfrostProvider } from "@meshsdk/core";
@@ -52,7 +53,6 @@ export class MeshRpcInputError extends Error {}
 
 const MAX_STANDARD_ARG_LENGTH = 2_048;
 const MAX_TRANSACTION_HEX_LENGTH = 128 * 1_024;
-const MAX_ADDITIONAL_UTXOS = 64;
 const MAX_ADDITIONAL_TXS = 16;
 const MAX_ADDRESS_TX_PAGES = 8;
 const MAX_BLOCKFROST_PAGE = 21_474_836;
@@ -212,9 +212,9 @@ function getOptionalUtxosArg(args: unknown[], index: number, label: string) {
     return undefined;
   }
 
-  if (!Array.isArray(value) || value.length > MAX_ADDITIONAL_UTXOS) {
+  if (!Array.isArray(value) || value.length > MAX_EVALUATION_INPUTS) {
     throw new MeshRpcInputError(
-      `Argument '${label}' at index ${index} must be an array with at most ${MAX_ADDITIONAL_UTXOS} entries.`
+      `Argument '${label}' at index ${index} must be an array with at most ${MAX_EVALUATION_INPUTS} entries.`
     );
   }
 

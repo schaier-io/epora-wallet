@@ -733,15 +733,15 @@ Per client address, in a rolling window:
 
 | Routes | Limit |
 |---|---|
-| Active `/api/v1/tx/*` build routes | 5 requests per 60 seconds, across all nine routes together |
+| Active `/api/v1/tx/*` build routes | 10 requests per 60 seconds, across all nine routes together |
 | `/api/v1/stt/lookup` | 600 requests per 60 seconds |
 | `/api/v1/pools` | 300 requests per 60 seconds |
 | `/api/v1/governance-actions` | 300 requests per 60 seconds |
 
-The nine active build routes share **one** bucket. Three mints and two deposits in the
+The nine active build routes share **one** bucket. Six mints and four deposits in the
 same minute use the whole allowance.
 
-Builds also share a deployment-wide cap of 25 per 60 seconds, summed over every
+Builds also share a deployment-wide cap of 50 per 60 seconds, summed over every
 caller. You can meet it while well inside your own allowance, because someone
 else is building. It answers with a different message, so you can tell the two
 apart and back off accordingly.

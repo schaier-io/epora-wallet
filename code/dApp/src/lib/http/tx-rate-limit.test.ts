@@ -22,6 +22,13 @@ describe("readPositiveIntEnv", () => {
 });
 
 describe("readTxRateLimits", () => {
+  it("doubles transaction allowances without changing their windows", () => {
+    assert.deepEqual(readTxRateLimits({}), {
+      perClientRequests: 10, perClientWindowMs: 60_000,
+      globalRequests: 50, globalWindowMs: 60_000,
+      perClientWalletInputs: 80, globalWalletInputs: 240
+    });
+  });
   it("uses the defaults when nothing is set", () => {
     assert.deepEqual(readTxRateLimits({}), TX_RATE_LIMIT_DEFAULTS);
   });

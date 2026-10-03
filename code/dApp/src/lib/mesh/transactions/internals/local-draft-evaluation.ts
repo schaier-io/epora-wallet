@@ -2,12 +2,11 @@ import type { UTxO } from "@meshsdk/common";
 import { CARDANO_NETWORK } from "@/lib/cardano-network";
 import { deserializeTx, type CstCollection, type CstTransactionInput } from "@/lib/mesh/cst";
 import type { TxFetcher } from "@/lib/mesh/tx-context";
-import { CARDANO_MAX_TX_SIZE_BYTES } from "./constants";
+import { CARDANO_MAX_TX_SIZE_BYTES, MAX_EVALUATION_INPUTS } from "./constants";
 import { isRecord } from "./guards";
 import { evaluateInWorker } from "./local-evaluation-worker";
 import { resolveRawCostModelList } from "./script-data";
 
-const MAX_LOCAL_INPUTS = 64;
 const INPUT_READ_CONCURRENCY = 8;
 const PROTOCOL_PARAMETERS_PATH = "epochs/latest/parameters";
 
@@ -18,7 +17,7 @@ export async function evaluateDraftLocally(fetcher: TxFetcher, txHex: string, pr
   const body = tx.body();
   const inputs = body.inputs() as CstCollection<CstTransactionInput>;
   const refs = [...inputs.values(), ...(body.collateral()?.values() ?? []), ...(body.referenceInputs()?.values() ?? [])];
-  if (refs.length > MAX_LOCAL_INPUTS) throw new Error("Transaction exceeds local evaluation input limit.");
+  if (refs.length > MAX_EVALUATION_INPUTS) throw new Error("Transaction exceeds local evaluation input limit.");
   const key = (hash: string, index: number) => `${hash.toLowerCase()}#${index}`;
   const required = new Map(refs.map(ref => [key(ref.transactionId().toString(), Number(ref.index())), ref]));
   const outputs = new Map(provided.map(utxo => [key(utxo.input.txHash, utxo.input.outputIndex), utxo]));

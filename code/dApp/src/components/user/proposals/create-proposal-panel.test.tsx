@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import type { RenderOptions } from "@testing-library/react";
 import { createQueryTestWrapper } from "@/test/query-client";
-import { fireEvent, render as queryRender, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render as queryRender, screen, waitFor, within } from "@testing-library/react";
 const render = (callback: ReactNode, options?: RenderOptions) => queryRender(callback, { wrapper: createQueryTestWrapper().wrapper, ...options });
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { StashedProposalDraft } from "./stash";
@@ -329,6 +329,29 @@ it("caches a created proposal under its authenticated creator", async () => {
 });
 
 describe("a save that finishes after the user left", () => {
+  for (const transition of ["unmount", "wallet switch"] as const) {
+    it(`does not post after ${transition} while the co-signer rebuild is pending`, async () => {
+      stash.draft = multisigDraft();
+      let finishBuild!: (result: { txHex: string }) => void;
+      builder.build.mockImplementationOnce(() => new Promise(resolve => { finishBuild = resolve; }));
+      const onCreated = vi.fn();
+      const view = render(<CreateProposalPanel onCreated={onCreated} onCancel={vi.fn()} />);
+      fireEvent.click(screen.getByRole("checkbox"));
+      fireEvent.click(screen.getByRole("button", { name: /save request/i }));
+      await waitFor(() => expect(builder.build).toHaveBeenCalledOnce());
+
+      builder.wallet = {};
+      builder.keyHash = OTHER;
+      if (transition === "unmount") view.unmount();
+      else view.rerender(<CreateProposalPanel onCreated={onCreated} onCancel={vi.fn()} />);
+      await act(async () => { finishBuild({ txHex: "85" }); });
+
+      expect(client.create).not.toHaveBeenCalled();
+      expect(stash.clear).not.toHaveBeenCalled();
+      expect(onCreated).not.toHaveBeenCalled();
+    });
+  }
+
   it("clears the stash only for the draft the save was built from", async () => {
     stash.draft = { ...draft(), draftId: "stale-draft" };
     renderPanel();

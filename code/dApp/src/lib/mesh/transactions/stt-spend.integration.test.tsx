@@ -119,6 +119,7 @@ const { buildStreamingPaymentPayoutTransfer } = await import(
   "@/lib/user-flow/streaming-payment-helpers"
 );
 const { buildSttSpendTx } = await import("@/lib/mesh/transactions/stt-spend");
+const { ServerFetcher } = await import("@/lib/mesh/server-fetcher");
 const { buildConsolidateUtxosTx } = await import(
   "@/lib/mesh/transactions/consolidate-utxos"
 );
@@ -194,6 +195,38 @@ function allowanceEntries(count: number) {
     amount: MAX_UINT64.toString()
   }));
 }
+
+it("starts wallet setup, state, reference and locked-input reads before any completes", async () => {
+  const started = new Set<string>();
+  let release!: () => void;
+  const blocked = new Promise<void>(resolve => { release = resolve; });
+  const mark = (name: string) => { started.add(name); };
+  const fetcher = new ServerFetcher();
+  fetcher.fetchUTxOs = async hash => {
+    mark(hash);
+    await blocked;
+    throw new Error("overlap probe stopped before transaction mutation");
+  };
+  const wallet = {
+    getUtxos: async () => { mark("wallet"); await blocked; return []; },
+    getChangeAddress: async () => PAYMENT_ADDRESS,
+    getUsedAddresses: async () => [PAYMENT_ADDRESS],
+    getUnusedAddresses: async () => []
+  };
+  const lockedHash = "66".repeat(32);
+  const pending = buildSttSpendTx(wallet, { walletPolicyId: "ab".repeat(28), sttAssetNameHex: ASSET_NAME,
+    sttSpendReference: `${REFERENCE_TX_HASH}#0` }, "remove-access-index", {
+    sttInputTxHash: STATE_TX_HASH, sttInputOutputIndex: 0,
+    removeAccessTarget: { list: "user", index: 0 },
+    walletInputs: [{ txHash: lockedHash, outputIndex: 0 }]
+  }, fetcher);
+  const rejected = expect(pending).rejects.toThrow();
+  try {
+    await new Promise<void>(resolve => setImmediate(resolve));
+    expect(started).toEqual(new Set(["wallet", STATE_TX_HASH, REFERENCE_TX_HASH, lockedHash]));
+  } finally { release(); }
+  await rejected;
+});
 
 function scalarHeavyStreamingPayments(): StreamingPaymentFormState[] {
   return Array.from({ length: 15 }, (_, index) => {

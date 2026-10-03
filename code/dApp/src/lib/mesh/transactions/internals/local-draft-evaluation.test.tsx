@@ -6,7 +6,10 @@ import type { LocalEvaluationRequest } from "./local-evaluation-worker";
 const mocks = vi.hoisted(() => ({ deserialize: vi.fn(), worker: vi.fn() }));
 vi.mock("@/lib/mesh/cst", () => ({ deserializeTx: mocks.deserialize }));
 vi.mock("./local-evaluation-worker", () => ({ evaluateInWorker: mocks.worker }));
+import { MAX_EVALUATION_INPUTS } from "./constants";
 import { evaluateDraftLocally } from "./local-draft-evaluation";
+import { Transaction } from "@meshsdk/core";
+import { redeemValueWithInlineScript } from "./value";
 
 const hash = (index: number) => index.toString(16).padStart(64, "0");
 const output = (index: number): UTxO => ({ input: { txHash: hash(index), outputIndex: 0 }, output: { address: "unused", amount: [] } });
@@ -24,6 +27,13 @@ beforeEach(() => {
   fetcher = { get: vi.fn().mockResolvedValue({ cost_models_raw: { PlutusV1: [1], PlutusV2: [2], PlutusV3: [3] } }), fetchUTxOs: vi.fn(async (id: string) => [output(Number.parseInt(id, 16))]) } as unknown as TxFetcher;
 });
 describe("local draft input context", () => {
+  it("uses Mesh-registered inputs without redundant metadata reads", async () => {
+    const tx = new Transaction({ initiator: { getUtxos: async () => [], getChangeAddress: async () => "unused", getCollateral: async () => [] } });
+    redeemValueWithInlineScript(tx, output(1), { code: "46010000200101", version: "V3" }, { data: { alternative: 0, fields: [] } });
+    await evaluateDraftLocally(fetcher, "00", Object.values(tx.txBuilder.meshTxBuilderBody.inputsForEvaluation));
+    expect(fetcher.fetchUTxOs).not.toHaveBeenCalled();
+    expect((mocks.worker.mock.calls[0][0] as LocalEvaluationRequest).utxos).toEqual([output(1)]);
+  });
   it("uses supplied outputs for spending, collateral and reference inputs", async () => {
     transaction([1], [2], [3]);
     await evaluateDraftLocally(fetcher, "00", [output(1), output(2), output(3), output(4)]);
@@ -58,4 +68,21 @@ describe("local draft input context", () => {
     await expect(evaluateDraftLocally(fetcher, "00")).rejects.toThrow();
     expect(fetcher.get).not.toHaveBeenCalled();
   });
+});
+
+
+it("evaluates more than 64 supplied inputs without extra reads", async () => {
+  const indices = Array.from({ length: 66 }, (_, index) => index + 1);
+  transaction(indices);
+  await evaluateDraftLocally(fetcher, "00", indices.map(output));
+  expect(fetcher.fetchUTxOs).not.toHaveBeenCalled();
+  expect((mocks.worker.mock.calls[0][0] as LocalEvaluationRequest).utxos).toHaveLength(66);
+});
+
+it("rejects inputs beyond the size-based ceiling before reads or worker work", async () => {
+  transaction(Array.from({ length: MAX_EVALUATION_INPUTS + 1 }, (_, index) => index + 1));
+  await expect(evaluateDraftLocally(fetcher, "00")).rejects.toThrow("input limit");
+  expect(fetcher.get).not.toHaveBeenCalled();
+  expect(fetcher.fetchUTxOs).not.toHaveBeenCalled();
+  expect(mocks.worker).not.toHaveBeenCalled();
 });
