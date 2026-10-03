@@ -146,34 +146,57 @@ async function resolveStateForwardingInput(
 }
 
 async function resolveStateForwardingReference(
-  resolvedInput: StateForwardingInput,
+  definition: StateForwardingDefinition,
   fetcher: TxFetcher,
   options: {
     stage: string;
     details?: Record<string, unknown>;
     excludedRefs?: string[];
   }
-): Promise<ResolvedStateForwardingInput> {
+): Promise<ReferenceScriptResolution> {
   const details = {
     ...options.details,
-    sttAddress: resolvedInput.address
+    sttAddress: definition.address
   };
   const referenceScript = await resolveSharedSttReferenceScript(fetcher, {
-    configuredReference: resolvedInput.configuredReference,
-    script: resolvedInput.script,
+    configuredReference: definition.configuredReference,
+    script: definition.script,
     stage: options.stage,
     details,
-    excludedRefs: [resolvedInput.inputRef, ...(options.excludedRefs ?? [])]
+    excludedRefs: options.excludedRefs
   });
+  return referenceScript;
+}
 
+type StateForwardingPreparationOptions = {
+  definition: StateForwardingDefinition;
+  fetcher: TxFetcher;
+  input: { txHash: string; outputIndex?: number; stage: string; details?: Record<string, unknown> };
+  reference: { stage: string; details?: Record<string, unknown>; excludedRefs?: string[] };
+};
+
+export async function prepareStateForwarding(options: StateForwardingPreparationOptions): Promise<ResolvedStateForwardingInput> {
+  const excludedRefs = [...(options.reference.excludedRefs ?? [])];
+  if (options.input.outputIndex !== undefined) {
+    excludedRefs.push(createInputRefKey(options.input.txHash, options.input.outputIndex));
+  }
+  const inputRead = resolveStateForwardingInput(options.definition, options.fetcher, options.input);
+  const referenceRead = resolveStateForwardingReference(options.definition, options.fetcher, { ...options.reference, excludedRefs }).then(
+    value => ({ ok: true as const, value }), (error: unknown) => ({ ok: false as const, error })
+  );
+  // Keep input validation errors first even though reference I/O starts immediately.
+  const input = await inputRead;
+  const result = await referenceRead;
+  if (!result.ok) throw result.error;
+  const referenceScript = result.value;
+  // An omitted index is resolved from the state token before this exclusion can be checked.
+  if (referenceScript.reference.toLowerCase() === input.inputRef.toLowerCase()) {
+    throw new Error(`Shared STT reference script UTxO ${input.inputRef} is also being spent in this transaction. Use a different unspent output for the reference script.`);
+  }
   return {
-    ...resolvedInput,
+    ...input,
     referenceScript,
-    witness: {
-      label: "STT",
-      script: resolvedInput.script,
-      reference: referenceScript
-    }
+    witness: { label: "STT", script: input.script, reference: referenceScript }
   };
 }
 
@@ -224,11 +247,7 @@ export async function resolveStateForwardingReads(
   input: Parameters<typeof resolveStateForwardingInput>[2],
   reference: Parameters<typeof resolveStateForwardingReference>[2]
 ) {
-  return resolveStateForwardingReference(
-    await resolveStateForwardingInput(definition, fetcher, input),
-    fetcher,
-    reference
-  );
+  return prepareStateForwarding({ definition, fetcher, input, reference });
 }
 
 export async function runStateForwarding<T>(options: {
@@ -270,13 +289,9 @@ export async function runStateForwarding<T>(options: {
     afterInput,
     beforeRedeem
   } = options;
-  const input = options.resolvedInput ?? await resolveStateForwardingInput(
-    definition,
-    fetcher,
-    inputOptions
-  );
+  const resolved = options.resolvedInput ?? await prepareStateForwarding({ definition, fetcher, input: inputOptions, reference });
+  const input: StateForwardingInput = resolved;
   const value = await afterInput({ input, fetcher });
-  const resolved = options.resolvedInput ?? await resolveStateForwardingReference(input, fetcher, reference);
   const plan = await beforeRedeem({ input, resolved, fetcher, tx, value });
   const scriptWitnessDiagnostics = buildReferenceScriptDiagnostics([
     resolved.witness,
