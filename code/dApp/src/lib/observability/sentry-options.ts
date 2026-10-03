@@ -31,6 +31,7 @@ export interface SentryInitOptions {
   release?: string;
   environment: string;
   tracesSampleRate: 0;
+  dataCollection: typeof V10_DATA_COLLECTION;
   // Generic so the SDK's concrete `ErrorEvent` / `Breadcrumb` types flow
   // through unchanged when the options object is spread into `Sentry.init`.
   beforeSend: <Event extends SentryEventLike>(event: Event) => Event | null;
@@ -44,6 +45,25 @@ export interface SentryInitOptions {
 type SentryBreadcrumbInput = Parameters<typeof scrubSentryBreadcrumb>[0];
 
 export const DEFAULT_SENTRY_ENVIRONMENT = "production";
+
+// SDK v11 collects user info, cookies, HTTP bodies, and query data by default.
+// This baseline keeps the v10 default (`sendDefaultPii` off), as the v11
+// migration guide gives it. The scrubber stays as the second line of defense.
+const PII_HEADER_DENYLIST = ["forwarded", "-ip", "remote-", "via", "-user"];
+export const V10_DATA_COLLECTION = {
+  userInfo: false,
+  cookies: false,
+  httpHeaders: {
+    request: { deny: PII_HEADER_DENYLIST },
+    response: { deny: PII_HEADER_DENYLIST }
+  },
+  httpBodies: [],
+  urlQueryParams: { deny: PII_HEADER_DENYLIST },
+  genAI: { inputs: false, outputs: false },
+  databaseQueryData: false,
+  queues: false,
+  graphQL: { document: false, variables: false }
+};
 
 /**
  * Resolve init options from environment inputs. Returns `undefined` when no
@@ -70,6 +90,7 @@ export function buildSentryInitOptions(
     ...(release ? { release } : {}),
     environment,
     tracesSampleRate: 0,
+    dataCollection: V10_DATA_COLLECTION,
     beforeSend: (event) => scrubSentryEvent(event),
     beforeBreadcrumb: (breadcrumb) => scrubSentryBreadcrumb(breadcrumb)
   };

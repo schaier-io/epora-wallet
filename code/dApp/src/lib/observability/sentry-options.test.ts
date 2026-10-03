@@ -80,3 +80,16 @@ test("buildSentryInitOptions trims a padded DSN", () => {
   assert.ok(options);
   assert.equal(options.dsn, "https://key@o0.ingest.sentry.io/0");
 });
+
+test("buildSentryInitOptions pins the v10 data-collection baseline (SDK v11 collects more by default)", () => {
+  const options = buildSentryInitOptions({ dsn: "https://key@o0.ingest.sentry.io/0" });
+  assert.ok(options);
+  const collection = options.dataCollection;
+  assert.equal(collection.userInfo, false);
+  assert.equal(collection.cookies, false);
+  assert.deepEqual(collection.httpBodies, []);
+  assert.deepEqual(collection.genAI, { inputs: false, outputs: false });
+  assert.equal(collection.databaseQueryData, false);
+  assert.equal(collection.queues, false);
+  assert.deepEqual(collection.graphQL, { document: false, variables: false });
+});
