@@ -348,3 +348,10 @@ REPORTED: Independent input review passed 21 Node tests and 49 component tests w
 REPORTED: Worker review found a diagnostic format conflict.
 The resolution preserves main's `[tx-build:evaluation]` format.
 The second review passed 62 component tests and found no remaining issues.
+
+VERIFIED: Full rebased Vitest returned `Test Files 222 passed (222); Tests 2265 passed (2265)`.
+VERIFIED: Full rebased Node tests returned `tests 1979; pass 1948; fail 0; skipped 31`.
+This database-free run does not validate the skipped database cases. CI must run those cases with PostgreSQL.
+VERIFIED: Type checking, full ESLint, i18n, and OpenAPI validation returned exit 0.
+REPORTED: Fresh provider review passed 44 Node tests and 24 component tests with no findings.
+REPORTED: Final rate review passed 36 route tests and seven quota-default tests with no findings.
