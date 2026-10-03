@@ -17,7 +17,7 @@ const HASH_LEADING = 8;
 const HASH_TRAILING = 6;
 
 /** Explains a pending wallet-state update beside the action it blocks. */
-export function WalletStateUpdateBanner() {
+export function WalletStateUpdateBanner({ blocked = true }: { blocked?: boolean }) {
   const i18n = useTranslations("ComponentsUserWorkspaceWalletStateUpdateBanner");
   const format = useFormatter();
   const now = useNow({ updateInterval: MILLISECONDS_PER_MINUTE });
@@ -26,7 +26,7 @@ export function WalletStateUpdateBanner() {
   const actionWaits = useAtomValue(selectedActionWaitsForWalletStateAtom);
   const onActionPage = useAtomValue(wizardSelectedActionAtom) !== null;
 
-  const showBanner = pending && onActionPage && actionWaits;
+  const showBanner = pending && onActionPage && actionWaits && blocked;
 
   // The live region stays mounted so screen readers announce the banner when it appears;
   // a region inserted together with its text is often not read.
