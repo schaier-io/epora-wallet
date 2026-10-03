@@ -20,7 +20,7 @@ import { COPY } from "@/lib/copy";
 import { useWalletContext } from "@/providers/wallet-provider";
 
 /**
- * `carriesWallet` marks the destinations that belong to one smart wallet. Without it, a trip
+ * `carriesWallet` retains the return wallet, including on the global income page. Without it, a trip
  * to Proposals and back landed on `/user` with no `?wallet`, so the app auto-picked its
  * default and the user silently got a different wallet than the one they left.
  */
@@ -43,7 +43,7 @@ const NAV_LINKS = [
   // `<h1>` and its `metadata.title`; it read "Scheduled payments to you", a sentence
   // rather than a place. The label keeps the page's "scheduled" qualifier and states the
   // direction without the person.
-  { href: "/payee", labelKey: "scheduledIncome", carriesWallet: false }
+  { href: "/payee", labelKey: "scheduledIncome", carriesWallet: true }
 ] as const;
 
 /** Keeps a destination on the smart wallet the reader is already in. See `carriesWallet`. */
@@ -186,7 +186,8 @@ export function TopNav() {
     installedWallets,
     networkId,
     isDemoWallet,
-    isConnecting
+    isConnecting,
+    connectError
   } = useWalletContext();
   // One dialog, one open flag. The workspace mounts the dialog with the smart-wallet picker
   // inside it and says so through `walletConnectionDialogMountedAtom`; every other page, and
@@ -449,6 +450,18 @@ export function TopNav() {
             </nav>
           </div>
         </div>
+        {connectError ? (
+          <div role="alert" className="container flex flex-wrap items-center gap-2 pb-3 text-sm text-amber-200">
+            <span className="min-w-0 break-words">{connectError}</span>
+            <button
+              type="button"
+              onClick={handleOpen}
+              className="inline-flex min-h-11 items-center rounded-md px-2 underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {i18n("checkWalletConnection")}
+            </button>
+          </div>
+        ) : null}
       </header>
       {workspaceOwnsDialog ? null : (
         <WalletConnectionDialog open={dialogOpen} onOpenChange={setDialogOpen} />

@@ -24,6 +24,7 @@ vi.mock("next-intl", async (importOriginal) => {
   return {
     ...actual,
     useFormatter: () => formatter,
+    useNow: () => new Date(),
     useTranslations: (namespace?: string) => {
       const cacheKey = namespace ?? "";
       const cached = translators.get(cacheKey);

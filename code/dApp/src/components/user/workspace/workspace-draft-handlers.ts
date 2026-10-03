@@ -1,6 +1,9 @@
 "use client";
+import { workspaceDraftResetRevisionAtom } from "./atoms/workspace-draft-reset.atoms";
 import { selectedOrphanInputsAtom } from "./atoms/forms/orphan-inputs.atoms";
-import { useSetAtom } from "jotai";
+import { useSetAtom, useStore } from "jotai";
+import { routeStateAtom } from "./atoms/workspace-route.atoms";
+import { reconcileWorkspaceWalletAtom, workspaceDraftBaseAtom, workspaceDraftConflictsAtom } from "./atoms/workspace-draft-revision.atoms";
 import { beneficiaryPreparationActiveAtom, beneficiaryPreparationPoolAssetsAtom, consolidateStateFormAtom, consolidateSttAssetsAtom, consolidateSttInputHashAtom, consolidateSttInputIndexAtom, consolidateWalletInputsAtom, consolidateWalletOutputsAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
 import { lockFundsAssetsAtom } from "@/components/user/workspace/atoms/forms/lock-funds-form.atoms";
 import { mintReferenceAtom, mintStarterAssetsAtom, mintStateFormAtom, mintZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/mint-form.atoms";
@@ -51,6 +54,7 @@ export function useWorkspaceDraftHandlers(ctx: WorkspaceDraftHandlersCtx) {
     selectedDetectedToken,
     pendingOrphanWalletInputsRef
   } = ctx;
+  const store = useStore();
   const setPreparationActive = useSetAtom(beneficiaryPreparationActiveAtom);
   const setPreparationAssets = useSetAtom(beneficiaryPreparationPoolAssetsAtom);
   const setConsolidateAuthorityPath = useSetAtom(consolidateAuthorityPathAtom);
@@ -108,6 +112,61 @@ export function useWorkspaceDraftHandlers(ctx: WorkspaceDraftHandlersCtx) {
   const setSelectedOrphanInputs = useSetAtom(selectedOrphanInputsAtom);
 
   function resetActionDraft(action: UserActionKind) {
+    store.set(workspaceDraftResetRevisionAtom, revision => revision + 1);
+    const latest = selectedDetectedToken
+      ? stateFormFromDatum(selectedDetectedToken.datum) : createDefaultStateForm();
+    if (selectedDetectedToken) {
+      store.set(reconcileWorkspaceWalletAtom, selectedDetectedToken);
+      setSttInputTxHash(selectedDetectedToken.utxo.input.txHash);
+      setSttInputOutputIndex(String(selectedDetectedToken.utxo.input.outputIndex));
+      if (!store.get(workspaceDraftBaseAtom)) setSttStateForm(cloneStateForm(latest));
+    }
+    const conflicts = { ...store.get(workspaceDraftConflictsAtom) };
+    if (action === "update-state") {
+      const task = store.get(routeStateAtom).selectedTask;
+      const current = store.get(updateStateFormAtom) ?? latest;
+      const fields: (keyof StateFormState)[] = task === "settings-people" ? ["users"]
+        : task === "settings-wallet-name" ? ["walletName"]
+        : task === "settings-multisig-threshold" ? ["multiSigThreshold", "multiSigThresholdMode"]
+        : task === "settings-proof-of-life" ? ["beneficiaries", "proofOfLifeUnlockTimeMode", "proofOfLifeUnlockTime", "proofOfLifeIncrementMode", "proofOfLifeIncrement"]
+        : Object.keys(latest) as (keyof StateFormState)[];
+      const next = withBeneficiarySigningAddressesDerived(cloneStateForm(current));
+      for (const field of fields) Object.assign(next, { [field]: latest[field] });
+      setUpdateStateForm(withBeneficiarySigningAddressesDerived(next));
+      conflicts[action] = (conflicts[action] ?? []).filter(field => !fields.includes(field as keyof StateFormState));
+      store.set(workspaceDraftConflictsAtom, conflicts);
+      clearPreviewResult(); clearBuildMessages(); return;
+    }
+    if (action === "manage-streaming-payments") {
+      const current = store.get(sttStateFormAtom);
+      const ids = new Set(latest.streamingPayments.map(payment => payment.id));
+      const task = store.get(routeStateAtom).selectedTask;
+      const streamingPayments = task === "streaming-payments-add"
+        ? current.streamingPayments.filter(payment => ids.has(payment.id))
+        : task === "streaming-payments-edit-renew"
+          ? [...latest.streamingPayments, ...current.streamingPayments.filter(payment => !ids.has(payment.id))]
+          : latest.streamingPayments;
+      setSttStateForm({ ...current, streamingPayments });
+      if (JSON.stringify(streamingPayments) === JSON.stringify(latest.streamingPayments)) {
+        conflicts[action] = (conflicts[action] ?? []).filter(field => field !== "streamingPayments");
+      }
+      store.set(workspaceDraftConflictsAtom, conflicts);
+      clearPreviewResult(); clearBuildMessages(); return;
+    }
+    if (action === "payout-streaming-payment") {
+      setStreamingPaymentPayoutAmounts({});
+      clearPreviewResult(); clearBuildMessages(); return;
+    }
+    if (action === "renew-proof-of-life") {
+      setSttProofOfLifeOverrideMode("auto"); setSttProofOfLifeSpecificDateTime("");
+      clearPreviewResult(); clearBuildMessages(); return;
+    }
+    if (action === "stop-beneficiary-stream") {
+      setBeneficiaryStreamStopId("");
+      clearPreviewResult(); clearBuildMessages(); return;
+    }
+    conflicts[action] = [];
+    store.set(workspaceDraftConflictsAtom, conflicts);
     setSelectedOrphanInputs(null);
     if (action === "mint") {
       setMintReference("");
@@ -121,25 +180,15 @@ export function useWorkspaceDraftHandlers(ctx: WorkspaceDraftHandlersCtx) {
 
     if (
       action === "use" ||
-      action === "renew-proof-of-life" ||
-      action === "update-state" ||
-      action === "manage-streaming-payments" ||
       action === "use-allowance" ||
       action === "use-beneficiary" ||
-      action === "distribute-beneficiaries" ||
-      action === "stop-beneficiary-stream" ||
-      action === "payout-streaming-payment"
+      action === "distribute-beneficiaries"
     ) {
-      const nextState = selectedDetectedToken
-        ? stateFormFromDatum(selectedDetectedToken.datum)
-        : createDefaultStateForm();
-
       setSttInputTxHash(selectedDetectedToken?.utxo.input.txHash ?? "");
       setSttInputOutputIndex(
         selectedDetectedToken ? selectedDetectedToken.utxo.input.outputIndex.toString() : ""
       );
-      setSttStateForm(cloneStateForm(nextState));
-      setUpdateStateForm(withBeneficiarySigningAddressesDerived(cloneStateForm(nextState)));
+      // Send resets preserve the separate people/settings and schedule drafts.
       setSttOutputAssets([]);
       setSttWalletInputs([]);
       setSttWalletOutputs([]);
@@ -153,8 +202,6 @@ export function useWorkspaceDraftHandlers(ctx: WorkspaceDraftHandlersCtx) {
       setTransferCustomAddress("");
       setTransferSelectedUnit("lovelace");
       setTransferDisplayAmount("");
-      setStreamingPaymentPayoutAmounts({});
-      if (action === "stop-beneficiary-stream") setBeneficiaryStreamStopId("");
       setSttAuthorityPath("admin");
       clearPreviewResult();
       clearBuildMessages();
@@ -245,6 +292,7 @@ export function useWorkspaceDraftHandlers(ctx: WorkspaceDraftHandlersCtx) {
   }
 
   function clearActionDraft(action: UserActionKind) {
+    store.set(workspaceDraftResetRevisionAtom, revision => revision + 1);
     if (action === "mint") {
       setMintReference("");
       setMintStarterAssets(cloneAssets(DEFAULT_MINT_STARTER_ASSETS));

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import type { RenderOptions } from "@testing-library/react";
 import { createQueryTestWrapper } from "@/test/query-client";
-import { fireEvent, render as queryRender, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render as queryRender, screen, waitFor, within } from "@testing-library/react";
 const render = (callback: ReactNode, options?: RenderOptions) => queryRender(callback, { wrapper: createQueryTestWrapper().wrapper, ...options });
 import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -28,6 +28,9 @@ const fixtures = vi.hoisted(() => ({ detail: {
   summaryJson: null,
   signatures: []
 } }));
+const chainConfirmation = vi.hoisted(() => ({ fetch: vi.fn(() => new Promise(() => undefined)) }));
+vi.mock("@/lib/query/chain", () => ({ txInfoQueryOptions: (hash: string) => ({ queryKey: ["test-confirmation", hash], queryFn: chainConfirmation.fetch }) }));
+
 const verify = vi.hoisted(() => ({ proposal: vi.fn() }));
 // A stable wallet identity: the hook ties in-flight commands to the connected
 // wallet, and a mock handing out a fresh object per render would abort them.
@@ -202,6 +205,29 @@ describe("on-chain links", () => {
     detail.submittedTxHash = null;
   });
 
+  it("replaces waiting with confirmation after the chain returns the transaction", async () => {
+    detail.status = "SUBMITTED";
+    detail.submittedTxHash = submittedHash;
+    chainConfirmation.fetch.mockResolvedValueOnce({ hash: submittedHash } as never);
+    renderDetail(<ProposalDetail proposalId={detail.id} sessionKeyHash={"dd".repeat(28)} onChanged={() => undefined} onBack={() => undefined} />);
+    expect(await screen.findByText("Confirmed on the blockchain.")).toBeInTheDocument();
+    expect(screen.queryByText("Waiting for confirmation.")).not.toBeInTheDocument();
+  });
+
+  it("keeps prior confirmation without promising a retry after a failed refresh", async () => {
+    detail.status = "SUBMITTED";
+    detail.submittedTxHash = submittedHash;
+    chainConfirmation.fetch.mockResolvedValueOnce({ hash: submittedHash } as never);
+    const providers = createQueryTestWrapper();
+    queryRender(<ToastProvider><ProposalDetail proposalId={detail.id} sessionKeyHash={"dd".repeat(28)} onChanged={() => undefined} onBack={() => undefined} /></ToastProvider>, { wrapper: providers.wrapper });
+    expect(await screen.findByText("Confirmed on the blockchain.")).toBeInTheDocument();
+    chainConfirmation.fetch.mockRejectedValueOnce(new Error("Indexer unavailable"));
+    await act(async () => { await providers.queryClient.invalidateQueries({ queryKey: ["test-confirmation", submittedHash] }); });
+    await waitFor(() => expect(providers.queryClient.getQueryState(["test-confirmation", submittedHash])?.status).toBe("error"));
+    expect(screen.getByText("Confirmed on the blockchain.")).toBeInTheDocument();
+    expect(screen.queryByText(/Confirmation could not be checked/)).not.toBeInTheDocument();
+  });
+
   it("links the submitted transaction to Cardanoscan on every visit, not only right after sending", async () => {
     detail.status = "SUBMITTED";
     detail.submittedTxHash = submittedHash;
@@ -288,6 +314,19 @@ describe("telling another signer about a request", () => {
   beforeEach(() => {
     verify.proposal.mockReset();
     verify.proposal.mockReturnValue(new Promise(() => undefined));
+  });
+
+  it("does not report an earlier request's delayed copy on the current request", async () => {
+    let release!: () => void;
+    Object.defineProperty(globalThis.navigator, "clipboard", { configurable: true, value: { writeText: () => new Promise<void>(resolve => { release = resolve; }) } });
+    const props = { sessionKeyHash: "dd".repeat(28), onChanged: () => undefined, onBack: () => undefined };
+    const view = renderDetail(<ProposalDetail proposalId={detail.id} {...props} />);
+    fireEvent.click(await screen.findByRole("button", { name: /copy link/i }));
+    vi.mocked(fetchProposal).mockResolvedValueOnce({ ...detail, id: "proposal-2" });
+    view.rerender(<ToastProvider><ProposalDetail proposalId="proposal-2" {...props} /></ToastProvider>);
+    await screen.findByRole("button", { name: /copy link/i });
+    await act(async () => { release(); });
+    expect(screen.queryByRole("button", { name: /link copied/i })).not.toBeInTheDocument();
   });
 
   it("copies a link that carries both the wallet and the request", async () => {
@@ -420,6 +459,22 @@ describe("what the buttons are waiting for", () => {
 
     expect(await screen.findByText(/clears every signature it already has/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /make a new version/i })).toBeEnabled();
+  });
+
+  it("requires confirmation before rebuilding a request with signatures", async () => {
+    verify.proposal.mockResolvedValue(verification({ validity: "invalid", effect: movedFunds }));
+    vi.mocked(parseProposalBuildContext).mockReturnValue({ builder: "use" } as never);
+    vi.mocked(isAutoRebuildable).mockReturnValue(true);
+    const originalSignatures = detail.signatures;
+    detail.signatures = [{ signerKeyHash: "ee".repeat(28), current: true, witnessSetHex: "80", createdAt: "2026-10-03T00:00:00Z" }];
+    try {
+      renderAs(detail.createdByKeyHash);
+      fireEvent.click(await screen.findByRole("button", { name: /make a new version/i }));
+      const dialog = screen.getByRole("dialog");
+      expect(within(dialog).getByText(/Each co-signer must sign the new transaction again/)).toBeInTheDocument();
+      fireEvent.click(within(dialog).getByRole("button", { name: "Keep it open" }));
+      expect(screen.queryByRole("dialog")).toBeNull();
+    } finally { detail.signatures = originalSignatures; }
   });
 
   it("tells a co-signer that only the proposer can make a new version", async () => {

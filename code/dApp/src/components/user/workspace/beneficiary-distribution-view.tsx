@@ -10,6 +10,8 @@ export function BeneficiaryDistributionView() {
   const model = useBeneficiaryDistribution();
   return <section className="space-y-4 rounded-lg border border-border/60 bg-background/40 p-3 sm:p-4" aria-label={i18n("title")}>
     <h3 className="font-medium">{i18n("title")}</h3>
+    <p className="text-sm font-medium">{i18n(model.error && model.selectedRefs.length > 0 ? "nextStepResolve" : model.details && !model.error ? "nextStepReady" : "nextStepSelect")}</p>
+    {model.hasStreams ? <p className="text-sm text-muted-foreground">{i18n("streamOptions")}</p> : null}
     <p className="text-xs text-muted-foreground">{i18n("scriptDatum")}</p>
     <p className="text-xs text-muted-foreground">{i18n("funding")}</p>
     <p className="text-xs text-muted-foreground">{i18n("topups")}</p>
@@ -32,8 +34,8 @@ export function BeneficiaryDistributionView() {
       <Button type="button" variant="outline" onClick={model.refreshTime}>{i18n("refreshTime")}</Button>
       {model.refreshFunds ? <Button type="button" variant="outline" onClick={model.refreshFunds} disabled={model.loading}>{i18n("refreshFunds")}</Button> : null}
       {model.hasStreams ? <>
-        <Button type="button" variant="secondary" onClick={model.stopStreams}>{i18n("stopStreams")}</Button>
-        <Button type="button" variant="secondary" onClick={model.settle}>{i18n("settle")}</Button>
+        <Button type="button" variant="outline" onClick={model.stopStreams}>{i18n("stopStreams")}</Button>
+        <Button type="button" variant="outline" onClick={model.settle}>{i18n("settle")}</Button>
       </> : null}
     </div>
   </section>;

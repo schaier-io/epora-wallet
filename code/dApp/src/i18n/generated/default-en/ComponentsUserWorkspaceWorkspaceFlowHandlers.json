@@ -1,4 +1,5 @@
 {
+  "draftRulesChanged": "Wallet rules changed on-chain. Review your retained edits and reload this form before building.",
   "connectABrowserWalletBeforeContinuing": "Connect a browser wallet before continuing.",
   "connectedWalletIsNotOnPreprodSwitchNetworks": "Connected wallet is on a different network. Switch to the network shown by this app and try again.",
   "demoWalletIsReadOnlyConnectABrowser": "Demo wallet is read-only. Connect a browser wallet before continuing.",

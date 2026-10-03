@@ -1,17 +1,19 @@
 "use client";
-import { useTranslations } from "next-intl";
-import { useAtomValue } from "jotai";
+import { useFormatter, useNow, useTranslations } from "next-intl";
+import { useAtomValue, useSetAtom } from "jotai";
 import { ExternalLink, Loader2 } from "lucide-react";
 
 import {
-  pendingWalletStateUpdateAtom,
+  pendingWalletStateUpdateAtom, selectedWalletStateCheckAtom, walletStateRetryAtom,
   selectedActionWaitsForWalletStateAtom
 } from "@/components/user/workspace/atoms/wallet-state-update.atoms";
+import { Button } from "@/components/ui/button";
 import { wizardSelectedActionAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
 import { buildCardanoscanTransactionUrl } from "@/components/user/workspace/helpers";
 import { shortenIdentifier } from "@/lib/utils/explorer";
 
 // Same width budget as the review rail's submitted-hash chip: 8+6 keeps it on one line.
+const MILLISECONDS_PER_MINUTE = 60_000;
 const HASH_LEADING = 8;
 const HASH_TRAILING = 6;
 
@@ -25,6 +27,10 @@ const HASH_TRAILING = 6;
  */
 export function WalletStateUpdateBanner() {
   const i18n = useTranslations("ComponentsUserWorkspaceWalletStateUpdateBanner");
+  const format = useFormatter();
+  const now = useNow({ updateInterval: MILLISECONDS_PER_MINUTE });
+  const pendingState = useAtomValue(selectedWalletStateCheckAtom);
+  const retryStateCheck = useSetAtom(walletStateRetryAtom);
   const pending = useAtomValue(pendingWalletStateUpdateAtom);
   const actionWaits = useAtomValue(selectedActionWaitsForWalletStateAtom);
   const onActionPage = useAtomValue(wizardSelectedActionAtom) !== null;
@@ -53,6 +59,12 @@ export function WalletStateUpdateBanner() {
               </span>
               <ExternalLink className="h-3 w-3 shrink-0" aria-hidden="true" />
             </a>
+            {pendingState?.check?.phase === "unavailable" ? <p role="alert" className="text-xs">{i18n("walletStateCheckUnavailable")}</p> : null}
+            {pending?.submittedAt ? <p className="text-xs">{i18n("walletStateSubmittedAt", { time: format.dateTime(pending.submittedAt, "shortWithZone") })}</p> : null}
+            {pending?.submittedAt ? <p className="text-xs">{i18n("walletStateElapsed", { minutes: Math.max(0, Math.floor((now.getTime() - pending.submittedAt) / MILLISECONDS_PER_MINUTE)) })}</p> : null}
+            {pendingState?.check?.lastSuccessfulAt ? <p className="text-xs">{i18n("walletStateLastSuccessfulCheck", { time: format.dateTime(pendingState.check.lastSuccessfulAt, "shortWithZone") })}</p> : null}
+            {pendingState?.check ? <p className="text-xs">{i18n("walletStateLastCheck", { time: format.dateTime(pendingState.check.checkedAt, "shortWithZone") })}</p> : null}
+            <Button size="sm" variant="outline" onClick={() => retryStateCheck(value => value + 1)}>{i18n("retryWalletStateCheck")}</Button>
           </div>
         </div>
       ) : null}

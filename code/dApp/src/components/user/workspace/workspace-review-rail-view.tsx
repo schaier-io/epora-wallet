@@ -4,12 +4,13 @@ import { REVIEW_DONE_DOUBLE_PRESS_GUARD_MS } from "./constants";
 
 import { useTranslations } from "next-intl";
 
-import { activeBuildAtom, activeSubmitAtom, buildDiagnosticIdAtom, buildErrorAtom, buildErrorExpectedAtom, buildErrorStaleInputsAtom, previewAtom, submitConfirmedAtom, submitConfirmationUnseenAtom, submitHashAtom, workspaceSessionAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
+import { activeBuildAtom, activeSubmitAtom, submitPhaseAtom, buildDiagnosticIdAtom, buildErrorAtom, buildErrorExpectedAtom, buildErrorStaleInputsAtom, previewAtom, submitConfirmedAtom, submitConfirmationUnseenAtom, submitHashAtom, workspaceSessionAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { activeSttStateFormAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { activeInferredSttStateFormAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import { selectedWizardActionDescriptorAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { selectedActionAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
 import { selectedSigningActionAvailabilityAtom } from "@/components/user/workspace/atoms/workspace-stt-options.atoms";
+import { selectedDraftConflictAtom } from "./atoms/workspace-draft-revision.atoms";
 import { selectedActionWaitsForWalletStateAtom } from "@/components/user/workspace/atoms/wallet-state-update.atoms";
 import { useAtomValue } from "jotai";
 import { useRef, useState } from "react";
@@ -48,6 +49,7 @@ export function WorkspaceReviewRailView({
   const state = useWorkspaceActions();
   const activeBuild = useAtomValue(activeBuildAtom);
   const activeSubmit = useAtomValue(activeSubmitAtom);
+  const submitPhase = useAtomValue(submitPhaseAtom);
   const session = useAtomValue(workspaceSessionAtom);
   const buildError = useAtomValue(buildErrorAtom);
   const buildErrorExpected = useAtomValue(buildErrorExpectedAtom);
@@ -62,8 +64,15 @@ export function WorkspaceReviewRailView({
   const sttStateForm = useAtomValue(activeSttStateFormAtom);
   const submitConfirmed = useAtomValue(submitConfirmedAtom);
   const submitConfirmationUnseen = useAtomValue(submitConfirmationUnseenAtom);
-  // Only an action that spends the STT waits; adding funds stays open during the update.
+  // STT-spending actions wait for State; deposits stay available.
   const walletStateUpdating = useAtomValue(selectedActionWaitsForWalletStateAtom);
+  const draftConflicts = useAtomValue(selectedDraftConflictAtom);
+  const conflictTasks = [...new Set(draftConflicts.map(field =>
+    field === "users" ? i18n("draftConflictPeople")
+      : field.startsWith("multiSig") ? i18n("draftConflictApprovals")
+      : field === "beneficiaries" || field.startsWith("proofOfLife") ? i18n("draftConflictRecovery")
+      : field === "streamingPayments" ? i18n("draftConflictSchedules")
+      : field === "walletName" ? i18n("draftConflictWalletName") : i18n("draftConflictWalletRules")))];
   const {
     actionDrafts,
     activeActionDefinition,
@@ -260,15 +269,18 @@ export function WorkspaceReviewRailView({
                     submitConfirmed={submitConfirmed}
                     submitConfirmationUnseen={submitConfirmationUnseen}
                     lastActionLabel={lastActionDisplayLabel}
-                    isBuilding={approvalOnly ? preparingProposal : directActionPending && !activeSubmit}
+                    isBuilding={!activeSubmit && (activeBuild !== null || preparingProposal || directActionPending)}
                     autoSignPending={!approvalOnly && directActionPending}
                     isSubmitting={activeSubmit}
                     primaryActionLabel={
-                      // The "Done" acknowledgement outranks the wait label: the
-                      // button is live during the wait, so it must not read as one.
-                      walletStateUpdating && !reviewSubmitAwaitingAcknowledgement ? i18n("updatingWalletState")
+                      // Acknowledging a receipt stays available while State updates.
+                      reviewSubmitAwaitingAcknowledgement ? reviewPrimaryActionLabel
+                        : activeSubmit ? submitPhase === "signing" ? i18n("waitingForWalletSignature")
+                          : submitPhase === "submitting" ? i18n("sendingTransaction")
+                          : i18n("checkingTransaction")
+                        : walletStateUpdating ? i18n("updatingWalletState")
+                        : activeBuild !== null || preparingProposal || directActionPending ? i18n("preparingTransaction")
                         : approvalOnly ? approvalActionLabel
-                        : directActionPending && !activeSubmit ? proposalI18n("preparing")
                         : reviewPrimaryActionLabel
                     }
                     primaryActionKind={approvalOnly ? "approval" : "direct"}
@@ -317,6 +329,11 @@ export function WorkspaceReviewRailView({
                       signingActions.canSaveApprovalRequest ? approvalActionNote : null
                     }
                   />
+                {draftConflicts.length > 0 ? (
+                  <div role="alert" className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
+                    {i18n("draftRulesChanged", { fields: conflictTasks.join(", ") })}
+                  </div>
+                ) : null}
                 <RecoveryFallbackView />
                 {buildError && buildErrorStaleInputs ? (
                   <div

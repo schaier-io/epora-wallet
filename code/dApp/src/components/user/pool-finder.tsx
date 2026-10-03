@@ -164,6 +164,9 @@ export function PoolFinder({
                 )}
               >
                 {pct(shown.saturation, notReported)}
+                {(shown.saturation ?? 0) >= 1 ? (
+                  <span className="block">{i18n("overCapacity")}</span>
+                ) : null}
               </dd>
             </div>
             <div>

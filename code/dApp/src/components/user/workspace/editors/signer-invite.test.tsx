@@ -134,3 +134,14 @@ describe("SignerInvite", () => {
     expect(screen.queryByRole("link", { name: /text/i })).not.toBeInTheDocument();
   });
 });
+
+
+it("announces a failed share and leaves Copy link available", async () => {
+  Object.defineProperty(navigator, "share", {configurable: true, value: vi.fn().mockRejectedValue(new Error("Share unavailable"))});
+  try {
+    renderInvite({registered: []});
+    fireEvent.click(screen.getByRole("button", {name: "Share"}));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Sharing failed. Copy the link instead.");
+    expect(screen.getByRole("button", {name: /copy link/i})).toBeEnabled();
+  } finally { Object.defineProperty(navigator, "share", {configurable: true, value: undefined}); }
+});

@@ -10,7 +10,7 @@ Epora serves ordinary Cardano users who need shared control, daily spending limi
 
 ## Product Purpose
 
-Epora makes an on-chain permission wallet understandable and operable without requiring users to reason directly about validator internals. Success means a user can create or open a wallet, identify their role, choose the right action, preview the exact outcome, and sign with confidence. The current product is an experimental Cardano Preprod reference interface. It must never imply mainnet readiness, an audit, or custody of user keys.
+Epora makes an on-chain permission wallet understandable and operable without requiring users to reason directly about validator internals. Success means a user can create or open a wallet, identify their role, choose the right action, preview the exact outcome, and sign with confidence. VERIFIED (`code/dApp/src/lib/network-deployments.ts`, `SWITCHABLE_NETWORKS = ["preprod", "mainnet"]`): the current product is an experimental Cardano reference interface with Preprod and Mainnet network support. It must never imply mainnet readiness, an audit, or custody of user keys.
 
 ## Brand Personality
 

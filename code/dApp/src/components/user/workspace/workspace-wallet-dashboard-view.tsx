@@ -3,7 +3,7 @@ import { useTranslations } from "next-intl";
 
 import { wealthSeriesForAssetAtom } from "@/components/user/workspace/atoms/workspace-transfer-derivations.atoms";
 import { displayedWalletActivityEventsAtom, recentWalletActivityEventsAtom, walletTransactionsAtom } from "@/components/user/workspace/atoms/workspace-activity.atoms";
-import { selectedDetectedTokenAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
+import { selectableWizardActionKindsAtom, selectedTokenCapabilityMapAtom, selectedDetectedTokenAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { activeAddressAtom, activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
 import { activeInferredSttStateFormAtom, lockingContractAtom, totalLockedContractAssetsAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import { lockedContractUtxosAtom, lockedContractUtxosErrorAtom, lockedContractUtxosLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
@@ -51,7 +51,7 @@ import { buildCardanoscanTransactionUrl, approximateBlockTimeMsFromSlot, formatW
 
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 import { useAtomValue } from "jotai";
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useId, useState } from "react";
 import { copyFeedbackAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
 import { WalletAccessOverview } from "@/components/user/workspace/wallet-access-overview";
 import { AgentSpendingConsole } from "@/components/user/workspace/agent-spending-console";
@@ -163,6 +163,7 @@ export function compactActivityTimestamp(
 export function WorkspaceWalletDashboardView() {
   const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceWalletDashboardView");
   const state = useWorkspaceActions();
+  const managementReasonId = useId();
   // Same label the copy handler stores, for the same reason as
   // `config-lockfunds-view.tsx`: compare against what was written, not a literal.
   const addressCopiedLabel = i18n("walletAddressCopied");
@@ -175,6 +176,11 @@ export function WorkspaceWalletDashboardView() {
   const activeInferredSttStateForm = useAtomValue(activeInferredSttStateFormAtom);
   const lockingContract = useAtomValue(lockingContractAtom);
   const selectedDetectedToken = useAtomValue(selectedDetectedTokenAtom);
+  const selectableActions = useAtomValue(selectableWizardActionKindsAtom);
+  const capabilities = useAtomValue(selectedTokenCapabilityMapAtom);
+  const canManage = selectableActions.has("update-state");
+  const canManageSchedules = selectableActions.has("manage-streaming-payments");
+  const canRenew = Boolean(capabilities?.hasDirectAdminSigner || capabilities?.hasDirectProofOfLifeRenewalMatch);
   const totalLockedContractAssets = useAtomValue(totalLockedContractAssetsAtom);
   const lockedContractUtxos = useAtomValue(lockedContractUtxosAtom);
   const lockedContractUtxosLoading = useAtomValue(lockedContractUtxosLoadingAtom);
@@ -281,6 +287,7 @@ export function WorkspaceWalletDashboardView() {
                           return {
                             id: activity.id,
                             title: activity.title,
+                            actionLabel: i18n("openTransactionInExplorer"),
                             label: activity.label,
                             badgeClassName: activity.badgeClassName,
                             amountSummary: activity.amountSummary,
@@ -305,7 +312,10 @@ export function WorkspaceWalletDashboardView() {
                         refreshing={walletTransactions.refreshing}
                         error={walletTransactions.error}
                         onSeeAll={() => openGuidedOverview("transactions")}
-                        onEventClick={() => openGuidedOverview("transactions")}
+                        onEventClick={(event) => {
+                          const activity = displayedWalletActivityEvents.find((entry) => entry.id === event.id);
+                          if (activity) window.open(buildCardanoscanTransactionUrl(activity.transaction.hash), "_blank", "noopener,noreferrer");
+                        }}
                       />
 
                       <WalletAccessOverview
@@ -342,10 +352,12 @@ export function WorkspaceWalletDashboardView() {
                           emptyLabel: string;
                           cta: string;
                           urgent?: boolean;
+                          canAct: boolean;
                           onClick: () => void;
                         }> = [
                           {
                             id: "owners",
+                            canAct: canManage,
                             icon: ShieldUser,
                             value: ownerCount === 0 ? null : String(ownerCount),
                             label: ownerCount === 1 ? i18n("owner") : i18n("owners"),
@@ -357,6 +369,7 @@ export function WorkspaceWalletDashboardView() {
                           },
                           {
                             id: "backups",
+                            canAct: canManage,
                             icon: HandHeart,
                             value: backupCount === 0 ? null : String(backupCount),
                             label: backupCount === 1 ? i18n("recoveryContact") : i18n("recoveryContacts"),
@@ -368,6 +381,7 @@ export function WorkspaceWalletDashboardView() {
                           },
                           {
                             id: "schedules",
+                            canAct: canManageSchedules,
                             icon: Repeat,
                             value: scheduleCount === 0 ? null : String(scheduleCount),
                             label:
@@ -389,18 +403,19 @@ export function WorkspaceWalletDashboardView() {
                           },
                           {
                             id: "proof-of-life",
+                            canAct: timer.urgent ? canRenew : canManage,
                             icon: AlarmClock,
                             value: timer.value,
                             label: timer.label,
                             emptyValue: i18n("off"),
                             emptyLabel: timer.emptyLabel,
-                            cta: timer.cta,
+                            cta: timer.urgent && canRenew ? i18n("checkInNow") : timer.cta,
                             urgent: timer.urgent,
                             onClick: () =>
                               openWorkspaceIntent(
-                                "wallet-settings",
-                                "update-state",
-                                "settings-proof-of-life"
+                                timer.urgent && canRenew ? "manual-tools" : "wallet-settings",
+                                timer.urgent && canRenew ? "renew-proof-of-life" : "update-state",
+                                timer.urgent && canRenew ? null : "settings-proof-of-life"
                               )
                           }
                         ];
@@ -453,6 +468,8 @@ export function WorkspaceWalletDashboardView() {
                                         <button
                                           type="button"
                                           onClick={row.onClick}
+                                          disabled={!row.canAct}
+                                          aria-describedby={!row.canAct ? `${managementReasonId}-${row.id}` : undefined}
                                           className="mt-2 inline-flex items-center gap-1 rounded-full border border-dashed border-border/60 px-2 py-0.5 text-xs font-medium text-foreground/90 transition-[color,background-color,border-color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-primary/40 hover:bg-primary/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
                                         >
                                           <Plus className="h-3 w-3" aria-hidden="true" />
@@ -486,6 +503,8 @@ export function WorkspaceWalletDashboardView() {
                                         <button
                                           type="button"
                                           onClick={row.onClick}
+                                          disabled={!row.canAct}
+                                          aria-describedby={!row.canAct ? `${managementReasonId}-${row.id}` : undefined}
                                           className="mt-2 inline-flex items-center gap-1 rounded-sm text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
                                         >
                                           {row.cta}
@@ -493,6 +512,7 @@ export function WorkspaceWalletDashboardView() {
                                         </button>
                                       </>
                                     )}
+                                    {!row.canAct ? <p id={`${managementReasonId}-${row.id}`} className="mt-1 text-xs text-muted-foreground">{i18n("managementNotGranted")}</p> : null}
                                   </div>
                                 </div>
                               );

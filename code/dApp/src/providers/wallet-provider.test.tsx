@@ -431,6 +431,7 @@ it("keeps the identity when a focus read fails for another reason", async () => 
 
   expect(mocks.enable).toHaveBeenCalledTimes(1);
   expect(screen.getByTestId("address").textContent).toBe("addr_test1old");
+  expect(latest.current!.connectError).not.toBeNull();
 });
 
 it("does not rescan installed wallets when only the active wallet changes", async () => {
@@ -726,4 +727,92 @@ it("settles a saved demo session when a real extension is installed instead", as
   });
   expect(screen.getByTestId("wallet").textContent).toBe("lace");
   expect(screen.getByTestId("session-loading").textContent).toBe("false");
+});
+
+
+it("reports a stalled focus identity read and ignores its late result", async () => {
+  vi.useFakeTimers();
+  try {
+    inject({ lace: {} });
+    const wallet = { ...fakeWallet("addr_test1old"), getUsedAddresses: vi.fn().mockResolvedValueOnce(["addr_test1old"]) };
+    mocks.enable.mockResolvedValue(wallet);
+    renderProvider();
+    await act(async () => { await latest.current!.connectWallet("lace"); });
+    let finish!: (value: string[]) => void;
+    wallet.getUsedAddresses.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    await act(async () => { window.dispatchEvent(new Event("focus")); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(90_000); });
+    expect(latest.current!.connectError).toContain("did not respond");
+    expect(latest.current!.activeAddress).toBe("addr_test1old");
+    await act(async () => { finish(["addr_test1late"]); });
+    expect(latest.current!.activeAddress).toBe("addr_test1old");
+  } finally { vi.useRealTimers(); }
+});
+
+it.each(["success", "failure followed by recovery"])("preserves a failed replacement connection error through overlapping focus %s", async (focusResult) => {
+  inject({ lace: {}, eternl: {} });
+  let rejectReplacement!: (error: Error) => void;
+  mocks.enable.mockResolvedValueOnce(fakeWallet()).mockReturnValueOnce(new Promise((_resolve, reject) => { rejectReplacement = reject; }));
+  renderProvider();
+  await act(async () => { await latest.current!.connectWallet("lace"); });
+  let finishFocus!: (hash: string) => void;
+  let failFocus!: (error: Error) => void;
+  mocks.resolveWalletPaymentKeyHash.mockReturnValueOnce(new Promise((resolve, reject) => { finishFocus = resolve; failFocus = reject; }));
+  let replacement!: Promise<boolean>;
+  act(() => { replacement = latest.current!.connectWallet("eternl"); });
+  act(() => window.dispatchEvent(new Event("focus")));
+  await waitFor(() => expect(finishFocus).toBeTypeOf("function"));
+  await act(async () => {
+    const failed = expect(replacement).rejects.toThrow("replacement rejected");
+    rejectReplacement(new Error("replacement rejected"));
+    await failed;
+  });
+  const error = screen.getByTestId("error").textContent;
+  expect(error).not.toBe("");
+  await act(async () => {
+    if (focusResult === "success") finishFocus("aa".repeat(28));
+    else failFocus(new Error("focus identity read failed"));
+  });
+  expect(screen.getByTestId("error").textContent).toBe(error);
+  if (focusResult !== "success") {
+    await act(async () => window.dispatchEvent(new Event("focus")));
+    await waitFor(() => expect(mocks.resolveWalletPaymentKeyHash).toHaveBeenCalledTimes(2));
+  }
+  expect(screen.getByTestId("wallet").textContent).toBe("lace");
+  expect(screen.getByTestId("error").textContent).toBe(error);
+});
+
+it("clears its own focus read error after a successful focus sync", async () => {
+  inject({ lace: {} });
+  const wallet = fakeWallet();
+  mocks.enable.mockResolvedValue(wallet);
+  renderProvider();
+  await act(async () => { await latest.current!.connectWallet("lace"); });
+  const read = vi.spyOn(wallet, "getUsedAddresses").mockRejectedValueOnce(new Error("focus read failed"));
+  await act(async () => window.dispatchEvent(new Event("focus")));
+  await waitFor(() => expect(screen.getByTestId("error").textContent).not.toBe(""));
+  read.mockResolvedValue(["addr_test1used"]);
+  await act(async () => window.dispatchEvent(new Event("focus")));
+  await waitFor(() => expect(screen.getByTestId("error").textContent).toBe(""));
+});
+
+it("clears an old focus error when the pending replacement connection succeeds", async () => {
+  inject({ lace: {}, eternl: {} });
+  const oldWallet = fakeWallet();
+  let approveReplacement!: (wallet: ReturnType<typeof fakeWallet>) => void;
+  mocks.enable.mockResolvedValueOnce(oldWallet).mockReturnValueOnce(new Promise(resolve => { approveReplacement = resolve; }));
+  renderProvider();
+  await act(async () => { await latest.current!.connectWallet("lace"); });
+  let replacement!: Promise<boolean>;
+  act(() => { replacement = latest.current!.connectWallet("eternl"); });
+  vi.spyOn(oldWallet, "getUsedAddresses").mockRejectedValueOnce(new Error("old focus read failed"));
+  await act(async () => window.dispatchEvent(new Event("focus")));
+  await waitFor(() => expect(screen.getByTestId("error").textContent).not.toBe(""));
+  await act(async () => {
+    approveReplacement(fakeWallet("addr_test1new"));
+    await expect(replacement).resolves.toBe(true);
+  });
+  expect(screen.getByTestId("wallet").textContent).toBe("eternl");
+  expect(screen.getByTestId("address").textContent).toBe("addr_test1new");
+  expect(screen.getByTestId("error").textContent).toBe("");
 });

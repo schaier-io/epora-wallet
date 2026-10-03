@@ -21,7 +21,9 @@ export const lockedUtxosQueryAtom = atomWithQuery((get) => ({
 export const lockedContractUtxosAtom = atom((get) => get(lockedUtxosEnabledAtom)
   ? get(lockedUtxosQueryAtom).data ?? EMPTY_UTXOS : EMPTY_UTXOS);
 export const lockedContractUtxosLoadingAtom = atom((get) => get(lockedUtxosEnabledAtom) &&
-  (get(lockedUtxosQueryAtom).isPending || get(lockedUtxosQueryAtom).isFetching ||
-    get(lockedUtxosRefreshAtom)?.address === get(lockingContractAtom).address));
+  get(lockedUtxosQueryAtom).isPending);
 export const lockedContractUtxosErrorAtom = atom((get) => get(lockedUtxosEnabledAtom) && get(lockedUtxosQueryAtom).error
   ? i18n("couldNotLoadThisWalletSFunds") : null);
+
+export const lockedContractUtxosRefreshingAtom = atom((get) => get(lockedUtxosEnabledAtom) &&
+  (get(lockedUtxosQueryAtom).isFetching || get(lockedUtxosRefreshAtom)?.address === get(lockingContractAtom).address));

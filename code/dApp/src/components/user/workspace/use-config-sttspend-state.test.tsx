@@ -3,7 +3,12 @@ import { createStore, Provider } from "jotai";
 import { describe, expect, it, vi } from "vitest";
 
 import { activeSubmitAtom, submitHashAtom } from "./atoms/transaction-flow.atoms";
-import { transferDisplayAmountAtom } from "./atoms/forms/transfer-form.atoms";
+import { transferCustomAddressAtom, transferDisplayAmountAtom, transferRecipientModeAtom } from "./atoms/forms/transfer-form.atoms";
+import { stagedSttTransfersAtom, sttExtraTransfersAtom } from "./atoms/forms/stt-spend-form.atoms";
+import { routeStateAtom } from "./atoms/workspace-route.atoms";
+import { maximumAllowanceTransfer } from "@/lib/contracts/use-allowance";
+import { createDefaultStateForm, createDefaultUserFormState, stateFormToDatum } from "@/lib/contracts/state-form";
+import { serializeTransfers } from "./helpers/serialize";
 import { WorkspaceActionsProvider } from "./workspace-actions-context";
 import { useConfigSttSpendState } from "./use-config-sttspend-state";
 
@@ -126,4 +131,30 @@ describe("useConfigSttSpendState submit receipt retirement", () => {
     });
     expect(dismissSubmitState).not.toHaveBeenCalled();
   });
+});
+
+
+it("keeps allowance Max available for an empty live amount and reserves only staged payouts", () => {
+  const store = createStore();
+  store.set(routeStateAtom, { ...store.get(routeStateAtom), selectedAction: "use-allowance" });
+  store.set(transferRecipientModeAtom, "custom");
+  store.set(transferCustomAddressAtom, "addr_test1_live");
+  store.set(transferDisplayAmountAtom, "");
+  store.set(stagedSttTransfersAtom, [{ address: "addr_test1_staged", amount: [{ unit: "lovelace", quantity: "1000000" }], inlineDatum: { mode: "none", customAlternative: "" } }]);
+  const get = renderState(BASE_CONTEXT, store);
+  // Transaction validation must retain the incomplete row. The Max input must exclude it.
+  expect(store.get(sttExtraTransfersAtom)).toHaveLength(2);
+  expect(store.get(sttExtraTransfersAtom)[1].amount[0].quantity).toBe("");
+  const form = createDefaultStateForm();
+  const signer = "ab".repeat(28);
+  const user = createDefaultUserFormState("0");
+  user.wallets = [signer];
+  user.perDayAllowance = [{ policyId: "", assetName: "", amount: "5" }];
+  user.remainingAllowance = [{ policyId: "", assetName: "", amount: "3" }];
+  user.nextAllowanceReset = "200000000";
+  form.users = [user];
+  const maximum = () => maximumAllowanceTransfer({ stateDatum: stateFormToDatum(form), allowanceSignerKeyHash: signer, unit: "lovelace", balance: "9000000", stagedTransfers: serializeTransfers(get().sttExtraTransfers), txEarliestTimeMs: 1000000, txLatestTimeMs: 1100000 });
+  expect(maximum()).toBe("2000000");
+  act(() => { get().setTransferDisplayAmount("1"); });
+  expect(maximum()).toBe("2000000");
 });

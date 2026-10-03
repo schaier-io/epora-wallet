@@ -69,6 +69,17 @@ function renderList(
 }
 
 describe("the approval queue row", () => {
+  it("does not assert an empty queue when loading failed", () => {
+    renderList(undefined, { proposals: [], error: "Request failed" });
+    expect(screen.getByText("Request failed")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Open wallet" })).toBeNull();
+  });
+
+  it("shows the decoded expiry in an open queue row", () => {
+    renderList(undefined, { reportById: { "proposal-1": { validity: "valid", signers: SIGNERS, validUntilMs: Date.parse("2026-10-03T12:00:00Z") } } });
+    expect(screen.getByText(/^Expires:/)).toBeInTheDocument();
+  });
+
   it("links an empty queue to the wallet, keeping the pinned wallet", () => {
     renderList(undefined, { proposals: [] });
     // Dropping `?wallet=` here let the wallet page auto-pick its default and

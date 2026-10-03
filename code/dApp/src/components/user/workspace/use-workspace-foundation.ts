@@ -1,4 +1,5 @@
 "use client";
+import { ensureWorkspaceDraftOwnerAtom, workspaceDraftIdentityAtom } from "./atoms/workspace-draft-revision.atoms";
 import { cardanoNetworkId } from "@/lib/cardano-network";
 import { lockedContractUtxosAtom, lockedContractUtxosLoadingAtom, resetWorkspaceDataAtom, sharedSttReferenceStoreAtom, sharedSttReferenceStoreLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { resetWorkspaceActivityAtom } from "@/components/user/workspace/atoms/workspace-activity.atoms";
@@ -147,14 +148,17 @@ export function useWorkspaceFoundation() {
   const resetConfig = useSetAtom(resetConfigAtom);
   const resetWorkspaceData = useSetAtom(resetWorkspaceDataAtom);
   const resetWorkspaceActivity = useSetAtom(resetWorkspaceActivityAtom);
-  // Flow + UI + form atoms are module-global; reset them on unmount so each fresh mount
-  // starts clean (mirrors component-local useState's per-mount reset).
+  const draftIdentity = useAtomValue(workspaceDraftIdentityAtom);
+  const ensureDraftOwner = useSetAtom(ensureWorkspaceDraftOwnerAtom);
+  useEffect(() => { ensureDraftOwner(); }, [draftIdentity, ensureDraftOwner]);
+  // Unsigned drafts survive route changes within the same account.
+  // Prepared transactions and signatures never survive the workspace unmount.
   useEffect(() => {
     return () => {
       resetWorkspaceFlow();
       resetWorkspaceUi();
-      resetAllForms();
-      resetConfig();
+      // Keep unsigned drafts for this account across sibling routes.
+      // Wallet seeding owns account and selected-wallet isolation.
     };
   }, [resetWorkspaceFlow, resetWorkspaceUi, resetAllForms, resetConfig]);
 
@@ -174,8 +178,9 @@ export function useWorkspaceFoundation() {
 
     resetWorkspaceData();
     resetWorkspaceActivity();
+    resetAllForms();
     resetConfig();
-  }, [chainReadsEnabled, resetWorkspaceData, resetWorkspaceActivity, resetConfig]);
+  }, [chainReadsEnabled, resetWorkspaceData, resetWorkspaceActivity, resetConfig, resetAllForms]);
 
   // The one build-error writer the whole workspace shares. The write atom pairs the
   // message with the stale-inputs recovery flag (default false), so a plain error can

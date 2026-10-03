@@ -18,7 +18,8 @@
     "message_1PersonStillToSign": "1 person still to sign.",
     "outstandingPeopleStillToSign": "{outstanding} people still to sign.",
     "openWallet": "Open wallet",
-    "lookingForApprovalRequests": "Looking for approval requests…"
+    "lookingForApprovalRequests": "Looking for approval requests…",
+    "expiresAt": "Expires: {date}."
   },
   "ComponentsUserProposalsProposalsWorkspace": {
     "approvalRequests": "Co-signing",
@@ -148,6 +149,9 @@
     "yourWalletWillOpenAutomaticallyToSign": "Your wallet will open automatically to sign."
   },
   "ComponentsUserReviewPanelSections": {
+    "copyTarget": "Copy {target}",
+    "assetIdentities": "Inspect token identities",
+    "unverifiedIssuer": "Issuer not verified",
     "firstStep": "First step",
     "whatChanges": "What changes",
     "whatThisDoes": "What this does",
@@ -197,6 +201,10 @@
     "signerWallet": "Signer wallet"
   },
   "ComponentsUserWealthChart": {
+    "dataPointValue": "{value} {unit}",
+    "showData": "Inspect chart data",
+    "dateUtc": "Date (UTC)",
+    "noPoint": "No recorded point",
     "notEnoughActivityInThisRangeToDraw": "Not enough activity in this range to draw a chart yet.",
     "over": "over",
     "titleValue2UnitlabelValue4": "{title} {value2} {unitLabel}{value4}",
@@ -382,7 +390,11 @@
     "loading": "Reading fund pools.",
     "stopStreams": "Stop scheduled payments",
     "settle": "Settle scheduled payments",
-    "prepare": "Prepare fund pools"
+    "prepare": "Prepare fund pools",
+    "nextStepReady": "Next: review the recipient shares below, then build and sign the distribution transaction.",
+    "nextStepSelect": "Next: select the recovery pool. If no pool exists, prepare one first.",
+    "streamOptions": "If the pool check reports unpaid scheduled payments, settle them first. Stop future payments only when required by your recovery plan.",
+    "nextStepResolve": "Next: resolve the warning below before building the distribution transaction."
   },
   "ComponentsUserWorkspaceBeneficiaryPreparationModel": {
     "connect": "Connect a recovery contact wallet.",
@@ -413,7 +425,11 @@
     "refresh": "Refresh funds and costs",
     "loading": "Reading current transaction costs.",
     "distribute": "Distribute a prepared pool",
-    "finish": "Continue to withdrawal"
+    "finish": "Continue to withdrawal",
+    "nextStepFund": "Next: add the missing ADA, then refresh funds.",
+    "nextStepAllocate": "Next: correct the pool allocation, then review the preparation transaction.",
+    "nextStepReview": "Next: build and review the preparation transaction below. After confirmation, continue to distribute the pool or claim your share.",
+    "nextStepSelect": "Next: select funds and set the assets for the recovery pool."
   },
   "ComponentsUserWorkspaceBeneficiaryStreamStopModel": {
     "connect": "Connect an unlocked recovery contact wallet.",

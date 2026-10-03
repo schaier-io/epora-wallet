@@ -509,3 +509,30 @@ export function nextProofOfLifeUnlockTimeForUser(
 
   return toDataInteger(renewedUnlockTime);
 }
+
+/** Maximum for one live row, using the same reset window and record selection as the builder. */
+export function maximumAllowanceTransfer(input: {
+  stateDatum: ConstrData;
+  allowanceSignerKeyHash: string;
+  unit: string;
+  balance: string;
+  stagedTransfers: PayoutTransfer[];
+  txEarliestTimeMs: number;
+  txLatestTimeMs: number;
+}): string | null {
+  const spent = sumAssetListsByUnit(input.stagedTransfers.map(transfer => transfer.amount));
+  const matches = findMatchedUsers(input.stateDatum, input.allowanceSignerKeyHash,
+    input.txEarliestTimeMs, input.txLatestTimeMs).filter(match =>
+    allowanceCanCoverSpent(match.effectiveRemainingAllowance, spent));
+  const allocated = BigInt(spent.find(asset => asset.unit === input.unit)?.quantity ?? "0");
+  const candidates = matches.map(match => {
+    const available = formatAllowanceAssets(match.effectiveRemainingAllowance)
+      .find(asset => asset.unit === input.unit);
+    const remaining = BigInt(available?.quantity ?? "0") - allocated;
+    return remaining > BigInt(input.balance) ? BigInt(input.balance) : remaining;
+  });
+  const maximum = candidates.reduce((largest, candidate) => candidate > largest ? candidate : largest, 0n);
+  // A shared key with multiple viable records is rejected by selectMatchedUser.
+  if (maximum <= 0n || candidates.filter(candidate => candidate >= maximum).length !== 1) return null;
+  return maximum.toString();
+}

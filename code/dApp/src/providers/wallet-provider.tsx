@@ -181,6 +181,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
   const [walletSessionLoading, setWalletSessionLoading] = useState(true);
   const [networkId, setNetworkId] = useAtom(networkIdAtom);
   const [connectError, setConnectError] = useState<string | null>(null);
+  const connectErrorSourceRef = useRef<"connect" | "focus" | null>(null);
   const [walletsLoaded, setWalletsLoaded] = useState(false);
   const hasAttemptedAutoReconnect = useRef(false);
   const isMountedRef = useRef(true);
@@ -207,7 +208,10 @@ export function WalletProvider({ children }: PropsWithChildren) {
     }
   }, [activeAddress, rememberWalletAddress]);
 
-  const clearConnectError = useCallback(() => setConnectError(null), []);
+  const clearConnectError = useCallback(() => {
+    connectErrorSourceRef.current = null;
+    setConnectError(null);
+  }, []);
 
   // Read through refs so the focus listener below can stay mounted once instead of
   // resubscribing on every identity change.
@@ -234,7 +238,10 @@ export function WalletProvider({ children }: PropsWithChildren) {
     const generation = (accountSyncGenerationRef.current += 1);
 
     try {
-      const { address, rewardAddress, networkId: id } = await readWalletIdentity(wallet);
+      const { address, rewardAddress, networkId: id } = await withTimeout(
+        readWalletIdentity(wallet), WALLET_RESPONSE_TIMEOUT_MS,
+        i18n("walletDidNotRespond", { walletName: activeWalletNameRef.current ?? "" })
+      );
       // `activeWalletRef.current !== wallet`: a connect or disconnect landed while this read
       // was in flight, and that result is the newer one.
       if (
@@ -261,7 +268,16 @@ export function WalletProvider({ children }: PropsWithChildren) {
       setActiveRewardAddress(rewardAddress);
       setActivePaymentKeyHash(paymentKeyHash);
       setNetworkId(id);
+      if (connectErrorSourceRef.current === "focus") {
+        connectErrorSourceRef.current = null;
+        setConnectError(null);
+      }
     } catch (error) {
+      if (isMountedRef.current && activeWalletRef.current === wallet && accountSyncGenerationRef.current === generation && connectErrorSourceRef.current !== "connect") {
+        connectErrorSourceRef.current = "focus";
+        setConnectError(error instanceof KnownConnectError ? error.message :
+          getUserFacingErrorMessage(error, i18n("couldNotConnectToWalletnameUnlockTheWallet", { walletName: activeWalletNameRef.current ?? "" })));
+      }
       // Keep the last known identity. A failed read is not evidence that the account changed,
       // except CIP-30 APIError AccountChange (-4): that api object is dead, and the caller
       // must enable the wallet again.
@@ -274,7 +290,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
         return "account-changed" as const;
       }
     }
-  }, [setActiveAddress, setActivePaymentKeyHash, setActiveRewardAddress, setNetworkId]);
+  }, [i18n, setActiveAddress, setActivePaymentKeyHash, setActiveRewardAddress, setNetworkId]);
 
   const refreshWallets = useCallback(async () => {
     const generation = (walletScanGenerationRef.current += 1);
@@ -330,6 +346,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
 
     setIsConnecting(true);
     setConnectingWalletName(walletName);
+    connectErrorSourceRef.current = null;
     setConnectError(null);
 
     try {
@@ -339,6 +356,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
         accountSyncGenerationRef.current += 1;
         activeWalletRef.current = wallet;
         activeWalletNameRef.current = DEMO_WALLET_ID;
+        clearConnectError();
         setActiveWallet(wallet);
         setActiveWalletName(DEMO_WALLET_ID);
         setActiveAddress(DEMO_WALLET_ADDRESS);
@@ -379,6 +397,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
       accountSyncGenerationRef.current += 1;
       activeWalletRef.current = wallet;
       activeWalletNameRef.current = walletName;
+      clearConnectError();
       setActiveWallet(wallet);
       setActiveWalletName(walletName);
       setActiveAddress(address);
@@ -406,6 +425,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
               error,
               i18n("couldNotConnectToWalletnameUnlockTheWallet", { walletName: walletName })
             );
+      connectErrorSourceRef.current = "connect";
       setConnectError(message);
       throw error;
     } finally {
@@ -416,6 +436,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
       }
     }
   }, [
+    clearConnectError,
     i18n,
     refreshWallets,
     setActiveWallet,
@@ -441,6 +462,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
     setActiveRewardAddress(null);
     setActivePaymentKeyHash(null);
     setNetworkId(null);
+    connectErrorSourceRef.current = null;
     setConnectError(null);
     setWalletSessionLoading(false);
     clearLastConnectedWalletName();
@@ -460,6 +482,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
     connectAttemptRef.current += 1;
     setIsConnecting(false);
     setConnectingWalletName(null);
+    connectErrorSourceRef.current = null;
     setConnectError(null);
     setWalletSessionLoading(false);
   }, [setIsConnecting]);

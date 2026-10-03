@@ -1,5 +1,10 @@
 "use client";
 import { cardanoNetworkId } from "@/lib/cardano-network";
+import { useDepositReceiptRecovery } from "./use-deposit-receipt-recovery";
+import { acknowledgeDepositReceipt } from "./deposit-receipt";
+import { activeAddressAtom, networkIdAtom } from "@/providers/wallet.atoms";
+import { routeStateAtom } from "./atoms/workspace-route.atoms";
+import { submitHashAtom } from "./atoms/transaction-flow.atoms";
 import { beneficiaryPreparationActiveAtom } from "./atoms/forms/consolidate-form.atoms";
 import { resolveReviewSubmitState } from "./review-submit-state";
 import { useTranslations } from "next-intl";
@@ -116,6 +121,7 @@ export function usePermissionWalletWorkspaceState() {
     existingWalletNames,
     autoMintStateForm
   } = useWorkspaceFoundation();
+  useDepositReceiptRecovery();
   const {
     effectiveWalletAssetNameHex,
     selectedDetectedToken,
@@ -301,6 +307,7 @@ export function usePermissionWalletWorkspaceState() {
       walletAddress: lockingContract.address,
       refreshLockedContractUtxos,
       refreshPermissionWalletSummaries,
+      refreshDetectedTokens,
       refreshWalletTransactions
     }, includeWalletTransactions);
   }
@@ -399,6 +406,12 @@ export function usePermissionWalletWorkspaceState() {
     activeReadinessIssues.some((issue) => issue.blocking);
 
   const dismissSubmitState = useCallback(() => {
+    const route = jotaiStore.get(routeStateAtom);
+    const address = jotaiStore.get(activeAddressAtom);
+    const network = jotaiStore.get(networkIdAtom);
+    if (route.selectedAction === "lock-funds" && address && network !== null && route.selectedWalletUnit) {
+      acknowledgeDepositReceipt({ address, network, walletUnit: route.selectedWalletUnit }, jotaiStore.get(submitHashAtom));
+    }
     setSubmitHash(null);
     jotaiStore.set(submitConfirmedAtom, false);
     jotaiStore.set(submitConfirmationUnseenAtom, false);

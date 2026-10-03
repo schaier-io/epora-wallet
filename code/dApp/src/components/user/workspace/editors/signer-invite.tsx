@@ -52,6 +52,7 @@ export function SignerInvite({ walletHashes }: { walletHashes: string[] }) {
   const origin = useSyncExternalStore(emptySubscribe, getOrigin, getServerOrigin);
   const canShare = useSyncExternalStore(emptySubscribe, getCanShare, getServerCanShare);
   const [showQr, setShowQr] = useState(false);
+  const [shareFailed, setShareFailed] = useState(false);
   // Empty until BOTH are known. Without the origin there is no absolute link to give
   // anyone, and without the wallet the link names no wallet, which is worse than no
   // link: it lands the recipient on whichever wallet the app auto-picks for them.
@@ -117,8 +118,11 @@ export function SignerInvite({ walletHashes }: { walletHashes: string[] }) {
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  // A rejected share is the user closing the sheet, which needs no report.
-                  void navigator.share({ title: i18n("mailSubject"), url: inviteUrl }).catch(() => {});
+                  // AbortError means cancellation. Report other failures with a copy fallback.
+                  setShareFailed(false);
+                  void navigator.share({ title: i18n("mailSubject"), url: inviteUrl }).catch((error: unknown) => {
+                    if (!(error instanceof Error && error.name === "AbortError")) setShareFailed(true);
+                  });
                 }}
               >
                 <Share2 className="h-3.5 w-3.5" aria-hidden="true" /> {i18n("share")}
@@ -156,6 +160,7 @@ export function SignerInvite({ walletHashes }: { walletHashes: string[] }) {
             </Button>
           </div>
 
+          {shareFailed ? <p role="alert" className="text-xs text-amber-200">{i18n("shareFailed")}</p> : null}
           {showQr ? (
             <div className="flex flex-col items-start gap-2">
               {/* The same local renderer the receive address uses. It encodes whatever

@@ -5,7 +5,7 @@ import { lockedUtxosRefreshAtom } from "../queries/locked-utxos.atoms";
 import type { BuildResult } from "@/lib/types/contracts";
 
 // Remote state is owned by Query. These read-only exports preserve the existing view API.
-export { lockedContractUtxosAtom, lockedContractUtxosLoadingAtom, lockedContractUtxosErrorAtom } from "../queries/locked-utxos.atoms";
+export { lockedContractUtxosAtom, lockedContractUtxosLoadingAtom, lockedContractUtxosErrorAtom, lockedContractUtxosRefreshingAtom } from "../queries/locked-utxos.atoms";
 export { detectedSttTokensAtom, detectedSttTokensLoadingAtom, detectedSttTokensErrorAtom } from "../queries/stt-queries.atoms";
 export { permissionWalletSummariesAtom, permissionWalletSummariesLoadingAtom } from "../queries/summary-queries.atoms";
 export { sharedSttReferenceStoreAtom, sharedSttReferenceStoreLoadingAtom, sharedSttReferenceStoreErrorAtom } from "../queries/shared-reference.atoms";

@@ -132,7 +132,7 @@ export function PayeeView() {
   const { activeWallet, activeAddress, activePaymentKeyHash, isDemoWallet, networkId } =
     useWalletContext();
 
-  const { tokens, loading, fetching, error: inventoryError, refresh: loadTokens } =
+  const { tokens, loading, fetching, hasData, error: inventoryError, refresh: loadTokens } =
     usePayeeInventory(Boolean(activeAddress));
   const loadError = inventoryError ? i18n("unableToLoadScheduledPayments") : null;
   const [stopReview, setStopReview] = useState<(ReturnType<typeof planPayeeStop> & { warnings?: string[] }) | null>(null);
@@ -433,12 +433,17 @@ export function PayeeView() {
                 <span>{i18n("theDemoWalletCannotSignSoConnectYour")}</span>
               </div>
             ) : null}
+            {loadError && hasData ? (
+              <div role="alert" className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-100">
+                {loadError}
+              </div>
+            ) : null}
             {loading ? (
             <div role="status" className="inline-flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               {i18n("lookingForPaymentsScheduledToYou")}
             </div>
-          ) : loadError ? (
+          ) : loadError && !hasData ? (
             // The same panel shape its two sibling states use, in the rose the rest of the
             // app gives a failure. As bare `text-rose-300` the failure was the quietest of
             // the three: the benign "nothing scheduled to you" result got a bordered panel
@@ -450,7 +455,7 @@ export function PayeeView() {
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
               <span>{loadError}</span>
             </div>
-          ) : myPayments.length === 0 ? (
+          ) : myPayments.length === 0 && !loadError ? (
             <div
               role="status"
               className="flex items-start gap-3 rounded-lg border border-border/60 bg-background/40 p-3 text-sm text-muted-foreground"

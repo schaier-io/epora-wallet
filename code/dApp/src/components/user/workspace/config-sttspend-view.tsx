@@ -11,6 +11,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+import { StagedPayoutEditor } from "./staged-payout-editor";
+import { maximumAllowanceTransfer } from "@/lib/contracts/use-allowance";
+import { getValidityWindow } from "@/lib/mesh/transactions";
+import { serializeTransfers, cloneStateForm } from "@/components/user/workspace/helpers";
+import { stateFormToDatum } from "@/lib/contracts/state-form";
 import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 import { PreprodFaucetHint } from "@/components/user/preprod-faucet-hint";
 import { AddressCopyButton } from "@/components/ui/address-copy-button";
@@ -81,6 +86,21 @@ export function SttSpendConfigView() {
     transferRecipientMode,
     transferSelectedUnit
   } = useConfigSttSpendState();
+  let maximumTransfer = selectedTransferAsset?.quantity ?? null;
+  if (selectedAction === "use-allowance" && selectedTransferAsset) {
+    try {
+      const window = getValidityWindow();
+      maximumTransfer = maximumAllowanceTransfer({
+        stateDatum: stateFormToDatum(cloneStateForm(selectedDetectedTokenStateForm ?? sttStateForm)),
+        allowanceSignerKeyHash: activePaymentKeyHash ?? "",
+        unit: selectedTransferAsset.unit,
+        balance: selectedTransferAsset.quantity,
+        stagedTransfers: serializeTransfers(sttExtraTransfers),
+        txEarliestTimeMs: window.earliestTimeMs,
+        txLatestTimeMs: window.latestTimeMs
+      });
+    } catch { maximumTransfer = null; }
+  }
   // One rejection, two controls, and only one error node in the document at a time. Once the
   // custom address field exists the message renders under it, so the dropdown pointed
   // `aria-describedby` at an id that was not there. A dangling reference is dropped in
@@ -427,19 +447,21 @@ export function SttSpendConfigView() {
                         className="absolute right-1 top-1/2 h-8 sm:h-8 -translate-y-1/2 rounded-sm px-2"
                         onClick={() =>
                           setTransferDisplayAmount(
-                            selectedTransferAsset
-                              ? selectedTransferAsset.unit === "lovelace"
-                                ? formatLovelaceAsAda(selectedTransferAsset.quantity)
-                                : selectedTransferAsset.quantity
+                            maximumTransfer
+                              ? transferSelectedUnit === "lovelace"
+                                ? formatLovelaceAsAda(maximumTransfer)
+                                : maximumTransfer
                               : ""
                           )
                         }
-                        disabled={!selectedTransferAsset}
+                        disabled={!maximumTransfer}
+                        title={selectedAction === "use-allowance" ? i18n("maxUsesAllowance") : undefined}
                       >
                         {i18n("max")}
                       </Button>
                     </div>
                     <InlineFieldError id="walletTransferAmount-error" message={amountRejection} />
+                    {selectedAction === "use-allowance" ? <p className="text-xs text-muted-foreground">{i18n("maxUsesAllowance")}</p> : null}
                   </div>
                   <div className="flex items-end">
                     <Button
@@ -504,13 +526,13 @@ export function SttSpendConfigView() {
                           <p className="text-sm font-medium text-foreground" title={transfer.address}>
                             {shortenAddress(transfer.address)}
                           </p>
-                          <AddressCopyButton value={transfer.address} />
+                          <AddressCopyButton value={transfer.address} label={i18n("copyPayoutAddress")} />
                         </div>
                         <p className="wrap-anywhere text-xs tabular-nums text-muted-foreground">
                           {formatAmountSummary(transfer.amount)}
                         </p>
                       </div>
-                      <div className="ml-auto shrink-0">
+                      <div className="ml-auto flex shrink-0 gap-2">
                         <Button
                           type="button"
                           variant="ghost"
@@ -523,6 +545,9 @@ export function SttSpendConfigView() {
                           {i18n("remove")}
                         </Button>
                       </div>
+                        <StagedPayoutEditor value={transfer} availableAssets={availableLockedTransferAssets}
+                          allowMax={selectedAction !== "use-allowance" && !Boolean(transferRecipientMode || transferCustomAddress || transferDisplayAmount)}
+                          onChange={next => setSttExtraTransfers(current => current.map((entry, entryIndex) => entryIndex === index ? next : entry))} />
                     </div>
                   ))}
                 </div>

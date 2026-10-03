@@ -28,10 +28,8 @@ describe("CopyButton", () => {
     fireEvent.click(screen.getByRole("button", { name: /copy link/i }));
 
     expect(
-      await screen.findByRole("button", {
-        name: /nothing was copied\. select the text and copy it with your keyboard\./i
-      })
-    ).toHaveTextContent("Copy blocked");
+      await screen.findByRole("status")
+    ).toHaveTextContent("Nothing was copied");
   });
 
   it("does not claim success when writeText rejects", async () => {
@@ -42,7 +40,7 @@ describe("CopyButton", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /copy link/i }));
 
-    await waitFor(() => expect(screen.getByRole("button")).toHaveTextContent("Copy blocked"));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Copy blocked" })).toHaveTextContent("Copy blocked"));
     expect(screen.queryByText("Link copied")).not.toBeInTheDocument();
   });
 
@@ -59,7 +57,30 @@ describe("CopyButton", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /copy link/i }));
 
-    expect(await screen.findByRole("button", { name: /link copied/i })).toBeInTheDocument();
+    expect(await screen.findByRole("status")).toHaveTextContent("Link copied");
+    expect(screen.getByRole("button", { name: "Link copied" })).toHaveTextContent("Link copied");
     expect(written).toEqual(["wc:pairing-uri"]);
   });
+});
+
+
+it("keeps long copy values out of the visible label and offers manual copy on failure", async () => {
+  setClipboard(undefined);
+  document.execCommand = () => false;
+  const value = "a".repeat(200);
+  render(<CopyButton value={value} />);
+  const button = screen.getByRole("button", {name: /Copy a/});
+  expect(button).toHaveTextContent(/^Copy$/);
+  expect(button.getAttribute("aria-label")!.length).toBeLessThan(40);
+  fireEvent.click(button);
+  await waitFor(() => expect(screen.getByRole("textbox")).toHaveValue(value));
+  fireEvent.focus(screen.getByRole("textbox"));
+  expect((screen.getByRole("textbox") as HTMLTextAreaElement).selectionEnd).toBe(value.length);
+});
+
+it("keeps an icon-only copy button named for its current result", async () => {
+  setClipboard({ writeText: () => Promise.resolve() });
+  render(<CopyButton value="payload" label="Copy payload" copiedLabel="Payload copied" hideLabel aria-label="Copy selected payload" />);
+  fireEvent.click(screen.getByRole("button", { name: "Copy selected payload" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Payload copied" })).toBeInTheDocument());
 });

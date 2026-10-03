@@ -210,3 +210,13 @@ it("keeps inventory and detection running without a selection while another wall
   await act(async () => { result = await test.result.current.refreshDetectedTokens({ knownUnit: a.unit }); });
   expect(result).not.toBeNull();
 });
+
+
+it("keeps the exact selected State after refresh when an older inventory has the same wallet", async () => {
+  const test = setup(a.unit, [a, b]);
+  const latest = { ...a, utxo: { ...a.utxo, input: { txHash: "new-state", outputIndex: 1 } } };
+  chain.detectSttInfo.mockResolvedValueOnce(info([latest]));
+  await act(async () => { await test.result.current.refreshDetectedTokens({ knownUnit: a.unit, keepSelection: true, exactStateRefresh: true }); });
+  await waitFor(() => expect(test.result.current.tokens.find(token => token.unit === a.unit)?.utxo.input).toEqual(latest.utxo.input));
+  expect(test.queryClient.getQueryData<DetectedSttInfo>(queryKeys.sttInventory(a.policyId))?.tokens.find(token => token.unit === a.unit)?.utxo.input).toEqual(latest.utxo.input);
+});

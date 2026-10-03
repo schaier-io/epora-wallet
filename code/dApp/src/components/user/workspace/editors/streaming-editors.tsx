@@ -17,6 +17,7 @@ import { GUIDED_ADMIN_TASKS } from "@/components/user/workspace/guided-admin-cat
 import { buildStreamingPaymentTaskBadges } from "@/components/user/workspace/use-workspace-guided-derivations";
 import {
   countFieldErrorMessages,
+  formatTimestampLabel,
   isAdaScheduledPayment,
   scheduledPaymentRateForPeriod,
   withScheduledPaymentAdded,
@@ -121,7 +122,7 @@ export function StreamingPaymentEditor({
   return (
     <fieldset className="user-surface user-list-item space-y-4 rounded-lg border border-border/60 bg-muted/20 p-3 sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="font-medium text-foreground">{i18n("scheduledPayment")} {index + 1}</p>
+        <p className="font-medium text-foreground">{i18n("scheduledPayment")} #{streamingPayment.id}</p>
         {/*
          * This button was rendered on every row and disabled on every live one, which
          * reads as "removal is blocked" when removal is not an operation here at all:
@@ -483,6 +484,13 @@ export function FocusedStreamingPaymentRulesEditor({
       }}
       issueCount={issueCount}
     >
+      <p className="text-sm text-muted-foreground">{i18n("allScheduleChangesSavedTogether")}</p>
+      <details className="rounded-md border border-border/60 p-3">
+        <summary className="cursor-pointer text-sm">{i18n("reviewAllSchedules", { count: value.streamingPayments.length })}</summary>
+        <ul className="mt-2 space-y-2 text-xs">{value.streamingPayments.map(payment => <li key={payment.id} className="break-all">
+          {i18n("scheduleDraftRow", { id: payment.id, address: payment.payoutAddress || i18n("recipientNotSet"), end: payment.endDate.trim() && Number.isFinite(Number(payment.endDate)) ? formatTimestampLabel(Number(payment.endDate)) : i18n("dateNotSet") })}
+        </li>)}</ul>
+      </details>
       <div className="flex flex-wrap items-center justify-between gap-2">
         {/* Not on an empty Add tab: the empty state below explains the same idea in its own
             words ("Money builds up for somebody over time…"), directly under this line. */}

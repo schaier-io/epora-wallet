@@ -1,4 +1,5 @@
 "use client";
+import { selectedDraftConflictAtom } from "./atoms/workspace-draft-revision.atoms";
 import { cardanoNetworkId } from "@/lib/cardano-network";
 import { runWorkspaceBuild, workspaceBuildIdentityAtom } from "./workspace-build-cache";
 import { isWorkspaceBuildResultExpired, warmBuildResultExpiry } from "./workspace-build-expiry";
@@ -121,6 +122,12 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
 
     if (walletStateBlocksAction(jotaiStore.get, label) || jotaiStore.get(activeSubmitAtom)) {
       setBuildError(i18n("updatingWalletState"));
+      setBuildErrorExpected(true);
+      return null;
+    }
+
+    if (jotaiStore.get(selectedDraftConflictAtom).length > 0) {
+      setBuildError(i18n("draftRulesChanged"));
       setBuildErrorExpected(true);
       return null;
     }

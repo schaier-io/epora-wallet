@@ -1,4 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { createStore, Provider } from "jotai";
+import { walletConnectionDialogOpenAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
 import type * as DeploymentModule from "@/lib/network-deployments";
 import messages from "@/i18n/messages/en";
 import { describe, expect, it, vi } from "vitest";
@@ -14,13 +16,15 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams("wallet=unit-1")
 }));
 
+const walletError = vi.hoisted(() => ({ value: null as string | null }));
 vi.mock("@/providers/wallet-provider", () => ({
   useWalletContext: () => ({
     installedWallets: [],
     activeWalletName: null,
     networkId: null,
     isDemoWallet: false,
-    isConnecting: false
+    isConnecting: false,
+    connectError: walletError.value
   })
 }));
 
@@ -45,6 +49,15 @@ describe("header brand link", () => {
       expect(link).toHaveAttribute("href", "/user?wallet=unit-1");
     }
   });
+
+  it("carries the return wallet through global scheduled income", () => {
+    render(<TopNav />);
+    const links = screen.getAllByRole("link", { name: "Scheduled income" });
+    expect(links.length).toBeGreaterThan(0);
+    for (const link of links) {
+      expect(link).toHaveAttribute("href", "/payee?wallet=unit-1");
+    }
+  });
 });
 
 
@@ -66,4 +79,17 @@ it("keeps the network switch out of the header", () => {
   render(<TopNav />);
   // The label comes from the catalog, so a copy change cannot make this pass vacuously.
   expect(screen.queryByRole("navigation", { name: messages.NetworkSwitch.label })).toBeNull();
+});
+
+it("shows an identity refresh failure and opens the connector for recovery", () => {
+  walletError.value = "Wallet identity could not be read.";
+  const store = createStore();
+  try {
+    render(<Provider store={store}><TopNav /></Provider>);
+    expect(screen.getByRole("alert")).toHaveTextContent(walletError.value);
+    fireEvent.click(screen.getByRole("button", { name: "Check wallet connection" }));
+    expect(store.get(walletConnectionDialogOpenAtom)).toBe(true);
+  } finally {
+    walletError.value = null;
+  }
 });

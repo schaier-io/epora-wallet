@@ -219,7 +219,7 @@ export function SttSpendPayoutView() {
                         {/* The on-chain id starts at 0, which read as "nothing to
                             pay" next to the "1 payment" tab badge; count like the
                             other lists do. */}
-                        {i18n("scheduledPayment")} {index + 1}
+                        {i18n("scheduledPayment")} #{row.streamingPayment.id}
                       </p>
                       {/* A bech32 address is one unbroken ~100-character token; without
                           break-all it pushes past the row instead of wrapping. */}

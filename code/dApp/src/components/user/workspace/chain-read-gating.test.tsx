@@ -28,7 +28,9 @@ vi.mock("@/lib/contracts/blueprint", () => ({
   resolveWalletContinuingOutputAddressFromState: () => "addr_test1smartwallet"
 }));
 
-vi.mock("@/components/user/workspace/helpers", () => ({
+vi.mock("@/components/user/workspace/helpers", async () => ({
+  ...await import("./helpers/form-state"),
+  ...await import("./helpers/asset-amounts"),
   fetchScriptUtxos: chain.fetchScriptUtxos,
   isAsset: () => true,
   mergeAmountLists: (amounts: unknown[][]) => amounts.flat()

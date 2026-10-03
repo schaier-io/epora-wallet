@@ -92,7 +92,7 @@ describe("wallet balance chart section", () => {
     // The legend names which asset the line is and where it stands: the multi-asset
     // chart has no single headline number to carry that. (The pill row also says ADA.)
     expect(screen.getAllByText("ADA").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText("9.00 ₳")).toBeInTheDocument();
+    expect(screen.getByText("9.00 ₳", { selector: "span" })).toBeInTheDocument();
     expect(screen.getByRole("img").getAttribute("aria-label")).toMatch(/^Wallet balance/);
   });
 
@@ -105,9 +105,9 @@ describe("wallet balance chart section", () => {
     expect(screen.getByRole("button", { name: "testoken" }).getAttribute("aria-pressed")).toBe(
       "true"
     );
-    // Both lines, each named and valued in its own unit.
-    expect(screen.getByText("9.00 ₳")).toBeInTheDocument();
-    expect(screen.getByText("7 testoken")).toBeInTheDocument();
+    // Both legend values remain visible. The collapsed data table repeats their values.
+    expect(screen.getByText("9.00 ₳", { selector: "span" })).toBeInTheDocument();
+    expect(screen.getByText("7 testoken", { selector: "span" })).toBeInTheDocument();
   });
 
   it("does not chart a pill that was unticked away, and never nothing", () => {
@@ -117,7 +117,7 @@ describe("wallet balance chart section", () => {
     fireEvent.click(screen.getByRole("button", { name: "ADA" }));
     // With two charted, ADA can leave: the token line stays.
     expect(screen.getByRole("button", { name: "ADA" }).getAttribute("aria-pressed")).toBe("false");
-    expect(screen.getByText("7 testoken")).toBeInTheDocument();
+    expect(screen.getByText("7 testoken", { selector: "span" })).toBeInTheDocument();
     expect(screen.queryByText("9.00 ₳")).not.toBeInTheDocument();
 
     // testoken is the last line standing: removing it would leave the chart empty, so
@@ -126,7 +126,7 @@ describe("wallet balance chart section", () => {
     expect(screen.getByRole("button", { name: "testoken" }).getAttribute("aria-pressed")).toBe(
       "true"
     );
-    expect(screen.getByText("7 testoken")).toBeInTheDocument();
+    expect(screen.getByText("7 testoken", { selector: "span" })).toBeInTheDocument();
   });
 
   it("carves streaming-payment obligations out while the switch is on", () => {
@@ -135,11 +135,11 @@ describe("wallet balance chart section", () => {
     // The switch is always present: the reader should not have to know that a stream
     // must exist before the control appears.
     const checkbox = screen.getByRole("checkbox");
-    expect(screen.getByText("9.00 ₳")).toBeInTheDocument();
+    expect(screen.getByText("9.00 ₳", { selector: "span" })).toBeInTheDocument();
 
     fireEvent.click(checkbox);
     expect((checkbox as HTMLInputElement).checked).toBe(true);
-    expect(screen.getByText("5.00 ₳")).toBeInTheDocument();
+    expect(screen.getByText("5.00 ₳", { selector: "span" })).toBeInTheDocument();
     expect(screen.queryByText("9.00 ₳")).not.toBeInTheDocument();
   });
 
@@ -180,7 +180,7 @@ describe("wallet balance chart section", () => {
 
     expect(screen.queryByRole("button", { name: "testoken" })).toBeNull();
     expect(screen.getByRole("button", { name: "ADA" }).getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByText("9.00 ₳")).toBeInTheDocument();
+    expect(screen.getByText("9.00 ₳", { selector: "span" })).toBeInTheDocument();
   });
 
   it("does not resurrect a sold token's line when the wallet re-acquires it", () => {

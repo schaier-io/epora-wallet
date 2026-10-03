@@ -1084,7 +1084,7 @@ describe("pending proposal State", () => {
     });
     expect(test.store.get(walletStateSubmissionsAtom)[proposal("proposal-1").walletUnit]).toBeUndefined();
     expect(test.store.get(pendingWalletStateUpdatesAtom)[proposal("proposal-1").walletUnit]).toEqual({
-      walletUnit: proposal("proposal-1").walletUnit, submittedTxHash: TX_BODY_HASH,
+      walletUnit: proposal("proposal-1").walletUnit, submittedTxHash: TX_BODY_HASH, submittedAt: expect.any(Number) as number,
       spentRef: { txHash: "11".repeat(32), outputIndex: 0 }
     });
   });
@@ -1145,7 +1145,7 @@ it("keeps the broadcast candidate and actual body expiry after an uncertain POST
   await waitFor(() => expect(result.current.canSubmit).toBe(true));
   await act(async () => result.current.handleSubmit());
   expect(test.store.get(pendingWalletStateUpdatesAtom)[proposal("proposal-1").walletUnit]).toEqual({
-    walletUnit: proposal("proposal-1").walletUnit, submittedTxHash: TX_BODY_HASH,
+    walletUnit: proposal("proposal-1").walletUnit, submittedTxHash: TX_BODY_HASH, submittedAt: expect.any(Number) as number,
     spentRef: { txHash: "11".repeat(32), outputIndex: 0 }, invalidHereafter: 123456
   });
   expect(result.current.canSubmit).toBe(false);

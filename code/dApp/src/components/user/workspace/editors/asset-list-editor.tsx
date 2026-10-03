@@ -20,7 +20,8 @@ export function AssetListEditor({
   value,
   onChange,
   addLabel,
-  availableAssets = []
+  availableAssets = [],
+  showMax = true
 }: {
   label: string;
   helper?: string;
@@ -28,6 +29,7 @@ export function AssetListEditor({
   onChange: (value: Asset[]) => void;
   addLabel?: string;
   availableAssets?: Asset[];
+  showMax?: boolean;
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsAssetListEditor");
   const uid = useId();
@@ -172,7 +174,7 @@ export function AssetListEditor({
                         className="pr-14"
                       />
                     )}
-                    {selectedOption ? (
+                    {showMax && selectedOption ? (
                       <Button
                         type="button"
                         size="sm"

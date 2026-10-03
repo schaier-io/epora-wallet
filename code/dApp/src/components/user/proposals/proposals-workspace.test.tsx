@@ -153,7 +153,7 @@ describe("the background validity pass", () => {
   it("uses the background input budget", async () => {
     list.proposals = [openProposal("p0")];
     client.fetch.mockResolvedValue({ id: "p0" });
-    verify.proposal.mockResolvedValue({ validity: "valid", signers: null });
+    verify.proposal.mockResolvedValue({ validity: "valid", signers: null, effect: { inputs: [], outputs: [], feeLovelace: "0", validUntilMs: null } });
 
     render(<ProposalsWorkspace />);
 
@@ -198,7 +198,7 @@ describe("the background validity pass", () => {
     client.fetch.mockImplementation((id: string) =>
       id === "p0" ? pending : Promise.resolve({ id })
     );
-    verify.proposal.mockResolvedValue({ validity: "valid", signers: null });
+    verify.proposal.mockResolvedValue({ validity: "valid", signers: null, effect: { inputs: [], outputs: [], feeLovelace: "0", validUntilMs: null } });
 
     const rendered = render(<ProposalsWorkspace />);
     await waitFor(() => expect(client.fetch).toHaveBeenCalledTimes(1));

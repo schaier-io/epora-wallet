@@ -334,6 +334,7 @@ export function useProposalOrchestration({
       store.set(beginWalletStateUpdateAtom, {
         walletUnit: detail.walletUnit,
         submittedTxHash: detail.txBodyHash,
+        submittedAt: Date.now(),
         spentRef: { txHash: spentRef.txHash, outputIndex: spentRef.outputIndex },
         ...(invalidHereafter !== undefined && Number.isSafeInteger(invalidHereafter) && invalidHereafter >= 0
           ? { invalidHereafter } : {})
