@@ -1,7 +1,7 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import { beforeEach, expect, it } from "vitest";
-import { walletStateChecksAtom, walletStateRetryAtom, pendingWalletStateUpdateAtom } from "./atoms/wallet-state-update.atoms";
+import { walletStateChecksAtom, pendingWalletStateUpdateAtom } from "./atoms/wallet-state-update.atoms";
 import { routeStateAtom } from "./atoms/workspace-route.atoms";
 import type { UserActionKind } from "@/components/user/flow-types";
 import { WalletStateUpdateBanner } from "./wallet-state-update-banner";
@@ -39,7 +39,7 @@ it("renders nothing while no wallet state update is pending", () => {
 
 // The live region must exist before its text does, or a screen reader may not announce it.
 it("fills the same live region when an update starts", () => {
-  const { store } = renderBanner(null, false);
+  const { store } = renderBanner("use", false);
   const region = screen.getByRole("status");
   act(() => store.set(pendingWalletStateUpdateAtom, {
     walletUnit: UNIT, submittedTxHash: TX_HASH, spentRef: { txHash: "cd".repeat(32), outputIndex: 0 }
@@ -48,32 +48,31 @@ it("fills the same live region when an update starts", () => {
   expect(region).toHaveTextContent("Updating this wallet");
 });
 
-it("names what pauses and what still works on the dashboard, with the transaction on one line", () => {
-  renderBanner(null);
-  const status = screen.getByRole("status");
-  expect(status).toHaveTextContent("Updating this wallet");
-  expect(status).toHaveTextContent("Sending, settings and payouts unlock when it confirms. You can still add funds.");
+it.each(["home", "transactions"] as const)("hides the banner on %s", overviewSection => {
+  const { store } = renderBanner(null);
+  act(() => store.set(routeStateAtom, { ...store.get(routeStateAtom), overviewSection }));
+  expect(screen.getByRole("status")).toBeEmptyDOMElement();
+});
+
+it.each(["mint", "lock-funds"] as const)("hides the banner on unblocked action %s", action => {
+  renderBanner(action);
+  expect(screen.getByRole("status")).toBeEmptyDOMElement();
+});
+
+it("shows the transaction on a blocked action without a retry control", () => {
+  renderBanner("use");
+  expect(screen.getByRole("status")).toHaveTextContent("This action unlocks when it confirms.");
   const link = screen.getByRole("link", { name: `View transaction ${TX_HASH} on Cardanoscan` });
   expect(link.querySelector("span")).toHaveClass("truncate");
   expect(link).toHaveTextContent("9f8b60d1...3aaf01");
+  expect(screen.queryByRole("button", { name: "Retry chain check" })).toBeNull();
 });
 
-it("says the open action waits when it spends the STT, but not on add funds", () => {
-  const { unmount } = renderBanner("use");
-  expect(screen.getByRole("status")).toHaveTextContent("This action unlocks when it confirms.");
-  unmount();
-  renderBanner("lock-funds");
-  expect(screen.getByRole("status")).toHaveTextContent("Sending, settings and payouts unlock when it confirms.");
-});
-
-
-it("shows failed check details and permits a retry from the dashboard", () => {
-  const { store } = renderBanner(null);
+it("shows failed check details on a blocked action without a retry control", () => {
+  const { store } = renderBanner("use");
   act(() => store.set(walletStateChecksAtom, { [UNIT]: { txHash: TX_HASH, phase: "unavailable", checkedAt: 1_800_000, lastSuccessfulAt: 900_000 } }));
   expect(screen.getByRole("alert")).toHaveTextContent("Actions that spend this wallet's State wait until the input is verified.");
   expect(screen.getByText(/Last check attempt:/)).toHaveTextContent("UTC");
   expect(screen.getByText(/Last successful chain check:/)).toHaveTextContent("UTC");
-  const revision = store.get(walletStateRetryAtom);
-  fireEvent.click(screen.getByRole("button", { name: "Retry chain check" }));
-  expect(store.get(walletStateRetryAtom)).toBe(revision + 1);
+  expect(screen.queryByRole("button", { name: "Retry chain check" })).toBeNull();
 });

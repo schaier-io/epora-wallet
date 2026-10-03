@@ -1,13 +1,12 @@
 "use client";
 import { useFormatter, useNow, useTranslations } from "next-intl";
-import { useAtomValue, useSetAtom } from "jotai";
+import { useAtomValue } from "jotai";
 import { ExternalLink, Loader2 } from "lucide-react";
 
 import {
-  pendingWalletStateUpdateAtom, selectedWalletStateCheckAtom, walletStateRetryAtom,
+  pendingWalletStateUpdateAtom, selectedWalletStateCheckAtom,
   selectedActionWaitsForWalletStateAtom
 } from "@/components/user/workspace/atoms/wallet-state-update.atoms";
-import { Button } from "@/components/ui/button";
 import { wizardSelectedActionAtom } from "@/components/user/workspace/atoms/workspace-selection.atoms";
 import { buildCardanoscanTransactionUrl } from "@/components/user/workspace/helpers";
 import { shortenIdentifier } from "@/lib/utils/explorer";
@@ -17,35 +16,29 @@ const MILLISECONDS_PER_MINUTE = 60_000;
 const HASH_LEADING = 8;
 const HASH_TRAILING = 6;
 
-/**
- * Shown above every workspace page while the open wallet waits for a transaction that
- * moved its STT. The wait used to be visible only as a disabled button label in the review
- * rail, so the dashboard and the other pages gave no reason why sending was paused.
- *
- * It names what is held (actions that spend the STT) and what is not (adding funds), so the
- * reader does not take it for a frozen wallet. On a held action page it says that page waits.
- */
+/** Explains a pending wallet-state update beside the action it blocks. */
 export function WalletStateUpdateBanner() {
   const i18n = useTranslations("ComponentsUserWorkspaceWalletStateUpdateBanner");
   const format = useFormatter();
   const now = useNow({ updateInterval: MILLISECONDS_PER_MINUTE });
   const pendingState = useAtomValue(selectedWalletStateCheckAtom);
-  const retryStateCheck = useSetAtom(walletStateRetryAtom);
   const pending = useAtomValue(pendingWalletStateUpdateAtom);
   const actionWaits = useAtomValue(selectedActionWaitsForWalletStateAtom);
   const onActionPage = useAtomValue(wizardSelectedActionAtom) !== null;
 
+  const showBanner = pending && onActionPage && actionWaits;
+
   // The live region stays mounted so screen readers announce the banner when it appears;
   // a region inserted together with its text is often not read.
   return (
-    <div role="status">
-      {pending ? (
-        <div className="mb-3 flex items-start gap-3 rounded-lg border border-amber-400/35 bg-amber-500/10 p-3 text-sm">
+    <div role="status" className={showBanner ? undefined : "sr-only"}>
+      {showBanner ? (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-400/35 bg-amber-500/10 p-3 text-sm">
           <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-amber-200" aria-hidden="true" />
           <div className="min-w-0 flex-1 space-y-1">
             <p className="font-medium text-amber-50">{i18n("updatingThisWallet")}</p>
             <p className="text-xs leading-relaxed text-amber-100/85">
-              {onActionPage && actionWaits ? i18n("thisActionUnlocksWhenItConfirms") : i18n("sendingAndSettingsPause")}
+              {i18n("thisActionUnlocksWhenItConfirms")}
             </p>
             <a
               href={buildCardanoscanTransactionUrl(pending.submittedTxHash)}
@@ -64,7 +57,6 @@ export function WalletStateUpdateBanner() {
             {pending?.submittedAt ? <p className="text-xs">{i18n("walletStateElapsed", { minutes: Math.max(0, Math.floor((now.getTime() - pending.submittedAt) / MILLISECONDS_PER_MINUTE)) })}</p> : null}
             {pendingState?.check?.lastSuccessfulAt ? <p className="text-xs">{i18n("walletStateLastSuccessfulCheck", { time: format.dateTime(pendingState.check.lastSuccessfulAt, "shortWithZone") })}</p> : null}
             {pendingState?.check ? <p className="text-xs">{i18n("walletStateLastCheck", { time: format.dateTime(pendingState.check.checkedAt, "shortWithZone") })}</p> : null}
-            <Button size="sm" variant="outline" onClick={() => retryStateCheck(value => value + 1)}>{i18n("retryWalletStateCheck")}</Button>
           </div>
         </div>
       ) : null}
