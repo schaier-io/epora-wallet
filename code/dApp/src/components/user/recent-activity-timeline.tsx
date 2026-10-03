@@ -22,6 +22,8 @@ type TimelineEvent = {
   timestampDisplay: string;
   /** Long tooltip (e.g. "Jan 12, 14:32 UTC · Slot 1234"). */
   timestampTooltip?: string;
+  /** Submitted from this browser, not in a block yet. */
+  pending?: boolean;
 };
 
 type RecentActivityTimelineProps = {
@@ -47,7 +49,8 @@ type RecentActivityTimelineProps = {
   error?: string | null;
 };
 
-function dotToneClass(amountClassName?: string) {
+function dotToneClass(amountClassName?: string, pending?: boolean) {
+  if (pending) return "bg-amber-300 animate-pulse";
   if (amountClassName?.includes("text-emerald")) return "bg-emerald-400";
   if (amountClassName?.includes("text-rose") || amountClassName?.includes("text-red"))
     return "bg-rose-400";
@@ -162,7 +165,7 @@ export function RecentActivityTimeline({
                   aria-hidden="true"
                   className={cn(
                     "timeline-dot-pop absolute left-[0.6875rem] top-[0.8125rem] block h-1.5 w-1.5 rounded-full ring-2 ring-background",
-                    dotToneClass(event.amountClassName)
+                    dotToneClass(event.amountClassName, event.pending)
                   )}
                 />
                 {/* The halo used to carry a tone-matched `bg-*` class beside the animation.
@@ -180,6 +183,7 @@ export function RecentActivityTimeline({
                   type="button"
                   onClick={() => onEventClick?.(event)}
                   aria-label={[
+                    ...(event.pending ? [i18n("pending")] : []),
                     event.label,
                     event.title,
                     event.timestampDisplay,
@@ -194,6 +198,15 @@ export function RecentActivityTimeline({
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex min-w-0 items-center gap-2">
+                      {event.pending ? (
+                        <Badge
+                          variant="outline"
+                          className="shrink-0 gap-1 whitespace-nowrap border-amber-400/40 bg-amber-500/15 px-1.5 py-0 text-amber-200 eyebrow"
+                        >
+                          <Loader2 className="h-2.5 w-2.5 animate-spin" aria-hidden="true" />
+                          {i18n("pending")}
+                        </Badge>
+                      ) : null}
                       <Badge
                         variant="outline"
                         className={cn(

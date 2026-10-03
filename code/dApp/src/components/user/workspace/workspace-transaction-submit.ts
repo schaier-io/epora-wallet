@@ -21,6 +21,7 @@ import { resetLockFundsFormAtom } from "@/components/user/workspace/atoms/forms/
 import { resetTransferFormAtom, transferRecipientModeAtom, transferCustomAddressAtom, transferSelectedUnitAtom, transferDisplayAmountAtom } from "@/components/user/workspace/atoms/forms/transfer-form.atoms";
 import { sttExtraTransfersAtom, sttWalletInputsAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { selectedOrphanInputsAtom } from "./atoms/forms/orphan-inputs.atoms";
+import { capturePendingActivityInputs, recordPendingActivity } from "./atoms/pending-activity.atoms";
 import {
   MINT_CONFIRMATION_MAX_ATTEMPTS,
   SUBMIT_CONFIRMATION_INITIAL_DELAY_MS,
@@ -231,6 +232,9 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
       jotaiStore.get(transferSelectedUnitAtom), jotaiStore.get(transferDisplayAmountAtom)
     ]);
     const submittedDraftSnapshot = readDraftSnapshot();
+    // Read before signing: after the broadcast, the spent inputs leave every UTxO list.
+    const pendingActivityInputs = capturePendingActivityInputs(jotaiStore);
+    const pendingActivityWallet = deps.lockingContract.address;
     let txHash: string;
     try {
       const submissionOwner: WorkspaceSubmissionOwnership | undefined = submissionUnit
@@ -329,6 +333,9 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
     jotaiStore.set(submitConfirmedAtom, false);
     jotaiStore.set(submitConfirmationUnseenAtom, false);
     runPostSubmitTask("confirmation", () => watchTransactionConfirmation(txHash));
+    runPostSubmitTask("pending-activity", () => recordPendingActivity(jotaiStore, {
+      txHash, txHex: transactionPreview.txHex, walletAddress: pendingActivityWallet, knownUtxos: pendingActivityInputs
+    }));
     runPostSubmitTask("activity", () => addSubmittedTransactionToActivity(txHash));
     if (
       selectedAction === "use" ||

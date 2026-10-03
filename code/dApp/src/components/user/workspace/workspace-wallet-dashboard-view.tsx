@@ -2,7 +2,7 @@
 import { useTranslations } from "next-intl";
 
 import { wealthSeriesForAssetAtom } from "@/components/user/workspace/atoms/workspace-transfer-derivations.atoms";
-import { recentWalletActivityEventsAtom, walletTransactionsAtom } from "@/components/user/workspace/atoms/workspace-activity.atoms";
+import { displayedWalletActivityEventsAtom, recentWalletActivityEventsAtom, walletTransactionsAtom } from "@/components/user/workspace/atoms/workspace-activity.atoms";
 import { selectedDetectedTokenAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { activeAddressAtom, activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
 import { activeInferredSttStateFormAtom, lockingContractAtom, totalLockedContractAssetsAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
@@ -169,6 +169,8 @@ export function WorkspaceWalletDashboardView() {
   const wealthSeriesForAsset = useAtomValue(wealthSeriesForAssetAtom);
   const walletTransactions = useAtomValue(walletTransactionsAtom);
   const recentWalletActivityEvents = useAtomValue(recentWalletActivityEventsAtom);
+  // The timeline shows pending rows too; the spending console below counts confirmed ones only.
+  const displayedWalletActivityEvents = useAtomValue(displayedWalletActivityEventsAtom);
   const copyFeedback = useAtomValue(copyFeedbackAtom);
   const activeInferredSttStateForm = useAtomValue(activeInferredSttStateFormAtom);
   const lockingContract = useAtomValue(lockingContractAtom);
@@ -260,13 +262,16 @@ export function WorkspaceWalletDashboardView() {
                       />
 
                       <RecentActivityTimeline
-                        events={recentWalletActivityEvents.slice(0, 5).map((activity) => {
+                        events={displayedWalletActivityEvents.slice(0, 5).map((activity) => {
                           const tx = activity.transaction;
+                          const pending = activity.pendingSince !== undefined;
                           // Freshly submitted txs read back without a block time; the slot
                           // converts close enough that "just now" beats "Time not available".
-                          const blockTime =
-                            normalizeBlockTimeMs(tx.blockTime) ??
-                            approximateBlockTimeMsFromSlot(tx.slot);
+                          // A pending row has no block at all: its time is the submit time.
+                          const blockTime = pending
+                            ? activity.pendingSince ?? null
+                            : normalizeBlockTimeMs(tx.blockTime) ??
+                              approximateBlockTimeMsFromSlot(tx.slot);
                           const timestampLabel = formatWalletTransactionTime(
                             blockTime ?? undefined
                           );
@@ -280,12 +285,15 @@ export function WorkspaceWalletDashboardView() {
                             badgeClassName: activity.badgeClassName,
                             amountSummary: activity.amountSummary,
                             amountClassName: activity.amountClassName,
+                            pending,
                             timestampDisplay: compactActivityTimestamp(
                               relativeLabel,
                               timestampLabel,
                               i18n("timeNotAvailable")
                             ),
-                            timestampTooltip: timestampLabel
+                            timestampTooltip: pending
+                              ? i18n("notInABlockYet")
+                              : timestampLabel
                               ? i18n("timestamplabelSlotValue2", {
                                   timestampLabel: timestampLabel,
                                   value2: tx.slot

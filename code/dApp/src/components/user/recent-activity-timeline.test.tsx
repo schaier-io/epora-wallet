@@ -36,6 +36,14 @@ describe("recent activity timeline", () => {
     expect(screen.queryByText(/Loading recent activity/)).toBeNull();
   });
 
+  it("marks a pending row in its badge and leads its name with Pending", () => {
+    render(<RecentActivityTimeline events={[{ ...EVENT, pending: true }, { ...EVENT, id: "tx-2" }]} />);
+
+    expect(screen.getByRole("button", { name: "Pending, Top-up, Funds added, 5m ago, +8 ₳" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Top-up, Funds added, 5m ago, +8 ₳" })).toBeTruthy();
+    expect(screen.getAllByText("Pending")).toHaveLength(1);
+  });
+
   it("says Refreshing in the header over shown rows, and nothing when there are none", () => {
     const { rerender } = render(<RecentActivityTimeline events={[EVENT]} refreshing />);
     expect(screen.getByText("Refreshing").closest("[aria-live='polite']")).toBeTruthy();

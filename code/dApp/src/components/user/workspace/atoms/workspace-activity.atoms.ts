@@ -19,6 +19,7 @@ import { lockedContractUtxosAtom } from "@/components/user/workspace/atoms/works
 import { activeAddressAtom, activeWalletNameAtom } from "@/providers/wallet.atoms";
 import { selectedDetectedTokenAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { lockingContractAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
+import { pendingActivityRecordsAtom, pendingWalletActivityEventsAtom } from "@/components/user/workspace/atoms/pending-activity.atoms";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceAtomsWorkspaceActivityAtoms.json";
 
@@ -39,6 +40,7 @@ export const resetWorkspaceActivityAtom = atom(null, (get, set) => {
   const client = get(queryClientAtom);
   client.removeQueries({ queryKey: [...queryKeys.chain, "wallet-activity"] });
   client.removeQueries({ queryKey: [...queryKeys.chain, "transaction"] });
+  set(pendingActivityRecordsAtom, []);
   set(activityPageIndexAtom, 0);
 });
 
@@ -67,8 +69,19 @@ export const recentWalletActivityEventsAtom = atom((get) => {
   );
 });
 
+/**
+ * What the feed shows: pending rows first, then confirmed ones. Display only. Anything that
+ * derives balances or progress reads `recentWalletActivityEventsAtom`, which never holds
+ * a pending row.
+ */
+export const displayedWalletActivityEventsAtom = atom((get) => {
+  const pending = get(pendingWalletActivityEventsAtom);
+  const confirmed = get(recentWalletActivityEventsAtom);
+  return pending.length === 0 ? confirmed : [...pending, ...confirmed];
+});
+
 export const activityPageCountAtom = atom((get) =>
-  Math.max(1, Math.ceil(get(recentWalletActivityEventsAtom).length / WALLET_ACTIVITY_PAGE_SIZE))
+  Math.max(1, Math.ceil(get(displayedWalletActivityEventsAtom).length / WALLET_ACTIVITY_PAGE_SIZE))
 );
 
 export const normalizedActivityPageIndexAtom = atom((get) =>
@@ -76,7 +89,7 @@ export const normalizedActivityPageIndexAtom = atom((get) =>
 );
 
 export const paginatedWalletActivityEventsAtom = atom((get) => {
-  const events = get(recentWalletActivityEventsAtom);
+  const events = get(displayedWalletActivityEventsAtom);
   const page = get(normalizedActivityPageIndexAtom);
   return events.slice(
     page * WALLET_ACTIVITY_PAGE_SIZE,
@@ -85,14 +98,14 @@ export const paginatedWalletActivityEventsAtom = atom((get) => {
 });
 
 export const activityVisibleStartAtom = atom((get) =>
-  get(recentWalletActivityEventsAtom).length === 0
+  get(displayedWalletActivityEventsAtom).length === 0
     ? 0
     : get(normalizedActivityPageIndexAtom) * WALLET_ACTIVITY_PAGE_SIZE + 1
 );
 
 export const activityVisibleEndAtom = atom((get) =>
   Math.min(
-    get(recentWalletActivityEventsAtom).length,
+    get(displayedWalletActivityEventsAtom).length,
     get(normalizedActivityPageIndexAtom) * WALLET_ACTIVITY_PAGE_SIZE +
       get(paginatedWalletActivityEventsAtom).length
   )
@@ -111,6 +124,6 @@ export const activityVisibleEndAtom = atom((get) =>
 export const activityRangeLabelAtom = atom((get) => {
   const activity = get(walletTransactionsAtom);
   if (activity.loading || activity.refreshing) return i18n("refreshing");
-  if (get(recentWalletActivityEventsAtom).length === 0) return i18n("noneShown");
+  if (get(displayedWalletActivityEventsAtom).length === 0) return i18n("noneShown");
   return null;
 });

@@ -172,6 +172,11 @@ export type WalletActivityEvent = {
   details: Array<{ label: string; value: string }>;
   inputUtxos: UTxO[];
   outputUtxos: UTxO[];
+  /**
+   * Set on a row decoded from a transaction this tab submitted that no block holds yet:
+   * the submit time in ms. Absent on confirmed rows.
+   */
+  pendingSince?: number;
 };
 
 export type SetupProgressStep = {
