@@ -411,6 +411,49 @@ it("drops the identity without prompting when the changed account has not author
   expect(screen.getByTestId("wallet").textContent).toBe("none");
 });
 
+it.each([false, true])(
+  "keeps a newer manual connection when focus authorization resolves %s",
+  async (authorized) => {
+    let answerAuthorization!: (authorized: boolean) => void;
+    const isEnabled = vi.fn(() => new Promise<boolean>((resolve) => (answerAuthorization = resolve)));
+    inject({ lace: { isEnabled }, eternl: {} });
+    const oldWallet = {
+      ...fakeWallet("addr_test1old"),
+      getUsedAddresses: vi.fn().mockResolvedValueOnce(["addr_test1old"])
+    };
+    let approveReplacement!: (wallet: ReturnType<typeof fakeWallet>) => void;
+    mocks.enable.mockResolvedValue(fakeWallet("addr_test1stale")).mockResolvedValueOnce(oldWallet).mockReturnValueOnce(
+      new Promise((resolve) => (approveReplacement = resolve))
+    );
+    renderProvider();
+    await act(async () => {
+      await latest.current!.connectWallet("lace");
+    });
+    oldWallet.getUsedAddresses.mockRejectedValue({ code: -4, info: "account changed" });
+    act(() => window.dispatchEvent(new Event("focus")));
+    await waitFor(() => expect(isEnabled).toHaveBeenCalledTimes(1));
+
+    let replacement!: Promise<boolean>;
+    act(() => {
+      replacement = latest.current!.connectWallet("eternl");
+    });
+    await waitFor(() => expect(mocks.enable).toHaveBeenCalledTimes(2));
+    await act(async () => {
+      answerAuthorization(authorized);
+      await Promise.resolve();
+    });
+
+    expect(mocks.enable).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId("connecting").textContent).toBe("true");
+    await act(async () => {
+      approveReplacement(fakeWallet("addr_test1new"));
+      expect(await replacement).toBe(true);
+    });
+    expect(screen.getByTestId("wallet").textContent).toBe("eternl");
+    expect(screen.getByTestId("address").textContent).toBe("addr_test1new");
+  }
+);
+
 it("keeps the identity when a focus read fails for another reason", async () => {
   inject({ lace: {} });
   const wallet = {

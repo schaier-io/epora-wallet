@@ -498,10 +498,12 @@ export function WalletProvider({ children }: PropsWithChildren) {
     }
 
     const refreshOnReturn = () => {
+      const attemptBeforeCheck = connectAttemptRef.current;
       void refreshWallets();
       void syncActiveAccount().then(async (result) => {
         const walletName = activeWalletNameRef.current;
         if (result !== "account-changed" || !walletName) return;
+        const accountGeneration = accountSyncGenerationRef.current;
         // Same rule as the restore after a reload: enable() outside a user gesture can hang
         // on an approval popup nobody asked for. Re-enable silently only when the new
         // account already authorized this site; otherwise drop the stale identity and wait
@@ -512,7 +514,9 @@ export function WalletProvider({ children }: PropsWithChildren) {
         const authorized = injected?.isEnabled
           ? await injected.isEnabled().catch(() => false)
           : false;
-        if (activeWalletNameRef.current !== walletName) return;
+        if (!isMountedRef.current || activeWalletNameRef.current !== walletName ||
+          connectAttemptRef.current !== attemptBeforeCheck ||
+          accountSyncGenerationRef.current !== accountGeneration) return;
         if (!authorized) {
           disconnectWallet();
           return;
