@@ -374,3 +374,20 @@ VERIFIED: `File length OK: 794 source files checked, none over 750 lines.`
 REPORTED: Independent adversarial review found no findings in the fix diff.
 The RPC regression uses a stub provider; local evaluation tests mock the worker.
 These checks do not establish live provider or chain acceptance.
+
+
+## Remote evaluation overlap recovery, 2026-10-04
+
+REPORTED: Preprod builds failed after merge with `EvaluationFailure.AdditionalUtxoOverlap`.
+VERIFIED correction: Earlier RPC tests accepted registered input metadata without simulating the node's overlap rule.
+The new regression runs Mesh serialization and error handling with simulated HTTP responses.
+VERIFIED: Before the source fix, that run returned `tests 13; pass 12; fail 1` with a doubly encoded Ogmios overlap response.
+VERIFIED: Both browser RPC and direct server builds now remove only reported overlaps and retry once.
+Unmatched supplemental inputs and chained transactions remain available to the evaluator.
+VERIFIED: Focused Node returned `tests 46; pass 46; fail 0`.
+VERIFIED: Focused Vitest returned `Test Files 4 passed (4); Tests 20 passed (20)`.
+VERIFIED: Full Vitest returned `Test Files 224 passed (224); Tests 2275 passed (2275)`.
+VERIFIED: Type checking, full ESLint, OpenAPI validation, and diff checks returned exit 0.
+VERIFIED: `File length OK: 795 source files checked, none over 750 lines.`
+REPORTED: Independent adversarial review found no issues in the fix.
+The HTTP responses and remote budgets were simulated. No live preprod transaction was submitted.

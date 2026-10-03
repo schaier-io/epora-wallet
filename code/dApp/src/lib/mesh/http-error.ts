@@ -77,3 +77,21 @@ function asRecord(value: unknown): Record<string, unknown> | null {
     ? value as Record<string, unknown>
     : null;
 }
+
+
+/** Confirmed outputs must not also appear in Ogmios's additional UTxO set. */
+export function meshEvaluationOverlapRefs(error: unknown): Set<string> | null {
+  const record = errorRecord(error instanceof Error ? error.message : error);
+  const failure = asRecord(asRecord(record?.result)?.EvaluationFailure);
+  if (!failure || Object.keys(failure).length !== 1) return null;
+  const overlaps = failure.AdditionalUtxoOverlap;
+  if (!Array.isArray(overlaps) || overlaps.length === 0) return null;
+  const refs = new Set<string>();
+  for (const value of overlaps) {
+    const ref = asRecord(value);
+    if (typeof ref?.txId !== "string" || !/^[a-fA-F0-9]{64}$/.test(ref.txId) ||
+        typeof ref.index !== "number" || !Number.isSafeInteger(ref.index) || ref.index < 0) return null;
+    refs.add(`${ref.txId.toLowerCase()}#${ref.index}`);
+  }
+  return refs;
+}
