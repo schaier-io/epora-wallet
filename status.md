@@ -88,7 +88,17 @@ Wallet-signed terms acceptance is deferred. The beta uses a browser/API acknowle
 
 ## dApp bug fixes, 2026-10-04
 
-- In Progress, coordinator: five PR layers cover wallet recovery, signature writes, proposal input liveness, deposits, and governance drafts. VERIFIED: the local stack starts at `fix/wallet-focus-connect-race` and ends at `fix/governance-draft-wallet-switch`.
+- Completed, implementer: five fixes have separate PR layers. VERIFIED: the local stack starts at `fix/wallet-focus-connect-race` and ends at `fix/governance-draft-wallet-switch`.
 - VERIFIED: wallet regressions returned `Tests 2 failed | 38 skipped (40)` before the source change. The wallet and toast suites then returned `Tests 48 passed (48)`.
 - REPORTED: an independent adversarial review of the wallet change found no in-scope issues. VERIFIED: recovery reads the live connection atom before starting another connection.
-- Next, coordinator: validate the remaining patches, review each layer, and open five draft PRs. Local fixtures do not establish live ledger or database behavior.
+- VERIFIED: signature regressions returned `2 failed | 1 passed (3)` with the source reverted. The concurrency and route suites then returned `Tests 7 passed (7)`. Database transport and row locks were modeled locally.
+- VERIFIED: reference and collateral regressions returned `tests 8`, `pass 0`, `fail 8` with the source reverted. The verification, binding, and State transition suites then returned `tests 58`, `pass 58`, `fail 0`.
+- VERIFIED: deposit regressions returned `tests 9`, `pass 6`, `fail 3` before the fix. Minimum-value and zero-row suites then returned `tests 38`, `pass 38`, `fail 0`.
+- VERIFIED: governance seeding regressions returned `tests 4`, `pass 2`, `fail 2` before the fix. Seeding and session-selection suites then returned `tests 10`, `pass 10`, `fail 0`.
+- REPORTED: independent adversarial reviews of each fix and the complete patch found no in-scope issues. Source and tests were reviewed; this was not an external audit.
+- VERIFIED: the full unit command returned `tests 1917`, `pass 1891`, `fail 0`, `skipped 26`. The full component command returned `Test Files 205 passed (205)` and `Tests 2055 passed (2055)`. Commands match the review record above, with component workers limited to two.
+- VERIFIED: typecheck and changed-file ESLint exited with code 0. The length check returned `File length OK: 781 source files checked, none over 750 lines.`
+- VERIFIED correction: the preceding full-suite counts describe the stack before rebasing. Main advanced to `7ad0e182` during this run. The rebase preserved its wallet recovery checks and added the pending-connection guard. Both status records were retained.
+- VERIFIED: the wallet regressions still failed against updated main: `Tests 2 failed | 41 skipped (43)`. With the fix restored, the rebased full unit suite returned `tests 1918`, `pass 1892`, `fail 0`, `skipped 26`. Components returned `Test Files 206 passed (206)` and `Tests 2072 passed (2072)`. Typecheck exited 0.
+- REPORTED: a second full adversarial review after rebase found no in-scope issues.
+- Next, release: submit five draft PRs for review from the bottom layer upward. No deployment or migration ran. Local fixtures do not establish live ledger or PostgreSQL behavior.
