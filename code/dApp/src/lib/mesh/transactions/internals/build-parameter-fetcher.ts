@@ -116,6 +116,7 @@ export function createBuildParameterFetcher(fetcher: TxFetcher): TxFetcher {
     if (evaluation?.key !== key) {
       const phase = finalPass ? "final" : "draft";
       const pending = (async () => {
+        let fallbackReason: string | undefined;
         if (phase === "draft" && fetcher instanceof ServerFetcher && typeof Worker !== "undefined" && !chainedSnapshot?.length) {
           const started = performance.now();
           try {
@@ -124,13 +125,26 @@ export function createBuildParameterFetcher(fetcher: TxFetcher): TxFetcher {
             console.debug("[tx-build:evaluation]", { phase, source: "local", outcome: "success", durationMs: performance.now() - started });
             return actions;
           } catch (error) {
-            const reason = fetcher.signal?.aborted ? "aborted"
+            // Provider errors can contain transaction data. Only fixed reason codes leave this boundary.
+            fallbackReason = fetcher.signal?.aborted ? "aborted"
               : error instanceof Error && error.message === "Local evaluation timed out." ? "timeout" : "evaluation-error";
-            console.debug("[tx-build:evaluation]", { phase, source: "local", outcome: reason === "aborted" ? "cancelled" : "fallback", reason, durationMs: performance.now() - started });
+            console.debug("[tx-build:evaluation]", {
+              phase, source: "local", outcome: fallbackReason === "aborted" ? "cancelled" : "fallback",
+              reason: fallbackReason, durationMs: performance.now() - started
+            });
             fetcher.signal?.throwIfAborted();
           }
         }
-        return fetcher.evaluateTx(tx, inputSnapshot, chainedSnapshot);
+        const startedAt = performance.now();
+        try {
+          const actions = await fetcher.evaluateTx(tx, inputSnapshot, chainedSnapshot);
+          fetcher.signal?.throwIfAborted();
+          console.debug("[tx-build:evaluation]", { phase, source: "remote", outcome: "success", fallbackReason, durationMs: performance.now() - startedAt });
+          return actions;
+        } catch (error) {
+          console.debug("[tx-build:evaluation]", { phase, source: "remote", outcome: fetcher.signal?.aborted ? "cancelled" : "failed", fallbackReason, durationMs: performance.now() - startedAt });
+          throw error;
+        }
       })().then(actions => {
         fetcher.signal?.throwIfAborted();
         return structuredClone(actions);

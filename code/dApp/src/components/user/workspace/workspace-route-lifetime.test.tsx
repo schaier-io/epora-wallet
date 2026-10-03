@@ -64,7 +64,7 @@ vi.mock("@/providers/toast-provider", () => ({ useToast: () => ({ success: vi.fn
 vi.mock("@/components/user/workspace/use-shared-stt-reference", () => ({
   useSharedSttReference: () => ({ refreshSharedSttReferenceStore: mocks.refresh, resetSharedReferencePreview: mocks.reset })
 }));
-vi.mock("@/lib/mesh/transactions/internals/local-evaluation-worker", () => ({ warmLocalEvaluationWorker: vi.fn(async () => undefined) }));
+vi.mock("@/lib/mesh/transactions/internals/local-evaluation-worker", () => ({ warmLocalEvaluationWorker: vi.fn(async () => undefined), retainLocalEvaluationWorker: () => () => undefined }));
 
 const POLICY = "aa".repeat(28);
 const SIGNER = "cc".repeat(28);

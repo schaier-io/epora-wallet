@@ -111,8 +111,16 @@ export function useWorkspaceWalletSessionEffects(ctx: WorkspaceWalletSessionEffe
   );
   const selectionReady = walletReady && !selectedWalletIsForeign && isRouteStateCurrent &&
     selectedDetectedToken?.unit === selectedDetectedTokenUnit;
-  useLocalEvaluationWarmup({ walletReady: selectionReady, selectedWalletUnit: selectedDetectedTokenUnit,
-    isRouteStateCurrent, flowStep: routeState.flowStep, session });
+  const creatingWallet = routeState.workspaceMode === "new-wallet";
+  useLocalEvaluationWarmup({
+    walletReady: creatingWallet ? walletReady && !selectedWalletIsForeign : selectionReady,
+    selectedWalletUnit: selectedDetectedTokenUnit,
+    isRouteStateCurrent,
+    flowStep: routeState.flowStep,
+    session,
+    editorActive: Boolean(routeState.selectedAction) && routeState.flowStep !== "overview",
+    creatingWallet
+  });
   useWorkspaceBuildPreparation({ enabled: selectionReady, selectedWalletUnit: selectedDetectedTokenUnit,
     config, sttInput: selectedDetectedToken?.utxo.input, session });
 
