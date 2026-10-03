@@ -21,6 +21,8 @@ export type LocalEvaluationRequest = {
   costModels: number[][];
 };
 
+type WarmRequest = { type: "warm" };
+
 export type LocalEvaluationAction = Omit<Action, "data">;
 
 function readActions(value: unknown): LocalEvaluationAction[] {
@@ -47,12 +49,22 @@ function readActions(value: unknown): LocalEvaluationAction[] {
 export function evaluateInWorker(request: LocalEvaluationRequest, signal?: AbortSignal): Promise<LocalEvaluationAction[]> {
   signal?.throwIfAborted();
   if (typeof Worker === "undefined") return Promise.reject(new Error("Local evaluation workers are unavailable."));
+  return enqueueWorkerRequest(request, signal);
+}
+
+export function warmLocalEvaluationWorker(signal?: AbortSignal): Promise<void> {
+  signal?.throwIfAborted();
+  if (typeof Worker === "undefined") return Promise.resolve();
+  return enqueueWorkerRequest({ type: "warm" }, signal).then(() => undefined);
+}
+
+function enqueueWorkerRequest(request: LocalEvaluationRequest | WarmRequest, signal?: AbortSignal) {
   const pending = evaluationQueue.then(() => runEvaluation(request, signal));
   evaluationQueue = pending.then(() => undefined, () => undefined);
   return abortable(signal, () => pending);
 }
 
-function runEvaluation(request: LocalEvaluationRequest, signal?: AbortSignal): Promise<LocalEvaluationAction[]> {
+function runEvaluation(request: LocalEvaluationRequest | WarmRequest, signal?: AbortSignal): Promise<LocalEvaluationAction[]> {
   signal?.throwIfAborted();
   clearTimeout(idleTimeout);
   return new Promise((resolve, reject) => {
@@ -79,11 +91,16 @@ function runEvaluation(request: LocalEvaluationRequest, signal?: AbortSignal): P
     signal?.addEventListener("abort", aborted, { once: true });
     worker.onmessage = (event: MessageEvent<unknown>) => {
       try {
-        const response = event.data as { ok?: unknown; actions?: unknown; error?: unknown } | null;
+        const response = event.data as { ok?: unknown; actions?: unknown; ready?: unknown; error?: unknown } | null;
         if (!response || response.ok !== true) {
           throw new Error(typeof response?.error === "string" ? response.error : "Local evaluation returned a malformed response.");
         }
-        finish(undefined, readActions(response.actions));
+        if ("type" in request) {
+          if (response.ready !== true) throw new Error("Local evaluation warmup returned a malformed response.");
+          finish(undefined, []);
+        } else {
+          finish(undefined, readActions(response.actions));
+        }
       } catch (error) { finish(error); }
     };
     worker.onerror = () => finish(new Error("Local evaluation worker failed."));

@@ -31,8 +31,8 @@ VERIFIED: Three branches were created before source edits:
    Cache failures fall back to the provider. Spend status and address funds stay live.
    Verification: scope isolation, expiry, failure fallback, payload limits, and fresh status checks.
 
-3. Worker warmup. Owner: worker implementer. Status: Planned.
-   INFERRED design: A quiet warm message imports Scalus after a connected wallet is selected.
+3. Worker warmup. Owner: worker implementer. Status: Completed.
+   VERIFIED: A quiet warm message imports Scalus after a connected wallet is selected.
    It builds no transaction and sends no provider request.
    It shares the evaluation queue and idle cleanup.
    Cancellation of a queued warmup must preserve an active evaluation.
@@ -82,6 +82,26 @@ The owning cache layer now requires an explicit transport scope for sharing acro
 Without that scope, the provider identity owns the cache.
 The two affected suites returned `Tests 51 passed (51)` after the repair.
 The new scope test failed with the original source and passed with the repair.
+
+## Worker warmup validation
+
+VERIFIED: The complete component run returned `Tests 2164 passed (2164)` across 214 files.
+Type checking and full ESLint returned exit 0.
+REPORTED: The final independent adversarial worker review found no defects and returned `Tests 48 passed (48)`.
+The known-foreign-wallet regression verifies that rejected selections start no warmup.
+REPORTED: Disabling the warmup sources retained 34 collected tests and returned `7 failed | 27 passed (34)`.
+
+REPORTED: The actual Worker handler loaded Scalus and returned `{"ok":true,"ready":true}`.
+The next synthetic STT evaluation returned `MINT:0`, `mem:470102`, `steps:147666434`.
+This probe ran in Node. It did not measure browser startup or deployed latency.
+The browser probe did not execute. Brave blocked the page, and the dependency overlay prevented Turbopack package resolution.
+The probe changed no browser protections. Temporary routes, fixtures, and configuration changes were removed.
+
+VERIFIED: A full Node attempt returned `tests 1942; pass 1915; fail 1; skipped 26`.
+Its source scan captured the temporary probe's `<main>` before cleanup.
+The clean full Node run and production build remain pending.
+The complete i18n gate also flagged the existing Worker diagnostic response.
+That internal response triggers remote fallback. Its formatting repair belongs to the evaluation layer.
 
 ## Least confident decisions
 

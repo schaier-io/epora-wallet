@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { evaluateInWorker, LOCAL_EVALUATION_IDLE_MS, LOCAL_EVALUATION_TIMEOUT_MS, type LocalEvaluationRequest } from "./local-evaluation-worker";
+import { evaluateInWorker, warmLocalEvaluationWorker, LOCAL_EVALUATION_IDLE_MS, LOCAL_EVALUATION_TIMEOUT_MS, type LocalEvaluationRequest } from "./local-evaluation-worker";
 
 const request: LocalEvaluationRequest = { txHex: "80", utxos: [], network: "preprod", costModels: [[1], [2], [3]] };
 const action = { tag: "MINT", index: 0, budget: { mem: 20, steps: 40 } };
@@ -18,6 +18,57 @@ beforeEach(() => { vi.useFakeTimers(); FakeWorker.instances = []; vi.stubGlobal(
 afterEach(async () => { await vi.runAllTimersAsync(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 describe("local evaluation worker lifetime", () => {
+  it("warms only the runtime and reuses it for evaluation", async () => {
+    const warm = warmLocalEvaluationWorker();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(latest().postMessage).toHaveBeenCalledWith({ type: "warm" });
+    latest().onmessage!({ data: { ok: true, ready: true } });
+    await expect(warm).resolves.toBeUndefined();
+    const evaluation = evaluateInWorker(request);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(FakeWorker.instances).toHaveLength(1);
+    expect(latest().postMessage).toHaveBeenLastCalledWith(request);
+    latest().onmessage!({ data: { ok: true, actions: [action] } });
+    await expect(evaluation).resolves.toEqual([action]);
+  });
+
+  it("does not interrupt evaluation when queued warmup is cancelled", async () => {
+    const evaluation = evaluateInWorker(request);
+    const controller = new AbortController();
+    const warm = warmLocalEvaluationWorker(controller.signal);
+    await vi.advanceTimersByTimeAsync(0);
+    controller.abort(new Error("selection changed"));
+    await expect(warm).rejects.toThrow("selection changed");
+    expect(latest().terminate).not.toHaveBeenCalled();
+    latest().onmessage!({ data: { ok: true, actions: [action] } });
+    await evaluation;
+    await vi.advanceTimersByTimeAsync(0);
+    expect(latest().postMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it("terminates pending warmup on cancellation", async () => {
+    const controller = new AbortController();
+    const warm = warmLocalEvaluationWorker(controller.signal);
+    await vi.advanceTimersByTimeAsync(0);
+    controller.abort(new Error("unmounted"));
+    await expect(warm).rejects.toThrow("unmounted");
+    expect(latest().terminate).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects malformed warmup readiness", async () => {
+    const warm = warmLocalEvaluationWorker();
+    await vi.advanceTimersByTimeAsync(0);
+    latest().onmessage!({ data: { ok: true, actions: [action] } });
+    await expect(warm).rejects.toThrow("malformed response");
+    expect(latest().terminate).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips warmup without browser Worker support", async () => {
+    vi.stubGlobal("Worker", undefined);
+    await expect(warmLocalEvaluationWorker()).resolves.toBeUndefined();
+    expect(FakeWorker.instances).toHaveLength(0);
+  });
+
   it("serializes requests and reuses the warm worker", async () => {
     const first = evaluateInWorker(request);
     const second = evaluateInWorker(request);

@@ -10,6 +10,7 @@ import { createDefaultStateForm, stateFormToDatum, withFallbackAdminUserInStateF
 import { parseWorkspaceRouteState } from "@/components/user/workspace-controller";
 import { useWorkspaceFoundation } from "./use-workspace-foundation";
 import { useWorkspaceWalletSessionEffects } from "./use-workspace-wallet-session-effects";
+import { warmLocalEvaluationWorker } from "@/lib/mesh/transactions/internals/local-evaluation-worker";
 import { useWorkspaceWizardEffects } from "./use-workspace-wizard-effects";
 import { routeStateAtom } from "./atoms/workspace-route.atoms";
 import { detectedSttTokensAtom, detectedSttTokensLoadingAtom } from "./atoms/workspace-data.atoms";
@@ -63,6 +64,7 @@ vi.mock("@/providers/toast-provider", () => ({ useToast: () => ({ success: vi.fn
 vi.mock("@/components/user/workspace/use-shared-stt-reference", () => ({
   useSharedSttReference: () => ({ refreshSharedSttReferenceStore: mocks.refresh, resetSharedReferencePreview: mocks.reset })
 }));
+vi.mock("@/lib/mesh/transactions/internals/local-evaluation-worker", () => ({ warmLocalEvaluationWorker: vi.fn(async () => undefined) }));
 
 const POLICY = "aa".repeat(28);
 const SIGNER = "cc".repeat(28);
@@ -145,6 +147,7 @@ beforeEach(() => {
   vi.restoreAllMocks();
   mocks.detect.mockReset();
   mocks.funds.mockReset().mockResolvedValue([]);
+  vi.mocked(warmLocalEvaluationWorker).mockClear();
 });
 afterEach(() => {
   cleanup();
@@ -152,6 +155,18 @@ afterEach(() => {
 });
 
 // Automatic route changes must use the current URL and wait for its selected wallet data.
+it("does not warm evaluation for a known foreign wallet", async () => {
+  const context = setup();
+  const foreign = { ...firstToken, datum: stateFormToDatum(withFallbackAdminUserInStateForm(createDefaultStateForm(), "dd".repeat(28))) };
+  context.queryClient.setQueryData(queryKeys.sttInventory(POLICY), info([foreign]));
+  context.queryClient.setQueryData(queryKeys.sttWallet(POLICY, firstToken.unit), info([foreign]));
+  mocks.detect.mockResolvedValue(info([foreign]));
+  const writes = trackRouteWrites();
+  mount(context);
+  await waitFor(() => expect(writes.some(route => route.selectedWalletUnit === null)).toBe(true));
+  expect(warmLocalEvaluationWorker).not.toHaveBeenCalled();
+});
+
 for (const cached of [false, true]) {
   it(`preserves the new wallet URL on remount with ${cached ? "cached" : "pending"} selected data`, async () => {
     const context = setup();

@@ -228,3 +228,19 @@ VERIFIED: The regional cache adapter now overrides the SDK default 32-bit key ha
 The final focused regional/protocol/browser run returned `Tests 46 passed (46)`.
 REPORTED: Its new hash regression returned `1 failed | 21 passed (22)` before the fix.
 REPORTED: The final independent adversarial cache review found no remaining defects.
+
+## Quiet evaluation warmup (2026-10-04)
+
+VERIFIED: A connected wallet selection starts quiet Worker warmup. Known foreign selections skip it.
+Warmup imports Scalus. It builds no transaction and sends no provider request.
+The existing queue, cancellation, timeout, and idle cleanup remain active.
+VERIFIED: The full component run returned `Tests 2164 passed (2164)`. Type checking and full ESLint returned exit 0.
+REPORTED: The final independent adversarial review found no defects. Its four-suite run returned `Tests 48 passed (48)`.
+REPORTED: The actual Worker handler returned `ready:true`, then evaluated the synthetic STT mint with
+`mem:470102`, `steps:147666434`. This Node probe cannot measure browser startup.
+The browser probe did not execute. No browser latency improvement is claimed.
+VERIFIED: The full Node attempt returned `tests 1942; pass 1915; fail 1; skipped 26`.
+The failure came from scanning a temporary probe before cleanup. The probe has been removed.
+The i18n gate flagged the existing local-evaluation diagnostic response. Its owning layer needs a formatting repair.
+
+Next: Repair that diagnostic, verify #684 independently, and complete clean full validation.
