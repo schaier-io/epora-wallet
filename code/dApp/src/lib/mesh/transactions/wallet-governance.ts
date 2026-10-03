@@ -1,4 +1,4 @@
-import { type RuntimeTxBuilder, WALLET_PUBLISH_VALIDATOR, WALLET_VOTE_VALIDATOR, addExtraRequiredSigners, assertRecordPayload, buildGovernanceScriptSource, buildTransactionWithReestimatedLimits, createMeshRedeemer, createStateForwarding, createTxPreview, fetchChangeAddressReferenceUtxos, mergeAssetsByUnit, resolveReferenceScript, runStateForwarding, setupTransaction, validateForwardedStateDatum } from "./internals";
+import { type RuntimeTxBuilder, WALLET_PUBLISH_VALIDATOR, WALLET_VOTE_VALIDATOR, addExtraRequiredSigners, assertRecordPayload, buildGovernanceScriptSource, buildTransactionWithReestimatedLimits, createMeshRedeemer, createStateForwarding, createTxPreview, fetchChangeAddressReferenceUtxos, mergeAssetsByUnit, resolveReferenceScript, resolveStateForwardingReads, runStateForwarding, setupTransaction, validateForwardedStateDatum } from "./internals";
 import { formatGovernancePreview } from "./preview-copy";
 import { buildOperatorPathData, buildSttSpendRedeemerData, resolveOperatorOnChainAction } from "@/lib/contracts/action-data";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
@@ -44,15 +44,37 @@ async function buildWalletGovernanceTx(
           sttAssetNameHex: sttParams.sttAssetNameHex
         });
   const actionLabel = input.action === "wallet-publish" ? "publish" : "vote";
+  const configuredReference = input.action === "wallet-publish"
+    ? config.walletPublishReference
+    : config.walletVoteReference;
   const prepared = await buildTransactionWithReestimatedLimits(
     `${input.action}:tx.draft-build`,
     `${input.action}:tx.build`,
     async (overrides, buildFetcher) => {
-      const { tx, fetcher, signerAddress, changeAddress, setupDiagnostics, walletUtxos } =
-        await setupTransaction(wallet, undefined, buildFetcher);
+      const [setup, resolvedInput, configuredGovernanceReference] = await Promise.all([
+        setupTransaction(wallet, undefined, buildFetcher),
+        resolveStateForwardingReads(stateForwarding, buildFetcher, {
+          txHash: input.sttInputTxHash,
+          outputIndex: input.sttInputOutputIndex,
+          stage: `${input.action}:fetchSttUtxos`
+        }, {
+          stage: `${input.action}:resolveSharedSttReferenceScript`,
+          details: { action: input.action }
+        }),
+        configuredReference?.trim()
+          ? resolveReferenceScript(buildFetcher, {
+              label: actionLabel === "publish" ? "Wallet publish" : "Wallet vote",
+              configuredReference,
+              script: governanceScript,
+              stage: `${input.action}:resolveGovernanceReferenceScript`,
+              details: { action: input.action }
+            })
+          : Promise.resolve(undefined)
+      ]);
+      const { tx, fetcher, signerAddress, changeAddress, setupDiagnostics, walletUtxos } = setup;
       addExtraRequiredSigners(tx, signerAddress, input.requiredSignerKeyHashes);
       const spendValidatorsByRef = new Map<string, string>();
-      const changeAddressUtxos = await fetchChangeAddressReferenceUtxos(
+      const changeAddressUtxos = configuredGovernanceReference ? [] : await fetchChangeAddressReferenceUtxos(
         fetcher,
         changeAddress,
         `${input.action}:fetchChangeAddressUtxos`,
@@ -64,6 +86,7 @@ async function buildWalletGovernanceTx(
       );
       const forwarding = await runStateForwarding({
         definition: stateForwarding,
+        resolvedInput,
         fetcher,
         tx,
         input: {
@@ -80,7 +103,7 @@ async function buildWalletGovernanceTx(
         afterInput: ({ input: stateInput }) =>
           mergeAssetsByUnit(input.sttOutputAssets, stateInput.input.output.amount),
         beforeRedeem: async ({ resolved, value: forwardedAssets }) => {
-          const governanceReferenceScript = await resolveReferenceScript(fetcher, {
+          const governanceReferenceScript = configuredGovernanceReference ?? await resolveReferenceScript(fetcher, {
             label: actionLabel === "publish" ? "Wallet publish" : "Wallet vote",
             configuredReference:
               input.action === "wallet-publish"

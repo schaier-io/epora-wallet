@@ -217,10 +217,25 @@ function sendStateForwardingOutput(options: {
   );
 }
 
+// Resolve reads within each build pass. Never reuse unspent checks across passes.
+export async function resolveStateForwardingReads(
+  definition: StateForwardingDefinition,
+  fetcher: TxFetcher,
+  input: Parameters<typeof resolveStateForwardingInput>[2],
+  reference: Parameters<typeof resolveStateForwardingReference>[2]
+) {
+  return resolveStateForwardingReference(
+    await resolveStateForwardingInput(definition, fetcher, input),
+    fetcher,
+    reference
+  );
+}
+
 export async function runStateForwarding<T>(options: {
   definition: StateForwardingDefinition;
   fetcher: TxFetcher;
   tx: Transaction;
+  resolvedInput?: ResolvedStateForwardingInput;
   input: {
     txHash: string;
     outputIndex?: number;
@@ -255,13 +270,13 @@ export async function runStateForwarding<T>(options: {
     afterInput,
     beforeRedeem
   } = options;
-  const input = await resolveStateForwardingInput(
+  const input = options.resolvedInput ?? await resolveStateForwardingInput(
     definition,
     fetcher,
     inputOptions
   );
   const value = await afterInput({ input, fetcher });
-  const resolved = await resolveStateForwardingReference(input, fetcher, reference);
+  const resolved = options.resolvedInput ?? await resolveStateForwardingReference(input, fetcher, reference);
   const plan = await beforeRedeem({ input, resolved, fetcher, tx, value });
   const scriptWitnessDiagnostics = buildReferenceScriptDiagnostics([
     resolved.witness,

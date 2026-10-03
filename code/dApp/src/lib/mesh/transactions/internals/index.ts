@@ -13,7 +13,7 @@ export { assertRecordPayload, assertValidAssetList, assertValidConstrData, asser
 export { buildReferenceScriptDiagnostics, describeReferenceScriptUsage, fetchChangeAddressReferenceUtxos, hasReferenceScript, inspectSharedSttReferenceStore, resolveMintReferenceInput, resolveReferenceScript, resolveSharedSttReferenceScript } from "./reference-scripts";
 export { addExtraRequiredSigners, resolveExtraRequiredSignerKeyHashes } from "./required-signers";
 export { extractComputedScriptIntegrity, isLikelyTransactionCbor, readScriptDataHash, refreshScriptDataHashWithLiveCostModels, setScriptDataHash } from "./script-data";
-export { createStateForwarding, runStateForwarding } from "./state-forwarding";
+export { createStateForwarding, resolveStateForwardingReads, runStateForwarding } from "./state-forwarding";
 export type { StateForwardingDefinition } from "./state-forwarding";
 export { classifyStreamingPayoutBatch, createStreamingPayoutBuild, resolveStreamingAdaPayoutTopUp, resolveStreamingAdaPayoutTopUps, resolveStreamingAdaPayoutTotal } from "./streaming-payout-build";
 export { addWalletInput, assertValidConsolidationLayout, createInputRefKey, ensureUniqueWalletInputRefs, findUtxo, resolveExactWalletInputUtxos, resolveSttInputUtxo } from "./utxo";

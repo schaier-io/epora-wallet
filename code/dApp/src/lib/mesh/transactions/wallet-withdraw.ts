@@ -1,4 +1,4 @@
-import { type RuntimeTxBuilder, WALLET_WITHDRAW_VALIDATOR, addExtraRequiredSigners, applyWithdrawalWitness, buildTransactionWithReestimatedLimits, createStateForwarding, createTxPreview, fetchChangeAddressReferenceUtxos, mergeAssetsByUnit, resolveReferenceScript, runStateForwarding, setupTransaction, validateForwardedStateDatum } from "./internals";
+import { type RuntimeTxBuilder, WALLET_WITHDRAW_VALIDATOR, addExtraRequiredSigners, applyWithdrawalWitness, buildTransactionWithReestimatedLimits, createStateForwarding, createTxPreview, fetchChangeAddressReferenceUtxos, mergeAssetsByUnit, resolveReferenceScript, resolveStateForwardingReads, runStateForwarding, setupTransaction, validateForwardedStateDatum } from "./internals";
 import { formatRewardWithdrawalPreview } from "./preview-copy";
 import { buildOperatorPathData, buildSttSpendRedeemerData, resolveOperatorOnChainAction } from "@/lib/contracts/action-data";
 import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
@@ -31,11 +31,27 @@ export async function buildWalletWithdrawTx(
     "wallet-withdraw:tx.draft-build",
     "wallet-withdraw:tx.build",
     async (overrides, buildFetcher) => {
-      const { tx, fetcher, signerAddress, changeAddress, setupDiagnostics, walletUtxos } =
-        await setupTransaction(wallet, undefined, buildFetcher);
+      const [setup, resolvedInput, configuredWithdrawalReference] = await Promise.all([
+        setupTransaction(wallet, undefined, buildFetcher),
+        resolveStateForwardingReads(stateForwarding, buildFetcher, {
+          txHash: input.sttInputTxHash,
+          outputIndex: input.sttInputOutputIndex,
+          stage: "wallet-withdraw:fetchSttUtxos"
+        }, { stage: "wallet-withdraw:resolveSharedSttReferenceScript" }),
+        config.walletWithdrawReference?.trim()
+          ? resolveReferenceScript(buildFetcher, {
+              label: "Wallet withdraw",
+              configuredReference: config.walletWithdrawReference,
+              script: walletWithdrawScript,
+              stage: "wallet-withdraw:resolveWalletReferenceScript",
+              details: { rewardAddress: input.rewardAddress }
+            })
+          : Promise.resolve(undefined)
+      ]);
+      const { tx, fetcher, signerAddress, changeAddress, setupDiagnostics, walletUtxos } = setup;
       addExtraRequiredSigners(tx, signerAddress, input.requiredSignerKeyHashes);
       const spendValidatorsByRef = new Map<string, string>();
-      const changeAddressUtxos = await fetchChangeAddressReferenceUtxos(
+      const changeAddressUtxos = configuredWithdrawalReference ? [] : await fetchChangeAddressReferenceUtxos(
         fetcher,
         changeAddress,
         "wallet-withdraw:fetchChangeAddressUtxos",
@@ -47,6 +63,7 @@ export async function buildWalletWithdrawTx(
       );
       const forwarding = await runStateForwarding({
         definition: stateForwarding,
+        resolvedInput,
         fetcher,
         tx,
         input: {
@@ -63,7 +80,7 @@ export async function buildWalletWithdrawTx(
         afterInput: ({ input: stateInput }) =>
           mergeAssetsByUnit(input.sttOutputAssets, stateInput.input.output.amount),
         beforeRedeem: async ({ resolved, value: forwardedAssets }) => {
-          const walletWithdrawReference = await resolveReferenceScript(fetcher, {
+          const walletWithdrawReference = configuredWithdrawalReference ?? await resolveReferenceScript(fetcher, {
             label: "Wallet withdraw",
             configuredReference: config.walletWithdrawReference,
             script: walletWithdrawScript,
