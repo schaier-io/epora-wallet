@@ -9,8 +9,8 @@ import { buildWalletActivityEvents } from "../helpers/activity";
 import { decodePendingTransaction } from "../helpers/pending-transaction";
 import { walletTransactionsAtom } from "../queries/activity-query.atoms";
 import { signerUtxosKeyAtom } from "../queries/signer-balance";
-import { lockedContractUtxosAtom } from "./workspace-data.atoms";
 import { selectedDetectedTokenAtom } from "./workspace-detected-token.atoms";
+import { spendableWalletUtxosAtom } from "./workspace-spendable-utxos.atoms";
 import { lockingContractAtom } from "./workspace-wallet-derivations.atoms";
 import { activeAddressAtom, activeWalletNameAtom } from "@/providers/wallet.atoms";
 import type { WalletActivityEvent } from "../types";
@@ -35,12 +35,13 @@ export const pendingActivityRecordsAtom = atom<PendingActivityRecord[]>([]);
 
 /**
  * The UTxOs a submitted body can spend, read BEFORE signing: once the transaction is out,
- * the signer and the smart wallet stop listing the inputs it spent.
+ * the signer and the smart wallet stop listing the inputs it spent. The wallet set is the
+ * one builds draw from, so orphan inputs picked for a recovery are included.
  */
 export function capturePendingActivityInputs(store: Store): UTxO[] {
   const signerUtxos = store.get(queryClientAtom).getQueryData<UTxO[]>(store.get(signerUtxosKeyAtom)) ?? [];
   const stt = store.get(selectedDetectedTokenAtom)?.utxo;
-  return [...store.get(lockedContractUtxosAtom), ...(stt ? [stt] : []), ...signerUtxos];
+  return [...store.get(spendableWalletUtxosAtom), ...(stt ? [stt] : []), ...signerUtxos];
 }
 
 export function recordPendingActivity(store: Store, submitted: {

@@ -26,9 +26,10 @@ function toArray<T>(value: unknown): T[] {
  *
  * Outputs come from the body. A body names its inputs by reference only, so each input is
  * resolved against the UTxOs the app already held when it built the transaction (the smart
- * wallet's funds, its STT, the signer's UTxOs). An input none of them knows is left out:
- * a guessed address or amount would put a false balance change on the row. Inputs at the
- * smart wallet are always known, because they were built from those same sets.
+ * wallet's spendable funds with any orphan inputs, its STT, the signer's UTxOs). An input
+ * none of them knows is left out: a guessed address or amount would put a false balance
+ * change on the row. The caller passes the sets the builder drew from, so the smart
+ * wallet's own inputs resolve.
  */
 export function decodePendingTransaction(
   txHash: string,

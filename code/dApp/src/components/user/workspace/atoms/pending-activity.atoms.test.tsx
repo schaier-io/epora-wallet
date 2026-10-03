@@ -11,12 +11,12 @@ vi.mock("../queries/activity-query.atoms", async () => {
 });
 vi.mock("./workspace-wallet-derivations.atoms", async () => ({ lockingContractAtom: (await import("jotai")).atom({ address: "" }) }));
 vi.mock("./workspace-detected-token.atoms", async () => ({ selectedDetectedTokenAtom: (await import("jotai")).atom(null) }));
-vi.mock("./workspace-data.atoms", async () => ({ lockedContractUtxosAtom: (await import("jotai")).atom([]) }));
+vi.mock("./workspace-spendable-utxos.atoms", async () => ({ spendableWalletUtxosAtom: (await import("jotai")).atom([]) }));
 vi.mock("../queries/signer-balance", async () => ({ signerUtxosKeyAtom: (await import("jotai")).atom(["signer-utxos"]) }));
 
 import { walletTransactionsAtom } from "../queries/activity-query.atoms";
 import { lockingContractAtom } from "./workspace-wallet-derivations.atoms";
-import { lockedContractUtxosAtom } from "./workspace-data.atoms";
+import { spendableWalletUtxosAtom } from "./workspace-spendable-utxos.atoms";
 import { capturePendingActivityInputs, pendingWalletActivityEventsAtom, recordPendingActivity } from "./pending-activity.atoms";
 
 const WALLET = bech32Encode("addr_test", Uint8Array.of(0x70, ...new Uint8Array(28).fill(0x22)));
@@ -38,7 +38,7 @@ const sendTwoAda = (ttlSlot?: number) => {
 function setup() {
   const store = createStore();
   store.set(lockingContractAtom as unknown as PrimitiveAtom<{ address: string }>, { address: WALLET });
-  store.set(lockedContractUtxosAtom as unknown as PrimitiveAtom<UTxO[]>, [funds]);
+  store.set(spendableWalletUtxosAtom as unknown as PrimitiveAtom<UTxO[]>, [funds]);
   const record = (txHex = sendTwoAda()) => recordPendingActivity(store, {
     txHash: HASH, txHex, walletAddress: WALLET, knownUtxos: capturePendingActivityInputs(store)
   });
