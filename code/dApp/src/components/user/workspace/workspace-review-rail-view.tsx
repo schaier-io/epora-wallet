@@ -1,10 +1,11 @@
 "use client";
+import { WalletStateUpdateBanner } from "./wallet-state-update-banner";
 import { RecoveryFallbackView } from "./recovery-fallback-view";
 import { REVIEW_DONE_DOUBLE_PRESS_GUARD_MS } from "./constants";
 
 import { useTranslations } from "next-intl";
 
-import { activeSubmitAtom, submitPhaseAtom, buildDiagnosticIdAtom, buildErrorAtom, buildErrorExpectedAtom, buildErrorStaleInputsAtom, previewAtom, submitConfirmedAtom, submitConfirmationUnseenAtom, submitHashAtom, workspaceSessionAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
+import { activeSubmitAtom, submitPhaseAtom, buildDiagnosticIdAtom, buildErrorAtom, buildErrorExpectedAtom, buildErrorStaleInputsAtom, previewAtom, submitConfirmedAtom, submitConfirmationUnseenAtom, selectedActionSubmitHashAtom, workspaceSessionAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { activeSttStateFormAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { activeInferredSttStateFormAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import { selectedWizardActionDescriptorAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
@@ -58,7 +59,7 @@ export function WorkspaceReviewRailView({
   const activeInferredSttStateForm = useAtomValue(activeInferredSttStateFormAtom);
   const selectedAction = useAtomValue(selectedActionAtom);
   const selectedWizardActionDescriptor = useAtomValue(selectedWizardActionDescriptorAtom);
-  const submitHash = useAtomValue(submitHashAtom);
+  const submitHash = useAtomValue(selectedActionSubmitHashAtom);
   const signingActions = useAtomValue(selectedSigningActionAvailabilityAtom);
   const sttStateForm = useAtomValue(activeSttStateFormAtom);
   const submitConfirmed = useAtomValue(submitConfirmedAtom);
@@ -244,6 +245,7 @@ export function WorkspaceReviewRailView({
               )}
             >
               <div className="user-scrollbar min-h-0 min-w-0 flex-1 overflow-y-auto">
+                  <WalletStateUpdateBanner blocked={!reviewSubmitAwaitingAcknowledgement} />
                   <UserReviewPanel
                     compact
                     title={i18n("review")}

@@ -3,7 +3,7 @@ import { assertBeneficiaryWithdrawalReviewCurrent } from "./beneficiary-withdraw
 import { assertPreparedTransactionFresh } from "@/lib/mesh/transactions/prepared-transaction-freshness";
 import { queryClientAtom } from "jotai-tanstack-query";
 import { isWorkspaceBuildResultExpired } from "./workspace-build-expiry";
-import { buildRunAtom, invalidateBuildAtom } from "./atoms/transaction-flow.atoms";
+import { buildRunAtom, invalidateBuildAtom, submittedActionAtom } from "./atoms/transaction-flow.atoms";
 import { watchTransactionConfirmation } from "./watch-transaction-confirmation";
 import { saveDepositReceipt } from "./deposit-receipt";
 import { invalidateChainQueries } from "@/lib/query/invalidation";
@@ -337,6 +337,7 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
     if (selectedAction === "use-beneficiary" && jotaiStore.get(selectedOrphanInputsAtom) === submittedOrphanDraft) {
       jotaiStore.set(selectedOrphanInputsAtom, null);
     }
+    jotaiStore.set(submittedActionAtom, selectedAction);
     setSubmitHash(txHash);
     jotaiStore.set(submitConfirmedAtom, false);
     jotaiStore.set(submitConfirmationUnseenAtom, false);

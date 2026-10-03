@@ -17,10 +17,12 @@ vi.mock("./atoms/transaction-flow.atoms", async () => {
   const { atom } = await import("jotai");
   const activeBuildAtom = atom<string | null>(null);
   const buildRunAtom = atom(0);
+  const submitHashAtom = atom<string | null>(null);
   return {
     activeBuildAtom, buildRunAtom,
     activeSubmitAtom: atom(false),
-    submitHashAtom: atom<string | null>(null),
+    submitHashAtom,
+    selectedActionSubmitHashAtom: atom(get => get(submitHashAtom)),
     workspaceSessionAtom: atom({ generation: 0 }),
     previewSignatureAtom: atom<string | null>(null),
     invalidateBuildAtom: atom(null, (get, set) => {

@@ -5,7 +5,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 import { activeAddressAtom, networkIdAtom } from "@/providers/wallet.atoms";
 import { parseWorkspaceRouteState } from "@/components/user/workspace-controller";
 import { routeStateAtom } from "./atoms/workspace-route.atoms";
-import { activeSubmitAtom, submitHashAtom } from "./atoms/transaction-flow.atoms";
+import { activeSubmitAtom, submitHashAtom, submittedActionAtom } from "./atoms/transaction-flow.atoms";
 import { acknowledgeDepositReceipt, depositReceiptKey, readDepositReceipt, saveDepositReceipt } from "./deposit-receipt";
 import { useDepositReceiptRecovery } from "./use-deposit-receipt-recovery";
 import { watchTransactionConfirmation } from "./watch-transaction-confirmation";
@@ -30,6 +30,7 @@ it("restores an accepted deposit after a new page mount and resumes confirmation
   const { store, wrapper } = setup();
   renderHook(useDepositReceiptRecovery, { wrapper });
   expect(store.get(submitHashAtom)).toBe(hash);
+  expect(store.get(submittedActionAtom)).toBe("lock-funds");
   expect(watchTransactionConfirmation).toHaveBeenCalledWith(store, hash, "lock-funds");
 });
 

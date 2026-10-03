@@ -45,7 +45,6 @@ import {
   guidedSidebarChevronClass
 } from "@/components/user/workspace/workspace-guided-sidebar-classes";
 import { GuidedActionSectionView } from "@/components/user/workspace/workspace-guided-action-section-view";
-import { WalletStateUpdateBanner } from "@/components/user/workspace/wallet-state-update-banner";
 import { GuidedAdminSectionView } from "@/components/user/workspace/workspace-guided-admin-section-view";
 
 export function WorkspaceSidebarView() {
@@ -103,7 +102,6 @@ export function WorkspaceSidebarView() {
             // subtracts, `--beta-notice-h`: the sticky BetaNotice below the TopNav.
             <Card className="user-surface order-2 flex min-h-0 flex-col p-0 sm:p-0 lg:sticky lg:top-[calc(5rem+var(--beta-notice-h,0px))] lg:order-1 lg:max-h-[calc(100dvh-5.5rem-var(--beta-notice-h,0px))] lg:self-start">
               <CardContent className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4">
-                <WalletStateUpdateBanner />
                 {walletIsResolving ? (
                   // Not a live region: the header's skeleton announces the same load, so two
                   // `role="status"` regions read "Loading your wallet…" twice.

@@ -9,7 +9,7 @@ import {
   buildRunAtom,
   invalidateBuildAtom,
   previewSignatureAtom,
-  submitHashAtom,
+  selectedActionSubmitHashAtom,
   workspaceSessionAtom
 } from "./atoms/transaction-flow.atoms";
 import {
@@ -38,7 +38,7 @@ export function useWorkspaceTransactionPrebuild({
   const buildRun = useAtomValue(buildRunAtom);
   const activeBuild = useAtomValue(activeBuildAtom);
   const activeSubmit = useAtomValue(activeSubmitAtom);
-  const submitHash = useAtomValue(submitHashAtom);
+  const submitHash = useAtomValue(selectedActionSubmitHashAtom);
   const [visible, setVisible] = useState(() => typeof document !== "undefined" && !document.hidden);
   const attempted = useRef<{
     snapshot: string;
@@ -122,7 +122,7 @@ export function useWorkspaceTransactionPrebuild({
 
     const timer = window.setTimeout(() => {
       if (document.hidden || store.get(activeBuildAtom) || store.get(activeSubmitAtom) ||
-        store.get(submitHashAtom) || store.get(workspaceTransactionSnapshotAtom) !== snapshot ||
+        store.get(selectedActionSubmitHashAtom) || store.get(workspaceTransactionSnapshotAtom) !== snapshot ||
         store.get(workspaceSessionAtom) !== session) return;
       attempted.current = { snapshot, session, authorityPathOverride };
       const beforeRun = store.get(buildRunAtom);
