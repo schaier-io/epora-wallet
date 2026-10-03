@@ -91,7 +91,10 @@ async function rpc<T>(method: ChainMethod, args: unknown[], signal?: AbortSignal
   return raw.result as T;
 }
 
+const SERVER_METADATA_CACHE_SCOPE = {};
+
 export class ServerFetcher implements IFetcher, IEvaluator {
+  readonly inputMetadataCacheScope = SERVER_METADATA_CACHE_SCOPE;
   constructor(private readonly options: { signal?: AbortSignal } = {}) {}
 
   get signal(): AbortSignal | undefined {

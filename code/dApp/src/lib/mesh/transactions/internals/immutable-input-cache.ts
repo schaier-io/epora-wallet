@@ -1,6 +1,5 @@
 import type { UTxO } from "@meshsdk/common";
 import { CARDANO_NETWORK, type CardanoNetwork } from "@/lib/cardano-network";
-import { ServerFetcher } from "@/lib/mesh/server-fetcher";
 import type { TxFetcher } from "@/lib/mesh/tx-context";
 
 export const INPUT_METADATA_CACHE_MS = 60_000;
@@ -9,7 +8,6 @@ export const MAX_INPUT_METADATA_ENTRIES = 128;
 
 type Entry = { expiresAt: number; promise: Promise<UTxO[]>; settled: boolean; ownsSignal: boolean };
 const providerCaches = new WeakMap<object, Map<string, Entry>>();
-const serverTransport = {};
 const optionalOutputFields = ["dataHash", "plutusData", "scriptRef", "scriptHash"] as const;
 
 function immutableOutputs(value: UTxO[], hash: string, index?: number): UTxO[] | undefined {
@@ -50,8 +48,8 @@ export async function readImmutableInputMetadata(
     return fetcher.fetchUTxOs(hash, index);
   }
   const normalizedHash = hash.toLowerCase();
-  // New browser builds create a new ServerFetcher. Generic providers retain their own scope.
-  const scope = fetcher instanceof ServerFetcher ? serverTransport : fetcher;
+  // Only transports that explicitly share a source share metadata across instances.
+  const scope = fetcher.inputMetadataCacheScope ?? fetcher;
   let cache = providerCaches.get(scope);
   if (!cache) { cache = new Map(); providerCaches.set(scope, cache); }
   const key = JSON.stringify([network, normalizedHash, index]);

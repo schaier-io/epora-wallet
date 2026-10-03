@@ -163,3 +163,13 @@ VERIFIED: Original source with final tests returned `tests 58`, `pass 49`, `fail
 VERIFIED: Combined component and evaluation checks returned `Tests 180 passed (180)`. Type checking and changed-file lint returned exit 0. File-length validation returned `File length OK: 782 source files checked, none over 750 lines.`
 REPORTED: Independent reviews of wallet reads and metadata caching found no remaining introduced defects.
 Limit: Mocked wallet and provider tests prove concurrency and isolation. They do not establish deployed latency. Local evaluation remains a separate experiment.
+
+## Metadata transport scope correction, 2026-10-04
+
+Owner: coordinator. Status: Completed.
+VERIFIED correction: Class identity made test transports share metadata even when their output sources differed.
+`ServerFetcher` now advertises an explicit shared scope. Other providers retain their own identity unless they opt in.
+VERIFIED: The two affected integration suites returned `Tests 51 passed (51)`.
+The metadata suite returned `tests 10; pass 10; fail 0`.
+Restoring only the original cache source retained the regression and exited 1 with `actual: 1, expected: 0`.
+Limit: The tests use mock ledgers. They do not establish deployed cache latency.

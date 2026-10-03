@@ -160,3 +160,23 @@ test("metadata reuse across builds still detects an input spent after the first 
   assert.equal(p.calls(), 1);
   assert.equal(statusReads, 2);
 });
+
+test("only explicit transport scopes share metadata across provider instances", async () => {
+  const scope = {};
+  const first = provider();
+  const shared = provider();
+  Object.assign(first.fetcher, { inputMetadataCacheScope: scope });
+  Object.assign(shared.fetcher, { inputMetadataCacheScope: scope });
+  await readImmutableInputMetadata(first.fetcher, hash, 0);
+  await readImmutableInputMetadata(shared.fetcher, hash, 0);
+  assert.equal(first.calls(), 1);
+  assert.equal(shared.calls(), 0);
+
+  const other = provider(async () => {
+    const value = output();
+    value[0].output.amount[0].quantity = "2";
+    return value;
+  });
+  assert.equal((await readImmutableInputMetadata(other.fetcher, hash, 0))[0].output.amount[0].quantity, "2");
+  assert.equal(other.calls(), 1);
+});
