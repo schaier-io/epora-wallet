@@ -5,6 +5,8 @@ import { queryClientAtom } from "jotai-tanstack-query";
 import { createAppQueryClient } from "@/lib/query/client";
 import { queryKeys } from "@/lib/query/keys";
 import type { UTxO } from "@meshsdk/core";
+import type { TransactionInfo } from "@meshsdk/common";
+import { pendingActivityRecordsAtom } from "./pending-activity.atoms";
 
 import {
   detectedSttTokensAtom,
@@ -57,8 +59,12 @@ test("resetWorkspaceActivityAtom clears the fetched transactions and page index"
   const transactionKey = queryKeys.txInfo("hash");
   for (const key of [activityKey, transactionKey]) client.setQueryData(key, [{ hash: "hash" }]);
   store.set(activityPageIndexAtom, 3);
+  store.set(pendingActivityRecordsAtom, [
+    { hash: "hash", walletAddress: "wallet", transaction: {} as TransactionInfo, submittedAt: 1 }
+  ]);
 
   store.set(resetWorkspaceActivityAtom);
+  assert.deepEqual(store.get(pendingActivityRecordsAtom), []);
 
   assert.deepEqual(store.get(walletTransactionsAtom), { items: [], loading: false, fetching: false, refreshing: false, error: null });
   assert.equal(store.get(activityPageIndexAtom), 0);
