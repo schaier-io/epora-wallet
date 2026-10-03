@@ -57,6 +57,11 @@ export const SUBMIT_CONFIRMATION_POLL_MS = 15_000;
 // a late confirmation still turns it green: 25 attempts at 60s ≈ 25 more minutes.
 export const SUBMIT_CONFIRMATION_LATE_MAX_ATTEMPTS = 25;
 export const SUBMIT_CONFIRMATION_LATE_POLL_MS = 60_000;
+// A pending activity row stays until its hash reaches the indexer, or until the ledger can
+// no longer accept it: the body's validity end plus indexer lag. A body with no validity
+// end falls back to the submit watcher's whole window (about 26 minutes) plus the same lag.
+export const PENDING_ACTIVITY_INDEXER_GRACE_MS = 5 * 60_000;
+export const PENDING_ACTIVITY_FALLBACK_TTL_MS = 30 * 60_000;
 // The review rail's "Done" turns back into the action button under the cursor, so a
 // double-click on it would sign a second transaction. Ignore a direct action this
 // soon after the acknowledgement (the common OS double-click interval is 500ms).

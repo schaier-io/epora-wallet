@@ -203,18 +203,21 @@ describe("review rail live regions", () => {
    * The chip is `inline-flex` with no width cap, so its width is its content: 19
    * monospace characters, 173px measured. In the completion card the text column
    * beside the 40px icon is 174px in the 260px rail at 1280-1535. One pixel of
-   * margin is not a contract; the mint overlay's hash chip already takes the
-   * cap-and-wrap contract (`max-w-full` on the pill, `min-w-0 break-all` on the
-   * text), so both rail chips take it too.
+   * margin is not a contract. `break-all` used to absorb it by wrapping the last
+   * character onto a second line. The chip now shows a 17-character hash on one
+   * line: `max-w-full` caps the pill, `min-w-0 truncate` clips the text.
    *
    * Blind spot: class assertions prove the contract ships, not the rendered pixels.
    */
-  it("caps the submitted hash chip at its column and wraps the hash inside it", () => {
+  it("caps the submitted hash chip at its column and keeps the hash on one line", () => {
     render(<UserReviewPanel {...BASE} submitHash={"ab".repeat(32)} />);
 
     const chip = screen.getByRole("link", { name: /Cardanoscan/ });
     expect(chip.className).toContain("max-w-full");
-    expect(chip.querySelector("span")?.className).toContain("break-all");
+    const hash = chip.querySelector("span");
+    expect(hash?.className).toContain("truncate");
+    expect(hash?.className).not.toContain("break-all");
+    expect(hash?.textContent).toBe("abababab...ababab");
   });
 
   it("caps the completion card's hash chip the same way", () => {
@@ -233,7 +236,10 @@ describe("review rail live regions", () => {
 
     const chip = screen.getByRole("link", { name: /Cardanoscan/ });
     expect(chip.className).toContain("max-w-full");
-    expect(chip.querySelector("span")?.className).toContain("break-all");
+    const hash = chip.querySelector("span");
+    expect(hash?.className).toContain("truncate");
+    expect(hash?.className).not.toContain("break-all");
+    expect(hash?.textContent).toBe("abababab...ababab");
   });
 
   const ISSUES: Pick<ComponentProps<typeof UserReviewPanel>, "readinessIssues" | "fieldErrors"> = {

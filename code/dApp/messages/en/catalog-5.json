@@ -122,7 +122,10 @@
     "walletBalance": "Wallet balance",
     "showingRangeOfTotal": "Showing {start}-{end} of {total}",
     "balanceHistory": "Balance history",
-    "balanceHistoryDescription": "View the wallet balance over time."
+    "balanceHistoryDescription": "View the wallet balance over time.",
+    "notInABlockYet": "Not in a block yet. The row comes from the transaction this browser submitted.",
+    "pending": "Pending",
+    "submittedRelativeWaitingForABlock": "Submitted {relative} · waiting for a block"
   },
   "ComponentsUserWorkspaceWorkspaceWalletDashboardView": {
     "addAScheduledPayment": "Add a scheduled payment",
@@ -167,7 +170,8 @@
     "walletAddressCopied": "Wallet address copied",
     "walletHome": "Wallet home",
     "walletId": "Wallet ID",
-    "walletIdCopied": "Wallet ID copied"
+    "walletIdCopied": "Wallet ID copied",
+    "notInABlockYet": "Not in a block yet. The row comes from the transaction this browser submitted."
   },
   "ComponentsUserWorkspaceWorkspaceWalletSelectionDialogView": {
     "ada": "ADA",

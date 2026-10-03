@@ -2,7 +2,7 @@
 import { cardanoNetworkId } from "@/lib/cardano-network";
 import { useTranslations } from "next-intl";
 
-import { recentWalletActivityEventsAtom, walletTransactionsAtom } from "@/components/user/workspace/atoms/workspace-activity.atoms";
+import { displayedWalletActivityEventsAtom, walletTransactionsAtom } from "@/components/user/workspace/atoms/workspace-activity.atoms";
 import { orphanDiscoveryAssetNameHexAtom, orphanDiscoveryPolicyIdAtom, orphanDiscoveryWalletAddressAtom, selectedDetectedTokenAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
 import { detectedSttTokensErrorAtom, detectedSttTokensLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { networkIdAtom } from "@/providers/wallet.atoms";
@@ -51,7 +51,7 @@ export function WorkspaceSidebarView() {
   const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceSidebarView");
   const state = useWorkspaceActions();
   const walletTransactions = useAtomValue(walletTransactionsAtom);
-  const recentWalletActivityEvents = useAtomValue(recentWalletActivityEventsAtom);
+  const displayedWalletActivityEvents = useAtomValue(displayedWalletActivityEventsAtom);
   const networkId = useAtomValue(networkIdAtom);
   const orphanDiscoveryAssetNameHex = useAtomValue(orphanDiscoveryAssetNameHexAtom);
   const orphanDiscoveryPolicyId = useAtomValue(orphanDiscoveryPolicyIdAtom);
@@ -237,16 +237,16 @@ export function WorkspaceSidebarView() {
                                       </p>
                                       <Badge
                                         variant={
-                                          walletTransactions.loading ? "secondary" : "outline"
+                                          walletTransactions.loading || walletTransactions.refreshing ? "secondary" : "outline"
                                         }
                                         // `leading-none` keeps the count badge on the 17.5px title
                                         // line; the default `text-xs` leading made this row taller
                                         // than every other two-line row.
                                         className="whitespace-nowrap leading-none"
                                       >
-                                        {walletTransactions.loading
+                                        {walletTransactions.loading || walletTransactions.refreshing
                                           ? i18n("refreshing")
-                                          : i18n("value1", { value1: recentWalletActivityEvents.length })}
+                                          : i18n("value1", { value1: displayedWalletActivityEvents.length })}
                                       </Badge>
                                     </div>
                                   </div>

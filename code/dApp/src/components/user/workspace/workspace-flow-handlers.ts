@@ -29,7 +29,7 @@ import { type useStore } from "jotai";
 import { activeSubmitAtom, buildRunAtom, workspaceSessionAtom, buildDiagnosticIdAtom, mintConfirmationRunAtom
 } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { preparedWorkspaceTransactionAtom, workspaceTransactionSnapshotAtom } from "./workspace-prepared-transaction";
-import { beginWalletStateUpdateAtom, walletStateUpdatingAtom } from "@/components/user/workspace/atoms/wallet-state-update.atoms";
+import { beginWalletStateUpdateAtom, walletStateBlocksAction } from "@/components/user/workspace/atoms/wallet-state-update.atoms";
 import { MINT_CONFIRMATION_INITIAL_DELAY_MS, MINT_CONFIRMATION_MAX_ATTEMPTS, MINT_CONFIRMATION_POLL_MS } from "@/components/user/workspace/constants";
 import { formatBuildError, isUserActionKind, normalizeTransactionHash, waitFor } from "@/components/user/workspace/helpers";
 import { type useDetectedSttTokens } from "@/components/user/workspace/use-detected-stt-tokens";
@@ -119,7 +119,7 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
     jotaiStore.set(recoveryCapacityFailureAtom, null);
     const recoverySignature = jotaiStore.get(recoveryCapacitySignatureAtom);
 
-    if (jotaiStore.get(walletStateUpdatingAtom) || jotaiStore.get(activeSubmitAtom)) {
+    if (walletStateBlocksAction(jotaiStore.get, label) || jotaiStore.get(activeSubmitAtom)) {
       setBuildError(i18n("updatingWalletState"));
       setBuildErrorExpected(true);
       return null;
@@ -161,7 +161,7 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
       const snapshot = jotaiStore.get(workspaceTransactionSnapshotAtom);
       const isCurrent = () => !signal.aborted && jotaiStore.get(buildRunAtom) === runToken &&
         jotaiStore.get(workspaceSessionAtom) === session &&
-        jotaiStore.get(workspaceTransactionSnapshotAtom) === snapshot && !jotaiStore.get(walletStateUpdatingAtom);
+        jotaiStore.get(workspaceTransactionSnapshotAtom) === snapshot && !walletStateBlocksAction(jotaiStore.get, label);
 
       try {
         const pending = run({
@@ -215,7 +215,7 @@ export function createWorkspaceFlowHandlers(ctx: WorkspaceFlowHandlersCtx) {
           setActiveBuild(null);
         }
       }
-    });
+    }, label);
   }
 
   async function addSubmittedTransactionToActivity(txHash: string) {

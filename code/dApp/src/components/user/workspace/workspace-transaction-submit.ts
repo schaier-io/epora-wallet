@@ -12,7 +12,7 @@ import { recordRecoveryCapacityFailure } from "./recovery-capacity-model";
 import { workspaceSessionAtom, previewSignatureAtom, buildDiagnosticIdAtom, mintConfirmationRunAtom, submitConfirmedAtom, submitConfirmationUnseenAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import {
   beginWalletStateUpdateAtom,
-  walletStateUpdatingAtom,
+  walletStateBlocksAction,
   walletStateSubmissionsAtom,
   pendingWalletStateUpdatesAtom,
   resolveSpentSttRef,
@@ -21,6 +21,7 @@ import { resetLockFundsFormAtom } from "@/components/user/workspace/atoms/forms/
 import { resetTransferFormAtom, transferRecipientModeAtom, transferCustomAddressAtom, transferSelectedUnitAtom, transferDisplayAmountAtom } from "@/components/user/workspace/atoms/forms/transfer-form.atoms";
 import { sttExtraTransfersAtom, sttWalletInputsAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { selectedOrphanInputsAtom } from "./atoms/forms/orphan-inputs.atoms";
+import { capturePendingActivityInputs, recordPendingActivity } from "./atoms/pending-activity.atoms";
 import {
   MINT_CONFIRMATION_MAX_ATTEMPTS,
   SUBMIT_CONFIRMATION_INITIAL_DELAY_MS,
@@ -128,15 +129,17 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
   ) {
     if (jotaiStore.get(workspaceSessionAtom) !== sessionAtCreation) return;
     const walletUnit = selectedDetectedToken?.unit;
-    if (walletUnit && (jotaiStore.get(pendingWalletStateUpdatesAtom)[walletUnit] ||
-      jotaiStore.get(walletStateSubmissionsAtom)[walletUnit])) return;
+    // A signing in flight serializes every action on this wallet. A pending STT update
+    // holds only the actions that spend the STT.
+    if (walletUnit && (jotaiStore.get(walletStateSubmissionsAtom)[walletUnit] ||
+      (jotaiStore.get(pendingWalletStateUpdatesAtom)[walletUnit] && walletStateBlocksAction(jotaiStore.get, selectedAction)))) return;
     const { allowExistingSubmitHash = false, requireCurrentPreview = true } = options;
     jotaiStore.set(recoveryCapacityFailureAtom, null);
     const recoverySignature = jotaiStore.get(recoveryCapacitySignatureAtom);
 
     const session = jotaiStore.get(workspaceSessionAtom);
     // Block duplicate calls in this session without blocking a new wallet.
-    if (submitInFlightRef.current === session || jotaiStore.get(walletStateUpdatingAtom)) {
+    if (submitInFlightRef.current === session || walletStateBlocksAction(jotaiStore.get, selectedAction)) {
       return;
     }
 
@@ -231,6 +234,9 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
       jotaiStore.get(transferSelectedUnitAtom), jotaiStore.get(transferDisplayAmountAtom)
     ]);
     const submittedDraftSnapshot = readDraftSnapshot();
+    // Read before signing: after the broadcast, the spent inputs leave every UTxO list.
+    const pendingActivityInputs = capturePendingActivityInputs(jotaiStore);
+    const pendingActivityWallet = deps.lockingContract.address;
     let txHash: string;
     try {
       const submissionOwner: WorkspaceSubmissionOwnership | undefined = submissionUnit
@@ -329,6 +335,9 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
     jotaiStore.set(submitConfirmedAtom, false);
     jotaiStore.set(submitConfirmationUnseenAtom, false);
     runPostSubmitTask("confirmation", () => watchTransactionConfirmation(txHash));
+    runPostSubmitTask("pending-activity", () => recordPendingActivity(jotaiStore, {
+      txHash, txHex: transactionPreview.txHex, walletAddress: pendingActivityWallet, knownUtxos: pendingActivityInputs
+    }));
     runPostSubmitTask("activity", () => addSubmittedTransactionToActivity(txHash));
     if (
       selectedAction === "use" ||

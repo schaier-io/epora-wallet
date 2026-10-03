@@ -111,10 +111,18 @@ export const walletActivityQueryAtom = atomWithQuery((get) => {
     refetchInterval: queryPolicy.activePollMs
   };
 });
-const EMPTY_ACTIVITY: WalletTransactionSummary = { items: [], loading: false, error: null };
+// Manual refreshes in flight. A counter, not a flag: the header and the activity card
+// can each start one, and the first to finish must not clear the other's badge.
+export const activityManualRefreshCountAtom = atom(0);
+const EMPTY_ACTIVITY: WalletTransactionSummary = { items: [], loading: false, fetching: false, refreshing: false, error: null };
 export const walletTransactionsAtom = atom((get): WalletTransactionSummary => {
   if (!get(chainReadsEnabledAtom) || !get(walletActivityInputAtom).walletAddress) return EMPTY_ACTIVITY;
   const result = get(walletActivityQueryAtom);
-  return { items: result.data ?? [], loading: result.isPending,
+  // A submit adds its hash to the anchors, which changes the key. The previous rows stay
+  // on screen as placeholder data while the new entry loads: that read is the one the
+  // reader is waiting for after sending or receiving funds.
+  const refreshing = !result.isPending &&
+    ((result.isPlaceholderData && result.isFetching) || get(activityManualRefreshCountAtom) > 0);
+  return { items: result.data ?? [], loading: result.isPending, fetching: result.isFetching, refreshing,
     error: result.error ? getUserFacingErrorMessage(result.error, i18n("couldnTLoadRecentWalletActivityRefreshAnd")) : null };
 });

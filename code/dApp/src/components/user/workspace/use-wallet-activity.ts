@@ -7,7 +7,7 @@ import type { TransactionInfo } from "@meshsdk/common";
 import { activityPageIndexAtom } from "./atoms/workspace-activity.atoms";
 import { bumpChainGeneration } from "@/lib/query/invalidation";
 import { mergeAndSortTransactions } from "./helpers/transactions";
-import { walletActivityInputAtom, walletActivityQueryAtom, walletActivityQueryOptions, walletHistoryQueryKey, type WalletActivityInput } from "./queries/activity-query.atoms";
+import { activityManualRefreshCountAtom, walletActivityInputAtom, walletActivityQueryAtom, walletActivityQueryOptions, walletHistoryQueryKey, type WalletActivityInput } from "./queries/activity-query.atoms";
 
 export function useWalletActivity() {
   const client = useAtomValue(queryClientAtom);
@@ -18,11 +18,16 @@ export function useWalletActivity() {
     if (!input.walletAddress) return;
     const session = store.get(workspaceSessionAtom);
     const options = walletActivityQueryOptions(input, client);
-    bumpChainGeneration(client);
-    await Promise.all([options.queryKey, walletHistoryQueryKey(input)].map(queryKey =>
-      client.invalidateQueries({ queryKey, exact: true, refetchType: "none" })));
-    if (store.get(workspaceSessionAtom) !== session) return;
-    await client.fetchQuery(options).catch(() => undefined);
+    store.set(activityManualRefreshCountAtom, count => count + 1);
+    try {
+      bumpChainGeneration(client);
+      await Promise.all([options.queryKey, walletHistoryQueryKey(input)].map(queryKey =>
+        client.invalidateQueries({ queryKey, exact: true, refetchType: "none" })));
+      if (store.get(workspaceSessionAtom) !== session) return;
+      await client.fetchQuery(options).catch(() => undefined);
+    } finally {
+      store.set(activityManualRefreshCountAtom, count => Math.max(0, count - 1));
+    }
   }, [client, store]);
   const refreshWalletTransactions = useCallback(() =>
     runWalletTransactionsRefresh(store.get(walletActivityInputAtom)), [store, runWalletTransactionsRefresh]);

@@ -11,6 +11,17 @@ import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspace
 
 const i18n = createDefaultTranslator("ComponentsUserWorkspaceHelpersActivity", defaultMessages);
 
+// Money in and money out carry the strongest tones on the page. The `-100` tints these
+// rows used before read as near-white on the dark card, so a +5 and a -1 looked alike.
+const FUNDS_IN_TONE = {
+  badgeClassName: "border-emerald-400/40 bg-emerald-500/15 text-emerald-200",
+  amountClassName: "text-emerald-300"
+};
+const FUNDS_OUT_TONE = {
+  badgeClassName: "border-rose-400/40 bg-rose-500/15 text-rose-200",
+  amountClassName: "text-rose-300"
+};
+
 // Exported for the agent console's payment attribution, which applies the same
 // "not a person's wallet" filter when it looks for external recipients.
 export function isLikelyScriptAddress(address: string | null | undefined) {
@@ -219,10 +230,9 @@ export function buildWalletActivityEvents(
       createEvent("initial-top-up", {
         label: i18n("topUp"),
         title: i18n("initialTopUp"),
-        badgeClassName: "border-emerald-500/30 bg-emerald-500/10 text-emerald-100",
+        ...FUNDS_IN_TONE,
         summary: i18n("starterFundsWereAddedValue1", { value1: formatWalletTransactionAmountSummary(outputsAtAddress) }),
         amountSummary: walletChangeSummary,
-        amountClassName: "text-emerald-100",
         details: withSttDetails(baseDetails)
       })
     );
@@ -326,10 +336,9 @@ export function buildWalletActivityEvents(
         createEvent("sent", {
           label: i18n("sent"),
           title: i18n("fundsSent"),
-          badgeClassName: "border-amber-500/30 bg-amber-500/10 text-amber-100",
+          ...FUNDS_OUT_TONE,
           summary: i18n("theWalletSentFundsOutAndKeptValue1", { value1: formatWalletTransactionAmountSummary(outputsAtAddress) }),
           amountSummary: walletChangeSummary,
-          amountClassName: "text-amber-100",
           details: withSttDetails(baseDetails)
         })
       ];
@@ -340,10 +349,9 @@ export function buildWalletActivityEvents(
         createEvent("top-up", {
           label: i18n("topUp"),
           title: i18n("fundsAdded"),
-          badgeClassName: "border-emerald-500/30 bg-emerald-500/10 text-emerald-100",
+          ...FUNDS_IN_TONE,
           summary: i18n("theWalletBalanceIncreasedToValue1", { value1: formatWalletTransactionAmountSummary(outputsAtAddress) }),
           amountSummary: walletChangeSummary,
-          amountClassName: "text-emerald-100",
           details: withSttDetails(baseDetails)
         })
       ];
@@ -369,10 +377,9 @@ export function buildWalletActivityEvents(
       createEvent("top-up", {
         label: i18n("topUp"),
         title: i18n("fundsAdded"),
-        badgeClassName: "border-emerald-500/30 bg-emerald-500/10 text-emerald-100",
+        ...FUNDS_IN_TONE,
         summary: i18n("addedValue1ToThisWallet", { value1: formatWalletTransactionAmountSummary(outputsAtAddress) }),
         amountSummary: walletChangeSummary,
-        amountClassName: "text-emerald-100",
         details: withSttDetails(baseDetails)
       })
     ];
@@ -383,10 +390,9 @@ export function buildWalletActivityEvents(
       createEvent("spent", {
         label: i18n("sent"),
         title: i18n("fundsSent"),
-        badgeClassName: "border-rose-500/30 bg-rose-500/10 text-rose-100",
+        ...FUNDS_OUT_TONE,
         summary: i18n("sentValue1FromThisWallet", { value1: formatWalletTransactionAmountSummary(inputsAtAddress) }),
         amountSummary: walletChangeSummary,
-        amountClassName: "text-rose-100",
         details: withSttDetails(baseDetails)
       })
     ];

@@ -81,7 +81,7 @@ function renderView(overrides: Record<string, unknown> = {}) {
   activityState.value = {
     wealthSeries: [],
     wealthSeriesForAsset: () => [],
-    walletTransactions: { loading: false, error: null },
+    walletTransactions: { loading: false, fetching: false, refreshing: false, error: null },
     recentWalletActivityEvents: [],
     activityPageCount: 1,
     normalizedActivityPageIndex: 0,
@@ -101,6 +101,8 @@ function renderView(overrides: Record<string, unknown> = {}) {
     setActivityPageIndex: vi.fn(),
     ...overrides
   };
+  // Without pending rows the feed shows exactly the confirmed events.
+  activityState.value.displayedWalletActivityEvents ??= activityState.value.recentWalletActivityEvents;
   // A fresh store per render: a shared default store would cache the read-only
   // streaming-state atom across tests and hide later fixtures.
   return render(
@@ -341,4 +343,30 @@ it("opens the selected asset before the transaction list", () => {
   renderView({ assetDetailUnit: "lovelace", recentWalletActivityEvents: [event], paginatedWalletActivityEvents: [event] });
   expect(screen.getByRole("region", { name: "ADA summary" }).compareDocumentPosition(screen.getByText("Funds added")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(screen.queryByRole("button", { name: /Balance history/ })).not.toBeInTheDocument();
+});
+
+// A row decoded from a transaction this browser submitted has no block yet. It must read as
+// pending (badge, dashed border, "waiting for a block") and never as a confirmed send.
+it("marks a just-submitted transaction as pending, apart from confirmed rows", () => {
+  const pending = activityEvent({ id: "pending-1", transaction: transaction({ hash: "ef".repeat(32), slot: "" }), pendingSince: Date.now() });
+  const confirmed = activityEvent();
+  renderView({
+    recentWalletActivityEvents: [confirmed],
+    displayedWalletActivityEvents: [pending, confirmed],
+    paginatedWalletActivityEvents: [pending, confirmed]
+  });
+  const [pendingRow, confirmedRow] = screen.getAllByText("Funds added").map(title => title.closest("details")!);
+  expect(pendingRow).toHaveClass("border-dashed");
+  expect(pendingRow).toHaveTextContent("Pending");
+  expect(pendingRow).toHaveTextContent(/Submitted .+ · waiting for a block/);
+  expect(confirmedRow).not.toHaveClass("border-dashed");
+  expect(confirmedRow).not.toHaveTextContent("Pending");
+});
+
+it("shows pending rows when no confirmed activity exists yet, but exports none", () => {
+  const pending = activityEvent({ id: "pending-1", pendingSince: Date.now() });
+  renderView({ displayedWalletActivityEvents: [pending], paginatedWalletActivityEvents: [pending] });
+  expect(screen.queryByText("No activity yet")).not.toBeInTheDocument();
+  expect(screen.getByText("Pending")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /Export CSV/ })).toBeDisabled();
 });

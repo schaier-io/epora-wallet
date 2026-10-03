@@ -83,8 +83,10 @@
   "ComponentsUserRecentActivityTimeline": {
     "loadingRecentActivity": "Loading recent activity…",
     "noActivityYet": "No activity yet",
+    "pending": "Pending",
     "recentActivity": "Recent activity",
     "recentActivityTimeline": "Recent activity timeline",
+    "refreshing": "Refreshing",
     "seeAll": "See all",
     "sendsReceivesAndWalletUpdatesWillAppearHere": "Sends, receives, and wallet updates will appear here as they happen."
   },

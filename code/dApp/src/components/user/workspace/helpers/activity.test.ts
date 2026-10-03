@@ -156,6 +156,24 @@ test("spend+send with a net increase is 'Funds added'", () => {
   assert.match(events[0]!.amountSummary, /\+6/);
 });
 
+test("money out reads red and money in reads green, at a tone that is not near-white", () => {
+  const cases = [
+    { inputs: [utxo("cc".repeat(32), 0, WALLET, lovelace("6000000"))],
+      outputs: [utxo("ab".repeat(32), 0, EXTERNAL, lovelace("5000000"))], tone: "rose" },
+    { inputs: [utxo("cc".repeat(32), 0, WALLET, lovelace("10000000"))],
+      outputs: [utxo("ab".repeat(32), 0, WALLET, lovelace("4000000"))], tone: "rose" },
+    { inputs: [utxo("cc".repeat(32), 0, EXTERNAL, lovelace("10000000"))],
+      outputs: [utxo("ab".repeat(32), 0, WALLET, lovelace("6000000"))], tone: "emerald" },
+    { inputs: [utxo("cc".repeat(32), 0, WALLET, lovelace("4000000"))],
+      outputs: [utxo("ab".repeat(32), 0, WALLET, lovelace("10000000"))], tone: "emerald" }
+  ];
+  for (const { inputs, outputs, tone } of cases) {
+    const [event] = buildWalletActivityEvents(transaction({ inputs, outputs }), WALLET);
+    assert.equal(event!.amountClassName, `text-${tone}-300`, event!.title);
+    assert.match(event!.badgeClassName, new RegExp(`text-${tone}-200`), event!.title);
+  }
+});
+
 test("equal balance with fewer outputs than inputs is a consolidation ('Funds merged')", () => {
   const tx = transaction({
     inputs: [

@@ -1,6 +1,7 @@
 import { CARDANO_NETWORK } from "@/lib/cardano-network";
-import { atom } from "jotai";
+import { atom, type Getter } from "jotai";
 import { routeStateAtom } from "./workspace-route.atoms";
+import { selectedActionAtom } from "./workspace-selection.atoms";
 import type { createStore } from "jotai";
 
 import type { UserActionKind } from "@/components/user/flow-types";
@@ -152,6 +153,32 @@ const STT_CONSUMING_ACTIONS = new Set<UserActionKind>([
 export function isSttConsumingWorkspaceAction(action: UserActionKind): boolean {
   return STT_CONSUMING_ACTIONS.has(action);
 }
+
+// Actions that never spend the wallet's STT. Creating a wallet mints a new one; adding
+// funds pays the smart wallet's address from the signer's own UTxOs.
+const WALLET_STATE_INDEPENDENT_ACTIONS = new Set<string>(["mint", "lock-funds"]);
+
+export function isWalletStateIndependentAction(action: string): boolean {
+  return WALLET_STATE_INDEPENDENT_ACTIONS.has(action);
+}
+
+/**
+ * Whether `action` must wait for the wallet-state update. A signing still in flight holds
+ * every action, as before: one transaction at a time. Once it is submitted, only an action
+ * that spends the STT has to wait, because its input is the UTxO the pending transaction
+ * just spent. The others stay open, so a wait never locks the whole wallet. An
+ * unrecognised label waits.
+ */
+export function walletStateBlocksAction(get: Getter, action: string): boolean {
+  const unit = get(routeStateAtom).selectedWalletUnit;
+  const submissions = get(walletStateSubmissionsAtom);
+  const signing = unit ? Boolean(submissions[unit]) : Object.values(submissions).some(Boolean);
+  return signing ||
+    (get(pendingWalletStateUpdateAtom) !== null && !isWalletStateIndependentAction(action));
+}
+
+export const selectedActionWaitsForWalletStateAtom = atom(get =>
+  walletStateBlocksAction(get, get(selectedActionAtom)));
 
 function readRef(hash: string, index: string): SttInputRef | null {
   const txHash = hash.trim();

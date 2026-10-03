@@ -1,4 +1,4 @@
-import { withSentryConfig } from "@sentry/nextjs";
+import { withSentryConfig } from "@sentry/nextjs/config";
 import createNextIntlPlugin from "next-intl/plugin";
 // Parse the network switch URLs while the config loads. A malformed value then fails the
 // build, where it would otherwise pass and fail every page at runtime. package.json sets
