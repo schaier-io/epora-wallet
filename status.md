@@ -53,3 +53,10 @@ Wallet-signed terms acceptance is deferred. The beta uses a browser/API acknowle
 - VERIFIED: final combined runs returned `Tests 126 passed (126)` and `tests 78`, `pass 78`, `fail 0`. Tests used existing local dependencies.
 - REPORTED: independent reviews of each layer returned a clean result. VERIFIED: no live migration or deployment ran.
 - Next: obtain Sentry event URLs and verify the affected deployment. Production migration and publication require user approval.
+
+## Review correction, 2026-10-03
+
+- VERIFIED correction: the earlier `build:deploy` command ran migrations in every environment. That allowed a preview build to migrate its configured database.
+- REPORTED: [review finding on PR 673](https://github.com/schaier-io/epora-wallet/pull/673#discussion_r4173319746) identified the risk when Preview shares a production database.
+- VERIFIED: `build:deploy` now runs migrations only when `VERCEL_ENV` is `production`. Deployment tests returned `tests 5`, `pass 5`, `fail 0`, after `fail 3` before the guard.
+- REPORTED: the independent review returned a clean result. VERIFIED: tests used stub commands. No live database settings changed.

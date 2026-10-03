@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
-    "build:deploy": "prisma migrate deploy && pnpm build",
+    "build:deploy": "if [ \"$VERCEL_ENV\" = \"production\" ]; then prisma migrate deploy || exit $?; fi; pnpm build",
     "postinstall": "prisma generate && node ./scripts/sync-swagger-ui.mjs",
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
