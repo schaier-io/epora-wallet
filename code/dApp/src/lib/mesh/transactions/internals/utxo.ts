@@ -423,12 +423,11 @@ export async function resolveExactWalletInputUtxos(
       refs
         .slice(start, start + MAX_CONCURRENT_EXACT_INPUT_LOOKUPS)
         .map(async (ref) => {
-          const candidates = await fetcher.fetchUTxOs(
-            ref.txHash,
-            ref.outputIndex
-          );
+          const [candidates] = await Promise.all([
+            fetcher.fetchUTxOs(ref.txHash, ref.outputIndex),
+            assertExactInputUnspent(fetcher, ref, "Wallet input", requireUnspentStatus)
+          ]);
           const utxo = findUtxo(candidates, ref.txHash, ref.outputIndex);
-          await assertExactInputUnspent(fetcher, ref, "Wallet input", requireUnspentStatus);
 
           let actualPaymentScriptHash: string;
           try {
@@ -469,9 +468,17 @@ export async function assertExactInputUnspent(
   label = "Wallet input",
   requireStatus = false
 ) {
-  const response = (await fetcher.get(`txs/${ref.txHash}/utxos`)) as {
-    outputs?: BlockfrostTxOutput[];
-  } | null;
+  const response = await fetcher.get(`txs/${ref.txHash}/utxos`);
+  assertExactInputUnspentStatus(response, ref, label, requireStatus);
+}
+
+export function assertExactInputUnspentStatus(
+  rawResponse: unknown,
+  ref: WalletInputRef,
+  label = "Wallet input",
+  requireStatus = false
+) {
+  const response = rawResponse as { outputs?: BlockfrostTxOutput[] } | null;
   const output = Array.isArray(response?.outputs)
     ? response.outputs.find((entry) => entry?.output_index === ref.outputIndex)
     : undefined;

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { DEFAULT_PROTOCOL_PARAMETERS } from "@meshsdk/common";
 import type { TxFetcher } from "@/lib/mesh/tx-context";
-import { createBuildParameterFetcher } from "./build-parameter-fetcher";
+import { beginBuildPass, createBuildParameterFetcher } from "./build-parameter-fetcher";
 
 function provider() {
   class Provider {
@@ -129,18 +129,19 @@ test("empty or invalid cost models allow the next pass to retry", async () => {
   }
 });
 
-test("freshness reads and evaluation remain uncached and bound to the provider", async () => {
+test("freshness checks stay live between passes while input metadata is reused", async () => {
   const { source, fetcher } = provider();
   const scoped = createBuildParameterFetcher(fetcher);
   const get = scoped.get;
   for (let pass = 0; pass < 2; pass += 1) {
-    assert.deepEqual(await get("txs/hash/utxos"), { request: pass * 2 + 1, costs: [[1, 2], [3, 4]] });
+    beginBuildPass(scoped);
+    assert.deepEqual(await get("txs/hash/utxos"), { request: pass === 0 ? 1 : 3, costs: [[1, 2], [3, 4]] });
     await get("epochs/latest/parameters");
     await scoped.fetchUTxOs("hash");
     await scoped.evaluateTx("tx");
   }
-  assert.equal(source.gets.length, 4);
-  assert.equal(source.inputReads, 2);
+  assert.equal(source.gets.length, 3);
+  assert.equal(source.inputReads, 1);
   assert.deepEqual(source.evaluations, ["tx", "tx"]);
 });
 
@@ -172,5 +173,72 @@ test("rejected address reads retry instead of poisoning the final pass", async (
   await assert.rejects(scoped.fetchAddressUTxOs("addr"), /address unavailable/);
   await scoped.fetchAddressUTxOs("addr");
   await scoped.fetchAddressUTxOs("addr");
+  assert.equal(calls, 2);
+});
+
+
+test("raw latest parameters share one build snapshot and retry failures", async () => {
+  const { fetcher } = provider();
+  let calls = 0;
+  fetcher.get = async () => {
+    if (++calls === 1) throw new Error("raw parameters unavailable");
+    return { cost_models_raw: { PlutusV3: [1, 2] } };
+  };
+  const scoped = createBuildParameterFetcher(fetcher);
+  await assert.rejects(scoped.get("epochs/latest/parameters"), /raw parameters unavailable/);
+  const [first, second] = await Promise.all([
+    scoped.get("epochs/latest/parameters"), scoped.get("epochs/latest/parameters")
+  ]) as { cost_models_raw: { PlutusV3: number[] } }[];
+  first.cost_models_raw.PlutusV3[0] = 99;
+  assert.equal(second.cost_models_raw.PlutusV3[0], 1);
+  assert.equal(calls, 2);
+  await createBuildParameterFetcher(fetcher).get("epochs/latest/parameters");
+  assert.equal(calls, 3);
+});
+
+
+test("status responses share one transaction within a pass and refresh for the final pass", async () => {
+  const { source, fetcher } = provider();
+  const scoped = createBuildParameterFetcher(fetcher);
+  const path = `txs/${"ab".repeat(32)}/utxos`;
+  const [first, second] = await Promise.all([scoped.get(path), scoped.get(path)]);
+  assert.deepEqual(first, second);
+  await scoped.get(path);
+  assert.equal(source.gets.length, 1);
+  beginBuildPass(scoped);
+  await scoped.get(path);
+  assert.equal(source.gets.length, 2);
+  await createBuildParameterFetcher(fetcher).get(path);
+  assert.equal(source.gets.length, 3);
+});
+
+test("input metadata is cloned, scoped to one build, and retries failures", async () => {
+  const { fetcher } = provider();
+  let calls = 0;
+  fetcher.fetchUTxOs = async () => {
+    if (++calls === 1) throw new Error("metadata unavailable");
+    return [{ input: { txHash: "ab".repeat(32), outputIndex: 0 },
+      output: { address: "address", amount: [{ unit: "lovelace", quantity: "1" }] } }];
+  };
+  const scoped = createBuildParameterFetcher(fetcher);
+  await assert.rejects(scoped.fetchUTxOs("hash", 0), /metadata unavailable/);
+  const first = await scoped.fetchUTxOs("hash", 0);
+  first[0].output.amount[0].quantity = "99";
+  beginBuildPass(scoped);
+  assert.equal((await scoped.fetchUTxOs("hash", 0))[0].output.amount[0].quantity, "1");
+  assert.equal(calls, 2);
+  await scoped.fetchUTxOs("hash", 1);
+  await createBuildParameterFetcher(fetcher).fetchUTxOs("hash", 0);
+  assert.equal(calls, 4);
+});
+
+test("failed status reads retry within their own pass", async () => {
+  const { fetcher } = provider();
+  let calls = 0;
+  fetcher.get = async () => { if (++calls === 1) throw new Error("offline"); return { outputs: [] }; };
+  const scoped = createBuildParameterFetcher(fetcher);
+  const path = `txs/${"ab".repeat(32)}/utxos`;
+  await assert.rejects(scoped.get(path), /offline/);
+  await scoped.get(path);
   assert.equal(calls, 2);
 });

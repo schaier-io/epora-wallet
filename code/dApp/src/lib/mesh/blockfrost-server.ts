@@ -3,6 +3,7 @@ import { BlockfrostProvider } from "@meshsdk/core";
 import type { IFetcherOptions, UTxO } from "@meshsdk/common";
 import type { ChainMethod } from "@/lib/types/contracts";
 import { requireServerEnv, getServerEnv, type ServerEnv } from "@/lib/env/server-env";
+import { readBuildParameters, protocolFromBuildParameters } from "./protocol-parameter-cache";
 import { meshHttpStatus } from "@/lib/mesh/http-error";
 import { fetchAddressUtxosStrict, fetchAssetAddressesStrict, fetchCollectionAssetsStrict } from "./blockfrost-reads";
 
@@ -37,8 +38,13 @@ export function blockfrostProjectId(network: CardanoNetwork, env: ServerEnv = ge
   return key;
 }
 
+let configuredProvider: { projectId: string; provider: BlockfrostProvider } | undefined;
 export function getBlockfrostProvider() {
-  return new BlockfrostProvider(blockfrostProjectId(CARDANO_NETWORK));
+  const projectId = blockfrostProjectId(CARDANO_NETWORK);
+  if (configuredProvider?.projectId !== projectId) {
+    configuredProvider = { projectId, provider: new BlockfrostProvider(projectId) };
+  }
+  return configuredProvider.provider;
 }
 
 export class MeshRpcInputError extends Error {}
@@ -288,14 +294,15 @@ export async function executeMeshMethod(
       );
     }
     case "fetchProtocolParameters": {
-      return toUnknown(
-        provider.fetchProtocolParameters(getOptionalNumberArg(args, 0, "epoch"))
-      );
+      const epoch = getOptionalNumberArg(args, 0, "epoch");
+      if (epoch !== undefined) return toUnknown(provider.fetchProtocolParameters(epoch));
+      return protocolFromBuildParameters(await readBuildParameters(provider));
     }
     case "fetchCostModels": {
-      return toUnknown(
-        provider.fetchCostModels(getOptionalNumberArg(args, 0, "epoch"))
-      );
+      const epoch = getOptionalNumberArg(args, 0, "epoch");
+      if (epoch !== undefined) return toUnknown(provider.fetchCostModels(epoch));
+      const raw = await readBuildParameters(provider);
+      return [raw.cost_models_raw.PlutusV1, raw.cost_models_raw.PlutusV2, raw.cost_models_raw.PlutusV3];
     }
     case "fetchTxInfo": {
       return toUnknown(provider.fetchTxInfo(getStringArg(args, 0, "hash")));
@@ -329,7 +336,16 @@ export async function executeMeshMethod(
       return toUnknown(provider.submitTx(getStringArg(args, 0, "tx", MAX_TRANSACTION_HEX_LENGTH)));
     }
     case "get": {
-      return toUnknown(provider.get(getRelativePathArg(args, 0, "url")));
+      const path = getRelativePathArg(args, 0, "url");
+      const buildCache = args[1];
+      if (buildCache !== undefined && typeof buildCache !== "boolean") {
+        throw new MeshRpcInputError("Argument 'buildCache' must be a boolean.");
+      }
+      if (buildCache === true) {
+        if (path !== "epochs/latest/parameters") throw new MeshRpcInputError("Build cache is restricted to latest protocol parameters.");
+        return readBuildParameters(provider);
+      }
+      return toUnknown(provider.get(path));
     }
     default: {
       throw new MeshRpcInputError(`Unsupported method: ${method as string}`);

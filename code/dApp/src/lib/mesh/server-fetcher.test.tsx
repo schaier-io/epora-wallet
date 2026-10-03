@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createBuildParameterFetcher } from "./transactions/internals/build-parameter-fetcher";
 import { ServerFetcher } from "@/lib/mesh/server-fetcher";
 
 const fetchMock = vi.fn();
@@ -146,4 +147,19 @@ it("does not retry a non-transport TypeError", async () => {
   await expect(new ServerFetcher().fetchAddressTxs("address", circular))
     .rejects.toBeInstanceOf(TypeError);
   expect(fetchMock).not.toHaveBeenCalled();
+});
+
+
+it("only the build wrapper opts raw parameters into the server cache", async () => {
+  fetchMock.mockResolvedValue(answer('{"result":{"epoch":600}}', 200));
+  const fetcher = new ServerFetcher();
+  await createBuildParameterFetcher(fetcher).get("epochs/latest/parameters");
+  await fetcher.get("epochs/latest/parameters");
+  const bodies = fetchMock.mock.calls.map((call: unknown[]) => {
+    const init = call[1] as RequestInit;
+    return JSON.parse(init.body as string) as { args: unknown[] };
+  });
+  expect(bodies.map(body => body.args)).toEqual([
+    ["epochs/latest/parameters", true], ["epochs/latest/parameters"]
+  ]);
 });

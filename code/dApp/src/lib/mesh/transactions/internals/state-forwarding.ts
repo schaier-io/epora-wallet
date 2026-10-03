@@ -7,7 +7,7 @@ import {
   type ReferenceScriptResolution,
   resolveSharedSttReferenceScript
 } from "./reference-scripts";
-import { assertExactInputUnspent, createInputRefKey, resolveSttInputUtxo } from "./utxo";
+import { assertExactInputUnspentStatus, createInputRefKey, resolveSttInputUtxo } from "./utxo";
 import { decodeConstrDatumFromUtxo } from "./datum";
 import { assertStateDatumShape } from "./guards";
 import {
@@ -108,9 +108,12 @@ async function resolveStateForwardingInput(
     ...options.details,
     sttAddress: definition.address
   };
-  const stateUtxos = await withStage(
+  const [stateUtxos, unspentStatus] = await withStage(
     options.stage,
-    async () => fetcher.fetchUTxOs(options.txHash, options.outputIndex),
+    async () => Promise.all([
+      fetcher.fetchUTxOs(options.txHash, options.outputIndex),
+      fetcher.get(`txs/${options.txHash}/utxos`)
+    ]),
     details
   );
   const input = resolveSttInputUtxo(
@@ -134,7 +137,7 @@ async function resolveStateForwardingInput(
     throw new Error(`STT input ${inputRef} must contain a valid inline state datum.`);
   }
   assertStateDatumShape(datum, `STT input ${inputRef} datum`);
-  await assertExactInputUnspent(fetcher, input.input, "STT input", true);
+  assertExactInputUnspentStatus(unspentStatus, input.input, "STT input", true);
   return {
     ...definition,
     input,

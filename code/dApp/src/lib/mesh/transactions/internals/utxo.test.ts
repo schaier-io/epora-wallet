@@ -521,3 +521,25 @@ test("addWalletInput forwards the UTxO to txIn with the script-ref byte size and
 
   assert.throws(() => addWalletInput({} as RuntimeTxBuilder, utxo(HASH_A, 0)), /missing txIn/);
 });
+
+
+test("exact input metadata and unspent status start together", async () => {
+  const paymentScriptHash = "ab".repeat(28);
+  const address = composeWalletReceiveAddress(paymentScriptHash, { alternative: 1, fields: [] });
+  assert.ok(address);
+  const exact = utxo(HASH_A, 2);
+  exact.output.address = address;
+  let release!: () => void;
+  const blocked = new Promise<void>(resolve => { release = resolve; });
+  let statusStarted = false;
+  const pending = resolveExactWalletInputUtxos({
+    async fetchUTxOs() { await blocked; return [exact]; },
+    async get() { statusStarted = true; return { outputs: [{ output_index: 2, consumed_by_tx: null }] }; }
+  }, [{ txHash: HASH_A, outputIndex: 2 }], paymentScriptHash, true);
+  try {
+    assert.equal(statusStarted, true);
+  } finally {
+    release();
+    await pending;
+  }
+});

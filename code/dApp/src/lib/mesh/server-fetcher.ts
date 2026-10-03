@@ -174,8 +174,8 @@ export class ServerFetcher implements IFetcher, IEvaluator {
     return this.rpc("evaluateTx", [tx, additionalUtxos, additionalTxs]);
   }
 
-  get(url: string): Promise<unknown> {
-    return this.rpc("get", [url]);
+  get(url: string, buildCache = false): Promise<unknown> {
+    return this.rpc("get", buildCache ? [url, true] : [url]);
   }
 
   submitTx(tx: string): Promise<string> {

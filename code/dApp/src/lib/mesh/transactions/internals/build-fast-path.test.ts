@@ -86,6 +86,11 @@ test("unlabelled Plutus mint still prepares twice and evaluates both builds", as
   const script = { code: "46010000200101", version: "V3" as const };
   const policy = resolveScriptHash(script.code, script.version);
   let preparations = 0;
+  const evaluate = fetcher.evaluateTx.bind(fetcher);
+  fetcher.evaluateTx = async (...args) => {
+    assert.equal(calls.rawParameters, 1, "raw parameters must start before draft evaluation");
+    return evaluate(...args);
+  };
   const result = await buildTransactionWithReestimatedLimits("draft", "final", async (overrides, buildFetcher) => {
     preparations++;
     const { tx, signerAddress } = await setupTransaction(wallet, undefined, buildFetcher);
@@ -102,6 +107,11 @@ test("unlabelled Plutus mint still prepares twice and evaluates both builds", as
   assert.equal(calls.rawParameters, 1);
   assert.equal(deserializeTx(result.txHex).witnessSet().redeemers()?.size(), 1);
   assert.equal(result.executionUnits.redeemers.length, 1);
+  const timings = result.context.buildTimingsMs as Record<string, number>;
+  assert.ok(timings);
+  for (const stage of ["draft:prepare", "draft", "final:prepare", "final", "total"]) {
+    assert.ok(Number.isFinite(timings[stage]) && timings[stage] >= 0, stage);
+  }
 });
 
 test("deposit drops a zero-quantity row instead of writing it into the output", async () => {
@@ -170,4 +180,26 @@ test("deposit keeps automatic ADA for native assets after dropping zero ADA", as
   assert.ok(BigInt(output.amount().coin().toString()) > 0n);
   assert.equal(new Map([...(output.amount().multiasset()?.entries() ?? [])]
     .map(([unit, quantity]) => [unit.toString(), quantity.toString()])).get(TOKEN), "3");
+});
+
+
+test("failed raw-parameter prefetch retries at hash refresh", async () => {
+  const { wallet, fetcher, calls } = fixture();
+  const get = fetcher.get.bind(fetcher);
+  let rawAttempts = 0;
+  fetcher.get = async path => {
+    if (++rawAttempts === 1) throw new Error("temporary parameter outage");
+    return get(path);
+  };
+  const script = { code: "46010000200101", version: "V3" as const };
+  const policy = resolveScriptHash(script.code, script.version);
+  await buildTransactionWithReestimatedLimits("draft", "final", async (overrides, buildFetcher) => {
+    const { tx, signerAddress } = await setupTransaction(wallet, undefined, buildFetcher);
+    applyMintWitness(tx.txBuilder as RuntimeTxBuilder, policy, "01", script, null, overrides?.mintBudgets[0]);
+    tx.isCollateralNeeded = true;
+    tx.sendAssets(ADDRESS, [{ unit: `${policy}01`, quantity: "1" }]);
+    return { tx, signerAddress, diagnostics: {}, executionLabels: createEmptyExecutionValidatorLabels() };
+  }, fetcher);
+  assert.equal(rawAttempts, 2);
+  assert.equal(calls.evaluations, 2);
 });
