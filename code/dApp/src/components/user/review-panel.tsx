@@ -10,10 +10,8 @@ import {
 } from "lucide-react";
 import { useId } from "react";
 import type { BuildResult } from "@/lib/types/contracts";
-import {
-  buildCardanoscanTransactionUrl,
-  formatCompactHash
-} from "@/components/user/workspace/helpers";
+import { buildCardanoscanTransactionUrl } from "@/components/user/workspace/helpers";
+import { shortenIdentifier } from "@/lib/utils/explorer";
 import { getFieldErrorLabel } from "@/components/user/workspace/field-error-labels";
 import {
   AnimatedContent,
@@ -43,6 +41,17 @@ import {
 import { ReviewTransactionPreview } from "@/components/user/review-panel-preview";
 import { summarizeBlockers } from "@/components/user/review-panel-blockers";
 
+// The submitted-hash chip sits in a 174px column beside the card icon, and the
+// 10+6 compact hash (19 mono characters, 173px with the pill) wrapped its last
+// character onto a second line whenever the column lost a pixel. 8+6 is 17
+// characters, about 20px narrower. `truncate` stays as the guard: the pill can
+// clip, never wrap or cross the card border. The full hash is in the aria-label.
+const SUBMIT_HASH_CHIP_LEADING = 8;
+const SUBMIT_HASH_CHIP_TRAILING = 6;
+function formatSubmitHashChip(hash: string) {
+  return shortenIdentifier(hash, SUBMIT_HASH_CHIP_LEADING, SUBMIT_HASH_CHIP_TRAILING);
+}
+
 // The review rail is 260px wide, so a button in it has about 154px for its label once the
 // icon, the gap and `px-4` are paid for. `Button` is `whitespace-nowrap` at a fixed `h-11
 // sm:h-10`, so a longer label cannot wrap and cannot shrink: it just grows. "Manage scheduled
@@ -55,6 +64,7 @@ import { summarizeBlockers } from "@/components/user/review-panel-blockers";
 // Only the `size="default"` pair below carries it. The completion group beside it is `size="sm"`,
 // whose own `h-11 sm:h-9` this would override, and that group renders only after a submit -- a
 // state the demo wallet cannot reach, so the change there would ship unmeasured.
+
 const REVIEW_RAIL_BUTTON =
   "h-auto min-h-11 w-full whitespace-normal py-2 sm:h-auto sm:min-h-10";
 
@@ -387,10 +397,9 @@ export function UserReviewPanel({
                     wants proof the chain accepted it. */}
                 {/* `max-w-full` caps the pill at its column. The completion card's text
                     column beside the 40px icon is 174px in the 260px rail at 1280-1535,
-                    against this chip's 173px of content: a 1px margin no font metric gets
-                    to spend. The cap makes the hash wrap mid-string instead of the pill
-                    crossing the card's border. Same contract as the mint overlay's chip
-                    (`editors/primitives.tsx`). */}
+                    which the old 19-character hash missed by a pixel and wrapped. The hash
+                    is now 17 characters and `truncate`d: it stays on one line, and the cap
+                    clips it rather than letting the pill cross the card's border. */}
                 <a
                   href={buildCardanoscanTransactionUrl(submitHash)}
                   target="_blank"
@@ -403,7 +412,7 @@ export function UserReviewPanel({
                   // value, which is otherwise nowhere on this card.
                   aria-label={i18n("viewTransactionHashOnCardanoscan", { hash: submitHash })}
                 >
-                  <span className="min-w-0 break-all">{formatCompactHash(submitHash)}</span>
+                  <span className="min-w-0 truncate">{formatSubmitHashChip(submitHash)}</span>
                   <ExternalLink className="h-3 w-3 shrink-0" />
                 </a>
                 {completion.actionLabel && completion.onAction ? (
@@ -477,7 +486,7 @@ export function UserReviewPanel({
                   // value, which is otherwise nowhere on this card.
                   aria-label={i18n("viewTransactionHashOnCardanoscan", { hash: submitHash })}
                 >
-                  <span className="min-w-0 break-all">{formatCompactHash(submitHash)}</span>
+                  <span className="min-w-0 truncate">{formatSubmitHashChip(submitHash)}</span>
                   <ExternalLink className="h-3 w-3 shrink-0" />
                 </a>
               </div>
