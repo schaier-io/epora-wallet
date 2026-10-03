@@ -1,6 +1,7 @@
 import { ServerFetcher } from "@/lib/mesh/server-fetcher";
 import type { TxFetcher, WalletSource } from "@/lib/mesh/tx-context";
 import { createBuildWalletSource } from "./build-wallet-source";
+import { readImmutableInputMetadata } from "./immutable-input-cache";
 
 export const LATEST_PROTOCOL_PARAMETERS_PATH = "epochs/latest/parameters";
 
@@ -81,10 +82,16 @@ export function createBuildParameterFetcher(fetcher: TxFetcher): TxFetcher {
     (address: string, asset?: string) => fetcher.fetchAddressUTxOs(address, asset),
     (address, asset) => JSON.stringify([address, asset])
   );
-  const fetchUTxOs = reuseReads(
-    (hash: string, index?: number) => fetcher.fetchUTxOs(hash, index),
+  const cachedUTxOs = reuseReads(
+    (hash: string, index?: number) => readImmutableInputMetadata(fetcher, hash, index),
     (hash, index) => JSON.stringify([hash.toLowerCase(), index])
   );
+  const fetchUTxOs = async (hash: string, index?: number) => {
+    fetcher.signal?.throwIfAborted();
+    const value = await cachedUTxOs(hash, index);
+    fetcher.signal?.throwIfAborted();
+    return value;
+  };
   const fetchRawParameters = reuseLatest(() => fetcher instanceof ServerFetcher
     ? fetcher.get(LATEST_PROTOCOL_PARAMETERS_PATH, true) : fetcher.get(LATEST_PROTOCOL_PARAMETERS_PATH));
   let statusReads = new Map<string, Promise<unknown>>();

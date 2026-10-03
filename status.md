@@ -153,3 +153,13 @@ VERIFIED: Final Node validation returned `tests 277`, `pass 277`, `fail 0`. Fina
 VERIFIED: Type checking and changed-file ESLint returned exit 0. File-length validation returned `File length OK: 781 source files checked, none over 750 lines.`
 REPORTED: Fresh independent reviews of build reads and button behavior found no remaining introduced defects.
 Limit: These tests do not measure deployed build latency. The benchmark above remains a local CPU measurement.
+
+## Additional wallet build reads
+
+VERIFIED: `core.ts` starts change and authority reads while wallet inputs load. `utxo.ts` resolves fallback addresses together and queries providers in batches of eight. Authority priority and failure behavior remain unchanged.
+VERIFIED: `immutable-input-cache.ts` retains up to 128 immutable output snapshots for 60 seconds. Keys include network, provider, transaction, and output index. Pending entries expire after 15 seconds. Canceled callers do not share pending requests.
+VERIFIED: The spent-between-builds test reuses metadata once and reads status twice. The second status check rejects with `already spent by new-spender`.
+VERIFIED: Original source with final tests returned `tests 58`, `pass 49`, `fail 9`, exit 1. Restored source passed the full Node run: `tests 293`, `pass 293`, `fail 0`.
+VERIFIED: Combined component and evaluation checks returned `Tests 180 passed (180)`. Type checking and changed-file lint returned exit 0. File-length validation returned `File length OK: 782 source files checked, none over 750 lines.`
+REPORTED: Independent reviews of wallet reads and metadata caching found no remaining introduced defects.
+Limit: Mocked wallet and provider tests prove concurrency and isolation. They do not establish deployed latency. Local evaluation remains a separate experiment.

@@ -79,14 +79,24 @@ export async function setupTransaction(
     (value) => ({ ok: true as const, value }),
     (error: unknown) => ({ ok: false as const, error })
   );
+  const changeAddressRead = abortable(signal, () => wallet.getChangeAddress()).then(
+    (value) => ({ status: "fulfilled" as const, value }),
+    (reason: unknown) => ({ status: "rejected" as const, reason })
+  );
+  const authorityRead = abortable(signal, () => readWalletAuthorityAddress(wallet)).then(
+    (value) => ({ ok: true as const, value }),
+    (error: unknown) => ({ ok: false as const, error })
+  );
   const { walletUtxos, source: utxosSource, addressCandidates, diagnostics } =
     await abortable(signal, () => resolveWalletUtxos(wallet, fetcher));
   const {
     changeAddress,
     source: changeAddressSource,
     diagnostics: changeAddressDiagnostics
-  } = await abortable(signal, () => resolveChangeAddress(wallet, walletUtxos, addressCandidates));
-  const signerAddress = await abortable(signal, () => readWalletAuthorityAddress(wallet));
+  } = await abortable(signal, async () => resolveChangeAddress(wallet, walletUtxos, addressCandidates, await changeAddressRead));
+  const authority = await authorityRead;
+  if (!authority.ok) throw authority.error;
+  const signerAddress = authority.value;
   if (!signerAddress) throw new Error("Connected wallet returned no authority address.");
   const spendableWalletUtxos = walletUtxos.filter((utxo) => !hasReferenceScript(utxo));
   const referenceScriptWalletUtxos = walletUtxos.filter((utxo) =>

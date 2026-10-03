@@ -16,8 +16,10 @@ import {
   MAX_CONCURRENT_EXACT_INPUT_LOOKUPS,
   resolveManualCollateralCandidate,
   resolveExactWalletInputUtxos,
-  resolveSttInputUtxo
+  resolveSttInputUtxo,
+  resolveWalletUtxos
 } from "@/lib/mesh/transactions/internals/utxo";
+import type { TxFetcher, WalletSource } from "@/lib/mesh/tx-context";
 import { composeWalletReceiveAddress } from "@/lib/contracts/payout-address";
 
 // A real preprod address: collateral sizing serializes the output to measure
@@ -542,4 +544,99 @@ test("exact input metadata and unspent status start together", async () => {
     release();
     await pending;
   }
+});
+
+test("fallback address discovery starts independent reads and preserves candidate order", async () => {
+  let release!: (address: string) => void;
+  const change = new Promise<string>(resolve => { release = resolve; });
+  let usedStarted = false;
+  let unusedStarted = false;
+  const fetched: string[] = [];
+  const wallet = {
+    getUtxos: async () => [],
+    getChangeAddress: () => change,
+    getUsedAddresses: async () => { usedStarted = true; return ["used", "change"]; },
+    getUnusedAddresses: async () => { unusedStarted = true; return ["unused"]; }
+  } as WalletSource;
+  const fetcher = { fetchAddressUTxOs: async (address: string) => {
+    fetched.push(address); return [utxo(HASH_A, 0)];
+  } } as unknown as TxFetcher;
+  const resolving = resolveWalletUtxos(wallet, fetcher);
+  await new Promise(resolve => setImmediate(resolve));
+  try { assert.equal(usedStarted, true); assert.equal(unusedStarted, true); }
+  finally { release("change"); }
+  const result = await resolving;
+  assert.deepEqual(result.addressCandidates, ["change", "used", "unused"]);
+  assert.deepEqual(fetched, result.addressCandidates);
+  assert.equal(result.walletUtxos.length, 1);
+});
+
+test("fallback provider reads stay bounded and keep candidate order after partial failure", async () => {
+  const addresses = Array.from({ length: MAX_CONCURRENT_EXACT_INPUT_LOOKUPS + 1 }, (_, index) => `address${index}`);
+  const releases = new Map<string, () => void>();
+  const started: string[] = [];
+  let active = 0;
+  let peak = 0;
+  const wallet = {
+    getUtxos: async () => [], getChangeAddress: async () => addresses[0]!,
+    getUsedAddresses: async () => addresses, getUnusedAddresses: async () => []
+  } as WalletSource;
+  const fetcher = { fetchAddressUTxOs: async (address: string) => {
+    started.push(address); peak = Math.max(peak, ++active);
+    await new Promise<void>(resolve => releases.set(address, resolve));
+    active--;
+    const index = addresses.indexOf(address);
+    if (index === 1) throw new Error("provider unavailable");
+    return [utxo(HASH_A, index)];
+  } } as unknown as TxFetcher;
+  const resolving = resolveWalletUtxos(wallet, fetcher);
+  try {
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(started.length, MAX_CONCURRENT_EXACT_INPUT_LOOKUPS);
+    for (const address of [...started].reverse()) releases.get(address)!();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(started.length, addresses.length);
+  } finally { for (const release of releases.values()) release(); }
+  const result = await resolving;
+  assert.equal(peak, MAX_CONCURRENT_EXACT_INPUT_LOOKUPS);
+  assert.deepEqual(result.walletUtxos.map(value => value.input.outputIndex), [0, 2, 3, 4, 5, 6, 7, 8]);
+  const errors = result.diagnostics.fallbackFetchAddressErrors as { address: string }[];
+  assert.deepEqual(errors.map(error => error.address), [addresses[1]]);
+});
+
+test("fallback discovery retains synchronous wallet and provider errors", async () => {
+  const wallet = {
+    getUtxos: async () => [], getChangeAddress: () => { throw new Error("change unavailable"); },
+    getUsedAddresses: async () => ["bad", "good"], getUnusedAddresses: () => { throw new Error("unused unavailable"); }
+  } as WalletSource;
+  const fetcher = { fetchAddressUTxOs: (address: string) => {
+    if (address === "bad") throw new Error("bad unavailable");
+    return Promise.resolve([utxo(HASH_A, 0)]);
+  } } as unknown as TxFetcher;
+  const result = await resolveWalletUtxos(wallet, fetcher);
+  assert.deepEqual(result.addressCandidates, ["bad", "good"]);
+  assert.equal(result.walletUtxos.length, 1);
+  assert.ok(result.diagnostics.getChangeAddressError);
+  assert.ok(result.diagnostics.getUnusedAddressesError);
+});
+
+test("canceling fallback discovery prevents the next provider batch", async () => {
+  const controller = new AbortController();
+  const addresses = Array.from({ length: MAX_CONCURRENT_EXACT_INPUT_LOOKUPS + 1 }, (_, index) => `address${index}`);
+  let release!: () => void;
+  const pending = new Promise<void>(resolve => { release = resolve; });
+  let reads = 0;
+  const wallet = {
+    getUtxos: async () => [], getChangeAddress: async () => addresses[0]!,
+    getUsedAddresses: async () => addresses, getUnusedAddresses: async () => []
+  } as WalletSource;
+  const fetcher = { signal: controller.signal, fetchAddressUTxOs: async () => {
+    reads++; await pending; return [utxo(HASH_A, 0)];
+  } } as unknown as TxFetcher;
+  const resolving = resolveWalletUtxos(wallet, fetcher);
+  const rejected = assert.rejects(resolving, { name: "AbortError" });
+  await new Promise(resolve => setImmediate(resolve));
+  controller.abort(); release();
+  await rejected;
+  assert.equal(reads, MAX_CONCURRENT_EXACT_INPUT_LOOKUPS);
 });
