@@ -83,7 +83,7 @@ export function useConfigSttSpendState() {
   // they run as microtasks, before the re-baselining effect commits, so the
   // baseline already reflects the cleared form. The `!activeSubmit` gate keeps
   // the promise that an edit while a tx is confirming leaves the banner alone.
-  // Navigation between actions already clears through `clearBuildMessages`.
+  // Action navigation preserves the receipt. Its owner keeps it off other actions.
   // Editors outside this hook (withdraw, vote, publish, the advanced fund-pool
   // boxes) keep the manual "Done" acknowledgement.
   // `safeStringify`, not raw JSON.stringify: the state form carries datum
