@@ -1,3 +1,4 @@
+import { evaluateRemoteTx } from "./remote-evaluation";
 import { readRegionalInputMetadata } from "./regional-input-metadata";
 import { CARDANO_NETWORK, type CardanoNetwork } from "@/lib/cardano-network";
 import { paymentCredentialHash } from "@/lib/cardano-addresses";
@@ -90,6 +91,7 @@ export function createServerTxFetcher(): TxFetcher {
       get(target, property) {
         if (property === "fetchUTxOs") return (hash: string, index?: number) => readRegionalInputMetadata(provider, hash, index);
         if (property === "fetchBuildParameters") return () => readBuildParameters(provider);
+        if (property === "evaluateTx") return (...args: Parameters<TxFetcher["evaluateTx"]>) => evaluateRemoteTx(provider, ...args);
         const value: unknown = Reflect.get(target, property, target);
         return typeof value === "function"
           ? (value as (...args: unknown[]) => unknown).bind(target)
