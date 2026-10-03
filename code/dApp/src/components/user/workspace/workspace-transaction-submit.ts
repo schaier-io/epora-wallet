@@ -341,7 +341,7 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
     setSubmitHash(txHash);
     jotaiStore.set(submitConfirmedAtom, false);
     jotaiStore.set(submitConfirmationUnseenAtom, false);
-    runPostSubmitTask("confirmation", () => watchTransactionConfirmation(jotaiStore, txHash, selectedAction));
+    runPostSubmitTask("confirmation", () => watchTransactionConfirmation(jotaiStore, txHash, selectedAction, submissionUnit));
     runPostSubmitTask("pending-activity", () => recordPendingActivity(jotaiStore, {
       txHash, txHex: transactionPreview.txHex, walletAddress: pendingActivityWallet, knownUtxos: pendingActivityInputs
     }));

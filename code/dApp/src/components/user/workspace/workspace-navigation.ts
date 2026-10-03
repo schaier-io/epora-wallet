@@ -62,7 +62,7 @@ import { getValidityWindow } from "@/lib/mesh/transactions";
 export type WorkspaceNavigationCtx = {
   activeInferredSttStateForm: ReturnType<typeof useWorkspaceWalletDerivations>["activeInferredSttStateForm"];
   autoMintStateForm: StateFormState;
-  clearBuildMessages: () => void;
+  clearBuildMessages: (options?: { preserveReceipt?: boolean }) => void;
   clearPreviewResult: () => void;
   flowAvailability: ReturnType<typeof useWorkspaceGuidedDerivations>["flowAvailability"];
   jotaiStore: ReturnType<typeof useStore>;
@@ -239,7 +239,7 @@ export function useWorkspaceNavigation(ctx: WorkspaceNavigationCtx) {
       setConsolidateAuthorityPath(chooseDefaultConsolidatePath(selectedTokenCapabilityMap));
     }
     clearPreviewResult();
-    clearBuildMessages();
+    clearBuildMessages({ preserveReceipt: true });
   }
 
   function handleBeneficiaryStreamStopSelect(streamId: string) {

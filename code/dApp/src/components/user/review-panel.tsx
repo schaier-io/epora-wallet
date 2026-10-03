@@ -8,7 +8,7 @@ import {
   ShieldPlus,
   Sparkles
 } from "lucide-react";
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
 import type { BuildResult } from "@/lib/types/contracts";
 import { buildCardanoscanTransactionUrl } from "@/components/user/workspace/helpers";
 import { shortenIdentifier } from "@/lib/utils/explorer";
@@ -98,6 +98,7 @@ type ReviewPanelProps = {
   primaryActionLabel: string;
   primaryActionKind?: "direct" | "approval";
   primaryActionDisabled: boolean;
+  primaryActionNotice?: ReactNode;
   onPrimaryAction: () => void;
   secondaryActionLabel?: string | null;
   secondaryActionDisabled?: boolean;
@@ -158,6 +159,7 @@ export function UserReviewPanel({
   primaryActionLabel,
   primaryActionKind = "direct",
   primaryActionDisabled,
+  primaryActionNotice,
   onPrimaryAction,
   secondaryActionLabel,
   secondaryActionDisabled = false,
@@ -507,6 +509,7 @@ export function UserReviewPanel({
         )}
 
         <div className="flex flex-col gap-2">
+          {primaryActionNotice}
           <Button
             type="button"
             onClick={onPrimaryAction}

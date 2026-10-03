@@ -424,3 +424,18 @@ VERIFIED: Type checking and full ESLint returned exit 0. The file check returned
 REPORTED: The final independent adversarial review found no issues in this diff.
 These tests use mocked workspace state. Live browser behavior was not checked.
 Next: Open the PR against `dev` and wait for required checks.
+
+## Receipt navigation and compact update notice, 2026-10-04
+
+Owner: coordinator. Status: Ready for PR.
+Scope: Preserve accepted receipts across action navigation, retire confirmed saved deposits, and position the compact update notice above the action button.
+VERIFIED: The live Add funds page restored `da9a8262b646a79e21787287c7532a29f677eeddd4f63c02b2568e6119321eea`.
+VERIFIED: `/api/mesh` returned an output of `2000000` lovelace to the displayed smart-wallet receive address.
+Correction: The prior tests proved an action display leak. They did not establish that the live reported hash came from Send.
+VERIFIED: The new regression baseline returned `4 failed | 75 passed (79)`.
+VERIFIED: After the source changes, the full component suite returned `224 passed (224)` files and `2284 passed (2284)` tests.
+VERIFIED: Type checking returned exit 0. The file check returned `795 source files checked, none over 750 lines`.
+REPORTED: Independent adversarial review found no defects in this diff.
+VERIFIED: ESLint on all changed source and test files and the final diff check returned exit 0.
+The live page proved the old behavior. The updated code was checked through mocked component tests, not a deployed browser session.
+Next: Open the follow-up PR against `dev` and wait for required checks.

@@ -245,7 +245,6 @@ export function WorkspaceReviewRailView({
               )}
             >
               <div className="user-scrollbar min-h-0 min-w-0 flex-1 overflow-y-auto">
-                  <WalletStateUpdateBanner blocked={!reviewSubmitAwaitingAcknowledgement} />
                   <UserReviewPanel
                     compact
                     title={i18n("review")}
@@ -285,6 +284,7 @@ export function WorkspaceReviewRailView({
                         : reviewPrimaryActionLabel
                     }
                     primaryActionKind={approvalOnly ? "approval" : "direct"}
+                    primaryActionNotice={<WalletStateUpdateBanner compact blocked={!submitHash && !reviewSubmitAwaitingAcknowledgement} />}
                     primaryActionDisabled={
                       approvalOnly
                         ? transactionInFlight ||

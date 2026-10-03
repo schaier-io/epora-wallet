@@ -6,20 +6,23 @@ import { invalidateChainQueries } from "@/lib/query/invalidation";
 import { workspaceSessionAtom, submitHashAtom, submitConfirmedAtom, submitConfirmationUnseenAtom } from "./atoms/transaction-flow.atoms";
 import { SUBMIT_CONFIRMATION_INITIAL_DELAY_MS, SUBMIT_CONFIRMATION_LATE_MAX_ATTEMPTS, SUBMIT_CONFIRMATION_LATE_POLL_MS, SUBMIT_CONFIRMATION_MAX_ATTEMPTS, SUBMIT_CONFIRMATION_POLL_MS } from "./constants";
 import { waitFor } from "@/components/user/workspace/helpers";
+import { routeStateAtom } from "./atoms/workspace-route.atoms";
+import { acknowledgeDepositReceipt } from "./deposit-receipt";
 
 type Store = ReturnType<typeof createStore>;
 type ActiveWatch = { session: ExtractAtomValue<typeof workspaceSessionAtom>; promise: Promise<void> };
 const activeWatches = new WeakMap<Store, Map<string, ActiveWatch>>();
 
 /** Share polling for the same transaction in the same wallet session. Allow retries after it settles. */
-export function watchTransactionConfirmation(store: Store, txHash: string, selectedAction: UserActionKind): Promise<void> {
+export function watchTransactionConfirmation(store: Store, txHash: string, selectedAction: UserActionKind,
+  walletUnit = store.get(routeStateAtom).selectedWalletUnit): Promise<void> {
   const session = store.get(workspaceSessionAtom);
   const watches = activeWatches.get(store) ?? new Map<string, ActiveWatch>();
   activeWatches.set(store, watches);
   const active = watches.get(txHash);
   if (active?.session === session) return active.promise;
   const watch: ActiveWatch = { session, promise: Promise.resolve() };
-  watch.promise = pollTransactionConfirmation(store, txHash, selectedAction).finally(() => {
+  watch.promise = pollTransactionConfirmation(store, txHash, selectedAction, walletUnit).finally(() => {
     if (watches.get(txHash) === watch) watches.delete(txHash);
   });
   watches.set(txHash, watch);
@@ -32,8 +35,13 @@ export function watchTransactionConfirmation(store: Store, txHash: string, selec
    * span forever. Poll a bounded number of times until an indexer sees the hash,
    * then flip the banner to confirmed and pull the balance once more.
    */
-async function pollTransactionConfirmation(jotaiStore: Store, txHash: string, selectedAction: UserActionKind) {
+async function pollTransactionConfirmation(jotaiStore: Store, txHash: string, selectedAction: UserActionKind, walletUnit: string | null) {
     const session = jotaiStore.get(workspaceSessionAtom);
+    const retireDepositReceipt = () => {
+      if (selectedAction === "lock-funds" && walletUnit && session.address && session.network !== null) {
+        acknowledgeDepositReceipt({ address: session.address, network: session.network, walletUnit }, txHash);
+      }
+    };
     const isCurrent = () => jotaiStore.get(workspaceSessionAtom) === session && jotaiStore.get(submitHashAtom) === txHash;
     const client = jotaiStore.get(queryClientAtom);
     const seenOnChain = () =>
@@ -54,6 +62,7 @@ async function pollTransactionConfirmation(jotaiStore: Store, txHash: string, se
 
       if (jotaiStore.get(workspaceSessionAtom) !== session) return;
       if (isCurrent()) jotaiStore.set(submitConfirmedAtom, true);
+      retireDepositReceipt();
       await invalidateChainQueries(client);
       return;
     }
@@ -73,6 +82,7 @@ async function pollTransactionConfirmation(jotaiStore: Store, txHash: string, se
       await waitFor(SUBMIT_CONFIRMATION_LATE_POLL_MS);
       if (!isCurrent()) return;
       if (!(await seenOnChain())) continue;
+      retireDepositReceipt();
       if (isCurrent()) {
         jotaiStore.set(submitConfirmationUnseenAtom, false);
         jotaiStore.set(submitConfirmedAtom, true);
