@@ -391,3 +391,19 @@ VERIFIED: Type checking, full ESLint, OpenAPI validation, and diff checks return
 VERIFIED: `File length OK: 795 source files checked, none over 750 lines.`
 REPORTED: Independent adversarial review found no issues in the fix.
 The HTTP responses and remote budgets were simulated. No live preprod transaction was submitted.
+
+## Direct database URL for Prisma CLI, 2026-10-04
+
+Owner: coordinator. Status: Completed.
+Scope: Prisma config, test command, environment documentation, configuration tests, and their CI step.
+VERIFIED: Before the fix, configuration tests returned `tests 6; pass 3; fail 3`.
+VERIFIED: The updated config prefers `DATABASE_URL_UNPOOLED` for CLI commands.
+The runtime adapter still reads `DATABASE_URL`.
+VERIFIED: Focused checks returned `tests 11; pass 11; fail 0`.
+These checks inspect configuration and use stub commands. They do not contact a live database.
+VERIFIED: Restoring only baseline config and package scripts returned `tests 6; pass 3; fail 3`.
+Restoring the fix returned `tests 11; pass 11; fail 0`.
+VERIFIED: Type checking, scoped ESLint, Prisma schema validation, and diff checks returned exit 0.
+VERIFIED: `File length OK: 795 source files checked, none over 750 lines.`
+REPORTED: Independent adversarial review found no issues in this diff.
+Next: Open the PR against `dev`. Configure the direct URL separately in Vercel after merge.
