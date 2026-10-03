@@ -240,16 +240,10 @@ export async function resolveReferenceScript(
     const fetchedUtxos = await withStage(
       options.stage,
       async () => {
-        const utxos = await fetcher.fetchUTxOs(
-          configuredReference.txHash,
-          configuredReference.outputIndex
-        );
-        await assertExactInputUnspent(
-          fetcher,
-          configuredReference,
-          `${options.label} reference script UTxO`,
-          true
-        );
+        const [utxos] = await Promise.all([
+          fetcher.fetchUTxOs(configuredReference.txHash, configuredReference.outputIndex),
+          assertExactInputUnspent(fetcher, configuredReference, `${options.label} reference script UTxO`, true)
+        ]);
         return utxos;
       },
       {

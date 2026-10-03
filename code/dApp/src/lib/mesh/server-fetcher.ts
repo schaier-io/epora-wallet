@@ -91,7 +91,10 @@ async function rpc<T>(method: ChainMethod, args: unknown[], signal?: AbortSignal
   return raw.result as T;
 }
 
+const SERVER_METADATA_CACHE_SCOPE = {};
+
 export class ServerFetcher implements IFetcher, IEvaluator {
+  readonly inputMetadataCacheScope = SERVER_METADATA_CACHE_SCOPE;
   constructor(private readonly options: { signal?: AbortSignal } = {}) {}
 
   get signal(): AbortSignal | undefined {
@@ -143,6 +146,10 @@ export class ServerFetcher implements IFetcher, IEvaluator {
     return this.rpc("fetchCollectionAssets", [policyId, cursor]);
   }
 
+  fetchBuildParameters(): Promise<unknown> {
+    return this.get("epochs/latest/parameters", true);
+  }
+
   fetchProtocolParameters(epoch?: number): Promise<Protocol> {
     return this.rpc("fetchProtocolParameters", [epoch]);
   }
@@ -174,8 +181,8 @@ export class ServerFetcher implements IFetcher, IEvaluator {
     return this.rpc("evaluateTx", [tx, additionalUtxos, additionalTxs]);
   }
 
-  get(url: string): Promise<unknown> {
-    return this.rpc("get", [url]);
+  get(url: string, buildCache = false): Promise<unknown> {
+    return this.rpc("get", buildCache ? [url, true] : [url]);
   }
 
   submitTx(tx: string): Promise<string> {

@@ -124,3 +124,11 @@ test("shared helper reference is optional and requires an exact output reference
     assert.throws(() => parseServerEnv({ SHARED_STT_REFERENCE: value }), /SHARED_STT_REFERENCE/);
   }
 });
+
+test("parseServerEnv retains normalized Vercel cache scope without requiring deployment identity", () => {
+  const env = parseServerEnv({ VERCEL: " 1 ", VERCEL_PROJECT_ID: " prj_fixture ", VERCEL_ENV: " production ", VERCEL_DEPLOYMENT_ID: "ignored" });
+  assert.equal(env.VERCEL, "1");
+  assert.equal(env.VERCEL_PROJECT_ID, "prj_fixture");
+  assert.equal(env.VERCEL_ENV, "production");
+  assert.equal("VERCEL_DEPLOYMENT_ID" in env, false);
+});

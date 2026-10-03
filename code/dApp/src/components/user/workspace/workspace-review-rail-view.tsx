@@ -4,7 +4,7 @@ import { REVIEW_DONE_DOUBLE_PRESS_GUARD_MS } from "./constants";
 
 import { useTranslations } from "next-intl";
 
-import { activeBuildAtom, activeSubmitAtom, submitPhaseAtom, buildDiagnosticIdAtom, buildErrorAtom, buildErrorExpectedAtom, buildErrorStaleInputsAtom, previewAtom, submitConfirmedAtom, submitConfirmationUnseenAtom, submitHashAtom, workspaceSessionAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
+import { activeSubmitAtom, submitPhaseAtom, buildDiagnosticIdAtom, buildErrorAtom, buildErrorExpectedAtom, buildErrorStaleInputsAtom, previewAtom, submitConfirmedAtom, submitConfirmationUnseenAtom, submitHashAtom, workspaceSessionAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { activeSttStateFormAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { activeInferredSttStateFormAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import { selectedWizardActionDescriptorAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
@@ -47,7 +47,6 @@ export function WorkspaceReviewRailView({
   const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceReviewRailView");
   const proposalI18n = useTranslations("ComponentsUserProposalsReviewDock");
   const state = useWorkspaceActions();
-  const activeBuild = useAtomValue(activeBuildAtom);
   const activeSubmit = useAtomValue(activeSubmitAtom);
   const submitPhase = useAtomValue(submitPhaseAtom);
   const session = useAtomValue(workspaceSessionAtom);
@@ -118,7 +117,7 @@ export function WorkspaceReviewRailView({
     }
   }
 
-  const transactionInFlight = directActionPending || activeBuild !== null || activeSubmit || walletStateUpdating;
+  const transactionInFlight = directActionPending || activeSubmit || walletStateUpdating;
   const directActionInFlight = !preparingProposal && transactionInFlight;
   // The RAW pair, not the display-gated one: this reason disables the approval CTA, so
   // reading the gated pair would arm "Save as approval request" over a pristine invalid
@@ -269,7 +268,7 @@ export function WorkspaceReviewRailView({
                     submitConfirmed={submitConfirmed}
                     submitConfirmationUnseen={submitConfirmationUnseen}
                     lastActionLabel={lastActionDisplayLabel}
-                    isBuilding={!activeSubmit && (activeBuild !== null || preparingProposal || directActionPending)}
+                    isBuilding={!activeSubmit && (preparingProposal || directActionPending)}
                     autoSignPending={!approvalOnly && directActionPending}
                     isSubmitting={activeSubmit}
                     primaryActionLabel={
@@ -279,7 +278,7 @@ export function WorkspaceReviewRailView({
                           : submitPhase === "submitting" ? i18n("sendingTransaction")
                           : i18n("checkingTransaction")
                         : walletStateUpdating ? i18n("updatingWalletState")
-                        : activeBuild !== null || preparingProposal || directActionPending ? i18n("preparingTransaction")
+                        : preparingProposal || directActionPending ? i18n("preparingTransaction")
                         : approvalOnly ? approvalActionLabel
                         : reviewPrimaryActionLabel
                     }

@@ -515,9 +515,6 @@ describe("context-aware signing actions", () => {
   });
 
   it.each([
-    ["the selected action is building", (store: ReturnType<typeof createStore>) => {
-      store.set(activeBuildAtom, "payout-streaming-payment");
-    }],
     ["a transaction is submitting", (store: ReturnType<typeof createStore>) => {
       store.set(activeSubmitAtom, true);
     }]
@@ -721,8 +718,6 @@ describe("stale fund-pool recovery", () => {
 
 describe("approval saving during another transaction", () => {
   it.each([
-    ["the selected action is building", "payout-streaming-payment", false],
-    ["another action is building", "mint", false],
     ["the wallet is signing", null, true]
   ] as const)("blocks saving while %s", (_label, activeBuild, activeSubmit) => {
     const buildSelectedActionTx = vi.fn();
@@ -748,7 +743,7 @@ describe("approval saving during another transaction", () => {
 });
 
 
-it("shows preparation for warm builds and the direct click", async () => {
+it("keeps background preparation quiet and shows progress after the direct click", async () => {
   let finish!: () => void;
   const pending = new Promise<void>(resolve => { finish = resolve; });
   const submit = vi.fn(() => pending);
@@ -759,8 +754,8 @@ it("shows preparation for warm builds and the direct click", async () => {
     buildAndSubmitSelectedActionTx: submit,
     seedStore: store => store.set(activeBuildAtom, "payout-streaming-payment")
   });
-  expect(reviewPanelProps.latest.isBuilding).toBe(true);
-  expect(reviewPanelProps.latest.primaryActionLabel).toBe("Preparing transaction");
+  expect(reviewPanelProps.latest.isBuilding).toBe(false);
+  expect(reviewPanelProps.latest.primaryActionLabel).toBe("Continue");
   expect(reviewPanelProps.latest.primaryActionDisabled).toBe(false);
   expect(reviewPanelProps.latest.autoSignPending).toBe(false);
   act(() => { (reviewPanelProps.latest.onPrimaryAction as () => void)(); });
@@ -772,8 +767,8 @@ it("shows preparation for warm builds and the direct click", async () => {
   act(() => { (reviewPanelProps.latest.onPrimaryAction as () => void)(); });
   expect(submit).toHaveBeenCalledOnce();
   await act(async () => { finish(); await pending; });
-  expect(reviewPanelProps.latest.isBuilding).toBe(true);
-  expect(reviewPanelProps.latest.primaryActionLabel).toBe("Preparing transaction");
+  expect(reviewPanelProps.latest.isBuilding).toBe(false);
+  expect(reviewPanelProps.latest.primaryActionLabel).toBe("Continue");
 });
 
 
@@ -837,4 +832,28 @@ describe("transaction button phase", () => {
     } });
     expect(reviewPanelProps.latest.primaryActionLabel).toBe("Done");
   });
+});
+
+
+it.each([false, true])("allows approval clicks during a background build (approval only: %s)", async approvalOnly => {
+  let finish!: (result: BuildResult) => void;
+  const buildSelectedActionTx = vi.fn(() => new Promise<BuildResult>(resolve => { finish = resolve; }));
+  const handleSaveProposalFromBuild = vi.fn();
+  renderRail({
+    previewMatchesSelectedAction: false,
+    buildSelectedActionTx,
+    handleSaveProposalFromBuild,
+    signingAvailability: { canDirectSign: !approvalOnly, directAuthorityPath: "admin", canSaveApprovalRequest: true },
+    seedStore: store => store.set(activeBuildAtom, "payout-streaming-payment")
+  });
+  expect(reviewPanelProps.latest.isBuilding).toBe(false);
+  expect(reviewPanelProps.latest[approvalOnly ? "primaryActionDisabled" : "secondaryActionDisabled"]).toBe(false);
+  const click = reviewPanelProps.latest[approvalOnly ? "onPrimaryAction" : "onSecondaryAction"] as () => void;
+  act(click);
+  expect(buildSelectedActionTx).toHaveBeenCalledExactlyOnceWith("multisig");
+  expect(reviewPanelProps.latest[approvalOnly ? "primaryActionDisabled" : "secondaryActionDisabled"]).toBe(true);
+  act(reviewPanelProps.latest[approvalOnly ? "onPrimaryAction" : "onSecondaryAction"] as () => void);
+  expect(buildSelectedActionTx).toHaveBeenCalledTimes(1);
+  await act(async () => finish({ txHex: "approval-tx" } as BuildResult));
+  expect(handleSaveProposalFromBuild).toHaveBeenCalledExactlyOnceWith("approval-tx");
 });

@@ -165,35 +165,23 @@ async function collectFallbackAddresses(
 ): Promise<string[]> {
   const addressSet = new Set<string>();
 
-  try {
-    const changeAddress = await wallet.getChangeAddress();
-    diagnostics.changeAddressCandidate = changeAddress;
-    if (changeAddress) {
-      addressSet.add(changeAddress);
-    }
-  } catch (error) {
-    diagnostics.getChangeAddressError = normalizeError(error);
-  }
-
-  try {
-    const usedAddresses = await wallet.getUsedAddresses();
-    diagnostics.usedAddressCount = usedAddresses.length;
-    for (const address of usedAddresses) {
-      addressSet.add(address);
-    }
-  } catch (error) {
-    diagnostics.getUsedAddressesError = normalizeError(error);
-  }
-
-  try {
-    const unusedAddresses = await wallet.getUnusedAddresses();
-    diagnostics.unusedAddressCount = unusedAddresses.length;
-    for (const address of unusedAddresses) {
-      addressSet.add(address);
-    }
-  } catch (error) {
-    diagnostics.getUnusedAddressesError = normalizeError(error);
-  }
+  const [change, used, unused] = await Promise.allSettled([
+    Promise.resolve().then(() => wallet.getChangeAddress()),
+    Promise.resolve().then(() => wallet.getUsedAddresses()),
+    Promise.resolve().then(() => wallet.getUnusedAddresses())
+  ]);
+  if (change.status === "fulfilled") {
+    diagnostics.changeAddressCandidate = change.value;
+    if (change.value) addressSet.add(change.value);
+  } else diagnostics.getChangeAddressError = normalizeError(change.reason);
+  if (used.status === "fulfilled") {
+    diagnostics.usedAddressCount = used.value.length;
+    for (const address of used.value) addressSet.add(address);
+  } else diagnostics.getUsedAddressesError = normalizeError(used.reason);
+  if (unused.status === "fulfilled") {
+    diagnostics.unusedAddressCount = unused.value.length;
+    for (const address of unused.value) addressSet.add(address);
+  } else diagnostics.getUnusedAddressesError = normalizeError(unused.reason);
 
   return [...addressSet];
 }
@@ -238,12 +226,13 @@ export async function resolveWalletUtxos(
   const fallbackUtxos: UTxO[] = [];
   const fetchAddressErrors: Array<{ address: string; error: Record<string, unknown> }> = [];
 
-  for (const address of addressCandidates) {
-    try {
-      const addressUtxos = await fetcher.fetchAddressUTxOs(address);
-      fallbackUtxos.push(...addressUtxos);
-    } catch (error) {
-      fetchAddressErrors.push({ address, error: normalizeError(error) });
+  for (let start = 0; start < addressCandidates.length; start += MAX_CONCURRENT_EXACT_INPUT_LOOKUPS) {
+    fetcher.signal?.throwIfAborted();
+    const addresses = addressCandidates.slice(start, start + MAX_CONCURRENT_EXACT_INPUT_LOOKUPS);
+    const results = await Promise.allSettled(addresses.map(address => Promise.resolve().then(() => fetcher.fetchAddressUTxOs(address))));
+    for (const [index, result] of results.entries()) {
+      if (result.status === "fulfilled") fallbackUtxos.push(...result.value);
+      else fetchAddressErrors.push({ address: addresses[index]!, error: normalizeError(result.reason) });
     }
   }
 
@@ -284,12 +273,15 @@ export async function resolveWalletUtxos(
 export async function resolveChangeAddress(
   wallet: WalletSource,
   walletUtxos: UTxO[],
-  addressCandidates: string[]
+  addressCandidates: string[],
+  changeAddressRead?: PromiseSettledResult<string>
 ) {
   const diagnostics: Record<string, unknown> = {};
 
   try {
-    const changeAddress = await wallet.getChangeAddress();
+    if (changeAddressRead?.status === "rejected") throw changeAddressRead.reason;
+    const changeAddress = changeAddressRead?.status === "fulfilled"
+      ? changeAddressRead.value : await wallet.getChangeAddress();
     if (changeAddress) {
       return {
         changeAddress,
@@ -423,12 +415,11 @@ export async function resolveExactWalletInputUtxos(
       refs
         .slice(start, start + MAX_CONCURRENT_EXACT_INPUT_LOOKUPS)
         .map(async (ref) => {
-          const candidates = await fetcher.fetchUTxOs(
-            ref.txHash,
-            ref.outputIndex
-          );
+          const [candidates] = await Promise.all([
+            fetcher.fetchUTxOs(ref.txHash, ref.outputIndex),
+            assertExactInputUnspent(fetcher, ref, "Wallet input", requireUnspentStatus)
+          ]);
           const utxo = findUtxo(candidates, ref.txHash, ref.outputIndex);
-          await assertExactInputUnspent(fetcher, ref, "Wallet input", requireUnspentStatus);
 
           let actualPaymentScriptHash: string;
           try {
@@ -469,9 +460,17 @@ export async function assertExactInputUnspent(
   label = "Wallet input",
   requireStatus = false
 ) {
-  const response = (await fetcher.get(`txs/${ref.txHash}/utxos`)) as {
-    outputs?: BlockfrostTxOutput[];
-  } | null;
+  const response = await fetcher.get(`txs/${ref.txHash}/utxos`);
+  assertExactInputUnspentStatus(response, ref, label, requireStatus);
+}
+
+export function assertExactInputUnspentStatus(
+  rawResponse: unknown,
+  ref: WalletInputRef,
+  label = "Wallet input",
+  requireStatus = false
+) {
+  const response = rawResponse as { outputs?: BlockfrostTxOutput[] } | null;
   const output = Array.isArray(response?.outputs)
     ? response.outputs.find((entry) => entry?.output_index === ref.outputIndex)
     : undefined;

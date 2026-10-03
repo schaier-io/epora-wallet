@@ -11,6 +11,7 @@ import { resolveWalletToSeed } from "@/components/user/workspace/helpers/wallet-
 import { useAtomValueRawSync } from "jotai";
 
 import { useEffect } from "react";
+import { useLocalEvaluationWarmup } from "./use-local-evaluation-warmup";
 
 import type {
   UserFlowBranch
@@ -105,6 +106,7 @@ export function useWorkspaceWalletSessionEffects(ctx: WorkspaceWalletSessionEffe
       selectedTokenCapabilityMap &&
       !holdsAnyRole(selectedTokenCapabilityMap)
   );
+  useLocalEvaluationWarmup({ walletReady: walletReady && !selectedWalletIsForeign, selectedWalletUnit: selectedDetectedTokenUnit, isRouteStateCurrent });
 
   useEffect(() => {
     if (selectedDetectedToken && isRouteStateCurrent && walletReady) {
