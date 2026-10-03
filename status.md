@@ -407,3 +407,20 @@ VERIFIED: Type checking, scoped ESLint, Prisma schema validation, and diff check
 VERIFIED: `File length OK: 795 source files checked, none over 750 lines.`
 REPORTED: Independent adversarial review found no issues in this diff.
 Next: Open the PR against `dev`. Configure the direct URL separately in Vercel after merge.
+
+## Action receipt and wallet-state warning context, 2026-10-04
+
+Owner: coordinator. Status: Ready for PR.
+Scope: Transaction receipt ownership, selected-action display and submit guards, deposit recovery, right review sidebar, and regression tests.
+VERIFIED: The initial rail regression run returned `2 failed | 38 passed (40)`.
+The Send receipt appeared in Add funds, and the right rail lacked the wallet-state warning.
+VERIFIED: Accepted submissions now record their captured action. The selected action reads only its own receipt hash.
+Raw submission state remains available to confirmation polling.
+The warning moved from the left sidebar to the right review rail. Available receipt acknowledgement hides it.
+VERIFIED: The final component suite returned `224 passed (224)` files and `2280 passed (2280)` tests.
+VERIFIED: The focused atom and submit-state suite returned `tests 22; pass 22; fail 0`.
+VERIFIED: Restoring only baseline rail and submit source returned `5 failed | 102 passed (107)`.
+VERIFIED: Type checking and full ESLint returned exit 0. The file check returned `795 source files checked, none over 750 lines`.
+REPORTED: The final independent adversarial review found no issues in this diff.
+These tests use mocked workspace state. Live browser behavior was not checked.
+Next: Open the PR against `dev` and wait for required checks.

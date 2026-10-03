@@ -11,6 +11,8 @@ import {
   buildErrorStaleInputsAtom,
   buildErrorWriteAtom,
   submitHashAtom,
+  submittedActionAtom,
+  selectedActionSubmitHashAtom,
   previewAtom,
   previewSignatureAtom,
   lastActionLabelAtom,
@@ -32,10 +34,27 @@ import {
 } from "./transaction-flow.atoms";
 import type { BuildResult } from "@/lib/types/contracts";
 import type { MintConfirmationState } from "@/components/user/workspace/types";
+import { routeStateAtom } from "./workspace-route.atoms";
 
 // The flow atoms store these opaquely (identity only), so casts suffice as fixtures.
 const fakePreview = { txHex: "deadbeef" } as unknown as BuildResult;
 const fakeConfirmation = { phase: "pending" } as unknown as MintConfirmationState;
+
+test("a submitted receipt belongs to its action across navigation and resets", () => {
+  const store = createStore();
+  store.set(routeStateAtom, { ...store.get(routeStateAtom), selectedAction: "use" });
+  store.set(submitSucceededAtom, "send-hash");
+  assert.equal(store.get(submittedActionAtom), "use");
+  assert.equal(store.get(selectedActionSubmitHashAtom), "send-hash");
+  store.set(routeStateAtom, { ...store.get(routeStateAtom), selectedAction: "lock-funds" });
+  assert.equal(store.get(selectedActionSubmitHashAtom), null);
+  assert.equal(store.get(submitHashAtom), "send-hash");
+  store.set(routeStateAtom, { ...store.get(routeStateAtom), selectedAction: "use" });
+  assert.equal(store.get(selectedActionSubmitHashAtom), "send-hash");
+  store.set(resetFlowAtom);
+  assert.equal(store.get(submittedActionAtom), null);
+  assert.equal(store.get(selectedActionSubmitHashAtom), null);
+});
 
 test("initial flow state is idle/empty", () => {
   const store = createStore();

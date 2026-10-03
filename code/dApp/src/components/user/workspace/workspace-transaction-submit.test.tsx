@@ -1,5 +1,5 @@
 import { workspaceTransactionSnapshotAtom, preparedWorkspaceTransactionAtom, PREPARED_TRANSACTION_MAX_AGE_MS } from "./workspace-prepared-transaction";
-import { activeSubmitAtom, submitPhaseAtom, workspaceSessionAtom, buildRunAtom, previewSignatureAtom, buildDiagnosticIdAtom } from "./atoms/transaction-flow.atoms";
+import { submittedActionAtom, selectedActionSubmitHashAtom, activeSubmitAtom, submitPhaseAtom, workspaceSessionAtom, buildRunAtom, previewSignatureAtom, buildDiagnosticIdAtom } from "./atoms/transaction-flow.atoms";
 import { lockFundsAssetsAtom } from "./atoms/forms/lock-funds-form.atoms";
 import { waitFor } from "@testing-library/react";
 import { queryClientAtom } from "jotai-tanstack-query";
@@ -936,4 +936,19 @@ it.each(["preview invalidation", "display reset", "workspace reset"])("tracks th
   expect(deps.jotaiStore.get(submitPhaseAtom)).toBe(reset === "workspace reset" ? null : "submitting");
   fail(); await pending;
   expect(deps.jotaiStore.get(submitPhaseAtom)).toBeNull();
+});
+
+
+it("keeps the original receipt action when navigation changes during broadcast", async () => {
+  vi.useFakeTimers();
+  const deps = makeDeps({ selectedAction: "use" });
+  deps.setSubmitHash = vi.fn(hash => deps.jotaiStore.set(submitHashAtom, hash));
+  mocks.signAndSubmitTx.mockImplementation(async () => {
+    deps.jotaiStore.set(routeStateAtom, { ...deps.jotaiStore.get(routeStateAtom), selectedAction: "lock-funds" });
+    return TX_HASH;
+  });
+  await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
+  expect(deps.jotaiStore.get(submittedActionAtom)).toBe("use");
+  expect(deps.jotaiStore.get(submitHashAtom)).toBe(TX_HASH);
+  expect(deps.jotaiStore.get(selectedActionSubmitHashAtom)).toBeNull();
 });

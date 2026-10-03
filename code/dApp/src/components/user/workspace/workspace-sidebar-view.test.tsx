@@ -79,7 +79,7 @@ describe("workspace sidebar, no wallet open", () => {
     );
   }
 
-  it("shows the blocked action's pending transaction before wallet detection completes", () => {
+  it("leaves the blocked action's pending transaction warning to the right review rail", () => {
     const unit = `${"ab".repeat(28)}01`;
     const txHash = "cd".repeat(32);
     const store = createStore();
@@ -91,8 +91,8 @@ describe("workspace sidebar, no wallet open", () => {
       spentRef: { txHash: "ef".repeat(32), outputIndex: 0 }
     });
     render(<Provider store={store}><WorkspaceSidebarView /></Provider>);
-    expect(screen.getByRole("status")).toHaveTextContent("This action unlocks when it confirms.");
-    expect(screen.getByRole("link", { name: `View transaction ${txHash} on Cardanoscan` })).toBeInTheDocument();
+    expect(screen.queryByText("This action unlocks when it confirms.")).toBeNull();
+    expect(screen.queryByRole("link", { name: `View transaction ${txHash} on Cardanoscan` })).toBeNull();
     expect(screen.queryByRole("button", { name: "Retry chain check" })).toBeNull();
   });
 

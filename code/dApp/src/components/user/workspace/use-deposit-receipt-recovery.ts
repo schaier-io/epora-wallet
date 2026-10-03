@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useAtomValue, useStore } from "jotai";
 import { activeAddressAtom, networkIdAtom } from "@/providers/wallet.atoms";
 import { routeStateAtom } from "./atoms/workspace-route.atoms";
-import { activeSubmitAtom, submitConfirmedAtom, submitConfirmationUnseenAtom, submitHashAtom, workspaceSessionAtom } from "./atoms/transaction-flow.atoms";
+import { activeSubmitAtom, submitConfirmedAtom, submitConfirmationUnseenAtom, submitHashAtom, submittedActionAtom, workspaceSessionAtom } from "./atoms/transaction-flow.atoms";
 import { DEPOSIT_RECEIPT_EVENT, depositReceiptKey, readDepositReceipt } from "./deposit-receipt";
 import { watchTransactionConfirmation } from "./watch-transaction-confirmation";
 
@@ -31,6 +31,7 @@ export function useDepositReceiptRecovery(): void {
       const currentHash = store.get(submitHashAtom);
       if (currentHash && (currentHash !== receipt.txHash || store.get(submitConfirmedAtom))) return;
       if (!currentHash) {
+        store.set(submittedActionAtom, "lock-funds");
         store.set(submitHashAtom, receipt.txHash);
         store.set(submitConfirmedAtom, false);
         store.set(submitConfirmationUnseenAtom, false);

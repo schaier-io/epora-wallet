@@ -4,7 +4,7 @@ import { useDepositReceiptRecovery } from "./use-deposit-receipt-recovery";
 import { acknowledgeDepositReceipt } from "./deposit-receipt";
 import { activeAddressAtom, networkIdAtom } from "@/providers/wallet.atoms";
 import { routeStateAtom } from "./atoms/workspace-route.atoms";
-import { submitHashAtom } from "./atoms/transaction-flow.atoms";
+import { submitHashAtom, selectedActionSubmitHashAtom } from "./atoms/transaction-flow.atoms";
 import { beneficiaryPreparationActiveAtom } from "./atoms/forms/consolidate-form.atoms";
 import { resolveReviewSubmitState } from "./review-submit-state";
 import { useTranslations } from "next-intl";
@@ -48,6 +48,7 @@ import { refreshWorkspaceSummary as refreshWorkspaceSummaryData } from "./worksp
 export function usePermissionWalletWorkspaceState() {
   const queryClient = useQueryClient();
   const i18n = useTranslations("ComponentsUserWorkspaceUsePermissionWalletWorkspaceState");
+  const selectedSubmitHash = useAtomValue(selectedActionSubmitHashAtom);
   const {
     activeAddress,
     activeWallet,
@@ -77,7 +78,6 @@ export function usePermissionWalletWorkspaceState() {
     setActiveSubmit,
     setBuildError,
     setBuildErrorExpected,
-    submitHash,
     setSubmitHash,
     mintConfirmation,
     setMintConfirmation,
@@ -353,7 +353,7 @@ export function usePermissionWalletWorkspaceState() {
     setMintedWalletName,
     setSubmitHash,
     streamingPaymentPayout,
-    submitHash,
+    submitHash: selectedSubmitHash,
     submitInFlightRef,
     watchMintCreationConfirmation,
     withBuildGuard,
@@ -373,7 +373,7 @@ export function usePermissionWalletWorkspaceState() {
   });
   // What the primary button means after a submit; see `resolveReviewSubmitState`.
   const preparationActive = useAtomValue(beneficiaryPreparationActiveAtom);
-  const reviewSubmitState = resolveReviewSubmitState(submitHash, selectedAction, preparationActive);
+  const reviewSubmitState = resolveReviewSubmitState(selectedSubmitHash, selectedAction, preparationActive);
   const reviewSubmitAwaitingAcknowledgement = reviewSubmitState.awaitingAcknowledgement;
   const reviewPrimaryActionLabel = reviewSubmitState.showsDone
     ? i18n("done")

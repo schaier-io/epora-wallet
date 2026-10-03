@@ -2,7 +2,7 @@ import { act, render } from "@testing-library/react";
 import { createStore, Provider } from "jotai";
 import { describe, expect, it, vi } from "vitest";
 
-import { activeSubmitAtom, submitHashAtom } from "./atoms/transaction-flow.atoms";
+import { activeSubmitAtom, submitHashAtom, submitSucceededAtom } from "./atoms/transaction-flow.atoms";
 import { transferCustomAddressAtom, transferDisplayAmountAtom, transferRecipientModeAtom } from "./atoms/forms/transfer-form.atoms";
 import { stagedSttTransfersAtom, sttExtraTransfersAtom } from "./atoms/forms/stt-spend-form.atoms";
 import { routeStateAtom } from "./atoms/workspace-route.atoms";
@@ -64,7 +64,7 @@ const BASE_CONTEXT = {
 describe("useConfigSttSpendState submit receipt retirement", () => {
   it("retires the submitted receipt when the draft changes", () => {
     const store = createStore();
-    store.set(submitHashAtom, "abc123");
+    store.set(submitSucceededAtom, "abc123");
     const dismissSubmitState = vi.fn(() => store.set(submitHashAtom, null));
     const get = renderState({ ...BASE_CONTEXT, dismissSubmitState }, store);
 
@@ -88,7 +88,7 @@ describe("useConfigSttSpendState submit receipt retirement", () => {
 
   it("does not retire while a submit is in flight", () => {
     const store = createStore();
-    store.set(submitHashAtom, "abc123");
+    store.set(submitSucceededAtom, "abc123");
     store.set(activeSubmitAtom, true);
     const dismissSubmitState = vi.fn();
     const get = renderState({ ...BASE_CONTEXT, dismissSubmitState }, store);
@@ -101,7 +101,7 @@ describe("useConfigSttSpendState submit receipt retirement", () => {
 
   it("re-baselines when the hash clears, so the next edit starts fresh", () => {
     const store = createStore();
-    store.set(submitHashAtom, "abc123");
+    store.set(submitSucceededAtom, "abc123");
     const dismissSubmitState = vi.fn(() => store.set(submitHashAtom, null));
     const get = renderState({ ...BASE_CONTEXT, dismissSubmitState }, store);
 
@@ -121,7 +121,7 @@ describe("useConfigSttSpendState submit receipt retirement", () => {
 
   it("does not retire when a programmatic write changes nothing", () => {
     const store = createStore();
-    store.set(submitHashAtom, "abc123");
+    store.set(submitSucceededAtom, "abc123");
     const dismissSubmitState = vi.fn();
     const get = renderState({ ...BASE_CONTEXT, dismissSubmitState }, store);
 

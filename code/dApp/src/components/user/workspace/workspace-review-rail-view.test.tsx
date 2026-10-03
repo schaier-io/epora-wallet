@@ -4,7 +4,7 @@ import { Provider, createStore } from "jotai";
 import { createRef } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { activeBuildAtom, activeSubmitAtom, submitPhaseAtom, buildErrorAtom, buildErrorStaleInputsAtom, previewAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
+import { activeBuildAtom, activeSubmitAtom, submitPhaseAtom, submitSucceededAtom, buildErrorAtom, buildErrorStaleInputsAtom, previewAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { sttStateFormAtom, updateStateFormAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { routeStateAtom } from "@/components/user/workspace/atoms/workspace-route.atoms";
 import { beginWalletStateUpdateAtom, walletStateSubmissionsAtom } from "@/components/user/workspace/atoms/wallet-state-update.atoms";
@@ -144,6 +144,36 @@ function renderRail(options: {
       result.rerender(ui({ ...state, ...overrides }))
   };
 }
+
+it("does not show a Send receipt in Add funds after action navigation", () => {
+  renderRail({
+    selectedAction: "lock-funds", previewMatchesSelectedAction: false,
+    buildSelectedActionTx: vi.fn(), handleSaveProposalFromBuild: vi.fn(),
+    seedStore: store => {
+      const depositRoute = store.get(routeStateAtom);
+      store.set(routeStateAtom, { ...depositRoute, selectedAction: "use" });
+      store.set(submitSucceededAtom, "da9a8262" + "00".repeat(25) + "321eea");
+      store.set(routeStateAtom, depositRoute);
+    }
+  });
+  expect(reviewPanelProps.latest?.submitHash).toBeNull();
+});
+
+it("shows the wallet-state warning inside the blocked action's right review rail", () => {
+  renderRail({
+    selectedAction: "use", previewMatchesSelectedAction: false,
+    buildSelectedActionTx: vi.fn(), handleSaveProposalFromBuild: vi.fn(),
+    seedStore: store => {
+      const unit = "ab".repeat(28) + "01";
+      store.set(routeStateAtom, { ...store.get(routeStateAtom), selectedWalletUnit: unit });
+      store.set(beginWalletStateUpdateAtom, {
+        walletUnit: unit, submittedTxHash: "ab".repeat(32),
+        spentRef: { txHash: "cd".repeat(32), outputIndex: 0 }
+      });
+    }
+  });
+  expect(screen.getByRole("region", { name: "Review and confirm" })).toHaveTextContent("Updating this wallet");
+});
 
 it("shows and disables wallet-state refresh across action navigation", () => {
   renderRail({
@@ -856,4 +886,25 @@ it.each([false, true])("allows approval clicks during a background build (approv
   expect(buildSelectedActionTx).toHaveBeenCalledTimes(1);
   await act(async () => finish({ txHex: "approval-tx" } as BuildResult));
   expect(handleSaveProposalFromBuild).toHaveBeenCalledExactlyOnceWith("approval-tx");
+});
+
+
+it.each([
+  { action: "lock-funds", acknowledging: false },
+  { action: "wallet-vote", acknowledging: true }
+])("hides the right-rail state warning when $action is not blocked", ({ action, acknowledging }) => {
+  renderRail({
+    selectedAction: action, previewMatchesSelectedAction: false,
+    buildSelectedActionTx: vi.fn(), handleSaveProposalFromBuild: vi.fn(),
+    stateOverrides: { reviewSubmitAwaitingAcknowledgement: acknowledging },
+    seedStore: store => {
+      const unit = "ab".repeat(28) + "01";
+      store.set(routeStateAtom, { ...store.get(routeStateAtom), selectedWalletUnit: unit });
+      store.set(beginWalletStateUpdateAtom, {
+        walletUnit: unit, submittedTxHash: "ab".repeat(32),
+        spentRef: { txHash: "cd".repeat(32), outputIndex: 0 }
+      });
+    }
+  });
+  expect(screen.getByRole("status")).toBeEmptyDOMElement();
 });

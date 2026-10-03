@@ -8,6 +8,8 @@ import type { SubmitPhase } from "@/lib/mesh/transactions/submit";
 export type { SubmitPhase } from "@/lib/mesh/transactions/submit";
 import type { BuildResult } from "@/lib/types/contracts";
 import type { MintConfirmationState } from "@/components/user/workspace/types";
+import type { UserActionKind } from "@/components/user/flow-types";
+import { selectedActionAtom } from "./workspace-selection.atoms";
 
 /**
  * Atomic model of the transaction **build/submit lifecycle**, the slice that was
@@ -71,6 +73,11 @@ export const buildErrorStaleInputsAtom = atom(false);
 export const submitPhaseAtom = atom<SubmitPhase | null>(null);
 /** Hash of the last successfully-submitted transaction. */
 export const submitHashAtom = atom<string | null>(null);
+/** Action captured by the accepted submission, independent of later navigation. */
+export const submittedActionAtom = atom<UserActionKind | null>(null);
+/** Only the action that submitted a transaction may show or acknowledge its receipt. */
+export const selectedActionSubmitHashAtom = atom(get =>
+  get(submittedActionAtom) === get(selectedActionAtom) ? get(submitHashAtom) : null);
 /** True once the last submitted tx has been seen on chain (bounded poll). The
  * review rail's "Confirming on-chain" spinner flips to a confirmed headline. */
 export const submitConfirmedAtom = atom(false);
@@ -125,6 +132,7 @@ export const buildStartedAtom = atom(null, (_get, set, label: string) => {
   set(buildDiagnosticIdAtom, null);
   set(buildErrorStaleInputsAtom, false);
   set(submitHashAtom, null);
+  set(submittedActionAtom, null);
   set(submitConfirmedAtom, false);
   set(submitConfirmationUnseenAtom, false);
   set(mintConfirmationAtom, null);
@@ -162,7 +170,8 @@ export const submitStartedAtom = atom(null, (_get, set) => {
   set(submitPhaseAtom, "checking");
 });
 
-export const submitSucceededAtom = atom(null, (_get, set, hash: string) => {
+export const submitSucceededAtom = atom(null, (get, set, hash: string) => {
+  set(submittedActionAtom, get(selectedActionAtom));
   set(submitHashAtom, hash);
   set(submitConfirmedAtom, false);
   set(submitConfirmationUnseenAtom, false);
@@ -190,6 +199,7 @@ export const resetFlowAtom = atom(null, (get, set) => {
   set(buildDiagnosticIdAtom, null);
   set(buildErrorStaleInputsAtom, false);
   set(submitHashAtom, null);
+  set(submittedActionAtom, null);
   set(submitConfirmedAtom, false);
   set(submitConfirmationUnseenAtom, false);
   set(mintConfirmationAtom, null);
@@ -223,6 +233,7 @@ export const resetAllFlowAtom = atom(null, (get, set) => {
   set(buildDiagnosticIdAtom, null);
   set(buildErrorStaleInputsAtom, false);
   set(submitHashAtom, null);
+  set(submittedActionAtom, null);
   set(submitConfirmedAtom, false);
   set(submitConfirmationUnseenAtom, false);
   set(previewAtom, null);

@@ -15,7 +15,7 @@ import { useEffect, useRef } from "react";
 import { useAtomValue } from "jotai";
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 import { safeStringify } from "@/components/user/workspace/helpers";
-import { activeSubmitAtom, submitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
+import { activeSubmitAtom, selectedActionSubmitHashAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import { streamingPaymentPayoutAmountsAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { configAtom } from "@/components/user/workspace/atoms/workspace-config.atoms";
 import { useSttSpendForm } from "@/components/user/workspace/forms/use-stt-spend-form";
@@ -56,7 +56,7 @@ export function useConfigSttSpendState() {
   } = state;
   // Read straight from the atoms, the way the review rail does: the controller's
   // return surface carries neither, and the retirement only needs the facts.
-  const submitHash = useAtomValue(submitHashAtom);
+  const submitHash = useAtomValue(selectedActionSubmitHashAtom);
   const activeSubmit = useAtomValue(activeSubmitAtom);
   const { consolidateAuthorityPath, setConsolidateAuthorityPath, setStreamingPaymentPayoutAmounts, setSttAuthorityPath, setSttExtraTransfers, setSttStateForm, setSttZeroAdminConfirmed, sttAuthorityPath, sttStateForm, sttWalletInputs, sttZeroAdminConfirmed } = useSttSpendForm();
   const stagedTransfers = useAtomValue(stagedSttTransfersAtom);
