@@ -175,6 +175,9 @@ export type ProposalVoteView = {
 
 export type ProposalEffect = {
   inputs: ProposalInputRef[];
+  // Required to remain live, but not ordinary consumed inputs or State transitions.
+  referenceInputs?: ProposalInputRef[];
+  collateralInputs?: ProposalInputRef[];
   outputs: ProposalOutputView[];
   feeLovelace: string | null;
   // Start of the body's `invalid_hereafter` slot in ms, or null when the body

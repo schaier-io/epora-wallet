@@ -1,3 +1,4 @@
+import { retryMeshRead, meshReadRetryDelay, MESH_CLIENT_READ_TIMEOUT_MS } from "./read-retry";
 import { parseRetryAfterMs } from "@/lib/http/retry-after";
 export { parseRetryAfterMs } from "@/lib/http/retry-after";
 import type {
@@ -30,10 +31,17 @@ export class MeshRpcError extends Error {
   }
 }
 
+class MeshTransportError extends TypeError {
+  constructor(cause: TypeError) {
+    super(cause.message, { cause });
+  }
+}
+
 function isRpcEnvelope(value: unknown): value is RpcEnvelope {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/** Read an RPC envelope while preserving provider details, HTTP status, and caller cancellation. */
 async function rpc<T>(method: ChainMethod, args: unknown[], signal?: AbortSignal): Promise<T> {
   signal?.throwIfAborted();
   const payload: ChainRpcRequest = { method, args };
@@ -45,6 +53,10 @@ async function rpc<T>(method: ChainMethod, args: unknown[], signal?: AbortSignal
       "Content-Type": "application/json"
     },
     body: JSON.stringify(payload)
+  }).catch((error: unknown) => {
+    signal?.throwIfAborted();
+    if (error instanceof TypeError) throw new MeshTransportError(error);
+    throw error;
   });
 
   // Preserve the HTTP status when a gateway returns a non-JSON error page.
@@ -79,15 +91,25 @@ async function rpc<T>(method: ChainMethod, args: unknown[], signal?: AbortSignal
   return raw.result as T;
 }
 
+const SERVER_METADATA_CACHE_SCOPE = {};
+
 export class ServerFetcher implements IFetcher, IEvaluator {
+  readonly inputMetadataCacheScope = SERVER_METADATA_CACHE_SCOPE;
   constructor(private readonly options: { signal?: AbortSignal } = {}) {}
 
   get signal(): AbortSignal | undefined {
     return this.options.signal;
   }
 
+  /** Retry read transport failures within one deadline. Other RPC methods execute once. */
   private rpc<T>(method: ChainMethod, args: unknown[]): Promise<T> {
-    return rpc(method, args, this.options.signal);
+    return retryMeshRead(
+      method,
+      (signal) => rpc<T>(method, args, signal),
+      (error, attempt) => error instanceof MeshTransportError ? meshReadRetryDelay(attempt) : undefined,
+      this.options.signal,
+      MESH_CLIENT_READ_TIMEOUT_MS
+    );
   }
 
   fetchAccountInfo(address: string): Promise<AccountInfo> {
@@ -124,6 +146,10 @@ export class ServerFetcher implements IFetcher, IEvaluator {
     return this.rpc("fetchCollectionAssets", [policyId, cursor]);
   }
 
+  fetchBuildParameters(): Promise<unknown> {
+    return this.get("epochs/latest/parameters", true);
+  }
+
   fetchProtocolParameters(epoch?: number): Promise<Protocol> {
     return this.rpc("fetchProtocolParameters", [epoch]);
   }
@@ -155,8 +181,8 @@ export class ServerFetcher implements IFetcher, IEvaluator {
     return this.rpc("evaluateTx", [tx, additionalUtxos, additionalTxs]);
   }
 
-  get(url: string): Promise<unknown> {
-    return this.rpc("get", [url]);
+  get(url: string, buildCache = false): Promise<unknown> {
+    return this.rpc("get", buildCache ? [url, true] : [url]);
   }
 
   submitTx(tx: string): Promise<string> {

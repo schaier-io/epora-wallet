@@ -333,7 +333,9 @@ export function SttSpendPayoutView() {
                           onChange={(text) =>
                             setStreamingPaymentPayoutAmounts((current) => ({
                               ...current,
-                              [rowId]: parseAdaToLovelace(text) ?? "0"
+                              [rowId]: text.trim()
+                                ? parseAdaToLovelace(text) ?? text
+                                : "0"
                             }))
                           }
                         />

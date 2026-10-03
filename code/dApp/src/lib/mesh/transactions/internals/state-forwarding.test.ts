@@ -435,3 +435,33 @@ for (const status of [undefined, {}, { outputs: [] }, { outputs: [{ output_index
     }), /spent|unspent status/);
   });
 }
+
+
+test("State metadata and unspent status start together without a specified index", async () => {
+  const definition = createStateForwarding({ sttAssetNameHex: ASSET_NAME, walletPolicyId: POLICY_ID,
+    sttSpendReference: `${REFERENCE_TX_HASH}#2` });
+  const stateInput = makeStateInput(definition.address, definition.unit);
+  const referenceInput = makeReferenceInput(definition.address, definition.script);
+  const { fetcher } = createFetcher(stateInput, referenceInput);
+  const fetchUtxos = fetcher.fetchUTxOs.bind(fetcher);
+  const get = fetcher.get.bind(fetcher);
+  let release!: () => void;
+  const blocked = new Promise<void>(resolve => { release = resolve; });
+  let statusStarted = false;
+  fetcher.fetchUTxOs = async (hash, index) => {
+    if (hash === STATE_TX_HASH) await blocked;
+    return fetchUtxos(hash, index);
+  };
+  fetcher.get = async path => { if (path === `txs/${STATE_TX_HASH}/utxos`) statusStarted = true; return get(path); };
+  const pending = runStateForwarding({ definition, fetcher, tx: createNoopTransaction(),
+    input: { txHash: STATE_TX_HASH, stage: "state-input" }, reference: { stage: "state-reference" },
+    spendValidatorsByRef: new Map(), afterInput: () => undefined,
+    beforeRedeem: () => ({ assets: stateInput.output.amount, datum: { alternative: 0, fields: [] },
+      redeemer: { alternative: 1, fields: [] } }) });
+  try {
+    assert.equal(statusStarted, true);
+  } finally {
+    release();
+    await pending;
+  }
+});

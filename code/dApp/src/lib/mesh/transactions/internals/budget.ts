@@ -30,7 +30,7 @@ import {
 import { deserializeTx } from "@/lib/mesh/cst";
 import { ServerFetcher } from "@/lib/mesh/server-fetcher";
 import { type TxFetcher } from "@/lib/mesh/tx-context";
-import { createBuildParameterFetcher } from "./build-parameter-fetcher";
+import { beginBuildPass, createBuildParameterFetcher, LATEST_PROTOCOL_PARAMETERS_PATH } from "./build-parameter-fetcher";
 
 export function assertTransactionShapeIsBounded(shape: {
   inputs: number;
@@ -121,11 +121,23 @@ export async function buildTransactionWithReestimatedLimits(
     overrides: RedeemerBudgetOverrides
   ) => RedeemerBudgetOverrides | undefined
 ) {
-  const stage = <T>(name: string, run: () => Promise<T>, details: Record<string, unknown>) =>
-    abortable(fetcher.signal, () => withStage(name, run, details));
+  const startedAt = performance.now();
+  const buildTimingsMs: Record<string, number> = {};
+  const stage = async <T>(name: string, run: () => Promise<T>, details: Record<string, unknown>) => {
+    const stageStartedAt = performance.now();
+    try {
+      return await abortable(fetcher.signal, () => withStage(name, run, details));
+    } finally {
+      buildTimingsMs[name] = performance.now() - stageStartedAt;
+    }
+  };
   fetcher.signal?.throwIfAborted();
   const buildFetcher = createBuildParameterFetcher(fetcher);
-  const draftPrepared = await abortable(fetcher.signal, () => prepareTx(undefined, buildFetcher));
+  const draftPrepared = await stage(`${draftStage}:prepare`, () => prepareTx(undefined, buildFetcher), {});
+  if (draftPrepared.tx.isCollateralNeeded || hasExecutionValidators(draftPrepared.executionLabels)) {
+    // A failed prefetch is evicted. The hash refresh retries it when needed.
+    void buildFetcher.get(LATEST_PROTOCOL_PARAMETERS_PATH).catch(() => undefined);
+  }
   let preparedOutputCount = getPreparedOutputCount(draftPrepared.tx);
   const draftHex = await stage(draftStage, async () => draftPrepared.tx.build(), draftPrepared.diagnostics);
   const draftExecution = extractExecutionSnapshot(
@@ -136,7 +148,8 @@ export async function buildTransactionWithReestimatedLimits(
   // Use the actual witnesses, not optional display labels, to select the path.
   let finalPrepared = draftPrepared;
   if (readTransactionShape(draftHex).redeemers > 0) {
-    finalPrepared = await abortable(fetcher.signal, () => prepareTx(draftExecution.overrides, buildFetcher));
+    beginBuildPass(buildFetcher);
+    finalPrepared = await stage(`${finalStage}:prepare`, () => prepareTx(draftExecution.overrides, buildFetcher), {});
     preparedOutputCount = getPreparedOutputCount(finalPrepared.tx);
     await stage(finalStage, async () => finalPrepared.tx.build(), {
       ...finalPrepared.diagnostics,
@@ -209,8 +222,12 @@ export async function buildTransactionWithReestimatedLimits(
     }
   );
 
+  buildTimingsMs.total = performance.now() - startedAt;
+  // Successful build timings stay local to the browser or server console.
+  console.debug("[tx-build:timings]", buildTimingsMs);
   const refreshedContext: Record<string, unknown> = {
     ...finalPrepared.context,
+    buildTimingsMs,
     scriptDataHash: {
       before: scriptDataHashRefresh.beforeHash,
       after: scriptDataHashRefresh.afterHash,

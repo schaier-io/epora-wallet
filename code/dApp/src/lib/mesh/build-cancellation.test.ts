@@ -85,25 +85,26 @@ test("canceled provider starts no RPC, including through build parameter wrapper
 });
 
 
-test("canceling setup stops pending wallet work after the parallel protocol request starts", async (t) => {
+test("canceling setup stops further wallet work after parallel reads start", async (t) => {
   let providerCalls = 0;
   t.mock.method(globalThis, "fetch", async () => { providerCalls++; throw new Error("unexpected RPC"); });
   const controller = new AbortController();
   const started = deferred<void>();
   const pending = deferred<Awaited<ReturnType<WalletSource["getUtxos"]>>>();
-  let laterWalletReads = 0;
+  let walletAddressReads = 0;
   const wallet: WalletSource = {
     getUtxos: () => { started.resolve(); return pending.promise; },
-    getChangeAddress: async () => { laterWalletReads++; return "unused"; },
-    getUsedAddresses: async () => { laterWalletReads++; return []; },
-    getUnusedAddresses: async () => { laterWalletReads++; return []; }
+    getChangeAddress: async () => { walletAddressReads++; return "unused"; },
+    getUsedAddresses: async () => { walletAddressReads++; return []; },
+    getUnusedAddresses: async () => { walletAddressReads++; return []; }
   };
   const setup = setupTransaction(wallet, Date.now(), new ServerFetcher({ signal: controller.signal }));
   await started.promise;
+  assert.equal(walletAddressReads, 2);
   controller.abort();
   await assert.rejects(setup, { name: "AbortError" });
   pending.resolve([]);
   await new Promise<void>((resolve) => setImmediate(resolve));
-  assert.equal(laterWalletReads, 0);
+  assert.equal(walletAddressReads, 2);
   assert.equal(providerCalls, 1);
 });

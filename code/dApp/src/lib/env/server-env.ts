@@ -23,6 +23,9 @@ const serverEnvSchema = z.object({
   KOIOS_URL: z.url().optional(),
   NEXT_PUBLIC_SITE_URL: z.url().optional(),
   VERCEL_URL: z.string().optional(),
+  VERCEL: z.string().optional(),
+  VERCEL_PROJECT_ID: z.string().optional(),
+  VERCEL_ENV: z.string().optional(),
   NODE_ENV: z.enum(["development", "test", "production"]).optional()
 });
 

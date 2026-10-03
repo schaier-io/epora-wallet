@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { createStore } from "jotai";
 
 import { TestProviders } from "@/test/query-client";
+import { appendStreamingPaymentPayoutDraftErrors } from "@/components/user/workspace/action-validation-spend";
 import { describe, expect, it, vi } from "vitest";
 import { type ReactNode } from "react";
 
@@ -568,7 +569,7 @@ describe("the tick box and the amount field drive the payout", () => {
     expect(document.getElementById(errorId!)).toHaveTextContent("Amount exceeds the available balance.");
   });
 
-  it("clears a staged payout when the ADA draft has more than six decimals", () => {
+  it("keeps an invalid ADA draft available to transaction validation", () => {
     renderPayout([payoutRow()], { stateful: true });
     const field = screen.getByLabelText("Payout amount (ADA)") as HTMLInputElement;
 
@@ -578,10 +579,48 @@ describe("the tick box and the amount field drive the payout", () => {
     fireEvent.change(field, { target: { value: "1.0000001" } });
     fireEvent.blur(field);
 
-    expect(stage.amounts).toEqual({ "0": "0" });
+    expect(stage.amounts).toEqual({ "0": "1.0000001" });
     expect(field.value).toBe("1.0000001");
     expect(field).toHaveAttribute("aria-invalid", "true");
   });
+
+  it.each(["1,5", "1.0000001", "abc"])(
+    "blocks a malformed ADA payout %s when another payment is selected",
+    (draft) => {
+      const rows = [
+        payoutRow(),
+        payoutRow({
+          configuredAmount: "1000000",
+          streamingPayment: { ...payoutRow().streamingPayment, id: "1" }
+        })
+      ];
+      renderPayout(rows, { stateful: true });
+      const field = screen.getAllByLabelText("Payout amount (ADA)")[0]!;
+      fireEvent.focus(field);
+      fireEvent.change(field, { target: { value: draft } });
+      fireEvent.blur(field);
+
+      const errors: Record<string, string[]> = {};
+      appendStreamingPaymentPayoutDraftErrors(errors, {
+        streamingPaymentPayoutRows: rows.map((row) => ({
+          ...row,
+          configuredAmount: stage.amounts[row.streamingPayment.id] ?? row.configuredAmount
+        })),
+        streamingPaymentPayoutTransfers: [{
+          address: "addr_test1payee",
+          amount: [{ unit: "lovelace", quantity: "1000000" }],
+          inlineDatum: { alternative: 0, fields: [1, "deadbeef", 0] }
+        }],
+        sttWalletInputs: []
+      });
+
+      expect(errors["Scheduled payment 1"]).toEqual([
+        "Enter a whole-number payout amount."
+      ]);
+      expect(field).toHaveValue(draft);
+      expect(field).toHaveAttribute("aria-invalid", "true");
+    }
+  );
 
   it("the tick box still replaces whatever was typed", () => {
     renderPayout([payoutRow()], { stateful: true });

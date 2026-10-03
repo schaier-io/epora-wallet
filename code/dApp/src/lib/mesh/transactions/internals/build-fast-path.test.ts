@@ -11,6 +11,7 @@ import { deserializeTx, type CstTransactionOutput } from "@/lib/mesh/cst";
 import { ServerFetcher } from "@/lib/mesh/server-fetcher";
 import type { WalletSource } from "@/lib/mesh/tx-context";
 import type { ContractConfig } from "@/lib/types/contracts";
+import { createOfflineBuildParameters } from "../offline-evaluation-mint-fixture";
 import { buildLockFundsTx } from "../lock-funds";
 import { buildTransactionWithReestimatedLimits } from "./budget";
 import { setupTransaction } from "./core";
@@ -54,7 +55,7 @@ function fixture() {
   };
   fetcher.get = async () => {
     calls.rawParameters++;
-    return { cost_models_raw: { PlutusV1: COST_MODELS[0], PlutusV2: COST_MODELS[1], PlutusV3: COST_MODELS[2] } };
+    return createOfflineBuildParameters(DEFAULT_PROTOCOL_PARAMETERS, COST_MODELS);
   };
   return { wallet, fetcher, calls };
 }
@@ -65,7 +66,7 @@ test("deposit builds once without evaluation and preserves assets, datum, fee, a
     assets: [{ unit: "lovelace", quantity: "2000000" }, { unit: TOKEN, quantity: "3" }],
     inlineDatum: { alternative: 0, fields: [] }
   }, fetcher);
-  assert.deepEqual(calls, { utxos: 1, protocol: 1, costModels: 1, evaluations: 0, rawParameters: 0 });
+  assert.deepEqual(calls, { utxos: 1, protocol: 0, costModels: 0, evaluations: 0, rawParameters: 1 });
   const tx = deserializeTx(result.txHex);
   const outputs = tx.body().outputs() as CstTransactionOutput[];
   assert.equal(outputs[0]!.amount().coin().toString(), "2000000");
@@ -86,6 +87,11 @@ test("unlabelled Plutus mint still prepares twice and evaluates both builds", as
   const script = { code: "46010000200101", version: "V3" as const };
   const policy = resolveScriptHash(script.code, script.version);
   let preparations = 0;
+  const evaluate = fetcher.evaluateTx.bind(fetcher);
+  fetcher.evaluateTx = async (...args) => {
+    assert.equal(calls.rawParameters, 1, "raw parameters must start before draft evaluation");
+    return evaluate(...args);
+  };
   const result = await buildTransactionWithReestimatedLimits("draft", "final", async (overrides, buildFetcher) => {
     preparations++;
     const { tx, signerAddress } = await setupTransaction(wallet, undefined, buildFetcher);
@@ -97,11 +103,16 @@ test("unlabelled Plutus mint still prepares twice and evaluates both builds", as
   assert.equal(preparations, 2);
   assert.equal(calls.utxos, 1);
   assert.equal(calls.evaluations, 2);
-  assert.equal(calls.protocol, 1);
-  assert.equal(calls.costModels, 1);
+  assert.equal(calls.protocol, 0);
+  assert.equal(calls.costModels, 0);
   assert.equal(calls.rawParameters, 1);
   assert.equal(deserializeTx(result.txHex).witnessSet().redeemers()?.size(), 1);
   assert.equal(result.executionUnits.redeemers.length, 1);
+  const timings = result.context.buildTimingsMs as Record<string, number>;
+  assert.ok(timings);
+  for (const stage of ["draft:prepare", "draft", "final:prepare", "final", "total"]) {
+    assert.ok(Number.isFinite(timings[stage]) && timings[stage] >= 0, stage);
+  }
 });
 
 test("deposit drops a zero-quantity row instead of writing it into the output", async () => {
@@ -130,4 +141,78 @@ test("deposit fast path still rejects insufficient funds", async () => {
   await assert.rejects(buildLockFundsTx(wallet, CONFIG, {
     assets: [{ unit: "lovelace", quantity: "200000000" }]
   }, fetcher));
+});
+
+test("deposit refuses positive ADA below the output minimum", async () => {
+  const { wallet, fetcher } = fixture();
+  await assert.rejects(buildLockFundsTx(wallet, CONFIG, {
+    assets: [{ unit: "lovelace", quantity: "1" }]
+  }, fetcher), /Cardano output needs at least/);
+});
+
+test("deposit uses fetched protocol parameters for its output minimum", async () => {
+  const { wallet, fetcher } = fixture();
+  const protocol = {
+    ...DEFAULT_PROTOCOL_PARAMETERS,
+    coinsPerUtxoSize: DEFAULT_PROTOCOL_PARAMETERS.coinsPerUtxoSize * 2
+  };
+  fetcher.fetchProtocolParameters = async () => protocol;
+  fetcher.get = async () => createOfflineBuildParameters(protocol, COST_MODELS);
+  await assert.rejects(buildLockFundsTx(wallet, CONFIG, {
+    assets: [{ unit: "lovelace", quantity: "1000000" }]
+  }, fetcher), /Cardano output needs at least/);
+});
+
+test("deposit includes its inline datum when checking the output minimum", async () => {
+  const { wallet, fetcher } = fixture();
+  const assets = [{ unit: "lovelace", quantity: "1000000" }];
+  const plain = await buildLockFundsTx(wallet, CONFIG, { assets }, fetcher);
+  assert.equal((deserializeTx(plain.txHex).body().outputs() as CstTransactionOutput[])[0]!.amount().coin().toString(), "1000000");
+  await assert.rejects(buildLockFundsTx(wallet, CONFIG, {
+    assets,
+    inlineDatum: { alternative: 0, fields: ["ab".repeat(300)] }
+  }, fetcher), /Cardano output needs at least/);
+});
+
+test("deposit keeps automatic ADA for native assets after dropping zero ADA", async () => {
+  const { wallet, fetcher } = fixture();
+  const result = await buildLockFundsTx(wallet, CONFIG, {
+    assets: [{ unit: TOKEN, quantity: "3" }, { unit: "lovelace", quantity: "0" }]
+  }, fetcher);
+  const output = (deserializeTx(result.txHex).body().outputs() as CstTransactionOutput[])[0]!;
+  assert.ok(BigInt(output.amount().coin().toString()) > 0n);
+  assert.equal(new Map([...(output.amount().multiasset()?.entries() ?? [])]
+    .map(([unit, quantity]) => [unit.toString(), quantity.toString()])).get(TOKEN), "3");
+});
+
+
+test("generic providers retry failed optional raw-parameter prefetch at hash refresh", async () => {
+  const { wallet, fetcher, calls } = fixture();
+  // Generic providers retain separate typed and raw reads. Only this path has an optional prefetch.
+  const genericFetcher = new Proxy(fetcher, {
+    get(target, property) {
+      if (property === "fetchBuildParameters") return undefined;
+      const value: unknown = Reflect.get(target, property, target);
+      return typeof value === "function"
+        ? (value as (...args: unknown[]) => unknown).bind(target)
+        : value;
+    }
+  });
+  const get = fetcher.get.bind(fetcher);
+  let rawAttempts = 0;
+  fetcher.get = async path => {
+    if (++rawAttempts === 1) throw new Error("temporary parameter outage");
+    return get(path);
+  };
+  const script = { code: "46010000200101", version: "V3" as const };
+  const policy = resolveScriptHash(script.code, script.version);
+  await buildTransactionWithReestimatedLimits("draft", "final", async (overrides, buildFetcher) => {
+    const { tx, signerAddress } = await setupTransaction(wallet, undefined, buildFetcher);
+    applyMintWitness(tx.txBuilder as RuntimeTxBuilder, policy, "01", script, null, overrides?.mintBudgets[0]);
+    tx.isCollateralNeeded = true;
+    tx.sendAssets(ADDRESS, [{ unit: `${policy}01`, quantity: "1" }]);
+    return { tx, signerAddress, diagnostics: {}, executionLabels: createEmptyExecutionValidatorLabels() };
+  }, genericFetcher);
+  assert.equal(rawAttempts, 2);
+  assert.equal(calls.evaluations, 2);
 });

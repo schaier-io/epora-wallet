@@ -3,6 +3,7 @@ import test from "node:test";
 import { DEFAULT_PROTOCOL_PARAMETERS } from "@meshsdk/common";
 import { ServerFetcher } from "@/lib/mesh/server-fetcher";
 import type { WalletSource } from "@/lib/mesh/tx-context";
+import { createOfflineBuildParameters, DEFAULT_OFFLINE_COST_MODELS } from "../offline-evaluation-mint-fixture";
 import { createBuildParameterFetcher, resolveBuildWalletSource } from "./build-parameter-fetcher";
 import { createBuildWalletSource } from "./build-wallet-source";
 import { setupTransaction } from "./core";
@@ -24,6 +25,7 @@ function fixture() {
   };
   const fetcher = new ServerFetcher();
   fetcher.fetchProtocolParameters = async () => DEFAULT_PROTOCOL_PARAMETERS;
+  fetcher.fetchBuildParameters = async () => createOfflineBuildParameters(DEFAULT_PROTOCOL_PARAMETERS, DEFAULT_OFFLINE_COST_MODELS);
   return { wallet, calls, fetcher };
 }
 
@@ -103,6 +105,7 @@ test("canceling a build blocks later reads and a new build reads the wallet agai
   const controller = new AbortController();
   const canceledFetcher = new ServerFetcher({ signal: controller.signal });
   canceledFetcher.fetchProtocolParameters = fetcher.fetchProtocolParameters;
+  canceledFetcher.fetchBuildParameters = fetcher.fetchBuildParameters;
   let release!: () => void;
   let started!: () => void;
   const pending = new Promise<void>((resolve) => { release = resolve; });
@@ -120,8 +123,48 @@ test("canceling a build blocks later reads and a new build reads the wallet agai
   await assert.rejects(setup, { name: "AbortError" });
   release();
   await assert.rejects(setupTransaction(wallet, undefined, scoped), { name: "AbortError" });
-  assert.equal(calls.change, 0);
+  assert.equal(calls.change, 1);
   await setupTransaction(wallet, undefined, createBuildParameterFetcher(fetcher));
   assert.equal(attempts, 2);
-  assert.equal(calls.change, 1);
+  assert.equal(calls.change, 2);
+});
+
+
+test("setup starts change and authority reads while wallet inputs are pending", async () => {
+  const { wallet, calls, fetcher } = fixture();
+  let release!: () => void;
+  const pending = new Promise<void>(resolve => { release = resolve; });
+  const read = wallet.getUtxos;
+  wallet.getUtxos = async () => { await pending; return read(); };
+  const setup = setupTransaction(wallet, undefined, fetcher);
+  try {
+    assert.equal(calls.change, 1);
+    assert.equal(calls.used, 1);
+    assert.equal(calls.unused, 0);
+  } finally { release(); }
+  assert.equal((await setup).signerAddress, ADDRESS);
+});
+
+test("early authority failure is consumed and keeps used-address failure authoritative", async () => {
+  const { wallet, calls, fetcher } = fixture();
+  let release!: () => void;
+  const pending = new Promise<void>(resolve => { release = resolve; });
+  const read = wallet.getUtxos;
+  wallet.getUtxos = async () => { await pending; return read(); };
+  wallet.getUsedAddresses = async () => { throw new Error("authority unavailable"); };
+  const setup = setupTransaction(wallet, undefined, fetcher);
+  const rejected = assert.rejects(setup, /authority unavailable/);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(calls.unused, 0);
+  release();
+  await rejected;
+});
+
+test("pre-read change failure keeps the wallet UTxO fallback address", async () => {
+  const { wallet, fetcher } = fixture();
+  wallet.getChangeAddress = async () => { throw new Error("change unavailable"); };
+  const setup = await setupTransaction(wallet, undefined, fetcher);
+  assert.equal(setup.changeAddress, ADDRESS);
+  assert.equal(setup.setupDiagnostics.changeAddressSource, "fallback.walletUtxoAddress");
+  assert.equal(setup.signerAddress, ADDRESS);
 });

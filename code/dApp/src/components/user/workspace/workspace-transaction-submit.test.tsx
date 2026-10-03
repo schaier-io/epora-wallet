@@ -522,6 +522,25 @@ async function pendingBroadcast(deps: ReturnType<typeof makeDeps>) {
   return async () => { finish(TX_HASH); await pending; };
 }
 
+it.each(["distribute-beneficiaries", "consolidate-utxo"] as const)(
+  "preserves the next input selection when %s broadcast completes",
+  async selectedAction => {
+    vi.useFakeTimers();
+    const deps = makeDeps({ selectedAction });
+    const store = deps.jotaiStore;
+    store.set(routeStateAtom, { ...store.get(routeStateAtom), selectedAction });
+    const inputAtom = selectedAction === "consolidate-utxo" ? consolidateWalletInputsAtom : sttWalletInputsAtom;
+    if (selectedAction === "consolidate-utxo") store.set(beneficiaryPreparationActiveAtom, true);
+    store.set(inputAtom, [{ txHash: "aa".repeat(32), outputIndex: 0 }]);
+    const finish = await pendingBroadcast(deps);
+    const nextInputs = [{ txHash: "bb".repeat(32), outputIndex: 1 }];
+    store.set(inputAtom, nextInputs);
+    await finish();
+    expect(deps.setSubmitHash).toHaveBeenCalledWith(TX_HASH);
+    expect(store.get(inputAtom)).toBe(nextInputs);
+  }
+);
+
 it.each(["amount", "action", "new build"])("preserves a deposit draft after %s changes during broadcast", async change => {
   vi.useFakeTimers();
   const deps = makeDeps({ selectedAction: "lock-funds" });

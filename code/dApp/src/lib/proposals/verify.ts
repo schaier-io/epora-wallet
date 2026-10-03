@@ -106,8 +106,8 @@ function toArray<T>(value: unknown): T[] {
   if (Array.isArray(value)) {
     return value as T[];
   }
-  const candidate = value as { values?: () => T[] };
-  return typeof candidate.values === "function" ? candidate.values() : [];
+  const candidate = value as { values?: () => T[] } | null | undefined;
+  return typeof candidate?.values === "function" ? candidate.values() : [];
 }
 
 function extractSttInputRef(
@@ -135,12 +135,15 @@ export function decodeEffect(txHex: string): ProposalEffect {
   }
   try {
     const body = deserializeTx(txHex).body();
-    const inputs: ProposalInputRef[] = toArray<CstTransactionInput>(body.inputs()).map((input) => ({
+    const inputRefs = (value: unknown): ProposalInputRef[] => toArray<CstTransactionInput>(value).map((input) => ({
       txHash: input.transactionId().toString(),
       outputIndex: Number(input.index()),
       live: null,
       isSttState: false
     }));
+    const inputs = inputRefs(body.inputs());
+    const referenceInputs = inputRefs(body.referenceInputs());
+    const collateralInputs = inputRefs(body.collateral());
 
     const outputs: ProposalOutputView[] = toArray<CstTransactionOutput>(body.outputs()).map((output) => {
       const value = output.amount();
@@ -165,7 +168,8 @@ export function decodeEffect(txHex: string): ProposalEffect {
         ? null
         : slotToBeginUnixTime(Number(ttl), SLOT_CONFIG_NETWORK[NETWORK]);
 
-    return { inputs, outputs, feeLovelace: body.fee().toString(), validUntilMs, votes: decodeVotes(body) };
+    return { inputs, referenceInputs, collateralInputs, outputs,
+      feeLovelace: body.fee().toString(), validUntilMs, votes: decodeVotes(body) };
   } catch {
     return {
       inputs: [],
@@ -503,9 +507,12 @@ export async function verifyProposal(
     reasons.push(proposalCopy.walletIdentityMismatch());
   }
 
+  // References and collateral must remain live too. Keep them outside effect.inputs,
+  // whose entries are consumed and can bind the reviewed State transition.
+  const requiredInputs = [...effect.inputs, ...(effect.referenceInputs ?? []), ...(effect.collateralInputs ?? [])];
   if (
     options.maxInputLookups !== undefined &&
-    effect.inputs.length > options.maxInputLookups
+    requiredInputs.length > options.maxInputLookups
   ) {
     return {
       validity: "unknown",
@@ -520,7 +527,7 @@ export async function verifyProposal(
 
   let inputsFullyChecked = false;
   if (effect.inputs.length > 0) {
-    const liveness = await checkInputLiveness(fetcher, effect.inputs);
+    const liveness = await checkInputLiveness(fetcher, requiredInputs);
     reasons.push(...liveness.reasons);
     inputsFullyChecked = liveness.complete;
   } else {
@@ -571,7 +578,7 @@ export async function verifyProposal(
     bodyHashMatches,
     transactionDecoded: !effect.decodeError,
     inputsFullyChecked,
-    allInputsLive: effect.inputs.length > 0 && effect.inputs.every((input) => input.live === true),
+    allInputsLive: effect.inputs.length > 0 && requiredInputs.every((input) => input.live === true),
     stateInputBound,
     signerStateResolved: signerResolution.signers !== null,
     stateTransitionReviewed: signerResolution.stateTransition !== null,
