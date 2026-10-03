@@ -12,6 +12,7 @@ import {
   consolidateWalletOutputsAtom
 } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
 import {
+  publishCertificateJsonAtom,
   publishSttAssetsAtom,
   publishSttInputHashAtom,
   publishSttInputIndexAtom,
@@ -41,6 +42,7 @@ import {
   transferSelectedUnitAtom
 } from "@/components/user/workspace/atoms/forms/transfer-form.atoms";
 import {
+  voteJsonAtom,
   voteSttAssetsAtom,
   voteSttInputHashAtom,
   voteSttInputIndexAtom,
@@ -105,12 +107,14 @@ export const seedWorkspaceWalletAtom = atom(
     set(withdrawSttStateFormAtom, cloneStateForm(stateForm));
     set(withdrawSttAssetsAtom, []);
 
+    set(publishCertificateJsonAtom, "{}");
     set(publishSttInputHashAtom, inputTxHash);
     set(publishSttInputIndexAtom, inputOutputIndex);
     set(publishZeroAdminConfirmedAtom, false);
     set(publishSttStateFormAtom, cloneStateForm(stateForm));
     set(publishSttAssetsAtom, []);
 
+    set(voteJsonAtom, "{}");
     set(voteSttInputHashAtom, inputTxHash);
     set(voteSttInputIndexAtom, inputOutputIndex);
     set(voteZeroAdminConfirmedAtom, false);

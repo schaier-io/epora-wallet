@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
+    "build:deploy": "if [ \"$VERCEL_ENV\" = \"production\" ]; then prisma migrate deploy || exit $?; fi; pnpm build",
     "postinstall": "prisma generate && node ./scripts/sync-swagger-ui.mjs",
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
@@ -64,6 +65,7 @@
     "@sentry/nextjs": "^11.4.0",
     "@tanstack/query-core": "^5",
     "@tanstack/react-query": "^5",
+    "@vercel/functions": "3.9.11",
     "@walletconnect/sign-client": "^2.25.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

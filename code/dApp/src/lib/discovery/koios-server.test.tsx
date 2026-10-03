@@ -13,6 +13,31 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+it("recovers from a transient fetch rejection within the shared deadline", async () => {
+  vi.useFakeTimers();
+  const fetchMock = vi.fn()
+    .mockRejectedValueOnce(new TypeError("fetch failed"))
+    .mockResolvedValueOnce(new Response("[]"));
+  vi.stubGlobal("fetch", fetchMock);
+  const result = expect(fetchCredentialUtxosFromKoios("cc".repeat(28))).resolves.toEqual([]);
+  await Promise.all([result, vi.runAllTimersAsync()]);
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+});
+
+it("caps connection retries and does not retry programming errors or timeouts", async () => {
+  vi.useFakeTimers();
+  const fetchMock = vi.fn().mockRejectedValue(new TypeError("fetch failed"));
+  vi.stubGlobal("fetch", fetchMock);
+  const result = expect(fetchCredentialUtxosFromKoios("cc".repeat(28))).rejects.toThrow("fetch failed");
+  await Promise.all([result, vi.runAllTimersAsync()]);
+  expect(fetchMock).toHaveBeenCalledTimes(3);
+  for (const error of [new Error("bug"), new DOMException("Deadline", "TimeoutError")]) {
+    fetchMock.mockReset().mockRejectedValue(error);
+    await expect(fetchCredentialUtxosFromKoios("cc".repeat(28))).rejects.toBe(error);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  }
+});
+
 it("queries Koios directly from the server and maps credential UTxOs", async () => {
   const fetchMock = vi.fn().mockResolvedValue(
     new Response(
@@ -137,7 +162,8 @@ it("does not start another attempt after the shared deadline expires", async () 
     .rejects.toThrow("Lookup deadline");
   await vi.advanceTimersByTimeAsync(0);
   controller.abort(new Error("Lookup deadline"));
-  await Promise.all([result, vi.runAllTimersAsync()]);
+  await result;
+  expect(vi.getTimerCount()).toBe(0);
   expect(fetchMock).toHaveBeenCalledTimes(1);
   expect(timeout).toHaveBeenCalledExactlyOnceWith(15_000);
 });

@@ -1,5 +1,17 @@
+import { parseBuildParameters, protocolFromBuildParameters } from "@/lib/mesh/protocol-parameter-cache";
+import { ServerFetcher } from "@/lib/mesh/server-fetcher";
 import type { TxFetcher, WalletSource } from "@/lib/mesh/tx-context";
 import { createBuildWalletSource } from "./build-wallet-source";
+import { readImmutableInputMetadata } from "./immutable-input-cache";
+import { evaluateDraftLocally } from "./local-draft-evaluation";
+
+export const LATEST_PROTOCOL_PARAMETERS_PATH = "epochs/latest/parameters";
+
+const buildPasses = new WeakMap<TxFetcher, () => void>();
+
+export function beginBuildPass(fetcher: TxFetcher) {
+  buildPasses.get(fetcher)?.();
+}
 
 const buildWallets = new WeakMap<TxFetcher, WeakMap<WalletSource, WalletSource>>();
 
@@ -39,13 +51,16 @@ function reuseLatest<T>(
 
 // Draft and final passes discover the same address funds. Share each address read
 // so both passes see one snapshot. Failed reads are dropped so a later pass retries.
-function reuseAddressReads(read: TxFetcher["fetchAddressUTxOs"]): TxFetcher["fetchAddressUTxOs"] {
-  const reads = new Map<string, ReturnType<TxFetcher["fetchAddressUTxOs"]>>();
-  return async (address, asset) => {
-    const key = `${address}\u0000${asset ?? ""}`;
+function reuseReads<Args extends unknown[], Value>(
+  read: (...args: Args) => Promise<Value>,
+  keyFor: (...args: Args) => string
+) {
+  const reads = new Map<string, Promise<Value>>();
+  return async (...args: Args): Promise<Value> => {
+    const key = keyFor(...args);
     let pending = reads.get(key);
     if (!pending) {
-      pending = Promise.resolve().then(() => read(address, asset));
+      pending = Promise.resolve().then(() => read(...args));
       reads.set(key, pending);
       pending.catch(() => reads.delete(key));
     }
@@ -54,30 +69,78 @@ function reuseAddressReads(read: TxFetcher["fetchAddressUTxOs"]): TxFetcher["fet
 }
 
 // One wrapper per build shares parameter, address and wallet reads across passes.
-// Provider input checks and evaluation always reach the original provider.
+// Input metadata is immutable. Status reads are shared only within one pass.
 export function createBuildParameterFetcher(fetcher: TxFetcher): TxFetcher {
+  const fetchRawParameters = fetcher.fetchBuildParameters
+    ? reuseLatest(async () => parseBuildParameters(await fetcher.fetchBuildParameters!()))
+    : reuseLatest(() => fetcher instanceof ServerFetcher
+      ? fetcher.get(LATEST_PROTOCOL_PARAMETERS_PATH, true) : fetcher.get(LATEST_PROTOCOL_PARAMETERS_PATH));
   const fetchProtocolParameters = reuseLatest(
-    (epoch) => fetcher.fetchProtocolParameters(epoch)
+    async (epoch) => epoch !== undefined || !fetcher.fetchBuildParameters
+      ? fetcher.fetchProtocolParameters(epoch)
+      : protocolFromBuildParameters(parseBuildParameters(await fetchRawParameters()))
   );
   const fetchCostModels = reuseLatest(
-    (epoch) => fetcher.fetchCostModels(epoch),
+    async (epoch) => {
+      if (epoch !== undefined || !fetcher.fetchBuildParameters) return fetcher.fetchCostModels(epoch);
+      const raw = parseBuildParameters(await fetchRawParameters());
+      return [raw.cost_models_raw.PlutusV1, raw.cost_models_raw.PlutusV2, raw.cost_models_raw.PlutusV3];
+    },
     // Mesh falls back to defaults for invalid results. Let the next pass retry.
     (value) => Array.isArray(value) && value.length > 0
   );
 
-  const fetchAddressUTxOs = reuseAddressReads((address, asset) => fetcher.fetchAddressUTxOs(address, asset));
+  const fetchAddressUTxOs = reuseReads(
+    (address: string, asset?: string) => fetcher.fetchAddressUTxOs(address, asset),
+    (address, asset) => JSON.stringify([address, asset])
+  );
+  const cachedUTxOs = reuseReads(
+    (hash: string, index?: number) => readImmutableInputMetadata(fetcher, hash, index),
+    (hash, index) => JSON.stringify([hash.toLowerCase(), index])
+  );
+  const fetchUTxOs = async (hash: string, index?: number) => {
+    fetcher.signal?.throwIfAborted();
+    const value = await cachedUTxOs(hash, index);
+    fetcher.signal?.throwIfAborted();
+    return value;
+  };
+  let statusReads = new Map<string, Promise<unknown>>();
+  let finalPass = false;
+  const get = (path: string) => {
+    if (path === LATEST_PROTOCOL_PARAMETERS_PATH) return fetchRawParameters();
+    if (!/^txs\/[a-fA-F0-9]{64}\/utxos$/.test(path)) return fetcher.get(path);
+    const key = path.toLowerCase();
+    const pass = statusReads;
+    let pending = pass.get(key);
+    if (!pending) {
+      pending = Promise.resolve().then(() => fetcher.get(path));
+      pass.set(key, pending);
+      pending.catch(() => { if (pass.get(key) === pending) pass.delete(key); });
+    }
+    return pending.then(value => structuredClone(value));
+  };
 
   const scoped = new Proxy(fetcher, {
     get(target, property) {
       if (property === "fetchAddressUTxOs") return fetchAddressUTxOs;
+      if (property === "fetchUTxOs") return fetchUTxOs;
       if (property === "fetchProtocolParameters") return fetchProtocolParameters;
       if (property === "fetchCostModels") return fetchCostModels;
+      if (property === "get") return get;
+      if (property === "evaluateTx") return async (tx: string, utxos?: Parameters<TxFetcher["evaluateTx"]>[1], chained?: string[]) => {
+        if (!finalPass && fetcher instanceof ServerFetcher && typeof Worker !== "undefined" && !chained?.length) {
+          try { return await evaluateDraftLocally(scoped, tx, utxos); }
+          catch { fetcher.signal?.throwIfAborted(); }
+        }
+        return fetcher.evaluateTx(tx, utxos, chained);
+      };
       const value: unknown = Reflect.get(target, property, target);
       return typeof value === "function"
         ? (value as (...args: unknown[]) => unknown).bind(target)
         : value;
     }
   });
+  buildPasses.set(scoped, () => { statusReads = new Map(); finalPass = true; });
   buildWallets.set(scoped, new WeakMap());
   return scoped;
 }

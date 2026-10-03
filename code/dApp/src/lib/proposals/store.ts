@@ -87,46 +87,51 @@ export async function upsertProposalSignature(args: {
   witnessSetHex: string;
   expectedBodyHash: string;
 }): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
-  const proposal = await getPrisma().multiSigProposal.findUnique({
-    where: { id: args.proposalId },
-    select: { txBodyHash: true, status: true, unsignedTxHex: true }
-  });
-  // Decoded from the same row the body-hash check reads, so the listed signers
-  // belong to the body this witness signs.
-  const guard = evaluateProposalSignatureGuard(
-    proposal && { ...proposal, requiredSigners: decodeRequiredSigners(proposal.unsignedTxHex) },
-    args.expectedBodyHash,
-    args.signerKeyHash
-  );
-  if (!guard.ok) {
-    return guard;
-  }
-
-  const validated = validateVKeyWitnessSet({
-    witnessSetHex: args.witnessSetHex,
-    txBodyHash: args.expectedBodyHash,
-    signerKeyHash: args.signerKeyHash
-  });
-
-  await getPrisma().proposalSignature.upsert({
-    where: {
-      proposalId_signerKeyHash: {
-        proposalId: args.proposalId,
-        signerKeyHash: args.signerKeyHash
-      }
-    },
-    create: {
-      proposalId: args.proposalId,
-      signerKeyHash: args.signerKeyHash,
-      witnessSetHex: validated.witnessSetHex,
-      txBodyHash: args.expectedBodyHash
-    },
-    update: {
-      witnessSetHex: validated.witnessSetHex,
-      txBodyHash: args.expectedBodyHash
+  return getPrisma().$transaction(async (tx) => {
+    // Hold the parent row through the guarded witness write. Rebuild, cancel,
+    // and submission update this row, so they wait until this transaction ends.
+    await tx.$queryRaw`SELECT "id" FROM "MultiSigProposal" WHERE "id" = ${args.proposalId} FOR UPDATE`;
+    const proposal = await tx.multiSigProposal.findUnique({
+      where: { id: args.proposalId },
+      select: { txBodyHash: true, status: true, unsignedTxHex: true }
+    });
+    // Decoded from the same row the body-hash check reads, so the listed signers
+    // belong to the body this witness signs.
+    const guard = evaluateProposalSignatureGuard(
+      proposal && { ...proposal, requiredSigners: decodeRequiredSigners(proposal.unsignedTxHex) },
+      args.expectedBodyHash,
+      args.signerKeyHash
+    );
+    if (!guard.ok) {
+      return guard;
     }
+
+    const validated = validateVKeyWitnessSet({
+      witnessSetHex: args.witnessSetHex,
+      txBodyHash: args.expectedBodyHash,
+      signerKeyHash: args.signerKeyHash
+    });
+
+    await tx.proposalSignature.upsert({
+      where: {
+        proposalId_signerKeyHash: {
+          proposalId: args.proposalId,
+          signerKeyHash: args.signerKeyHash
+        }
+      },
+      create: {
+        proposalId: args.proposalId,
+        signerKeyHash: args.signerKeyHash,
+        witnessSetHex: validated.witnessSetHex,
+        txBodyHash: args.expectedBodyHash
+      },
+      update: {
+        witnessSetHex: validated.witnessSetHex,
+        txBodyHash: args.expectedBodyHash
+      }
+    });
+    return { ok: true };
   });
-  return { ok: true };
 }
 
 // Replaces a proposal's transaction after a rebuild and clears the now-stale

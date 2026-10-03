@@ -207,3 +207,20 @@ for (const variant of ["valid", "missing-status", "wrong-script", "missing-outpu
     else await assert.rejects(action, /unspent status|does not match|UTxO not found|points to/);
   });
 }
+
+
+test("configured reference metadata and live status start together", async () => {
+  const script = getSttSpendScript();
+  const reference = makeUtxo(A, 0, { scriptRef: String(toScriptRef(script).toCbor()),
+    scriptHash: resolveScriptHash(script.code, script.version) });
+  let release!: () => void;
+  const blocked = new Promise<void>(resolve => { release = resolve; });
+  let statusStarted = false;
+  const fetcher = { async fetchUTxOs() { await blocked; return [reference]; },
+    async get() { statusStarted = true; return { outputs: [{ output_index: 0, consumed_by_tx: null }] }; }
+  } as unknown as TxFetcher;
+  const pending = resolveReferenceScript(fetcher, { label: "STT", configuredReference: `${A}#0`,
+    script, stage: "test:reference" });
+  try { assert.equal(statusStarted, true); }
+  finally { release(); await pending; }
+});

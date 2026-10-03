@@ -30,6 +30,14 @@ beforeEach(() => {
   mocks.fetchRows.mockReset().mockResolvedValue([]);
 });
 
+it("returns a retryable gateway timeout without claiming an empty inventory", async () => {
+  mocks.fetchRows.mockRejectedValue(new DOMException("Lookup deadline", "TimeoutError"));
+  const response = await POST(request({ paymentCredential: CREDENTIAL }));
+  expect(response.status).toBe(504);
+  expect(response.headers.get("Retry-After")).toBe("1");
+  expect(await response.json()).toHaveProperty("error");
+});
+
 it("looks up the server's own network", async () => {
   const response = await POST(request({ paymentCredential: CREDENTIAL, network: CARDANO_NETWORK }));
 

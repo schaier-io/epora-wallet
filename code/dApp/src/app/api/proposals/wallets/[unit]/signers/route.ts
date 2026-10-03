@@ -4,6 +4,9 @@ import { jsonError, requireSession } from "@/lib/proposals/api-helpers";
 import { listRegisteredWalletSigners } from "@/lib/proposals/signer-registration-store";
 import { isWalletParticipant } from "@/lib/proposals/store";
 import { getTranslations } from "next-intl/server";
+import { Prisma } from "@/generated/prisma";
+import { logger, serializeError } from "@/lib/observability/logger";
+import { UPSTREAM_RETRY_AFTER_FALLBACK_SECONDS } from "@/lib/mesh/http-error";
 
 const getI18n = () => getTranslations("AppApiProposalsWallets[unit]SignersRoute");
 
@@ -18,6 +21,7 @@ const MAX_UNIT_LENGTH = 200;
 // GET /api/proposals/wallets/:unit/signers: which of this wallet's indexed
 // participants have completed the wallet sign-in. The owner needs this to tell
 // a co-signer who is ready from one who still has to register.
+/** Return registered wallet signers to members, or a safe error when storage is unavailable. */
 export async function GET(_request: Request, context: RouteContext) {
   const i18n = await getI18n();
   const auth = await requireSession();
@@ -40,9 +44,18 @@ export async function GET(_request: Request, context: RouteContext) {
 
   // Only a member of the wallet may ask. Without this the route would report
   // registration for any wallet whose unit the caller can name.
-  if (!(await isWalletParticipant(unit, auth.session.paymentKeyHash))) {
-    return jsonError(i18n("youAreNotAParticipantOfThisWallet"), 403);
-  }
+  try {
+    if (!(await isWalletParticipant(unit, auth.session.paymentKeyHash))) {
+      return jsonError(i18n("youAreNotAParticipantOfThisWallet"), 403);
+    }
 
-  return NextResponse.json({ registered: await listRegisteredWalletSigners(unit) });
+    return NextResponse.json({ registered: await listRegisteredWalletSigners(unit) });
+  } catch (error) {
+    const missingTable = error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2021";
+    logger.error(missingTable ? "api.signer_schema_unavailable" : "api.signer_lookup_failed", { err: serializeError(error) });
+    return NextResponse.json({ error: i18n("signerRegistrationUnavailable") }, {
+      status: missingTable ? 503 : 500,
+      ...(missingTable ? { headers: { "Retry-After": String(UPSTREAM_RETRY_AFTER_FALLBACK_SECONDS) } } : {})
+    });
+  }
 }

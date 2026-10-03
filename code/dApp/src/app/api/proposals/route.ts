@@ -9,7 +9,12 @@ import {
   unsignedTxHexSchema
 } from "@/lib/proposals/api-helpers";
 import { rateLimit } from "@/lib/http/rate-limit";
-import { readBoundedJson, RequestBodyTooLargeError } from "@/lib/http/request-body";
+import {
+  InvalidJsonError,
+  readBoundedJson,
+  RequestBodyTooDeepError,
+  RequestBodyTooLargeError
+} from "@/lib/http/request-body";
 import {
   createProposalRecord,
   findReplayableProposalRecord,
@@ -220,6 +225,9 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof RequestBodyTooLargeError) {
       return jsonError(error.message, 413);
+    }
+    if (error instanceof InvalidJsonError || error instanceof RequestBodyTooDeepError) {
+      return jsonError(error.message, 400);
     }
     if (error instanceof z.ZodError) {
       return jsonError(error.issues[0]?.message ?? "Invalid proposal.", 400);

@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { clientKey, rateLimit } from "@/lib/http/rate-limit";
-import { readBoundedJson, RequestBodyTooLargeError } from "@/lib/http/request-body";
+import {
+  InvalidJsonError,
+  readBoundedJson,
+  RequestBodyTooDeepError,
+  RequestBodyTooLargeError
+} from "@/lib/http/request-body";
 import { jsonError } from "@/lib/proposals/api-helpers";
 import { issueStoredNonce } from "@/lib/proposals/auth-store";
 import { getTranslations } from "next-intl/server";
@@ -42,6 +47,9 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof RequestBodyTooLargeError) {
       return jsonError(error.message, 413);
+    }
+    if (error instanceof InvalidJsonError || error instanceof RequestBodyTooDeepError) {
+      return jsonError(error.message, 400);
     }
     if (error instanceof z.ZodError) {
       return jsonError(error.issues[0]?.message ?? i18n("invalidRequest"), 400);

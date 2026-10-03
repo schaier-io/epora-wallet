@@ -21,6 +21,51 @@ const WALLET_WITHDRAW_TITLE = "wallet.wallet.withdraw";
 const WALLET_PUBLISH_TITLE = "wallet.wallet.publish";
 const WALLET_VOTE_TITLE = "wallet.wallet.vote";
 
+// Bound retained script code and keys while keeping recently selected wallets warm.
+const DERIVATION_CACHE_LIMIT = 128;
+const scriptCodes = new Map<string, string>();
+const scriptHashes = new Map<string, string>();
+const scriptAddresses = new Map<string, string>();
+
+function cachedDerivation(
+  cache: Map<string, string>,
+  key: string,
+  derive: () => string
+): string {
+  const cached = cache.get(key);
+  if (cached !== undefined) {
+    cache.delete(key);
+    cache.set(key, cached);
+    return cached;
+  }
+  const result = derive();
+  cache.set(key, result);
+  if (cache.size > DERIVATION_CACHE_LIMIT) {
+    cache.delete(cache.keys().next().value!);
+  }
+  return result;
+}
+
+function parameterizedScript(title: string, params: string[]): PlutusScript {
+  const compiledCode = getValidator(title).compiledCode;
+  const version = "V3";
+  const code = cachedDerivation(
+    scriptCodes,
+    JSON.stringify([compiledCode, version, params]),
+    () => applyParamsToScript(compiledCode, params)
+  );
+  // Each caller owns its script object; only immutable strings enter the cache.
+  return { code, version };
+}
+
+function cachedScriptHash(script: PlutusScript): string {
+  return cachedDerivation(
+    scriptHashes,
+    JSON.stringify([script.code, script.version]),
+    () => resolveScriptHash(script.code, script.version)
+  );
+}
+
 type Validator = {
   title: string;
   compiledCode: string;
@@ -39,8 +84,7 @@ function getValidator(title: string): Validator {
 }
 
 function getSttScript(): PlutusScript {
-  const code = applyParamsToScript(getValidator(STT_TITLE).compiledCode, []);
-  return { code, version: "V3" };
+  return parameterizedScript(STT_TITLE, []);
 }
 
 export function getSttMintScript(): PlutusScript {
@@ -49,7 +93,7 @@ export function getSttMintScript(): PlutusScript {
 
 export function getSttMintPolicyId() {
   const script = getSttScript();
-  return resolveScriptHash(script.code, script.version);
+  return cachedScriptHash(script);
 }
 
 export function getSttSpendScript(): PlutusScript {
@@ -57,12 +101,7 @@ export function getSttSpendScript(): PlutusScript {
 }
 
 function getSttReferenceStoreScript(): PlutusScript {
-  const code = applyParamsToScript(
-    getValidator(STT_REFERENCE_STORE_TITLE).compiledCode,
-    []
-  );
-
-  return { code, version: "V3" };
+  return parameterizedScript(STT_REFERENCE_STORE_TITLE, []);
 }
 
 export function resolveSttReferenceStoreAddress(): string {
@@ -73,12 +112,10 @@ export function getWalletSpendScript(params: {
   sttPolicyId: string;
   sttAssetNameHex: string;
 }): PlutusScript {
-  const code = applyParamsToScript(getValidator(WALLET_SPEND_TITLE).compiledCode, [
+  return parameterizedScript(WALLET_SPEND_TITLE, [
     params.sttPolicyId,
     params.sttAssetNameHex
   ]);
-
-  return { code, version: "V3" };
 }
 
 export function resolveWalletSpendAddress(params: {
@@ -97,7 +134,7 @@ export function resolveWalletSpendScriptHash(params: {
   sttAssetNameHex: string;
 }): string {
   const script = getWalletSpendScript(params);
-  return resolveScriptHash(script.code, script.version);
+  return cachedScriptHash(script);
 }
 
 // On-chain `intended_stake_credential` value that delegates to the wallet's OWN
@@ -181,41 +218,39 @@ export function getWalletWithdrawScript(params: {
   sttPolicyId: string;
   sttAssetNameHex: string;
 }): PlutusScript {
-  const code = applyParamsToScript(
-    getValidator(WALLET_WITHDRAW_TITLE).compiledCode,
-    [params.sttPolicyId, params.sttAssetNameHex]
-  );
-
-  return { code, version: "V3" };
+  return parameterizedScript(WALLET_WITHDRAW_TITLE, [
+    params.sttPolicyId,
+    params.sttAssetNameHex
+  ]);
 }
 
 export function getWalletPublishScript(params: {
   sttPolicyId: string;
   sttAssetNameHex: string;
 }): PlutusScript {
-  const code = applyParamsToScript(
-    getValidator(WALLET_PUBLISH_TITLE).compiledCode,
-    [params.sttPolicyId, params.sttAssetNameHex]
-  );
-
-  return { code, version: "V3" };
+  return parameterizedScript(WALLET_PUBLISH_TITLE, [
+    params.sttPolicyId,
+    params.sttAssetNameHex
+  ]);
 }
 
 export function getWalletVoteScript(params: {
   sttPolicyId: string;
   sttAssetNameHex: string;
 }): PlutusScript {
-  const code = applyParamsToScript(
-    getValidator(WALLET_VOTE_TITLE).compiledCode,
-    [params.sttPolicyId, params.sttAssetNameHex]
-  );
-
-  return { code, version: "V3" };
+  return parameterizedScript(WALLET_VOTE_TITLE, [
+    params.sttPolicyId,
+    params.sttAssetNameHex
+  ]);
 }
 
 export function resolveScriptAddress(
   script: PlutusScript,
   network: CardanoNetwork = CARDANO_NETWORK
 ): string {
-  return resolvePlutusScriptAddress(script, cardanoNetworkId(network));
+  return cachedDerivation(
+    scriptAddresses,
+    JSON.stringify([script.code, script.version, network]),
+    () => resolvePlutusScriptAddress(script, cardanoNetworkId(network))
+  );
 }

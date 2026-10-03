@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { executeMeshMethod, getBlockfrostProvider, METHOD_VALUES, MeshRpcInputError } from "@/lib/mesh/blockfrost-server";
-import { isScriptEvaluationRejection, meshHttpRetryAfter, meshHttpStatus } from "@/lib/mesh/http-error";
+import { isScriptEvaluationRejection, meshHttpRetryAfter, meshHttpStatus, meshUpstreamFailure } from "@/lib/mesh/http-error";
+import { retryMeshRead, meshReadRetryDelay } from "@/lib/mesh/read-retry";
+import { parseRetryAfterMs } from "@/lib/http/retry-after";
 import { clientKey, rateLimit } from "@/lib/http/rate-limit";
 import { InvalidJsonError, readBoundedJson, RequestBodyTooDeepError, RequestBodyTooLargeError } from "@/lib/http/request-body";
 import { logger, serializeError, serializeErrorDetail } from "@/lib/observability/logger";
@@ -36,6 +38,7 @@ const MESH_RATE_WINDOW_MS = 60_000;
 const EXPENSIVE_METHOD_RATE_LIMIT = 200;
 const MAX_MESH_REQUEST_BYTES = 3 * 1024 * 1024;
 
+/** Proxy chain methods with bounded read retries and error responses that retain provider details. */
 export async function POST(request: Request) {
   const i18n = await getI18n();
   const callerKey = clientKey(request, "mesh");
@@ -69,7 +72,16 @@ export async function POST(request: Request) {
       }
     }
     const provider = getBlockfrostProvider();
-    const result: unknown = await executeMeshMethod(provider, payload.method, payload.args);
+    const result: unknown = await retryMeshRead(
+      payload.method,
+      () => executeMeshMethod(provider, payload.method, payload.args),
+      (error, attempt) => {
+        const status = meshHttpStatus(error);
+        if (status === null || ![500, 502, 503, 504].includes(status)) return undefined;
+        return parseRetryAfterMs(meshHttpRetryAfter(error)) ?? meshReadRetryDelay(attempt);
+      },
+      request.signal
+    );
 
     return NextResponse.json({ result: result as unknown });
   } catch (error) {
@@ -108,7 +120,8 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: i18n("meshRequestFailed"), details: serializeErrorDetail(error) },
       {
-        status: upstreamStatus ?? (scriptRejection ? 422 : 500),
+        status: meshUpstreamFailure(error)?.status ?? upstreamStatus
+          ?? (error instanceof Error && error.name === "TimeoutError" ? 502 : scriptRejection ? 422 : 500),
         ...(retryAfter ? { headers: { "Retry-After": retryAfter } } : {})
       }
     );

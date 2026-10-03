@@ -90,4 +90,69 @@ describe("toast auto-dismiss", () => {
 
     expect(screen.getByRole("alert")).toHaveTextContent(TITLE);
   });
+
+  it("keeps a focused toast when the pointer leaves", () => {
+    const alert = renderWithToast();
+    fireEvent.mouseOver(alert, { relatedTarget: document.body });
+    act(() => {
+      screen.getByRole("button", { name: "Dismiss notification" }).focus();
+    });
+    fireEvent.mouseOut(alert, { relatedTarget: document.body });
+    act(() => {
+      vi.advanceTimersByTime(20000);
+    });
+
+    expect(screen.getByRole("alert")).toHaveTextContent(TITLE);
+
+    act(() => {
+      screen.getByRole("button", { name: "Dismiss notification" }).blur();
+      vi.advanceTimersByTime(8000);
+    });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("keeps a hovered toast when focus leaves", () => {
+    const alert = renderWithToast();
+    fireEvent.mouseOver(alert, { relatedTarget: document.body });
+    act(() => {
+      const dismiss = screen.getByRole("button", { name: "Dismiss notification" });
+      dismiss.focus();
+      dismiss.blur();
+      vi.advanceTimersByTime(20000);
+    });
+
+    expect(screen.getByRole("alert")).toHaveTextContent(TITLE);
+
+    fireEvent.mouseOut(alert, { relatedTarget: document.body });
+    act(() => {
+      vi.advanceTimersByTime(8000);
+    });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("resumes remaining toasts after the focused toast is dismissed", () => {
+    renderWithToast();
+    fireEvent.click(screen.getByRole("button", { name: "raise" }));
+    const dismiss = screen.getAllByRole("button", { name: "Dismiss notification" })[0]!;
+    act(() => dismiss.focus());
+    fireEvent.click(dismiss);
+
+    expect(document.activeElement).toBe(document.body);
+    act(() => {
+      vi.advanceTimersByTime(8000);
+    });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("does not retain a pause after the last hovered toast is dismissed", () => {
+    const alert = renderWithToast();
+    fireEvent.mouseOver(alert, { relatedTarget: document.body });
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss notification" }));
+    fireEvent.click(screen.getByRole("button", { name: "raise" }));
+
+    act(() => {
+      vi.advanceTimersByTime(8000);
+    });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
 });

@@ -113,6 +113,9 @@ export function ToastProvider({ children }: PropsWithChildren) {
   // A ref, not state: `push` must see the live value without being rebuilt, and nothing
   // about the pause is rendered.
   const pausedRef = useRef(false);
+  const hoveredRef = useRef(false);
+  const focusedRef = useRef(false);
+  const hostRef = useRef<HTMLDivElement>(null);
 
   const armTimer = useCallback(
     (id: string, durationMs: number) => {
@@ -158,15 +161,20 @@ export function ToastProvider({ children }: PropsWithChildren) {
   // deadline per toast and buys a reader who just moved the pointer away nothing: they are
   // done reading, and a fresh 5.2s is the more forgiving of the two.
   //
-  // A plain function reading `toasts` from this render, not a `useCallback` over a ref: it
-  // is only ever handed to a DOM handler, which is re-attached on every render anyway, so a
-  // stable identity buys nothing and the ref version wrote to `.current` during render.
-  const resumeTimers = () => {
+  const resumeTimers = useCallback(() => {
+    if (hoveredRef.current || focusedRef.current) return;
     pausedRef.current = false;
     for (const toast of toasts) {
       armTimer(toast.id, toast.durationMs);
     }
-  };
+  }, [armTimer, toasts]);
+
+  useEffect(() => {
+    // Removing a focused toast does not emit blur. Read focus after the DOM updates.
+    focusedRef.current = Boolean(hostRef.current?.contains(document.activeElement));
+    if (toasts.length === 0) hoveredRef.current = false;
+    resumeTimers();
+  }, [resumeTimers, toasts.length]);
 
   const value = useMemo<ToastContextType>(
     () => ({
@@ -190,15 +198,29 @@ export function ToastProvider({ children }: PropsWithChildren) {
             // marks every other child of `<body>` inert, which would leave those toasts
             // painted but silent, unfocusable and impossible to dismiss.
             <div
+              ref={hostRef}
               aria-live="polite"
               aria-atomic="false"
               data-modal-passthrough=""
               // The host is `pointer-events-none` and each toast is `pointer-events-auto`,
               // so the toast is the event target and these fire on the way up.
-              onMouseEnter={pauseTimers}
-              onMouseLeave={resumeTimers}
-              onFocus={pauseTimers}
-              onBlur={resumeTimers}
+              onMouseEnter={() => {
+                hoveredRef.current = true;
+                pauseTimers();
+              }}
+              onMouseLeave={() => {
+                hoveredRef.current = false;
+                resumeTimers();
+              }}
+              onFocus={() => {
+                focusedRef.current = true;
+                pauseTimers();
+              }}
+              onBlur={(event) => {
+                if (event.currentTarget.contains(event.relatedTarget)) return;
+                focusedRef.current = false;
+                resumeTimers();
+              }}
               className="pointer-events-none fixed inset-x-4 bottom-4 z-[110] flex flex-col items-center gap-2 sm:inset-x-auto sm:right-6 sm:bottom-6 sm:items-end"
             >
               {toasts.map((toast) => {

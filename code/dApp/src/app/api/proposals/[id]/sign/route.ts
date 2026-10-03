@@ -7,7 +7,12 @@ import {
   txBodyHashSchema,
   witnessSetHexSchema
 } from "@/lib/proposals/api-helpers";
-import { readBoundedJson, RequestBodyTooLargeError } from "@/lib/http/request-body";
+import {
+  InvalidJsonError,
+  readBoundedJson,
+  RequestBodyTooDeepError,
+  RequestBodyTooLargeError
+} from "@/lib/http/request-body";
 import { rateLimit } from "@/lib/http/rate-limit";
 import { getProposalRecord, upsertProposalSignature } from "@/lib/proposals/store";
 import {
@@ -80,6 +85,9 @@ export async function POST(request: Request, context: RouteContext) {
   } catch (error) {
     if (error instanceof RequestBodyTooLargeError) {
       return jsonError(error.message, 413);
+    }
+    if (error instanceof InvalidJsonError || error instanceof RequestBodyTooDeepError) {
+      return jsonError(error.message, 400);
     }
     if (error instanceof z.ZodError) {
       return jsonError(error.issues[0]?.message ?? i18n("invalidSignaturePayload"), 400);

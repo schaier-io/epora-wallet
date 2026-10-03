@@ -111,6 +111,7 @@ it("submit reuses the completed prebuild", async () => {
   await vi.waitFor(() => expect(mocks.sign).toHaveBeenCalledTimes(1));
   expect(mocks.sign.mock.calls[0]?.[1]).toBe(result.txHex);
   expect(mocks.build).toHaveBeenCalledTimes(1);
+  expect(mocks.freshness).not.toHaveBeenCalled();
 });
 
 it("an input edit aborts the provider and settles the pending prebuild without a late preview", async () => {
@@ -197,16 +198,15 @@ it("reusing the completed multisig build retains its proposal capture", async ()
 });
 
 
-it("a failed prepared freshness check rebuilds and submits the new transaction", async () => {
+it("a failed approval freshness check rebuilds the prepared transaction", async () => {
   const { render } = fixture();
   const rebuilt = { ...result, txHex: "84a4008001800200031afffffffea0f5f6" };
   mocks.build.mockResolvedValueOnce(result).mockResolvedValueOnce(rebuilt);
   await render().buildSelectedActionTx();
   mocks.freshness.mockRejectedValueOnce(new Error("prepared input was spent"));
-  void render().buildAndSubmitSelectedActionTx();
-  await vi.waitFor(() => expect(mocks.sign).toHaveBeenCalledTimes(1));
+  expect(await render().buildSelectedActionTx()).toBe(rebuilt);
   expect(mocks.build).toHaveBeenCalledTimes(2);
-  expect(mocks.sign.mock.calls[0]?.[1]).toBe(rebuilt.txHex);
+  expect(mocks.sign).not.toHaveBeenCalled();
 });
 
 it("an explicit default authority reuses the completed transaction and proposal capture", async () => {
@@ -244,4 +244,22 @@ it.each(["resolve", "reject"])("an older freshness check cannot restart a newer 
   expect(mocks.buildStt).toHaveBeenCalledTimes(2);
   finishBuild(result);
   expect(await newer).toBe(result);
+});
+
+
+it("checks cached inputs before signing and rejects spent inputs without signing", async () => {
+  const { render, store } = fixture();
+  mocks.build.mockResolvedValue(result);
+  await render().buildSelectedActionTx();
+  mocks.freshness.mockRejectedValueOnce(new Error("prepared input was spent"));
+  const walletSign = vi.fn();
+  mocks.sign.mockImplementationOnce(async (_wallet, _txHex, options: { assertCurrent: () => Promise<void> }) => {
+    await options.assertCurrent();
+    walletSign();
+  });
+  await render().buildAndSubmitSelectedActionTx();
+  expect(mocks.freshness).toHaveBeenCalledTimes(1);
+  expect(mocks.build).toHaveBeenCalledTimes(1);
+  expect(walletSign).not.toHaveBeenCalled();
+  expect(store.get(previewSignatureAtom)).toBeNull();
 });

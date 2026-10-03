@@ -26,6 +26,8 @@ export type WalletSource = Pick<
 export type TxFetcher = Omit<IFetcher, "fetchProtocolParameters" | "get"> &
   IEvaluator & {
     readonly signal?: AbortSignal;
+    readonly inputMetadataCacheScope?: object;
+    fetchBuildParameters?(): Promise<unknown>;
     fetchProtocolParameters(epoch?: number): Promise<Protocol>;
     get(url: string): Promise<unknown>;
   };

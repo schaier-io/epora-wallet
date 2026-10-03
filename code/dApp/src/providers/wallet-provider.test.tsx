@@ -411,6 +411,74 @@ it("drops the identity without prompting when the changed account has not author
   expect(screen.getByTestId("wallet").textContent).toBe("none");
 });
 
+it.each([false, true])(
+  "keeps a newer manual connection when focus authorization resolves %s",
+  async (authorized) => {
+    let answerAuthorization!: (authorized: boolean) => void;
+    const isEnabled = vi.fn(() => new Promise<boolean>((resolve) => (answerAuthorization = resolve)));
+    inject({ lace: { isEnabled }, eternl: {} });
+    const oldWallet = {
+      ...fakeWallet("addr_test1old"),
+      getUsedAddresses: vi.fn().mockResolvedValueOnce(["addr_test1old"])
+    };
+    let approveReplacement!: (wallet: ReturnType<typeof fakeWallet>) => void;
+    mocks.enable.mockResolvedValue(fakeWallet("addr_test1stale")).mockResolvedValueOnce(oldWallet).mockReturnValueOnce(
+      new Promise((resolve) => (approveReplacement = resolve))
+    );
+    renderProvider();
+    await act(async () => {
+      await latest.current!.connectWallet("lace");
+    });
+    oldWallet.getUsedAddresses.mockRejectedValue({ code: -4, info: "account changed" });
+    act(() => window.dispatchEvent(new Event("focus")));
+    await waitFor(() => expect(isEnabled).toHaveBeenCalledTimes(1));
+
+    let replacement!: Promise<boolean>;
+    act(() => {
+      replacement = latest.current!.connectWallet("eternl");
+    });
+    await waitFor(() => expect(mocks.enable).toHaveBeenCalledTimes(2));
+    await act(async () => {
+      answerAuthorization(authorized);
+      await Promise.resolve();
+    });
+
+    expect(mocks.enable).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId("connecting").textContent).toBe("true");
+    await act(async () => {
+      approveReplacement(fakeWallet("addr_test1new"));
+      expect(await replacement).toBe(true);
+    });
+    expect(screen.getByTestId("wallet").textContent).toBe("eternl");
+    expect(screen.getByTestId("address").textContent).toBe("addr_test1new");
+  }
+);
+
+it.each([false, true])("does not cancel an already pending manual connection on focus (%s)", async (authorized) => {
+  inject({ lace: { isEnabled: async () => authorized }, eternl: {} });
+  const oldWallet = {
+    ...fakeWallet("addr_test1old"),
+    getUsedAddresses: vi.fn().mockResolvedValueOnce(["addr_test1old"])
+  };
+  let approveReplacement!: (wallet: ReturnType<typeof fakeWallet>) => void;
+  mocks.enable.mockResolvedValue(fakeWallet("addr_test1stale")).mockResolvedValueOnce(oldWallet).mockReturnValueOnce(
+    new Promise((resolve) => (approveReplacement = resolve))
+  );
+  renderProvider();
+  await act(async () => { await latest.current!.connectWallet("lace"); });
+  oldWallet.getUsedAddresses.mockRejectedValue({ code: -4, info: "account changed" });
+  let replacement!: Promise<boolean>;
+  act(() => { replacement = latest.current!.connectWallet("eternl"); });
+  await waitFor(() => expect(mocks.enable).toHaveBeenCalledTimes(2));
+  await act(async () => {
+    window.dispatchEvent(new Event("focus"));
+    await Promise.resolve();
+  });
+  await act(async () => { approveReplacement(fakeWallet("addr_test1new")); });
+  expect(await replacement).toBe(true);
+  expect(screen.getByTestId("wallet").textContent).toBe("eternl");
+});
+
 it("keeps the identity when a focus read fails for another reason", async () => {
   inject({ lace: {} });
   const wallet = {
@@ -815,4 +883,55 @@ it("clears an old focus error when the pending replacement connection succeeds",
   expect(screen.getByTestId("wallet").textContent).toBe("eternl");
   expect(screen.getByTestId("address").textContent).toBe("addr_test1new");
   expect(screen.getByTestId("error").textContent).toBe("");
+});
+
+it.each([false, true])("ignores stale account authorization after reconnecting the same wallet (%s)", async (authorized) => {
+  let answerAuthorization!: (value: boolean) => void;
+  const isEnabled = vi.fn(() => new Promise<boolean>(resolve => { answerAuthorization = resolve; }));
+  inject({ lace: { isEnabled } });
+  const oldWallet = {
+    ...fakeWallet("addr_test1old"),
+    getUsedAddresses: vi.fn().mockResolvedValueOnce(["addr_test1old"])
+  };
+  const newWallet = fakeWallet("addr_test1new");
+  mocks.enable.mockResolvedValueOnce(oldWallet).mockResolvedValueOnce(newWallet).mockResolvedValue(fakeWallet("addr_test1unexpected"));
+  renderProvider();
+  await act(async () => { await latest.current!.connectWallet("lace"); });
+  oldWallet.getUsedAddresses.mockRejectedValue({ code: -4, info: "account changed" });
+  act(() => window.dispatchEvent(new Event("focus")));
+  await waitFor(() => expect(isEnabled).toHaveBeenCalledTimes(1));
+  await act(async () => { await latest.current!.connectWallet("lace"); });
+
+  await act(async () => { answerAuthorization(authorized); });
+
+  expect(latest.current!.activeWallet).toBe(newWallet);
+  expect(screen.getByTestId("address").textContent).toBe("addr_test1new");
+  expect(mocks.enable).toHaveBeenCalledTimes(2);
+});
+
+it("does not supersede a pending manual connection with stale account authorization", async () => {
+  let answerAuthorization!: (value: boolean) => void;
+  const isEnabled = vi.fn(() => new Promise<boolean>(resolve => { answerAuthorization = resolve; }));
+  inject({ lace: { isEnabled } });
+  const oldWallet = {
+    ...fakeWallet("addr_test1old"),
+    getUsedAddresses: vi.fn().mockResolvedValueOnce(["addr_test1old"])
+  };
+  let finishConnect!: (wallet: ReturnType<typeof fakeWallet>) => void;
+  mocks.enable.mockResolvedValueOnce(oldWallet).mockReturnValueOnce(new Promise(resolve => { finishConnect = resolve; })).mockResolvedValue(fakeWallet("addr_test1unexpected"));
+  renderProvider();
+  await act(async () => { await latest.current!.connectWallet("lace"); });
+  oldWallet.getUsedAddresses.mockRejectedValue({ code: -4, info: "account changed" });
+  act(() => window.dispatchEvent(new Event("focus")));
+  await waitFor(() => expect(isEnabled).toHaveBeenCalledTimes(1));
+  let connection!: Promise<boolean>;
+  act(() => { connection = latest.current!.connectWallet("lace"); });
+  await waitFor(() => expect(mocks.enable).toHaveBeenCalledTimes(2));
+
+  await act(async () => { answerAuthorization(true); });
+  const newWallet = fakeWallet("addr_test1new");
+  await act(async () => { finishConnect(newWallet); await connection; });
+
+  expect(latest.current!.activeWallet).toBe(newWallet);
+  expect(mocks.enable).toHaveBeenCalledTimes(2);
 });
