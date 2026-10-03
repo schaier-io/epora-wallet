@@ -18,6 +18,33 @@ const SPENT_STT_HASH = "98049c298005e7fa00b68034fd57530a2ead4aef145bd6b2bc5ae29f
 const SPENDING_TX_HASH = "e6ddeae843505fe707bd8c10ab0ee7867d4bf32cf8944cf30cf536e7b4d8e2cc";
 const SPENT_STT_MESSAGE = `STT input ${SPENT_STT_HASH}#0 was already spent by ${SPENDING_TX_HASH}.`;
 
+test("spent wallet inputs activate fund-pool recovery without starting STT recovery", () => {
+  const error = new Error(`[stt-spend:resolveWalletInputs] ${SPENT_STT_MESSAGE.replace("STT input", "Wallet input")}`);
+  const result = parse(error, { ...BASE_CONTEXT, context: { walletInputRefs: [{ txHash: SPENT_STT_HASH, outputIndex: 0 }] } });
+  assert.equal(result.expected, true);
+  assert.equal(result.staleInputs, true);
+  assert.equal(result.diagnosticId, null);
+  assert.match(result.message, /Fund pool .* has already been spent/);
+  assert.equal(getSpentSttInput(error), null);
+});
+
+test("spent wallet recovery handles nested errors but rejects malformed references", () => {
+  const message = SPENT_STT_MESSAGE.replace("STT input", "Wallet input");
+  assert.equal(parse(new Error("Build failed", { cause: { message } })).staleInputs, true);
+  for (const invalid of [message.replace("#0", "#-1"), message.replace("#0", "#9007199254740992"), message.replace(SPENDING_TX_HASH, `${SPENDING_TX_HASH}a`)]) {
+    assert.equal(parse(new Error(invalid)).staleInputs, false);
+  }
+});
+
+test("depleted funding candidates show guidance without reporting an unexpected failure", () => {
+  const result = parse(new Error("[lock-funds:tx.draft-build] UTxO Fully Depleted"));
+  assert.equal(result.expected, true);
+  assert.equal(result.diagnosticId, null);
+  assert.equal(result.staleInputs, false);
+  assert.match(result.message, /fees/);
+  assert.match(result.message, /amount/);
+});
+
 test("#433: an explicitly spent STT activates state refresh without error context", () => {
   const result = parse(new Error(SPENT_STT_MESSAGE));
   assert.equal(result.staleInputs, true);

@@ -212,6 +212,10 @@ function resolveBuildErrorOutcome(
     return [USER_DECLINED_TO_SIGN, true];
   }
 
+  if (allMessages.some((message) => message.includes("UTxO Fully Depleted"))) {
+    return [i18n("availableFundsCannotCoverTransaction"), true];
+  }
+
   if (allMessages.some((message) => message.includes("Maximum Input Count Exceeded"))) {
     return ["This transaction has more inputs than the transaction builder or current Cardano limits allow. Choose fewer fund pools or payouts, then try again. Tidy funds has no fixed two-pool limit. If a Tidy transaction fails, select fewer pools and retry.", true];
   }
@@ -301,6 +305,12 @@ function resolveBuildErrorOutcome(
 
 function extractMissingTransactionInputRef(error: unknown) {
   for (const message of collectBuildErrorMessages(error)) {
+    const spentWalletInput = message.match(
+      /\bWallet input ([0-9a-f]{64})#(\d+) was already spent by [0-9a-f]{64}(?:\.|$)/i
+    );
+    if (spentWalletInput && Number.isSafeInteger(Number(spentWalletInput[2]))) {
+      return `${spentWalletInput[1]!.toLowerCase()}#${Number(spentWalletInput[2])}`;
+    }
     // Three spellings of one event, the chain moving on under the draft: the ledger
     // rejecting an input it no longer has ("Unknown transaction input..."), our own
     // builder failing to resolve a selected input against current chain state
