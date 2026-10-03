@@ -210,3 +210,21 @@ The earlier full Node run was a failed validation run, not a production-network 
 
 Next: Propagate this fixture correction, then add worker warmup.
 REPORTED: The final independent adversarial fixture review found no defects. It returned `tests 15; pass 15; fail 0`.
+## Regional immutable output cache (2026-10-04)
+
+VERIFIED: Trusted RPC and server build output reads now use the Vercel regional cache.
+Only immutable output metadata enters the cache. Spend-status reads remain live.
+Keys separate project, environment, network, provider fingerprint, and output reference.
+The schema namespace permits compatible entries across deployments.
+VERIFIED: Regional/protocol/browser transport tests returned `Tests 45 passed (45)`.
+Normalization/environment/memory tests returned `tests 28; pass 28; fail 0`.
+Scoped ESLint returned exit 0. Tests replace the Vercel cache and do not measure deployed latency.
+VERIFIED: Restoring only the two integrations to direct provider reads returned
+`1 failed | 20 passed (21)`. Restored integrations returned `21 passed (21)`.
+
+Next: Review this layer, then add quiet worker warmup.
+
+VERIFIED: The regional cache adapter now overrides the SDK default 32-bit key hash with SHA-256.
+The final focused regional/protocol/browser run returned `Tests 46 passed (46)`.
+REPORTED: Its new hash regression returned `1 failed | 21 passed (22)` before the fix.
+REPORTED: The final independent adversarial cache review found no remaining defects.

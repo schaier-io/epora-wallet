@@ -65,6 +65,7 @@
     "@sentry/nextjs": "^11.4.0",
     "@tanstack/query-core": "^5",
     "@tanstack/react-query": "^5",
+    "@vercel/functions": "3.9.11",
     "@walletconnect/sign-client": "^2.25.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

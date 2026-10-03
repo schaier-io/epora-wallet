@@ -23,8 +23,8 @@ VERIFIED: Three branches were created before source edits:
    Explicit epoch reads and ordinary raw reads keep their current paths.
    Verification: count provider/RPC reads, reject invalid models, test retry and clone isolation.
 
-2. Immutable output metadata. Owner: cache implementer. Status: Planned.
-   INFERRED design: Only trusted provider reads may populate a regional cache.
+2. Immutable output metadata. Owner: cache implementer. Status: Completed.
+   VERIFIED: Only trusted provider reads may populate a regional cache.
    Keys include schema version, project, environment, network, and provider fingerprint.
    The output reference also enters the key. Raw credentials never enter stored data.
    Validate hits and writes. Empty, malformed, or oversized results bypass caching.
@@ -46,6 +46,42 @@ These tests use mock provider responses and synthetic transaction inputs.
 They do not measure deployed latency or live remote budget parity.
 REPORTED: Baseline source with the new protocol tests returned `4 failed | 3 passed (7)`.
 Restored source returned `7 passed (7)`. The independent production review found no defects.
+
+## Regional cache validation
+
+VERIFIED: The focused regional, protocol, and browser transport run returned `Tests 45 passed (45)`.
+The normalization, environment, and memory-cache Node run returned `tests 28; pass 28; fail 0`.
+Scoped ESLint returned exit 0. These tests use an in-memory replacement for the Vercel cache.
+They verify the 60-second TTL argument, not deployed expiry or regional latency.
+
+VERIFIED: With only the two server integrations restored to direct reads, the new suite returned
+`1 failed | 20 passed (21)`. Its shared-read assertion observed two provider calls instead of one.
+Restoring the integrations returned `21 passed (21)`.
+
+VERIFIED: The cache uses `@vercel/functions` version `3.9.11`.
+REPORTED: The cache implementer installed the package through Socket Firewall.
+VERIFIED: Optional Vercel system variables control cache use.
+Cache reads have a 100-millisecond deadline. Writes use `waitUntil` and do not delay the response.
+Payloads above 256 KiB bypass the cache. The normalizer removes fields outside immutable output metadata.
+
+VERIFIED: The installed SDK default key hash returns only 32 bits
+(`@vercel/functions/cache/index.js:37`). The adapter now supplies SHA-256 for the full scoped key.
+The final focused run returned `Tests 46 passed (46)`.
+REPORTED: Retaining the new hash test without the fix returned `1 failed | 21 passed (22)`.
+The restored regional suite returned `22 passed (22)`.
+
+REPORTED: The final independent adversarial cache review found no remaining defects.
+Its actual-SDK probe returned `2 distinct SHA256 backend keys; 2 second-provider cache hits; 2 trusted source reads`.
+The probe replaced the request-context backend. It did not access deployed Vercel storage.
+
+## Correction to the earlier full-suite report
+
+VERIFIED: The earlier 24 integration failures came from mock transports sharing the metadata cache.
+The earlier baseline already contained that cache, so baseline reproduction did not prove the failures were unrelated.
+The owning cache layer now requires an explicit transport scope for sharing across provider instances.
+Without that scope, the provider identity owns the cache.
+The two affected suites returned `Tests 51 passed (51)` after the repair.
+The new scope test failed with the original source and passed with the repair.
 
 ## Least confident decisions
 

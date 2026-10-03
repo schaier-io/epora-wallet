@@ -1,3 +1,4 @@
+import { readRegionalInputMetadata } from "./regional-input-metadata";
 import { CARDANO_NETWORK, type CardanoNetwork } from "@/lib/cardano-network";
 import { paymentCredentialHash } from "@/lib/cardano-addresses";
 import { getBlockfrostProvider } from "@/lib/mesh/blockfrost-server";
@@ -87,6 +88,7 @@ export function createServerTxFetcher(): TxFetcher {
   if (!fetcher) {
     fetcher = new Proxy(provider, {
       get(target, property) {
+        if (property === "fetchUTxOs") return (hash: string, index?: number) => readRegionalInputMetadata(provider, hash, index);
         if (property === "fetchBuildParameters") return () => readBuildParameters(provider);
         const value: unknown = Reflect.get(target, property, target);
         return typeof value === "function"

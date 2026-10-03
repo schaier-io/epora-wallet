@@ -1,3 +1,4 @@
+import { readRegionalInputMetadata } from "./regional-input-metadata";
 import { CARDANO_NETWORK, type CardanoNetwork } from "@/lib/cardano-network";
 import { BlockfrostProvider } from "@meshsdk/core";
 import type { IFetcherOptions, UTxO } from "@meshsdk/common";
@@ -309,7 +310,7 @@ export async function executeMeshMethod(
     }
     case "fetchUTxOs": {
       return toUnknown(
-        provider.fetchUTxOs(
+        readRegionalInputMetadata(provider,
           getStringArg(args, 0, "hash"),
           getOptionalNumberArg(args, 1, "index")
         )
