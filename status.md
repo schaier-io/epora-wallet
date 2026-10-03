@@ -44,9 +44,12 @@ Wallet-signed terms acceptance is deferred. The beta uses a browser/API acknowle
 ## Error repair, 2026-10-03
 
 - VERIFIED, coordinator: repair layers are `fix/mesh-read-recovery`, `fix/build-error-recovery`, and `fix/signer-schema-readiness`.
-- In Progress, implementer: provider reads and Koios retry handling. Scope: Mesh transport and Koios route tests.
-- Planned, coordinator: spent-input recovery and depleted-funds guidance. Scope: workspace error mapping.
-- Planned, coordinator: signer endpoint readiness and deployment migration command. Scope: signer route and deployment configuration.
+- Completed, implementer: provider reads and Koios retry handling. Evidence: `Tests 62 passed (62)`.
+- Completed, coordinator: spent-input recovery and depleted-funds guidance. Evidence: `tests 76`, `pass 76`, `fail 0`.
+- Completed, coordinator: signer endpoint readiness and deployment migration command. Evidence: `Tests 4 passed (4)` and `tests 2`, `pass 2`, `fail 0`.
 - REPORTED: the pasted event says `public.SignerRegistration` does not exist. The current production schema is not determined.
 - VERIFIED: provider and Koios tests returned `Tests 62 passed (62)`. Mocked requests do not establish live provider availability.
-- Next: verify each layer, then run an independent review. Production migration and publication require user approval.
+- VERIFIED: submission, freshness, and recovery-view checks returned `Tests 60 passed (60)`. These are local tests.
+- VERIFIED: final combined runs returned `Tests 126 passed (126)` and `tests 78`, `pass 78`, `fail 0`. Tests used existing local dependencies.
+- REPORTED: independent reviews of each layer returned a clean result. VERIFIED: no live migration or deployment ran.
+- Next: obtain Sentry event URLs and verify the affected deployment. Production migration and publication require user approval.

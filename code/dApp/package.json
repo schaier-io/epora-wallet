@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
+    "build:deploy": "prisma migrate deploy && pnpm build",
     "postinstall": "prisma generate && node ./scripts/sync-swagger-ui.mjs",
     "start": "next start",
     "lint": "eslint . --max-warnings=0",
