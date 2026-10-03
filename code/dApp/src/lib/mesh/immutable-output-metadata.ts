@@ -30,4 +30,3 @@ export function immutableOutputs(value: unknown, hash: string, index?: number): 
   }
   return outputs;
 }
-
