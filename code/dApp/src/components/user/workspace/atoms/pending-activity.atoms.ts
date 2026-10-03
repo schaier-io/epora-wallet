@@ -60,6 +60,11 @@ export function recordPendingActivity(store: Store, submitted: {
     Math.min(MAX_TIMER_MS, Math.max(0, expiresAt - submittedAt)));
 }
 
+// Records whose hash the indexer has returned once. The confirmed list is only the latest
+// pages (and empties on a failed fetch), so a hash can drop out of it again; a record seen
+// confirmed must not read "pending" again until its timer runs.
+const confirmedRecords = new WeakSet<PendingActivityRecord>();
+
 /** Pending rows for the open wallet. A hash leaves the moment the indexer returns it. */
 export const pendingWalletActivityEventsAtom = atom((get): WalletActivityEvent[] => {
   const walletAddress = get(lockingContractAtom).address;
@@ -72,8 +77,9 @@ export const pendingWalletActivityEventsAtom = atom((get): WalletActivityEvent[]
     activeAddress: get(activeAddressAtom),
     activeWalletName: get(activeWalletNameAtom)
   };
+  for (const record of records) if (confirmed.has(record.hash)) confirmedRecords.add(record);
   return records
-    .filter(record => !confirmed.has(record.hash))
+    .filter(record => !confirmedRecords.has(record))
     .flatMap(record => buildWalletActivityEvents(record.transaction, walletAddress, options)
       .map(event => ({ ...event, pendingSince: record.submittedAt })));
 });

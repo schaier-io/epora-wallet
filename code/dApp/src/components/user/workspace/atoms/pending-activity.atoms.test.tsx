@@ -64,6 +64,11 @@ it("drops the pending row as soon as the indexer returns its hash", () => {
     loading: false, fetching: false, refreshing: false, error: null
   });
   expect(store.get(pendingWalletActivityEventsAtom)).toEqual([]);
+  // The confirmed list holds only the latest pages and empties on a failed fetch.
+  store.set(walletTransactionsAtom as unknown as PrimitiveAtom<WalletTransactionSummary>, {
+    items: [], loading: false, fetching: false, refreshing: false, error: null
+  });
+  expect(store.get(pendingWalletActivityEventsAtom)).toEqual([]);
 });
 
 it("shows a pending row only on the wallet that submitted it", () => {
