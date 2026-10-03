@@ -443,6 +443,32 @@ export function WealthChart({
           </div>
         )}
       </div>
+      {!empty ? (
+        <details className="mt-3 rounded-md border border-border/50 p-2 text-xs">
+          <summary className="cursor-pointer rounded min-h-11 sm:min-h-6 flex items-center font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            {i18n("showData")}
+          </summary>
+          <div className="max-h-64 overflow-auto">
+            <table className="w-full text-left tabular-nums">
+              <caption className="sr-only">{chartLabel}</caption>
+              <thead><tr><th scope="col" className="p-2">{i18n("dateUtc")}</th>
+                {(multi?.entries ?? [{ id: "value", label: unitLabel }]).map((entry) => (
+                  <th key={entry.id} scope="col" className="p-2">{entry.label}</th>
+                ))}
+              </tr></thead>
+              <tbody>{visible.map((point) => (
+                <tr key={point.timestamp}>
+                  <th scope="row" className="p-2 font-normal">{format.dateTime(point.timestamp, "shortWithZone")}</th>
+                  {multi ? multi.entries.map((entry) => {
+                    const value = (point as Record<string, number | undefined>)[entry.id];
+                    return <td key={entry.id} className="p-2">{value === undefined ? i18n("noPoint") : i18n("dataPointValue", { value: (entry.formatValue ?? formatValue)(value), unit: entry.unitLabel ?? entry.label })}</td>;
+                  }) : <td className="p-2">{i18n("dataPointValue", { value: formatValue((point as WealthSeriesPoint).value), unit: unitLabel })}</td>}
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        </details>
+      ) : null}
       {legend ? (
         // The legend names what is drawn — which asset each line is and where it
         // stands now — because a multi-asset chart has no single headline number.

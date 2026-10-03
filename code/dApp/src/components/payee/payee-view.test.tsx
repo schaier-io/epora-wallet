@@ -675,6 +675,7 @@ describe("a row", () => {
       fireEvent.click(screen.getAllByRole("button", { name: "Collect payment" })[0]!);
     });
     expect(screen.getByRole("alert")).toHaveTextContent("Unable to load scheduled payments.");
+    expect(screen.getAllByRole("button", { name: "Collect payment" })).toHaveLength(1);
 
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
@@ -781,7 +782,7 @@ describe("a row", () => {
       fireEvent.click(screen.getByRole("button", { name: "Collect payment" }));
     });
 
-    expect(screen.getByRole("status")).toHaveTextContent(
+    expect(screen.getAllByRole("status").find(element => element.textContent?.includes("Sent."))!).toHaveTextContent(
       "Sent. The list updates after the next refresh."
     );
     expect(screen.getByRole("alert")).toHaveTextContent("Unable to load scheduled payments.");
@@ -798,7 +799,7 @@ describe("a row", () => {
 
     await approveStop(screen.getByRole("button", { name: "Review payment stop" }));
 
-    expect(screen.getByRole("status")).toHaveTextContent(
+    expect(screen.getAllByRole("status").find(element => element.textContent?.includes("Sent."))!).toHaveTextContent(
       "Sent. The list updates after the next refresh."
     );
     expect(screen.queryByText("Failed to stop the payment.")).toBeNull();
@@ -1095,7 +1096,7 @@ describe("a row", () => {
     expect(screen.getByTitle(txHash)).toHaveTextContent(txHash.slice(0, 10));
 
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Copy" }));
+      fireEvent.click(screen.getByRole("button", { name: /^Copy / }));
     });
     expect(actions.copy).toHaveBeenCalledWith(txHash);
   });
@@ -1110,7 +1111,7 @@ describe("a row", () => {
       fireEvent.click(screen.getByRole("button", { name: "Collect payment" }));
     });
 
-    const status = screen.getByRole("status");
+    const status = screen.getAllByRole("status").find(element => element.textContent?.includes("Sent."))!;
     expect(status).toHaveAttribute("aria-live", "polite");
     expect(status).toHaveTextContent("Sent. The list updates after the next refresh.");
   });

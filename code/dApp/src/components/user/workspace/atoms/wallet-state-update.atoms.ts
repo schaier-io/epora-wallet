@@ -34,6 +34,7 @@ export type PendingWalletStateUpdate = {
   submittedTxHash: string;
   spentRef: SttInputRef;
   invalidHereafter?: number;
+  submittedAt?: number;
 };
 
 export const WALLET_STATE_STORAGE_KEY = `epora:${CARDANO_NETWORK}:pending-wallet-state:v1`;
@@ -46,6 +47,7 @@ function validPendingUpdates(value: unknown): value is PendingUpdates {
     return /^[0-9a-f]{58,120}$/i.test(unit) && unit.length % 2 === 0 &&
       pending?.walletUnit === unit && /^[0-9a-f]{64}$/i.test(pending.submittedTxHash) &&
       /^[0-9a-f]{64}$/i.test(pending.spentRef?.txHash) &&
+      (pending.submittedAt === undefined || (Number.isSafeInteger(pending.submittedAt) && pending.submittedAt >= 0)) &&
       (pending.invalidHereafter === undefined || (Number.isSafeInteger(pending.invalidHereafter) && pending.invalidHereafter >= 0)) &&
       Number.isSafeInteger(pending.spentRef?.outputIndex) && pending.spentRef.outputIndex >= 0;
   });
@@ -108,6 +110,16 @@ const writePendingWalletRecordAtom = atom(null, (get, set, {
   set(pendingUpdatesSnapshotAtom, next);
 });
 // Signing is guarded before a submitted hash exists. Confirmed submissions use durable records.
+export type WalletStateCheck = { txHash: string; checkedAt: number; lastSuccessfulAt: number | null; phase: "waiting" | "unavailable" };
+export const walletStateChecksAtom = atom<Record<string, WalletStateCheck>>({});
+export const walletStateRetryAtom = atom(0);
+export const selectedWalletStateCheckAtom = atom(get => {
+  const unit = get(routeStateAtom).selectedWalletUnit;
+  const pending = unit ? get(pendingWalletStateUpdatesAtom)[unit] : null;
+  if (!unit || !pending) return null;
+  const check = get(walletStateChecksAtom)[unit];
+  return { pending, check: check?.txHash === pending.submittedTxHash ? check : null };
+});
 export const walletStateSubmissionsAtom = atom<Record<string, boolean>>({});
 // Scoped to the selected wallet. With no selection (landing, create wallet) another
 // wallet's wait must not gate building, inventory or detection. The landing resume

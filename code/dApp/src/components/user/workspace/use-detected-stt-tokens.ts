@@ -6,6 +6,7 @@ import { getSttMintPolicyId, resolveWalletContinuingOutputAddressFromState } fro
 import { addressUtxosQueryOptions } from "@/lib/query/chain";
 import { EMPTY_CONTRACT_CONFIG } from "@/lib/types/contracts";
 import { configAtom } from "./atoms/workspace-config.atoms";
+import { reconcileWorkspaceWalletAtom } from "./atoms/workspace-draft-revision.atoms";
 import { workspaceSessionAtom } from "./atoms/transaction-flow.atoms";
 import { pendingWalletStateUpdateAtom } from "./atoms/wallet-state-update.atoms";
 import { detectedSttTokensAtom, sttInventoryQueryAtom, selectedSttQueryAtom, sttInventoryQueryOptions, sttWalletQueryOptions } from "./queries/stt-queries.atoms";
@@ -55,18 +56,21 @@ export function useDetectedSttTokens({ selectedDetectedTokenUnit, setSelectedDet
       if (selectedDetectedTokenUnit) setSelectedDetectedTokenUnit("");
       setConfig((current) => ({ ...current, walletPolicyId: detected.policyId, sttAssetNameHex: "", walletAssetNameHex: "" }));
     }
+    const current = tokens.find(token => token.unit === selectedDetectedTokenUnit);
+    if (current) store.set(reconcileWorkspaceWalletAtom, current);
     return { ...detected, tokens, sttUtxos: tokens.map((token) => token.utxo) };
   }, [client, selectedDetectedTokenUnit, setConfig, setSelectedDetectedTokenUnit, store]);
 
   const refreshPermissionWalletSummaries = useCallback(async (tokens: DetectedSttToken[] = store.get(detectedSttTokensAtom)) => {
     const session = store.get(workspaceSessionAtom);
-    await Promise.allSettled(tokens.map(async (token) => {
+    const results = await Promise.allSettled(tokens.map(async (token) => {
       const address = resolveWalletContinuingOutputAddressFromState({ sttPolicyId: token.policyId, sttAssetNameHex: token.assetNameHex, stateDatum: token.datum });
       const options = addressUtxosQueryOptions(address);
       await client.invalidateQueries({ queryKey: options.queryKey, exact: true, refetchType: "none" });
       if (store.get(workspaceSessionAtom) !== session) return;
       await client.fetchQuery(options);
     }));
+    return results.every(result => result.status === "fulfilled");
   }, [client, store]);
   return { refreshDetectedTokens, refreshPermissionWalletSummaries };
 }

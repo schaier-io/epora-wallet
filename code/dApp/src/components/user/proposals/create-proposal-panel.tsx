@@ -1,4 +1,5 @@
 "use client";
+import { formatTimestampLabel } from "@/components/user/workspace/helpers/formatters";
 import { useTranslations } from "next-intl";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -15,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { createProposal, getProposalErrorMessage } from "@/lib/proposals/client";
 import { proposalKeys } from "@/lib/proposals/query";
 import { buildProposalTx, refreshContextForRebuild } from "@/lib/proposals/rebuild";
+import { proposalExpiry } from "@/lib/proposals/expiry";
 import { resolveProposalBodyHash } from "@/lib/proposals/serialization";
 import { useWalletContext } from "@/providers/wallet-provider";
 import { applyCoSigners, CoSignerPicker, describeCoSignerChoice } from "./cosigner-picker";
@@ -88,6 +90,7 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
     );
   }
 
+  const draftExpiry = proposalExpiry(draft.unsignedTxHex);
   const effectiveTitle = title.trim() || actionKindLabel(draft.actionKind);
 
   async function handleSave() {
@@ -177,6 +180,10 @@ export function CreateProposalPanel({ onCreated, onCancel }: CreateProposalPanel
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
+        <p className="text-sm text-muted-foreground">{draftExpiry === null
+          ? i18n("expiryUnavailable")
+          : i18n("expiresAt", { date: formatTimestampLabel(draftExpiry!) })}</p>
+        {coSigners.length > 0 ? <p className="text-xs text-muted-foreground">{i18n("cosignersRefreshExpiry")}</p> : null}
         <div className="space-y-1">
           <Label htmlFor="proposal-title">{i18n("title")}</Label>
           <Input

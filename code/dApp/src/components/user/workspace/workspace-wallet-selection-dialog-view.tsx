@@ -34,11 +34,14 @@ import { formatCountLabel, getAssetQuantityByUnit } from "@/components/user/work
 
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 import { useAtomValue, useSetAtom } from "jotai";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { detectedTokenSearchAtom, walletConnectionDialogOpenAtom } from "@/components/user/workspace/atoms/workspace-ui.atoms";
 
+import { CopyButton } from "@/components/ui/copy-button";
 import { WorkspaceProofOfLifeAlerts } from "@/components/user/workspace/workspace-proof-of-life-alerts";
 import { selectProofOfLifeAlerts } from "@/lib/user-flow/proof-of-life-alert";
+
+const ALERTS_REFRESH_INTERVAL_MS = 30_000;
 
 export function WalletSelectionDialogView() {
   const i18n = useTranslations("ComponentsUserWorkspaceWorkspaceWalletSelectionDialogView");
@@ -94,7 +97,11 @@ export function WalletSelectionDialogView() {
   // captured once per mount, like the dashboard's proof-of-life tile: the dialog is
   // short-lived, the rows show absolute dates, and a seven-day threshold cannot go stale
   // inside one session.
-  const [alertsNowMs] = useState(() => Date.now());
+  const [alertsNowMs, setAlertsNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setAlertsNowMs(Date.now()), ALERTS_REFRESH_INTERVAL_MS);
+    return () => window.clearInterval(timer);
+  }, []);
   const proofOfLifeAlerts = useMemo(
     () =>
       selectProofOfLifeAlerts(
@@ -103,7 +110,7 @@ export function WalletSelectionDialogView() {
           walletName: entry.primaryLabel,
           proofOfLifeUnlockTimeMode: entry.state.proofOfLifeUnlockTimeMode,
           proofOfLifeUnlockTime: entry.state.proofOfLifeUnlockTime,
-          canRenew: entry.capabilityMap.hasDirectProofOfLifeRenewalMatch
+          canRenew: entry.capabilityMap.hasDirectAdminSigner || entry.capabilityMap.hasDirectProofOfLifeRenewalMatch
         })),
         alertsNowMs
       ),
@@ -300,9 +307,12 @@ export function WalletSelectionDialogView() {
                               </Badge>
                             ) : null}
                           </div>
+                          <p className="mt-1 break-all font-mono text-xs text-muted-foreground" title={entry.token.unit}>
+                            {i18n("walletIdentity", { id: `${entry.token.unit.slice(0, 8)}…${entry.token.unit.slice(-12)}` })}
+                          </p>
                           {entry.roleBadges.length > 0 ? (
                             <div className="mt-3 flex flex-wrap gap-2">
-                              {entry.roleBadges.slice(0, 3).map((badge) => (
+                              {entry.roleBadges.map((badge) => (
                                 <Badge
                                   key={`${entry.token.unit}-${badge}`}
                                   variant="outline"
@@ -323,19 +333,20 @@ export function WalletSelectionDialogView() {
                             )}
                           >
                             <span className="rounded-full border border-border/60 bg-muted/20 px-2.5 py-0.5">
-                              {lockedLovelace} {i18n("ada")}
+                              {entry.lockedSummary ? <>{lockedLovelace} {i18n("ada")}</> : i18n(permissionWalletSummariesLoading ? "loadingBalance" : "balanceUnavailable")}
                             </span>
                             <span className="rounded-full border border-border/60 bg-muted/20 px-2.5 py-0.5">
-                              {formatCountLabel(entry.lockedSummary?.lockedUtxoCount ?? 0, "fundPool")}
+                              {entry.lockedSummary ? formatCountLabel(entry.lockedSummary.lockedUtxoCount, "fundPool") : i18n("poolsUnavailable")}
                             </span>
                             <span className="rounded-full border border-border/60 bg-muted/20 px-2.5 py-0.5">
-                              {formatCountLabel(nonLovelaceCount, "asset")}
+                              {entry.lockedSummary ? formatCountLabel(nonLovelaceCount, "asset") : i18n("assetsUnavailable")}
                             </span>
                           </div>
                           {entry.warning ? (
                             <p className="mt-2 text-xs text-amber-300">{entry.warning}</p>
                           ) : null}
                         </button>
+                        <div className="px-3 pb-3"><CopyButton value={entry.token.unit} hideLabel label={i18n("copyWalletIdentity", { name: entry.primaryLabel, id: `${entry.token.unit.slice(0, 8)}…${entry.token.unit.slice(-12)}` })} /></div>
                       </SpotlightCard>
                     );
                   })}

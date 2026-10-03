@@ -2,6 +2,8 @@ import { render, screen, waitFor } from "@testing-library/react";
 import type * as Jotai from "jotai";
 import { describe, expect, it, vi } from "vitest";
 
+import { selectableWizardActionKindsAtom } from "./atoms/workspace-detected-token.atoms";
+
 const transactionsModule = vi.hoisted(() => ({ requested: false }));
 
 vi.mock("@/components/user/workspace/workspace-transactions-view", () => {
@@ -11,7 +13,10 @@ vi.mock("@/components/user/workspace/workspace-transactions-view", () => {
 
 vi.mock("jotai", async (importOriginal) => ({
   ...(await importOriginal<typeof Jotai>()),
-  useAtomValue: () => ({ unit: "detected-wallet" })
+  useAtomValue: (atom: unknown) => {
+    if (atom === selectableWizardActionKindsAtom) return new Set();
+    return { unit: "detected-wallet" };
+  }
 }));
 
 vi.mock("@/components/user/workspace/workspace-actions-context", () => ({

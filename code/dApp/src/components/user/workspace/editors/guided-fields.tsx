@@ -128,6 +128,7 @@ export function GuidedDateTimeField({
         <Input
           id={`${idPrefix}-date`}
           type="date"
+          aria-describedby={`${idPrefix}-guidance`}
           value={parts.date}
           onChange={(event) => updateParts({ date: event.target.value })}
           disabled={disabled}
@@ -135,7 +136,8 @@ export function GuidedDateTimeField({
         <Input
           id={`${idPrefix}-time`}
           type="time"
-          aria-label={i18n("timeOfDay")}
+          aria-label={i18n("timeOfDayUtc")}
+          aria-describedby={`${idPrefix}-guidance`}
           value={parts.time}
           onChange={(event) => updateParts({ time: event.target.value })}
           disabled={disabled}
@@ -143,7 +145,7 @@ export function GuidedDateTimeField({
       </div>
       {/* Two lines of the same helper: as `space-y-1` siblings they sat a step further
           apart than the single wrapped helper beside them. */}
-      <div className="space-y-0">
+      <div id={`${idPrefix}-guidance`} className="space-y-0">
         {helper ? <p className="text-xs text-muted-foreground">{helper}</p> : null}
         <p className="text-xs text-muted-foreground">
           {storedTimestampLabel

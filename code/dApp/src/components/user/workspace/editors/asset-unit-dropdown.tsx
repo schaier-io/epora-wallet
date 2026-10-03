@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 
 import { Input } from "@/components/ui/input";
 import { type AssetSelectionOption } from "@/components/user/workspace/types";
-import { resolveAssetIdentity } from "@/lib/cardano-assets";
+import { resolveAssetIdentity, splitAssetUnit } from "@/lib/cardano-assets";
 import { cn } from "@/lib/utils/cn";
 
 // Extracted from `primitives.tsx`, which had grown past the repo's 750-line cap. The
@@ -76,7 +76,7 @@ export function SearchableAssetUnitDropdown({
     setIsOpen(false);
     setQuery("");
     setActiveIndex(0);
-    // Escape/Enter/Tab unmount the portal under the caret; without the refocus the
+    // Escape/Enter unmount the portal under the caret; without the refocus the
     // browser drops focus on `<body>`. Outside-click closes keep focus wherever the
     // pointer took it.
     if (refocusTrigger) {
@@ -134,13 +134,17 @@ export function SearchableAssetUnitDropdown({
   const highlightIndex = Math.min(activeIndex, filteredOptions.length - 1);
 
   const positionPanel = useCallback(() => {
-    const rect = containerRef.current?.getBoundingClientRect();
+    const rect = triggerRef.current?.getBoundingClientRect();
     if (!rect) {
       return;
     }
-    const viewportHeight = window.innerHeight;
-    const roomBelow = viewportHeight - rect.bottom;
-    const roomAbove = rect.top;
+    const viewport = window.visualViewport;
+    const viewportTop = viewport?.offsetTop ?? 0;
+    const viewportHeight = viewport?.height ?? window.innerHeight;
+    const viewportLeft = viewport?.offsetLeft ?? 0;
+    const viewportWidth = viewport?.width ?? window.innerWidth;
+    const roomBelow = viewportTop + viewportHeight - rect.bottom;
+    const roomAbove = rect.top - viewportTop;
     // Downward while it fits; otherwise the roomier side wins, so a trigger near
     // the bottom of a short viewport no longer opens into a clipping panel.
     const openUpward = roomBelow < PANEL_ROOM && roomAbove > roomBelow;
@@ -151,13 +155,13 @@ export function SearchableAssetUnitDropdown({
     // the panel still clips; the search field then sits at the visible edge.
     const maxListHeight = Math.max(0, Math.min(LIST_MAX_HEIGHT, roomOnOpenSide - PANEL_CHROME));
     setPanelRect({
-      left: rect.left,
-      width: rect.width,
+      left: Math.max(viewportLeft + 8, Math.min(rect.left, viewportLeft + viewportWidth - rect.width - 8)),
+      width: Math.min(rect.width, viewportWidth - 16),
       top: rect.bottom + OPENING_GAP,
       // Upward hangs the panel's bottom edge an 8px gap above the trigger's top; it
       // must come from rect.top, not the top coordinate (which is rect.bottom + 8),
       // or the panel lands on top of the trigger.
-      bottom: viewportHeight - rect.top + OPENING_GAP,
+      bottom: window.innerHeight - rect.top + OPENING_GAP,
       openUpward,
       maxListHeight
     });
@@ -172,9 +176,13 @@ export function SearchableAssetUnitDropdown({
 
     // Scroll on any ancestor (capture phase), not just the window: the trigger sits
     // inside the form column's scroller, and the panel must follow it.
+    window.visualViewport?.addEventListener("resize", positionPanel);
+    window.visualViewport?.addEventListener("scroll", positionPanel);
     window.addEventListener("resize", positionPanel);
     window.addEventListener("scroll", positionPanel, true);
     return () => {
+      window.visualViewport?.removeEventListener("resize", positionPanel);
+      window.visualViewport?.removeEventListener("scroll", positionPanel);
       window.removeEventListener("resize", positionPanel);
       window.removeEventListener("scroll", positionPanel, true);
     };
@@ -226,18 +234,6 @@ export function SearchableAssetUnitDropdown({
           setActiveIndex((index) => (Math.min(index, count - 1) - 1 + count) % count);
         }
         break;
-      case "Home":
-        event.preventDefault();
-        if (count > 0) {
-          setActiveIndex(0);
-        }
-        break;
-      case "End":
-        event.preventDefault();
-        if (count > 0) {
-          setActiveIndex(count - 1);
-        }
-        break;
       case "Enter": {
         event.preventDefault();
         const option = filteredOptions[highlightIndex];
@@ -251,13 +247,30 @@ export function SearchableAssetUnitDropdown({
         event.stopPropagation();
         closeDropdown(true);
         break;
-      case "Tab":
-        // Swallowing Tab and returning to the trigger costs one extra keypress, but
-        // letting it through sends focus past the end of the document: the search
-        // field lives in a portal that is the last node in `<body>`.
+      case "Tab": {
+        // The popup is portaled after the form. Continue from the trigger's logical position.
         event.preventDefault();
-        closeDropdown(true);
+        const controls = Array.from(document.querySelectorAll<HTMLElement>(
+          'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex="0"],details > summary:first-of-type'
+        )).filter((node) => {
+          const implicitSummary = node.tagName === "SUMMARY" && !node.hasAttribute("tabindex");
+          if (panelRef.current?.contains(node) || node.closest('[inert],[hidden]') || (node.tabIndex < 0 && !implicitSummary)) return false;
+          for (let ancestor: HTMLElement | null = node; ancestor; ancestor = ancestor.parentElement) {
+            const style = getComputedStyle(ancestor);
+            if (style.display === "none" || style.visibility === "hidden") return false;
+            if (ancestor.tagName === "DETAILS" && !ancestor.hasAttribute("open")) {
+              const summary = Array.from(ancestor.children).find(child => child.tagName === "SUMMARY");
+              if (!summary?.contains(node)) return false;
+            }
+          }
+          return true;
+        });
+        const index = controls.indexOf(triggerRef.current!);
+        const next = controls[index + (event.shiftKey ? -1 : 1)];
+        closeDropdown(false);
+        (next ?? triggerRef.current)?.focus();
         break;
+      }
     }
   };
 
@@ -296,7 +309,7 @@ export function SearchableAssetUnitDropdown({
           // some screen readers skip it), so the search field carries an explicit label.
           aria-label={placeholder ?? i18n("searchAvailableAssets")}
           placeholder={placeholder ?? i18n("searchAvailableAssets")}
-          className="border-0 bg-transparent pl-9 pr-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+          className="border-0 bg-transparent pl-9 pr-0 shadow-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0"
           autoFocus
         />
       </div>
@@ -340,9 +353,12 @@ export function SearchableAssetUnitDropdown({
                 <p className="whitespace-normal break-words text-sm font-medium text-foreground">
                   {option.label}
                 </p>
-                <p className="truncate text-xs text-muted-foreground">
+                <p className="whitespace-normal break-words text-xs text-muted-foreground">
                   {option.availableLabel}
                 </p>
+                {option.unit !== "lovelace" ? (
+                  <p className="break-all font-mono text-[11px] text-muted-foreground">{i18n("policyId", { policy: splitAssetUnit(option.unit).policyId || option.unit })}</p>
+                ) : null}
               </div>
               {isSelected ? <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" /> : null}
             </button>
@@ -416,6 +432,13 @@ export function SearchableAssetUnitDropdown({
         />
       </button>
 
+      {value && value !== "lovelace" ? (
+        <details className="mt-1 text-xs text-muted-foreground">
+          <summary className="cursor-pointer min-h-11 sm:min-h-6 flex items-center rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{i18n("assetIdentity")}</summary>
+          <p className="break-all select-all font-mono">{i18n("policyId", { policy: splitAssetUnit(value).policyId || value })}</p>
+          <p>{i18n("unverifiedIssuer")}</p>
+        </details>
+      ) : null}
       {panel ? createPortal(panel, document.body) : null}
     </div>
   );

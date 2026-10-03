@@ -234,7 +234,10 @@ export function WalletProvider({ children }: PropsWithChildren) {
     const generation = (accountSyncGenerationRef.current += 1);
 
     try {
-      const { address, rewardAddress, networkId: id } = await readWalletIdentity(wallet);
+      const { address, rewardAddress, networkId: id } = await withTimeout(
+        readWalletIdentity(wallet), WALLET_RESPONSE_TIMEOUT_MS,
+        i18n("walletDidNotRespond", { walletName: activeWalletNameRef.current ?? "" })
+      );
       // `activeWalletRef.current !== wallet`: a connect or disconnect landed while this read
       // was in flight, and that result is the newer one.
       if (
@@ -261,7 +264,12 @@ export function WalletProvider({ children }: PropsWithChildren) {
       setActiveRewardAddress(rewardAddress);
       setActivePaymentKeyHash(paymentKeyHash);
       setNetworkId(id);
+      setConnectError(null);
     } catch (error) {
+      if (isMountedRef.current && activeWalletRef.current === wallet && accountSyncGenerationRef.current === generation) {
+        setConnectError(error instanceof KnownConnectError ? error.message :
+          getUserFacingErrorMessage(error, i18n("couldNotConnectToWalletnameUnlockTheWallet", { walletName: activeWalletNameRef.current ?? "" })));
+      }
       // Keep the last known identity. A failed read is not evidence that the account changed,
       // except CIP-30 APIError AccountChange (-4): that api object is dead, and the caller
       // must enable the wallet again.
@@ -274,7 +282,7 @@ export function WalletProvider({ children }: PropsWithChildren) {
         return "account-changed" as const;
       }
     }
-  }, [setActiveAddress, setActivePaymentKeyHash, setActiveRewardAddress, setNetworkId]);
+  }, [i18n, setActiveAddress, setActivePaymentKeyHash, setActiveRewardAddress, setNetworkId]);
 
   const refreshWallets = useCallback(async () => {
     const generation = (walletScanGenerationRef.current += 1);

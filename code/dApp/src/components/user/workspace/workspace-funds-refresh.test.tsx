@@ -13,7 +13,7 @@ const chain = vi.hoisted(() => ({ detect: vi.fn(), funds: vi.fn() }));
 vi.mock("@/lib/mesh/detection", () => ({ detectSttInfo: chain.detect }));
 vi.mock("@/lib/mesh/server-fetcher", () => ({ ServerFetcher: class { fetchAddressUTxOs = chain.funds; } }));
 vi.mock("@/lib/contracts/blueprint", () => ({
-  getSttMintPolicyId: () => "policy",
+  getSttMintPolicyId: () => "aa".repeat(28),
   resolveWalletContinuingOutputAddress: ({ sttAssetNameHex }: { sttAssetNameHex: string }) => `canonical-${sttAssetNameHex}`,
   resolveWalletContinuingOutputAddressFromState: ({ sttAssetNameHex }: { sttAssetNameHex: string }) => `canonical-${sttAssetNameHex}`
 }));
@@ -27,18 +27,18 @@ import { refreshWorkspaceSummary } from "./workspace-funds-refresh";
 
 const clients: ReturnType<typeof createQueryTestWrapper>["queryClient"][] = [];
 afterEach(() => clients.splice(0).forEach(client => client.clear()));
-beforeEach(() => { chain.funds.mockReset().mockResolvedValue([]); });
-const token = (assetNameHex: string): DetectedSttToken => ({ unit: `policy${assetNameHex}`, policyId: "policy", assetNameHex, datum: null,
+beforeEach(() => { chain.funds.mockReset().mockResolvedValue([]); chain.detect.mockReset().mockImplementation((unit?: string) => Promise.resolve({ policyId: "aa".repeat(28), tokens: [token(unit?.slice(56) ?? "aa")] })); });
+const token = (assetNameHex: string): DetectedSttToken => ({ unit: `${"aa".repeat(28)}${assetNameHex}`, policyId: "aa".repeat(28), assetNameHex, datum: null,
   scriptAddress: "state", utxo: { input: { txHash: "state", outputIndex: 0 }, output: { address: "state", amount: [] } } });
 const funds = [{ input: { txHash: "funds", outputIndex: 0 }, output: { address: "canonical-aa", amount: [{ unit: "lovelace", quantity: "5000000" }] } }];
 
 function setup(tokens = [token("aa")]) {
   const test = createQueryTestWrapper(); clients.push(test.queryClient);
   test.store.set(isConnectingAtom, true);
-  test.store.set(configAtom, { ...test.store.get(configAtom), walletPolicyId: "policy", walletAssetNameHex: "aa" });
-  test.store.set(routeStateAtom, { ...test.store.get(routeStateAtom), selectedWalletUnit: "policyaa" });
-  test.queryClient.setQueryData(queryKeys.sttInventory("policy"), { policyId: "policy", tokens });
-  tokens.forEach(token => test.queryClient.setQueryData(queryKeys.sttWallet("policy", token.unit), { policyId: "policy", tokens: [token] }));
+  test.store.set(configAtom, { ...test.store.get(configAtom), walletPolicyId: "aa".repeat(28), walletAssetNameHex: "aa" });
+  test.store.set(routeStateAtom, { ...test.store.get(routeStateAtom), selectedWalletUnit: "aa".repeat(28) + "aa" });
+  test.queryClient.setQueryData(queryKeys.sttInventory("aa".repeat(28)), { policyId: "aa".repeat(28), tokens });
+  tokens.forEach(token => test.queryClient.setQueryData(queryKeys.sttWallet("aa".repeat(28), token.unit), { policyId: "aa".repeat(28), tokens: [token] }));
   test.queryClient.setQueryData(queryKeys.addressUtxos("canonical-aa"), []);
   const hook = renderHook(() => {
     const selectedDetectedTokenUnit = useAtomValue(selectedDetectedTokenUnitAtom);
@@ -60,9 +60,9 @@ function setup(tokens = [token("aa")]) {
 it("uses the selected token's address before the previous config is reseeded", () => {
   const test = setup([token("aa"), token("bb")]);
   test.queryClient.setQueryData(queryKeys.addressUtxos("canonical-bb"), []);
-  act(() => test.store.set(routeStateAtom, { ...test.store.get(routeStateAtom), selectedWalletUnit: "policybb" }));
+  act(() => test.store.set(routeStateAtom, { ...test.store.get(routeStateAtom), selectedWalletUnit: "aa".repeat(28) + "bb" }));
   expect(test.result.current.address).toBe("canonical-bb");
-  expect(test.result.current.summaries.policybb.address).toBe("canonical-bb");
+  expect(test.result.current.summaries["aa".repeat(28) + "bb"].address).toBe("canonical-bb");
   expect(test.store.get(configAtom).walletAssetNameHex).toBe("aa");
 });
 
@@ -72,7 +72,7 @@ it("refreshes selected funds and picker totals from one canonical address read",
   await act(async () => test.refresh(true));
   expect(chain.funds).toHaveBeenCalledTimes(1);
   await waitFor(() => expect(test.result.current.funds).toEqual(funds));
-  await waitFor(() => expect(test.result.current.summaries.policyaa.lockedAssets).toEqual([{ unit: "lovelace", quantity: "5000000" }]));
+  await waitFor(() => expect(test.result.current.summaries["aa".repeat(28) + "aa"].lockedAssets).toEqual([{ unit: "lovelace", quantity: "5000000" }]));
   expect(test.refreshWalletTransactions).toHaveBeenCalledTimes(1);
 });
 
@@ -82,7 +82,15 @@ it("does not refresh activity after the account changes during a funds read", as
   chain.funds.mockResolvedValue(funds).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
   let pending!: Promise<void>;
   await act(async () => { pending = test.refresh(true); });
+  await waitFor(() => expect(finish).toBeTypeOf("function"));
   act(() => test.store.set(activeAddressAtom, "next-account"));
   await act(async () => { finish(funds); await pending; });
   expect(test.refreshWalletTransactions).not.toHaveBeenCalled();
+});
+
+
+it("reports a failed funds refresh instead of claiming recovery succeeded", async () => {
+  const test = setup();
+  chain.funds.mockRejectedValue(new Error("Indexer unavailable"));
+  await expect(test.refresh()).rejects.toThrow("Could not refresh wallet chain state.");
 });

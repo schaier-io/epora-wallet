@@ -33,13 +33,13 @@ test("splitAssetUnit treats lovelace and short units specially", () => {
   assert.deepEqual(splitAssetUnit("abc"), { policyId: "", assetNameHex: "abc" });
 });
 
-test("resolveAssetIdentity resolves ADA and known symbols", () => {
+test("resolveAssetIdentity resolves ADA and decodes names without issuer claims", () => {
   assert.equal(resolveAssetIdentity("lovelace").symbol, "ADA");
   const policyId = "f".repeat(POLICY_ID_LENGTH);
   // 0014df10 CIP-67 FT prefix + "USDM"
   const usdm = resolveAssetIdentity(`${policyId}0014df105553444d`);
   assert.equal(usdm.symbol, "USDM");
-  assert.equal(usdm.knownMeta?.accent, "stable");
+  assert.equal(usdm.knownMeta, null);
 });
 
 test("resolveAssetIdentity keeps the raw hex as symbol for non-printable names", () => {
@@ -54,4 +54,15 @@ test("resolveAssetIdentity falls back to shortened unit when the name is empty",
   const identity = resolveAssetIdentity(policyOnlyUnit);
   assert.ok(identity.symbol.includes("..."));
   assert.equal(identity.decodedAssetName, "");
+});
+
+// UX UI-01: issuer identity must not be inferred from a token name.
+test("same-name policies do not acquire issuer branding", () => {
+  const first = resolveAssetIdentity(`${"11".repeat(28)}5553444d`);
+  const second = resolveAssetIdentity(`${"22".repeat(28)}5553444d`);
+  assert.equal(first.symbol, "USDM");
+  assert.equal(second.symbol, "USDM");
+  assert.equal(first.knownMeta, null);
+  assert.equal(second.knownMeta, null);
+  assert.equal(first.name, "USDM");
 });

@@ -124,7 +124,7 @@ it("signs the freshly built transaction when the draft held still", async () => 
   const { ctx, setBuildError } = contextFor(createStore(), null);
   await createWorkspaceTransactions(ctx).buildAndSubmitSelectedActionTx();
 
-  expect(mocks.signAndSubmitTx).toHaveBeenCalledWith({}, "84a1", { assertCurrent: expect.any(Function) as unknown });
+  expect(mocks.signAndSubmitTx).toHaveBeenCalledWith({}, "84a1", { assertCurrent: expect.any(Function) as unknown, onPhase: expect.any(Function) as unknown });
   expect(setBuildError).not.toHaveBeenCalledWith(expect.stringMatching(/stale/i));
 });
 
@@ -140,7 +140,7 @@ it("compares a draft that contains an exact bigint State field", async () => {
 
   await createWorkspaceTransactions(ctx).buildAndSubmitSelectedActionTx();
 
-  expect(mocks.signAndSubmitTx).toHaveBeenCalledWith({}, "84a1", { assertCurrent: expect.any(Function) as unknown });
+  expect(mocks.signAndSubmitTx).toHaveBeenCalledWith({}, "84a1", { assertCurrent: expect.any(Function) as unknown, onPhase: expect.any(Function) as unknown });
   expect(setBuildError).not.toHaveBeenCalledWith(expect.stringMatching(/stale/i));
 });
 
@@ -159,7 +159,7 @@ it("a stop build signs in the same press when the draft held still", async () =>
   ctx.selectedAction = "stop-beneficiary-stream";
   ctx.effectiveSttAction = "stop-beneficiary-stream";
   await createWorkspaceTransactions(ctx).buildAndSubmitSelectedActionTx();
-  expect(mocks.signAndSubmitTx).toHaveBeenCalledWith({}, "84a1", { assertCurrent: expect.any(Function) as unknown });
+  expect(mocks.signAndSubmitTx).toHaveBeenCalledWith({}, "84a1", { assertCurrent: expect.any(Function) as unknown, onPhase: expect.any(Function) as unknown });
   expect(setBuildError).not.toHaveBeenCalledWith(expect.anything());
 });
 
@@ -177,7 +177,7 @@ it("exact distribution signs in the same press when the draft held still", async
   ctx.selectedAction = "distribute-beneficiaries";
   ctx.effectiveSttAction = "distribute-beneficiaries";
   await createWorkspaceTransactions(ctx).buildAndSubmitSelectedActionTx();
-  expect(mocks.signAndSubmitTx).toHaveBeenCalledWith({}, "84a1", { assertCurrent: expect.any(Function) as unknown });
+  expect(mocks.signAndSubmitTx).toHaveBeenCalledWith({}, "84a1", { assertCurrent: expect.any(Function) as unknown, onPhase: expect.any(Function) as unknown });
   expect(setBuildError).not.toHaveBeenCalledWith(expect.anything());
 });
 
@@ -197,7 +197,7 @@ it("preparation signs in the same press when the draft held still", async () => 
   mocks.buildPreparation.mockResolvedValueOnce({ txHex: "prepared" });
   await createWorkspaceTransactions(ctx).buildAndSubmitSelectedActionTx();
   expect(mocks.signAndSubmitTx).toHaveBeenCalledWith({}, "prepared",
-    expect.objectContaining({ assertCurrent: expect.any(Function) as unknown }));
+    expect.objectContaining({ assertCurrent: expect.any(Function) as unknown, onPhase: expect.any(Function) as unknown }));
   expect(setBuildError).not.toHaveBeenCalledWith(expect.anything());
 });
 it("editing the requested preparation pool during build prevents signing", async () => {

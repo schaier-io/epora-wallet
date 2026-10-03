@@ -375,3 +375,15 @@ describe("the co-signer threshold tab", () => {
     expect(screen.getByText("Let several people act together")).toBeInTheDocument();
   });
 });
+
+describe("finding draft issues across settings tabs", () => {
+  it("shows the failing message and jumps only to its settings task", () => {
+    const onSelectTask = vi.fn();
+    render(<FocusedWalletSettingsEditor value={createDefaultStateForm()} onChange={vi.fn()} selectedTask="settings-wallet-name" onSelectTask={onSelectTask} fieldErrors={{ "Output state": ["Person 12 daily limit must be >= 0."] }} />);
+    expect(screen.getByText("Person 12 daily limit must be >= 0.")).toBeInTheDocument();
+    expect(screen.queryByText(/Output state:/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Check People/i }));
+    expect(onSelectTask).toHaveBeenCalledWith("settings-people");
+    expect(screen.queryByRole("button", { name: /Check Proof of life/i })).not.toBeInTheDocument();
+  });
+});

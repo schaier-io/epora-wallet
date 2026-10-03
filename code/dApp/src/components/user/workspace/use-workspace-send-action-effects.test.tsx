@@ -10,7 +10,7 @@ const suggested = [{ txHash: "aa".repeat(32), outputIndex: 0 }];
 
 function run(overrides: Partial<WorkspaceSendActionEffectsCtx>) {
   const setSttWalletInputs = vi.fn();
-  const refreshLockedContractUtxos = vi.fn(() => Promise.resolve());
+  const refreshLockedContractUtxos = vi.fn(() => Promise.resolve(true));
   renderHook(() =>
     useWorkspaceSendActionEffects({
       lockingContractAddress: "wallet-a",
@@ -227,7 +227,7 @@ describe("useWorkspaceSendActionEffects", () => {
   });
 
   it("refreshes again when the default Send action closes and reopens", () => {
-    const refreshLockedContractUtxos = vi.fn(() => Promise.resolve());
+    const refreshLockedContractUtxos = vi.fn(() => Promise.resolve(true));
     const base = {
       lockingContractAddress: "wallet-a",
       refreshLockedContractUtxos,

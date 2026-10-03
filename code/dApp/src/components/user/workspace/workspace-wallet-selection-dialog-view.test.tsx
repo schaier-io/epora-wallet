@@ -82,6 +82,18 @@ function renderWith(network: number | null, connected: boolean) {
 }
 
 describe("wallet selection dialog", () => {
+  it("distinguishes unavailable funds and exposes every wallet role and identity", () => {
+    cards.push({ token: { unit: "a".repeat(56) + "1234567890abcdef" }, primaryLabel: "Family", secondaryLabel: "", roleBadges: ["Owner", "Co-signer", "Spender", "Check in"], lockedSummary: undefined, warning: null, state: { proofOfLifeUnlockTimeMode: "none", proofOfLifeUnlockTime: "" }, capabilityMap: { hasDirectProofOfLifeRenewalMatch: false } });
+    renderWith(0, true);
+    expect(screen.getByText("Balance unavailable")).toBeInTheDocument();
+    expect(screen.queryByText("0 ADA")).not.toBeInTheDocument();
+    expect(screen.getByText("Check in")).toBeInTheDocument();
+    expect(screen.getByText("Wallet ID: aaaaaaaa…567890abcdef")).toBeInTheDocument();
+    const copy = screen.getByRole("button", { name: "Copy Family wallet ID (aaaaaaaa…567890abcdef)" });
+    expect(copy.closest("button")?.parentElement?.closest("button")).toBeNull();
+  });
+
+
   beforeEach(() => {
     cards.length = 0;
     filtered.cards = null;

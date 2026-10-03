@@ -116,6 +116,7 @@ export type ReviewReceiptItem = {
   copyValue?: string | null;
   copyLabel?: string;
   copiedLabel?: string;
+  assetUnits?: string[];
 };
 
 export type ReviewCompletion = {
@@ -498,6 +499,7 @@ export function UserReviewPanel({
           <ReviewTransactionPreview
             compact={compact}
             autoSignPending={autoSignPending}
+            busy={primaryActionBusy}
             preview={preview}
             previewMatchesSelectedAction={previewMatchesSelectedAction}
             lastActionLabel={lastActionLabel}

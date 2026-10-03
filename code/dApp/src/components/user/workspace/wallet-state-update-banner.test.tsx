@@ -1,7 +1,7 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import { beforeEach, expect, it } from "vitest";
-import { pendingWalletStateUpdateAtom } from "./atoms/wallet-state-update.atoms";
+import { walletStateChecksAtom, walletStateRetryAtom, pendingWalletStateUpdateAtom } from "./atoms/wallet-state-update.atoms";
 import { routeStateAtom } from "./atoms/workspace-route.atoms";
 import type { UserActionKind } from "@/components/user/flow-types";
 import { WalletStateUpdateBanner } from "./wallet-state-update-banner";
@@ -64,4 +64,16 @@ it("says the open action waits when it spends the STT, but not on add funds", ()
   unmount();
   renderBanner("lock-funds");
   expect(screen.getByRole("status")).toHaveTextContent("Sending, settings and payouts unlock when it confirms.");
+});
+
+
+it("shows failed check details and permits a retry from the dashboard", () => {
+  const { store } = renderBanner(null);
+  act(() => store.set(walletStateChecksAtom, { [UNIT]: { txHash: TX_HASH, phase: "unavailable", checkedAt: 1_800_000, lastSuccessfulAt: 900_000 } }));
+  expect(screen.getByRole("alert")).toHaveTextContent("Actions that spend this wallet's State wait until the input is verified.");
+  expect(screen.getByText(/Last check attempt:/)).toHaveTextContent("UTC");
+  expect(screen.getByText(/Last successful chain check:/)).toHaveTextContent("UTC");
+  const revision = store.get(walletStateRetryAtom);
+  fireEvent.click(screen.getByRole("button", { name: "Retry chain check" }));
+  expect(store.get(walletStateRetryAtom)).toBe(revision + 1);
 });

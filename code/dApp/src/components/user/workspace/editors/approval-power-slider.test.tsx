@@ -60,8 +60,8 @@ describe("the slider is the whole control", () => {
     const onChange = renderField({ value: "18446744073709551615" });
 
     const value = screen.getByLabelText("Approval power");
-    expect(value).toHaveTextContent("18446744073709551615");
-    expect(value).toHaveAttribute("aria-disabled", "true");
+    expect(value).toHaveValue("18446744073709551615");
+    expect(value).not.toBeDisabled();
     expect(screen.queryByRole("slider")).not.toBeInTheDocument();
     expect(onChange).not.toHaveBeenCalled();
   });
@@ -243,4 +243,12 @@ describe("states the number can be in", () => {
     expect(screen.queryByRole("slider", { hidden: true })).not.toBeInTheDocument();
     expect(screen.getByLabelText("Approval power")).toHaveTextContent("1");
   });
+});
+
+// UX UI-02: importing a large integer must retain an exact repair path.
+it("lets the owner lower an exact large approval value", () => {
+  const onChange = renderField({ value: "18446744073709551615" });
+  const input = screen.getByRole("textbox", { name: "Approval power" });
+  fireEvent.change(input, { target: { value: "2" } });
+  expect(onChange).toHaveBeenCalledWith("2");
 });

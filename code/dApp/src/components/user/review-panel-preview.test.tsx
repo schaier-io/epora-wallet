@@ -37,15 +37,9 @@ describe("ReviewTransactionPreview", () => {
     ).not.toBeInTheDocument();
   });
 
-  /**
-   * The card used to disappear entirely without a preview, so the rail lost its whole
-   * height on every tab switch and the primary button looked as ready with nothing built
-   * as it does beside a built one.
-   */
-  it("holds the review card open before a build", () => {
+  it("does not add idle build status beside the button", () => {
     render(<ReviewTransactionPreview {...BASE} preview={null} />);
-
-    expect(screen.getByText("Not built yet.")).toBeInTheDocument();
+    expect(screen.queryByText("Not built yet.")).not.toBeInTheDocument();
     expect(screen.queryByText(/Ready to sign/)).not.toBeInTheDocument();
   });
 
@@ -63,9 +57,11 @@ describe("ReviewTransactionPreview", () => {
     expect(
       screen.getByText((_, node) =>
         node?.textContent ===
-        "The saved transaction details belong to use. Continue again to refresh them for this action."
+        "The saved transaction details belong to use. Continue again to refresh them for this action." &&
+        Array.from(node.children).every(child => child.textContent !== node.textContent)
       )
     ).toBeInTheDocument();
+    expect(screen.queryByText("Ready to sign.")).not.toBeInTheDocument();
     // Drifted warnings are stale by definition, so only the drift notice shows.
     expect(screen.queryByText("Heads up before you sign")).not.toBeInTheDocument();
   });
@@ -85,7 +81,13 @@ describe("ReviewTransactionPreview", () => {
   });
 });
 
-it("shows the signing note only while a click is waiting for automatic signing", () => {
+it("does not duplicate automatic signing progress outside the button", () => {
   render(<ReviewTransactionPreview {...BASE} preview={null} autoSignPending />);
-  expect(screen.getByText("Your wallet will open automatically to sign.")).toBeInTheDocument();
+  expect(screen.queryByText("Your wallet will open automatically to sign.")).not.toBeInTheDocument();
+});
+
+it.each(["busy", "autoSignPending"] as const)("hides Ready to sign while %s without hiding builder warnings", flag => {
+  render(<ReviewTransactionPreview {...BASE} {...{ [flag]: true }} preview={{ ...PREVIEW, warnings: ["Keep this warning."] }} />);
+  expect(screen.queryByText("Ready to sign.")).not.toBeInTheDocument();
+  expect(screen.getByText("Keep this warning.")).toBeInTheDocument();
 });

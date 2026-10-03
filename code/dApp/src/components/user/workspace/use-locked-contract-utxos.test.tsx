@@ -13,7 +13,7 @@ vi.mock("./queries/wallet-identity.atoms", async () => {
   const { activeAddressAtom } = await import("@/providers/wallet.atoms");
   return { lockingContractAtom: atom((get) => ({ address: get(activeAddressAtom), error: null })) };
 });
-import { lockedContractUtxosAtom, lockedContractUtxosLoadingAtom, lockedContractUtxosErrorAtom } from "./queries/locked-utxos.atoms";
+import { lockedContractUtxosRefreshingAtom, lockedContractUtxosAtom, lockedContractUtxosLoadingAtom, lockedContractUtxosErrorAtom } from "./queries/locked-utxos.atoms";
 import { useLockedContractUtxos } from "./use-locked-contract-utxos";
 import { resetWorkspaceDataAtom } from "./atoms/workspace-data.atoms";
 import { resetAllFlowAtom } from "./atoms/transaction-flow.atoms";
@@ -26,7 +26,7 @@ function setup(cached?: UTxO[]) {
   context.store.set(activeAddressAtom, "wallet-a");
   context.store.set(isConnectingAtom, true);
   if (cached) context.queryClient.setQueryData(queryKeys.addressUtxos("wallet-a"), cached);
-  const hook = renderHook(() => ({ ...useLockedContractUtxos(), funds: useAtomValue(lockedContractUtxosAtom), loading: useAtomValue(lockedContractUtxosLoadingAtom), error: useAtomValue(lockedContractUtxosErrorAtom) }), { wrapper: context.wrapper });
+  const hook = renderHook(() => ({ ...useLockedContractUtxos(), funds: useAtomValue(lockedContractUtxosAtom), loading: useAtomValue(lockedContractUtxosLoadingAtom), refreshing: useAtomValue(lockedContractUtxosRefreshingAtom), error: useAtomValue(lockedContractUtxosErrorAtom) }), { wrapper: context.wrapper });
   return { ...context, ...hook };
 }
 beforeEach(() => { chain.fetchAddressUTxOs.mockReset().mockResolvedValue(funds("a")); });
@@ -38,9 +38,10 @@ for (const found of [true, false]) {
     try {
       chain.fetchAddressUTxOs.mockResolvedValue([]);
       if (found) chain.fetchAddressUTxOs.mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValueOnce(funds("funded"));
-      let pending!: Promise<void>;
+      let pending!: Promise<unknown>;
       await act(async () => { pending = test.result.current.refreshLockedContractUtxos("wallet-a", { retryEmpty: true }); });
-      expect(test.result.current.loading).toBe(true);
+      expect(test.result.current.loading).toBe(false);
+      expect(test.result.current.refreshing).toBe(true);
       expect(chain.fetchAddressUTxOs).toHaveBeenCalledTimes(1);
       await act(async () => { await vi.advanceTimersByTimeAsync(3_000); await pending; });
       expect(chain.fetchAddressUTxOs).toHaveBeenCalledTimes(found ? 3 : 4);
@@ -55,7 +56,7 @@ it("retires pending Send retries when the session ends", async () => {
   const test = setup([]);
   try {
     chain.fetchAddressUTxOs.mockResolvedValue([]);
-    let pending!: Promise<void>;
+    let pending!: Promise<unknown>;
     await act(async () => { pending = test.result.current.refreshLockedContractUtxos("wallet-a", { retryEmpty: true }); });
     act(() => {
       test.store.set(resetAllFlowAtom);
@@ -157,4 +158,21 @@ it("keeps selected orphan values when the recovery Send flow opens", async () =>
   await waitFor(() => expect(chain.fetchAddressUTxOs).toHaveBeenCalledTimes(1));
   expect(test.store.get(selectedOrphanInputsAtom)).toBe(recoveryDraft);
   send.unmount(); test.unmount(); test.queryClient.clear();
+});
+
+
+it("keeps cached funds visible while a background read refreshes", async () => {
+  const test = setup(funds("cached"));
+  let finish!: (value: UTxO[]) => void;
+  chain.fetchAddressUTxOs.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  let refresh!: Promise<unknown>;
+  await act(async () => { refresh = test.result.current.refreshLockedContractUtxos("wallet-a"); });
+  expect(test.result.current.loading).toBe(false);
+  expect(test.result.current.refreshing).toBe(true);
+  expect(test.result.current.funds).toEqual(funds("cached"));
+  await act(async () => { finish(funds("new")); await refresh; });
+  await waitFor(() => {
+    expect(test.result.current.funds).toEqual(funds("new"));
+    expect(test.result.current.refreshing).toBe(false);
+  });
 });

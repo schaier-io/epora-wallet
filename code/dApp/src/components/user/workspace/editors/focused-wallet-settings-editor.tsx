@@ -2,7 +2,8 @@
 import { useTranslations } from "next-intl";
 
 
-import { useId } from "react";
+import { settingsValidationTask } from "../helpers/settings-validation-task";
+import { useId, useRef } from "react";
 
 import { GuidedDateTimeField, GuidedDurationField } from "./guided-fields";
 import { BeneficiaryEditor, MultisigThresholdEditor } from "./people-editors";
@@ -228,30 +229,51 @@ export function FocusedWalletSettingsEditor({
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsFocusedWalletSettingsEditor");
   const tasks = GUIDED_ADMIN_TASKS.filter((task) => task.group === "wallet-settings");
+  const editorRoot = useRef<HTMLDivElement>(null);
+  const jumpToTask = (task: UserWorkspaceTask) => {
+    onSelectTask(task);
+    requestAnimationFrame(() => {
+      const field = editorRoot.current?.querySelector<HTMLInputElement>('input[aria-invalid="true"], select[aria-invalid="true"]')
+        ?? editorRoot.current?.querySelector<HTMLInputElement>("input, select");
+      field?.focus();
+    });
+  };
   const adminCount = countAdminUsersInStateForm(value);
   const issueCount = countFieldErrorMessages(fieldErrors);
+  const issues = Object.values(fieldErrors).flat().map(message => ({ message, task: settingsValidationTask(message) }));
+  const issueBadge = (task: UserWorkspaceTask, label: string) => {
+    const count = issues.filter(issue => issue.task === task).length;
+    return count > 0 ? i18n("taskIssueCount", { label, count }) : label;
+  };
 
   return (
-    <FocusedTaskSurface
+    <div ref={editorRoot}><FocusedTaskSurface
       tasks={tasks}
       selectedTask={selectedTask}
       onSelectTask={onSelectTask}
       badgeByTask={{
-        "settings-people": formatCountLabel(value.users.length, "person"),
-        "settings-wallet-name": normalizeWalletName(value.walletName),
-        "settings-proof-of-life": i18n("value1Value2", {
+        "settings-people": issueBadge("settings-people", formatCountLabel(value.users.length, "person")),
+        "settings-wallet-name": issueBadge("settings-wallet-name", normalizeWalletName(value.walletName)),
+        "settings-proof-of-life": issueBadge("settings-proof-of-life", i18n("value1Value2", {
           value1: formatCountLabel(value.beneficiaries.length, "recoveryContact"),
           value2:
             value.proofOfLifeUnlockTimeMode === "some" &&
             value.proofOfLifeIncrementMode === "some"
               ? i18n("configured")
               : i18n("unset")
-        }),
+        })),
         "settings-multisig-threshold":
-          value.multiSigThresholdMode === "some" ? i18n("enabled") : i18n("disabled")
+          issueBadge("settings-multisig-threshold", value.multiSigThresholdMode === "some" ? i18n("enabled") : i18n("disabled"))
       }}
       issueCount={issueCount}
     >
+      {issueCount > 0 ? <section className="space-y-2 rounded-md border border-amber-500/40 p-3" aria-label={i18n("draftIssues")}>
+        <p className="text-sm font-medium">{i18n("draftIssues")}</p>
+        <ul className="space-y-2 text-xs">{issues.map((issue, index) => <li key={index}>
+          <p>{issue.message}</p>
+          {issue.task ? <Button type="button" size="sm" variant="outline" onClick={() => jumpToTask(issue.task!)}>{i18n("checkTask", { task: tasks.find(task => task.id === issue.task)!.label })}</Button> : <p className="text-muted-foreground">{i18n("globalIssue")}</p>}
+        </li>)}</ul>
+      </section> : null}
       {/* The People tab carries this callout itself, next to the owners it counts.
           Rendering it here as well put two identical confirmations on that tab. */}
       {selectedTask !== "settings-people" ? (
@@ -266,6 +288,7 @@ export function FocusedWalletSettingsEditor({
         // reachable through two sidebar entries, and "who can act" is answered
         // on the same surface as the rules it feeds.
         <FocusedPeopleEditor
+          showSummary={false}
           value={value}
           onChange={onChange}
           fieldErrors={fieldErrors}
@@ -303,6 +326,6 @@ export function FocusedWalletSettingsEditor({
           <MultisigThresholdEditor value={value} onChange={onChange} />
         </>
       ) : null}
-    </FocusedTaskSurface>
+    </FocusedTaskSurface></div>
   );
 }

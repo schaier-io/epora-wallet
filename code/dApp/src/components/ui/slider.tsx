@@ -52,7 +52,7 @@ export function Slider({
       <SliderPrimitive.Thumb
         {...thumbProps}
         className={cn(
-          "block h-5 w-5 rounded-full border-2 border-[hsl(var(--brand-teal))] bg-background",
+          "relative block h-5 w-5 after:absolute after:-inset-3 after:content-[''] rounded-full border-2 border-[hsl(var(--brand-teal))] bg-background",
           "shadow-[0_2px_10px_-2px_hsl(var(--brand-teal)/0.7)]",
           "transition-[transform,box-shadow] duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
           "hover:scale-110 active:scale-105",

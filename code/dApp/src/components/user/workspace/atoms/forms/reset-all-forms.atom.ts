@@ -1,4 +1,5 @@
 import { atom } from "jotai";
+import { workspaceDraftResetRevisionAtom } from "../workspace-draft-reset.atoms";
 
 import { resetMintFormAtom } from "@/components/user/workspace/atoms/forms/mint-form.atoms";
 import { resetSttSpendFormAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
@@ -10,11 +11,11 @@ import { resetTransferFormAtom } from "@/components/user/workspace/atoms/forms/t
 import { resetLockFundsFormAtom } from "@/components/user/workspace/atoms/forms/lock-funds-form.atoms";
 
 /**
- * Reset every per-action form atom to its default. The form atoms are module-global, so the
- * controller calls this on unmount to mirror the per-mount reset that component-local `useState`
- * gave for free. (Per-action resets during a session still go through the draft handlers.)
+ * Reset every account-scoped draft on disconnect or identity change.
+ * Per-task resets during a session go through the draft handlers.
  */
 export const resetAllFormsAtom = atom(null, (_get, set) => {
+  set(workspaceDraftResetRevisionAtom, revision => revision + 1);
   set(resetMintFormAtom);
   set(resetSttSpendFormAtom);
   set(resetWithdrawFormAtom);

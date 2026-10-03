@@ -28,10 +28,8 @@ describe("CopyButton", () => {
     fireEvent.click(screen.getByRole("button", { name: /copy link/i }));
 
     expect(
-      await screen.findByRole("button", {
-        name: /nothing was copied\. select the text and copy it with your keyboard\./i
-      })
-    ).toHaveTextContent("Copy blocked");
+      await screen.findByRole("status")
+    ).toHaveTextContent("Nothing was copied");
   });
 
   it("does not claim success when writeText rejects", async () => {
@@ -59,7 +57,22 @@ describe("CopyButton", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /copy link/i }));
 
-    expect(await screen.findByRole("button", { name: /link copied/i })).toBeInTheDocument();
+    expect(await screen.findByRole("status")).toHaveTextContent("Link copied");
     expect(written).toEqual(["wc:pairing-uri"]);
   });
+});
+
+
+it("keeps long copy values out of the visible label and offers manual copy on failure", async () => {
+  setClipboard(undefined);
+  document.execCommand = () => false;
+  const value = "a".repeat(200);
+  render(<CopyButton value={value} />);
+  const button = screen.getByRole("button", {name: /Copy a/});
+  expect(button).toHaveTextContent(/^Copy$/);
+  expect(button.getAttribute("aria-label")!.length).toBeLessThan(40);
+  fireEvent.click(button);
+  await waitFor(() => expect(screen.getByRole("textbox")).toHaveValue(value));
+  fireEvent.focus(screen.getByRole("textbox"));
+  expect((screen.getByRole("textbox") as HTMLTextAreaElement).selectionEnd).toBe(value.length);
 });

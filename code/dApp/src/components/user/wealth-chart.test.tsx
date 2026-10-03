@@ -92,7 +92,7 @@ describe("wealth chart", () => {
       />
     );
 
-    expect(screen.getByText(/over 7D/)).toBeTruthy();
+    expect(screen.getByText(/over 7D/, { selector: "span" })).toBeTruthy();
     expect(screen.getByRole("img").getAttribute("aria-label")).toBe("Wallet 40.00 ADA over 7D");
   });
 
@@ -183,4 +183,13 @@ describe("wealth chart", () => {
     expect(screen.queryByText("Not enough activity in this range to draw a chart yet.")).toBeNull();
     expect(container.querySelector(".recharts-surface")).toBeTruthy();
   });
+});
+
+// UX UI-03: point history needs the same values outside pointer-only tooltips.
+it("exposes displayed points in a semantic data table", () => {
+  render(<WealthChart series={[{timestamp: 1750000000000, value: 12.5}]}
+    unitLabel="ADA" formatValue={formatValue} defaultRange="all" />);
+  const table = screen.getByRole("table", { hidden: true });
+  expect(table).toHaveTextContent("12.50 ADA");
+  expect(table).toHaveTextContent("UTC");
 });

@@ -1,10 +1,25 @@
 import { useTranslations } from "next-intl";
 import { ChevronRight } from "lucide-react";
+import { splitAssetUnit, resolveAssetIdentity } from "@/lib/cardano-assets";
 import { cn } from "@/lib/utils/cn";
 import { CopyButton } from "@/components/ui/copy-button";
 import { type TaskDefinition } from "@/components/user/flow-types";
 import type { ReviewReceiptItem } from "@/components/user/review-panel";
 import { AddressCopyButton } from "@/components/ui/address-copy-button";
+
+function AssetPolicyDetails({ units }: { units?: string[] }) {
+  const i18n = useTranslations("ComponentsUserReviewPanelSections");
+  const tokens = [...new Set(units ?? [])].filter((unit) => unit !== "lovelace");
+  if (!tokens.length) return null;
+  return <details className="min-w-0 basis-full text-xs text-muted-foreground">
+    <summary className="cursor-pointer min-h-11 sm:min-h-6 flex items-center rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{i18n("assetIdentities")}</summary>
+    {tokens.map((unit) => <div key={unit} className="mt-1">
+      <p>{resolveAssetIdentity(unit).symbol}: {i18n("unverifiedIssuer")}</p>
+      <p className="select-all break-all font-mono">{splitAssetUnit(unit).policyId}</p>
+      <p className="select-all break-all font-mono">{unit}</p>
+    </div>)}
+  </details>;
+}
 
 // Presentational sections lifted out of `UserReviewPanel` to keep that file
 // focused on orchestration. Each renders purely from its props.
@@ -20,6 +35,7 @@ export function ReviewReceiptCard({
   receiptItems: ReviewReceiptItem[];
   compact: boolean;
 }) {
+  const i18n = useTranslations("ComponentsUserReviewPanelSections");
   return (
     <div
       className={cn(
@@ -76,7 +92,7 @@ export function ReviewReceiptCard({
                 >
                   {item.value}
                   {item.copyValue && !item.copyLabel ? (
-                    <AddressCopyButton value={item.copyValue} className="ml-1 inline-flex align-middle" />
+                    <AddressCopyButton value={item.copyValue} label={item.copyLabel ?? i18n("copyTarget", { target: item.label })} className="ml-1 inline-flex align-middle" />
                   ) : null}
                 </dd>
                 {item.copyValue && item.copyLabel ? (
@@ -87,10 +103,11 @@ export function ReviewReceiptCard({
                       copiedLabel={item.copiedLabel}
                       hideLabel
                       variant="ghost"
-                      className="h-7 w-7 shrink-0 p-0"
+                      className="h-11 w-11 sm:h-7 sm:w-7 shrink-0 p-0"
                     />
                   </dd>
                 ) : null}
+                {item.assetUnits?.length ? <dd className={item.copyValue && item.copyLabel ? "col-span-3" : "basis-full"}><AssetPolicyDetails units={item.assetUnits} /></dd> : null}
                 {item.detail ? (
                   // Compact is the only mode the app ever renders (the single call site in
                   // workspace-review-rail-view.tsx passes it unconditionally), so a `detail`
@@ -127,8 +144,9 @@ export function ReviewReceiptCard({
                 </dt>
                 <dd className="mt-1 break-words text-sm font-medium text-foreground">
                   {item.value}
-                  <AddressCopyButton value={item.copyValue} className="ml-1 inline-flex align-middle" />
+                  <AddressCopyButton value={item.copyValue} label={item.copyLabel ?? i18n("copyTarget", { target: item.label })} className="ml-1 inline-flex align-middle" />
                 </dd>
+                {item.assetUnits?.length ? <dd className={item.copyValue && item.copyLabel ? "col-span-3" : "basis-full"}><AssetPolicyDetails units={item.assetUnits} /></dd> : null}
                 {item.detail ? (
                   <dd className="mt-1 break-words text-xs leading-snug text-muted-foreground">
                     {item.detail}

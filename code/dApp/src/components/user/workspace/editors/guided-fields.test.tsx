@@ -58,7 +58,7 @@ describe("a date and time field", () => {
       />
     );
     const date = screen.getByLabelText("Starts", { selector: "input" }) as HTMLInputElement;
-    const time = screen.getByLabelText("Time of day") as HTMLInputElement;
+    const time = screen.getByLabelText("Time of day (UTC)") as HTMLInputElement;
 
     // 1750000000000 === 2025-06-15T15:06:40.000Z
     expect(date.value).toBe("2025-06-15");
@@ -449,7 +449,7 @@ describe("every control in a split field has a name", () => {
       expect(control).toHaveAccessibleName();
     }
     expect(screen.getByRole("group", { name: "Starts" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Time of day")).toHaveAttribute("type", "time");
+    expect(screen.getByLabelText("Time of day (UTC)")).toHaveAttribute("type", "time");
   });
 
   it("names both halves of a length-of-time field", () => {

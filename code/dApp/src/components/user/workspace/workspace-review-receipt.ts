@@ -113,6 +113,7 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
           {
             label: i18n("starterFunds"),
             value: formatReceiptAmountSummary(mintStarterAssets),
+            assetUnits: mintStarterAssets.map((asset) => asset.unit),
             tone: "success"
           },
           ...(mintStateForm.beneficiaries.length > 0
@@ -147,6 +148,7 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
           {
             label: i18n("amount"),
             value: formatReceiptAmountSummary(lockFundsAssets),
+            assetUnits: lockFundsAssets.map((asset) => asset.unit),
             tone: lockFundsAssets.length > 0 ? "success" : "warning"
           },
           {
@@ -195,6 +197,7 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
           {
             label: i18n("amount"),
             value: formatReceiptAmountSummary(payoutAmount),
+            assetUnits: payoutAmount.map((asset) => asset.unit),
             tone: payoutAmount.length > 0 ? "success" : "warning"
           },
           {
@@ -261,6 +264,7 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
                 amount: formatReceiptAmountSummary(transfer.amount),
                 recipient: shortenAddress(transfer.address)
               }),
+              assetUnits: transfer.amount.map((asset) => asset.unit),
               copyValue: transfer.address,
               copyLabel: i18n("copyRecipientAddress"),
               copiedLabel: i18n("recipientAddressCopied"),
@@ -299,6 +303,7 @@ export function computeReviewReceipt(ctx: ReviewReceiptCtx): ReviewReceipt {
                 {
                   label: i18n("total"),
                   value: formatReceiptAmountSummary(transferAmount),
+            assetUnits: transferAmount.map((asset) => asset.unit),
                   tone: "success" as const
                 }
               ]

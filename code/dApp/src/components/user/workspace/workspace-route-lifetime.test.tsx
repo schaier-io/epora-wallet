@@ -5,7 +5,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { DetectedSttInfo, DetectedSttToken } from "@/lib/mesh/detection";
 import { createQueryTestWrapper } from "@/test/query-client";
 import { queryKeys } from "@/lib/query/keys";
-import { activeWalletAtom, activePaymentKeyHashAtom, networkIdAtom } from "@/providers/wallet.atoms";
+import { activeAddressAtom, activeWalletAtom, activePaymentKeyHashAtom, networkIdAtom } from "@/providers/wallet.atoms";
 import { createDefaultStateForm, stateFormToDatum, withFallbackAdminUserInStateForm } from "@/lib/contracts/state-form";
 import { parseWorkspaceRouteState } from "@/components/user/workspace-controller";
 import { useWorkspaceFoundation } from "./use-workspace-foundation";
@@ -13,6 +13,9 @@ import { useWorkspaceWalletSessionEffects } from "./use-workspace-wallet-session
 import { useWorkspaceWizardEffects } from "./use-workspace-wizard-effects";
 import { routeStateAtom } from "./atoms/workspace-route.atoms";
 import { detectedSttTokensAtom, detectedSttTokensLoadingAtom } from "./atoms/workspace-data.atoms";
+import { mintStateFormAtom } from "./atoms/forms/mint-form.atoms";
+import { updateStateFormAtom } from "./atoms/forms/stt-spend-form.atoms";
+import { previewAtom, submitHashAtom } from "./atoms/transaction-flow.atoms";
 import { configAtom } from "./atoms/workspace-config.atoms";
 import { selectedDetectedTokenAtom, selectableWizardActionKindsAtom } from "./atoms/workspace-detected-token.atoms";
 
@@ -88,6 +91,7 @@ function setup() {
   const context = createQueryTestWrapper();
   contexts.push(context);
   context.store.set(activeWalletAtom, mocks.wallet as never);
+  context.store.set(activeAddressAtom, "addr_test1signer");
   context.store.set(networkIdAtom, 0);
   context.store.set(activePaymentKeyHashAtom, SIGNER);
   mocks.search = `wallet=${firstToken.unit}&step=overview`;
@@ -201,4 +205,33 @@ it("keeps the requested action during a mounted wallet change and reuses data fo
   expect(context.store.get(routeStateAtom).flowStep).toBe("review");
   expect(context.store.get(configAtom).walletAssetNameHex).toBe("02");
   expect(mocks.detect).toHaveBeenCalledTimes(readsBeforeStepChange);
+});
+
+
+it("preserves unsigned settings across sibling navigation and clears prepared transaction state", async () => {
+  const context = setup();
+  const first = mount(context);
+  await waitFor(() => expect(context.store.get(configAtom).walletAssetNameHex).toBe("01"));
+  act(() => context.store.set(updateStateFormAtom, { ...context.store.get(updateStateFormAtom)!, walletName: "Keep draft" }));
+  act(() => context.store.set(submitHashAtom, "old receipt"));
+  first.unmount();
+  expect(context.store.get(updateStateFormAtom)?.walletName).toBe("Keep draft");
+  expect(context.store.get(submitHashAtom)).toBeNull();
+  expect(context.store.get(previewAtom)).toBeNull();
+  mount(context);
+  await waitFor(() => expect(context.store.get(configAtom).walletAssetNameHex).toBe("01"));
+  expect(context.store.get(updateStateFormAtom)?.walletName).toBe("Keep draft");
+});
+
+it.each(["account", "network"])("clears a retained new-wallet draft when %s changes while outside workspace", async kind => {
+  const context = setup();
+  const first = mount(context);
+  await waitFor(() => expect(context.store.get(configAtom).walletAssetNameHex).toBe("01"));
+  act(() => context.store.set(mintStateFormAtom, { ...context.store.get(mintStateFormAtom), walletName: "Private account draft" }));
+  first.unmount();
+  if (kind === "account") context.store.set(activeAddressAtom, "addr_test1other");
+  else context.store.set(networkIdAtom, 1);
+  mocks.search = "intent=new-wallet&step=configure";
+  mount(context);
+  await waitFor(() => expect(context.store.get(mintStateFormAtom).walletName).not.toBe("Private account draft"));
 });

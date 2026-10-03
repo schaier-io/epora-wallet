@@ -431,6 +431,7 @@ it("keeps the identity when a focus read fails for another reason", async () => 
 
   expect(mocks.enable).toHaveBeenCalledTimes(1);
   expect(screen.getByTestId("address").textContent).toBe("addr_test1old");
+  expect(latest.current!.connectError).not.toBeNull();
 });
 
 it("does not rescan installed wallets when only the active wallet changes", async () => {
@@ -726,4 +727,24 @@ it("settles a saved demo session when a real extension is installed instead", as
   });
   expect(screen.getByTestId("wallet").textContent).toBe("lace");
   expect(screen.getByTestId("session-loading").textContent).toBe("false");
+});
+
+
+it("reports a stalled focus identity read and ignores its late result", async () => {
+  vi.useFakeTimers();
+  try {
+    inject({ lace: {} });
+    const wallet = { ...fakeWallet("addr_test1old"), getUsedAddresses: vi.fn().mockResolvedValueOnce(["addr_test1old"]) };
+    mocks.enable.mockResolvedValue(wallet);
+    renderProvider();
+    await act(async () => { await latest.current!.connectWallet("lace"); });
+    let finish!: (value: string[]) => void;
+    wallet.getUsedAddresses.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    await act(async () => { window.dispatchEvent(new Event("focus")); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(90_000); });
+    expect(latest.current!.connectError).toContain("did not respond");
+    expect(latest.current!.activeAddress).toBe("addr_test1old");
+    await act(async () => { finish(["addr_test1late"]); });
+    expect(latest.current!.activeAddress).toBe("addr_test1old");
+  } finally { vi.useRealTimers(); }
 });

@@ -249,3 +249,76 @@ it.each([1, 2, 3, 4])("blocks signing or broadcast when consent check %s fails",
   expect(wallet.submitTx).toHaveBeenCalledTimes(failAt > 3 ? 1 : 0);
   expect(mocks.providerSubmitTx).not.toHaveBeenCalled();
 });
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>(finish => { resolve = finish; });
+  return { promise, resolve };
+}
+
+it("reports the real checking, signature and broadcast boundaries while each promise waits", async () => {
+  const consent = deferred<void>();
+  const signature = deferred<string>();
+  const bounds = deferred<void>();
+  const broadcast = deferred<string>();
+  mocks.requireBetaConsent.mockReturnValueOnce(consent.promise);
+  mocks.assertSerializedTransactionSizeIsBounded.mockReturnValueOnce(bounds.promise);
+  const phases: string[] = [];
+  const wallet = { getNetworkId: vi.fn().mockResolvedValue(0), signTx: vi.fn().mockReturnValue(signature.promise), submitTx: vi.fn().mockReturnValue(broadcast.promise) };
+  const pending = signAndSubmitTx(wallet as never, "unsigned", { onPhase: phase => phases.push(phase) });
+  expect(phases.at(-1)).toBe("checking");
+  expect(wallet.signTx).not.toHaveBeenCalled();
+  consent.resolve();
+  await vi.waitFor(() => expect(wallet.signTx).toHaveBeenCalledOnce());
+  expect(phases.at(-1)).toBe("signing");
+  expect(wallet.submitTx).not.toHaveBeenCalled();
+  signature.resolve(VERIFYING_WALLET_PAYLOAD);
+  await vi.waitFor(() => expect(mocks.assertSerializedTransactionSizeIsBounded).toHaveBeenCalledOnce());
+  expect(phases.at(-1)).toBe("checking");
+  expect(wallet.submitTx).not.toHaveBeenCalled();
+  bounds.resolve();
+  await vi.waitFor(() => expect(wallet.submitTx).toHaveBeenCalledOnce());
+  expect(phases.at(-1)).toBe("submitting");
+  expect(mocks.requireBetaConsent).toHaveBeenCalledTimes(3);
+  expect(wallet.getNetworkId).toHaveBeenCalledTimes(3);
+  broadcast.resolve("submitted-hash");
+  await expect(pending).resolves.toBe("submitted-hash");
+});
+
+it("returns to checking before the fallback provider's legal and network checks", async () => {
+  const fallbackNetwork = deferred<number>();
+  const provider = deferred<string>();
+  const phases: string[] = [];
+  const wallet = { getNetworkId: vi.fn().mockResolvedValue(0), signTx: vi.fn().mockResolvedValue(VERIFYING_WALLET_PAYLOAD), submitTx: vi.fn().mockRejectedValue(new Error("wallet provider unavailable")) };
+  wallet.getNetworkId.mockResolvedValueOnce(0).mockResolvedValueOnce(0).mockResolvedValueOnce(0).mockReturnValueOnce(fallbackNetwork.promise);
+  mocks.providerSubmitTx.mockReturnValueOnce(provider.promise);
+  const pending = signAndSubmitTx(wallet as never, "unsigned", { onPhase: phase => phases.push(phase) });
+  await vi.waitFor(() => expect(wallet.getNetworkId).toHaveBeenCalledTimes(4));
+  expect(phases.at(-1)).toBe("checking");
+  expect(mocks.providerSubmitTx).not.toHaveBeenCalled();
+  expect(mocks.requireBetaConsent).toHaveBeenCalledTimes(4);
+  fallbackNetwork.resolve(0);
+  await vi.waitFor(() => expect(mocks.providerSubmitTx).toHaveBeenCalledOnce());
+  expect(phases.at(-1)).toBe("submitting");
+  provider.resolve("fallback-hash");
+  await expect(pending).resolves.toBe("fallback-hash");
+});
+
+it("reports a second signature phase when script integrity requires a new wallet signature", async () => {
+  const retrySignature = deferred<string>();
+  const phases: string[] = [];
+  const mismatch = new Error("script integrity mismatch");
+  mocks.extractIntegrity.mockImplementation(error => error === mismatch ? "correct-hash" : null);
+  mocks.addVKeyWitnessSetToTransaction.mockReturnValueOnce("signed-transaction").mockReturnValueOnce("corrected-signed");
+  mocks.readScriptDataHash.mockImplementation(txHex => txHex === "corrected" || txHex === "corrected-signed" ? "correct-hash" : null);
+  const wallet = { getNetworkId: vi.fn().mockResolvedValue(0), signTx: vi.fn().mockResolvedValueOnce(VERIFYING_WALLET_PAYLOAD).mockReturnValueOnce(retrySignature.promise), submitTx: vi.fn().mockRejectedValueOnce(mismatch).mockResolvedValueOnce("retry-hash") };
+  const pending = signAndSubmitTx(wallet as never, "unsigned", { onPhase: phase => phases.push(phase) });
+  await vi.waitFor(() => expect(wallet.signTx).toHaveBeenCalledTimes(2));
+  expect(phases.at(-1)).toBe("signing");
+  expect(phases.filter(phase => phase === "signing")).toHaveLength(2);
+  expect(mocks.providerSubmitTx).not.toHaveBeenCalled();
+  retrySignature.resolve(VERIFYING_WALLET_PAYLOAD);
+  await expect(pending).resolves.toBe("retry-hash");
+  expect(phases.at(-1)).toBe("submitting");
+  expect(mocks.requireBetaConsent).toHaveBeenCalledTimes(5);
+});

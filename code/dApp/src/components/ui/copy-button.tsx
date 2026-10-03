@@ -17,9 +17,8 @@ type CopyButtonProps = Omit<ButtonProps, "onClick" | "children"> & {
 };
 
 // A tick is confirmation of something the user expected, so it can go as soon as it registers.
-// A failure has to be read, and it carries an instruction, so it stays long enough to act on.
+// Keep a failed copy visible until retry, so the manual-copy field stays available.
 const COPIED_MS = 1600;
-const BLOCKED_MS = 6000;
 
 /**
  * Nothing here reaches for the toast provider. No other `ui/` component does, and the message
@@ -39,6 +38,7 @@ export function CopyButton({
 }: CopyButtonProps) {
   const i18n = useTranslations("ComponentsUiCopyButton");
   const resolvedLabel = label ?? i18n("copy");
+  const accessibleLabel = label ?? i18n("copyValue", { value: value.length > 28 ? `${value.slice(0, 12)}…${value.slice(-8)}` : value });
   const resolvedCopiedLabel = copiedLabel ?? i18n("copied");
   const [result, setResult] = useState<"idle" | "copied" | "blocked">("idle");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -60,28 +60,20 @@ export function CopyButton({
       onCopied?.();
     }
     if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(
-      () => setResult("idle"),
-      copied ? COPIED_MS : BLOCKED_MS
-    );
+    timerRef.current = copied ? setTimeout(() => setResult("idle"), COPIED_MS) : null;
   };
 
   const blocked = result === "blocked";
   const copied = result === "copied";
 
   return (
+    <span className="inline-flex max-w-full flex-wrap items-center gap-1">
     <Button
       type="button"
       variant={variant}
       size={size}
       onClick={handleClick}
-      aria-label={
-        blocked
-          ? i18n("nothingWasCopiedSelectTheTextAndCopy")
-          : copied
-            ? resolvedCopiedLabel
-            : resolvedLabel
-      }
+      aria-label={accessibleLabel}
       className={cn(
         hideLabel ? "px-2" : undefined,
         copied && "text-emerald-200",
@@ -102,5 +94,18 @@ export function CopyButton({
       )}
       {hideLabel ? null : blocked ? i18n("copyBlocked") : copied ? resolvedCopiedLabel : resolvedLabel}
     </Button>
+    <span role="status" className={blocked ? "basis-full text-xs text-amber-200" : "sr-only"}>
+      {blocked ? i18n("nothingWasCopiedSelectTheTextAndCopy") : copied ? resolvedCopiedLabel : ""}
+    </span>
+    {blocked ? (
+      <textarea
+        readOnly
+        aria-label={accessibleLabel}
+        value={value}
+        onFocus={(event) => event.currentTarget.select()}
+        className="basis-full max-w-full rounded border border-border bg-background p-2 font-mono text-base sm:text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      />
+    ) : null}
+    </span>
   );
 }

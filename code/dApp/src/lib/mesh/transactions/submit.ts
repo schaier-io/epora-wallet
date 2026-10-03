@@ -8,11 +8,14 @@ import { addVKeyWitnessSetToTransaction, deserializeTx, type CstTransaction } fr
 // "./internals", and a barrel re-export would be shadowed by that mock factory.
 import { assertVKeyWitnessesSignTxBody } from "./internals/witness-body-binding";
 
+export type SubmitPhase = "checking" | "signing" | "submitting";
+
 export async function signAndSubmitTx(
   wallet: BrowserWallet,
   txHex: string,
   options: {
     assertCurrent?: () => void | Promise<void>;
+    onPhase?: (phase: SubmitPhase) => void;
     beforeBroadcast?: (transaction: { txHash: string; invalidHereafter?: number }) => void;
   } = {}
 ) {
@@ -21,6 +24,7 @@ export async function signAndSubmitTx(
       throw new Error(`Connected wallet must use ${CARDANO_NETWORK} before signing or submitting.`);
     }
   };
+  options.onPhase?.("checking");
   await requireBrowserBetaConsent();
   await assertWalletNetwork();
   const fetcher = new ServerFetcher();
@@ -35,6 +39,7 @@ export async function signAndSubmitTx(
     expectedHash: string | null,
     diagnostics: Record<string, unknown>
   ) => {
+    options.onPhase?.("checking");
     const unsignedScriptDataHash = readScriptDataHash(unsignedTxHex);
     if (expectedHash && unsignedScriptDataHash !== expectedHash) {
       throw createStageError(
@@ -56,7 +61,9 @@ export async function signAndSubmitTx(
     // The ledger verifies every vkey signature over exactly this body hash, so
     // a witness made for any other body would make the transaction invalid.
     const intendedBodyHash = resolveTxHash(unsignedTxHex);
+    options.onPhase?.("signing");
     const signedPayload = await wallet.signTx(unsignedTxHex, true);
+    options.onPhase?.("checking");
     const normalizedSignedPayload = signedPayload.trim();
     let signed = unsignedTxHex;
     let signerPayloadKind = "witness-set";
@@ -140,6 +147,7 @@ export async function signAndSubmitTx(
     signed: string,
     diagnostics: Record<string, unknown>
   ) => {
+    options.onPhase?.("checking");
     await withStage(
       "submit:validate-transaction-bounds",
       async () => assertSerializedTransactionSizeIsBounded(signed),
@@ -157,7 +165,10 @@ export async function signAndSubmitTx(
     try {
       return await withStage(
         "submit:wallet.submitTx",
-        async () => wallet.submitTx(signed),
+        async () => {
+          options.onPhase?.("submitting");
+          return wallet.submitTx(signed);
+        },
         diagnostics
       );
     } catch (error) {
@@ -177,9 +188,11 @@ export async function signAndSubmitTx(
       return withStage(
         "submit:blockfrost.submitTx",
         async () => {
+          options.onPhase?.("checking");
           await requireBrowserBetaConsent();
           await assertWalletNetwork();
           await options.assertCurrent?.();
+          options.onPhase?.("submitting");
           return fetcher.submitTx(signed);
         },
         {
@@ -211,6 +224,7 @@ export async function signAndSubmitTx(
   try {
     return await submitSigned(signedResult.signed, firstSubmitDiagnostics);
   } catch (error) {
+    options.onPhase?.("checking");
     const computedScriptIntegrity = extractComputedScriptIntegrity(error);
     const currentScriptDataHash = readScriptDataHash(txHexWithLiveScriptDataHash);
 

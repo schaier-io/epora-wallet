@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { Input } from "@/components/ui/input";
+import { isNonNegativeUint64Decimal } from "@/lib/contracts/on-chain-integer";
 import { Slider } from "@/components/ui/slider";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils/cn";
@@ -55,8 +57,9 @@ export function ApprovalPowerSlider({
   className?: string;
 }) {
   const parsed = Number.parseInt(value, 10);
-  const exactValueNeedsStaticDisplay =
+  const exactValueNeedsEditor =
     /^\d+$/.test(value.trim()) && !Number.isSafeInteger(parsed);
+  const [exactEditor] = useState(exactValueNeedsEditor);
   // The caller's ceiling ignores the number this slider writes, so it cannot
   // shrink mid-drag. A number stored above it still has to be representable, so
   // the range is widened once, from the value this slider was first handed, and
@@ -78,18 +81,19 @@ export function ApprovalPowerSlider({
 
   // Radix sliders use JavaScript numbers. Keep an exact large on-chain value
   // visible, but do not let a pointer gesture round and overwrite it.
-  if (exactValueNeedsStaticDisplay) {
+  if (exactEditor || exactValueNeedsEditor) {
     return (
-      <p
+      <Input
         id={id}
+        inputMode="numeric"
         aria-labelledby={labelledBy}
         aria-describedby={describedBy}
-        aria-invalid={invalid ? true : undefined}
-        aria-disabled="true"
-        className={cn("text-base font-semibold tabular-nums text-foreground", className)}
-      >
-        {value.trim()}
-      </p>
+        aria-invalid={invalid || !isNonNegativeUint64Decimal(value) || BigInt(value || "0") < BigInt(min) || undefined}
+        disabled={disabled}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className={cn("font-mono tabular-nums", className)}
+      />
     );
   }
 
@@ -122,9 +126,9 @@ export function ApprovalPowerSlider({
           same half-thumb inset the thumb centre travels in. */}
       <div className="relative mx-2.5 mb-1 h-6">
         <span
-          style={{ left: `${fractionOf(current) * 100}%` }}
+          style={{ left: `clamp(0px, calc(${fractionOf(current) * 100}% - 5rem), max(0px, calc(100% - 10rem)))` }}
           className={cn(
-            "absolute top-0 -translate-x-1/2 text-base font-semibold leading-6 tabular-nums",
+            "absolute top-0 w-40 max-w-full break-all text-center text-base font-semibold leading-6 tabular-nums",
             "transition-[left,color] duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
             tone === "invalid" && "text-[hsl(0_84%_60%)]",
             tone === "full" && "text-[hsl(var(--brand-warm))]",
@@ -196,7 +200,7 @@ export function ApprovalPowerSlider({
                 disabled={disabled}
                 onClick={() => onChange(String(fullAt))}
                 className={cn(
-                  "absolute top-0 -translate-x-1/2 rounded px-1 leading-4",
+                  "absolute -top-2 -translate-x-1/2 inline-flex min-h-11 min-w-11 items-center justify-center rounded px-1 leading-4 sm:min-h-6 sm:min-w-6",
                   "font-semibold text-[hsl(var(--brand-warm))] underline decoration-dotted underline-offset-2",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   "disabled:cursor-not-allowed"

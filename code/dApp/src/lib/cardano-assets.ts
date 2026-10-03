@@ -58,32 +58,6 @@ export function hexToAscii(hex: string): string {
 }
 
 /**
- * Known-by-name registry. The lookup is case-insensitive on the *decoded*
- * asset name (after CIP-67 prefix stripping). Stable + popular ecosystem
- * tokens are included; extend as needed.
- */
-const KNOWN_BY_SYMBOL: Record<string, KnownAssetMeta> = {
-  USDM: { symbol: "USDM", name: "Mehen USDM", accent: "stable" },
-  USDC: { symbol: "USDC", name: "Anzens USDC", accent: "stable" },
-  USDT: { symbol: "USDT", name: "Tether USDT", accent: "stable" },
-  DJED: { symbol: "DJED", name: "Djed", accent: "stable" },
-  SHEN: { symbol: "SHEN", name: "Djed reserve", accent: "stable" },
-  iUSD: { symbol: "iUSD", name: "Indigo iUSD", accent: "stable" },
-  MIN: { symbol: "MIN", name: "Minswap", accent: "defi" },
-  LQ: { symbol: "LQ", name: "Liqwid", accent: "defi" },
-  AGIX: { symbol: "AGIX", name: "SingularityNET", accent: "utility" },
-  WMT: { symbol: "WMT", name: "World Mobile Token", accent: "utility" },
-  COPI: { symbol: "COPI", name: "Cornucopias", accent: "utility" },
-  CHARLI3: { symbol: "CHARLI3", name: "Charli3", accent: "defi" },
-  HOSKY: { symbol: "HOSKY", name: "Hosky", accent: "meme" },
-  SNEK: { symbol: "SNEK", name: "Snek", accent: "meme" },
-  BOOK: { symbol: "BOOK", name: "Book.io", accent: "utility" },
-  iETH: { symbol: "iETH", name: "Indigo iETH", accent: "defi" },
-  iBTC: { symbol: "iBTC", name: "Indigo iBTC", accent: "defi" },
-  INDY: { symbol: "INDY", name: "Indigo INDY", accent: "defi" }
-};
-
-/**
  * Split a Cardano asset unit into policyId and assetName.
  */
 export function splitAssetUnit(unit: string): { policyId: string; assetNameHex: string } {
@@ -119,10 +93,7 @@ export function resolveAssetIdentity(unit: string): {
   const decoded = hexToAscii(strippedHex).trim();
 
   if (decoded.length > 0) {
-    const knownMeta = KNOWN_BY_SYMBOL[decoded] ?? KNOWN_BY_SYMBOL[decoded.toUpperCase()] ?? null;
-    if (knownMeta) {
-      return { symbol: knownMeta.symbol, name: knownMeta.name, knownMeta, decodedAssetName: decoded };
-    }
+    // Names are untrusted metadata. Without a verified policy registry, do not infer an issuer.
     return { symbol: decoded, name: decoded, knownMeta: null, decodedAssetName: decoded };
   }
 

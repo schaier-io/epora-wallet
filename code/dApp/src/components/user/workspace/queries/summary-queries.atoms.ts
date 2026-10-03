@@ -65,10 +65,13 @@ const summaryObserversAtom = atom((get) => {
           error: target.error ?? (result.error ? i18n("couldnTLoadThisSmartWalletSBalance") : null)
         } satisfies PermissionWalletLockedSummary];
       })),
-      loading: results.some((result, index) => Boolean(targets[index].address) && result.isPending)
+      loading: results.some((result, index) => Boolean(targets[index].address) && result.isPending),
+      refreshing: results.some((result, index) => Boolean(targets[index].address) && result.isFetching)
     })
   });
 });
 
 export const permissionWalletSummariesAtom = atom((get) => get(get(summaryObserversAtom)).summaries);
 export const permissionWalletSummariesLoadingAtom = atom((get) => get(summaryReadsEnabledAtom) && get(get(summaryObserversAtom)).loading);
+
+export const permissionWalletSummariesRefreshingAtom = atom((get) => get(summaryReadsEnabledAtom) && get(get(summaryObserversAtom)).refreshing);

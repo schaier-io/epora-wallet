@@ -151,7 +151,7 @@ describe("workspace header", () => {
       loading: false,
       error: null
     });
-    expect(screen.getByText("Connected wallet: 2.50 ADA")).toBeTruthy();
+    expect(screen.getByText("Connected wallet: 2.5 ADA")).toBeTruthy();
     unmount();
 
     renderWith({ assets: [], loading: false, error: "Could not read the balance." });
@@ -203,8 +203,8 @@ describe("workspace header", () => {
     expect(actions.refreshPermissionWalletSummaries).not.toHaveBeenCalled();
   });
 
-  // The State datum comes from token detection, which the summary refresh does not run.
-  it("re-reads the selected wallet's State as well as its summary", () => {
+  // The shared summary refresh owns the State read, then funds and activity.
+  it("uses one shared selected-wallet refresh", () => {
     actions.refreshDetectedTokens.mockResolvedValue(null);
     actions.refreshWorkspaceSummary.mockResolvedValue(undefined);
     renderWith({ assets: [], loading: false, error: null }, false, null, true);
@@ -212,6 +212,6 @@ describe("workspace header", () => {
     fireEvent.click(screen.getByRole("button", { name: "Refresh wallet funds, summaries, and recent activity" }));
 
     expect(actions.refreshWorkspaceSummary).toHaveBeenCalledWith(true);
-    expect(actions.refreshDetectedTokens).toHaveBeenCalledWith({ keepSelection: true });
+    expect(actions.refreshDetectedTokens).not.toHaveBeenCalled();
   });
 });

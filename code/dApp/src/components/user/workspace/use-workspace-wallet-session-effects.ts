@@ -1,4 +1,5 @@
 "use client";
+import { reconcileWorkspaceWalletAtom, workspaceDraftOwnerAtom, workspaceDraftIdentityAtom } from "./atoms/workspace-draft-revision.atoms";
 import { detectedSttTokensAtom, detectedSttTokensErrorAtom, detectedSttTokensLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { useWorkspaceRouteState } from "@/components/user/use-workspace-controller";
 import { configAtom } from "@/components/user/workspace/atoms/workspace-config.atoms";
@@ -106,6 +107,12 @@ export function useWorkspaceWalletSessionEffects(ctx: WorkspaceWalletSessionEffe
   );
 
   useEffect(() => {
+    if (selectedDetectedToken && isRouteStateCurrent && walletReady) {
+      jotaiStore.set(reconcileWorkspaceWalletAtom, selectedDetectedToken);
+    }
+  }, [selectedDetectedToken, isRouteStateCurrent, walletReady, jotaiStore]);
+
+  useEffect(() => {
     // Close a wallet that is not this key's to open. `workspace-view.tsx` already diverted to
     // the picker rather than render one, but the SELECTION itself survived: the top nav's
     // `carriesWallet` links rebuilt `?wallet=<unit>` on every trip to Smart wallet and
@@ -154,7 +161,8 @@ export function useWorkspaceWalletSessionEffects(ctx: WorkspaceWalletSessionEffe
       detectedTokens: detectedSttTokens,
       selectedUnit: selectedDetectedTokenUnit,
       defaultUnit: defaultDetectedWalletUnit,
-      config: jotaiStore.get(configAtom)
+      config: jotaiStore.get(workspaceDraftOwnerAtom) === jotaiStore.get(workspaceDraftIdentityAtom)
+        ? jotaiStore.get(configAtom) : {}
     });
 
     if (!selectedToken) {

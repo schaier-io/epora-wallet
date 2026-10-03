@@ -85,7 +85,13 @@
     "value1Ada": "{value1} ADA",
     "value1Value2": "{value1} {value2}",
     "willSendTo": "Will send to",
-    "yourSpendingLimit": "Your spending limit"
+    "yourSpendingLimit": "Your spending limit",
+    "maxUsesAllowance": "Use available balance within your remaining allowance.",
+    "editPayout": "Edit",
+    "editPayoutRecipient": "Payout recipient address",
+    "editPayoutAssets": "Payout assets",
+    "copyPayoutAddress": "Copy payout recipient address",
+    "stagedMaxUnavailable": "Max is unavailable for allowance spending or while another payout draft exists. Enter amounts manually, then review the total."
   },
   "ComponentsUserWorkspaceConfigWalletpublishView": {
     "alwaysAbstain": "Always abstain",
@@ -237,7 +243,6 @@
     "ownersSpendersAndTheWalletsLinkedToThem": "Owners, spenders, and the wallets linked to them.",
     "people": "People",
     "permissions": "Permissions",
-    "person": "Person",
     "remove": "Remove",
     "removeConfirmBody": "This removes this person from the wallet. This cannot be undone.",
     "removeConfirmTitle": "Remove this person?",
@@ -259,7 +264,8 @@
     "thisWalletAlreadyHoldsMaxPeople": "This wallet already holds {max} people, owners and spenders together. Remove one to add another.",
     "thisPersonAlreadyHasMaxWallets": "This person already has {max} wallets. Remove one to add another.",
     "thisWalletAlreadyHasMaxLimits": "This wallet already has {max} spending limits across everyone in it. Remove one to add another.",
-    "thisWalletAlreadyLinksMaxWallets": "This wallet already links {max} wallets across everyone in it. Remove one from somebody to add another."
+    "thisWalletAlreadyLinksMaxWallets": "This wallet already links {max} wallets across everyone in it. Remove one from somebody to add another.",
+    "copyPersonWalletId": "Copy wallet ID for person #{id}"
   },
   "ComponentsUserWorkspaceEditorsFocusedWalletSettingsEditor": {
     "addRecoveryContact": "Add recovery contact",
@@ -289,9 +295,14 @@
     "walletSettings": "Wallet settings",
     "yes": "Yes",
     "thisWalletAlreadyHoldsMaxAccessRecords": "This wallet already holds {max} owners, spenders, and recovery contacts in total. Remove one to add another.",
-    "thisWalletAlreadyHoldsMaxRecoveryContacts": "This wallet already holds {max} recovery contacts. Remove one to add another."
+    "thisWalletAlreadyHoldsMaxRecoveryContacts": "This wallet already holds {max} recovery contacts. Remove one to add another.",
+    "draftIssues": "Fix these draft issues before saving. Changes on all settings tabs are saved together.",
+    "checkTask": "Check {task}",
+    "taskIssueCount": "{label}, {count} issues",
+    "globalIssue": "This issue affects the whole draft."
   },
   "ComponentsUserWorkspaceEditorsGuidedFields": {
+    "timeOfDayUtc": "Time of day (UTC)",
     "available": "Available",
     "chooseBothADateAndTimeTheyAreReadInUtc": "Choose both a date and time. They are read in UTC.",
     "clear": "Clear",
@@ -365,6 +376,9 @@
     "thisWalletAlreadyHoldsMaxPeople": "This wallet already holds {max} people, owners and spenders together. Remove one to add another."
   },
   "ComponentsUserWorkspaceEditorsPrimitives": {
+    "policyId": "Policy: {policy}",
+    "assetIdentity": "Asset identity",
+    "unverifiedIssuer": "Issuer not verified",
     "chooseAnAsset": "Choose an asset",
     "close": "Close",
     "connectedWallet": "Connected wallet",
@@ -487,9 +501,9 @@
     "paidSoFar": "Paid so far",
     "paidSoFar_ed3197": "Paid so far:",
     "perDay": "per day",
-    "perMonth": "per month",
+    "perMonth": "per 30 days",
     "perWeek": "per week",
-    "perYear": "per year",
+    "perYear": "per 365 days",
     "paySomethingOtherThanAda": "Pay something other than ADA",
     "paysTo": "Pays to",
     "policyId": "Policy ID",
@@ -510,7 +524,12 @@
     "value1Ada": "{value1} ADA",
     "yourPayeeCollectsThisOnThe": "Your payee collects this on the",
     "scheduledIncomePage": "Scheduled income page.",
-    "thisWalletAlreadyHoldsMaxScheduledPayments": "This wallet already holds {max} scheduled payments. Remove one to add another."
+    "thisWalletAlreadyHoldsMaxScheduledPayments": "This wallet already holds {max} scheduled payments. Remove one to add another.",
+    "allScheduleChangesSavedTogether": "Saving applies all schedule changes in this draft, including changes on other tabs.",
+    "reviewAllSchedules": "Review all {count} schedules in this draft",
+    "scheduleDraftRow": "Payment #{id}: {address}. Ends {end}.",
+    "recipientNotSet": "Recipient not set",
+    "dateNotSet": "End date not set"
   },
   "ComponentsUserWorkspaceEditorsTaskSurface": {
     "iUnderstandAndWantThisWalletToHave": "I understand, and want this wallet to have no owner.",

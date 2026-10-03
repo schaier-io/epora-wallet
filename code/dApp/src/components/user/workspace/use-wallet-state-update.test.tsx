@@ -8,7 +8,7 @@ import { STT_STATE_REFRESH_POLL_MS } from "./constants";
 import { routeStateAtom } from "./atoms/workspace-route.atoms";
 import { parseWorkspaceRouteState } from "@/components/user/workspace-controller";
 import {
-  pendingWalletStateUpdatesAtom, WALLET_STATE_STORAGE_KEY, WALLET_STATE_RECORD_PREFIX,
+  walletStateChecksAtom, pendingWalletStateUpdateAtom, pendingWalletStateUpdatesAtom, WALLET_STATE_STORAGE_KEY, WALLET_STATE_RECORD_PREFIX,
   type PendingWalletStateUpdate, type SttInputRef
 } from "./atoms/wallet-state-update.atoms";
 import { sttInputTxHashAtom, sttInputOutputIndexAtom } from "./atoms/forms/stt-spend-form.atoms";
@@ -129,7 +129,7 @@ it("#433 does not expire an uncertain submission from browser time or an earlier
   vi.setSystemTime(new Date("2099-01-01T00:00:00Z"));
   rpc({ confirmed: false, slot: 999 });
   await expect(readUsableWalletReplacement(client(), { ...PENDING, invalidHereafter: 1000 }, new AbortController().signal))
-    .rejects.toThrow("Transaction not indexed");
+    .resolves.toBeNull();
   expect(mocks.detectSttInfo).not.toHaveBeenCalled();
 });
 
@@ -217,4 +217,18 @@ it("keeps polling an unindexed transaction instead of caching the miss", async (
       new AbortController().signal).catch(() => null);
   }
   expect(txInfoCalls()).toBe(2);
+});
+
+
+it("does not carry a previous transaction's successful check into a new failed check", async () => {
+  vi.useFakeTimers();
+  rpc({ confirmed: false, slot: null });
+  const store = createStore();
+  store.set(queryClientAtom, client());
+  store.set(routeStateAtom, parseWorkspaceRouteState(new URLSearchParams(`wallet=${UNIT}`)));
+  store.set(walletStateChecksAtom, { [UNIT]: { txHash: "previous", checkedAt: 100, lastSuccessfulAt: 100, phase: "waiting" } });
+  store.set(pendingWalletStateUpdateAtom, { ...PENDING, invalidHereafter: 1000 });
+  render(<Provider store={store}><Reader /></Provider>);
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  expect(store.get(walletStateChecksAtom)[UNIT]).toMatchObject({ txHash: PENDING.submittedTxHash, phase: "unavailable", lastSuccessfulAt: null });
 });

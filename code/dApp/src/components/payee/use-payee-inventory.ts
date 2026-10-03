@@ -49,5 +49,5 @@ export function usePayeeInventory(enabled = true) {
       // Query owns the error. Keep a successful transaction's feedback visible.
     }
   }, [client, policyId]);
-  return { tokens: query.data?.tokens ?? [], loading: query.isPending, fetching: query.isFetching, error: query.error, refresh };
+  return { hasData: query.data !== undefined, tokens: query.data?.tokens ?? [], loading: query.isPending, fetching: query.isFetching, error: query.error, refresh };
 }

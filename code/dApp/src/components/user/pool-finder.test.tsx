@@ -237,3 +237,9 @@ it("retains Retry-After when a rate-limited pool response contains HTML", async 
   expect(error).toMatchObject({ status: 429, retryAfterMs: 60_000 });
   expect(queryRetryDelay(0, error)).toBe(60_000);
 });
+
+
+it.each([1, 1.05])("explains saturation at or above capacity (%s)", (saturation) => {
+  render(<PoolFinder selectedPool={{...BASE_POOL, saturation}} onSelect={vi.fn()} />);
+  expect(screen.getByText("At or over capacity")).toBeInTheDocument();
+});

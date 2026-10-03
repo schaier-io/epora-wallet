@@ -193,3 +193,9 @@ describe("automatic claim details", () => {
     expect(screen.getByText("This wallet is not delegated to a stake pool.")).toBeInTheDocument();
   });
 });
+
+// UX UI-04: a failed reward lookup must announce its outcome.
+it("announces reward lookup failure", () => {
+  renderView({ stakingEnabled: true, rewards: { error: true } });
+  expect(screen.getByRole("alert")).toHaveTextContent("Could not load staking rewards");
+});
