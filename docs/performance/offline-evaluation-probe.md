@@ -109,6 +109,19 @@ REPORTED: The production Next build completed after removing a stale generated p
 The local build temporarily expanded `turbopack.root` to resolve the existing dependency symlink.
 That configuration change and the test routes were removed afterward.
 
+## Correction after the cache-scope diagnosis, 2026-10-04
+
+VERIFIED correction: The earlier 24 component failures came from mock transports sharing immutable metadata.
+The earlier unchanged baseline already included that cache. Baseline reproduction did not prove those failures were unrelated.
+The owning cache layer now requires an explicit shared transport scope.
+Custom providers retain their own identity unless they opt into sharing.
+The two affected suites returned `Tests 51 passed (51)` after the repair.
+
+VERIFIED: The Worker diagnostic now formats its internal message before it creates the same failure response.
+The i18n audit returned `No internal sentinels, raw user-facing errors, or static visible text bypass i18n.`
+Worker and hybrid checks returned `Tests 30 passed (30)`.
+This does not establish live budget parity or deployed latency.
+
 ## Least confident decisions
 
 1. INFERRED: A warm worker may reduce draft build latency. Live remote timing remains necessary before shipping.

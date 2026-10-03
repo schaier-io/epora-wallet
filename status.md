@@ -173,3 +173,12 @@ VERIFIED: The two affected integration suites returned `Tests 51 passed (51)`.
 The metadata suite returned `tests 10; pass 10; fail 0`.
 Restoring only the original cache source retained the regression and exited 1 with `actual: 1, expected: 0`.
 Limit: The tests use mock ledgers. They do not establish deployed cache latency.
+
+## Local evaluation diagnostic formatting (2026-10-04)
+
+VERIFIED: The i18n audit flagged the Worker's internal failure response.
+The Worker now formats the diagnostic before it creates the response. The response payload is unchanged.
+Production callers discard this diagnostic and use remote evaluation. It is not UI text.
+VERIFIED: The i18n audit returned `No internal sentinels, raw user-facing errors, or static visible text bypass i18n.`
+Worker and hybrid tests returned `Tests 30 passed (30)`.
+REPORTED: The final independent adversarial review found no defects and independently returned `Tests 30 passed (30)`.

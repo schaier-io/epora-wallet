@@ -22,7 +22,9 @@ workerScope.onmessage = (event) => {
       const actions = await evaluator.evaluateTx(txHex, utxos, additionalTxs);
       workerScope.postMessage({ ok: true, actions });
     } catch (error) {
-      workerScope.postMessage({ ok: false, error: error instanceof Error ? error.message : "Local evaluation failed." });
+      // Internal diagnostics trigger remote fallback. The UI does not display this message.
+      const message = error instanceof Error ? error.message : "Local evaluation failed.";
+      workerScope.postMessage({ ok: false, error: message });
     }
   })();
 };
