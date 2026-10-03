@@ -1,6 +1,6 @@
 # Vercel transaction build caches
 
-Owner: coordinator. Status: In Progress. Updated: 2026-10-04.
+Owner: coordinator. Status: Source complete. Updated: 2026-10-04.
 
 ## Approved scope
 
@@ -102,6 +102,44 @@ Its source scan captured the temporary probe's `<main>` before cleanup.
 The clean full Node run and production build remain pending.
 The complete i18n gate also flagged the existing Worker diagnostic response.
 That internal response triggers remote fallback. Its formatting repair belongs to the evaluation layer.
+
+## Final stack verification, 2026-10-04
+
+VERIFIED correction: The stack now rests on `main` at `6a0e99b6`.
+The later rebase retained both status records and all upstream minimum-ADA tests.
+The custom minimum-ADA fixture now supplies the same values through typed and raw protocol reads.
+
+VERIFIED correction: The first Worker formatting change passed the narrow error audit.
+The complete i18n gate still rejected its string variable.
+The Worker now normalizes failures as `Error` values before creating the unchanged response payload.
+The complete i18n gate returned exit 0, and focused tests returned `Tests 30 passed (30)`.
+REPORTED: The final diagnostic review verified six error cases preserve the exact response payload.
+
+VERIFIED: Socket Firewall completed a frozen lockfile install with exit 0.
+Final validation uses Node `24.21.0` and the locked Next `16.3.8`.
+The component run returned `Tests 2169 passed (2169)` across 215 files.
+Type checking, full ESLint, and the complete i18n gate returned exit 0.
+OpenAPI returned `OpenAPI document is in sync`.
+Generated fixtures returned `generated fixtures match committed CBOR`.
+Helper checks returned `user-flow helper smoke checks passed`.
+Source length returned `File length OK: 791 source files checked, none over 750 lines.`
+
+VERIFIED: The local Turbopack build could not bind its worker port:
+`binding to a port; Operation not permitted (os error 1)`.
+The Webpack production build returned exit 0 and `Compiled successfully in 29.8s`.
+Webpack does not emit this project's expected route statistics.
+The bundle gate reported `no build stats found`, so local bundle budgets remain unverified.
+CI keeps the existing Turbopack build and bundle gate.
+
+VERIFIED correction: The first locked Node run returned `pass 1927; fail 2; skipped 26`.
+Both configuration failures came from `ERR_SWC_NATIVE_CACHE` under the restricted user cache.
+With `SWC_NATIVE_BINDING_CACHE` set to a temporary writable directory,
+the two configuration test files returned `tests 10; pass 10; fail 0`.
+VERIFIED: The full rerun returned `tests 1955; pass 1929; fail 0; skipped 26`.
+Database cases require Postgres and remain outside local validation.
+
+REPORTED: The final cross-layer adversarial review found no functional defects.
+The review checked protocol snapshots, transport scope, regional keys, remote fallback, and warmup guards.
 
 ## Least confident decisions
 
