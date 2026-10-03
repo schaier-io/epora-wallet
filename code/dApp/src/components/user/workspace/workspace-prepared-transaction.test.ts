@@ -176,6 +176,9 @@ for (const action of ["lock-funds", "mint"] as const) {
     assert.equal(preparedWorkspaceTransactionIsCurrent(store, prepared, BUILT_AT), true);
     store.set(walletStateSubmissionsAtom, { wallet: true });
     assert.equal(preparedWorkspaceTransactionIsCurrent(store, prepared, BUILT_AT), false);
+    // Its own submit set that flag. It owns no State record, and the STT update it does
+    // not spend must not make its details read as stale.
+    assert.equal(preparedWorkspaceTransactionIsCurrent(store, prepared, BUILT_AT, { walletUnit: "wallet", pending: null }), true);
   });
 }
 

@@ -158,6 +158,10 @@ export function isSttConsumingWorkspaceAction(action: UserActionKind): boolean {
 // funds pays the smart wallet's address from the signer's own UTxOs.
 const WALLET_STATE_INDEPENDENT_ACTIONS = new Set<string>(["mint", "lock-funds"]);
 
+export function isWalletStateIndependentAction(action: string): boolean {
+  return WALLET_STATE_INDEPENDENT_ACTIONS.has(action);
+}
+
 /**
  * Whether `action` must wait for the wallet-state update. A signing still in flight holds
  * every action, as before: one transaction at a time. Once it is submitted, only an action
@@ -170,7 +174,7 @@ export function walletStateBlocksAction(get: Getter, action: string): boolean {
   const submissions = get(walletStateSubmissionsAtom);
   const signing = unit ? Boolean(submissions[unit]) : Object.values(submissions).some(Boolean);
   return signing ||
-    (get(pendingWalletStateUpdateAtom) !== null && !WALLET_STATE_INDEPENDENT_ACTIONS.has(action));
+    (get(pendingWalletStateUpdateAtom) !== null && !isWalletStateIndependentAction(action));
 }
 
 export const selectedActionWaitsForWalletStateAtom = atom(get =>
