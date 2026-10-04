@@ -9,6 +9,7 @@ vi.mock("../queries/activity-query.atoms", async () => {
   const { atom } = await import("jotai");
   return { walletTransactionsAtom: atom({ items: [], loading: false, fetching: false, refreshing: false, error: null }) };
 });
+vi.mock("../queries/activity-inputs.atoms", async () => ({ activityAnchorTxHashesAtom: (await import("jotai")).atom([]) }));
 vi.mock("./workspace-wallet-derivations.atoms", async () => ({ lockingContractAtom: (await import("jotai")).atom({ address: "" }) }));
 vi.mock("./workspace-detected-token.atoms", async () => ({ selectedDetectedTokenAtom: (await import("jotai")).atom(null) }));
 vi.mock("./workspace-spendable-utxos.atoms", async () => ({ spendableWalletUtxosAtom: (await import("jotai")).atom([]) }));
@@ -18,6 +19,7 @@ import { walletTransactionsAtom } from "../queries/activity-query.atoms";
 import { lockingContractAtom } from "./workspace-wallet-derivations.atoms";
 import { spendableWalletUtxosAtom } from "./workspace-spendable-utxos.atoms";
 import { capturePendingActivityInputs, pendingWalletActivityEventsAtom, recordPendingActivity } from "./pending-activity.atoms";
+import { activityPageCountAtom, activityPageIndexAtom, displayedWalletActivityEventsAtom, paginatedWalletActivityEventsAtom, recentWalletTransactionsAtom } from "./workspace-activity.atoms";
 
 const WALLET = bech32Encode("addr_test", Uint8Array.of(0x70, ...new Uint8Array(28).fill(0x22)));
 const PAYEE = "addr_test1vqg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygxrcya6";
@@ -47,6 +49,39 @@ function setup() {
 
 beforeEach(() => { vi.useFakeTimers(); });
 afterEach(() => { vi.useRealTimers(); });
+
+function setHistory(store: ReturnType<typeof createStore>, count: number, confirmedHash?: string) {
+  const items: WalletTransactionSummary["items"] = Array.from({ length: count }, (_, index) => ({
+    hash: index === 0 && confirmedHash ? confirmedHash : (count - index).toString(16).padStart(64, "0"),
+    inputs: [funds], outputs: [], blockTime: count - index, slot: String(count - index),
+    index: 0, block: "00".repeat(32), fees: "0", size: 0, deposit: "0", invalidBefore: "0", invalidAfter: "0"
+  }));
+  store.set(walletTransactionsAtom as unknown as PrimitiveAtom<WalletTransactionSummary>, {
+    items, loading: false, fetching: false, refreshing: false, error: null
+  });
+  return items;
+}
+
+it("keeps every fetched activity and pages beyond the first thirty transactions", () => {
+  const { store } = setup();
+  const history = setHistory(store, 45);
+  expect(store.get(recentWalletTransactionsAtom)).toEqual(history);
+  expect(store.get(displayedWalletActivityEventsAtom)).toHaveLength(45);
+  expect(store.get(activityPageCountAtom)).toBe(9);
+  store.set(activityPageIndexAtom, 8);
+  expect(store.get(paginatedWalletActivityEventsAtom).map(event => event.transaction.hash)).toEqual(history.slice(40).map(tx => tx.hash));
+});
+
+it("keeps the activity count at thirty-one when the pending transaction confirms", () => {
+  const { store, record } = setup();
+  setHistory(store, 30);
+  record();
+  expect(store.get(displayedWalletActivityEventsAtom)).toHaveLength(31);
+  setHistory(store, 31, HASH);
+  expect(store.get(pendingWalletActivityEventsAtom)).toHaveLength(0);
+  expect(store.get(displayedWalletActivityEventsAtom)).toHaveLength(31);
+  expect(store.get(activityPageCountAtom)).toBe(7);
+});
 
 it("shows a submitted transaction as a pending row with its decoded amount", () => {
   const { store, record } = setup();

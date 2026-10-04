@@ -3,18 +3,11 @@
 import { atom } from "jotai";
 import { queryClientAtom } from "jotai-tanstack-query";
 import { queryKeys } from "@/lib/query/keys";
-import { activityAnchorTxHashesAtom } from "../queries/activity-inputs.atoms";
 import { walletTransactionsAtom } from "../queries/activity-query.atoms";
 export { activityAnchorTxHashesAtom } from "../queries/activity-inputs.atoms";
 export { walletTransactionsAtom } from "../queries/activity-query.atoms";
-import {
-  RECENT_WALLET_TRANSACTION_VISIBLE_LIMIT,
-  WALLET_ACTIVITY_PAGE_SIZE
-} from "@/components/user/workspace/constants";
-import {
-  buildWalletActivityEvents,
-  selectVisibleWalletTransactions
-} from "@/components/user/workspace/helpers";
+import { WALLET_ACTIVITY_PAGE_SIZE } from "@/components/user/workspace/constants";
+import { buildWalletActivityEvents } from "@/components/user/workspace/helpers";
 import { lockedContractUtxosAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
 import { activeAddressAtom, activeWalletNameAtom } from "@/providers/wallet.atoms";
 import { selectedDetectedTokenAtom } from "@/components/user/workspace/atoms/workspace-detected-token.atoms";
@@ -45,11 +38,7 @@ export const resetWorkspaceActivityAtom = atom(null, (get, set) => {
 });
 
 export const recentWalletTransactionsAtom = atom((get) =>
-  selectVisibleWalletTransactions(
-    get(walletTransactionsAtom).items,
-    get(activityAnchorTxHashesAtom),
-    RECENT_WALLET_TRANSACTION_VISIBLE_LIMIT
-  )
+  get(walletTransactionsAtom).items
 );
 
 export const recentWalletActivityEventsAtom = atom((get) => {

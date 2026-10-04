@@ -439,3 +439,17 @@ REPORTED: Independent adversarial review found no defects in this diff.
 VERIFIED: ESLint on all changed source and test files and the final diff check returned exit 0.
 The live page proved the old behavior. The updated code was checked through mocked component tests, not a deployed browser session.
 Next: Open the follow-up PR against `dev` and wait for required checks.
+
+## Activity display cap, 2026-10-04
+
+Owner: coordinator. Status: Ready for PR.
+Scope: Remove the 30-transaction display cut and retain the existing five-row activity pages.
+VERIFIED: `recentWalletTransactionsAtom` selected 30 confirmed transactions. The display atom prepended pending rows outside that cut.
+VERIFIED: Baseline regression tests returned `2 failed | 5 passed (7)`. The fixed regression run returned `7 passed (7)`.
+VERIFIED: The full component suite returned `224 passed (224)` files and `2286 passed (2286)` tests.
+VERIFIED: Transaction helper and wealth-series tests returned `tests 39; pass 39; fail 0`.
+VERIFIED: Type checking, changed-file ESLint, and diff checks returned exit 0. The file check returned `795 source files checked, none over 750 lines`.
+REPORTED: Independent adversarial review found no findings in the four-file source and test diff.
+VERIFIED: History fetches remain bounded to eight pages. This change shows all fetched transactions; it does not establish complete lifetime history.
+The updated behavior was checked through mocked activity state. Live browser behavior was not checked.
+Next: Open the PR against `dev` and wait for required checks.
