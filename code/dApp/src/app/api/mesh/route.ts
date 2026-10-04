@@ -103,7 +103,7 @@ async function handlePost(request: Request, timings: RequestTimings) {
     const provider = getBlockfrostProvider();
     const result: unknown = await measure("provider", () => retryMeshRead(
       payload.method,
-      () => executeMeshMethod(provider, payload.method, payload.args),
+      (signal) => executeMeshMethod(provider, payload.method, payload.args, signal),
       (error, attempt) => {
         const status = meshHttpStatus(error);
         if (status === null || ![500, 502, 503, 504].includes(status)) return undefined;
