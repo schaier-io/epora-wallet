@@ -1,4 +1,5 @@
 import { evaluateRemoteTx } from "./remote-evaluation";
+import { fetchAddressHistory } from "./address-history";
 import { MAX_EVALUATION_INPUTS } from "./transactions/internals/constants";
 import { readRegionalInputMetadata } from "./regional-input-metadata";
 import { CARDANO_NETWORK, type CardanoNetwork } from "@/lib/cardano-network";
@@ -7,7 +8,6 @@ import type { IFetcherOptions, UTxO } from "@meshsdk/common";
 import type { ChainMethod } from "@/lib/types/contracts";
 import { requireServerEnv, getServerEnv, type ServerEnv } from "@/lib/env/server-env";
 import { readBuildParameters, protocolFromBuildParameters } from "./protocol-parameter-cache";
-import { meshHttpStatus } from "@/lib/mesh/http-error";
 import { fetchAddressUtxosStrict, fetchAssetAddressesStrict, fetchCollectionAssetsStrict } from "./blockfrost-reads";
 
 export const METHOD_VALUES = [
@@ -173,7 +173,7 @@ function getOptionalCursorArg(args: unknown[], index: number, label: string) {
   throw new MeshRpcInputError(`Argument '${label}' at index ${index} must be a page number between 1 and ${MAX_BLOCKFROST_PAGE}.`);
 }
 
-function getAddressTxOptionsArg(args: unknown[], index: number, label: string): IFetcherOptions {
+function getAddressTxOptionsArg(args: unknown[], index: number, label: string): Required<IFetcherOptions> {
   const value = args[index];
 
   if (typeof value === "undefined" || value === null) {
@@ -251,7 +251,8 @@ async function toUnknown(value: Promise<unknown>): Promise<unknown> {
 export async function executeMeshMethod(
   provider: BlockfrostProvider,
   method: ChainMethod,
-  args: unknown[]
+  args: unknown[],
+  signal?: AbortSignal
 ): Promise<unknown> {
   switch (method) {
     case "fetchAccountInfo": {
@@ -266,17 +267,7 @@ export async function executeMeshMethod(
       );
     }
     case "fetchAddressTxs": {
-      try {
-        return await provider.fetchAddressTxs(
-          getStringArg(args, 0, "address"),
-          getAddressTxOptionsArg(args, 1, "options")
-        );
-      } catch (error) {
-        // Blockfrost uses 404 for an address it has never indexed. A newly created
-        // smart wallet has no fund-pool history yet, so this is an empty page.
-        if (meshHttpStatus(error) === 404) return [];
-        throw error;
-      }
+      return fetchAddressHistory(provider, getStringArg(args, 0, "address"), getAddressTxOptionsArg(args, 1, "options"), signal);
     }
     case "fetchAssetAddresses": {
       return toUnknown(fetchAssetAddressesStrict(provider, getStringArg(args, 0, "asset")));

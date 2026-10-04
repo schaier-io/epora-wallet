@@ -56,8 +56,8 @@ test("get rejects absolute, scheme-prefixed, protocol-relative, backslash and tr
 test("fetchAddressTxs rejects pagination beyond the public route budget", async () => {
   const calls: unknown[] = [];
   const provider = {
-    fetchAddressTxs: async (_address: string, options: unknown) => {
-      calls.push(options);
+    get: async (path: string) => {
+      calls.push(path);
       return [];
     }
   } as unknown as BlockfrostProvider;
@@ -75,8 +75,8 @@ test("fetchAddressTxs rejects pagination beyond the public route budget", async 
 test("fetchAddressTxs accepts the page budget and strips unrelated options", async () => {
   const calls: unknown[] = [];
   const provider = {
-    fetchAddressTxs: async (_address: string, options: unknown) => {
-      calls.push(options);
+    get: async (path: string) => {
+      calls.push(path);
       return [];
     }
   } as unknown as BlockfrostProvider;
@@ -85,14 +85,14 @@ test("fetchAddressTxs accepts the page budget and strips unrelated options", asy
     "addr_test1probe",
     { maxPage: 8, order: "asc", ignored: true }
   ]);
-  assert.deepEqual(calls, [{ maxPage: 8, order: "asc" }]);
+  assert.deepEqual(calls, ["/addresses/addr_test1probe/transactions?count=100&page=1&order=asc"]);
 });
 
 test("the STT activity depth fits the public route budget", async () => {
   const calls: unknown[] = [];
   const provider = {
-    fetchAddressTxs: async (_address: string, options: unknown) => {
-      calls.push(options);
+    get: async (path: string) => {
+      calls.push(path);
       return [];
     }
   } as unknown as BlockfrostProvider;
@@ -101,14 +101,12 @@ test("the STT activity depth fits the public route budget", async () => {
     "addr_test1stt",
     { maxPage: RECENT_STT_TRANSACTION_FETCH_PAGES, order: "desc" }
   ]);
-  assert.deepEqual(calls, [
-    { maxPage: RECENT_STT_TRANSACTION_FETCH_PAGES, order: "desc" }
-  ]);
+  assert.deepEqual(calls, ["/addresses/addr_test1stt/transactions?count=100&page=1&order=desc"]);
 });
 
 test("fetchAddressTxs treats an unseen address as empty history", async () => {
   const provider = {
-    fetchAddressTxs: async () => {
+    get: async () => {
       throw JSON.stringify({ data: { status_code: 404 }, headers: {}, status: 404 });
     }
   } as unknown as BlockfrostProvider;
@@ -121,7 +119,7 @@ test("fetchAddressTxs treats an unseen address as empty history", async () => {
 
 test("fetchAddressTxs still surfaces provider failures", async () => {
   const provider = {
-    fetchAddressTxs: async () => {
+    get: async () => {
       throw JSON.stringify({ data: { status_code: 429 }, headers: {}, status: 429 });
     }
   } as unknown as BlockfrostProvider;

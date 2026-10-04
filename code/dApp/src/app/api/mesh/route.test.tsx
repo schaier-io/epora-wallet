@@ -42,6 +42,21 @@ it("uses the raised general allowance for reads and returns stage timings", asyn
   expect(response.headers.get("Server-Timing")).toMatch(/rate_limit;dur=\d+\.\d+, provider;dur=\d+\.\d+, total;dur=\d+\.\d+/);
 });
 
+it("passes the read deadline and caller cancellation to history loading", async () => {
+  const controller = new AbortController();
+  mocks.execute.mockImplementation((_provider, _method, _args, signal: AbortSignal) => new Promise((_resolve, reject) => {
+    expect(signal).toBeInstanceOf(AbortSignal);
+    signal.addEventListener("abort", () => reject(signal.reason), { once: true });
+    controller.abort(new DOMException("History cancelled", "TimeoutError"));
+  }));
+  const response = await POST(new Request("http://localhost/api/mesh", {
+    method: "POST", body: JSON.stringify({ method: "fetchAddressTxs", args: ["address"] }), signal: controller.signal
+  }));
+  expect(response.status).toBe(502);
+  expect(mocks.execute).toHaveBeenCalledTimes(1);
+  expect(mocks.execute.mock.calls[0]![3]).toEqual(expect.objectContaining({ aborted: true }));
+});
+
 it.each(["evaluateTx", "submitTx"])("uses the raised method allowance for %s", async method => {
   mocks.execute.mockResolvedValue([]);
   expect((await POST(request(JSON.stringify({ method, args: ["00"] })))).status).toBe(200);
