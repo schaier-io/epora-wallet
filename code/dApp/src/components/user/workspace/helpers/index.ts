@@ -40,6 +40,6 @@ export { isAsset, safeStringify } from "./guards";
 export { readProofOfLifeOption, resolveEffectiveAssetNameHex, waitFor } from "./misc";
 export { readRecentRecipientsFromStorage, writeRecentRecipientsToStorage } from "./recent-recipients";
 export { serializeRequiredConstrPreset, serializeTransfers, serializeWalletOutputs } from "./serialize";
-export { fetchScriptUtxos, findMatchingLockedUtxo, getUtxoRefKey, mergeAndSortTransactions, normalizeTransactionHash, selectVisibleWalletTransactions, transactionTouchesAddress, transactionTouchesAsset, uniqueTransactionHashes } from "./transactions";
+export { fetchScriptUtxos, findMatchingLockedUtxo, getUtxoRefKey, mergeAndSortTransactions, normalizeTransactionHash, transactionTouchesAddress, transactionTouchesAsset, uniqueTransactionHashes } from "./transactions";
 export { NON_NEGATIVE_INTEGER_SCHEMA, OPTIONAL_NON_NEGATIVE_INTEGER_SCHEMA, REQUIRED_TEXT_SCHEMA, appendValidationErrors, countFieldErrorMessages, getFirstFieldError, hasFieldErrors, hasPositiveAssetAmount, pushFieldError, validateAssetRows, validateField, validateTransferRows, validateWalletInputRefs, validateWalletScriptOutputs } from "./validation";
 export { formatDraftWalletName, suggestNewWalletName, walletNameAlreadyExists } from "./wallet-name";

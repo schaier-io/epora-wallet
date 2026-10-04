@@ -110,27 +110,6 @@ export function uniqueTransactionHashes(values: Array<string | null | undefined>
   return [...unique];
 }
 
-export function selectVisibleWalletTransactions(
-  transactions: TransactionInfo[],
-  anchorTxHashes: string[],
-  limit: number
-) {
-  const anchorSet = new Set(anchorTxHashes);
-  const selectedByHash = new Map<string, TransactionInfo>();
-
-  transactions.slice(0, limit).forEach((transaction) => {
-    selectedByHash.set(transaction.hash.toLowerCase(), transaction);
-  });
-
-  transactions.forEach((transaction) => {
-    if (anchorSet.has(transaction.hash.toLowerCase())) {
-      selectedByHash.set(transaction.hash.toLowerCase(), transaction);
-    }
-  });
-
-  return mergeAndSortTransactions([[...selectedByHash.values()]]);
-}
-
 /**
  * The same transaction reaches the feed from several fetch paths — the wallet-address
  * listing, the STT-script-address listing, and the by-hash detail — and their payloads
