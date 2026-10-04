@@ -453,3 +453,24 @@ REPORTED: Independent adversarial review found no findings in the four-file sour
 VERIFIED: History fetches remain bounded to eight pages. This change shows all fetched transactions; it does not establish complete lifetime history.
 The updated behavior was checked through mocked activity state. Live browser behavior was not checked.
 Next: Open the PR against `dev` and wait for required checks.
+
+## History loading cancellation, 2026-10-04
+
+Owner: coordinator. Status: Completed.
+Scope: Address history reader, Mesh dispatch and route, and their regression tests.
+VERIFIED: Before the source fix, `node --import tsx --test src/lib/mesh/address-history.test.ts` returned `tests 3; pass 1; fail 2`.
+The failures reported `Expected concurrent history reads, saw 1` and `Missing expected rejection.`
+VERIFIED: The focused Node check returned `tests 19; pass 19; fail 0`.
+VERIFIED: The final I/O fixture check returned `tests 6; pass 6; fail 0`.
+VERIFIED: Full Vitest returned `Test Files 224 passed (224); Tests 2281 passed (2281)`.
+VERIFIED: Type checking, scoped ESLint, OpenAPI validation, and diff checks returned exit 0.
+VERIFIED: The new reader has 90 lines. The existing tracked-file check returned `795 source files checked, none over 750 lines`.
+VERIFIED: The simulated 100-transaction lookup returned `elapsedMs: 2837; transactions: 100; requests: 202; peakActive: 8`.
+The earlier sequential simulation returned `elapsedMs: 20397; transactions: 100; requests: 202; peakActive: 1`.
+Both simulations used responses delayed by 100 milliseconds. They do not measure live provider performance.
+REPORTED: Independent adversarial review found no introduced defects and returned `tests 19; pass 19; fail 0`.
+VERIFIED: Cancellation tests reject stalled reads and stop new requests after late responses.
+The public provider API cannot cancel requests already sent. Those requests can still finish.
+VERIFIED: Full Node returned `tests 2020; pass 1989; fail 0; skipped 31`.
+The database-free run does not validate the skipped cases.
+Next: Open a draft PR against `dev` and wait for required checks. No deployment has run.
