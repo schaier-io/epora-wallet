@@ -4,6 +4,7 @@ import { renderNowMsAtom } from "./atoms/workspace-ui.atoms";
 import { resolveWorkspaceTransactionInputs } from "./workspace-transaction-inputs";
 import type { createProposalCaptureWriter } from "./workspace-proposal-capture";
 import { checkSelectedFundPoolCoverage } from "./workspace-fund-selection";
+import { OwnedMessageError } from "./helpers/build-errors";
 import { buildReviewedBeneficiaryWithdrawal } from "./beneficiary-withdrawal-review";
 import { applyProofOfLifeOverrideToStateForm, stateFormToDatum } from "@/lib/contracts/state-form";
 import { parseNonNegativeIntegerString } from "@/lib/contracts/state-form-encode";
@@ -134,7 +135,7 @@ export function createWorkspaceSttBuilder(
             continuingOutputAddress: lockingContract.address ?? undefined
           });
           if (coverage === "insufficient") {
-            throw new Error(
+            throw new OwnedMessageError(
               "Selected fund pools no longer cover the transfer and current scheduled-payment reserve. Pick enough funds again."
             );
           }
