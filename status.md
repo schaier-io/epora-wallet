@@ -577,3 +577,8 @@ VERIFIED: Type checking, full lint, translation checks, OpenAPI checks, user-flo
 VERIFIED: `next build --webpack` returned exit 0. Bundle helper tests returned `tests 9; pass 9; fail 0`. The size gate returned exit 1 because `.next/diagnostics/route-bundle-stats.json` was absent. CI must validate default-build bundle sizes.
 Implementation status: Completed. Publication status: Planned. Owner: coordinator.
 Next: Commit consolidation and submit the reviewed draft stack with the prepared descriptions.
+
+Publication status: Blocked. Owner: coordinator.
+VERIFIED: Automatic approval review rejected `gh stack submit --auto`: "The current user message contains no explicit approval for publishing these new layers." No new preparation branch was pushed by this rejected command.
+VERIFIED: Reviewed local heads are helper `6c94e0f9`, mint `3033e1ad`, and consolidation `78687f27` before this coordination record. Branch and outgoing commit checks found no tool attribution.
+Next: Obtain explicit approval to push the three preparation branches, create draft PRs, and publish their prepared descriptions. Existing PR description edits still need separate approval.
