@@ -1,4 +1,5 @@
-import { createStore } from "jotai";
+import { createStore, type PrimitiveAtom } from "jotai";
+import type { UTxO } from "@meshsdk/core";
 import { beforeEach, expect, it, vi } from "vitest";
 import { validateBeneficiaryDistributionInput } from "@/lib/mesh/transactions/beneficiary-distribution";
 import { createWorkspaceSttBuilder } from "./workspace-stt-builder";
@@ -6,6 +7,11 @@ import type { WorkspaceBuildResources, WorkspaceTransactionsCtx } from "./worksp
 import { beneficiaryStreamStopIdAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputTxHashAtom, sttInputOutputIndexAtom, sttOutputAssetsAtom, sttStateFormAtom, sttWalletInputsAtom, updateStateFormAtom } from "./atoms/forms/stt-spend-form.atoms";
 import type { SttSpendFormInput } from "@/lib/types/contracts";
 import { createDefaultStateForm, stateFormFromDatum } from "@/lib/contracts/state-form";
+import { spendableWalletUtxosAtom } from "./atoms/workspace-spendable-utxos.atoms";
+import { formatBuildError, OwnedMessageError } from "./helpers/build-errors";
+vi.mock("./atoms/workspace-spendable-utxos.atoms", async () => ({
+  spendableWalletUtxosAtom: (await import("jotai")).atom([])
+}));
 const mocks = vi.hoisted(() => ({ build: vi.fn() }));
 vi.mock("@/lib/mesh/transactions", () => ({
   buildSttSpendTx: mocks.build,
@@ -87,3 +93,30 @@ it("keeps update-state and streaming-management State drafts separate", async ()
   const manageInput = mocks.build.mock.calls.at(-1)![3] as SttSpendFormInput;
   expect(stateFormFromDatum(manageInput.outputDatum).walletName).toBe("Raw chain state");
 });
+
+it.each(["use", "use-allowance", "use-beneficiary"] as const)(
+  "treats insufficient selected funds for %s as a recoverable warning",
+  async (mode) => {
+    const { store, ctx, capture, requiredSigners } = fixture();
+    const input = { txHash: "b".repeat(64), outputIndex: 0 };
+    store.set(spendableWalletUtxosAtom as PrimitiveAtom<UTxO[]>, [{
+      input,
+      output: { address: ctx.lockingContract.address!, amount: [{ unit: "lovelace", quantity: "3000000" }] }
+    }]);
+    store.set(sttWalletInputsAtom, [input]);
+    store.set(sttExtraTransfersAtom, [{
+      address: "addr_test1recipient", amount: [{ unit: "lovelace", quantity: "5000000" }],
+      inlineDatum: { mode: "none", customAlternative: "" }
+    }]);
+
+    const build = createWorkspaceSttBuilder(ctx, capture, requiredSigners).buildSttTx(mode);
+    await expect(build).rejects.toBeInstanceOf(OwnedMessageError);
+    const error: unknown = await build.catch((failure: unknown) => failure);
+    expect(formatBuildError(error, { action: mode, wallet: "Lace", networkId: 0 })).toMatchObject({
+      expected: true, diagnosticId: null, staleInputs: false,
+      message: "Selected fund pools no longer cover the transfer and current scheduled-payment reserve. Pick enough funds again."
+    });
+    expect(mocks.build).not.toHaveBeenCalled();
+    expect(capture).not.toHaveBeenCalled();
+  }
+);

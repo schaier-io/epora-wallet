@@ -318,47 +318,6 @@ export function UserReviewPanel({
           </FadeContent>
         ) : null}
 
-        {buildError ? (
-          <FadeContent
-            // `role="alert"` here, assertive on purpose: this is an event, not a running
-            // commentary. The build the user just asked for failed, and nothing else they
-            // are doing matters more than knowing that.
-            role="alert"
-            className={cn(
-              "space-y-2 rounded-lg border p-3 sm:p-4 text-sm",
-              buildErrorExpected
-                ? "border-sky-500/30 bg-sky-500/10 text-sky-100"
-                : "border-rose-500/40 bg-rose-500/10 text-rose-100"
-            )}
-          >
-            {/* The icon sits beside the whole text column, not beside the first line only:
-                the diagnostic line is part of the message, so out-denting it from the text
-                it explains reads as an unrelated note. */}
-            <div className="flex items-start gap-2">
-              {/* A recognised outcome (a declined signature, a named ledger rule) gets a
-                  calm note; something genuinely unexpected gets the alarm. Either way the
-                  serialized error is printed to the browser console, never rendered here. */}
-              {buildErrorExpected ? (
-                <Info className="h-4 w-4 shrink-0" />
-              ) : (
-                <AlertCircle className="h-4 w-4 shrink-0" />
-              )}
-              {/* `min-w-0` because a flex item keeps `min-width: auto`, so an unbreakable
-                  64-character hash pushed the line past the card's right edge. `break-words`
-                  and not `break-all`: this message is a sentence, and `break-all` breaks every
-                  line mid-word rather than only the one word that cannot fit on its own. */}
-              <div className="min-w-0 flex-1 space-y-2">
-                <span className="block break-words">{buildError}</span>
-                {!buildErrorExpected && buildDiagnosticId ? (
-                  <p className="text-xs text-rose-100/80">
-                    {i18n("diagnosticReference")}: <span className="font-mono">{buildDiagnosticId}</span>
-                  </p>
-                ) : null}
-              </div>
-            </div>
-          </FadeContent>
-        ) : null}
-
         {submitHash && completion ? (
           <AnimatedContent
             // The one thing a person most needs told without looking: the transaction went.
@@ -507,6 +466,47 @@ export function UserReviewPanel({
             lastActionLabel={lastActionLabel}
           />
         )}
+
+        {buildError ? (
+          <div
+            // `role="alert"` here, assertive on purpose: this is an event, not a running
+            // commentary. The build the user just asked for failed, and nothing else they
+            // are doing matters more than knowing that.
+            role="alert"
+            className={cn(
+              "space-y-2 rounded-lg border p-3 sm:p-4 text-sm",
+              buildErrorExpected
+                ? "border-sky-500/30 bg-sky-500/10 text-sky-100"
+                : "border-rose-500/40 bg-rose-500/10 text-rose-100"
+            )}
+          >
+            {/* The icon sits beside the whole text column, not beside the first line only:
+                the diagnostic line is part of the message, so out-denting it from the text
+                it explains reads as an unrelated note. */}
+            <div className="flex items-start gap-2">
+              {/* A recognised outcome (a declined signature, a named ledger rule) gets a
+                  calm note; something genuinely unexpected gets the alarm. Either way the
+                  serialized error is printed to the browser console, never rendered here. */}
+              {buildErrorExpected ? (
+                <Info className="h-4 w-4 shrink-0" />
+              ) : (
+                <AlertCircle className="h-4 w-4 shrink-0" />
+              )}
+              {/* `min-w-0` because a flex item keeps `min-width: auto`, so an unbreakable
+                  64-character hash pushed the line past the card's right edge. `break-words`
+                  and not `break-all`: this message is a sentence, and `break-all` breaks every
+                  line mid-word rather than only the one word that cannot fit on its own. */}
+              <div className="min-w-0 flex-1 space-y-2">
+                <span className="block break-words">{buildError}</span>
+                {!buildErrorExpected && buildDiagnosticId ? (
+                  <p className="text-xs text-rose-100/80">
+                    {i18n("diagnosticReference")}: <span className="font-mono">{buildDiagnosticId}</span>
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         <div className="flex flex-col gap-2">
           {primaryActionNotice}

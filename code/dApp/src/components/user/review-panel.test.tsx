@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import type { ComponentProps } from "react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { UserReviewPanel } from "@/components/user/review-panel";
 import { USER_ACTION_DEFINITION_MAP } from "@/lib/user-flow/action-definitions";
@@ -28,6 +28,8 @@ const BASE: ComponentProps<typeof UserReviewPanel> = {
   primaryActionDisabled: false,
   onPrimaryAction: () => {}
 };
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe("review rail live regions", () => {
   it("puts the action notice directly above the primary button", () => {
@@ -78,6 +80,21 @@ describe("review rail live regions", () => {
 
     const alert = screen.getByRole("alert");
     expect(alert).toHaveTextContent("Not enough ADA to cover the fee.");
+  });
+
+  it.each([false, true])("shows a new build failure immediately beside the action (expected: %s)", (expected) => {
+    vi.stubGlobal("IntersectionObserver", class {
+      observe() {}
+      disconnect() {}
+    });
+    const { rerender } = render(<UserReviewPanel {...BASE} />);
+    const message = "Selected fund pools no longer cover the transfer and current scheduled-payment reserve. Pick enough funds again.";
+    rerender(<UserReviewPanel {...BASE} buildError={message} buildErrorExpected={expected} />);
+
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent(message);
+    expect(alert).toBeVisible();
+    expect(alert.nextElementSibling?.querySelector("button")).toBe(screen.getByRole("button", { name: "Send funds" }));
   });
 
   it("does not expose the internal transaction preview summary", () => {
