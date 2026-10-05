@@ -270,12 +270,44 @@ test("evaluation reuse includes exact bytes, context, and each build pass", asyn
   await scoped.evaluateTx("tx", [output], []);
   await scoped.evaluateTx("tx", [output], ["chained"]);
   await scoped.evaluateTx("tx", [output], ["other-chained"]);
-  assert.equal(source.evaluations.length, 6);
+  assert.equal(source.evaluations.length, 5);
   beginBuildPass(scoped);
   await scoped.evaluateTx("tx", [output], ["other-chained"]);
   await scoped.evaluateTx("tx", [output], ["other-chained"]);
   await createBuildParameterFetcher(fetcher).evaluateTx("tx", [output], ["other-chained"]);
-  assert.equal(source.evaluations.length, 8);
+  assert.equal(source.evaluations.length, 7);
+});
+
+test("an old pass rejection cannot evict the same request from the final pass", async () => {
+  const { fetcher } = provider();
+  let rejectDraft!: (error: Error) => void;
+  let calls = 0;
+  fetcher.evaluateTx = async () => {
+    if (++calls === 1) return new Promise((_, reject) => { rejectDraft = reject; });
+    return [];
+  };
+  const scoped = createBuildParameterFetcher(fetcher);
+  const failedDraft = assert.rejects(scoped.evaluateTx("same"), /draft unavailable/);
+  beginBuildPass(scoped);
+  await scoped.evaluateTx("same");
+  rejectDraft(new Error("draft unavailable"));
+  await failedDraft;
+  await scoped.evaluateTx("other");
+  await scoped.evaluateTx("same");
+  assert.equal(calls, 3);
+});
+
+test("evaluation reuse keeps recent candidates and bounds retained requests", async () => {
+  const { source, fetcher } = provider();
+  const scoped = createBuildParameterFetcher(fetcher);
+  const retainedRequestLimit = 64;
+  for (let candidate = 0; candidate <= retainedRequestLimit; candidate++) {
+    await scoped.evaluateTx(`candidate-${candidate}`);
+  }
+  await scoped.evaluateTx("candidate-1");
+  assert.equal(source.evaluations.length, retainedRequestLimit + 1);
+  await scoped.evaluateTx("candidate-0");
+  assert.equal(source.evaluations.length, retainedRequestLimit + 2, "the oldest request must have been evicted");
 });
 
 test("rejected evaluation candidates retry without evicting a newer candidate", async () => {

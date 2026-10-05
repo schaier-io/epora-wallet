@@ -6,6 +6,8 @@ import { readImmutableInputMetadata } from "./immutable-input-cache";
 import { evaluateDraftLocally } from "./local-draft-evaluation";
 
 export const LATEST_PROTOCOL_PARAMETERS_PATH = "epochs/latest/parameters";
+// Bound retained CBOR and evaluation context while exploring funding candidates.
+export const MAX_CACHED_EVALUATIONS_PER_PASS = 64;
 
 const buildPasses = new WeakMap<TxFetcher, () => void>();
 
@@ -106,16 +108,18 @@ export function createBuildParameterFetcher(fetcher: TxFetcher): TxFetcher {
   };
   let statusReads = new Map<string, Promise<unknown>>();
   let finalPass = false;
-  // Reuse only the last exact evaluation candidate in this pass. A final pass
+  // Reuse exact evaluation candidates in this pass. A final pass
   // always starts a new remote evaluation, even when its draft bytes match.
-  let evaluation: { key: string; pending: ReturnType<TxFetcher["evaluateTx"]> } | undefined;
+  let evaluations = new Map<string, ReturnType<TxFetcher["evaluateTx"]>>();
   const evaluateTx: TxFetcher["evaluateTx"] = async (tx, utxos, chained) => {
     fetcher.signal?.throwIfAborted();
     const [inputSnapshot, chainedSnapshot] = structuredClone([utxos, chained] as const);
     const key = JSON.stringify([tx, inputSnapshot, chainedSnapshot]);
-    if (evaluation?.key !== key) {
+    const pass = evaluations;
+    let pending = pass.get(key);
+    if (!pending) {
       const phase = finalPass ? "final" : "draft";
-      const pending = (async () => {
+      pending = (async () => {
         let fallbackReason: string | undefined;
         if (phase === "draft" && fetcher instanceof ServerFetcher && typeof Worker !== "undefined" && !chainedSnapshot?.length) {
           const started = performance.now();
@@ -149,10 +153,11 @@ export function createBuildParameterFetcher(fetcher: TxFetcher): TxFetcher {
         fetcher.signal?.throwIfAborted();
         return structuredClone(actions);
       });
-      evaluation = { key, pending };
-      pending.catch(() => { if (evaluation?.pending === pending) evaluation = undefined; });
+      pass.set(key, pending);
+      if (pass.size > MAX_CACHED_EVALUATIONS_PER_PASS) pass.delete(pass.keys().next().value!);
+      pending.catch(() => { if (pass.get(key) === pending) pass.delete(key); });
     }
-    const actions = await evaluation.pending;
+    const actions = await pending;
     fetcher.signal?.throwIfAborted();
     return structuredClone(actions);
   };
@@ -184,7 +189,7 @@ export function createBuildParameterFetcher(fetcher: TxFetcher): TxFetcher {
         : value;
     }
   });
-  buildPasses.set(scoped, () => { statusReads = new Map(); evaluation = undefined; finalPass = true; });
+  buildPasses.set(scoped, () => { statusReads = new Map(); evaluations = new Map(); finalPass = true; });
   buildWallets.set(scoped, new WeakMap());
   return scoped;
 }

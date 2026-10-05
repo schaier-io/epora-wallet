@@ -474,3 +474,21 @@ The public provider API cannot cancel requests already sent. Those requests can 
 VERIFIED: Full Node returned `tests 2020; pass 1989; fail 0; skipped 31`.
 The database-free run does not validate the skipped cases.
 Next: Open a draft PR against `dev` and wait for required checks. No deployment has run.
+
+## Frontend transaction build speed, 2026-10-05
+
+Owner: coordinator. Status: In Progress.
+Scope: Exact evaluation reuse, action-specific prebuild identity, and parallel consent and network checks.
+VERIFIED: `git rev-parse --abbrev-ref HEAD` returned `perf/frontend-evaluation-reuse` after creating the three-layer stack.
+VERIFIED: The earlier investigation used `fix/send-flow-review-ui` at `49913d24`. Its findings did not describe current upstream code.
+VERIFIED: The new base is `origin/dev` at `a5d2a494`. It already has shared parameter snapshots, immutable input reads, and draft worker evaluation.
+VERIFIED: The `origin/dev` baseline reuses only the last evaluation candidate in each pass. The final pass clears that entry.
+VERIFIED: The cache retains up to 64 exact requests per pass. A new pass resets evaluation reuse.
+VERIFIED: The source-only baseline check returned `tests 19; pass 16; fail 3`.
+VERIFIED: With the cache source restored to baseline, the selector test returned `tests 1; pass 0; fail 1`, with `58 !== 40`.
+VERIFIED: Focused tests returned `tests 30; pass 30; fail 0`. Worker and diagnostics checks returned `Tests 20 passed (20)`.
+REPORTED: Independent review found no introduced defects. The selector fixture returned `upstreamRequestsByPass: [40,40]`. Its evaluation budgets are mocked.
+VERIFIED: Type checking reports `TS2307` for missing `@vercel/functions` and `TS7006` in `regional-input-metadata.ts`. This layer does not modify that file.
+Planned: Limit prebuild identity to the selected action. Preserve every active builder input and signing guard.
+Planned: Read consent and wallet network concurrently. Keep freshness checks after those reads and before signing or broadcast.
+Next: Commit evaluation reuse, then implement the action snapshot on its owning stack layer.
