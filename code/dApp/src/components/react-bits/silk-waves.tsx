@@ -292,11 +292,17 @@ const SilkWaves: React.FC<SilkWavesProps> = ({
 
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
-    const renderer = new THREE.WebGLRenderer({
-      antialias: false,
-      alpha: true,
-      powerPreference: "low-power",
-    });
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({
+        antialias: false,
+        alpha: true,
+        powerPreference: "low-power",
+      });
+    } catch {
+      // Keep the card's static background when WebGL is unavailable.
+      return;
+    }
     renderer.setClearColor(0x000000, 0);
     renderer.setPixelRatio(getBoundedPixelRatio(maxPixelRatio));
     renderer.setSize(width, height, false);
