@@ -1,5 +1,5 @@
 import { configAtom } from "@/components/user/workspace/atoms/workspace-config.atoms";
-import { beneficiaryPreparationActiveAtom, beneficiaryPreparationPoolAssetsAtom, consolidateSttAssetsAtom, consolidateSttInputHashAtom, consolidateSttInputIndexAtom, consolidateWalletInputsAtom, consolidateWalletOutputsAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
+import { beneficiaryPreparationActiveAtom, beneficiaryPreparationPoolAssetsAtom, consolidateStateFormAtom, consolidateSttAssetsAtom, consolidateSttInputHashAtom, consolidateSttInputIndexAtom, consolidateWalletInputsAtom, consolidateWalletOutputsAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
 import { lockFundsAssetsAtom } from "@/components/user/workspace/atoms/forms/lock-funds-form.atoms";
 import { mintReferenceAtom, mintStarterAssetsAtom, mintStateFormAtom, mintZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/mint-form.atoms";
 import { voteJsonAtom, voteSttAssetsAtom, voteSttInputHashAtom, voteSttInputIndexAtom, voteSttStateFormAtom, voteZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/vote-form.atoms";
@@ -67,7 +67,7 @@ export function resolveWorkspaceTransactionInputs(
   };
 }
 
-/** Read only the selected action's builder and field-validation inputs. */
+/** Read the selected action's builder, validation, and preview-signature inputs. */
 export function resolveWorkspaceActionSnapshotInputs(
   { get }: Pick<WorkspaceTransactionsCtx["jotaiStore"], "get">,
   action: UserActionKind
@@ -99,6 +99,7 @@ export function resolveWorkspaceActionSnapshotInputs(
       return { config, walletOperatorPath: get(walletOperatorPathAtom) };
     case "consolidate-utxo": {
       const inputs = { config, beneficiaryPreparationActive: get(beneficiaryPreparationActiveAtom),
+        consolidateStateForm: get(consolidateStateFormAtom),
         consolidateSttInputHash: get(consolidateSttInputHashAtom),
         consolidateSttInputIndex: get(consolidateSttInputIndexAtom),
         consolidateWalletInputs: get(consolidateWalletInputsAtom) };
@@ -114,34 +115,26 @@ export function resolveWorkspaceActionSnapshotInputs(
       return { config, sttInputTxHash: get(sttInputTxHashAtom), sttInputOutputIndex: get(sttInputOutputIndexAtom),
         sttWalletInputs: get(sttWalletInputsAtom) };
     default: {
+      // The preview signature shares these fields across STT actions. Keep them
+      // together so an edit cannot leave a reusable build with a stale preview.
       const inputs = { config, sttInputTxHash: get(sttInputTxHashAtom),
-        sttInputOutputIndex: get(sttInputOutputIndexAtom), sttAuthorityPath: get(sttAuthorityPathAtom) };
+        sttInputOutputIndex: get(sttInputOutputIndexAtom), sttAuthorityPath: get(sttAuthorityPathAtom),
+        sttStateForm: get(sttStateFormAtom), sttOutputAssets: get(sttOutputAssetsAtom),
+        sttWalletInputs: get(sttWalletInputsAtom), sttWalletOutputs: get(sttWalletOutputsAtom),
+        sttExtraTransfers: get(sttExtraTransfersAtom), sttProofOfLifeOverrideMode: get(sttProofOfLifeOverrideModeAtom),
+        sttProofOfLifeSpecificDateTime: get(sttProofOfLifeSpecificDateTimeAtom),
+        zeroAdminConfirmed: get(sttZeroAdminConfirmedAtom) };
       switch (action) {
         case "use":
-          return { ...inputs, sttOutputAssets: get(sttOutputAssetsAtom), sttWalletInputs: get(sttWalletInputsAtom),
-            sttWalletOutputs: get(sttWalletOutputsAtom), sttExtraTransfers: get(sttExtraTransfersAtom),
-            sttProofOfLifeOverrideMode: get(sttProofOfLifeOverrideModeAtom),
-            sttProofOfLifeSpecificDateTime: get(sttProofOfLifeSpecificDateTimeAtom),
-            zeroAdminConfirmed: get(sttZeroAdminConfirmedAtom) };
         case "renew-proof-of-life":
-          // These collections must stay empty. Validation changes also retire a build.
-          return { ...inputs, sttOutputAssets: get(sttOutputAssetsAtom), sttWalletOutputs: get(sttWalletOutputsAtom),
-            sttExtraTransfers: get(sttExtraTransfersAtom), sttProofOfLifeOverrideMode: get(sttProofOfLifeOverrideModeAtom),
-            sttProofOfLifeSpecificDateTime: get(sttProofOfLifeSpecificDateTimeAtom) };
-        case "update-state":
-          return { ...inputs, updateStateForm: get(updateStateFormAtom) ?? withBeneficiarySigningAddressesDerived(get(sttStateFormAtom)),
-            sttOutputAssets: get(sttOutputAssetsAtom), sttWalletOutputs: get(sttWalletOutputsAtom),
-            sttExtraTransfers: get(sttExtraTransfersAtom), zeroAdminConfirmed: get(sttZeroAdminConfirmedAtom) };
         case "manage-streaming-payments":
-          return { ...inputs, sttStateForm: get(sttStateFormAtom), sttOutputAssets: get(sttOutputAssetsAtom),
-            sttWalletOutputs: get(sttWalletOutputsAtom), sttExtraTransfers: get(sttExtraTransfersAtom),
-            zeroAdminConfirmed: get(sttZeroAdminConfirmedAtom) };
         case "use-allowance":
         case "use-beneficiary":
-          return { ...inputs, sttWalletInputs: get(sttWalletInputsAtom), sttExtraTransfers: get(sttExtraTransfersAtom) };
+          return inputs;
+        case "update-state":
+          return { ...inputs, updateStateForm: get(updateStateFormAtom) ?? withBeneficiarySigningAddressesDerived(inputs.sttStateForm) };
         case "payout-streaming-payment":
-          return { ...inputs, sttWalletInputs: get(sttWalletInputsAtom),
-            streamingPaymentPayoutAmounts: get(streamingPaymentPayoutAmountsAtom) };
+          return { ...inputs, streamingPaymentPayoutAmounts: get(streamingPaymentPayoutAmountsAtom) };
       }
     }
   }

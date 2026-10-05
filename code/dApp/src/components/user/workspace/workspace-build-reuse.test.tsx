@@ -13,6 +13,9 @@ import { activeAddressAtom } from "@/providers/wallet.atoms";
 import { configAtom } from "./atoms/workspace-config.atoms";
 import { routeStateAtom } from "./atoms/workspace-route.atoms";
 import { voteJsonAtom } from "./atoms/forms/vote-form.atoms";
+import { sttOutputAssetsAtom } from "./atoms/forms/stt-spend-form.atoms";
+import { computeActionSignature, type BuildActionSignatureCtx } from "./workspace-action-signature";
+import { resolveWorkspaceTransactionInputs } from "./workspace-transaction-inputs";
 
 const mocks = vi.hoisted(() => ({ build: vi.fn(), buildStt: vi.fn(), sign: vi.fn(), freshness: vi.fn() }));
 vi.mock("@/lib/mesh/transactions", () => ({
@@ -109,6 +112,30 @@ it("an unrelated form edit during a pending prebuild keeps the build and direct 
   await vi.waitFor(() => expect(mocks.sign).toHaveBeenCalledOnce());
   expect(mocks.build).toHaveBeenCalledOnce();
   expect(store.get(buildErrorAtom)).toBeNull();
+});
+
+it("a shared STT preview edit retires the pending build before it can publish a stale preview", async () => {
+  const { store, render, base } = fixture();
+  base.selectedAction = "use-allowance";
+  Object.assign(base, { effectiveSttAction: "use-allowance" });
+  base.buildActionSignature = () => computeActionSignature("use-allowance", {
+    ...resolveWorkspaceTransactionInputs(store), activePaymentKeyHash: null
+  } as unknown as BuildActionSignatureCtx);
+  let finish!: (value: BuildResult) => void;
+  mocks.buildStt.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  const pending = render().buildSelectedActionTx();
+  const fetcher = mocks.buildStt.mock.calls[0]?.[4] as { signal: AbortSignal };
+  const signature = base.buildActionSignature();
+  store.set(sttOutputAssetsAtom, [{ unit: "lovelace", quantity: "3000000" }]);
+  expect(base.buildActionSignature()).not.toBe(signature);
+  expect(fetcher.signal.aborted).toBe(true);
+  expect(await pending).toBeNull();
+  finish(result);
+  await Promise.resolve();
+  expect(store.get(previewAtom)).toBeNull();
+  mocks.buildStt.mockResolvedValue(result);
+  expect(await render().buildSelectedActionTx()).toBe(result);
+  expect(store.get(previewSignatureAtom)).toBe(base.buildActionSignature());
 });
 
 it("submit waits for the pending prebuild and signs its exact CBOR once", async () => {

@@ -22,6 +22,10 @@ import {
   sttWalletOutputsAtom, sttExtraTransfersAtom, beneficiaryStreamStopIdAtom, streamingPaymentPayoutAmountsAtom,
   walletOperatorPathAtom
 } from "./atoms/forms/stt-spend-form.atoms";
+import { sttProofOfLifeOverrideModeAtom, sttProofOfLifeSpecificDateTimeAtom } from "./atoms/forms/stt-spend-form.atoms";
+import { computeActionSignature, type BuildActionSignatureCtx } from "./workspace-action-signature";
+import { resolveWorkspaceTransactionInputs } from "./workspace-transaction-inputs";
+import { prepareStreamingPaymentPayout } from "./workspace-payout-preparation";
 import { buildRunAtom, resetFlowAtom, workspaceSessionAtom } from "./atoms/transaction-flow.atoms";
 import { pendingWalletStateUpdateAtom, walletStateSubmissionsAtom } from "./atoms/wallet-state-update.atoms";
 import {
@@ -113,6 +117,35 @@ for (const action of selectedActions) {
     else store.set(voteJsonAtom, '{"unrelated":true}');
     assert.equal(store.get(workspaceTransactionSnapshotAtom), prepared.snapshot);
     assert.equal(preparedWorkspaceTransactionIsCurrent(store, prepared, BUILT_AT), true);
+  });
+}
+
+for (const action of ["use", "renew-proof-of-life", "update-state", "manage-streaming-payments",
+  "use-allowance", "use-beneficiary", "payout-streaming-payment"] as const) {
+  test(`${action} retires a build when a shared preview-signature field changes`, () => {
+    const edits: ((store: Store) => void)[] = [
+      store => store.set(sttOutputAssetsAtom, [{ unit: "lovelace", quantity: "1" }]),
+      store => store.set(sttWalletInputsAtom, [{ txHash: TX_HASH, outputIndex: 0 }]),
+      store => store.set(sttWalletOutputsAtom, [{ amount: [], inlineDatum: { ...DEFAULT_OPTIONAL_CONSTR_PRESET } }]),
+      store => store.set(sttExtraTransfersAtom, [{ address: "recipient", amount: [], inlineDatum: { ...DEFAULT_OPTIONAL_CONSTR_PRESET } }]),
+      store => store.set(sttProofOfLifeOverrideModeAtom, "specific"),
+      store => store.set(sttProofOfLifeSpecificDateTimeAtom, "2030-01-01T12:00"),
+      store => store.set(sttZeroAdminConfirmedAtom, true)
+    ];
+    for (const edit of edits) {
+      const store = createStore();
+      store.set(routeStateAtom, { ...store.get(routeStateAtom), selectedAction: action });
+      const signature = () => computeActionSignature(action, {
+        ...resolveWorkspaceTransactionInputs(store),
+        sttZeroAdminConfirmed: store.get(sttZeroAdminConfirmedAtom),
+        streamingPaymentPayout: prepareStreamingPaymentPayout([])
+      } as unknown as BuildActionSignatureCtx);
+      const before = signature();
+      const prepared = prepare(store);
+      edit(store);
+      assert.notEqual(signature(), before);
+      assert.equal(preparedWorkspaceTransactionIsCurrent(store, prepared, BUILT_AT), false);
+    }
   });
 }
 

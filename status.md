@@ -506,3 +506,16 @@ REPORTED: The final independent adversarial pass found no introduced defect. Act
 REPORTED: Scoped ESLint and type checking returned exit 0. Source files have 148, 83, and 648 lines.
 Correction: Nine broader test failures used fields from an action different from the selected action. The fixtures now select the tested action.
 Next: Commit this layer, then overlap entry checks while retaining ordered signing and broadcast gates.
+
+### Functional regression review
+
+Correction: The earlier clean review missed a mismatch between the scoped snapshot and shared STT preview signatures.
+VERIFIED: The pending-build test returned `Tests 1 failed | 16 passed (17)` before the correction. The signature changed while the provider signal remained active.
+VERIFIED: Restoring only the snapshot source to its prior version returned `tests 64; pass 58; fail 6`. The retained tests compare actual preview signatures with prepared-build validity.
+VERIFIED: The corrected snapshot retains shared STT signature fields and the consolidation State draft. Other actions' form edits still preserve prepared builds.
+VERIFIED: Focused checks returned `tests 64; pass 64; fail 0` and `Tests 17 passed (17)`.
+REPORTED: The fresh independent review found no remaining defect. It returned `tests 96; pass 96; fail 0` and `Test Files 4 passed (4); Tests 119 passed (119)`.
+Limit: The mismatch reproduction writes an atom directly. Ordinary allowance UI reachability remains unverified. The tests mock transaction builders and wallet signing.
+VERIFIED: An independent cache probe returned `realEvaluator: Scalus`, `mem: 470102`, `steps: 147666434`, `realCalls: 3`, and `crossPassReevaluation: true`. This covers one offline mint fixture, not live ledger or browser Worker execution.
+VERIFIED: Type checking and lint returned exit 0. File length check returned `796 source files checked, none over 750 lines`.
+VERIFIED: The corrected prebuild layer's full suites returned `tests 2064; pass 2033; fail 0; skipped 31` and `Test Files 224 passed (224); Tests 2289 passed (2289)`. The 31 database cases were skipped.
