@@ -24,6 +24,13 @@ vi.mock("@/lib/mesh/transactions/prepared-transaction-freshness", () => ({ asser
 vi.mock("@/lib/mesh/transactions", () => ({ signAndSubmitTx: mocks.signAndSubmitTx, buildBeneficiaryPreparationTx: mocks.buildPreparation, buildMintStateTokenTx: mocks.buildMint }));
 
 import { createWorkspaceTransactions } from "./workspace-transactions";
+import { routeStateAtom } from "./atoms/workspace-route.atoms";
+
+function transactionsFor(ctx: WorkspaceTransactionsCtx) {
+  const store = ctx.jotaiStore;
+  store.set(routeStateAtom, { ...store.get(routeStateAtom), selectedAction: ctx.selectedAction });
+  return createWorkspaceTransactions(ctx);
+}
 
 function contextFor(store: ReturnType<typeof createStore>, editDuringBuild: (() => void) | null) {
   const setBuildError = vi.fn();
@@ -88,7 +95,7 @@ it("uses the configured setup helper when creating a wallet", async () => {
   store.set(configAtom, { ...store.get(configAtom), sttSpendReference: reference });
   const { ctx } = contextFor(store, null);
   ctx.withBuildGuard = (_label, run) => run({ wallet: ctx.activeWallet! });
-  await createWorkspaceTransactions(ctx).buildMintTx();
+  await transactionsFor(ctx).buildMintTx();
   expect(mocks.buildMint).toHaveBeenCalledWith(ctx.activeWallet, expect.objectContaining({
     sttSpendReference: reference
   }), undefined);
@@ -101,7 +108,7 @@ it("refuses to sign when the draft changed while the transaction was being built
   const { ctx, setBuildError } = contextFor(store, () =>
     store.set(lockFundsAssetsAtom, [{ unit: "lovelace", quantity: "5000000" }])
   );
-  await createWorkspaceTransactions(ctx).buildAndSubmitSelectedActionTx();
+  await transactionsFor(ctx).buildAndSubmitSelectedActionTx();
 
   expect(mocks.signAndSubmitTx).not.toHaveBeenCalled();
   expect(setBuildError).toHaveBeenCalledWith(expect.stringMatching(/stale/i));
@@ -114,7 +121,10 @@ it("treats an edited payout amount as a changed draft", async () => {
   const { ctx, setBuildError } = contextFor(store, () =>
     store.set(streamingPaymentPayoutAmountsAtom, { "1": "1000000" })
   );
-  await createWorkspaceTransactions(ctx).buildAndSubmitSelectedActionTx();
+  ctx.selectedAction = "payout-streaming-payment";
+  ctx.effectiveSttAction = "payout-streaming-payment";
+  ctx.streamingPaymentPayout = { extraTransfers: [] } as unknown as WorkspaceTransactionsCtx["streamingPaymentPayout"];
+  await transactionsFor(ctx).buildAndSubmitSelectedActionTx();
 
   expect(mocks.signAndSubmitTx).not.toHaveBeenCalled();
   expect(setBuildError).toHaveBeenCalledWith(expect.stringMatching(/stale/i));
@@ -122,7 +132,7 @@ it("treats an edited payout amount as a changed draft", async () => {
 
 it("signs the freshly built transaction when the draft held still", async () => {
   const { ctx, setBuildError } = contextFor(createStore(), null);
-  await createWorkspaceTransactions(ctx).buildAndSubmitSelectedActionTx();
+  await transactionsFor(ctx).buildAndSubmitSelectedActionTx();
 
   expect(mocks.signAndSubmitTx).toHaveBeenCalledWith({}, "84a1", { assertCurrent: expect.any(Function) as unknown, onPhase: expect.any(Function) as unknown });
   expect(setBuildError).not.toHaveBeenCalledWith(expect.stringMatching(/stale/i));
@@ -138,7 +148,7 @@ it("compares a draft that contains an exact bigint State field", async () => {
   store.set(sttStateFormAtom, state);
   const { ctx, setBuildError } = contextFor(store, null);
 
-  await createWorkspaceTransactions(ctx).buildAndSubmitSelectedActionTx();
+  await transactionsFor(ctx).buildAndSubmitSelectedActionTx();
 
   expect(mocks.signAndSubmitTx).toHaveBeenCalledWith({}, "84a1", { assertCurrent: expect.any(Function) as unknown, onPhase: expect.any(Function) as unknown });
   expect(setBuildError).not.toHaveBeenCalledWith(expect.stringMatching(/stale/i));
@@ -149,7 +159,7 @@ it("a stop target edit during build cannot lead to signing", async () => {
   const { ctx, setBuildError } = contextFor(store, () => store.set(beneficiaryStreamStopIdAtom, "8"));
   ctx.selectedAction = "stop-beneficiary-stream";
   ctx.effectiveSttAction = "stop-beneficiary-stream";
-  await createWorkspaceTransactions(ctx).buildAndSubmitSelectedActionTx();
+  await transactionsFor(ctx).buildAndSubmitSelectedActionTx();
   expect(mocks.signAndSubmitTx).not.toHaveBeenCalled();
   expect(setBuildError).toHaveBeenCalledWith(expect.stringMatching(/stale/i));
 });
@@ -158,7 +168,7 @@ it("a stop build signs in the same press when the draft held still", async () =>
   const { ctx, setBuildError } = contextFor(createStore(), null);
   ctx.selectedAction = "stop-beneficiary-stream";
   ctx.effectiveSttAction = "stop-beneficiary-stream";
-  await createWorkspaceTransactions(ctx).buildAndSubmitSelectedActionTx();
+  await transactionsFor(ctx).buildAndSubmitSelectedActionTx();
   expect(mocks.signAndSubmitTx).toHaveBeenCalledWith({}, "84a1", { assertCurrent: expect.any(Function) as unknown, onPhase: expect.any(Function) as unknown });
   expect(setBuildError).not.toHaveBeenCalledWith(expect.anything());
 });
@@ -168,7 +178,7 @@ it("an exact input edit during build cannot lead to signing", async () => {
   const { ctx, setBuildError } = contextFor(store, () => store.set(sttWalletInputsAtom, [{ txHash: "aa".repeat(32), outputIndex: 1 }]));
   ctx.selectedAction = "distribute-beneficiaries";
   ctx.effectiveSttAction = "distribute-beneficiaries";
-  await createWorkspaceTransactions(ctx).buildAndSubmitSelectedActionTx();
+  await transactionsFor(ctx).buildAndSubmitSelectedActionTx();
   expect(mocks.signAndSubmitTx).not.toHaveBeenCalled();
   expect(setBuildError).toHaveBeenCalledWith(expect.stringMatching(/stale/i));
 });
@@ -176,7 +186,7 @@ it("exact distribution signs in the same press when the draft held still", async
   const { ctx, setBuildError } = contextFor(createStore(), null);
   ctx.selectedAction = "distribute-beneficiaries";
   ctx.effectiveSttAction = "distribute-beneficiaries";
-  await createWorkspaceTransactions(ctx).buildAndSubmitSelectedActionTx();
+  await transactionsFor(ctx).buildAndSubmitSelectedActionTx();
   expect(mocks.signAndSubmitTx).toHaveBeenCalledWith({}, "84a1", { assertCurrent: expect.any(Function) as unknown, onPhase: expect.any(Function) as unknown });
   expect(setBuildError).not.toHaveBeenCalledWith(expect.anything());
 });
@@ -195,7 +205,7 @@ it("preparation signs in the same press when the draft held still", async () => 
   ctx.selectedDetectedToken = detectedToken(stateFormToDatum(ctx.activeInferredSttStateForm));
   ctx.withBuildGuard = (_label, run) => run({ wallet: ctx.activeWallet! });
   mocks.buildPreparation.mockResolvedValueOnce({ txHex: "prepared" });
-  await createWorkspaceTransactions(ctx).buildAndSubmitSelectedActionTx();
+  await transactionsFor(ctx).buildAndSubmitSelectedActionTx();
   expect(mocks.signAndSubmitTx).toHaveBeenCalledWith({}, "prepared",
     expect.objectContaining({ assertCurrent: expect.any(Function) as unknown, onPhase: expect.any(Function) as unknown }));
   expect(setBuildError).not.toHaveBeenCalledWith(expect.anything());
@@ -204,7 +214,7 @@ it("editing the requested preparation pool during build prevents signing", async
   const store = createStore(); store.set(beneficiaryPreparationActiveAtom, true);
   const { ctx, setBuildError } = contextFor(store, () => store.set(beneficiaryPreparationPoolAssetsAtom, [{ unit: "lovelace", quantity: "3000000" }]));
   ctx.selectedAction = "consolidate-utxo"; ctx.effectiveSttAction = "consolidate-utxo";
-  await createWorkspaceTransactions(ctx).buildAndSubmitSelectedActionTx();
+  await transactionsFor(ctx).buildAndSubmitSelectedActionTx();
   expect(mocks.signAndSubmitTx).not.toHaveBeenCalled();
   expect(setBuildError).toHaveBeenCalledWith(expect.stringMatching(/stale/i));
 });
@@ -222,7 +232,7 @@ it("preparation builds the derived beneficiary intent without stale output layou
   ctx.selectedDetectedToken = detectedToken(stateFormToDatum(ctx.activeInferredSttStateForm));
   ctx.withBuildGuard = (_label, run) => run({ wallet: ctx.activeWallet! });
   mocks.buildPreparation.mockResolvedValueOnce({ txHex: "prepared" });
-  await createWorkspaceTransactions(ctx).buildSelectedActionTx("admin");
+  await transactionsFor(ctx).buildSelectedActionTx("admin");
   expect(mocks.buildPreparation).toHaveBeenCalledWith(ctx.activeWallet, expect.any(Object), {
     sttInputTxHash: "aa".repeat(32), sttInputOutputIndex: 1, walletInputs: refs,
     beneficiarySignerKeyHash: "11".repeat(28), poolAssets: [{ unit: "lovelace", quantity: "3000000" }], expectedStateDatum: stateFormToDatum(ctx.activeInferredSttStateForm)
@@ -249,7 +259,7 @@ it("preparation uses the raw reviewed State even when its form normalizes admin 
   ctx.withBuildGuard = (_label, run) => run({ wallet: ctx.activeWallet! });
   mocks.buildPreparation.mockResolvedValueOnce({ txHex: "prepared" });
 
-  await createWorkspaceTransactions(ctx).buildSelectedActionTx();
+  await transactionsFor(ctx).buildSelectedActionTx();
 
   expect(mocks.buildPreparation).toHaveBeenCalledWith(
     ctx.activeWallet, expect.any(Object), expect.objectContaining({ expectedStateDatum: datum }), undefined
@@ -266,7 +276,7 @@ it.each([null, detectedToken(null)])("preparation requires the reviewed raw datu
   ctx.activeInferredSttStateForm = createDefaultStateForm();
   ctx.withBuildGuard = (_label, run) => run({ wallet: ctx.activeWallet! });
 
-  await expect(createWorkspaceTransactions(ctx).buildSelectedActionTx()).rejects.toThrow(/stale.*refresh/i);
+  await expect(transactionsFor(ctx).buildSelectedActionTx()).rejects.toThrow(/stale.*refresh/i);
   expect(mocks.buildPreparation).not.toHaveBeenCalled();
 });
 
@@ -286,8 +296,8 @@ function cachingContext() {
 
 it("reuses the prepared transaction after a fresh chain check", async () => {
   const { store, ctx, build } = cachingContext();
-  const first = await createWorkspaceTransactions(ctx).buildSelectedActionTx();
-  const second = await createWorkspaceTransactions(ctx).buildSelectedActionTx();
+  const first = await transactionsFor(ctx).buildSelectedActionTx();
+  const second = await transactionsFor(ctx).buildSelectedActionTx();
   expect(second).toBe(first);
   expect(build).toHaveBeenCalledTimes(1);
   expect(mocks.freshness).toHaveBeenCalledWith(first!.txHex);
@@ -296,40 +306,40 @@ it("reuses the prepared transaction after a fresh chain check", async () => {
 
 it("rebuilds for a changed authority and restores only its proposal capture", async () => {
   const { ctx, build } = cachingContext();
-  await createWorkspaceTransactions(ctx).buildSelectedActionTx("admin");
-  const next = await createWorkspaceTransactions(ctx).buildSelectedActionTx("multisig");
+  await transactionsFor(ctx).buildSelectedActionTx("admin");
+  const next = await transactionsFor(ctx).buildSelectedActionTx("multisig");
   expect(next?.txHex).toBe("built-2");
   expect(build).toHaveBeenCalledTimes(2);
 });
 
 it("does not reuse a changed draft or a flow reset", async () => {
   const { store, ctx, build } = cachingContext();
-  await createWorkspaceTransactions(ctx).buildSelectedActionTx();
+  await transactionsFor(ctx).buildSelectedActionTx();
   store.set(lockFundsAssetsAtom, [{ unit: "lovelace", quantity: "9000000" }]);
-  await createWorkspaceTransactions(ctx).buildSelectedActionTx();
+  await transactionsFor(ctx).buildSelectedActionTx();
   store.set(resetFlowAtom);
-  await createWorkspaceTransactions(ctx).buildSelectedActionTx();
+  await transactionsFor(ctx).buildSelectedActionTx();
   expect(build).toHaveBeenCalledTimes(3);
 });
 
 it("rebuilds expired preparation and preparation whose inputs were spent", async () => {
   const { store, ctx, build } = cachingContext();
-  await createWorkspaceTransactions(ctx).buildSelectedActionTx();
+  await transactionsFor(ctx).buildSelectedActionTx();
   const prepared = store.get(preparedWorkspaceTransactionAtom)!;
   store.set(preparedWorkspaceTransactionAtom, { ...prepared, builtAt: Date.now() - PREPARED_TRANSACTION_MAX_AGE_MS });
-  await createWorkspaceTransactions(ctx).buildSelectedActionTx();
+  await transactionsFor(ctx).buildSelectedActionTx();
   mocks.freshness.mockRejectedValueOnce(new Error("input spent"));
-  await createWorkspaceTransactions(ctx).buildSelectedActionTx();
+  await transactionsFor(ctx).buildSelectedActionTx();
   expect(build).toHaveBeenCalledTimes(3);
 });
 
 it("discards a cached result if the draft changes during its chain check", async () => {
   const { store, ctx, build } = cachingContext();
-  await createWorkspaceTransactions(ctx).buildSelectedActionTx();
+  await transactionsFor(ctx).buildSelectedActionTx();
   mocks.freshness.mockImplementationOnce(async () => {
     store.set(lockFundsAssetsAtom, [{ unit: "lovelace", quantity: "8000000" }]);
   });
-  expect(await createWorkspaceTransactions(ctx).buildSelectedActionTx()).toBeNull();
+  expect(await transactionsFor(ctx).buildSelectedActionTx()).toBeNull();
   expect(build).toHaveBeenCalledTimes(1);
   expect(mocks.signAndSubmitTx).not.toHaveBeenCalled();
 });

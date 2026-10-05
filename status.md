@@ -492,3 +492,17 @@ VERIFIED: Type checking reports `TS2307` for missing `@vercel/functions` and `TS
 Planned: Limit prebuild identity to the selected action. Preserve every active builder input and signing guard.
 Planned: Read consent and wallet network concurrently. Keep freshness checks after those reads and before signing or broadcast.
 Next: Commit evaluation reuse, then implement the action snapshot on its owning stack layer.
+
+### Selected-action prebuild layer
+
+Owner: coordinator. Status: In Progress.
+REPORTED: Tests-first Node checks returned `tests 40; pass 23; fail 17`. The baseline invalidates prebuilds after unrelated form edits.
+VERIFIED: `sfw pnpm install --frozen-lockfile --ignore-scripts` restored existing locked dependencies and returned exit 0. Package and lock files did not change.
+VERIFIED: Type checking after that install returned exit 0. The earlier type errors came from the local dependency state.
+Correction: The planned concurrent gates apply only at entry. Signing and broadcast keep consent before the network read.
+INFERRED: Concurrent boundary reads can accept a network result taken before a slow consent check finishes. The wallet could switch during that wait.
+VERIFIED: Expanded Node checks returned `tests 82; pass 82; fail 0`. Vitest returned `Test Files 4 passed (4); Tests 118 passed (118)`.
+REPORTED: The final independent adversarial pass found no introduced defect. Active edits still retire prebuilds.
+REPORTED: Scoped ESLint and type checking returned exit 0. Source files have 148, 83, and 648 lines.
+Correction: Nine broader test failures used fields from an action different from the selected action. The fixtures now select the tested action.
+Next: Commit this layer, then overlap entry checks while retaining ordered signing and broadcast gates.

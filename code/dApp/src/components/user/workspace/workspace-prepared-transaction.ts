@@ -10,12 +10,7 @@ import { activeInferredSttStateFormAtom } from "./queries/wallet-identity.atoms"
 import { spendableWalletUtxosAtom } from "./atoms/workspace-spendable-utxos.atoms";
 import { selectedSigningActionAvailabilityAtom } from "./atoms/workspace-stt-options.atoms";
 import { isWalletStateIndependentAction, pendingWalletStateUpdatesAtom, selectedActionWaitsForWalletStateAtom, walletStateSubmissionsAtom, type PendingWalletStateUpdate } from "./atoms/wallet-state-update.atoms";
-import { mintZeroAdminConfirmedAtom } from "./atoms/forms/mint-form.atoms";
-import { sttZeroAdminConfirmedAtom } from "./atoms/forms/stt-spend-form.atoms";
-import { voteZeroAdminConfirmedAtom } from "./atoms/forms/vote-form.atoms";
-import { publishZeroAdminConfirmedAtom } from "./atoms/forms/publish-form.atoms";
-import { withdrawZeroAdminConfirmedAtom } from "./atoms/forms/withdraw-form.atoms";
-import { resolveWorkspaceTransactionInputs } from "./workspace-transaction-inputs";
+import { resolveWorkspaceActionSnapshotInputs } from "./workspace-transaction-inputs";
 import { safeStringify } from "./helpers";
 
 // Rebuild time-dependent outputs at least once a minute while the editor is open.
@@ -24,20 +19,21 @@ export const PREPARED_TRANSACTION_MAX_AGE_MS = 60_000;
 // Read builder inputs directly. Display signatures omit some inputs, including
 // the setup helper and the separate State update form. Do not include the render
 // clock: builders update it themselves, which would cause a rebuild loop.
-export const workspaceTransactionSnapshotAtom = atom(get => safeStringify({
-  inputs: resolveWorkspaceTransactionInputs({ get }),
-  action: get(selectedActionAtom),
-  payoutTransfers: get(selectedActionAtom) === "payout-streaming-payment"
-    ? get(streamingPaymentPayoutTransfersAtom) : undefined,
-  accountRevision: get(walletAccountRevisionAtom),
-  paymentKeyHash: get(activePaymentKeyHashAtom),
-  token: get(selectedDetectedTokenAtom),
-  state: get(activeInferredSttStateFormAtom),
-  walletInputs: get(spendableWalletUtxosAtom),
-  signing: get(selectedSigningActionAvailabilityAtom),
-  confirmations: [get(mintZeroAdminConfirmedAtom), get(sttZeroAdminConfirmedAtom),
-    get(voteZeroAdminConfirmedAtom), get(publishZeroAdminConfirmedAtom), get(withdrawZeroAdminConfirmedAtom)]
-}));
+export const workspaceTransactionSnapshotAtom = atom(get => {
+  const action = get(selectedActionAtom);
+  return safeStringify({
+    inputs: resolveWorkspaceActionSnapshotInputs({ get }, action),
+    action,
+    payoutTransfers: action === "payout-streaming-payment"
+      ? get(streamingPaymentPayoutTransfersAtom) : undefined,
+    accountRevision: get(walletAccountRevisionAtom),
+    paymentKeyHash: get(activePaymentKeyHashAtom),
+    token: get(selectedDetectedTokenAtom),
+    state: get(activeInferredSttStateFormAtom),
+    walletInputs: get(spendableWalletUtxosAtom),
+    signing: get(selectedSigningActionAvailabilityAtom)
+  });
+});
 
 export interface PreparedWorkspaceTransaction {
   result: BuildResult;
