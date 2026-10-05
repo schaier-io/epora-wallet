@@ -542,3 +542,14 @@ VERIFIED: After rebasing the signing layer, focused checks returned `Test Files 
 VERIFIED: GitHub returned `SUCCESS` for `verify` and `build` at the published heads `49404801`, `48f05823`, and `2859cfac`. These checks exclude the local correction.
 VERIFIED: Automatic approval review rejected `gh stack submit --auto`. It requires current-message approval to push and update the PRs. The corrected heads remain local.
 Next: Obtain push approval, update PRs 736 and 737, then verify CI for the corrected heads.
+
+### Further frontend speed investigation
+
+Owner: coordinator. Status: Completed.
+VERIFIED: The reviewed heads are published at PR 736 (`af5d311d`) and PR 737 (`2b7bc6d0`). GitHub CI is still in progress at runs `37252609801` and `37252613123`.
+VERIFIED: `mint-state-token.ts:59` awaits setup before shared reference inspection at line 117. `consolidate-utxos.ts:77` awaits setup before State and exact wallet input reads. `stt-spend.ts:120` already overlaps these reads with `Promise.all`.
+INFERRED: Overlapping independent mint and consolidation reads can shorten preparation. Browser elapsed savings remain unmeasured. Preserve error priority, cancellation, diagnostics, and fresh status reads in both passes.
+VERIFIED: `core.ts:131` parses each evaluation request before the cache lookup. `local-draft-evaluation.ts:16` parses it again on the local path. Reusing immutable metadata is a candidate, not an implemented change.
+VERIFIED: The current real-Mesh selector fixture returned `tests 1; pass 1; fail 0`, `preparations: 2`, `fundingCandidates: 20`, and `upstreamRequestsByPass: [40,40]`. Evaluation budgets are mocked; this does not measure browser latency.
+VERIFIED: `no-change-ada-selector.ts:247` continues singleton search after zero surplus. Lines 277-286 propagate unknown later errors. An early exit would change that error behavior.
+Next: Choose preparation-read overlap, metadata reuse, or a measured selector investigation. Keep the final remote evaluation and signing freshness checks.
