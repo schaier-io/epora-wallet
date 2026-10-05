@@ -590,3 +590,11 @@ VERIFIED: PR URLs are https://github.com/schaier-io/epora-wallet/pull/739, https
 VERIFIED: The new PR bodies contain only the Stacks CLI footer. Automatic approval review rejected `gh pr edit 739`: "The user authorized opening PRs, but the current message does not explicitly authorize publishing these prepared descriptions." The later edits did not run.
 VERIFIED: The initial new-PR check snapshot reports dApp `verify` and `audit` as `IN_PROGRESS`. File-length checks returned `SUCCESS`. This snapshot is not a final CI result.
 Next: Obtain description approval, replace the CLI footer with the prepared notes, and check CI before merge. No source changed during publication.
+
+### Full stack readiness
+
+Owner: coordinator. Status: In Progress.
+Scope: PRs 735, 736, 737, 739, 740, and 741. The user requested the full stack ready.
+VERIFIED: GitHub reports all six layers as `MERGEABLE`. The initial readiness snapshot has dApp checks complete for 735 and 736, with `verify` still running on the four upper layers.
+VERIFIED: CodeRabbit comments say `Auto reviews are disabled on this repository`. Its success status does not attest to a code review.
+Planned: Run fresh independent reviews, publish current descriptions, remove the CLI footer, check CI at published heads, and mark all layers ready for review.
