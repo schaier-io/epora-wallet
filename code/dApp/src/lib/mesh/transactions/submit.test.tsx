@@ -322,3 +322,57 @@ it("reports a second signature phase when script integrity requires a new wallet
   expect(phases.at(-1)).toBe("submitting");
   expect(mocks.requireBetaConsent).toHaveBeenCalledTimes(5);
 });
+
+it.each(["consent", "network"] as const)("overlaps entry checks and waits when %s resolves first", async first => {
+  const consent = deferred<void>();
+  const network = deferred<number>();
+  mocks.requireBetaConsent.mockReturnValueOnce(consent.promise);
+  const wallet = {
+    getNetworkId: vi.fn().mockReturnValueOnce(network.promise).mockResolvedValue(0),
+    signTx: vi.fn().mockResolvedValue(VERIFYING_WALLET_PAYLOAD),
+    submitTx: vi.fn().mockResolvedValue("submitted-hash")
+  };
+  const current = vi.fn();
+  const pending = signAndSubmitTx(wallet as never, "unsigned", { assertCurrent: current });
+  try {
+    await vi.waitFor(() => expect(wallet.getNetworkId).toHaveBeenCalledOnce());
+    expect(mocks.requireBetaConsent).toHaveBeenCalledOnce();
+    if (first === "consent") consent.resolve();
+    else network.resolve(0);
+    await new Promise<void>(resolve => setImmediate(resolve));
+    expect(mocks.refresh).not.toHaveBeenCalled();
+    expect(current).not.toHaveBeenCalled();
+    expect(wallet.signTx).not.toHaveBeenCalled();
+    expect(wallet.submitTx).not.toHaveBeenCalled();
+  } finally {
+    consent.resolve();
+    network.resolve(0);
+    await pending;
+  }
+  expect(wallet.submitTx).toHaveBeenCalledOnce();
+});
+
+it.each([2, 3, 4])("reads network after consent at action boundary %s", async boundary => {
+  const consent = deferred<void>();
+  let consentChecks = 0;
+  let networkId = 0;
+  mocks.requireBetaConsent.mockImplementation(() => ++consentChecks === boundary
+    ? consent.promise : Promise.resolve());
+  const wallet = {
+    getNetworkId: vi.fn(async () => networkId),
+    signTx: vi.fn().mockResolvedValue(VERIFYING_WALLET_PAYLOAD),
+    submitTx: vi.fn().mockRejectedValue(new Error("wallet relay unavailable"))
+  };
+  const current = vi.fn();
+  const pending = signAndSubmitTx(wallet as never, "unsigned", { assertCurrent: current });
+  void pending.catch(() => undefined);
+  await vi.waitFor(() => expect(mocks.requireBetaConsent).toHaveBeenCalledTimes(boundary));
+  expect(wallet.getNetworkId).toHaveBeenCalledTimes(boundary - 1);
+  expect(current).toHaveBeenCalledTimes(boundary - 2);
+  networkId = 1;
+  consent.resolve();
+  await expect(pending).rejects.toThrow("must use preprod");
+  expect(wallet.signTx).toHaveBeenCalledTimes(boundary > 2 ? 1 : 0);
+  expect(wallet.submitTx).toHaveBeenCalledTimes(boundary > 3 ? 1 : 0);
+  expect(mocks.providerSubmitTx).not.toHaveBeenCalled();
+});

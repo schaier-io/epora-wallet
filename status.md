@@ -507,6 +507,25 @@ REPORTED: Scoped ESLint and type checking returned exit 0. Source files have 148
 Correction: Nine broader test failures used fields from an action different from the selected action. The fixtures now select the tested action.
 Next: Commit this layer, then overlap entry checks while retaining ordered signing and broadcast gates.
 
+### Entry checks and final validation
+
+Owner: coordinator. Status: In Progress.
+VERIFIED: Tests-first submission checks returned `Tests 2 failed | 22 passed (24)`. The network read did not start while entry consent waited.
+VERIFIED: Focused submission checks returned `Test Files 3 passed (3); Tests 38 passed (38)` after entry concurrency.
+REPORTED: The final independent adversarial pass found no introduced defect. Signing, wallet broadcast, provider fallback, and integrity retry retain ordered checks.
+VERIFIED: Full type checking and lint returned exit 0. File length checks returned `796 source files checked, none over 750 lines`.
+VERIFIED: Entrypoint fixtures match committed CBOR. OpenAPI checks returned `OpenAPI document is in sync`.
+VERIFIED: Prisma and deployment-script checks returned `tests 11; pass 11; fail 0`. User-flow helper smoke checks passed. These checks did not run migrations.
+VERIFIED: Full Vitest returned `Test Files 224 passed (224); Tests 2293 passed (2293)`.
+VERIFIED: Translation checks returned `Catalog valid: 3120 messages across 188 namespaces` and `Static i18n coverage valid for audited syntax shapes`.
+VERIFIED: The first production build could not open the SWC cache pruning lock outside the writable roots. A retry uses `SWC_NATIVE_BINDING_CACHE=/private/tmp/epora-swc-native-cache`.
+VERIFIED: Full Node returned `tests 2057; pass 2026; fail 0; skipped 31` with the permitted SWC cache. The skipped database cases were not validated.
+Correction: The first full Node run returned `tests 2057; pass 2024; fail 2; skipped 31`. Both failures loaded the restricted SWC cache before their configuration assertions.
+VERIFIED: `pnpm exec next build --webpack` returned exit 0. The default Turbopack retry stayed in compilation without visible progress and was stopped with exit 143. Its local result is not determined.
+VERIFIED: The three source layers passed independent adversarial review. The last pass for each layer found no introduced defect.
+VERIFIED: Bundle-budget helper checks returned `tests 9; pass 9; fail 0`. The gate returned exit 1 because `.next/diagnostics/route-bundle-stats.json` was absent. Its size result is not determined.
+Next: Submit the reviewed draft stack. CI must confirm the default build, bundle sizes, and database cases.
+
 ### Functional regression review
 
 Correction: The earlier clean review missed a mismatch between the scoped snapshot and shared STT preview signatures.
