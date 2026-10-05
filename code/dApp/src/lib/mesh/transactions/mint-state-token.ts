@@ -12,6 +12,7 @@ import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/LibMeshTransactionsMintStateToken.json";
 import { addStreamingAssetProof } from "./internals/streaming-asset-proof";
+import { createPreparationReadAhead } from "./internals/preparation-read-ahead";
 
 const i18n = createDefaultTranslator("LibMeshTransactionsMintStateToken", defaultMessages);
 
@@ -56,11 +57,13 @@ export async function buildMintStateTokenTx(
     "mint:tx.draft-build",
     "mint:tx.build",
     async (overrides, buildFetcher) => {
-      const setup = await setupTransaction(wallet, undefined, buildFetcher);
+      const setupRead = setupTransaction(wallet, undefined, buildFetcher);
+      const readAhead = createPreparationReadAhead(buildFetcher);
+      readAhead.prefetchReference(input.sttSpendReference);
+      const setup = await setupRead;
       const {
         tx,
         signerAddress,
-        fetcher,
         walletUtxos,
         spendableWalletUtxos,
         setupDiagnostics,
@@ -114,7 +117,7 @@ export async function buildMintStateTokenTx(
           }
         );
       }
-      const sharedReferenceInspection = await inspectSharedSttReferenceStore(fetcher, {
+      const sharedReferenceInspection = await inspectSharedSttReferenceStore(readAhead.fetcher, {
         configuredReference: input.sttSpendReference,
         script: sttScript,
         stage: "mint:inspectSharedSttReferenceStore",

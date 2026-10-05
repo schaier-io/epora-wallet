@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { BrowserWallet, UTxO } from "@meshsdk/core";
 import type { MintFormInput } from "@/lib/types/contracts";
 
@@ -9,6 +9,7 @@ import type { MintFormInput } from "@/lib/types/contracts";
 // mint budget from evaluateTx and there are two wallet UTxOs (mint reference +
 // collateral). Real MeshSDK still does the build; only chain I/O is mocked.
 const chain = vi.hoisted(() => ({
+  metadataReads: 0, metadataError: null as Error | null,
   references: [] as UTxO[], evaluations: 0, protocolReads: 0, modelReads: 0, unspentReads: 0, rawParameterReads: 0
 }));
 vi.mock("@/lib/mesh/server-fetcher", async () => {
@@ -31,6 +32,8 @@ vi.mock("@/lib/mesh/server-fetcher", async () => {
       throw new Error("Mint must not scan the shared reference address");
     }
     async fetchUTxOs(hash: string, index?: number) {
+      chain.metadataReads++;
+      if (chain.metadataError) throw chain.metadataError;
       return chain.references.filter((utxo) => utxo.input.txHash === hash &&
         (index === undefined || utxo.input.outputIndex === index));
     }
@@ -104,6 +107,23 @@ const wallet = {
   getUsedAddresses: async () => [PAYMENT_ADDRESS],
   getUnusedAddresses: async () => []
 } as unknown as BrowserWallet;
+
+function configuredMintInput(): MintFormInput {
+  const script = getSttMintScript();
+  const hash = "22".repeat(32);
+  chain.references = [{ input: { txHash: hash, outputIndex: 0 }, output: {
+    address: resolveSttReferenceStoreAddress(),
+    amount: [{ unit: "lovelace", quantity: "100000000" }],
+    scriptRef: String(toScriptRef(script).toCbor()),
+    scriptHash: resolveScriptHash(script.code, script.version)
+  } }];
+  return { stateDatum, mintLovelace: "2000000", sttSpendReference: `${hash}#0` };
+}
+
+beforeEach(() => {
+  chain.metadataReads = 0;
+  chain.metadataError = null;
+});
 
 describe("buildMintStateTokenTx (integration: real MeshSDK build, mocked chain I/O)", () => {
   it("requires a shared reference before building an oversized inline mint", async () => {
@@ -222,4 +242,47 @@ describe("buildMintStateTokenTx (integration: real MeshSDK build, mocked chain I
     );
     expect(chain.evaluations).toBe(0);
   });
+  it("reads the configured reference while wallet setup is pending", async () => {
+    const input = configuredMintInput();
+    let release!: () => void;
+    let started!: () => void;
+    const waiting = new Promise<void>(resolve => { release = resolve; });
+    const walletStarted = new Promise<void>(resolve => { started = resolve; });
+    const slowWallet = { ...wallet, getUtxos: async () => {
+      started();
+      await waiting;
+      return [adaUtxo(0), adaUtxo(1)];
+    } } as BrowserWallet;
+    const unspentBefore = chain.unspentReads;
+    const building = buildMintStateTokenTx(slowWallet, input);
+    try {
+      await walletStarted;
+      await new Promise<void>(resolve => setImmediate(resolve));
+      expect(chain.metadataReads).toBe(1);
+      expect(chain.unspentReads - unspentBefore).toBe(1);
+    } finally {
+      release();
+      await building;
+    }
+    expect(chain.metadataReads).toBe(1);
+    expect(chain.unspentReads - unspentBefore).toBe(2);
+  });
+
+  it("reports an early reference failure once at its original inspection stage", async () => {
+    const input = configuredMintInput();
+    chain.metadataError = new Error("reference offline");
+    await expect(buildMintStateTokenTx(wallet, input)).rejects.toThrow(
+      /mint:inspectSharedSttReferenceStore.*reference offline/
+    );
+    expect(chain.metadataReads).toBe(1);
+  });
+
+  it("keeps mint input validation ahead of an early reference failure", async () => {
+    const input = configuredMintInput();
+    input.selectedReferenceUtxo = { txHash: "33".repeat(32), outputIndex: 0 };
+    chain.metadataError = new Error("reference offline");
+    await expect(buildMintStateTokenTx(wallet, input)).rejects.toThrow(/mint:referenceUtxo/);
+    expect(chain.metadataReads).toBe(1);
+  });
+
 });

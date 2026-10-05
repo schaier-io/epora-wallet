@@ -562,3 +562,8 @@ VERIFIED: The user approved preparation-read overlap. The planning review identi
 Planned: Retain read failures until existing validators consume them. Preserve setup error priority and diagnostics. Use a new reader for each pass.
 VERIFIED: Helper checks returned `tests 5; pass 5; fail 0`. They cover overlap, retained failure, isolated results, per-pass status, cancellation, and deferred reference validation.
 Next: Commit the helper, then test and implement mint and consolidation on their owning layers.
+
+VERIFIED: Mint overlap tests returned `Tests 2 failed | 6 passed (8)` with the prior source, then `Tests 8 passed (8)` after implementation. The fixture uses real Mesh with mocked chain I/O. Browser latency remains unmeasured.
+VERIFIED: Mint type checking and scoped lint returned exit 0. The helper independent review reported no introduced defect.
+Correction: The earlier CI status was in progress. Runs `37252609801` and `37252613123` now return `conclusion: success`, `status: completed`.
+Next: Commit mint, then implement consolidation read overlap.
