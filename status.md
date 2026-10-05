@@ -553,3 +553,12 @@ VERIFIED: `core.ts:131` parses each evaluation request before the cache lookup. 
 VERIFIED: The current real-Mesh selector fixture returned `tests 1; pass 1; fail 0`, `preparations: 2`, `fundingCandidates: 20`, and `upstreamRequestsByPass: [40,40]`. Evaluation budgets are mocked; this does not measure browser latency.
 VERIFIED: `no-change-ada-selector.ts:247` continues singleton search after zero surplus. Lines 277-286 propagate unknown later errors. An early exit would change that error behavior.
 Next: Choose preparation-read overlap, metadata reuse, or a measured selector investigation. Keep the final remote evaluation and signing freshness checks.
+
+### Preparation read overlap implementation
+
+Owner: coordinator. Status: In Progress.
+Scope: A per-pass read-ahead helper, mint reference reads, and consolidation State, reference, and first-batch wallet input reads. Each concern owns one new stack layer.
+VERIFIED: The user approved preparation-read overlap. The planning review identified failure eviction and early saved-reference lookup as risks.
+Planned: Retain read failures until existing validators consume them. Preserve setup error priority and diagnostics. Use a new reader for each pass.
+VERIFIED: Helper checks returned `tests 5; pass 5; fail 0`. They cover overlap, retained failure, isolated results, per-pass status, cancellation, and deferred reference validation.
+Next: Commit the helper, then test and implement mint and consolidation on their owning layers.
