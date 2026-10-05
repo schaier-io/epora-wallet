@@ -25,8 +25,8 @@ export async function signAndSubmitTx(
     }
   };
   options.onPhase?.("checking");
-  await requireBrowserBetaConsent();
-  await assertWalletNetwork();
+  // Later signing and broadcast gates read the network after consent again.
+  await Promise.all([requireBrowserBetaConsent(), assertWalletNetwork()]);
   const fetcher = new ServerFetcher();
   const scriptDataHashRefresh = await refreshScriptDataHashWithLiveCostModels(
     txHex,

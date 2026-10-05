@@ -1,14 +1,16 @@
 import { configAtom } from "@/components/user/workspace/atoms/workspace-config.atoms";
-import { beneficiaryPreparationActiveAtom, beneficiaryPreparationPoolAssetsAtom, consolidateSttAssetsAtom, consolidateSttInputHashAtom, consolidateSttInputIndexAtom, consolidateWalletInputsAtom, consolidateWalletOutputsAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
+import { beneficiaryPreparationActiveAtom, beneficiaryPreparationPoolAssetsAtom, consolidateStateFormAtom, consolidateSttAssetsAtom, consolidateSttInputHashAtom, consolidateSttInputIndexAtom, consolidateWalletInputsAtom, consolidateWalletOutputsAtom } from "@/components/user/workspace/atoms/forms/consolidate-form.atoms";
 import { lockFundsAssetsAtom } from "@/components/user/workspace/atoms/forms/lock-funds-form.atoms";
-import { mintReferenceAtom, mintStarterAssetsAtom, mintStateFormAtom } from "@/components/user/workspace/atoms/forms/mint-form.atoms";
-import { voteJsonAtom, voteSttAssetsAtom, voteSttInputHashAtom, voteSttInputIndexAtom, voteSttStateFormAtom } from "@/components/user/workspace/atoms/forms/vote-form.atoms";
-import { publishCertificateJsonAtom, publishSttAssetsAtom, publishSttInputHashAtom, publishSttInputIndexAtom, publishSttStateFormAtom } from "@/components/user/workspace/atoms/forms/publish-form.atoms";
+import { mintReferenceAtom, mintStarterAssetsAtom, mintStateFormAtom, mintZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/mint-form.atoms";
+import { voteJsonAtom, voteSttAssetsAtom, voteSttInputHashAtom, voteSttInputIndexAtom, voteSttStateFormAtom, voteZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/vote-form.atoms";
+import { publishCertificateJsonAtom, publishSttAssetsAtom, publishSttInputHashAtom, publishSttInputIndexAtom, publishSttStateFormAtom, publishZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/publish-form.atoms";
 import { consolidateAuthorityPathAtom, beneficiaryStreamStopIdAtom, streamingPaymentPayoutAmountsAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputOutputIndexAtom, sttInputTxHashAtom, sttOutputAssetsAtom, sttProofOfLifeOverrideModeAtom, sttProofOfLifeSpecificDateTimeAtom, sttStateFormAtom, sttWalletInputsAtom, sttWalletOutputsAtom, updateStateFormAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
-import { withdrawAmountAtom, withdrawSttAssetsAtom, withdrawSttInputHashAtom, withdrawSttInputIndexAtom, withdrawSttStateFormAtom } from "@/components/user/workspace/atoms/forms/withdraw-form.atoms";
+import { withdrawAmountAtom, withdrawSttAssetsAtom, withdrawSttInputHashAtom, withdrawSttInputIndexAtom, withdrawSttStateFormAtom, withdrawZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/withdraw-form.atoms";
 import { effectiveWithdrawRewardAddressAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import type { WorkspaceTransactionsCtx } from "@/components/user/workspace/workspace-transactions-types";
 import { withBeneficiarySigningAddressesDerived } from "@/components/user/workspace/helpers/form-state";
+import { sttZeroAdminConfirmedAtom } from "./atoms/forms/stt-spend-form.atoms";
+import type { UserActionKind } from "@/components/user/flow-types";
 
 // Snapshots every form atom the transaction builders read, in one place, so the
 // factory separates "gather the current form inputs" from "build the tx". Read
@@ -63,4 +65,77 @@ export function resolveWorkspaceTransactionInputs(
     withdrawSttInputIndex: jotaiStore.get(withdrawSttInputIndexAtom),
     withdrawSttStateForm: jotaiStore.get(withdrawSttStateFormAtom)
   };
+}
+
+/** Read the selected action's builder, validation, and preview-signature inputs. */
+export function resolveWorkspaceActionSnapshotInputs(
+  { get }: Pick<WorkspaceTransactionsCtx["jotaiStore"], "get">,
+  action: UserActionKind
+) {
+  const config = get(configAtom);
+  switch (action) {
+    case "mint":
+      return { config, mintReference: get(mintReferenceAtom), mintStarterAssets: get(mintStarterAssetsAtom),
+        mintStateForm: get(mintStateFormAtom), zeroAdminConfirmed: get(mintZeroAdminConfirmedAtom) };
+    case "lock-funds":
+      return { config, lockFundsAssets: get(lockFundsAssetsAtom) };
+    case "wallet-withdraw":
+      return { config, walletOperatorPath: get(walletOperatorPathAtom),
+        withdrawAmount: get(withdrawAmountAtom), withdrawRewardAddress: get(effectiveWithdrawRewardAddressAtom),
+        withdrawSttInputHash: get(withdrawSttInputHashAtom), withdrawSttInputIndex: get(withdrawSttInputIndexAtom),
+        withdrawSttAssets: get(withdrawSttAssetsAtom), withdrawSttStateForm: get(withdrawSttStateFormAtom),
+        zeroAdminConfirmed: get(withdrawZeroAdminConfirmedAtom) };
+    case "wallet-publish":
+      return { config, walletOperatorPath: get(walletOperatorPathAtom),
+        publishCertificateJson: get(publishCertificateJsonAtom), publishSttInputHash: get(publishSttInputHashAtom),
+        publishSttInputIndex: get(publishSttInputIndexAtom), publishSttAssets: get(publishSttAssetsAtom),
+        publishSttStateForm: get(publishSttStateFormAtom), zeroAdminConfirmed: get(publishZeroAdminConfirmedAtom) };
+    case "wallet-vote":
+      return { config, walletOperatorPath: get(walletOperatorPathAtom), voteJson: get(voteJsonAtom),
+        voteSttInputHash: get(voteSttInputHashAtom), voteSttInputIndex: get(voteSttInputIndexAtom),
+        voteSttAssets: get(voteSttAssetsAtom), voteSttStateForm: get(voteSttStateFormAtom),
+        zeroAdminConfirmed: get(voteZeroAdminConfirmedAtom) };
+    case "set-intended-stake-credential":
+      return { config, walletOperatorPath: get(walletOperatorPathAtom) };
+    case "consolidate-utxo": {
+      const inputs = { config, beneficiaryPreparationActive: get(beneficiaryPreparationActiveAtom),
+        consolidateStateForm: get(consolidateStateFormAtom),
+        consolidateSttInputHash: get(consolidateSttInputHashAtom),
+        consolidateSttInputIndex: get(consolidateSttInputIndexAtom),
+        consolidateWalletInputs: get(consolidateWalletInputsAtom) };
+      return inputs.beneficiaryPreparationActive
+        ? { ...inputs, beneficiaryPreparationPoolAssets: get(beneficiaryPreparationPoolAssetsAtom) }
+        : { ...inputs, consolidateAuthorityPath: get(consolidateAuthorityPathAtom),
+            consolidateSttAssets: get(consolidateSttAssetsAtom), consolidateWalletOutputs: get(consolidateWalletOutputsAtom) };
+    }
+    case "stop-beneficiary-stream":
+      return { config, sttInputTxHash: get(sttInputTxHashAtom), sttInputOutputIndex: get(sttInputOutputIndexAtom),
+        beneficiaryStreamStopId: get(beneficiaryStreamStopIdAtom) };
+    case "distribute-beneficiaries":
+      return { config, sttInputTxHash: get(sttInputTxHashAtom), sttInputOutputIndex: get(sttInputOutputIndexAtom),
+        sttWalletInputs: get(sttWalletInputsAtom) };
+    default: {
+      // The preview signature shares these fields across STT actions. Keep them
+      // together so an edit cannot leave a reusable build with a stale preview.
+      const inputs = { config, sttInputTxHash: get(sttInputTxHashAtom),
+        sttInputOutputIndex: get(sttInputOutputIndexAtom), sttAuthorityPath: get(sttAuthorityPathAtom),
+        sttStateForm: get(sttStateFormAtom), sttOutputAssets: get(sttOutputAssetsAtom),
+        sttWalletInputs: get(sttWalletInputsAtom), sttWalletOutputs: get(sttWalletOutputsAtom),
+        sttExtraTransfers: get(sttExtraTransfersAtom), sttProofOfLifeOverrideMode: get(sttProofOfLifeOverrideModeAtom),
+        sttProofOfLifeSpecificDateTime: get(sttProofOfLifeSpecificDateTimeAtom),
+        zeroAdminConfirmed: get(sttZeroAdminConfirmedAtom) };
+      switch (action) {
+        case "use":
+        case "renew-proof-of-life":
+        case "manage-streaming-payments":
+        case "use-allowance":
+        case "use-beneficiary":
+          return inputs;
+        case "update-state":
+          return { ...inputs, updateStateForm: get(updateStateFormAtom) ?? withBeneficiarySigningAddressesDerived(inputs.sttStateForm) };
+        case "payout-streaming-payment":
+          return { ...inputs, streamingPaymentPayoutAmounts: get(streamingPaymentPayoutAmountsAtom) };
+      }
+    }
+  }
 }

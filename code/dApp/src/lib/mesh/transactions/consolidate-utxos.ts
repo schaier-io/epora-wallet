@@ -10,6 +10,8 @@ import { unwrapStateDatum } from "@/lib/contracts/stt-datum";
 import { getWalletSpendScript, resolveWalletContinuingOutputAddressFromState, resolveWalletSpendScriptHash } from "@/lib/contracts/blueprint";
 import { type BuildResult, type ConsolidateUtxosFormInput, type ContractConfig } from "@/lib/types/contracts";
 import { type TxFetcher, type WalletSource } from "@/lib/mesh/tx-context";
+import { createPreparationReadAhead } from "./internals/preparation-read-ahead";
+import { MAX_CONCURRENT_EXACT_INPUT_LOOKUPS } from "./internals/utxo";
 
 const i18n = createDefaultTranslator("LibMeshTransactionsSttSpend", defaultMessages);
 
@@ -74,7 +76,16 @@ export async function buildConsolidateUtxosTx(
     "consolidate-utxo:tx.draft-build",
     "consolidate-utxo:tx.build",
     async (overrides, buildFetcher) => {
-      const { tx, fetcher, signerAddress, changeAddress, setupDiagnostics } = await setupTransaction(wallet, referenceTime, buildFetcher);
+      const setupRead = setupTransaction(wallet, referenceTime, buildFetcher);
+      const readAhead = createPreparationReadAhead(buildFetcher);
+      readAhead.prefetchInput({ txHash: input.sttInputTxHash, outputIndex: input.sttInputOutputIndex });
+      readAhead.prefetchReference(stateForwarding.configuredReference);
+      readAhead.prefetchReference(config.walletSpendReference);
+      for (const ref of input.walletInputs.slice(0, MAX_CONCURRENT_EXACT_INPUT_LOOKUPS)) {
+        readAhead.prefetchInput(ref);
+      }
+      const { tx, signerAddress, changeAddress, setupDiagnostics } = await setupRead;
+      const fetcher = readAhead.fetcher;
       addExtraRequiredSigners(tx, signerAddress, input.requiredSignerKeyHashes);
       const spendValidatorsByRef = new Map<string, string>();
       let walletOutputCount = 0;

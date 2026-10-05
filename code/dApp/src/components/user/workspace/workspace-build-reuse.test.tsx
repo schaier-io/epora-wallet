@@ -2,6 +2,7 @@ import { createStore } from "jotai";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createDefaultStateForm } from "@/lib/contracts/state-form";
 import type { BuildResult } from "@/lib/types/contracts";
+import type { UserActionKind } from "@/components/user/flow-types";
 import { createWorkspaceFlowHandlers, type WorkspaceFlowHandlersCtx } from "./workspace-flow-handlers";
 import { createWorkspaceTransactions } from "./workspace-transactions";
 import { warmBuildResultExpiry } from "./workspace-build-expiry";
@@ -10,6 +11,11 @@ import { activeBuildAtom, buildErrorAtom, buildErrorExpectedAtom, lastActionLabe
 import { lockFundsAssetsAtom } from "./atoms/forms/lock-funds-form.atoms";
 import { activeAddressAtom } from "@/providers/wallet.atoms";
 import { configAtom } from "./atoms/workspace-config.atoms";
+import { routeStateAtom } from "./atoms/workspace-route.atoms";
+import { voteJsonAtom } from "./atoms/forms/vote-form.atoms";
+import { sttOutputAssetsAtom } from "./atoms/forms/stt-spend-form.atoms";
+import { computeActionSignature, type BuildActionSignatureCtx } from "./workspace-action-signature";
+import { resolveWorkspaceTransactionInputs } from "./workspace-transaction-inputs";
 
 const mocks = vi.hoisted(() => ({ build: vi.fn(), buildStt: vi.fn(), sign: vi.fn(), freshness: vi.fn() }));
 vi.mock("@/lib/mesh/transactions", () => ({
@@ -65,14 +71,18 @@ function fixture() {
     refreshLockedContractUtxos: vi.fn(), refreshPermissionWalletSummaries: vi.fn(),
     refreshWalletBalance: vi.fn(), watchMintCreationConfirmation: vi.fn()
   };
-  const render = () => createWorkspaceTransactions({
+  const render = () => {
+    store.set(routeStateAtom, { ...store.get(routeStateAtom), selectedAction: base.selectedAction as UserActionKind });
+    return createWorkspaceTransactions({
     ...base,
     activeBuild: store.get(activeBuildAtom),
     preview: store.get(previewAtom),
     previewMatchesSelectedAction: true,
     submitHash: store.get(submitHashAtom),
     withBuildGuard: createWorkspaceFlowHandlers(base as unknown as WorkspaceFlowHandlersCtx).withBuildGuard
-  } as unknown as WorkspaceTransactionsCtx);
+    } as unknown as WorkspaceTransactionsCtx);
+  };
+  store.set(routeStateAtom, { ...store.get(routeStateAtom), selectedAction: "lock-funds" });
   return { store, render, base };
 }
 
@@ -86,6 +96,46 @@ it("shares an unfinished prebuild across renders without restarting it", async (
   finish(result);
   expect(await first).toBe(result);
   expect(await second).toBe(result);
+});
+
+it("an unrelated form edit during a pending prebuild keeps the build and direct signing", async () => {
+  const { store, render } = fixture();
+  let finish!: (value: BuildResult) => void;
+  mocks.build.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+  const prebuild = render().buildSelectedActionTx();
+  void render().buildAndSubmitSelectedActionTx();
+  const fetcher = mocks.build.mock.calls[0]?.[3] as { signal?: AbortSignal };
+  store.set(voteJsonAtom, '{"unrelated":true}');
+  expect(fetcher.signal?.aborted).toBe(false);
+  finish(result);
+  expect(await prebuild).toBe(result);
+  await vi.waitFor(() => expect(mocks.sign).toHaveBeenCalledOnce());
+  expect(mocks.build).toHaveBeenCalledOnce();
+  expect(store.get(buildErrorAtom)).toBeNull();
+});
+
+it("a shared STT preview edit retires the pending build before it can publish a stale preview", async () => {
+  const { store, render, base } = fixture();
+  base.selectedAction = "use-allowance";
+  Object.assign(base, { effectiveSttAction: "use-allowance" });
+  base.buildActionSignature = () => computeActionSignature("use-allowance", {
+    ...resolveWorkspaceTransactionInputs(store), activePaymentKeyHash: null
+  } as unknown as BuildActionSignatureCtx);
+  let finish!: (value: BuildResult) => void;
+  mocks.buildStt.mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+  const pending = render().buildSelectedActionTx();
+  const fetcher = mocks.buildStt.mock.calls[0]?.[4] as { signal: AbortSignal };
+  const signature = base.buildActionSignature();
+  store.set(sttOutputAssetsAtom, [{ unit: "lovelace", quantity: "3000000" }]);
+  expect(base.buildActionSignature()).not.toBe(signature);
+  expect(fetcher.signal.aborted).toBe(true);
+  expect(await pending).toBeNull();
+  finish(result);
+  await Promise.resolve();
+  expect(store.get(previewAtom)).toBeNull();
+  mocks.buildStt.mockResolvedValue(result);
+  expect(await render().buildSelectedActionTx()).toBe(result);
+  expect(store.get(previewSignatureAtom)).toBe(base.buildActionSignature());
 });
 
 it("submit waits for the pending prebuild and signs its exact CBOR once", async () => {

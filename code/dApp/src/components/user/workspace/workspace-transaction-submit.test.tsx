@@ -87,6 +87,7 @@ function makeDeps(overrides: Record<string, unknown> = {}) {
     ...overrides
   } as unknown as Parameters<typeof createWorkspaceTransactionSubmit>[0];
   deps.jotaiStore.set(queryClientAtom, client);
+  deps.jotaiStore.set(routeStateAtom, { ...deps.jotaiStore.get(routeStateAtom), selectedAction: deps.selectedAction });
   return deps;
 }
 
@@ -635,7 +636,7 @@ it("still reports unexpected wallet submission failures", async () => {
 });
 
 it("checks the live draft again after asynchronous chain validation", async () => {
-  const deps = makeDeps();
+  const deps = makeDeps({ selectedAction: "lock-funds" });
   bindPreview(deps);
   const sign = vi.fn();
   mocks.freshness.mockImplementationOnce(async () => {
@@ -653,7 +654,7 @@ it("checks the live draft again after asynchronous chain validation", async () =
 });
 
 it("blocks submission if the user edits while the wallet prompt is open", async () => {
-  const deps = makeDeps();
+  const deps = makeDeps({ selectedAction: "lock-funds" });
   bindPreview(deps);
   const sign = vi.fn(), submit = vi.fn();
   mocks.signAndSubmitTx.mockImplementationOnce(async (_wallet, _hex, options: { assertCurrent: () => Promise<void> }) => {

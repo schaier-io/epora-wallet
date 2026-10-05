@@ -42,7 +42,7 @@ import {
   type WalletVoteFormInput,
   type WalletWithdrawFormInput } from "@/lib/types/contracts";
 import { MINT_PERFORMED_ACTION } from "@/components/user/workspace/constants";
-import { cloneAssets, cloneStateForm, hasFieldErrors, isSttFlowAction, resolveConsolidateActionAlternative, resolveOperatorActionAlternative, resolveWalletWrapperSttInputRef, safeStringify, serializeWalletOutputs } from "@/components/user/workspace/helpers";
+import { cloneAssets, cloneStateForm, hasFieldErrors, isSttFlowAction, resolveConsolidateActionAlternative, resolveOperatorActionAlternative, resolveWalletWrapperSttInputRef, serializeWalletOutputs } from "@/components/user/workspace/helpers";
 
 import type { WorkspaceTransactionsCtx } from "@/components/user/workspace/workspace-transactions-types";
 import { multisigDraftSignerKeyHashes } from "@/components/user/workspace/helpers/multisig-draft-signers";
@@ -606,10 +606,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
       return;
     }
 
-    // The build runs several network round trips and no editor is locked meanwhile.
-    // Read the draft straight from the store on both sides so an edit made during the
-    // build is refused instead of being signed under the old preview.
-    const draftBeforeBuild = safeStringify(resolveWorkspaceTransactionInputs(jotaiStore));
+    // Check the selected action's identity before and after the build. Editors stay live.
     const sessionBeforeBuild = jotaiStore.get(workspaceSessionAtom);
     const identityBeforeBuild = jotaiStore.get(workspaceBuildIdentityAtom);
     // Submission checks chain freshness before signing and again before broadcast.
@@ -620,8 +617,7 @@ export function createWorkspaceTransactions(ctx: WorkspaceTransactionsCtx) {
     if (jotaiStore.get(workspaceSessionAtom) !== sessionBeforeBuild ||
         jotaiStore.get(workspaceBuildIdentityAtom) !== identityBeforeBuild ||
         (nextPreview && (!accepted || accepted.result !== nextPreview ||
-          !preparedWorkspaceTransactionIsCurrent(jotaiStore, accepted))) ||
-        safeStringify(resolveWorkspaceTransactionInputs(jotaiStore)) !== draftBeforeBuild) {
+          !preparedWorkspaceTransactionIsCurrent(jotaiStore, accepted)))) {
       setBuildError(i18n("theTransactionDetailsAreStaleContinueAgainTo_34b074"));
       setBuildErrorExpected(true);
       return;
