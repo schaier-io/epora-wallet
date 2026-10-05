@@ -538,3 +538,7 @@ Limit: The mismatch reproduction writes an atom directly. Ordinary allowance UI 
 VERIFIED: An independent cache probe returned `realEvaluator: Scalus`, `mem: 470102`, `steps: 147666434`, `realCalls: 3`, and `crossPassReevaluation: true`. This covers one offline mint fixture, not live ledger or browser Worker execution.
 VERIFIED: Type checking and lint returned exit 0. File length check returned `796 source files checked, none over 750 lines`.
 VERIFIED: The corrected prebuild layer's full suites returned `tests 2064; pass 2033; fail 0; skipped 31` and `Test Files 224 passed (224); Tests 2289 passed (2289)`. The 31 database cases were skipped.
+VERIFIED: After rebasing the signing layer, focused checks returned `Test Files 3 passed (3); Tests 38 passed (38)`. The entry-failure and network-switch probe passed with wallet stubs.
+VERIFIED: GitHub returned `SUCCESS` for `verify` and `build` at the published heads `49404801`, `48f05823`, and `2859cfac`. These checks exclude the local correction.
+VERIFIED: Automatic approval review rejected `gh stack submit --auto`. It requires current-message approval to push and update the PRs. The corrected heads remain local.
+Next: Obtain push approval, update PRs 736 and 737, then verify CI for the corrected heads.
