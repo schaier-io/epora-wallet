@@ -474,3 +474,127 @@ The public provider API cannot cancel requests already sent. Those requests can 
 VERIFIED: Full Node returned `tests 2020; pass 1989; fail 0; skipped 31`.
 The database-free run does not validate the skipped cases.
 Next: Open a draft PR against `dev` and wait for required checks. No deployment has run.
+
+## Frontend transaction build speed, 2026-10-05
+
+Owner: coordinator. Status: In Progress.
+Scope: Exact evaluation reuse, action-specific prebuild identity, and parallel consent and network checks.
+VERIFIED: `git rev-parse --abbrev-ref HEAD` returned `perf/frontend-evaluation-reuse` after creating the three-layer stack.
+VERIFIED: The earlier investigation used `fix/send-flow-review-ui` at `49913d24`. Its findings did not describe current upstream code.
+VERIFIED: The new base is `origin/dev` at `a5d2a494`. It already has shared parameter snapshots, immutable input reads, and draft worker evaluation.
+VERIFIED: The `origin/dev` baseline reuses only the last evaluation candidate in each pass. The final pass clears that entry.
+VERIFIED: The cache retains up to 64 exact requests per pass. A new pass resets evaluation reuse.
+VERIFIED: The source-only baseline check returned `tests 19; pass 16; fail 3`.
+VERIFIED: With the cache source restored to baseline, the selector test returned `tests 1; pass 0; fail 1`, with `58 !== 40`.
+VERIFIED: Focused tests returned `tests 30; pass 30; fail 0`. Worker and diagnostics checks returned `Tests 20 passed (20)`.
+REPORTED: Independent review found no introduced defects. The selector fixture returned `upstreamRequestsByPass: [40,40]`. Its evaluation budgets are mocked.
+VERIFIED: Type checking reports `TS2307` for missing `@vercel/functions` and `TS7006` in `regional-input-metadata.ts`. This layer does not modify that file.
+Planned: Limit prebuild identity to the selected action. Preserve every active builder input and signing guard.
+Planned: Read consent and wallet network concurrently. Keep freshness checks after those reads and before signing or broadcast.
+Next: Commit evaluation reuse, then implement the action snapshot on its owning stack layer.
+
+### Selected-action prebuild layer
+
+Owner: coordinator. Status: In Progress.
+REPORTED: Tests-first Node checks returned `tests 40; pass 23; fail 17`. The baseline invalidates prebuilds after unrelated form edits.
+VERIFIED: `sfw pnpm install --frozen-lockfile --ignore-scripts` restored existing locked dependencies and returned exit 0. Package and lock files did not change.
+VERIFIED: Type checking after that install returned exit 0. The earlier type errors came from the local dependency state.
+Correction: The planned concurrent gates apply only at entry. Signing and broadcast keep consent before the network read.
+INFERRED: Concurrent boundary reads can accept a network result taken before a slow consent check finishes. The wallet could switch during that wait.
+VERIFIED: Expanded Node checks returned `tests 82; pass 82; fail 0`. Vitest returned `Test Files 4 passed (4); Tests 118 passed (118)`.
+REPORTED: The final independent adversarial pass found no introduced defect. Active edits still retire prebuilds.
+REPORTED: Scoped ESLint and type checking returned exit 0. Source files have 148, 83, and 648 lines.
+Correction: Nine broader test failures used fields from an action different from the selected action. The fixtures now select the tested action.
+Next: Commit this layer, then overlap entry checks while retaining ordered signing and broadcast gates.
+
+### Entry checks and final validation
+
+Owner: coordinator. Status: In Progress.
+VERIFIED: Tests-first submission checks returned `Tests 2 failed | 22 passed (24)`. The network read did not start while entry consent waited.
+VERIFIED: Focused submission checks returned `Test Files 3 passed (3); Tests 38 passed (38)` after entry concurrency.
+REPORTED: The final independent adversarial pass found no introduced defect. Signing, wallet broadcast, provider fallback, and integrity retry retain ordered checks.
+VERIFIED: Full type checking and lint returned exit 0. File length checks returned `796 source files checked, none over 750 lines`.
+VERIFIED: Entrypoint fixtures match committed CBOR. OpenAPI checks returned `OpenAPI document is in sync`.
+VERIFIED: Prisma and deployment-script checks returned `tests 11; pass 11; fail 0`. User-flow helper smoke checks passed. These checks did not run migrations.
+VERIFIED: Full Vitest returned `Test Files 224 passed (224); Tests 2293 passed (2293)`.
+VERIFIED: Translation checks returned `Catalog valid: 3120 messages across 188 namespaces` and `Static i18n coverage valid for audited syntax shapes`.
+VERIFIED: The first production build could not open the SWC cache pruning lock outside the writable roots. A retry uses `SWC_NATIVE_BINDING_CACHE=/private/tmp/epora-swc-native-cache`.
+VERIFIED: Full Node returned `tests 2057; pass 2026; fail 0; skipped 31` with the permitted SWC cache. The skipped database cases were not validated.
+Correction: The first full Node run returned `tests 2057; pass 2024; fail 2; skipped 31`. Both failures loaded the restricted SWC cache before their configuration assertions.
+VERIFIED: `pnpm exec next build --webpack` returned exit 0. The default Turbopack retry stayed in compilation without visible progress and was stopped with exit 143. Its local result is not determined.
+VERIFIED: The three source layers passed independent adversarial review. The last pass for each layer found no introduced defect.
+VERIFIED: Bundle-budget helper checks returned `tests 9; pass 9; fail 0`. The gate returned exit 1 because `.next/diagnostics/route-bundle-stats.json` was absent. Its size result is not determined.
+Next: Submit the reviewed draft stack. CI must confirm the default build, bundle sizes, and database cases.
+
+### Functional regression review
+
+Correction: The earlier clean review missed a mismatch between the scoped snapshot and shared STT preview signatures.
+VERIFIED: The pending-build test returned `Tests 1 failed | 16 passed (17)` before the correction. The signature changed while the provider signal remained active.
+VERIFIED: Restoring only the snapshot source to its prior version returned `tests 64; pass 58; fail 6`. The retained tests compare actual preview signatures with prepared-build validity.
+VERIFIED: The corrected snapshot retains shared STT signature fields and the consolidation State draft. Other actions' form edits still preserve prepared builds.
+VERIFIED: Focused checks returned `tests 64; pass 64; fail 0` and `Tests 17 passed (17)`.
+REPORTED: The fresh independent review found no remaining defect. It returned `tests 96; pass 96; fail 0` and `Test Files 4 passed (4); Tests 119 passed (119)`.
+Limit: The mismatch reproduction writes an atom directly. Ordinary allowance UI reachability remains unverified. The tests mock transaction builders and wallet signing.
+VERIFIED: An independent cache probe returned `realEvaluator: Scalus`, `mem: 470102`, `steps: 147666434`, `realCalls: 3`, and `crossPassReevaluation: true`. This covers one offline mint fixture, not live ledger or browser Worker execution.
+VERIFIED: Type checking and lint returned exit 0. File length check returned `796 source files checked, none over 750 lines`.
+VERIFIED: The corrected prebuild layer's full suites returned `tests 2064; pass 2033; fail 0; skipped 31` and `Test Files 224 passed (224); Tests 2289 passed (2289)`. The 31 database cases were skipped.
+VERIFIED: After rebasing the signing layer, focused checks returned `Test Files 3 passed (3); Tests 38 passed (38)`. The entry-failure and network-switch probe passed with wallet stubs.
+VERIFIED: GitHub returned `SUCCESS` for `verify` and `build` at the published heads `49404801`, `48f05823`, and `2859cfac`. These checks exclude the local correction.
+VERIFIED: Automatic approval review rejected `gh stack submit --auto`. It requires current-message approval to push and update the PRs. The corrected heads remain local.
+Next: Obtain push approval, update PRs 736 and 737, then verify CI for the corrected heads.
+
+### Further frontend speed investigation
+
+Owner: coordinator. Status: Completed.
+VERIFIED: The reviewed heads are published at PR 736 (`af5d311d`) and PR 737 (`2b7bc6d0`). GitHub CI is still in progress at runs `37252609801` and `37252613123`.
+VERIFIED: `mint-state-token.ts:59` awaits setup before shared reference inspection at line 117. `consolidate-utxos.ts:77` awaits setup before State and exact wallet input reads. `stt-spend.ts:120` already overlaps these reads with `Promise.all`.
+INFERRED: Overlapping independent mint and consolidation reads can shorten preparation. Browser elapsed savings remain unmeasured. Preserve error priority, cancellation, diagnostics, and fresh status reads in both passes.
+VERIFIED: `core.ts:131` parses each evaluation request before the cache lookup. `local-draft-evaluation.ts:16` parses it again on the local path. Reusing immutable metadata is a candidate, not an implemented change.
+VERIFIED: The current real-Mesh selector fixture returned `tests 1; pass 1; fail 0`, `preparations: 2`, `fundingCandidates: 20`, and `upstreamRequestsByPass: [40,40]`. Evaluation budgets are mocked; this does not measure browser latency.
+VERIFIED: `no-change-ada-selector.ts:247` continues singleton search after zero surplus. Lines 277-286 propagate unknown later errors. An early exit would change that error behavior.
+Next: Choose preparation-read overlap, metadata reuse, or a measured selector investigation. Keep the final remote evaluation and signing freshness checks.
+
+### Preparation read overlap implementation
+
+Owner: coordinator. Status: In Progress.
+Scope: A per-pass read-ahead helper, mint reference reads, and consolidation State, reference, and first-batch wallet input reads. Each concern owns one new stack layer.
+VERIFIED: The user approved preparation-read overlap. The planning review identified failure eviction and early saved-reference lookup as risks.
+Planned: Retain read failures until existing validators consume them. Preserve setup error priority and diagnostics. Use a new reader for each pass.
+VERIFIED: Helper checks returned `tests 5; pass 5; fail 0`. They cover overlap, retained failure, isolated results, per-pass status, cancellation, and deferred reference validation.
+Next: Commit the helper, then test and implement mint and consolidation on their owning layers.
+
+VERIFIED: Mint overlap tests returned `Tests 2 failed | 6 passed (8)` with the prior source, then `Tests 8 passed (8)` after implementation. The fixture uses real Mesh with mocked chain I/O. Browser latency remains unmeasured.
+VERIFIED: Mint type checking and scoped lint returned exit 0. The helper independent review reported no introduced defect.
+Correction: The earlier CI status was in progress. Runs `37252609801` and `37252613123` now return `conclusion: success`, `status: completed`.
+Next: Commit mint, then implement consolidation read overlap.
+
+VERIFIED: Consolidation retained tests with the prior source returned `tests 9; pass 7; fail 2`. Updated source plus helper tests returned `tests 14; pass 14; fail 0`.
+Correction: The first State error assertion expected the fetch stage. The actual prior-source error is `must contain a valid inline state datum`. The test now checks that existing error.
+Correction: One test counted exact-output and transaction-wide metadata reads together. The trace showed both `#0` and `#undefined` keys. The assertion now counts the exact-output key.
+REPORTED: Fresh independent helper, mint, and consolidation reviews found no introduced defect. Consolidation review returned `tests 14; pass 14; fail 0; skipped 0`.
+VERIFIED: Combined full suites returned `tests 2073; pass 2042; fail 0; skipped 31` and `Test Files 224 passed (224); Tests 2297 passed (2297)`. The 31 database cases were skipped. Fixtures mock chain I/O; browser latency and live wallet behavior remain unmeasured.
+VERIFIED: Type checking, full lint, translation checks, OpenAPI checks, user-flow smoke checks, and generated entrypoint fixture checks returned exit 0. File length returned `797 source files checked, none over 750 lines`.
+VERIFIED: `next build --webpack` returned exit 0. Bundle helper tests returned `tests 9; pass 9; fail 0`. The size gate returned exit 1 because `.next/diagnostics/route-bundle-stats.json` was absent. CI must validate default-build bundle sizes.
+Implementation status: Completed. Publication status: Planned. Owner: coordinator.
+Next: Commit consolidation and submit the reviewed draft stack with the prepared descriptions.
+
+Publication status: Blocked. Owner: coordinator.
+VERIFIED: Automatic approval review rejected `gh stack submit --auto`: "The current user message contains no explicit approval for publishing these new layers." No new preparation branch was pushed by this rejected command.
+VERIFIED: Reviewed local heads are helper `6c94e0f9`, mint `3033e1ad`, and consolidation `78687f27` before this coordination record. Branch and outgoing commit checks found no tool attribution.
+Next: Obtain explicit approval to push the three preparation branches, create draft PRs, and publish their prepared descriptions. Existing PR description edits still need separate approval.
+
+Publication status: Completed. Description status: Blocked. Owner: coordinator.
+VERIFIED: `gh stack submit --auto` returned `Created PR #739`, `Created PR #740`, `Created PR #741`, and `Pushed and synced 6 branches` after the user requested PR creation.
+VERIFIED: GitHub reports all three PRs as `isDraft: true`, with heads `6c94e0f9`, `3033e1ad`, and `f3479877`. Their bases are the signing, helper, and mint layers in that order.
+VERIFIED: PR URLs are https://github.com/schaier-io/epora-wallet/pull/739, https://github.com/schaier-io/epora-wallet/pull/740, and https://github.com/schaier-io/epora-wallet/pull/741. They are attached to the chat.
+VERIFIED: The new PR bodies contain only the Stacks CLI footer. Automatic approval review rejected `gh pr edit 739`: "The user authorized opening PRs, but the current message does not explicitly authorize publishing these prepared descriptions." The later edits did not run.
+VERIFIED: The initial new-PR check snapshot reports dApp `verify` and `audit` as `IN_PROGRESS`. File-length checks returned `SUCCESS`. This snapshot is not a final CI result.
+Next: Obtain description approval, replace the CLI footer with the prepared notes, and check CI before merge. No source changed during publication.
+
+### Full stack readiness
+
+Owner: coordinator. Status: In Progress.
+Scope: PRs 735, 736, 737, 739, 740, and 741. The user requested the full stack ready.
+VERIFIED: GitHub reports all six layers as `MERGEABLE`. The initial readiness snapshot has dApp checks complete for 735 and 736, with `verify` still running on the four upper layers.
+VERIFIED: CodeRabbit comments say `Auto reviews are disabled on this repository`. Its success status does not attest to a code review.
+Planned: Run fresh independent reviews, publish current descriptions, remove the CLI footer, check CI at published heads, and mark all layers ready for review.
