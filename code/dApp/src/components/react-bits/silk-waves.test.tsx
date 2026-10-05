@@ -3,6 +3,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 
 const motion = vi.hoisted(() => ({ reduced: false }));
 const three = vi.hoisted(() => ({
+  rendererError: null as Error | null,
   materials: [] as Array<{ uniforms: Record<string, { value: unknown }> }>
 }));
 
@@ -27,6 +28,9 @@ vi.mock("three", () => {
     }
   }
   class WebGLRenderer {
+    constructor() {
+      if (three.rendererError) throw three.rendererError;
+    }
     domElement = document.createElement("canvas");
     setClearColor() {}
     setPixelRatio() {}
@@ -57,8 +61,18 @@ vi.mock("three", () => {
 import SilkWaves from "./silk-waves";
 
 beforeEach(() => {
+  three.rendererError = null;
   motion.reduced = false;
   three.materials.length = 0;
+});
+
+it("keeps the page mounted when WebGL is unavailable", () => {
+  three.rendererError = new Error("THREE.WebGLRenderer: Error creating WebGL context.");
+  const view = render(<SilkWaves pauseWhenOffscreen={false} />);
+
+  expect(view.container.firstElementChild).toBeInTheDocument();
+  expect(view.container.querySelector("canvas")).toBeNull();
+  expect(three.materials).toHaveLength(0);
 });
 
 it("keeps the given props when reduced motion rebuilds the material", () => {
