@@ -6,6 +6,8 @@ import { toScriptRef } from "@meshsdk/core-cst";
 import { deserializeTx, type CstTransactionOutput } from "@/lib/mesh/cst";
 import { getSttMintPolicyId, getSttSpendScript, getWalletSpendScript, resolveScriptAddress } from "@/lib/contracts/blueprint";
 import { createDefaultStateForm, stateFormToDatum } from "@/lib/contracts/state-form";
+import { buildConsolidateUtxosTx } from "./consolidate-utxos";
+import { MAX_CONCURRENT_EXACT_INPUT_LOOKUPS } from "./internals/utxo";
 import { buildBeneficiaryPreparationTx } from "./beneficiary-preparation";
 import { createFixtureFetcher, createFixtureWallet } from "../../../../scripts/entrypoint-budget-fixture-support";
 import type { BeneficiaryPreparationFormInput } from "@/lib/types/contracts";
@@ -14,7 +16,7 @@ const KEY = "11".repeat(28);
 const ADDRESS = serializeAddressObj(pubKeyAddress(KEY), 0);
 const UNIT = "cc".repeat(28) + "01";
 const amount = (ada: string, native = "5") => [{ unit: "lovelace", quantity: ada }, { unit: UNIT, quantity: native }];
-function fixture() {
+function fixture(selectedCount = 1) {
   const script = getSttSpendScript(), policy = getSttMintPolicyId(), name = "deadbeef";
   const walletScript = getWalletSpendScript({ sttPolicyId: policy, sttAssetNameHex: name });
   const walletAddress = resolveScriptAddress(walletScript);
@@ -28,11 +30,14 @@ function fixture() {
   const funding: UTxO = { input: { txHash: "aa".repeat(32), outputIndex: 0 }, output: { address: ADDRESS, amount: [{ unit: "lovelace", quantity: "2000000000" }] } };
   const collateral: UTxO = { input: { txHash: "bb".repeat(32), outputIndex: 0 }, output: { address: ADDRESS, amount: [{ unit: "lovelace", quantity: "20000000" }] } };
   const refs = [script, walletScript].map((referenceScript, index): UTxO => ({ input: { txHash: (index ? "66" : "77").repeat(32), outputIndex: 0 }, output: { address: ADDRESS, amount: [{ unit: "lovelace", quantity: "100000000" }], scriptRef: String(toScriptRef(referenceScript).toCbor()), scriptHash: resolveScriptHash(referenceScript.code, referenceScript.version) } }));
-  const fetcher = createFixtureFetcher([state, selected, funding, collateral, ...refs]);
+  const selectedInputs = [selected, ...Array.from({ length: selectedCount - 1 }, (_, index) => ({
+    ...structuredClone(selected), input: { txHash: (0x90 + index).toString(16).repeat(32), outputIndex: 0 }
+  }))];
+  const fetcher = createFixtureFetcher([state, ...selectedInputs, funding, collateral, ...refs]);
   fetcher.evaluateTx = async txHex => (deserializeTx(txHex).witnessSet().redeemers()?.values() ?? []).map(redeemer => ({ index: Number(redeemer.index()), tag: "SPEND", budget: { mem: 1000000, steps: 500000000 } }));
   const config = { walletPolicyId: policy, walletAssetNameHex: name, sttAssetNameHex: name, sttSpendReference: "77".repeat(32) + "#0", walletSpendReference: "66".repeat(32) + "#0" };
-  const input: BeneficiaryPreparationFormInput = { sttInputTxHash: state.input.txHash, sttInputOutputIndex: 0, walletInputs: [selected.input], beneficiarySignerKeyHash: KEY, poolAssets: amount("8000000", "4"), expectedStateDatum: datum };
-  return { selected, state, form, datum, config, input, fetcher, walletAddress, wallet: createFixtureWallet(funding, collateral) };
+  const input: BeneficiaryPreparationFormInput = { sttInputTxHash: state.input.txHash, sttInputOutputIndex: 0, walletInputs: selectedInputs.map(utxo => utxo.input), beneficiarySignerKeyHash: KEY, poolAssets: amount("8000000", "4"), expectedStateDatum: datum };
+  return { selected, selectedInputs, state, form, datum, config, input, fetcher, walletAddress, wallet: createFixtureWallet(funding, collateral) };
 }
 test("preparation builds exact pool and remainder from fresh inputs with existing Consolidate and external fees", async () => {
   const f = fixture();
@@ -89,4 +94,83 @@ test("preparation uses the beneficiary authority when its change address has a d
   const result = await buildBeneficiaryPreparationTx(f.wallet, f.config, f.input, f.fetcher);
   assert.deepEqual(decodeRequiredSigners(result.txHex), [KEY]);
   assert.equal(result.signerAddress, ADDRESS);
+});
+
+test("consolidation starts State, references and only the first wallet batch during setup", async () => {
+  const f = fixture(MAX_CONCURRENT_EXACT_INPUT_LOOKUPS + 1);
+  f.input.poolAssets = [];
+  let release!: () => void;
+  let started!: () => void;
+  const waiting = new Promise<void>(resolve => { release = resolve; });
+  const walletStarted = new Promise<void>(resolve => { started = resolve; });
+  const getUtxos = f.wallet.getUtxos;
+  f.wallet.getUtxos = async () => { started(); await waiting; return getUtxos(); };
+  const metadata: string[] = [];
+  const metadataKeys: string[] = [];
+  const status: string[] = [];
+  const fetchUTxOs = f.fetcher.fetchUTxOs;
+  const get = f.fetcher.get;
+  f.fetcher.fetchUTxOs = async (hash, index) => { metadata.push(hash); metadataKeys.push(`${hash}#${index}`); return fetchUTxOs(hash, index); };
+  f.fetcher.get = async path => { status.push(path); return get(path); };
+  const building = buildBeneficiaryPreparationTx(f.wallet, f.config, f.input, f.fetcher);
+  try {
+    await walletStarted;
+    await new Promise<void>(resolve => setImmediate(resolve));
+    const earlyInputs = [f.state.input, ...f.selectedInputs.slice(0, MAX_CONCURRENT_EXACT_INPUT_LOOKUPS).map(utxo => utxo.input)];
+    for (const ref of earlyInputs) {
+      assert.ok(metadata.includes(ref.txHash), `metadata ${ref.txHash}`);
+      assert.ok(status.includes(`txs/${ref.txHash}/utxos`), `status ${ref.txHash}`);
+    }
+    assert.ok(metadata.includes("77".repeat(32)));
+    assert.ok(metadata.includes("66".repeat(32)));
+    assert.equal(metadata.includes(f.selectedInputs.at(-1)!.input.txHash), false);
+  } finally {
+    release();
+    await building;
+  }
+  for (const ref of [f.state.input, ...f.selectedInputs.map(utxo => utxo.input)]) {
+    assert.equal(metadataKeys.filter(key => key === `${ref.txHash}#${ref.outputIndex}`).length, 1);
+    assert.equal(status.filter(path => path === `txs/${ref.txHash}/utxos`).length, 2);
+  }
+});
+
+test("ordinary consolidation retains State and selected wallet value", async () => {
+  const f = fixture();
+  const result = await buildConsolidateUtxosTx(f.wallet, f.config, {
+    sttInputTxHash: f.state.input.txHash, sttInputOutputIndex: 0,
+    walletInputs: f.input.walletInputs, authorityPath: "beneficiary",
+    outputDatum: f.datum, outputAssets: f.state.output.amount
+  }, f.fetcher);
+  const outputs = deserializeTx(result.txHex).body().outputs() as CstTransactionOutput[];
+  const walletOutput = outputs.find(output => output.address().toBech32().toString() === f.walletAddress)!;
+  assert.equal(walletOutput.amount().coin().toString(), "10000000");
+  const stateOutput = outputs.find(output => output.address().toBech32().toString() === f.state.output.address)!;
+  assert.equal((stateOutput.datum()?.asInlineData?.() as { toCbor(): string }).toCbor(), serializeData(f.datum, "Mesh"));
+  assert.deepEqual(decodeRequiredSigners(result.txHex), [KEY]);
+});
+
+test("consolidation preserves State error priority over early wallet and reference failures", async () => {
+  const f = fixture();
+  f.state.output.plutusData = undefined;
+  const fetchUTxOs = f.fetcher.fetchUTxOs;
+  const reads: string[] = [];
+  f.fetcher.fetchUTxOs = async (hash, index) => {
+    reads.push(hash);
+    if (hash !== f.state.input.txHash) throw new Error("other input offline");
+    return fetchUTxOs(hash, index);
+  };
+  await assert.rejects(() => buildBeneficiaryPreparationTx(f.wallet, f.config, f.input, f.fetcher),
+    /must contain a valid inline state datum/);
+  assert.ok(reads.includes(f.selected.input.txHash));
+});
+
+test("consolidation refreshes selected input liveness for final preparation", async () => {
+  const f = fixture();
+  let evaluated = false;
+  const evaluateTx = f.fetcher.evaluateTx;
+  const get = f.fetcher.get;
+  f.fetcher.evaluateTx = async (...args) => { const result = await evaluateTx(...args); evaluated = true; return result; };
+  f.fetcher.get = async path => evaluated && path === `txs/${f.selected.input.txHash}/utxos`
+    ? { outputs: [{ output_index: 0, consumed_by_tx: "ff".repeat(32) }] } : get(path);
+  await assert.rejects(() => buildBeneficiaryPreparationTx(f.wallet, f.config, f.input, f.fetcher), /already spent/);
 });

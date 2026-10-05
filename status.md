@@ -567,3 +567,13 @@ VERIFIED: Mint overlap tests returned `Tests 2 failed | 6 passed (8)` with the p
 VERIFIED: Mint type checking and scoped lint returned exit 0. The helper independent review reported no introduced defect.
 Correction: The earlier CI status was in progress. Runs `37252609801` and `37252613123` now return `conclusion: success`, `status: completed`.
 Next: Commit mint, then implement consolidation read overlap.
+
+VERIFIED: Consolidation retained tests with the prior source returned `tests 9; pass 7; fail 2`. Updated source plus helper tests returned `tests 14; pass 14; fail 0`.
+Correction: The first State error assertion expected the fetch stage. The actual prior-source error is `must contain a valid inline state datum`. The test now checks that existing error.
+Correction: One test counted exact-output and transaction-wide metadata reads together. The trace showed both `#0` and `#undefined` keys. The assertion now counts the exact-output key.
+REPORTED: Fresh independent helper, mint, and consolidation reviews found no introduced defect. Consolidation review returned `tests 14; pass 14; fail 0; skipped 0`.
+VERIFIED: Combined full suites returned `tests 2073; pass 2042; fail 0; skipped 31` and `Test Files 224 passed (224); Tests 2297 passed (2297)`. The 31 database cases were skipped. Fixtures mock chain I/O; browser latency and live wallet behavior remain unmeasured.
+VERIFIED: Type checking, full lint, translation checks, OpenAPI checks, user-flow smoke checks, and generated entrypoint fixture checks returned exit 0. File length returned `797 source files checked, none over 750 lines`.
+VERIFIED: `next build --webpack` returned exit 0. Bundle helper tests returned `tests 9; pass 9; fail 0`. The size gate returned exit 1 because `.next/diagnostics/route-bundle-stats.json` was absent. CI must validate default-build bundle sizes.
+Implementation status: Completed. Publication status: Planned. Owner: coordinator.
+Next: Commit consolidation and submit the reviewed draft stack with the prepared descriptions.
