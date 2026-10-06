@@ -3,7 +3,6 @@ import "server-only";
 import type { GovernanceAction } from "@/lib/api/governance-actions";
 import { CARDANO_NETWORK } from "@/lib/cardano-network";
 import { koiosBaseUrl } from "@/lib/discovery/koios-server";
-import { readCip108 } from "@/lib/governance/cip108";
 
 const LOOKUP_TIMEOUT_MS = 15_000;
 
@@ -14,7 +13,11 @@ const ACTIVE_PROPOSALS_QUERY = new URLSearchParams({
   enacted_epoch: "is.null",
   dropped_epoch: "is.null",
   expired_epoch: "is.null",
-  select: "proposal_id,proposal_tx_hash,proposal_index,proposal_type,expiration,meta_json",
+  // Only the CIP-108 title and abstract: the whole document can run to many kilobytes.
+  select: [
+    "proposal_id,proposal_tx_hash,proposal_index,proposal_type,expiration,block_time",
+    "title:meta_json->body->>title,abstract:meta_json->body->>abstract"
+  ].join(","),
   order: "block_time.desc"
 });
 
@@ -32,8 +35,13 @@ type KoiosProposal = {
   proposal_index?: unknown;
   proposal_type?: unknown;
   expiration?: unknown;
-  meta_json?: unknown;
+  title?: unknown;
+  abstract?: unknown;
 };
+
+function asText(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
 
 /** Koios names types in PascalCase (`TreasuryWithdrawals`); the API uses snake case. */
 export function snakeCaseProposalType(type: string): string {
@@ -48,7 +56,8 @@ export function mapKoiosProposal(row: KoiosProposal): GovernanceAction | null {
     txHash,
     index: index as number,
     type: typeof row.proposal_type === "string" ? snakeCaseProposalType(row.proposal_type) : "unknown",
-    ...readCip108(row.meta_json),
+    title: asText(row.title),
+    abstract: asText(row.abstract),
     expirationEpoch: Number.isSafeInteger(row.expiration) ? (row.expiration as number) : null,
     status: "active"
   };

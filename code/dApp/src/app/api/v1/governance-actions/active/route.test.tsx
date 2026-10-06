@@ -19,7 +19,8 @@ const ROW = {
   proposal_index: 1,
   proposal_type: "TreasuryWithdrawals",
   expiration: 324,
-  meta_json: { body: { title: "Fund the node", abstract: "Pay for a year." } }
+  title: "Fund the node",
+  abstract: "Pay for a year."
 };
 
 function get() {
@@ -45,10 +46,13 @@ it("asks Koios only for actions no epoch has closed yet", async () => {
   for (const epoch of ["ratified_epoch", "enacted_epoch", "dropped_epoch", "expired_epoch"]) {
     expect(url.searchParams.get(epoch)).toBe("is.null");
   }
+  // The whole CIP-108 document stays on Koios.
+  expect(url.searchParams.get("select")).toContain("title:meta_json->body->>title");
+  expect(url.searchParams.get("select")).not.toMatch(/meta_json(,|$)/);
 });
 
 it("maps Koios rows to open actions with snake-case types and CIP-108 text", async () => {
-  mocks.fetch.mockResolvedValue(Response.json([ROW, { ...ROW, proposal_type: "InfoAction", meta_json: null }]));
+  mocks.fetch.mockResolvedValue(Response.json([ROW, { ...ROW, proposal_type: "InfoAction", title: null, abstract: " " }]));
 
   const response = await get();
 
