@@ -16,7 +16,8 @@ const holder = vi.hoisted(() => ({
   consolidateWalletInputs: [] as Array<{ txHash: string; outputIndex: number }>,
   refreshLockedContractUtxos: vi.fn(),
   transferAssets: [] as Array<{ unit: string; quantity: string }>,
-  updateSttTransferAmount: vi.fn()
+  updateSttTransferAmount: vi.fn(),
+  sttTransferAmounts: {} as Record<string, string>
 }));
 
 // The selector, the manual ref editor, and the date field are surfaces of their own (E11,
@@ -129,7 +130,7 @@ vi.mock("@/components/user/workspace/forms/use-stt-spend-form", () => ({
     sttProofOfLifeOverrideMode: "specific",
     sttProofOfLifeSpecificDateTime: "",
     sttTransferAddress: "",
-    sttTransferAmounts: {},
+    sttTransferAmounts: holder.sttTransferAmounts,
     sttWalletInputs: holder.sttWalletInputs
   })
 }));
@@ -554,8 +555,12 @@ it("recovery preparation owns its inputs and does not show generic Consolidate e
 });
 
 describe("quick transfer builder amounts", () => {
-  function renderQuickTransfer(assets: Array<{ unit: string; quantity: string }>) {
+  function renderQuickTransfer(
+    assets: Array<{ unit: string; quantity: string }>,
+    staged: Record<string, string> = {}
+  ) {
     holder.transferAssets = assets;
+    holder.sttTransferAmounts = staged;
     holder.updateSttTransferAmount.mockClear();
     renderView({
       selectedAction: "consolidate-utxo",
@@ -576,6 +581,34 @@ describe("quick transfer builder amounts", () => {
     const input = renderQuickTransfer([{ unit: "lovelace", quantity: "5000000" }]);
     fireEvent.change(input, { target: { value: "" } });
     expect(holder.updateSttTransferAmount).toHaveBeenLastCalledWith("lovelace", "0", "5000000");
+  });
+
+  it("draws the amount on the shared slider, named by its row label", () => {
+    renderQuickTransfer([{ unit: "lovelace", quantity: "5000000" }]);
+
+    const slider = screen.getByRole("slider");
+    expect(slider).toHaveAccessibleName(/Send amount/);
+    expect(slider).toHaveAttribute("aria-valuemax", "5000000");
+
+    fireEvent.keyDown(slider, { key: "Home" });
+    expect(holder.updateSttTransferAmount).toHaveBeenLastCalledWith("lovelace", "0", "5000000");
+  });
+
+  /**
+   * A JavaScript number prints past 1e21 in exponent form ("1e+21"). The amount
+   * sanitiser keeps digits only, so that would stage "121".
+   */
+  it("stages every digit of a very large slider amount", () => {
+    const unit = `${"ab".repeat(28)}544f4b454e`;
+    renderQuickTransfer([{ unit, quantity: "2000000000000000000000" }], { [unit]: "0" });
+
+    fireEvent.keyDown(screen.getByRole("slider"), { key: "End" });
+
+    expect(holder.updateSttTransferAmount).toHaveBeenLastCalledWith(
+      unit,
+      "2000000000000000000000",
+      "2000000000000000000000"
+    );
   });
 
   it("keeps token rows in raw units", () => {
