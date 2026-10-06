@@ -6,7 +6,7 @@ import type * as PayoutAddress from "@/lib/contracts/payout-address";
 import type { DetectedSttToken } from "@/lib/mesh/detection";
 import { seedWorkspaceWalletAtom } from "./atoms/workspace-wallet-seeding.atoms";
 import { reconcileWorkspaceWalletAtom, workspaceDraftConflictsAtom } from "./atoms/workspace-draft-revision.atoms";
-import { streamingPaymentPayoutAmountsAtom, sttInputTxHashAtom, sttStateFormAtom, updateStateFormAtom } from "./atoms/forms/stt-spend-form.atoms";
+import { streamingPaymentPayoutAmountsAtom, sttInputTxHashAtom, sttStateFormAtom, sttThresholdConfirmedAtom, updateStateFormAtom } from "./atoms/forms/stt-spend-form.atoms";
 import { transferCustomAddressAtom, transferDisplayAmountAtom } from "./atoms/forms/transfer-form.atoms";
 import { allocatedLockedContractAssetsAtom } from "./atoms/workspace-transfer-derivations.atoms";
 import { DEFAULT_OPTIONAL_CONSTR_PRESET } from "./constants";
@@ -73,15 +73,19 @@ it("reloading Send preserves changed People and wallet-name drafts", () => {
   expect(store.get(updateStateFormAtom)).toMatchObject({ walletName: "Keep me", users: [] });
   expect(store.get(transferDisplayAmountAtom)).toBe("");
 });
-it("reloading People preserves another settings task and a payout", () => {
+// Settings are one page: people, the threshold they feed and the name reset together.
+it("reloading the settings page takes the whole draft back and preserves a payout", () => {
   const { store } = setup();
   store.set(routeStateAtom, { ...store.get(routeStateAtom), selectedAction: "update-state", selectedTask: "settings-people" });
-  store.set(updateStateFormAtom, { ...store.get(updateStateFormAtom)!, walletName: "Keep me", users: [] });
+  const chainName = store.get(updateStateFormAtom)!.walletName;
+  store.set(updateStateFormAtom, { ...store.get(updateStateFormAtom)!, walletName: "Drop me", users: [] });
+  store.set(sttThresholdConfirmedAtom, true);
   store.set(transferDisplayAmountAtom, "5");
   const hook = resetHook(store);
   act(() => hook.result.current.resetActionDraft("update-state"));
   expect(store.get(updateStateFormAtom)?.users).toHaveLength(1);
-  expect(store.get(updateStateFormAtom)?.walletName).toBe("Keep me");
+  expect(store.get(updateStateFormAtom)?.walletName).toBe(chainName);
+  expect(store.get(sttThresholdConfirmedAtom)).toBe(false);
   expect(store.get(transferDisplayAmountAtom)).toBe("5");
 });
 

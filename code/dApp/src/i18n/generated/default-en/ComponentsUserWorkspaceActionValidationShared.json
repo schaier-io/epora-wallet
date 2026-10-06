@@ -1,12 +1,14 @@
 {
-  "thisVoteIsMissingWhoIsVoting": "Pick a governance action and choose Yes, No or Abstain. A pasted vote needs a voter, an action and a vote.",
+  "approvalPowerOutOfReach": "Approval power out of reach",
   "chooseAValidLocalDateAndTime": "Choose a valid local date and time.",
   "confirmThatThisWalletWillHaveNoOwner": "Confirm that this wallet will have no owner before you continue.",
+  "confirmTheApprovalPowerNobodyCanReach": "No group of co-signers can reach the approval power needed. Confirm it, or lower it.",
   "noDirectOwner": "No direct owner",
   "specificProofOfLifeDate": "Specific proof of life date",
   "specificWakeUpTimerDate": "Specific proof of life date",
   "staking": "Staking",
   "theVoteHasToBeYesNoOr": "The vote has to be Yes, No or Abstain.",
+  "thisVoteIsMissingWhoIsVoting": "Pick a governance action and choose Yes, No or Abstain. A pasted vote needs a voter, an action and a vote.",
   "turnOnStakingBeforeYouClaim": "Turn on staking before you claim rewards.",
   "voteJson": "Vote JSON",
   "walletWithNoOwner": "Wallet with no owner"

@@ -1,7 +1,7 @@
 "use client";
 
 import { useAtom } from "jotai";
-import { activeSttStateFormAtom, sttInputTxHashAtom, sttInputOutputIndexAtom, sttZeroAdminConfirmedAtom, sttOutputAssetsAtom, sttWalletInputsAtom, sttWalletOutputsAtom, sttExtraTransfersAtom, sttProofOfLifeOverrideModeAtom, sttProofOfLifeSpecificDateTimeAtom, sttTransferAddressAtom, sttTransferAmountsAtom, beneficiaryStreamStopIdAtom, streamingPaymentPayoutAmountsAtom, selectedSttActionAtom, sttAuthorityPathAtom, consolidateAuthorityPathAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import { activeSttStateFormAtom, sttInputTxHashAtom, sttInputOutputIndexAtom, sttZeroAdminConfirmedAtom, sttThresholdConfirmedAtom, sttOutputAssetsAtom, sttWalletInputsAtom, sttWalletOutputsAtom, sttExtraTransfersAtom, sttProofOfLifeOverrideModeAtom, sttProofOfLifeSpecificDateTimeAtom, sttTransferAddressAtom, sttTransferAmountsAtom, beneficiaryStreamStopIdAtom, streamingPaymentPayoutAmountsAtom, selectedSttActionAtom, sttAuthorityPathAtom, consolidateAuthorityPathAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 
 /**
  * Form state for the STT-spend composer (the use/renew/update/manage/allowance/beneficiary/payout/consolidate spend of an existing wallet).
@@ -11,6 +11,7 @@ export function useSttSpendForm() {
   const [sttInputOutputIndex, setSttInputOutputIndex] = useAtom(sttInputOutputIndexAtom);
   const [sttStateForm, setSttStateForm] = useAtom(activeSttStateFormAtom);
   const [sttZeroAdminConfirmed, setSttZeroAdminConfirmed] = useAtom(sttZeroAdminConfirmedAtom);
+  const [sttThresholdConfirmed, setSttThresholdConfirmed] = useAtom(sttThresholdConfirmedAtom);
   const [sttOutputAssets, setSttOutputAssets] = useAtom(sttOutputAssetsAtom);
   const [sttWalletInputs, setSttWalletInputs] = useAtom(sttWalletInputsAtom);
   const [sttWalletOutputs, setSttWalletOutputs] = useAtom(sttWalletOutputsAtom);
@@ -35,6 +36,8 @@ export function useSttSpendForm() {
     setSttStateForm,
     sttZeroAdminConfirmed,
     setSttZeroAdminConfirmed,
+    sttThresholdConfirmed,
+    setSttThresholdConfirmed,
     sttOutputAssets,
     setSttOutputAssets,
     sttWalletInputs,

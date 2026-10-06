@@ -58,7 +58,7 @@ export function useConfigSttSpendState() {
   // return surface carries neither, and the retirement only needs the facts.
   const submitHash = useAtomValue(selectedActionSubmitHashAtom);
   const activeSubmit = useAtomValue(activeSubmitAtom);
-  const { consolidateAuthorityPath, setConsolidateAuthorityPath, setStreamingPaymentPayoutAmounts, setSttAuthorityPath, setSttExtraTransfers, setSttStateForm, setSttZeroAdminConfirmed, sttAuthorityPath, sttStateForm, sttWalletInputs, sttZeroAdminConfirmed } = useSttSpendForm();
+  const { consolidateAuthorityPath, setConsolidateAuthorityPath, setStreamingPaymentPayoutAmounts, setSttAuthorityPath, setSttExtraTransfers, setSttStateForm, setSttThresholdConfirmed, setSttZeroAdminConfirmed, sttAuthorityPath, sttStateForm, sttThresholdConfirmed, sttWalletInputs, sttZeroAdminConfirmed } = useSttSpendForm();
   const stagedTransfers = useAtomValue(stagedSttTransfersAtom);
   const streamingPaymentPayoutAmounts = useAtomValue(streamingPaymentPayoutAmountsAtom);
   const { setTransferCustomAddress, setTransferDisplayAmount, setTransferRecipientMode, setTransferSelectedUnit, transferCustomAddress, transferDisplayAmount, transferRecipientMode, transferSelectedUnit } = useTransferForm();
@@ -147,11 +147,13 @@ export function useConfigSttSpendState() {
     setSttAuthorityPath,
     setSttExtraTransfers,
     setSttStateForm,
+    setSttThresholdConfirmed,
     setSttZeroAdminConfirmed,
     sttAuthorityPath,
     sttExtraTransfers: stagedTransfers,
     sttStateForm,
     sttWalletInputs,
+    sttThresholdConfirmed,
     sttZeroAdminConfirmed,
     setTransferCustomAddress,
     setTransferDisplayAmount,
