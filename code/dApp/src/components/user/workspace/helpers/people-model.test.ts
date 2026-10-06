@@ -187,13 +187,6 @@ test("a threshold above the reachable power is unreachable", () => {
   assert.equal(thresholdIsUnreachable({ ...value, multiSigThreshold: "" }), false);
 });
 
-test("one user and one contact with only blank wallets are the same person mid-retype", () => {
-  const value = form({ users: [user("0", [""]), user("1", [KEY_B])], beneficiaries: [contact("0", [""])] });
-  assert.deepEqual(groupPeople(value).map((person) => [person.userIndex, person.beneficiaryIndex]), [[0, 0], [1, null]]);
-  const ambiguous = form({ users: [user("0", [""]), user("1", [" "])], beneficiaries: [contact("0", [""])] });
-  assert.equal(groupPeople(ambiguous).length, 3);
-});
-
 test("recovery on takes the first wallet that is filled in", () => {
   const next = withRecoveryContactForUser(form({ users: [user("0", ["", KEY_A], { canRenewProofOfLife: true })] }), 0, 1_000);
   assert.deepEqual(next.beneficiaries[0].wallets, [KEY_A]);

@@ -38,11 +38,6 @@ const normalizeKey = (wallet: string) => wallet.trim().toLowerCase();
  * Users first, in their on-chain order, each with the first recovery contact that
  * signs with one of its wallets. Contacts no user claimed follow as their own rows.
  */
-/** A wallet list with rows that are all still empty. */
-function onlyBlankWallets(wallets: readonly string[]): boolean {
-  return wallets.length > 0 && wallets.every((wallet) => !normalizeKey(wallet));
-}
-
 export function groupPeople(form: StateFormState): PersonEntry[] {
   const claimed = new Set<number>();
   const people: PersonEntry[] = form.users.map((user, userIndex) => {
@@ -61,19 +56,6 @@ export function groupPeople(form: StateFormState): PersonEntry[] {
       beneficiaryIndex: beneficiaryIndex >= 0 ? beneficiaryIndex : null
     };
   });
-  // A person who clears their only wallet to retype it shares no key with their
-  // contact for a moment. When exactly one user and one contact are in that state,
-  // they are that person; with more there is no telling who is who, so they split.
-  const blankUsers = people.filter(
-    (person) => person.beneficiaryIndex === null && onlyBlankWallets(form.users[person.userIndex!].wallets)
-  );
-  const blankContacts = form.beneficiaries
-    .map((beneficiary, index) => ({ beneficiary, index }))
-    .filter(({ beneficiary, index }) => !claimed.has(index) && onlyBlankWallets(beneficiary.wallets));
-  if (blankUsers.length === 1 && blankContacts.length === 1) {
-    blankUsers[0].beneficiaryIndex = blankContacts[0].index;
-    claimed.add(blankContacts[0].index);
-  }
   form.beneficiaries.forEach((beneficiary, beneficiaryIndex) => {
     if (!claimed.has(beneficiaryIndex)) {
       people.push({
