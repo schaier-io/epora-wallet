@@ -261,6 +261,103 @@
         }
       }
     },
+    "/api/v1/dreps": {
+      "get": {
+        "operationId": "getDrep",
+        "summary": "Look up a DRep",
+        "description": "Fetch one DRep's registration state, voting power and CIP-119 name by id.",
+        "tags": [
+          "Chain"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "id",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "DRep id, bech32 `drep1...` (CIP-129 or CIP-105) or `drep_script1...`.",
+              "example": "drep1ygqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq7vlc9n"
+            },
+            "required": true,
+            "description": "DRep id, bech32 `drep1...` (CIP-129 or CIP-105) or `drep_script1...`."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The DRep.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DrepsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The DRep id is missing or malformed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No DRep exists with that id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. The limit is 300 requests per 60 seconds, per client address. The same status, with the chain data provider's message, means the provider is rate-limiting this deployment; `Retry-After` then carries the provider's delay, or 1 second when it gives none.",
+            "headers": {
+              "Retry-After": {
+                "required": true,
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "string",
+                  "description": "Seconds to wait before retrying.",
+                  "example": "42"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The chain data provider is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/stt/lookup": {
       "post": {
         "operationId": "lookupWallets",
@@ -4118,6 +4215,59 @@
         ],
         "additionalProperties": false,
         "description": "One governance action with its off-chain title and abstract, when published."
+      },
+      "DrepsResponse": {
+        "type": "object",
+        "properties": {
+          "drep": {
+            "type": "object",
+            "properties": {
+              "drepId": {
+                "type": "string",
+                "description": "The requested bech32 DRep id, unchanged."
+              },
+              "name": {
+                "description": "CIP-119 `givenName`, when the anchor resolved.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "votingPowerLovelace": {
+                "description": "Delegated voting power in lovelace, a decimal string.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "hasScript": {
+                "type": "boolean"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "active",
+                  "inactive",
+                  "retired"
+                ],
+                "description": "`retired` after deregistration; `inactive` when it has not voted for `drep_activity` epochs, so its voting power does not count."
+              }
+            },
+            "required": [
+              "drepId",
+              "name",
+              "votingPowerLovelace",
+              "hasScript",
+              "status"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "drep"
+        ],
+        "additionalProperties": false,
+        "description": "A DRep's registration state and CIP-119 name."
       },
       "SttLookupResponse": {
         "type": "object",
