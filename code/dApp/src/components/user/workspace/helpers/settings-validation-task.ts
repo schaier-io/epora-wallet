@@ -1,5 +1,6 @@
 import type { UserWorkspaceTask } from "@/components/user/flow-types";
 import { describeStateValidationError } from "./state-validation-copy";
+import validationMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceActionValidationShared.json";
 
 const TASK_PATHS: ReadonlyArray<[UserWorkspaceTask, string[]]> = [
   ["settings-wallet-name", ["state.wallet_name"]],
@@ -12,6 +13,8 @@ const TASK_PATHS: ReadonlyArray<[UserWorkspaceTask, string[]]> = [
 // Match the same translated subjects used by the validation boundary. Unknown
 // messages remain global rather than sending the user to an unrelated task.
 export function settingsValidationTask(message: string): UserWorkspaceTask | null {
+  // Not a datum error: the confirmation for this lives on the co-signers rule.
+  if (message === validationMessages.confirmTheApprovalPowerNobodyCanReach) return "settings-multisig-threshold";
   for (const [task, paths] of TASK_PATHS) {
     for (const path of paths) {
       const subject = describeStateValidationError(path);

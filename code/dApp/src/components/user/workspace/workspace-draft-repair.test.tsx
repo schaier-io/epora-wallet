@@ -51,6 +51,15 @@ it("refreshes untouched rules and preserves an unrelated settings edit", () => {
   expect(store.get(updateStateFormAtom)).toMatchObject({ walletName: "My draft name", proofOfLifeIncrement: "1000" });
   expect(store.get(workspaceDraftConflictsAtom)["update-state"]).toEqual([]);
 });
+it("drops a threshold confirmation once chain changes reach the settings draft", () => {
+  const { store } = setup();
+  store.set(sttThresholdConfirmedAtom, true);
+  store.set(reconcileWorkspaceWalletAtom, token("2"));
+  // Same state on chain: the yes still answers the same question.
+  expect(store.get(sttThresholdConfirmedAtom)).toBe(true);
+  store.set(reconcileWorkspaceWalletAtom, token("3", { ...state(), proofOfLifeIncrementMode: "some", proofOfLifeIncrement: "1000" }));
+  expect(store.get(sttThresholdConfirmedAtom)).toBe(false);
+});
 it("keeps a conflicting edit blocked across later unrelated chain updates", () => {
   const { store } = setup();
   store.set(updateStateFormAtom, { ...store.get(updateStateFormAtom)!, walletName: "My draft name" });
