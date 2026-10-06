@@ -26,6 +26,7 @@ export const queryKeys = {
   addressUtxos: (address: string) => [...chain, "address-utxos", address] as const,
   txInfo: (hash: string) => [...chain, "transaction", hash] as const,
   accountInfo: (address: string) => [...chain, "account", address] as const,
+  paymentKeyAddress: (paymentKeyHash: string) => [...chain, "payment-key-address", paymentKeyHash] as const,
   sttInventory: (policyId: string) => [...chain, "stt-inventory", policyId] as const,
   sttWallet: (policyId: string, unit: string) => [...chain, "stt-wallet", policyId, unit] as const,
   sharedReference: (policyId: string) => [...chain, "shared-reference", policyId] as const,

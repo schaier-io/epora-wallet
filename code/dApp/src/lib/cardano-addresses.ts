@@ -19,6 +19,7 @@ const STAKE_HRP = { testnet: "stake_test", mainnet: "stake" } as const;
 /** CIP-129 DRep id: key type 0b0010 (DRep), credential type 0b0011 (script). Same HRP on every network. */
 const DREP_SCRIPT_HEADER = 0x23;
 const DREP_HRP = "drep";
+const PAYMENT_KEY_CREDENTIAL_HRP = "addr_vkh";
 /** CIP-19 header: high nibble = address type; 0-7 carry a payment credential, 8+ do not. */
 const PAYMENT_TYPE_MAX = 7;
 const CREDENTIAL_HASH_BYTES = 28;
@@ -52,6 +53,15 @@ export function serializeScriptRewardAddress(scriptHash: string, networkId: 0 | 
  */
 export function serializeScriptDrepId(scriptHash: string): string {
   return bech32Encode(DREP_HRP, Uint8Array.of(DREP_SCRIPT_HEADER, ...decodeHash28Hex(scriptHash)));
+}
+
+/**
+ * A payment key hash as a CIP-5 `addr_vkh` credential. Blockfrost's address endpoints
+ * accept it in place of an address and answer for every address under that key.
+ * Throws on a malformed hash.
+ */
+export function serializePaymentKeyCredential(paymentKeyHash: string): string {
+  return bech32Encode(PAYMENT_KEY_CREDENTIAL_HRP, decodeHash28Hex(paymentKeyHash));
 }
 
 /**

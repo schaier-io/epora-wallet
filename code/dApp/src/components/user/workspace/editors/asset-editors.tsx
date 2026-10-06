@@ -2,8 +2,9 @@
 import { useTranslations } from "next-intl";
 
 
-import { useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useAtom, useAtomValue } from "jotai";
+import { atomWithQueries } from "jotai-tanstack-query";
 
 import { paymentCredentialHash } from "@/lib/cardano-addresses";
 
@@ -29,7 +30,8 @@ import {
 import { type Asset, type WalletInputRef } from "@/lib/types/contracts";
 import { POLICY_ID_LENGTH } from "@/lib/cardano-assets";
 import { resolvedWalletAddressesAtom } from "@/providers/wallet-address-book";
-import { activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
+import { activePaymentKeyHashAtom, chainReadsEnabledAtom } from "@/providers/wallet.atoms";
+import { paymentKeyAddressQueryOptions } from "@/lib/query/payment-key-address";
 
 /**
  * The wallet ids this app can name with an address on its own: the connected wallet's.
@@ -317,6 +319,10 @@ export function WalletHashesEditor({
   // until the last. The hook the other address fields use takes no index, and
   // these rows render in a map, where one hook per row is not allowed.
   const [focusedWalletIndex, setFocusedWalletIndex] = useState<number | null>(null);
+  // Whether the focused row showed an address when it took focus. A chain answer must
+  // not swap the field under the cursor: it would jump to a 100-character address,
+  // and the next Backspace would store a broken address over the hash.
+  const [focusedShowedAddress, setFocusedShowedAddress] = useState(false);
   // The row to put the cursor in once it mounts. The Add button sits in the header
   // above the list, so after adding a row the next Tab went to the FIRST row, and
   // reaching the new last one meant tabbing past every row already there (up to
@@ -328,7 +334,41 @@ export function WalletHashesEditor({
   // actually compares against; remembering the pairs lets the field keep showing the
   // address the user recognises while the hash stays the stored value.
   const [resolvedAddresses, setResolvedAddresses] = useAtom(resolvedWalletAddressesAtom);
-  const known = { ...knownAddresses, ...resolvedAddresses };
+  const local = { ...knownAddresses, ...resolvedAddresses };
+  // A wallet id loaded from the chain, or added on another device, has no pair in the
+  // book above. Ask the chain which address holds funds under that key, so the field
+  // can still show an address. A miss leaves the hash showing, as before.
+  // A query atom, not `useQueries`: it reads the app's client through the jotai store,
+  // so this plain-looking form needs no QueryClientProvider around it.
+  // The book reads localStorage when it mounts, after the first render, so that render
+  // sees it empty. Asking before then queried the chain for every pair it already holds.
+  // Keep this effect below `useAtom(resolvedWalletAddressesAtom)`: effects run in
+  // declaration order, and the book must mount first.
+  const [bookRead, setBookRead] = useState(false);
+  // A store snapshot cannot stand in: it reads true on the first client render too,
+  // before the book's mount effect has loaded the saved pairs.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => setBookRead(true), []);
+  const unresolvedKey = bookRead ? [...new Set(
+    value.map((entry) => entry.trim().toLowerCase()).filter((hash) => isCredentialHash(hash) && !(hash in local))
+  )].join(",") : "";
+  const chainAddressesAtom = useMemo(() => {
+    const hashes = unresolvedKey ? unresolvedKey.split(",") : [];
+    return atomWithQueries({
+      queries: hashes.map((hash) => (get) => ({
+        ...paymentKeyAddressQueryOptions(hash),
+        enabled: get(chainReadsEnabledAtom)
+      })),
+      combine: (results) => Object.fromEntries(
+        hashes.flatMap((hash, index) => {
+          const address = results[index]?.data as string | null | undefined;
+          return address ? [[hash, address]] : [];
+        })
+      )
+    });
+  }, [unresolvedKey]);
+  const chainAddresses: Record<string, string> = useAtomValue(chainAddressesAtom);
+  const known = { ...local, ...chainAddresses };
 
   const handleChange = (index: number, raw: string) => {
     const trimmed = raw.trim();
@@ -348,6 +388,9 @@ export function WalletHashesEditor({
         return;
       }
     }
+    // Typed by hand: whatever the row showed at focus no longer describes it, so a
+    // chain answer for the new value waits for blur like any other typed hash.
+    setFocusedShowedAddress(false);
     onChange(value.map((entry, entryIndex) => (entryIndex === index ? raw : entry)));
   };
 
@@ -391,7 +434,10 @@ export function WalletHashesEditor({
             const storedHash = isCredentialHash(trimmed) ? trimmed : null;
             const isConnectedWallet = storedHash !== null && storedHash.toLowerCase() === connectedHash;
             const connectedWalletId = `${uid}-connected-wallet-${index}`;
-            const knownAddress = storedHash ? known[storedHash.toLowerCase()] : undefined;
+            const holdChainAnswer = focusedWalletIndex === index && !focusedShowedAddress;
+            const knownAddress = storedHash
+              ? (holdChainAnswer ? local : known)[storedHash.toLowerCase()]
+              : undefined;
             const malformed =
               typedLength > 0 && storedHash === null && focusedWalletIndex !== index;
             // A mainnet or broken address deserves its own reason (the lib's messages cover
@@ -425,7 +471,10 @@ export function WalletHashesEditor({
                       value={knownAddress ?? wallet}
                       onChange={(event) => handleChange(index, event.target.value)}
                       autoFocus={index === addedWalletIndex}
-                      onFocus={() => setFocusedWalletIndex(index)}
+                      onFocus={() => {
+                        setFocusedWalletIndex(index);
+                        setFocusedShowedAddress(knownAddress !== undefined);
+                      }}
                       onBlur={() =>
                         setFocusedWalletIndex((current) => (current === index ? null : current))
                       }

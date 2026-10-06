@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Provider, createStore } from "jotai";
 import { describe, expect, it, vi } from "vitest";
 
@@ -14,7 +14,12 @@ import { readStateSections } from "@/lib/contracts/state-layout";
 import { parseValueData } from "@/lib/contracts/value-data";
 import { StateAssetAmountListEditor, WalletHashesEditor, WalletInputRefsEditor } from "./asset-editors";
 import type { WalletInputRef } from "@/lib/types/contracts";
-import { activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
+import { activePaymentKeyHashAtom, isConnectingAtom } from "@/providers/wallet.atoms";
+import { MeshRpcError } from "@/lib/mesh/server-fetcher";
+import { createAppQueryClient } from "@/lib/query/client";
+import { queryKeys } from "@/lib/query/keys";
+import { serializePaymentKeyCredential } from "@/lib/cardano-addresses";
+import { queryClientAtom } from "jotai-tanstack-query";
 
 // The SDK's bech32 machinery throws under jsdom ("radix2.encode input should be
 // Uint8Array"), so this file stands in a minimal BIP-173 codec for both building real
@@ -138,6 +143,20 @@ const bech32 = vi.hoisted(() => {
 
 vi.mock("@meshsdk/core", () => ({
   deserializeAddress: bech32.deserializeAddress
+}));
+
+// The chain lookup for wallet ids the address book cannot name. Only tests that turn
+// chain reads on reach it; every other test runs with reads off.
+const chainGet = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/mesh/server-fetcher", () => ({
+  MeshRpcError: class extends Error {
+    constructor(message: string, readonly status: number) {
+      super(message);
+    }
+  },
+  ServerFetcher: class {
+    get = chainGet;
+  }
 }));
 
 const VALID_WALLET = "ab".repeat(28);
@@ -746,5 +765,147 @@ describe("removal while adding is disabled", () => {
     fireEvent.click(remove);
     expect(document.activeElement).toBe(screen.getByRole("group", { name: "Wallets" }));
     expect(screen.getByRole("button", { name: "Add a wallet" })).toBeDisabled();
+  });
+});
+
+describe("a wallet id only the chain can name", () => {
+  function renderWithChainReads(value: string[]) {
+    const store = createStore();
+    const queryClient = createAppQueryClient();
+    store.set(queryClientAtom, queryClient);
+    store.set(isConnectingAtom, true);
+    function Harness() {
+      const [wallets, setWallets] = useState(value);
+      return <WalletHashesEditor label="Wallets this person signs with" value={wallets} onChange={setWallets} />;
+    }
+    render(
+      <Provider store={store}>
+        <Harness />
+      </Provider>
+    );
+    // Settled, so an assertion after it sees the answer, not the request in flight.
+    const settled = (hash: string) =>
+      waitFor(() => expect(queryClient.getQueryState(queryKeys.paymentKeyAddress(hash))?.status).toBe("success"));
+    return { queryClient, settled };
+  }
+
+  it("shows the one address the chain holds funds at for that key", async () => {
+    const hash = "cd".repeat(28);
+    const address = bech32.encode(hash);
+    chainGet.mockReset().mockResolvedValue([{ address }, { address }]);
+    renderWithChainReads([hash]);
+
+    const input = screen.getByLabelText("Wallets this person signs with, wallet 1");
+    await waitFor(() => expect(input).toHaveValue(address));
+    // The stored value stays the hash, still shown and copyable beneath the address.
+    expect(screen.getByText(hash)).toBeInTheDocument();
+    expect(chainGet).toHaveBeenCalledTimes(1);
+    expect(chainGet.mock.calls[0]![0]).toMatch(/^addresses\/addr_vkh1[a-z0-9]+\/utxos\?count=100$/);
+  });
+
+  it("keeps the hash when the chain names no single address", async () => {
+    const hash = "ce".repeat(28);
+    chainGet.mockReset().mockResolvedValue([]);
+    const { settled } = renderWithChainReads([hash]);
+
+    await settled(hash);
+    expect(screen.getByLabelText("Wallets this person signs with, wallet 1")).toHaveValue(hash);
+  });
+
+  it("keeps a key Blockfrost has never seen as a settled miss, not an error", async () => {
+    const hash = "ca".repeat(28);
+    chainGet.mockReset().mockRejectedValue(new MeshRpcError("Not Found", 404));
+    const { queryClient, settled } = renderWithChainReads([hash]);
+
+    await settled(hash);
+    expect(queryClient.getQueryData(queryKeys.paymentKeyAddress(hash))).toBeNull();
+    expect(screen.getByLabelText("Wallets this person signs with, wallet 1")).toHaveValue(hash);
+  });
+
+  it("does not swap a hash for an address while the reader is still typing it", async () => {
+    const hash = "c9".repeat(28);
+    const address = bech32.encode(hash);
+    chainGet.mockReset().mockResolvedValue([{ address }]);
+    const { settled } = renderWithChainReads([""]);
+
+    const input = screen.getByLabelText("Wallets this person signs with, wallet 1");
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: hash } });
+    await settled(hash);
+    expect(input).toHaveValue(hash);
+
+    fireEvent.blur(input);
+    expect(input).toHaveValue(address);
+    // Focusing again without typing keeps the address the reader already sees.
+    fireEvent.focus(input);
+    expect(input).toHaveValue(address);
+  });
+
+  it("does not swap a retyped hash in a row that showed an address at focus", async () => {
+    const first = "c7".repeat(28);
+    const second = "c6".repeat(28);
+    chainGet.mockReset().mockImplementation(async (path: string) =>
+      path.includes(serializePaymentKeyCredential(first))
+        ? [{ address: bech32.encode(first) }]
+        : [{ address: bech32.encode(second) }]
+    );
+    const { settled } = renderWithChainReads([first]);
+
+    const input = screen.getByLabelText("Wallets this person signs with, wallet 1");
+    await waitFor(() => expect(input).toHaveValue(bech32.encode(first)));
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: second } });
+    await settled(second);
+    expect(input).toHaveValue(second);
+
+    fireEvent.blur(input);
+    expect(input).toHaveValue(bech32.encode(second));
+  });
+
+  it("does not swap a focused hash when the answer lands before the first keystroke", async () => {
+    const hash = "c8".repeat(28);
+    const address = bech32.encode(hash);
+    let answer: (rows: unknown) => void = () => {};
+    chainGet.mockReset().mockReturnValue(new Promise((resolve) => { answer = resolve; }));
+    const { settled } = renderWithChainReads([hash]);
+
+    const input = screen.getByLabelText("Wallets this person signs with, wallet 1");
+    fireEvent.focus(input);
+    answer([{ address }]);
+    await settled(hash);
+    expect(input).toHaveValue(hash);
+
+    fireEvent.blur(input);
+    expect(input).toHaveValue(address);
+  });
+
+  it("does not ask the chain about a pair the book loads from storage on mount", async () => {
+    const hash = "c5".repeat(28);
+    const address = bech32.encode(hash);
+    // A pair saved in an earlier session: the store below has never seen it.
+    localStorage.setItem("epora.walletAddressBook.v1", JSON.stringify({ [hash]: address }));
+    try {
+      chainGet.mockReset().mockResolvedValue([]);
+      renderWithChainReads([hash]);
+      const input = screen.getByLabelText("Wallets this person signs with, wallet 1");
+      await waitFor(() => expect(input).toHaveValue(address));
+      expect(chainGet).not.toHaveBeenCalled();
+    } finally {
+      localStorage.removeItem("epora.walletAddressBook.v1");
+    }
+  });
+
+  it("does not ask the chain about an id the address book already names", () => {
+    const hash = "cf".repeat(28);
+    chainGet.mockReset();
+    const store = createStore();
+    store.set(isConnectingAtom, true);
+    store.set(resolvedWalletAddressesAtom, { [hash]: bech32.encode(hash) });
+    render(
+      <Provider store={store}>
+        <WalletHashesEditor label="Wallets" value={[hash]} onChange={vi.fn()} />
+      </Provider>
+    );
+    expect(chainGet).not.toHaveBeenCalled();
   });
 });
