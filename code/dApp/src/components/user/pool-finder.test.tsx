@@ -518,6 +518,32 @@ it("does not queue an Enter pressed after the search already failed", async () =
   expect(lookup).not.toHaveBeenCalled();
 });
 
+it("queues an Enter for new text even when the previous text's search failed", async () => {
+  const lookup = vi.fn<FetchImpl>(async () => new Response(JSON.stringify({ pool: BASE_POOL })));
+  vi.stubGlobal("fetch", vi.fn((url: string, init: RequestInit) => {
+    if (url === "/api/v1/pools/search?q=") return Promise.resolve(new Response(JSON.stringify({ pools: [] })));
+    if (url === "/api/v1/pools/search?q=epx") {
+      return Promise.resolve(new Response(JSON.stringify({ error: "bad" }), { status: 400 }));
+    }
+    if (url.startsWith("/api/v1/pools/search")) {
+      return Promise.resolve(new Response(JSON.stringify({ pools: [{
+        poolId: BASE_POOL.poolId, ticker: "EPORA", name: "Epora", saturation: 0.1,
+        liveStakeLovelace: "1", marginPct: 0.01, fixedCostLovelace: "1", retiring: false
+      }] })));
+    }
+    return lookup(url, init);
+  }));
+  render(<PoolFinder selectedPool={null} onSelect={vi.fn()} />);
+  const input = screen.getByLabelText("Find your pool");
+  fireEvent.change(input, { target: { value: "epx" } });
+  await screen.findByText("Couldn't load the pool list. You can still paste a pool id.");
+
+  fireEvent.change(input, { target: { value: "epo" } });
+  fireEvent.keyDown(input, { key: "Enter" });
+
+  expect(await screen.findByRole("button", { name: "Pick this pool" })).toBeInTheDocument();
+});
+
 it("caps the box at the longest search the server accepts", () => {
   stubFetch(vi.fn<FetchImpl>());
   render(<PoolFinder selectedPool={null} onSelect={vi.fn()} />);

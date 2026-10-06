@@ -68,7 +68,9 @@ export function usePoolSearch(text: string, enabled: boolean) {
     // `keepPreviousData` keeps the last list on screen while the next one loads. Only a
     // fresh list may answer Enter, or Enter opens a match for the old text.
     fresh: debounced === query && !search.isPlaceholderData && search.isSuccess,
-    failed: !search.isFetching && search.isError
+    // Like `fresh`, a failure answers only the text it searched. During the debounce for
+    // new text it belonged to the old text, and dropped an Enter meant for the new one.
+    failed: debounced === query && !search.isFetching && search.isError
   };
 }
 
