@@ -216,7 +216,8 @@ it("retains the selected pool while a failed lookup reports the server error", a
   render(<PoolFinder selectedPool={BASE_POOL} onSelect={vi.fn()} />);
   fireEvent.change(screen.getByLabelText("Find your pool"), { target: { value: "pool1missing" } });
   fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
-  await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Pool not found"));
+  // A partial id first waits out the search debounce and its answer, then looks up.
+  await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Pool not found"), { timeout: 3_000 });
   expect(screen.getByText("Picked")).toBeInTheDocument();
 });
 
@@ -437,4 +438,21 @@ describe("review fixes", () => {
     expect(await screen.findByText("No open pools to suggest right now. Search by ticker or name.")).toBeInTheDocument();
     expect(screen.queryByText(/matches “”/)).not.toBeInTheDocument();
   });
+});
+
+it("opens the top match when Enter comes before the matches do", async () => {
+  // Enter inside the 250 ms debounce used to do nothing and say nothing.
+  const lookup = vi.fn<FetchImpl>(async () => new Response(JSON.stringify({ pool: BASE_POOL })));
+  stubFetch(lookup, [{
+    poolId: BASE_POOL.poolId, ticker: "EPORA", name: "Epora", saturation: 0.1,
+    liveStakeLovelace: "1", marginPct: 0.01, fixedCostLovelace: "1", retiring: false
+  }]);
+  render(<PoolFinder selectedPool={null} onSelect={vi.fn()} />);
+  const input = screen.getByLabelText("Find your pool");
+
+  fireEvent.change(input, { target: { value: "epo" } });
+  fireEvent.keyDown(input, { key: "Enter" });
+
+  expect(await screen.findByRole("button", { name: "Pick this pool" })).toBeInTheDocument();
+  expect(lookup).toHaveBeenCalledWith(`/api/v1/pools?id=${BASE_POOL.poolId}`, expect.anything());
 });

@@ -1,5 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
+import { useEffect, useEffectEvent, useRef } from "react";
 
 
 import { CheckCircle2, ExternalLink, Loader2, Search } from "lucide-react";
@@ -48,14 +49,27 @@ export function PoolFinder({
     setQuery(poolId);
     lookup(poolId);
   };
-  // Enter on typed text opens the top match, once the list shows matches for that text.
-  const submit = () => {
-    if (isPoolId || !query.trim()) return lookup();
+  const openTop = () => {
     const top = search.pools[0];
-    if (top && search.fresh) open(top.poolId);
+    if (top) open(top.poolId);
     // An id-shaped text with no match still gets the server's own answer.
     else if (looksLikePoolId) lookup();
   };
+  // Enter on typed text opens the top match for that text. Pressed before those matches
+  // arrive, it waits for them: it used to do nothing, with no sign the key was heard.
+  // A ref, not state: the wait needs no render of its own, only the search's next answer.
+  const enterPending = useRef(false);
+  const submit = () => {
+    if (isPoolId || !query.trim()) return lookup();
+    if (search.fresh) openTop();
+    else enterPending.current = true;
+  };
+  const openTopLater = useEffectEvent(openTop);
+  useEffect(() => {
+    if (!enterPending.current || !search.fresh) return;
+    enterPending.current = false;
+    openTopLater();
+  }, [search.fresh]);
   const error = failure?.kind === "empty" ? i18n("typeToSearch")
     : failure?.kind === "response" ? failure.message ?? i18n("poolLookupFailed")
     : failure?.kind === "network" ? i18n("couldnTReachThePoolLookupTryAgain_fb9241")
@@ -74,7 +88,10 @@ export function PoolFinder({
           <Input
             id="poolFinderInput"
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              enterPending.current = false;
+            }}
             onKeyDown={(event) => {
               if (event.key === "Enter") {
                 event.preventDefault();
