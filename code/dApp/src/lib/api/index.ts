@@ -4,6 +4,14 @@
 export { ApiErrorSchema, type ApiError } from "./errors";
 export { HealthResponseSchema, type HealthResponse } from "./health";
 export {
+  AccountsQuerySchema,
+  AccountsResponseSchema,
+  StakeAddressSchema,
+  STAKE_ADDRESS_INVALID_MESSAGE,
+  STAKE_ADDRESS_MISSING_MESSAGE,
+  type AccountsResponseDto
+} from "./accounts";
+export {
   DrepIdSchema,
   DrepsQuerySchema,
   DrepsResponseSchema,
