@@ -96,19 +96,22 @@ export function useGovernanceActionPicker(initialId: string | null) {
     return () => clearTimeout(timer);
   }, [query]);
   const open = useQuery(activeGovernanceActionsQueryOptions());
+  // One failed attempt is enough to stop waiting for the list: its retries can take a minute.
+  // `isFetched` stays true when a refetch puts a failed list back into pending.
+  const listSettled = open.isFetched || open.failureCount > 0;
   const openActions = open.data ?? [];
   const matches = filterGovernanceActions(openActions, query);
   const settled = settledQuery.trim();
   const bareTxHash = BARE_TX_HASH_PATTERN.test(settled) ? settled.toLowerCase() : null;
   const typedId = extractGovernanceActionId(settledQuery)
-    ?? (bareTxHash && !open.isPending && filterGovernanceActions(openActions, settled).length === 0
+    ?? (bareTxHash && listSettled && filterGovernanceActions(openActions, settled).length === 0
       ? `${bareTxHash}#0` : null);
   const selectedId = typedId ?? pickedId;
   const listed = selectedId ? openActions.find((action) => namesAction(action, selectedId)) ?? null : null;
   // Wait for the list, so an open action is never fetched a second time.
   const lookup = useQuery({
     ...governanceActionQueryOptions(selectedId),
-    enabled: !!selectedId && !listed && !open.isPending
+    enabled: !!selectedId && !listed && listSettled
   });
   const failure: LookupFailure | null = listed || lookup.isFetching || !lookup.error ? null
     : lookup.error instanceof GovernanceActionLookupError ? { kind: "response", status: lookup.error.status }
@@ -126,10 +129,12 @@ export function useGovernanceActionPicker(initialId: string | null) {
     setQuery,
     // A typed id shows its card instead of the list.
     actions: typedId ? [] : matches,
-    openCount: openActions.length,
-    settling: query !== settledQuery,
-    listLoading: open.isPending,
-    listFailed: open.isError,
+    // A failed background refetch keeps the list it already has.
+    openCount: open.data ? open.data.length : null,
+    // Text still settling, or an id being looked up: "no match" would be wrong for both.
+    searching: query !== settledQuery || !!typedId,
+    listLoading: !listSettled,
+    listFailed: listSettled && !open.data,
     result: listed ?? lookup.data ?? null,
     loading: !listed && lookup.isFetching,
     failure,

@@ -1,8 +1,9 @@
 import type { ReactElement } from "react";
-import { fireEvent, render as renderUI, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render as renderUI, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createQueryTestWrapper } from "@/test/query-client";
 import { retryQuery } from "@/lib/query/client";
+import { queryKeys } from "@/lib/query/keys";
 import type { GovernanceAction } from "@/lib/api/governance-actions";
 
 const holder = vi.hoisted(() => ({
@@ -245,6 +246,82 @@ describe("the open actions", () => {
     expect(await screen.findByText(/Couldn't load the open actions/)).toBeInTheDocument();
     paste(`${TX_HASH}#0`);
     expect(await screen.findByText("Fund the node")).toBeInTheDocument();
+  });
+});
+
+describe("an open list that keeps failing", () => {
+  it("stops waiting for it after one failed attempt, so a pasted id still loads", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url: string) =>
+      url.endsWith("/active")
+        ? new Response(JSON.stringify({ error: "down" }), { status: 502 })
+        : new Response(JSON.stringify({ action: ACTION }))
+    ));
+    // The app's retry policy, with a delay long enough that a wait for all retries would time out.
+    context.queryClient.setDefaultOptions({ queries: { retry: retryQuery, retryDelay: 60_000 } });
+    render(<GovernanceVotePicker />);
+
+    expect(await screen.findByText(/Couldn't load the open actions/)).toBeInTheDocument();
+    expect(screen.getByText("Open actions")).toBeInTheDocument();
+    paste(`${TX_HASH}#3`);
+
+    expect(await screen.findByText("Fund the node")).toBeInTheDocument();
+  });
+});
+
+describe("a failed open list that fetches again", () => {
+  it("keeps accepting a pasted tx hash while the new attempt runs", async () => {
+    let listCalls = 0;
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      if (!url.endsWith("/active")) return new Response(JSON.stringify({ action: ACTION }));
+      listCalls += 1;
+      // The first attempt fails; the refetch never answers.
+      return listCalls === 1
+        ? new Response(JSON.stringify({ error: "down" }), { status: 502 })
+        : new Promise<Response>(() => {});
+    }));
+    render(<GovernanceVotePicker />);
+    await screen.findByText(/Couldn't load the open actions/);
+
+    void context.queryClient.refetchQueries({ queryKey: queryKeys.activeGovernanceActions() });
+    paste(TX_HASH);
+
+    expect(await screen.findByText("Fund the node")).toBeInTheDocument();
+    expect(listCalls).toBe(2);
+  });
+});
+
+describe("an open list whose background refetch fails", () => {
+  it("keeps showing the list it already has", async () => {
+    stubFetch(ACTION, [OPEN_ACTION]);
+    render(<GovernanceVotePicker />);
+    expect(await screen.findByText("Open actions (1)")).toBeInTheDocument();
+
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ error: "down" }), { status: 502 })));
+    await act(() => context.queryClient.refetchQueries());
+    // Query batches observer updates on a timer; let the error reach the component.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+
+    expect(context.queryClient.getQueryState(queryKeys.activeGovernanceActions())?.status).toBe("error");
+    expect(screen.getByText("Open actions (1)")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Raise the DRep activity window/ })).toBeInTheDocument();
+    expect(screen.queryByText(/Couldn't load the open actions/)).not.toBeInTheDocument();
+  });
+});
+
+describe("a pasted id that is not found", () => {
+  it("shows the not-found alert without the no-match hint", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url: string) =>
+      url.endsWith("/active")
+        ? new Response(JSON.stringify({ actions: [OPEN_ACTION] }))
+        : new Response(JSON.stringify({ error: "Governance action not found on this network." }), { status: 404 })
+    ));
+    render(<GovernanceVotePicker />);
+    await screen.findByText("Open actions (1)");
+
+    paste(`${"ef".repeat(32)}#3`);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("No governance action with that id on this network.");
+    expect(screen.queryByText(/No open action matches/)).not.toBeInTheDocument();
   });
 });
 

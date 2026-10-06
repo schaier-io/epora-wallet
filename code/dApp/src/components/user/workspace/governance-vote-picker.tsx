@@ -40,7 +40,7 @@ export function GovernanceVotePicker({ error: validationError = null }: { error?
   const { voteJson, setVoteJson } = useVoteForm();
   const current = readVoteJson(voteJson);
   const typeLabel = useGovernanceTypeLabel();
-  const { query, setQuery, actions, openCount, settling, listLoading, listFailed, result, loading, failure, pick } =
+  const { query, setQuery, actions, openCount, searching, listLoading, listFailed, result, loading, failure, pick } =
     useGovernanceActionPicker(current ? `${current.txHash}#${current.txIndex}` : null);
 
   const error = failure?.kind === "response"
@@ -80,7 +80,7 @@ export function GovernanceVotePicker({ error: validationError = null }: { error?
             placeholder={i18n("searchPlaceholder")}
             aria-invalid={validationError && !result ? true : undefined}
             aria-describedby={validationError && !result ? "governanceActionInput-error" : undefined}
-            className="pl-9 text-xs"
+            className="pl-9"
           />
         </div>
         <p className="text-xs text-muted-foreground">
@@ -211,7 +211,7 @@ export function GovernanceVotePicker({ error: validationError = null }: { error?
       {actions.length > 0 || !result ? (
         <section aria-labelledby="governanceOpenActions" className="space-y-2">
           <p id="governanceOpenActions" className="eyebrow text-muted-foreground">
-            {i18n("openActions", { count: openCount })}
+            {openCount === null ? i18n("openActionsHeading") : i18n("openActions", { count: openCount })}
           </p>
           {listLoading ? (
             <p role="status" className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -223,7 +223,7 @@ export function GovernanceVotePicker({ error: validationError = null }: { error?
           ) : openCount === 0 ? (
             <p className="text-xs text-muted-foreground">{i18n("noOpenActions", { network: CARDANO_NETWORK })}</p>
           ) : actions.length === 0 ? (
-            settling ? null : <p className="text-xs text-muted-foreground">{i18n("noMatch")}</p>
+            searching ? null : <p className="text-xs text-muted-foreground">{i18n("noMatch")}</p>
           ) : (
             <GovernanceActionList actions={actions} selectedId={result?.id ?? null} onPick={pick} />
           )}
