@@ -348,7 +348,7 @@ export function buildOpenApiDocument() {
             "400": jsonError("The search text is too long."),
             "429": tooManyRequests(
               RATE_LIMITS.pools,
-              `${UPSTREAM_RATE_LIMITED} After a provider rate limit, the route waits ${POOL_INDEX_RETRY_MS / 1000} seconds before it rebuilds its pool index; the first \`429\` asks for at least that long, and a \`429\` in that time carries the seconds left as \`Retry-After\`.`
+              `${UPSTREAM_RATE_LIMITED} After a provider rate limit, the route waits ${POOL_INDEX_RETRY_MS / 1000} seconds, or as long as the provider asked if that is longer, before it rebuilds its pool index; the first \`429\` asks for at least that long, and a \`429\` in that time carries the seconds left as \`Retry-After\`.`
             ),
             "500": jsonError("Unexpected server error."),
             "502": jsonError("The chain data provider is unavailable.")

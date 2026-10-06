@@ -207,7 +207,7 @@
             }
           },
           "429": {
-            "description": "Rate limit exceeded. The limit is 300 requests per 60 seconds, per client address. The same status, with the chain data provider's message, means the provider is rate-limiting this deployment; `Retry-After` then carries the provider's delay, or 1 second when it gives none. After a provider rate limit, the route waits 30 seconds before it rebuilds its pool index; the first `429` asks for at least that long, and a `429` in that time carries the seconds left as `Retry-After`.",
+            "description": "Rate limit exceeded. The limit is 300 requests per 60 seconds, per client address. The same status, with the chain data provider's message, means the provider is rate-limiting this deployment; `Retry-After` then carries the provider's delay, or 1 second when it gives none. After a provider rate limit, the route waits 30 seconds, or as long as the provider asked if that is longer, before it rebuilds its pool index; the first `429` asks for at least that long, and a `429` in that time carries the seconds left as `Retry-After`.",
             "headers": {
               "Retry-After": {
                 "required": true,

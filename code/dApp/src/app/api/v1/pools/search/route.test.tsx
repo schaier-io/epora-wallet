@@ -67,10 +67,14 @@ it("asks a rate-limited client to wait out the whole rebuild backoff", async () 
   expect(response.headers.get("Retry-After")).toBe("30");
 });
 
-it("keeps a provider Retry-After longer than the backoff", async () => {
+it("keeps a provider Retry-After longer than the backoff, and waits that long to rebuild", async () => {
   mocks.get.mockRejectedValue(meshHttpError(429, { "Retry-After": "90" }));
 
   expect((await search("epo")).headers.get("Retry-After")).toBe("90");
+  const replay = await search("epo");
+
+  // Still about 90 s left, not the 30 s backoff: every client is told the same wait.
+  expect(Number(replay.headers.get("Retry-After"))).toBeGreaterThan(60);
 });
 
 it("answers a search during the backoff without calling Blockfrost again", async () => {

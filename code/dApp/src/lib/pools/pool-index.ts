@@ -1,4 +1,4 @@
-import { meshHttpStatus } from "@/lib/mesh/http-error";
+import { meshHttpStatus, meshUpstreamFailure } from "@/lib/mesh/http-error";
 import type { PoolSummary } from "@/lib/api/pools";
 
 // A searchable copy of every registered pool, so the finder can resolve a ticker or
@@ -125,7 +125,11 @@ export function getPoolIndex(get: Get, now = Date.now()): Promise<PoolIndexEntry
           return entries;
         },
         (error: unknown) => {
-          failure = { error, retryAt: settledAt() + POOL_INDEX_RETRY_MS };
+          // Wait at least as long as Blockfrost asked, so the next build does not walk
+          // into the same rate limit and every client is told the same wait.
+          const upstream = meshUpstreamFailure(error);
+          const providerWaitMs = upstream?.status === 429 ? Number(upstream.retryAfterSeconds) * 1000 : 0;
+          failure = { error, retryAt: settledAt() + Math.max(POOL_INDEX_RETRY_MS, providerWaitMs) };
           throw error;
         }
       )
