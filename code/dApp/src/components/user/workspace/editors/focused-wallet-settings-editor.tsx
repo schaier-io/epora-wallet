@@ -69,8 +69,13 @@ export function FocusedWalletSettingsEditor({
       const target = task === "settings-proof-of-life" ? "settings-multisig-threshold" : task;
       const section = root.current?.querySelector<HTMLElement>(`[data-settings-section="${target}"]`);
       section?.scrollIntoView({ block: "start", behavior: "smooth" });
-      const field = section?.querySelector<HTMLElement>('[aria-invalid="true"]')
-        ?? section?.querySelector<HTMLElement>("input, select, button");
+      // Inside the rule that just opened, not on the first trigger of the card: pressing
+      // that would close the rule the issue points at. The confirmation checkbox comes
+      // first because an unreachable threshold is the one issue it answers.
+      const scope = (rule ? section?.querySelector<HTMLElement>('[role="region"][data-state="open"]') : null) ?? section;
+      const field = scope?.querySelector<HTMLElement>('[aria-invalid="true"]')
+        ?? scope?.querySelector<HTMLElement>('input[type="checkbox"]')
+        ?? scope?.querySelector<HTMLElement>("input:not([disabled]), select:not([disabled]), button:not([disabled])");
       field?.focus({ preventScroll: true });
     });
   };

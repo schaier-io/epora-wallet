@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { FocusedWalletSettingsEditor } from "./focused-wallet-settings-editor";
 import { describeStateValidationError } from "../helpers/state-validation-copy";
@@ -9,6 +9,11 @@ import {
   createDefaultStateForm,
   createDefaultUserFormState
 } from "@/lib/contracts/state-form";
+
+// jsdom has no layout, so it has no scrollIntoView. The jump calls it before focusing.
+beforeAll(() => {
+  Element.prototype.scrollIntoView = vi.fn();
+});
 
 const KEY_A = "a1".repeat(28);
 const KEY_B = "b2".repeat(28);
@@ -105,5 +110,27 @@ describe("finding draft issues on the page", () => {
     fireEvent.click(screen.getByRole("button", { name: /Check Co-signer threshold/i }));
     expect(props.onSelectTask).toHaveBeenCalledWith("settings-multisig-threshold");
     expect(screen.getByLabelText("Approval power needed")).toBeInTheDocument();
+  });
+
+  it("lands on the confirmation from an unreachable-threshold issue", async () => {
+    renderPage({
+      value: walletWith("3"),
+      selectedTask: "settings-people",
+      thresholdConfirmed: false,
+      onThresholdConfirmedChange: vi.fn(),
+      fieldErrors: { "Approval power out of reach": ["No group of co-signers can reach the approval power needed. Confirm it, or lower it."] }
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Check Co-signer threshold/i }));
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole("checkbox", { name: "I understand. Keep this threshold." }))
+    );
+  });
+
+  it("lands inside the proof-of-life rule from its issue, not on the co-signers trigger", async () => {
+    const message = `${describeStateValidationError("state.proof_of_life_increment")} must be at least 1.`;
+    renderPage({ selectedTask: "settings-wallet-name", fieldErrors: { "Output state": [message] } });
+    fireEvent.click(screen.getByRole("button", { name: /^Check /i }));
+    await waitFor(() => expect(document.activeElement?.closest('[role="region"]')).not.toBeNull());
+    expect(screen.getByRole("switch", { name: "Require proof of life" })).toBeInTheDocument();
   });
 });
