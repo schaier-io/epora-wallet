@@ -7,7 +7,11 @@ import { ApiErrorSchema } from "./errors";
 import { HealthResponseSchema } from "./health";
 import { AccountsQuerySchema, AccountsResponseSchema } from "./accounts";
 import { DrepsQuerySchema, DrepsResponseSchema } from "./dreps";
-import { GovernanceActionsQuerySchema, GovernanceActionsResponseSchema } from "./governance-actions";
+import {
+  ActiveGovernanceActionsResponseSchema,
+  GovernanceActionsQuerySchema,
+  GovernanceActionsResponseSchema
+} from "./governance-actions";
 import { PoolsQuerySchema, PoolsResponseSchema } from "./pools";
 import { UPSTREAM_RETRY_AFTER_FALLBACK_SECONDS } from "@/lib/mesh/http-error";
 import { SttLookupRequestSchema, SttLookupResponseSchema } from "./stt-lookup";
@@ -377,6 +381,23 @@ export function buildOpenApiDocument() {
             "400": jsonError("The DRep id is missing or malformed."),
             "404": jsonError("No DRep exists with that id."),
             "429": tooManyRequests(RATE_LIMITS.dreps, UPSTREAM_RATE_LIMITED),
+            "500": jsonError("Unexpected server error."),
+            "502": jsonError("The chain data provider is unavailable.")
+          }
+        }
+      },
+      "/api/v1/governance-actions/active": {
+        get: {
+          operationId: "listActiveGovernanceActions",
+          summary: "List open governance actions",
+          description: "List every Cardano governance action DReps can still vote on, newest first, with CIP-108 titles and abstracts when published.",
+          tags: ["Chain"],
+          responses: {
+            "200": {
+              description: "The open governance actions.",
+              content: { "application/json": { schema: ActiveGovernanceActionsResponseSchema } }
+            },
+            "429": tooManyRequests(RATE_LIMITS.governanceActions, UPSTREAM_RATE_LIMITED),
             "500": jsonError("Unexpected server error."),
             "502": jsonError("The chain data provider is unavailable.")
           }

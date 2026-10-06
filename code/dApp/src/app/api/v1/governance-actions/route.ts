@@ -8,6 +8,7 @@ import {
   type GovernanceAction,
   type GovernanceActionsResponseDto
 } from "@/lib/api/governance-actions";
+import { readCip108 } from "@/lib/governance/cip108";
 import { clientKey, rateLimit } from "@/lib/http/rate-limit";
 import { meshHttpStatus, meshUpstreamFailure } from "@/lib/mesh/http-error";
 import { PROVIDER_UNAVAILABLE_MESSAGE } from "@/lib/http/tx-route-errors";
@@ -50,20 +51,6 @@ function asText(value: unknown): string | null {
 
 function asEpoch(value: unknown): number | null {
   return typeof value === "number" && Number.isSafeInteger(value) ? value : null;
-}
-
-/** CIP-108 `body.title` / `body.abstract`. Blockfrost may return the document as a string. */
-function readCip108(metadataRaw: unknown): { title: string | null; abstract: string | null } {
-  let document = asRecord(metadataRaw)?.json_metadata;
-  if (typeof document === "string") {
-    try {
-      document = JSON.parse(document);
-    } catch {
-      document = null;
-    }
-  }
-  const body = asRecord(asRecord(document)?.body);
-  return { title: asText(body?.title), abstract: asText(body?.abstract) };
 }
 
 function statusOf(raw: RawProposal): GovernanceAction["status"] {
@@ -119,7 +106,7 @@ export async function GET(request: Request) {
         txHash,
         index,
         type: asText(proposal.governance_type) ?? "unknown",
-        ...readCip108(metadataRaw),
+        ...readCip108(asRecord(metadataRaw)?.json_metadata),
         expirationEpoch: asEpoch(proposal.expiration),
         status: statusOf(proposal)
       }

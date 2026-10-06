@@ -138,6 +138,18 @@ CIP-108 anchor and are `null` when none was published or Blockfrost could not
 read it. `status` is `active` while DReps can still vote on the action. The
 field-by-field shape is `GovernanceActionsResponse` in the spec.
 
+### Open governance actions
+
+Returns every governance action DReps can still vote on, newest first. Each
+entry has the same fields as the lookup above, and `status` is always `active`.
+The list comes from Koios, which returns titles and abstracts in the same call.
+
+```bash
+curl -s "$BASE/api/v1/governance-actions/active"
+```
+
+The field-by-field shape is `ActiveGovernanceActionsResponse` in the spec.
+
 ### Find the wallets an address participates in
 
 This is the entry point. Give it an address or a payment key hash, and it
@@ -736,7 +748,7 @@ Per client address, in a rolling window:
 | Active `/api/v1/tx/*` build routes | 10 requests per 60 seconds, across all nine routes together |
 | `/api/v1/stt/lookup` | 600 requests per 60 seconds |
 | `/api/v1/pools` | 300 requests per 60 seconds |
-| `/api/v1/governance-actions` | 300 requests per 60 seconds |
+| `/api/v1/governance-actions` and `/api/v1/governance-actions/active` | 300 requests per 60 seconds, across both routes together |
 
 The nine active build routes share **one** bucket. Six mints and four deposits in the
 same minute use the whole allowance.
