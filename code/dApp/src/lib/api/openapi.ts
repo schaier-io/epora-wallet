@@ -18,6 +18,7 @@ import {
   PoolsQuerySchema,
   PoolsResponseSchema
 } from "./pools";
+import { POOL_INDEX_RETRY_MS } from "@/lib/pools/pool-index";
 import { UPSTREAM_RETRY_AFTER_FALLBACK_SECONDS } from "@/lib/mesh/http-error";
 import { SttLookupRequestSchema, SttLookupResponseSchema } from "./stt-lookup";
 import { BuildResultSchema } from "./tx-result";
@@ -345,7 +346,10 @@ export function buildOpenApiDocument() {
               content: { "application/json": { schema: PoolSearchResponseSchema } }
             },
             "400": jsonError("The search text is too long."),
-            "429": tooManyRequests(RATE_LIMITS.pools, UPSTREAM_RATE_LIMITED),
+            "429": tooManyRequests(
+              RATE_LIMITS.pools,
+              `${UPSTREAM_RATE_LIMITED} After a provider rate limit, the route waits ${POOL_INDEX_RETRY_MS / 1000} seconds before it rebuilds its pool index; a \`429\` in that time carries the seconds left as \`Retry-After\`.`
+            ),
             "500": jsonError("Unexpected server error."),
             "502": jsonError("The chain data provider is unavailable.")
           }
