@@ -93,16 +93,6 @@
     "copyPayoutAddress": "Copy payout recipient address",
     "stagedMaxUnavailable": "Max is unavailable for allowance spending or while another payout draft exists. Enter amounts manually, then review the total."
   },
-  "ComponentsUserWorkspaceConfigWalletpublishView": {
-    "alwaysAbstain": "Always abstain",
-    "alwaysAbstainHandsThisWalletSVotingPower": "Always abstain hands this wallet's voting power to the always-abstain DRep, and stands until you replace it. Stake registration registers the wallet's staking address, which Cardano requires before that address can earn rewards. You can also paste a certificate exported from another tool.",
-    "certificateJson": "Certificate JSON",
-    "clear": "Clear",
-    "signAsASingleOwnerOrCollectThe": "Sign as a single owner, or collect the approvals your wallet requires.",
-    "stakeRegistration": "Stake registration",
-    "theTemplatesNeedThisWalletSStakingAddress": "The templates need this wallet's staking address, which could not be worked out yet. You can still paste a certificate exported from another tool.",
-    "whoApprovesThisCertificate": "Who approves this certificate"
-  },
   "ComponentsUserWorkspaceConfigWalletvoteView": {
     "clear": "Clear",
     "editAsJson": "Edit the vote as JSON (advanced)",

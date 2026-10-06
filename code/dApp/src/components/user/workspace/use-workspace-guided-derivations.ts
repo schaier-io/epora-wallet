@@ -280,7 +280,7 @@ export function useWorkspaceGuidedDerivations(inputs: WorkspaceGuidedDerivations
       ? {
           intent: "governance-publish" as const,
           action: "wallet-publish" as const,
-          title: i18n("publishCertificate"),
+          title: i18n("chooseAVotingDelegate"),
         }
       : null,
     selectedDetectedToken && advancedWalletActions.includes("wallet-vote")
