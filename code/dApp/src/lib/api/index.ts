@@ -34,9 +34,13 @@ export {
   PoolIdSchema,
   PoolsQuerySchema,
   PoolsResponseSchema,
+  PoolSearchQuerySchema,
+  PoolSearchResponseSchema,
   POOL_ID_INVALID_MESSAGE,
   POOL_ID_MISSING_MESSAGE,
-  type PoolsResponseDto
+  type PoolsResponseDto,
+  type PoolSearchResponseDto,
+  type PoolSummary
 } from "./pools";
 export {
   SttLookupRequestSchema,

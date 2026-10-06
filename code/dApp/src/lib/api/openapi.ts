@@ -12,7 +12,12 @@ import {
   GovernanceActionsQuerySchema,
   GovernanceActionsResponseSchema
 } from "./governance-actions";
-import { PoolsQuerySchema, PoolsResponseSchema } from "./pools";
+import {
+  PoolSearchQuerySchema,
+  PoolSearchResponseSchema,
+  PoolsQuerySchema,
+  PoolsResponseSchema
+} from "./pools";
 import { UPSTREAM_RETRY_AFTER_FALLBACK_SECONDS } from "@/lib/mesh/http-error";
 import { SttLookupRequestSchema, SttLookupResponseSchema } from "./stt-lookup";
 import { BuildResultSchema } from "./tx-result";
@@ -254,7 +259,7 @@ never carries the provider's own text.
 **Rate limits.** Per client address: ${RATE_LIMITS.tx.requests} requests per
 ${RATE_LIMITS.tx.windowSeconds}s across all transaction builds together,
 ${RATE_LIMITS.sttLookup.requests} per ${RATE_LIMITS.sttLookup.windowSeconds}s for wallet lookups,
-${RATE_LIMITS.pools.requests} per ${RATE_LIMITS.pools.windowSeconds}s for pool lookups,
+${RATE_LIMITS.pools.requests} per ${RATE_LIMITS.pools.windowSeconds}s for pool lookups and searches together,
 ${RATE_LIMITS.governanceActions.requests} per ${RATE_LIMITS.governanceActions.windowSeconds}s for governance action lookups. Builds also
 share a deployment-wide cap of ${RATE_LIMITS.txGlobal.requests} per
 ${RATE_LIMITS.txGlobal.windowSeconds}s, because one build costs the chain provider tens of
@@ -320,6 +325,26 @@ export function buildOpenApiDocument() {
             },
             "400": jsonError("The pool id is missing or malformed."),
             "404": jsonError("No pool exists with that id."),
+            "429": tooManyRequests(RATE_LIMITS.pools, UPSTREAM_RATE_LIMITED),
+            "500": jsonError("Unexpected server error."),
+            "502": jsonError("The chain data provider is unavailable.")
+          }
+        }
+      },
+      "/api/v1/pools/search": {
+        get: {
+          operationId: "searchStakePools",
+          summary: "Search stake pools",
+          description:
+            "Find stake pools by ticker, name or pool id prefix. Without a query, return a random shortlist of pools that publish a ticker, are not retiring, and are below 90 percent saturation. Results come from an index refreshed every few hours.",
+          tags: ["Chain"],
+          requestParams: { query: PoolSearchQuerySchema },
+          responses: {
+            "200": {
+              description: "Matching pools, best match first, or the shortlist.",
+              content: { "application/json": { schema: PoolSearchResponseSchema } }
+            },
+            "400": jsonError("The search text is too long."),
             "429": tooManyRequests(RATE_LIMITS.pools, UPSTREAM_RATE_LIMITED),
             "500": jsonError("Unexpected server error."),
             "502": jsonError("The chain data provider is unavailable.")

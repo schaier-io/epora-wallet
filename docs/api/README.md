@@ -122,6 +122,40 @@ An unknown pool returns `404`, not an empty body:
 { "error": "Pool not found or not registered on this network." }
 ```
 
+### Stake pool search
+
+Finds pools by ticker, name or bech32 pool id prefix, best match first, at most 20.
+Matching ignores case.
+
+```bash
+curl -s "$BASE/api/v1/pools/search?q=ata"
+```
+
+```json
+{
+  "pools": [
+    {
+      "poolId": "pool1rkfs9glmfva3jd0q9vnlqvuhnrflpzj4l07u6sayfx5k7d788us",
+      "ticker": "ATADA",
+      "name": "ATADA Austria - PreProd Pool #1",
+      "saturation": 0.008275189603315239,
+      "liveStakeLovelace": "531298928916",
+      "marginPct": 0.1,
+      "fixedCostLovelace": "170000000",
+      "retiring": false
+    }
+  ]
+}
+```
+
+Without `q`, the route returns a random shortlist of six pools. Each one publishes a
+ticker, is not retiring, and is below 90% saturation. The sample changes on every call.
+
+Blockfrost has no search, so the server keeps an index of every registered pool and
+refreshes it every six hours. The first search on a fresh server builds that index,
+which took about 5 seconds on preprod. Use `/api/v1/pools?id=` for current figures
+on one pool.
+
 ### Governance action lookup
 
 Takes a Cardano governance action id and returns what it is, so a vote can be
@@ -747,7 +781,7 @@ Per client address, in a rolling window:
 |---|---|
 | Active `/api/v1/tx/*` build routes | 10 requests per 60 seconds, across all nine routes together |
 | `/api/v1/stt/lookup` | 600 requests per 60 seconds |
-| `/api/v1/pools` | 300 requests per 60 seconds |
+| `/api/v1/pools` and `/api/v1/pools/search` | 300 requests per 60 seconds, across both routes together |
 | `/api/v1/governance-actions` and `/api/v1/governance-actions/active` | 300 requests per 60 seconds, across both routes together |
 
 The nine active build routes share **one** bucket. Six mints and four deposits in the
