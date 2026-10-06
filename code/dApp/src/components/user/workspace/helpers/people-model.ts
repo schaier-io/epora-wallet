@@ -105,13 +105,13 @@ export function personWallets(form: StateFormState, person: PersonEntry): string
 /**
  * Owner on: the person may do everything alone, so approval power and daily limits
  * stop meaning anything. They are cleared rather than hidden, because a hidden power
- * would still count toward the co-signer total. Owner off keeps the person as they
- * are, minus the owner right.
+ * would still count toward the co-signer total. Owner off also drops the check-in
+ * the owner preset grants, so the person is left with no permission they did not pick.
  */
 export function withOwnerToggled(user: UserFormState, owner: boolean): UserFormState {
   return owner
     ? applyUserPreset(user, "admin")
-    : { ...user, isAdmin: false, preset: "custom" };
+    : { ...user, isAdmin: false, canRenewProofOfLife: false, preset: "custom" };
 }
 
 /**

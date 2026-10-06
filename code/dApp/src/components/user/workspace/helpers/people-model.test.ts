@@ -111,6 +111,7 @@ test("turning owner on clears approval power and limits, turning it off keeps th
   assert.deepEqual(owner.wallets, [KEY_A]);
   const member = withOwnerToggled(owner, false);
   assert.equal(member.isAdmin, false);
+  assert.equal(member.canRenewProofOfLife, false);
   assert.deepEqual(member.wallets, [KEY_A]);
 });
 
