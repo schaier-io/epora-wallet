@@ -130,7 +130,9 @@ describe("getPoolIndex", () => {
     const start = Date.now();
     await getPoolIndex(get, start);
     size = 2;
-    const later = start + POOL_INDEX_TTL_MS + 1;
+    // From real time after the build: the TTL runs from when the build ended, which can be
+    // milliseconds after `start`.
+    const later = Date.now() + POOL_INDEX_TTL_MS + 60_000;
 
     const stale = await getPoolIndex(get, later);
     await new Promise((resolve) => setImmediate(resolve));
@@ -143,19 +145,26 @@ describe("getPoolIndex", () => {
 
   it("keeps serving the expired index when its rebuild fails", async () => {
     let fail = false;
+    let failedCalls = 0;
     const get = async (path: string) => {
-      if (fail) throw meshHttpError(429);
+      if (fail) {
+        failedCalls++;
+        throw meshHttpError(429);
+      }
       return path === "/pools/extended?count=100&page=1" ? [rawPool(1)] : [];
     };
     const start = Date.now();
     await getPoolIndex(get, start);
     fail = true;
-    const later = start + POOL_INDEX_TTL_MS + 1;
+    // From real time after the build: the TTL runs from when the build ended, which can be
+    // milliseconds after `start`.
+    const later = Date.now() + POOL_INDEX_TTL_MS + 60_000;
 
     await getPoolIndex(get, later);
     await new Promise((resolve) => setImmediate(resolve));
 
     assert.equal((await getPoolIndex(get, later)).length, 1);
+    assert.ok(failedCalls > 0, "the expired index must have started a rebuild");
   });
 
   it("waits before retrying a failed build instead of rebuilding on every call", async () => {
