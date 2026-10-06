@@ -48,7 +48,8 @@
       "postcss": "^8.5.28",
       "vite@7.3.6>esbuild": "0.28.2",
       "fast-uri": "^3.1.4",
-      "deepmerge-ts": "^8.0.1"
+      "deepmerge-ts": "^8.0.1",
+      "source-map-js": "^1.2.2"
     }
   },
   "engines": {
