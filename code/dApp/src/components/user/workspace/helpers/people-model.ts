@@ -153,7 +153,8 @@ export function withRecoveryContactForUser(
   return withSafetyTimerDefaults(
     {
       ...form,
-      users: userHasPermissions(user)
+      // Dropped only when the contact takes over its one wallet, so no wallet is lost.
+      users: userHasPermissions(user) || user.wallets.length > 1
         ? form.users
         : form.users.filter((_, index) => index !== userIndex),
       beneficiaries: [...form.beneficiaries, beneficiary]

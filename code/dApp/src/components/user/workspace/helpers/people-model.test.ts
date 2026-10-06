@@ -255,3 +255,11 @@ test("a user record with wallets beyond the contact's stays when its last permis
   assert.deepEqual(next.users.map((entry) => entry.wallets), [[KEY_A, KEY_B]]);
 });
 
+test("recovery on keeps a permissionless user record that holds more than one wallet", () => {
+  const value = form({ users: [user("0", [KEY_A, KEY_B])] });
+  const next = withRecoveryContactForUser(value, 0, 1_000);
+  assert.deepEqual(next.users.map((entry) => entry.wallets), [[KEY_A, KEY_B]]);
+  assert.deepEqual(next.beneficiaries[0].wallets, [KEY_A]);
+  assert.equal(groupPeople(next).length, 1);
+});
+

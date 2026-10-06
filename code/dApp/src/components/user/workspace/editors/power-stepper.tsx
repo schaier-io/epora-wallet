@@ -1,5 +1,6 @@
 "use client";
 import { useTranslations } from "next-intl";
+import { useState } from "react";
 import { Minus, Plus } from "lucide-react";
 
 import { parseApprovalPowerInput } from "@/components/user/workspace/helpers/form-state";
@@ -13,6 +14,11 @@ const STEP_BUTTON =
  * co-signer's own power. It has no top short of the chain's integer limit. A threshold
  * above the power the co-signers hold is legal on chain, so the caller warns about it
  * rather than this control refusing it. The box takes an exact value too.
+ *
+ * Only a whole number of at least 1 reaches the form. The contract rejects a zero
+ * threshold, and an empty power box read as "no co-signer" for a moment, which reset
+ * the threshold the person had chosen. A half-typed value stays in the box until it is
+ * a number again, and leaving the box puts the saved value back.
  */
 export function PowerStepper({
   id,
@@ -26,7 +32,14 @@ export function PowerStepper({
   onChange: (value: string) => void;
 }) {
   const i18n = useTranslations("ComponentsUserWorkspaceEditorsApprovalPowerSlider");
+  const [text, setText] = useState(value);
+  const [shown, setShown] = useState(value);
+  if (shown !== value) {
+    setShown(value);
+    setText(value);
+  }
   const parsed = parseApprovalPowerInput(value);
+  const typed = parseApprovalPowerInput(text);
   const step = (delta: bigint) => {
     const next = (parsed ?? 0n) + delta;
     if (next >= 1n && next <= MAX_ON_CHAIN_STATE_INTEGER) onChange(next.toString());
@@ -48,9 +61,15 @@ export function PowerStepper({
         inputMode="numeric"
         autoComplete="off"
         aria-labelledby={labelledBy}
-        aria-invalid={parsed === null || parsed < 1n ? true : undefined}
-        value={value}
-        onChange={(event) => onChange(event.target.value.trim())}
+        aria-invalid={typed === null || typed < 1n ? true : undefined}
+        value={text}
+        onChange={(event) => {
+          const next = event.target.value.trim();
+          setText(next);
+          const power = parseApprovalPowerInput(next);
+          if (power !== null && power >= 1n && power <= MAX_ON_CHAIN_STATE_INTEGER) onChange(power.toString());
+        }}
+        onBlur={() => setText(value)}
         className="h-11 w-14 border-x border-border/60 bg-transparent text-center text-base font-semibold tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:h-9"
       />
       <button

@@ -94,6 +94,17 @@ export function PersonRow({
         )
       : canAddAllowanceEntryInStateForm(value, person.userIndex, "perDayAllowance", MAX_TOTAL_ALLOWANCE_ENTRIES);
 
+  // A permission that moves the person to another record also moves their row, which
+  // remounts it. Focus follows the pressed chip into the new row.
+  const moveRow = (key: string | null) => {
+    const pressedName = document.activeElement instanceof HTMLElement ? document.activeElement.textContent : null;
+    onOpenChange(key);
+    if (!key || key === person.key || !pressedName) return;
+    requestAnimationFrame(() => {
+      const buttons = document.querySelectorAll<HTMLButtonElement>(`[data-person-key="${key}"] button`);
+      Array.from(buttons).find((button) => button.textContent === pressedName)?.focus();
+    });
+  };
   const editUser = (edit: (user: UserFormState) => UserFormState) => {
     const next = withPersonUserEdited(value, person, edit);
     // The person may have changed records: a contact who gained a user record, or a
@@ -101,7 +112,7 @@ export function PersonRow({
     // the user record stays, its row stays open, even if a wallet edit splits off the
     // contact: the field being typed in must not unmount.
     const kept = user !== null && next.users.some((entry) => entry.id === user.id);
-    if (beneficiary && !kept) onOpenChange(personKeyForContact(next, beneficiary.id));
+    if (beneficiary && !kept) moveRow(personKeyForContact(next, beneficiary.id));
     onChange(next);
   };
   const toggleSpenderOnUser = useSpenderPermissionDraft(
@@ -130,7 +141,7 @@ export function PersonRow({
         : "";
     const next = withRecoveryContactForUser(value, person.userIndex, Date.now(), payout);
     const added = next.beneficiaries[next.beneficiaries.length - 1];
-    onOpenChange(personKeyForContact(next, added.id));
+    moveRow(personKeyForContact(next, added.id));
     onChange(next);
   };
 
@@ -149,7 +160,7 @@ export function PersonRow({
   const shows = (on: boolean) => !permissions.owner || on;
 
   return (
-    <li className="border-t border-border/60 first:border-t-0">
+    <li data-person-key={person.key} className="border-t border-border/60 first:border-t-0">
       <div className="flex items-center gap-3 px-4 py-3.5 sm:px-5">
         <span
           className={cn(
@@ -281,7 +292,7 @@ export function PersonRow({
                   )
                 };
                 // A payout to another wallet splits the person; stay on the contact.
-                onOpenChange(personKeyForContact(nextForm, next.id));
+                moveRow(personKeyForContact(nextForm, next.id));
                 onChange(nextForm);
               }}
             />

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createStore } from "jotai";
 import { describe, expect, it } from "vitest";
 
@@ -118,6 +118,36 @@ describe("context-aware permissions", () => {
   });
 });
 
+describe("typing a power", () => {
+  it("keeps the chosen threshold while the only co-signer's power is retyped", () => {
+    renderList(
+      formWith({
+        users: [user("0", [KEY_A], { isAdmin: true }), user("1", [KEY_B], { multiSigPowerMode: "some", multiSigPower: "1" })],
+        multiSigThresholdMode: "some",
+        multiSigThreshold: "3"
+      }),
+      "user-1"
+    );
+    const box = screen.getByLabelText("Approval power");
+    fireEvent.change(box, { target: { value: "" } });
+    expect(latest.multiSigThresholdMode).toBe("some");
+    fireEvent.change(box, { target: { value: "0" } });
+    expect(latest.users[1].multiSigPower).toBe("1");
+    fireEvent.change(box, { target: { value: "2" } });
+    expect(latest.users[1].multiSigPower).toBe("2");
+    expect(latest.multiSigThreshold).toBe("3");
+  });
+
+  it("puts the saved power back when the box is left half typed", () => {
+    renderList(formWith({ users: [user("0", [KEY_A], { multiSigPowerMode: "some", multiSigPower: "4" })], multiSigThresholdMode: "some", multiSigThreshold: "4" }), "user-0");
+    const box = screen.getByLabelText("Approval power");
+    fireEvent.change(box, { target: { value: "" } });
+    expect(box).toHaveAttribute("aria-invalid", "true");
+    fireEvent.blur(box);
+    expect(box).toHaveValue("4");
+  });
+});
+
 describe("recovery contacts behind the same row", () => {
   it("adds a contact on the person's wallet and turns the proof of life on", () => {
     renderList(formWith({ users: [user("0", [KEY_A], { multiSigPowerMode: "some", multiSigPower: "1" })], multiSigThresholdMode: "some", multiSigThreshold: "1" }), "user-0");
@@ -191,16 +221,18 @@ describe("recovery contacts behind the same row", () => {
     expect(screen.getByText("Add a wallet first. Each permission needs a wallet to sign with.")).toBeInTheDocument();
   });
 
-  it("gives a contact a user record when they get a user permission", () => {
+  it("gives a contact a user record when they get a user permission", async () => {
     renderList(formWith({ beneficiaries: [{ ...createDefaultBeneficiaryFormState("0"), wallets: [KEY_C] }] }), "contact-0");
     expect(chip("Recovery contact")).toBeDisabled();
+    chip("Co-signer").focus();
     fireEvent.click(chip("Co-signer"));
     expect(latest.users).toHaveLength(1);
     expect(latest.users[0].wallets).toEqual([KEY_C]);
     expect(latest.multiSigThresholdMode).toBe("some");
-    // Still one row, still open.
+    // Still one row, still open, and the pressed chip keeps focus in the remounted row.
     expect(screen.getAllByRole("listitem")).toHaveLength(1);
     expect(pressed("Co-signer")).toBe("true");
+    await waitFor(() => expect(document.activeElement).toBe(chip("Co-signer")));
   });
 
   it("stops adding recovery contacts at the shared record cap", () => {
