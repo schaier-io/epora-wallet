@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getBlockfrostProvider } from "@/lib/mesh/blockfrost-server";
 import {
+  STAKE_ADDRESS_INVALID_MESSAGE,
   STAKE_ADDRESS_MISSING_MESSAGE,
   StakeAddressSchema,
   type AccountsResponseDto
@@ -65,6 +66,10 @@ export async function GET(request: Request) {
     };
     return NextResponse.json(body);
   } catch (error) {
+    // The shape check cannot verify a bech32 checksum; Blockfrost's 400 is the verdict on it.
+    if (meshHttpStatus(error) === 400) {
+      return NextResponse.json({ error: STAKE_ADDRESS_INVALID_MESSAGE }, { status: 400 });
+    }
     logger.error("api.account_lookup_failed", { err: serializeError(error) });
     const upstream = meshUpstreamFailure(error);
     if (upstream) {

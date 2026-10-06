@@ -107,3 +107,12 @@ it("keeps 500 for a failure that is not the provider's", async () => {
   expect(response.status).toBe(500);
   expect(await response.json()).toEqual({ error: "Account lookup failed." });
 });
+
+it("answers Blockfrost's 400 for a bad checksum as an invalid address", async () => {
+  // A 500 told the client to retry a request that can never succeed.
+  mocks.get.mockRejectedValue(meshHttpError(400));
+
+  const response = await get();
+
+  expect(response.status).toBe(400);
+});
