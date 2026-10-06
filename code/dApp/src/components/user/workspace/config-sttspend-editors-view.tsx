@@ -21,6 +21,7 @@ import { FUND_POOLS_HINT } from "@/components/user/workspace/mental-model-copy";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 import {
   type ProofOfLifeOverrideMode
 } from "@/lib/contracts/state-form";
@@ -251,24 +252,41 @@ export function SttSpendEditorsView() {
                       >
                         <div className="space-y-1">
                           <div className="flex items-center justify-between gap-2">
-                            <Label className="min-w-0 wrap-anywhere" htmlFor={`userSttTransferAmountRange-${controlId}`}>
+                            <Label className="min-w-0 wrap-anywhere" id={`userSttTransferAmountRange-${controlId}-label`}>
                               {i18n("sendAmount")}{resolveAssetIdentity(asset.unit).symbol})
                             </Label>
                             <span className="text-xs text-muted-foreground">
                               {shownAmount} / {shownAvailable}
                             </span>
                           </div>
-                          <input
-                            id={`userSttTransferAmountRange-${controlId}`}
-                            type="range"
-                            min="0"
-                            max={asset.quantity}
-                            step="1"
-                            value={currentValue}
-                            onChange={(event) =>
-                              updateSttTransferAmount(asset.unit, event.target.value, asset.quantity)
+                          <Slider
+                            className="h-10"
+                            min={0}
+                            max={Number(asset.quantity)}
+                            step={1}
+                            value={[Number(currentValue)]}
+                            // A JavaScript number prints past 1e21 in exponent form,
+                            // which the amount sanitiser would read as other digits.
+                            // BigInt prints every digit. Past 2^53 the far end can
+                            // round below the balance, so it stages the exact
+                            // balance. The exact box beside this stays the precise
+                            // control for amounts in between.
+                            onValueChange={([next = 0]) =>
+                              updateSttTransferAmount(
+                                asset.unit,
+                                next >= Number(asset.quantity)
+                                  ? asset.quantity
+                                  : BigInt(Math.round(next)).toString(),
+                                asset.quantity
+                              )
                             }
-                            className="h-10 w-full cursor-pointer accent-primary"
+                            thumbProps={{
+                              id: `userSttTransferAmountRange-${controlId}`,
+                              "aria-labelledby": `userSttTransferAmountRange-${controlId}-label`,
+                              // The value is lovelace on ADA rows; read out what the
+                              // row shows instead.
+                              "aria-valuetext": `${shownAmount} ${resolveAssetIdentity(asset.unit).symbol}`
+                            }}
                           />
                           <p className="wrap-anywhere text-xs text-muted-foreground">
                             {i18n("availableFromChosenFundPools")} {shownAvailable}{" "}

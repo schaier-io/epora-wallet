@@ -200,6 +200,14 @@ describe("a threshold nobody can reach", () => {
   });
 });
 
+// The meter blocks of the approval-power control the stepper belongs to.
+const powerBlocks = (stepper: HTMLElement) =>
+  Array.from(
+    stepper
+      .closest("[data-approval-power]")!
+      .querySelectorAll<HTMLButtonElement>("button[aria-hidden='true']")
+  );
+
 describe("the permanent threshold zone on a person's power track", () => {
   /**
    * "Full approval" used to be a number the reader had to remember. The track
@@ -208,16 +216,16 @@ describe("the permanent threshold zone on a person's power track", () => {
    * meets the rule.
   */
   it("marks where alone-enough begins on the track", () => {
-    const { container } = renderEditor(
-      formWith({ threshold: "2", people: [{ power: "1", wallets: [WALLET] }] })
-    );
+    renderEditor(formWith({ threshold: "2", people: [{ power: "1", wallets: [WALLET] }] }));
 
-    const slider = screen.getByLabelText("Approval power");
-    const zone = container.querySelector("span[aria-hidden='true'][style*='left']")!;
-    // The shaded band starts half a step before the threshold.
-    expect(slider).toHaveAttribute("aria-valuemax", "2");
-    expect(zone).toHaveStyle({ left: "50%" });
-    expect(slider.className).not.toContain("border-[hsl(var(--brand-warm))]");
+    const stepper = screen.getByLabelText("Approval power");
+    // One block per unit of power; the block at the threshold carries the tint.
+    expect(stepper).toHaveAttribute("aria-valuemax", "2");
+    expect(powerBlocks(stepper).map((block) => block.className.includes("brand-warm"))).toEqual([
+      false,
+      true
+    ]);
+    expect(stepper.className).not.toContain("text-[hsl(var(--brand-warm))]");
   });
 
   it("caps a person's power slider at the rule", () => {
@@ -236,17 +244,18 @@ describe("the permanent threshold zone on a person's power track", () => {
     renderEditor(formWith({ threshold: "2", people: [{ power: "2", wallets: [WALLET] }] }));
 
     expect(screen.getByLabelText("Approval power").className).toContain(
-      "border-[hsl(var(--brand-warm))]"
+      "text-[hsl(var(--brand-warm))]"
     );
   });
 
   it("shows no zone while no threshold is set", () => {
     renderEditor(formWith({ threshold: "", people: [{ power: "1", wallets: [WALLET] }] }));
 
-    const slider = screen.getByLabelText("Approval power");
-    expect(
-      slider.parentElement!.querySelector("span[aria-hidden='true'][style*='left']")
-    ).toBeNull();
+    const stepper = screen.getByLabelText("Approval power");
+    expect(powerBlocks(stepper)).toHaveLength(2);
+    expect(powerBlocks(stepper).some((block) => block.className.includes("brand-warm"))).toBe(
+      false
+    );
   });
 });
 
@@ -352,7 +361,7 @@ describe("setting the total freely", () => {
     const next = onChange.mock.calls[0]![0] as StateFormState;
     expect(next.multiSigThreshold).toBe("50");
     // The ratchet lifted the range, so the slider can now reach what was typed.
-    expect(screen.getByLabelText("Approval power needed")).toHaveAttribute(
+    expect(screen.getByRole("spinbutton", { name: "Approval power needed" })).toHaveAttribute(
       "aria-valuemax",
       "50"
     );

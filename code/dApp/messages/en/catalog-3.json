@@ -131,6 +131,10 @@
     "enterAWholeNumber": "Enter a whole number.",
     "thisFieldIsRequired": "This field is required."
   },
+  "ComponentsUserWorkspaceEditorsApprovalPowerSlider": {
+    "decrease": "Decrease",
+    "increase": "Increase"
+  },
   "ComponentsUserWorkspaceEditorsAssetEditors": {
     "adaOrTokenPolicyAsset": "ADA or a token policy id + asset name",
     "addAToken": "Add a token",
