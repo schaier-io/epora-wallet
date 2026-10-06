@@ -114,12 +114,26 @@ export function withOwnerToggled(user: UserFormState, owner: boolean): UserFormS
     : { ...user, isAdmin: false, canRenewProofOfLife: false, preset: "custom" };
 }
 
+/** Whether a user record grants anything. A record that grants nothing is only a placeholder. */
+export function userHasPermissions(user: UserFormState): boolean {
+  return (
+    user.isAdmin ||
+    user.multiSigPowerMode === "some" ||
+    user.perDayAllowance.length > 0 ||
+    user.canRenewProofOfLife
+  );
+}
+
 /**
  * Makes this user a recovery contact too: a new contact record that signs with the
  * user's wallet. The payout address is the one thing the user record cannot supply
  * (a key hash alone has no stake part), so it comes from the caller when known and
  * stays blank for the person to fill in otherwise. Turning recovery on also turns on
  * the proof of life, which the contract requires alongside any contact.
+ *
+ * A user who grants nothing (someone just added) is replaced by the contact rather
+ * than kept beside it: an empty user record costs one of the shared access slots and
+ * does nothing on chain.
  */
 export function withRecoveryContactForUser(
   form: StateFormState,
@@ -137,9 +151,46 @@ export function withRecoveryContactForUser(
     ? withBeneficiaryPayoutAndSigningAddress(blank, payoutAddress)
     : blank;
   return withSafetyTimerDefaults(
-    { ...form, beneficiaries: [...form.beneficiaries, beneficiary] },
+    {
+      ...form,
+      users: userHasPermissions(user)
+        ? form.users
+        : form.users.filter((_, index) => index !== userIndex),
+      beneficiaries: [...form.beneficiaries, beneficiary]
+    },
     nowMs
   );
+}
+
+/**
+ * Applies an edit to one person's user record. When the edit leaves a person who is
+ * also a recovery contact with no user permission at all, the empty user record goes,
+ * and the person stays on the list as a recovery contact.
+ */
+export function withPersonUserEdited(
+  form: StateFormState,
+  person: PersonEntry,
+  edit: (user: UserFormState) => UserFormState
+): StateFormState {
+  if (person.userIndex === null) {
+    return person.beneficiaryIndex === null
+      ? form
+      : withUserForContact(form, person.beneficiaryIndex, edit);
+  }
+  const next = edit(form.users[person.userIndex]);
+  const drop = person.beneficiaryIndex !== null && !userHasPermissions(next);
+  return withMultisigDerivedFromCoSigners({
+    ...form,
+    users: drop
+      ? form.users.filter((_, index) => index !== person.userIndex)
+      : form.users.map((user, index) => (index === person.userIndex ? next : user))
+  });
+}
+
+/** The row key a beneficiary ends up under, for keeping an edited row open. */
+export function personKeyForContact(form: StateFormState, beneficiaryId: string): string | null {
+  const index = form.beneficiaries.findIndex((beneficiary) => beneficiary.id === beneficiaryId);
+  return groupPeople(form).find((person) => person.beneficiaryIndex === index)?.key ?? null;
 }
 
 export function withoutRecoveryContact(

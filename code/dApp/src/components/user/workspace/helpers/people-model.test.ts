@@ -12,7 +12,9 @@ import {
   approvalThreshold,
   coSignerSegments,
   groupPeople,
+  personKeyForContact,
   personPermissions,
+  withPersonUserEdited,
   personTag,
   personWallets,
   thresholdIsUnreachable,
@@ -117,7 +119,7 @@ test("turning owner on clears approval power and limits, turning it off keeps th
 });
 
 test("recovery on for a user adds a contact on the same wallet and starts the proof of life", () => {
-  const value = form({ users: [user("0", [KEY_A])] });
+  const value = form({ users: [user("0", [KEY_A], { canRenewProofOfLife: true })] });
   const next = withRecoveryContactForUser(value, 0, 1_000);
   assert.equal(next.beneficiaries.length, 1);
   assert.deepEqual(next.beneficiaries[0].wallets, [KEY_A]);
@@ -197,4 +199,43 @@ test("recovery on takes the first wallet that is filled in", () => {
 test("a person's tag is the start of their first wallet, or their record number", () => {
   assert.equal(personTag({ id: "3", wallets: [" ", KEY_A] }), "aaaaaa");
   assert.equal(personTag({ id: "3", wallets: [] }), "#3");
+});
+
+test("recovery on for a user who grants nothing replaces the empty user record", () => {
+  const value = form({ users: [user("0", [KEY_A])] });
+  const next = withRecoveryContactForUser(value, 0, 1_000);
+  assert.equal(next.users.length, 0);
+  assert.deepEqual(next.beneficiaries[0].wallets, [KEY_A]);
+  assert.equal(personKeyForContact(next, next.beneficiaries[0].id), "contact-0");
+});
+
+test("taking the last user permission from a recovery contact keeps only the contact", () => {
+  const value = form({
+    users: [user("0", [KEY_A], { multiSigPowerMode: "some", multiSigPower: "1" })],
+    beneficiaries: [contact("0", [KEY_A])],
+    multiSigThresholdMode: "some",
+    multiSigThreshold: "1"
+  });
+  const person = groupPeople(value)[0];
+  const next = withPersonUserEdited(value, person, (edited) => ({ ...edited, multiSigPowerMode: "none" }));
+  assert.equal(next.users.length, 0);
+  assert.equal(next.beneficiaries.length, 1);
+  assert.equal(next.multiSigThresholdMode, "none");
+  assert.equal(personKeyForContact(next, "0"), "contact-0");
+
+  const kept = withPersonUserEdited(
+    { ...value, beneficiaries: [] },
+    { key: "user-0", userIndex: 0, beneficiaryIndex: null },
+    (edited) => ({ ...edited, multiSigPowerMode: "none" })
+  );
+  assert.equal(kept.users.length, 1);
+});
+
+test("a user edit on a contact-only person creates the user record", () => {
+  const value = form({ beneficiaries: [contact("0", [KEY_C])] });
+  const next = withPersonUserEdited(value, groupPeople(value)[0], (edited) =>
+    withOwnerToggled(edited, true)
+  );
+  assert.equal(next.users[0].isAdmin, true);
+  assert.deepEqual(next.users[0].wallets, [KEY_C]);
 });
