@@ -102,7 +102,8 @@ export function CoSignerGroup({
       defaultOpen
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <span id={`${uid}-label`} className="text-xs text-muted-foreground">{hint}</span>
+        <span id={`${uid}-label`} className="sr-only">{i18n("approvalPower")}</span>
+        <span className="text-xs text-muted-foreground">{hint}</span>
         <PowerStepper
           id={`${uid}-power`}
           labelledBy={`${uid}-label`}
@@ -202,22 +203,14 @@ export function RecoveryGroup({
       ? Math.round((weight / totalWeight) * 100)
       : null;
   const hasExtraWait = beneficiary.unlockAfterMode === "some";
-  // The payout address normally names the contact's signing key too. While it is
-  // half typed it names nothing, and for a person who is also a user it may name a
-  // wallet they do not sign with. In both cases the contact keeps signing with the
-  // person's wallet, so the row stays one person instead of splitting mid-keystroke.
-  const derived = withBeneficiaryPayoutAndSigningAddress(beneficiary, beneficiary.payoutAddress);
-  const payoutIsTheirs =
-    linkedWallets === null ||
-    derived.wallets.length === 0 ||
-    linkedWallets.some((wallet) => wallet.toLowerCase() === derived.wallets[0].toLowerCase());
+  // The payout address names the contact's signing key: every load derives one from
+  // the other (`withBeneficiarySigningAddressesDerived`). While it is half typed it
+  // names nothing, so a contact joined to a user keeps signing with the person's
+  // wallet and the row does not split mid-keystroke. A complete address of another
+  // wallet is another person, and the row splits the same way a reload would.
   const setPayout = (payoutAddress: string) => {
     const next = withBeneficiaryPayoutAndSigningAddress(beneficiary, payoutAddress);
-    const ownKey = next.wallets[0]?.toLowerCase();
-    const keepsLink =
-      linkedWallets !== null &&
-      (ownKey === undefined || !linkedWallets.some((wallet) => wallet.toLowerCase() === ownKey));
-    onChange(keepsLink ? { ...next, wallets: beneficiary.wallets } : next);
+    onChange(linkedWallets !== null && next.wallets.length === 0 ? { ...next, wallets: beneficiary.wallets } : next);
   };
 
   return (
@@ -267,8 +260,8 @@ export function RecoveryGroup({
         />
       ) : null}
       <BeneficiaryPayoutAddressEditor value={beneficiary.payoutAddress} onChange={setPayout} />
-      {payoutIsTheirs ? null : (
-        <p className="text-xs text-[hsl(var(--brand-warm))]">{i18n("payoutIsNotAWalletThisPersonSignsWith")}</p>
+      {linkedWallets === null ? null : (
+        <p className="text-xs text-muted-foreground">{i18n("payoutMustBeAWalletThisPersonSignsWith")}</p>
       )}
     </PermissionGroup>
   );

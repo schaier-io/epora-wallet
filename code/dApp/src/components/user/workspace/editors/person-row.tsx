@@ -72,8 +72,13 @@ export function PersonRow({
   const timerOn =
     value.proofOfLifeUnlockTimeMode === "some" || value.beneficiaries.length > 0;
   const records = value.users.length + value.beneficiaries.length;
-  const canAddUser = user !== null || (value.users.length < MAX_USERS && records < MAX_ACCESS_RECORDS);
-  const canAddContact = value.beneficiaries.length < MAX_BENEFICIARIES && records < MAX_ACCESS_RECORDS;
+  // Records join into one person through a shared wallet, so a person without one
+  // cannot gain the second record yet: it would show up as somebody else.
+  const hasWallet = wallets.length > 0;
+  const canAddUser =
+    user !== null || (hasWallet && value.users.length < MAX_USERS && records < MAX_ACCESS_RECORDS);
+  const canAddContact =
+    hasWallet && value.beneficiaries.length < MAX_BENEFICIARIES && records < MAX_ACCESS_RECORDS;
   const canAddDaily =
     person.userIndex === null ||
     canAddAllowanceEntryInStateForm(value, person.userIndex, "perDayAllowance", MAX_TOTAL_ALLOWANCE_ENTRIES);
@@ -223,7 +228,9 @@ export function PersonRow({
               ) : null}
             </div>
             {permissions.owner ? <p className="text-xs text-muted-foreground">{i18n("ownerNote")}</p> : null}
-            {!canAddUser || (!permissions.recoveryContact && !canAddContact) ? (
+            {!hasWallet ? (
+              <p className="text-xs text-muted-foreground">{i18n("linkAWalletFirst")}</p>
+            ) : !canAddUser || (!permissions.recoveryContact && !canAddContact) ? (
               <p className="text-xs text-muted-foreground">
                 {i18n("thisWalletAlreadyHoldsMaxRecords", { max: MAX_ACCESS_RECORDS })}
               </p>
@@ -252,14 +259,17 @@ export function PersonRow({
                 (sum, entry) => sum + (Number.parseInt(entry.weight, 10) || 0),
                 0
               )}
-              onChange={(next) =>
-                onChange({
+              onChange={(next) => {
+                const nextForm = {
                   ...value,
                   beneficiaries: value.beneficiaries.map((entry, index) =>
                     index === person.beneficiaryIndex ? next : entry
                   )
-                })
-              }
+                };
+                // A payout to another wallet splits the person; stay on the contact.
+                onOpenChange(personKeyForContact(nextForm, next.id));
+                onChange(nextForm);
+              }}
             />
           ) : null}
           {/* A contact signs with the key in its payout address, set above. */}

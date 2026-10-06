@@ -239,3 +239,12 @@ test("a user edit on a contact-only person creates the user record", () => {
   assert.equal(next.users[0].isAdmin, true);
   assert.deepEqual(next.users[0].wallets, [KEY_C]);
 });
+
+test("a contact without a payout key follows the person's wallet when it changes", () => {
+  const value = form({ users: [user("0", [KEY_A], { canRenewProofOfLife: true })], beneficiaries: [contact("0", [KEY_A])] });
+  const [person] = groupPeople(value);
+  const next = withPersonUserEdited(value, person, (edited) => ({ ...edited, wallets: [KEY_B] }));
+  assert.deepEqual(next.beneficiaries[0].wallets, [KEY_B]);
+  assert.equal(groupPeople(next).length, 1);
+});
+

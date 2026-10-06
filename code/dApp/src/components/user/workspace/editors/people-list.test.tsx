@@ -19,6 +19,8 @@ import { MAX_ACCESS_RECORDS } from "@/lib/contracts/state-validation";
 const KEY_A = "a1".repeat(28);
 const KEY_B = "b2".repeat(28);
 const KEY_C = "c3".repeat(28);
+// KEY_C as an enterprise testnet address. Built once with Mesh: its encoder fails under jsdom.
+const ADDRESS_C = "addr_test1vrpu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8sclmre6l";
 
 function user(id: string, wallets: string[], patch: Partial<UserFormState> = {}): UserFormState {
   return { ...createDefaultUserFormState(id), wallets, ...patch };
@@ -106,6 +108,7 @@ describe("context-aware permissions", () => {
       "user-0"
     );
     expect(screen.getByText("1 of 2 needed")).toBeInTheDocument();
+    expect(screen.getByLabelText("Approval power")).toHaveValue("1");
     expect(screen.getByText(`${KEY_A.slice(0, 6)} needs 1 more from others`)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Increase" }));
     expect(latest.users[0].multiSigPower).toBe("2");
@@ -132,6 +135,26 @@ describe("recovery contacts behind the same row", () => {
     fireEvent.change(screen.getByLabelText("Payout and signing wallet"), { target: { value: "addr_test1qz" } });
     expect(latest.beneficiaries[0].wallets).toEqual([KEY_A]);
     expect(screen.getAllByRole("listitem")).toHaveLength(1);
+  });
+
+  it("splits off a contact paid out to another person's wallet and keeps it open", () => {
+    renderList(formWith({ users: [user("0", [KEY_A], { canRenewProofOfLife: true })] }), "user-0");
+    fireEvent.click(chip("Recovery contact"));
+    fireEvent.change(screen.getByLabelText("Payout and signing wallet"), {
+      target: { value: ADDRESS_C }
+    });
+    // Every load derives the signing key from the payout address, so the draft does too.
+    expect(latest.beneficiaries[0].wallets).toEqual([KEY_C]);
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+    const open = screen.getAllByRole("button", { name: /^Hide details for/ });
+    expect(open).toHaveLength(1);
+    expect(open[0]).toHaveAccessibleName(new RegExp(`${KEY_C.slice(-6)}$`));
+  });
+
+  it("offers no second record to a person without a wallet", () => {
+    renderList(formWith({ users: [user("0", [], { canRenewProofOfLife: true })] }), "user-0");
+    expect(chip("Recovery contact")).toBeDisabled();
+    expect(screen.getByText("Add a wallet first. Each permission needs a wallet to sign with.")).toBeInTheDocument();
   });
 
   it("gives a contact a user record when they get a user permission", () => {

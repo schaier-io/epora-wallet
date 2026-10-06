@@ -179,8 +179,20 @@ export function withPersonUserEdited(
   }
   const next = edit(form.users[person.userIndex]);
   const drop = person.beneficiaryIndex !== null && !userHasPermissions(next);
+  // A contact with no payout key yet signs with the person's first wallet. It follows
+  // that wallet when it changes, so editing the wallets does not split the person.
+  const linked = person.beneficiaryIndex === null ? null : form.beneficiaries[person.beneficiaryIndex];
+  const followsUser =
+    linked !== null &&
+    next.wallets.length > 0 &&
+    withBeneficiaryPayoutAndSigningAddress(linked, linked.payoutAddress).wallets.length === 0;
   return withMultisigDerivedFromCoSigners({
     ...form,
+    beneficiaries: followsUser
+      ? form.beneficiaries.map((entry, index) =>
+          index === person.beneficiaryIndex ? { ...entry, wallets: next.wallets.slice(0, 1) } : entry
+        )
+      : form.beneficiaries,
     users: drop
       ? form.users.filter((_, index) => index !== person.userIndex)
       : form.users.map((user, index) => (index === person.userIndex ? next : user))
