@@ -91,7 +91,7 @@ function VotingDelegateForm() {
     // would send it. Nothing is saved until the reader confirms a DRep.
     else if (saved && saved.choice.kind !== "drep") delegate.clear();
   };
-  const savedLabel = !saved ? null
+  const savedLabel = !saved ? ""
     : saved.choice.kind !== "drep" ? i18n(saved.choice.kind === "alwaysAbstain" ? "choiceAlwaysAbstain" : "choiceAlwaysNoConfidence")
     : resultChosen && result.name ? result.name
     : shortenIdentifier(saved.choice.drepId);
