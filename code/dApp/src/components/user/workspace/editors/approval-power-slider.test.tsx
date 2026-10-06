@@ -68,6 +68,27 @@ describe("the stepper holds the number", () => {
     expect(onChange.mock.calls).toEqual([["3"], ["1"], ["1"], ["5"], ["5"]]);
   });
 
+  /**
+   * A blank value shows as `min` without being stored. The first step stores
+   * the shown number, so the pointer can still set a blank threshold to 1.
+   */
+  it("stores the shown number on the first step from a blank value", () => {
+    const { onChange } = renderField({ value: "" });
+
+    expect(screen.getByRole("button", { name: "Decrease" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Increase" }));
+
+    expect(onChange).toHaveBeenCalledWith("1");
+  });
+
+  it("names each step button after its field", () => {
+    renderField();
+
+    expect(screen.getByRole("button", { name: "Increase" })).toHaveAccessibleDescription(
+      "Approval power"
+    );
+  });
+
   it("clamps a stored number below the scale", () => {
     renderField({ value: "-4" });
 
@@ -102,6 +123,9 @@ describe("the meter draws one block per unit of power", () => {
 
     expect(blocks(container)).toHaveLength(0);
     expect(screen.getByRole("spinbutton")).toHaveAttribute("aria-valuemax", "1000000");
+    // The thumb is a pointer shortcut: named, but out of the tab order.
+    const thumb = screen.getByRole("slider", { name: "Approval power" });
+    expect(thumb).toHaveAttribute("tabindex", "-1");
   });
 });
 
@@ -136,6 +160,16 @@ describe("the stretch where the number is the whole thing there is", () => {
 
     expect(screen.getByRole("button", { name: "5" })).toBeInTheDocument();
     expect(screen.getByText("40")).toBeInTheDocument();
+  });
+
+  it("moves an end label aside rather than printing over it", () => {
+    renderField({ value: "1", max: 20, fullAt: 2, fullAtHint: hint });
+
+    const minLabel = screen
+      .getAllByText("1")
+      .find((element) => element.getAttribute("role") !== "spinbutton");
+    expect(minLabel).toHaveClass("invisible");
+    expect(screen.getByText("20")).not.toHaveClass("invisible");
   });
 
   it("draws no tint when the stop is not on the scale", () => {

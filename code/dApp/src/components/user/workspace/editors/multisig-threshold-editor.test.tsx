@@ -204,7 +204,7 @@ describe("a threshold nobody can reach", () => {
 const powerBlocks = (stepper: HTMLElement) =>
   Array.from(
     stepper
-      .closest(".space-y-2")!
+      .closest("[data-approval-power]")!
       .querySelectorAll<HTMLButtonElement>("button[aria-hidden='true']")
   );
 
@@ -361,7 +361,7 @@ describe("setting the total freely", () => {
     const next = onChange.mock.calls[0]![0] as StateFormState;
     expect(next.multiSigThreshold).toBe("50");
     // The ratchet lifted the range, so the slider can now reach what was typed.
-    expect(screen.getByLabelText("Approval power needed")).toHaveAttribute(
+    expect(screen.getByRole("spinbutton", { name: "Approval power needed" })).toHaveAttribute(
       "aria-valuemax",
       "50"
     );

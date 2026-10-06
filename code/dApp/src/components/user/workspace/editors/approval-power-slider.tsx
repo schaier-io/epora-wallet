@@ -16,6 +16,12 @@ import { cn } from "@/lib/utils/cn";
 // continuous slider instead.
 const MAX_BLOCKS = 24;
 
+// Half the width of the stop's own label (its 44px mobile hit target), and how
+// close to an end, as a fraction of the bar, that label may sit before the end
+// label under it steps aside.
+const HALF_LABEL = "1.375rem";
+const END_LABEL_CLEARANCE = 0.15;
+
 const STEPPER_BUTTON =
   "inline-flex h-11 w-11 items-center justify-center text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40 sm:h-8 sm:w-8";
 
@@ -87,6 +93,11 @@ export function ApprovalPowerSlider({
   const atFull = marksFull && current >= fullAt;
   const tone = invalid ? "invalid" : atFull ? "full" : "normal";
   const set = (next: number) => onChange(String(Math.min(Math.max(next, min), top)));
+  // A blank or out-of-range stored value shows as the nearest stop without
+  // being one. The first step then stores the shown number instead of moving
+  // past it, so a blank threshold can still be set to `min` by pointer.
+  const shownIsStored = parsed === current;
+  const step = (delta: number) => set(shownIsStored ? current + delta : current);
 
   // Radix sliders use JavaScript numbers. Keep an exact large on-chain value
   // visible, but do not let a pointer gesture round and overwrite it.
@@ -152,6 +163,11 @@ export function ApprovalPowerSlider({
   // Where a stop's label sits under the bar: a block's middle, or a slider stop.
   const centreOf = (point: number) =>
     asBlocks ? (point - min + 0.5) / (span + 1) : fractionOf(point);
+  // The stop's own label is wide enough to cover an end label it sits close to;
+  // that end label then steps aside rather than being overprinted.
+  const fullCentre = marksFull ? centreOf(fullAt) : 0.5;
+  const hidesMin = Boolean(fullAtHint) && fullCentre < END_LABEL_CLEARANCE;
+  const hidesTop = Boolean(fullAtHint) && fullAt !== top && fullCentre > 1 - END_LABEL_CLEARANCE;
   const fullStop =
     marksFull && fullAtHint ? (
       <Tooltip content={fullAtHint}>
@@ -172,16 +188,17 @@ export function ApprovalPowerSlider({
     ) : null;
 
   return (
-    <div className={cn("space-y-2", disabled && "opacity-60", className)}>
+    <div data-approval-power className={cn("space-y-2", disabled && "opacity-60", className)}>
       <div className="flex items-center justify-between gap-3">
         {label}
         <div className="inline-flex shrink-0 items-center overflow-hidden rounded-md border border-border/60 bg-background/40">
           <button
             type="button"
             aria-label={i18n("decrease")}
+            aria-describedby={labelledBy}
             aria-controls={id}
-            disabled={disabled || current <= min}
-            onClick={() => set(current - 1)}
+            disabled={disabled || (shownIsStored && current <= min)}
+            onClick={() => step(-1)}
             className={STEPPER_BUTTON}
           >
             <Minus aria-hidden="true" className="h-4 w-4" />
@@ -209,9 +226,10 @@ export function ApprovalPowerSlider({
           <button
             type="button"
             aria-label={i18n("increase")}
+            aria-describedby={labelledBy}
             aria-controls={id}
-            disabled={disabled || current >= top}
-            onClick={() => set(current + 1)}
+            disabled={disabled || (shownIsStored && current >= top)}
+            onClick={() => step(1)}
             className={STEPPER_BUTTON}
           >
             <Plus aria-hidden="true" className="h-4 w-4" />
@@ -227,6 +245,8 @@ export function ApprovalPowerSlider({
             return (
               // Not in the tab order and hidden from assistive tech: the
               // spinbutton above is the accessible control for the same number.
+              // Pressing one keeps focus where it was, so focus never lands on
+              // an element screen readers cannot see.
               <button
                 key={stop}
                 type="button"
@@ -234,9 +254,11 @@ export function ApprovalPowerSlider({
                 aria-hidden="true"
                 data-filled={filled || undefined}
                 disabled={disabled}
+                onPointerDown={(event) => event.preventDefault()}
                 onClick={() => set(stop)}
                 className={cn(
-                  "h-2.5 min-w-0 flex-1 rounded-[3px] transition-colors duration-150",
+                  "relative h-2.5 min-w-0 flex-1 rounded-[3px] transition-colors duration-150",
+                  "after:absolute after:inset-x-0 after:-inset-y-3 after:content-['']",
                   "disabled:cursor-not-allowed",
                   !filled && "bg-muted/60 hover:bg-muted",
                   !filled && inZone && "bg-[hsl(var(--brand-warm)/0.2)] hover:bg-[hsl(var(--brand-warm)/0.35)]",
@@ -255,28 +277,46 @@ export function ApprovalPowerSlider({
           value={[current]}
           disabled={disabled}
           onValueChange={([next]) => set(next ?? min)}
+          // Radix stays quiet when a gesture lands on the stop the thumb is
+          // already on, and a blank stored value shows as `min` without being
+          // one. Committing writes the shown number, so clicking it stores it.
+          onValueCommit={([next]) => set(next ?? min)}
           zoneFraction={marksFull ? fractionOf(fullAt - 0.5) : undefined}
           rangeClassName={cn(
             tone === "invalid" && "bg-[linear-gradient(90deg,hsl(20_90%_58%),hsl(0_84%_60%))]",
             tone === "full" && "bg-[linear-gradient(90deg,hsl(var(--brand-teal)),hsl(var(--brand-warm)))]"
           )}
-          // The spinbutton is the accessible control; this thumb is a pointer
-          // shortcut over a long range, so it stays out of the tab order.
-          thumbProps={{ tabIndex: -1, "aria-hidden": true }}
+          // The spinbutton is the keyboard control; this thumb is a pointer
+          // shortcut over a long range, so it stays out of the tab order. Radix
+          // focuses it on every drag, so it stays named rather than hidden.
+          thumbProps={{
+            tabIndex: -1,
+            "aria-labelledby": labelledBy,
+            "aria-describedby": describedBy,
+            "aria-invalid": invalid ? true : undefined
+          }}
         />
       )}
 
-      <div className="relative flex min-h-6 items-center justify-between text-[11px] leading-4 text-muted-foreground tabular-nums">
-        <span>{min}</span>
+      {/* The slider's thumb centre travels half a thumb in from each end, so its
+          scale takes the same inset. */}
+      <div
+        className={cn(
+          "relative flex min-h-6 items-center justify-between text-[11px] leading-4 text-muted-foreground tabular-nums",
+          !asBlocks && "mx-2.5"
+        )}
+      >
+        <span className={cn(hidesMin && "invisible")}>{min}</span>
         {fullStop && fullAt !== undefined && fullAt !== top ? (
           <span
             className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
-            style={{ left: `${centreOf(fullAt) * 100}%` }}
+            // Kept a half-label in from both edges so it never spills out.
+            style={{ left: `clamp(${HALF_LABEL}, ${centreOf(fullAt) * 100}%, calc(100% - ${HALF_LABEL}))` }}
           >
             {fullStop}
           </span>
         ) : null}
-        {fullStop && fullAt === top ? fullStop : <span>{top}</span>}
+        {fullStop && fullAt === top ? fullStop : <span className={cn(hidesTop && "invisible")}>{top}</span>}
       </div>
     </div>
   );
