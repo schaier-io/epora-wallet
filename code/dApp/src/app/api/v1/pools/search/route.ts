@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { getBlockfrostProvider } from "@/lib/mesh/blockfrost-server";
 import { PoolSearchQuerySchema, type PoolSearchResponseDto } from "@/lib/api";
-import { getPoolIndex, PoolIndexBackoffError, searchPools, shortlistPools } from "@/lib/pools/pool-index";
+import {
+  getPoolIndex,
+  POOL_INDEX_RETRY_MS,
+  PoolIndexBackoffError,
+  searchPools,
+  shortlistPools
+} from "@/lib/pools/pool-index";
 import { clientKey, rateLimit } from "@/lib/http/rate-limit";
 import { meshUpstreamFailure } from "@/lib/mesh/http-error";
 import { PROVIDER_UNAVAILABLE_MESSAGE } from "@/lib/http/tx-route-errors";
@@ -40,7 +46,8 @@ export async function GET(request: Request) {
     return NextResponse.json(body);
   } catch (error) {
     // A replay during the backoff answers as the failed build did, but was logged then,
-    // and its Retry-After is the time left before the next build.
+    // and its Retry-After is the time left before the next build. The first 429 asks
+    // for at least the whole backoff: a retry before it ends only meets the replay.
     const backoff = error instanceof PoolIndexBackoffError ? error : null;
     if (!backoff) logger.error("api.pool_search_failed", { err: serializeError(error) });
     const upstream = meshUpstreamFailure(backoff ? backoff.cause : error);
@@ -51,7 +58,9 @@ export async function GET(request: Request) {
           ? {
               status: 429,
               headers: {
-                "Retry-After": backoff ? String(backoff.retryAfterSeconds) : upstream.retryAfterSeconds
+                "Retry-After": backoff
+                  ? String(backoff.retryAfterSeconds)
+                  : String(Math.max(Number(upstream.retryAfterSeconds) || 0, POOL_INDEX_RETRY_MS / 1000))
               }
             }
           : { status: 502 }

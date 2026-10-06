@@ -57,13 +57,20 @@ it("rejects an over-long query before reading the chain", async () => {
   expect(mocks.get).not.toHaveBeenCalled();
 });
 
-it("passes Blockfrost's rate limit on as a 429 with its Retry-After", async () => {
+it("asks a rate-limited client to wait out the whole rebuild backoff", async () => {
+  // Blockfrost's own 20 s sent the client back while the 30 s backoff still ran.
   mocks.get.mockRejectedValue(meshHttpError(429, { "Retry-After": "20" }));
 
   const response = await search("epo");
 
   expect(response.status).toBe(429);
-  expect(response.headers.get("Retry-After")).toBe("20");
+  expect(response.headers.get("Retry-After")).toBe("30");
+});
+
+it("keeps a provider Retry-After longer than the backoff", async () => {
+  mocks.get.mockRejectedValue(meshHttpError(429, { "Retry-After": "90" }));
+
+  expect((await search("epo")).headers.get("Retry-After")).toBe("90");
 });
 
 it("answers a search during the backoff without calling Blockfrost again", async () => {
