@@ -39,12 +39,12 @@ import { cn } from "@/lib/utils/cn";
 // never written: pressing Spender there goes through `withPersonUserEdited` instead.
 const NO_USER = { id: "", wallets: [], perDayAllowance: [], remainingAllowance: [] } as unknown as UserFormState;
 
-/** What a control is called: a field by its label, a button by its text. */
+/** What a control is called: a field by its label, a button by its label or text. */
 function controlName(element: Element | null): string | null {
   if (element instanceof HTMLInputElement || element instanceof HTMLSelectElement || element instanceof HTMLTextAreaElement) {
     return element.labels?.[0]?.textContent ?? element.getAttribute("aria-label");
   }
-  return element?.textContent ?? null;
+  return element?.getAttribute("aria-label") ?? element?.textContent ?? null;
 }
 
 /**

@@ -237,6 +237,18 @@ describe("recovery contacts behind the same row", () => {
     await waitFor(() => expect(document.activeElement?.closest("[data-person-key]")).toHaveAttribute("data-person-key", "contact-0"));
   });
 
+  it("does not send focus to the person's Remove when a wallet's Remove moves the row", async () => {
+    renderList(
+      formWith({ users: [user("0", [KEY_A, KEY_B])], beneficiaries: [{ ...createDefaultBeneficiaryFormState("0"), wallets: [KEY_A] }] }),
+      "user-0"
+    );
+    const removeWallet = screen.getByRole("button", { name: "Remove wallet 2" });
+    removeWallet.focus();
+    fireEvent.click(removeWallet);
+    expect(latest.users).toHaveLength(0);
+    await waitFor(() => expect(document.activeElement).toHaveAccessibleName(/^Hide details for/));
+  });
+
   it("does not count an empty wallet row as a wallet", () => {
     renderList(formWith({ users: [user("0", [""], { canRenewProofOfLife: true })] }), "user-0");
     expect(chip("Recovery contact")).toBeDisabled();
