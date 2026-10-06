@@ -58,9 +58,15 @@ export function useDrepLookup(initialId: string | null) {
       if (id === lookupId) void drep.refetch();
     }
   };
+  /** Show `id` as if the reader had looked it up: for a DRep saved from elsewhere (a draft). */
+  const seed = (id: string) => {
+    setQuery(id);
+    setLookupId(id);
+    setUnrecognised(false);
+  };
   const failure: LookupFailure | null = unrecognised ? { kind: "unrecognised" }
     : drep.isFetching || !drep.error ? null
     : drep.error instanceof DrepLookupError ? { kind: "response", status: drep.error.status }
     : { kind: "network" };
-  return { query, setQuery, result: drep.data ?? null, loading: drep.isFetching, failure, lookup };
+  return { query, setQuery, result: drep.data ?? null, loading: drep.isFetching, failure, lookup, seed };
 }
