@@ -20,7 +20,7 @@ import {
   withRecoveryContactForUser,
   type PersonEntry
 } from "@/components/user/workspace/helpers/people-model";
-import { canAddAllowanceEntryInStateForm, type StateFormState, type UserFormState } from "@/lib/contracts/state-form";
+import { canAddAllowanceEntryInStateForm, createDefaultUserFormState, type StateFormState, type UserFormState } from "@/lib/contracts/state-form";
 import {
   MAX_ACCESS_RECORDS,
   MAX_BENEFICIARIES,
@@ -75,19 +75,33 @@ export function PersonRow({
   // Records join into one person through a shared wallet, so a person without one
   // cannot gain the second record yet: it would show up as somebody else.
   const hasWallet = wallets.length > 0;
+  // A contact who gains a user permission brings their wallets into `users`.
   const canAddUser =
-    user !== null || (hasWallet && value.users.length < MAX_USERS && records < MAX_ACCESS_RECORDS);
+    user !== null ||
+    (hasWallet &&
+      value.users.length < MAX_USERS &&
+      records < MAX_ACCESS_RECORDS &&
+      countWalletEntries(value.users) + wallets.length <= MAX_TOTAL_USER_WALLETS);
   const canAddContact =
     hasWallet && value.beneficiaries.length < MAX_BENEFICIARIES && records < MAX_ACCESS_RECORDS;
   const canAddDaily =
-    person.userIndex === null ||
-    canAddAllowanceEntryInStateForm(value, person.userIndex, "perDayAllowance", MAX_TOTAL_ALLOWANCE_ENTRIES);
+    person.userIndex === null
+      ? canAddAllowanceEntryInStateForm(
+          { ...value, users: [...value.users, createDefaultUserFormState("")] },
+          value.users.length,
+          "perDayAllowance",
+          MAX_TOTAL_ALLOWANCE_ENTRIES
+        )
+      : canAddAllowanceEntryInStateForm(value, person.userIndex, "perDayAllowance", MAX_TOTAL_ALLOWANCE_ENTRIES);
 
   const editUser = (edit: (user: UserFormState) => UserFormState) => {
     const next = withPersonUserEdited(value, person, edit);
     // The person may have changed records: a contact who gained a user record, or a
-    // user record dropped because it granted nothing beside a recovery contact.
-    if (beneficiary) onOpenChange(personKeyForContact(next, beneficiary.id));
+    // user record dropped because it granted nothing beside a recovery contact. While
+    // the user record stays, its row stays open, even if a wallet edit splits off the
+    // contact: the field being typed in must not unmount.
+    const kept = user !== null && next.users.some((entry) => entry.id === user.id);
+    if (beneficiary && !kept) onOpenChange(personKeyForContact(next, beneficiary.id));
     onChange(next);
   };
   const toggleSpenderOnUser = useSpenderPermissionDraft(
@@ -230,7 +244,7 @@ export function PersonRow({
             {permissions.owner ? <p className="text-xs text-muted-foreground">{i18n("ownerNote")}</p> : null}
             {!hasWallet ? (
               <p className="text-xs text-muted-foreground">{i18n("linkAWalletFirst")}</p>
-            ) : !canAddUser || (!permissions.recoveryContact && !canAddContact) ? (
+            ) : records >= MAX_ACCESS_RECORDS && (!user || !permissions.recoveryContact) ? (
               <p className="text-xs text-muted-foreground">
                 {i18n("thisWalletAlreadyHoldsMaxRecords", { max: MAX_ACCESS_RECORDS })}
               </p>

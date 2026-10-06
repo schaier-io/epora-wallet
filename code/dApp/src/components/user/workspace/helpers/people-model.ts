@@ -178,7 +178,16 @@ export function withPersonUserEdited(
       : withUserForContact(form, person.beneficiaryIndex, edit);
   }
   const next = edit(form.users[person.userIndex]);
-  const drop = person.beneficiaryIndex !== null && !userHasPermissions(next);
+  // Dropped only when the contact holds every wallet the record had, so nothing is lost
+  // and turning a permission back on rebuilds the same record from the contact.
+  const contactWallets =
+    person.beneficiaryIndex === null
+      ? []
+      : form.beneficiaries[person.beneficiaryIndex].wallets.map((wallet) => wallet.toLowerCase());
+  const drop =
+    person.beneficiaryIndex !== null &&
+    !userHasPermissions(next) &&
+    next.wallets.every((wallet) => contactWallets.includes(wallet.toLowerCase()));
   // A contact with no payout key yet signs with the person's first wallet. It follows
   // that wallet when it changes, so editing the wallets does not split the person.
   const linked = person.beneficiaryIndex === null ? null : form.beneficiaries[person.beneficiaryIndex];

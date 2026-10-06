@@ -21,6 +21,8 @@ const KEY_B = "b2".repeat(28);
 const KEY_C = "c3".repeat(28);
 // KEY_C as an enterprise testnet address. Built once with Mesh: its encoder fails under jsdom.
 const ADDRESS_C = "addr_test1vrpu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8s7rc0pu8sclmre6l";
+// A valid script address: it pays out but names no key anybody signs with.
+const SCRIPT_ADDRESS = "addr_test1wr2df4x56n2df4x56n2df4x56n2df4x56n2df4x56n2df4qjt3jac";
 
 function user(id: string, wallets: string[], patch: Partial<UserFormState> = {}): UserFormState {
   return { ...createDefaultUserFormState(id), wallets, ...patch };
@@ -149,6 +151,38 @@ describe("recovery contacts behind the same row", () => {
     const open = screen.getAllByRole("button", { name: /^Hide details for/ });
     expect(open).toHaveLength(1);
     expect(open[0]).toHaveAccessibleName(new RegExp(`${KEY_C.slice(-6)}$`));
+  });
+
+  it("takes a script payout as naming no key, as a reload would", () => {
+    renderList(formWith({ users: [user("0", [KEY_A], { canRenewProofOfLife: true })] }), "user-0");
+    fireEvent.click(chip("Recovery contact"));
+    fireEvent.change(screen.getByLabelText("Payout and signing wallet"), { target: { value: SCRIPT_ADDRESS } });
+    expect(latest.beneficiaries[0].wallets).toEqual([]);
+  });
+
+  it("keeps the row open while its shared wallet is edited", () => {
+    renderList(
+      formWith({
+        users: [user("0", [KEY_C], { canRenewProofOfLife: true })],
+        beneficiaries: [{ ...createDefaultBeneficiaryFormState("0"), wallets: [KEY_C], payoutAddress: ADDRESS_C }]
+      }),
+      "user-0"
+    );
+    const field = screen.getByDisplayValue(KEY_C);
+    fireEvent.change(field, { target: { value: KEY_A } });
+    // The contact still signs with its payout key, so it is its own row now. The row
+    // being typed in stays open and the field stays mounted.
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: /^Hide details for/ })).toHaveLength(1);
+    expect(field).toBeInTheDocument();
+  });
+
+  it("offers no user permission to a contact whose wallets would pass the cap", () => {
+    const users = Array.from({ length: 2 }, (_, index) =>
+      user(String(index), Array.from({ length: 10 }, (_, slot) => (index * 10 + slot).toString(16).padStart(56, "0")).slice(0, index === 0 ? 10 : 5), { canRenewProofOfLife: true })
+    );
+    renderList(formWith({ users, beneficiaries: [{ ...createDefaultBeneficiaryFormState("0"), wallets: [KEY_C] }] }), "contact-0");
+    expect(chip("Co-signer")).toBeDisabled();
   });
 
   it("offers no second record to a person without a wallet", () => {

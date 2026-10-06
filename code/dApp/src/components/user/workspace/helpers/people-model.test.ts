@@ -248,3 +248,10 @@ test("a contact without a payout key follows the person's wallet when it changes
   assert.equal(groupPeople(next).length, 1);
 });
 
+test("a user record with wallets beyond the contact's stays when its last permission goes", () => {
+  const value = form({ users: [user("0", [KEY_A, KEY_B], { isAdmin: true })], beneficiaries: [contact("0", [KEY_A])] });
+  const [person] = groupPeople(value);
+  const next = withPersonUserEdited(value, person, (edited) => withOwnerToggled(edited, false));
+  assert.deepEqual(next.users.map((entry) => entry.wallets), [[KEY_A, KEY_B]]);
+});
+

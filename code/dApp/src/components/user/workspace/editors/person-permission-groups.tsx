@@ -25,6 +25,7 @@ import {
   personTag
 } from "@/components/user/workspace/helpers/people-model";
 import { activeAddressAtom, activePaymentKeyHashAtom } from "@/providers/wallet.atoms";
+import { describeAddressProblem } from "@/lib/contracts/payout-address";
 import {
   MAX_TOTAL_USER_WALLETS,
   MAX_WALLETS_PER_USER
@@ -204,13 +205,15 @@ export function RecoveryGroup({
       : null;
   const hasExtraWait = beneficiary.unlockAfterMode === "some";
   // The payout address names the contact's signing key: every load derives one from
-  // the other (`withBeneficiarySigningAddressesDerived`). While it is half typed it
-  // names nothing, so a contact joined to a user keeps signing with the person's
-  // wallet and the row does not split mid-keystroke. A complete address of another
-  // wallet is another person, and the row splits the same way a reload would.
+  // the other (`withBeneficiarySigningAddressesDerived`). While it is half typed it is
+  // not a valid address, so a contact joined to a user keeps signing with the person's
+  // wallet and the row does not split mid-keystroke. A valid address is taken as the
+  // load takes it: another wallet's splits the row, and a script address names no key,
+  // which validation then reports.
   const setPayout = (payoutAddress: string) => {
     const next = withBeneficiaryPayoutAndSigningAddress(beneficiary, payoutAddress);
-    onChange(linkedWallets !== null && next.wallets.length === 0 ? { ...next, wallets: beneficiary.wallets } : next);
+    const halfTyped = describeAddressProblem(payoutAddress) !== null;
+    onChange(linkedWallets !== null && halfTyped ? { ...next, wallets: beneficiary.wallets } : next);
   };
 
   return (
