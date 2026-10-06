@@ -22,7 +22,6 @@ export const runtime = "nodejs";
 // name search, so the form takes an id, as the pool finder does.
 
 type RawDrep = {
-  drep_id?: unknown;
   amount?: unknown;
   has_script?: unknown;
   retired?: unknown;
@@ -102,7 +101,11 @@ export async function GET(request: Request) {
 
     const body: DrepsResponseDto = {
       drep: {
-        drepId: asText(drep.drep_id) ?? parsed.data,
+        // The id the reader pasted, never Blockfrost's `drep_id`: Blockfrost may answer a
+        // CIP-129 script id with the 56-char CIP-105 form, and Mesh's `toDRep` reads every
+        // `drep1…` that is not 58 chars as a key hash, so the certificate would name a
+        // different DRep.
+        drepId: parsed.data,
         name: readGivenName(metadataRaw),
         votingPowerLovelace: typeof drep.amount === "string" && /^\d+$/.test(drep.amount) ? drep.amount : null,
         hasScript: drep.has_script === true,

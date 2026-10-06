@@ -151,3 +151,14 @@ it("drops a voting power that is not a lovelace amount", async () => {
 
   expect((await drepOf(await get())).votingPowerLovelace).toBeNull();
 });
+
+it("keeps the requested id when Blockfrost answers with another encoding", async () => {
+  // Blockfrost's own example: a script DRep reported under a 56-char CIP-105 id. Mesh would
+  // read that id as a key hash, so the certificate must carry the CIP-129 id that was asked for.
+  answer(
+    { drep_id: "drep15cfxz9exyn5rx0807zvxfrvslrjqfchrd4d47kv9e0f46uedqtc", amount: "1", has_script: true, retired: false, expired: false },
+    meshHttpError(404)
+  );
+
+  expect((await drepOf(await get())).drepId).toBe(DREP_ID);
+});

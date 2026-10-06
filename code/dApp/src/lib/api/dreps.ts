@@ -30,7 +30,7 @@ export const DREP_STATUSES = ["active", "inactive", "retired"] as const;
 export const DrepsResponseSchema = z
   .object({
     drep: z.object({
-      drepId: z.string().meta({ description: "Bech32 DRep id, as Blockfrost returns it." }),
+      drepId: z.string().meta({ description: "The requested bech32 DRep id, unchanged." }),
       name: z.string().nullable().meta({ description: "CIP-119 `givenName`, when the anchor resolved." }),
       votingPowerLovelace: z.string().nullable().meta({
         description: "Delegated voting power in lovelace, a decimal string."
