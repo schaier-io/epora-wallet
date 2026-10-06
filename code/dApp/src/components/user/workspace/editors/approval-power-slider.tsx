@@ -95,9 +95,15 @@ export function ApprovalPowerSlider({
   const set = (next: number) => onChange(String(Math.min(Math.max(next, min), top)));
   // A blank or out-of-range stored value shows as the nearest stop without
   // being one. The first step then stores the shown number instead of moving
-  // past it, so a blank threshold can still be set to `min` by pointer.
+  // past it, so a blank threshold can still be set to `min`. A step that would
+  // move a stored number the wrong way (raise one below `min` by pressing
+  // Decrease) is not offered.
+  const blank = !Number.isFinite(parsed);
   const shownIsStored = parsed === current;
-  const step = (delta: number) => set(shownIsStored ? current + delta : current);
+  const canStep = (delta: number) => blank || (delta < 0 ? current > min : current < top);
+  const step = (delta: number) => {
+    if (canStep(delta)) set(shownIsStored ? current + delta : current);
+  };
 
   // Radix sliders use JavaScript numbers. Keep an exact large on-chain value
   // visible, but do not let a pointer gesture round and overwrite it.
@@ -141,19 +147,14 @@ export function ApprovalPowerSlider({
   }
 
   const onKeyDown = (event: KeyboardEvent) => {
-    const next = {
-      ArrowUp: current + 1,
-      ArrowRight: current + 1,
-      ArrowDown: current - 1,
-      ArrowLeft: current - 1,
-      PageUp: current + 10,
-      PageDown: current - 10,
-      Home: min,
-      End: top
-    }[event.key];
-    if (next === undefined || disabled) return;
+    const delta = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1, PageUp: 10, PageDown: -10 }[
+      event.key
+    ];
+    const absolute = { Home: min, End: top }[event.key];
+    if ((delta === undefined && absolute === undefined) || disabled) return;
     event.preventDefault();
-    set(next);
+    if (absolute !== undefined) set(absolute);
+    else if (delta !== undefined) step(delta);
   };
 
   const fractionOf = (point: number) => (point - min) / span;
@@ -197,7 +198,7 @@ export function ApprovalPowerSlider({
             aria-label={i18n("decrease")}
             aria-describedby={labelledBy}
             aria-controls={id}
-            disabled={disabled || (shownIsStored && current <= min)}
+            disabled={disabled || !canStep(-1)}
             onClick={() => step(-1)}
             className={STEPPER_BUTTON}
           >
@@ -228,7 +229,7 @@ export function ApprovalPowerSlider({
             aria-label={i18n("increase")}
             aria-describedby={labelledBy}
             aria-controls={id}
-            disabled={disabled || (shownIsStored && current >= top)}
+            disabled={disabled || !canStep(1)}
             onClick={() => step(1)}
             className={STEPPER_BUTTON}
           >
@@ -258,7 +259,7 @@ export function ApprovalPowerSlider({
                 onClick={() => set(stop)}
                 className={cn(
                   "relative h-2.5 min-w-0 flex-1 rounded-[3px] transition-colors duration-150",
-                  "after:absolute after:inset-x-0 after:-inset-y-3 after:content-['']",
+                  "after:absolute after:inset-x-0 after:-inset-y-1 after:content-['']",
                   "disabled:cursor-not-allowed",
                   !filled && "bg-muted/60 hover:bg-muted",
                   !filled && inZone && "bg-[hsl(var(--brand-warm)/0.2)] hover:bg-[hsl(var(--brand-warm)/0.35)]",
@@ -277,10 +278,6 @@ export function ApprovalPowerSlider({
           value={[current]}
           disabled={disabled}
           onValueChange={([next]) => set(next ?? min)}
-          // Radix stays quiet when a gesture lands on the stop the thumb is
-          // already on, and a blank stored value shows as `min` without being
-          // one. Committing writes the shown number, so clicking it stores it.
-          onValueCommit={([next]) => set(next ?? min)}
           zoneFraction={marksFull ? fractionOf(fullAt - 0.5) : undefined}
           rangeClassName={cn(
             tone === "invalid" && "bg-[linear-gradient(90deg,hsl(20_90%_58%),hsl(0_84%_60%))]",

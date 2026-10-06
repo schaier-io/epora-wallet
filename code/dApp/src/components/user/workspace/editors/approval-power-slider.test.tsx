@@ -81,6 +81,22 @@ describe("the stepper holds the number", () => {
     expect(onChange).toHaveBeenCalledWith("1");
   });
 
+  it("gives the keyboard the same first step as the buttons", () => {
+    const { onChange } = renderField({ value: "" });
+
+    fireEvent.keyDown(screen.getByRole("spinbutton"), { key: "ArrowUp" });
+
+    expect(onChange).toHaveBeenCalledWith("1");
+  });
+
+  it("offers no step that moves a stored number the wrong way", () => {
+    const { onChange } = renderField({ value: "0" });
+
+    expect(screen.getByRole("button", { name: "Decrease" })).toBeDisabled();
+    fireEvent.keyDown(screen.getByRole("spinbutton"), { key: "ArrowDown" });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it("names each step button after its field", () => {
     renderField();
 
