@@ -39,7 +39,7 @@ export function isKoiosNetwork(network: string): network is KoiosNetwork {
   return Object.hasOwn(KOIOS_URLS, network);
 }
 
-function koiosBaseUrl(network: KoiosNetwork): string {
+export function koiosBaseUrl(network: KoiosNetwork): string {
   return getServerEnv().KOIOS_URL ?? KOIOS_URLS[network];
 }
 

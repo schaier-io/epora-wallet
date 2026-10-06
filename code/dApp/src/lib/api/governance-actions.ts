@@ -44,27 +44,37 @@ export const GovernanceActionsQuerySchema = z
 
 export const GOVERNANCE_ACTION_STATUSES = ["active", "ratified", "enacted", "dropped", "expired"] as const;
 
-export const GovernanceActionsResponseSchema = z
-  .object({
-    action: z.object({
-      id: z.string().meta({ description: "CIP-129 `gov_action1...` id." }),
-      txHash: z.string(),
-      index: z.number().int().nonnegative().meta({
-        description: "Index of the action inside its proposal transaction (`govActionId.txIndex`)."
-      }),
-      type: z.string().meta({ description: "Blockfrost `governance_type`, e.g. `treasury_withdrawals`." }),
-      title: z.string().nullable().meta({ description: "CIP-108 title, when the anchor resolved." }),
-      abstract: z.string().nullable().meta({ description: "CIP-108 abstract, when the anchor resolved." }),
-      expirationEpoch: z.number().int().nullable(),
-      status: z.enum(GOVERNANCE_ACTION_STATUSES).meta({
-        description: "`active` while DReps can still vote on it; every other value is final."
-      })
-    })
+const GovernanceActionSchema = z.object({
+  id: z.string().meta({ description: "CIP-129 `gov_action1...` id." }),
+  txHash: z.string(),
+  index: z.number().int().nonnegative().meta({
+    description: "Index of the action inside its proposal transaction (`govActionId.txIndex`)."
+  }),
+  type: z.string().meta({ description: "Governance action type in snake case, e.g. `treasury_withdrawals`." }),
+  title: z.string().nullable().meta({ description: "CIP-108 title, when the anchor resolved." }),
+  abstract: z.string().nullable().meta({ description: "CIP-108 abstract, when the anchor resolved." }),
+  expirationEpoch: z.number().int().nullable(),
+  status: z.enum(GOVERNANCE_ACTION_STATUSES).meta({
+    description: "`active` while DReps can still vote on it; every other value is final."
   })
+});
+
+export const GovernanceActionsResponseSchema = z
+  .object({ action: GovernanceActionSchema })
   .meta({
     id: "GovernanceActionsResponse",
     description: "One governance action with its off-chain title and abstract, when published."
   });
 
+export const ActiveGovernanceActionsResponseSchema = z
+  .object({
+    actions: z.array(GovernanceActionSchema).meta({ description: "Newest first. Every entry has status `active`." })
+  })
+  .meta({
+    id: "ActiveGovernanceActionsResponse",
+    description: "Every governance action DReps can still vote on, with titles and abstracts when published."
+  });
+
 export type GovernanceActionsResponseDto = z.infer<typeof GovernanceActionsResponseSchema>;
 export type GovernanceAction = GovernanceActionsResponseDto["action"];
+export type ActiveGovernanceActionsResponseDto = z.infer<typeof ActiveGovernanceActionsResponseSchema>;

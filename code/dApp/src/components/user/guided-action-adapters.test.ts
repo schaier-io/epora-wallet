@@ -54,3 +54,19 @@ test("enable staking asks for a wallet first instead of a constant confirm hint"
     /Confirm enabling staking/
   );
 });
+
+test("voting delegate asks for a choice until the form holds a complete delegation", () => {
+  // The form's default payload is "{}", which the old length check counted as filled in.
+  const context = draftContext(true);
+  const step = (certificateJson: string) =>
+    buildGuidedActionDrafts({
+      ...context,
+      walletPublish: { ...context.walletPublish, certificateJson, sttInputHash: "ab".repeat(32) }
+    })["wallet-publish"].nextStep;
+
+  assert.equal(step("{}"), "Choose a voting delegate.");
+  assert.equal(
+    step(JSON.stringify({ type: "VoteDelegation", stakeKeyAddress: "stake_test1x", drep: { alwaysAbstain: null } })),
+    "Review the wallet state and build the delegation preview."
+  );
+});

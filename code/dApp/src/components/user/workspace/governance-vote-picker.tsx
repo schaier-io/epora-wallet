@@ -9,23 +9,14 @@ import { CopyButton } from "@/components/ui/copy-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { InlineFieldError } from "@/components/user/workspace/editors";
+import { GovernanceActionList, useGovernanceTypeLabel } from "@/components/user/workspace/governance-action-list";
 import { walletDrepIdAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import { useVoteForm } from "@/components/user/workspace/forms/use-vote-form";
 import type { GovernanceAction } from "@/lib/api/governance-actions";
 import { VOTE_KINDS, buildVoteJson, readVoteJson, type VoteKind } from "@/lib/governance/vote-json";
-import { useGovernanceActionLookup } from "@/lib/query/governance-actions";
+import { useGovernanceActionPicker } from "@/lib/query/governance-actions";
 import { CARDANO_NETWORK, GOVERNANCE_EXPLORER_URLS } from "@/lib/cardano-network";
 import { shortenIdentifier } from "@/lib/utils/explorer";
-
-const TYPE_LABEL_KEYS = {
-  hard_fork_initiation: "typeHardFork",
-  new_committee: "typeNewCommittee",
-  new_constitution: "typeNewConstitution",
-  info_action: "typeInfo",
-  no_confidence: "typeNoConfidence",
-  parameter_change: "typeParameterChange",
-  treasury_withdrawals: "typeTreasuryWithdrawal"
-} as const;
 
 const STATUS_LABEL_KEYS = {
   active: "statusActive",
@@ -38,7 +29,8 @@ const STATUS_LABEL_KEYS = {
 const VOTE_LABEL_KEYS = { Yes: "yes", No: "no", Abstain: "abstain" } as const satisfies Record<VoteKind, string>;
 
 /**
- * Find a Cardano governance action by id, show what it is, and pick Yes, No or Abstain.
+ * Pick an open Cardano governance action, or paste any action's id, tx hash or link, see
+ * what it is, and pick Yes, No or Abstain.
  * The choice is written into the vote JSON (`voteJsonAtom`) with this wallet as the voting
  * DRep, so validation, the builder and the co-signing request keep reading one payload.
  */
@@ -47,16 +39,15 @@ export function GovernanceVotePicker({ error: validationError = null }: { error?
   const drepId = useAtomValue(walletDrepIdAtom);
   const { voteJson, setVoteJson } = useVoteForm();
   const current = readVoteJson(voteJson);
-  const { query, setQuery, result, loading, failure, lookup } = useGovernanceActionLookup(
-    current ? `${current.txHash}#${current.txIndex}` : null
-  );
+  const typeLabel = useGovernanceTypeLabel();
+  const { query, setQuery, actions, openCount, searching, listLoading, listFailed, result, loading, failure, pick } =
+    useGovernanceActionPicker(current ? `${current.txHash}#${current.txIndex}` : null);
 
-  const error = failure?.kind === "unrecognised" ? i18n("unrecognisedId")
-    : failure?.kind === "response"
-      ? failure.status === 404 ? i18n("notFound")
-        : failure.status === 400 ? i18n("invalidId")
-        : failure.status === 429 ? i18n("tooManyLookups")
-        : i18n("lookupFailed")
+  const error = failure?.kind === "response"
+    ? failure.status === 404 ? i18n("notFound")
+      : failure.status === 400 ? i18n("invalidId")
+      : failure.status === 429 ? i18n("tooManyLookups")
+      : i18n("lookupFailed")
     : failure?.kind === "network" ? i18n("lookupUnreachable")
     : null;
 
@@ -68,7 +59,7 @@ export function GovernanceVotePicker({ error: validationError = null }: { error?
     !!result && !!current && current.txHash === result.txHash && current.txIndex === result.index &&
     (drepId === null || current.drepId === drepId);
   const chosen = savedMatchesCard ? current.voteKind : null;
-  const savedElsewhere = !!current && !savedMatchesCard && !loading;
+  const savedElsewhere = !!current && !savedMatchesCard && !loading && !listLoading;
   const choiceError = chosen ? null : validationError;
   const votable = result?.status === "active" && drepId !== null;
 
@@ -76,26 +67,21 @@ export function GovernanceVotePicker({ error: validationError = null }: { error?
     <div className="space-y-3">
       <div className="space-y-2">
         <Label htmlFor="governanceActionInput">{i18n("governanceAction")}</Label>
-        <div className="flex gap-3">
+        <div className="relative">
+          <Search
+            aria-hidden="true"
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+          />
           <Input
             id="governanceActionInput"
+            type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                lookup();
-              }
-            }}
-            placeholder={i18n("idPlaceholder")}
+            placeholder={i18n("searchPlaceholder")}
             aria-invalid={validationError && !result ? true : undefined}
             aria-describedby={validationError && !result ? "governanceActionInput-error" : undefined}
-            className="font-mono text-xs"
+            className="pl-9"
           />
-          <Button type="button" variant="secondary" onClick={lookup} disabled={loading}>
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-            {i18n("lookUp")}
-          </Button>
         </div>
         <p className="text-xs text-muted-foreground">
           {i18n.rich("pasteHint", {
@@ -129,8 +115,15 @@ export function GovernanceVotePicker({ error: validationError = null }: { error?
         {result ? null : <InlineFieldError id="governanceActionInput-error" message={validationError} />}
       </div>
 
+      {loading ? (
+        <p role="status" className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+          {i18n("lookingUp")}
+        </p>
+      ) : null}
+
       {error ? (
-        // `role="alert"`: the lookup runs on demand and this is its only failure cue.
+        // `role="alert"`: the lookup starts from a paste and this is its only failure cue.
         <p
           role="alert"
           className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100"
@@ -156,11 +149,7 @@ export function GovernanceVotePicker({ error: validationError = null }: { error?
       {result ? (
         <div className="rounded-md border border-border/60 bg-background/40 p-2 sm:p-3">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline">
-              {result.type in TYPE_LABEL_KEYS
-                ? i18n(TYPE_LABEL_KEYS[result.type as keyof typeof TYPE_LABEL_KEYS])
-                : result.type}
-            </Badge>
+            <Badge variant="outline">{typeLabel(result.type)}</Badge>
             <Badge variant={result.status === "active" ? "success" : "warning"}>
               {i18n(STATUS_LABEL_KEYS[result.status])}
             </Badge>
@@ -197,6 +186,7 @@ export function GovernanceVotePicker({ error: validationError = null }: { error?
                   disabled={!votable}
                   onClick={() => {
                     if (!drepId) return;
+                    pick(result);
                     setVoteJson(
                       buildVoteJson(drepId, { txHash: result.txHash, txIndex: result.index, voteKind: kind })
                     );
@@ -216,6 +206,28 @@ export function GovernanceVotePicker({ error: validationError = null }: { error?
             </p>
           </div>
         </div>
+      ) : null}
+
+      {actions.length > 0 || !result ? (
+        <section aria-labelledby="governanceOpenActions" className="space-y-2">
+          <p id="governanceOpenActions" className="eyebrow text-muted-foreground">
+            {openCount === null ? i18n("openActionsHeading") : i18n("openActions", { count: openCount })}
+          </p>
+          {listLoading ? (
+            <p role="status" className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+              {i18n("loadingActions")}
+            </p>
+          ) : listFailed ? (
+            <p className="text-xs text-muted-foreground">{i18n("actionsFailed")}</p>
+          ) : openCount === 0 ? (
+            <p className="text-xs text-muted-foreground">{i18n("noOpenActions", { network: CARDANO_NETWORK })}</p>
+          ) : actions.length === 0 ? (
+            searching ? null : <p className="text-xs text-muted-foreground">{i18n("noMatch")}</p>
+          ) : (
+            <GovernanceActionList actions={actions} selectedId={result?.id ?? null} onPick={pick} />
+          )}
+        </section>
       ) : null}
     </div>
   );

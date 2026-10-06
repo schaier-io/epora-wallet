@@ -206,7 +206,7 @@ describe("normal beneficiary recovery entry", () => {
 /**
  * Each card is a door, so it has to carry the name written on the other side of it. These
  * three did not: "Turn on staking" opened a screen headed "Enable staking", "Governance"
- * opened "Publish certificate", and "Receive funds" opened "Add funds". The titles are
+ * opened a screen under another name, and "Receive funds" opened "Add funds". The titles are
  * built here, and the sidebar view's own test hardcodes them in a fixture, so nothing
  * checked the real derivation.
  */
@@ -223,7 +223,7 @@ describe("what the tool cards are called", () => {
 
     expect(titleByAction.get("set-intended-stake-credential")).toBe("Enable staking");
     expect(titleByAction.get("wallet-withdraw")).toBe("Claim rewards");
-    expect(titleByAction.get("wallet-publish")).toBe("Publish certificate");
+    expect(titleByAction.get("wallet-publish")).toBe("Choose a voting delegate");
   });
 });
 

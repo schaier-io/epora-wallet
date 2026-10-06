@@ -43,4 +43,5 @@ test("finds the action id in a bare id, a tx reference, or an explorer link", ()
   assert.equal(extractGovernanceActionId(TX_HASH), null);
   assert.equal(extractGovernanceActionId(`${TX_HASH}0a0b`), null);
   assert.equal(extractGovernanceActionId("drep1abc"), null);
+  assert.equal(extractGovernanceActionId(bech32.slice(0, 40)), null);
 });

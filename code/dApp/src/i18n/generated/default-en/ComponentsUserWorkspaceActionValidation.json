@@ -15,7 +15,7 @@
   "publish": "Publish",
   "publishInputsAreInvalid": "Publish inputs are invalid.",
   "starterFunds": "Starter funds",
-  "thisCertificateHasNoTypeSoThereIs": "This certificate has no type, so there is nothing to publish. Use a template above, or paste a certificate that has a \"type\".",
+  "chooseAVotingDelegate": "Choose a voting delegate.",
   "useANameThatFitsInMaxWallet": "Use a name that fits in {limit} bytes.",
   "vote": "Vote",
   "voteInputsAreInvalid": "Vote inputs are invalid.",

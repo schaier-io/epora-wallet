@@ -33,7 +33,10 @@ export const queryKeys = {
   protocolParameters: (epoch?: number) => [...chain, "protocol", epoch ?? "latest"] as const,
   assetIcon: (unit: string) => [...chain, "asset-metadata", unit, "icon"] as const,
   pool: (id: string) => [...chain, "pool", id] as const,
+  stakeAccount: (address: string) => [...chain, "stake-account", address] as const,
+  drep: (id: string) => [...chain, "drep", id] as const,
   governanceAction: (id: string) => [...chain, "governance-action", id] as const,
+  activeGovernanceActions: () => [...chain, "governance-actions", "active"] as const,
   sttCount: (policyId: string, network: string) => [...chain, "stt-count", network.toLowerCase(), policyId] as const,
   signerUtxos: (network: number | null, walletName: string | null, address: string | null, accountRevision = 0) =>
     [...signer, CHAIN_NETWORK, network, walletName, address, accountRevision] as const
