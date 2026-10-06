@@ -227,8 +227,8 @@ export function PersonPermissionsEditor({
 
       {isCoSigner ? (
         <div className="space-y-1">
-          <Label id={`${uid}-approval-power-label`}>{i18n("approvalPower")}</Label>
           <ApprovalPowerSlider
+            label={<Label id={`${uid}-approval-power-label`}>{i18n("approvalPower")}</Label>}
             id={`${uid}-approval-power`}
             labelledBy={`${uid}-approval-power-label`}
             value={user.multiSigPower}

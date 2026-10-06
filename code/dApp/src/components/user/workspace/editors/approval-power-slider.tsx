@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type KeyboardEvent, type ReactNode } from "react";
+import { Minus, Plus } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Input } from "@/components/ui/input";
 import { isNonNegativeUint64Decimal } from "@/lib/contracts/on-chain-integer";
@@ -8,26 +10,36 @@ import { Slider } from "@/components/ui/slider";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils/cn";
 
+// One block per whole number is the point of the meter, but the range follows
+// the stored value, which is an unbounded on-chain integer. Past this many stops
+// the blocks get narrower than the gaps between them, so a long range draws a
+// continuous slider instead.
+const MAX_BLOCKS = 24;
+
+const STEPPER_BUTTON =
+  "inline-flex h-11 w-11 items-center justify-center text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40 sm:h-8 sm:w-8";
+
 /**
- * The slider behind every approval-power field: the wallet threshold and each
+ * The control behind every approval-power field: the wallet threshold and each
  * person's own power.
  *
- * These were bare text boxes. A box gives no sense of the range the number
- * lives in, and approval power is only meaningful against the power the wallet
- * can reach, so the caller supplies `min`/`max` and the scale underneath names
- * the ends. The slider is the only control: there is no second box holding the
- * same number.
+ * The caller's `label` sits on one row with a stepper that holds the number,
+ * so the number has one home. Under it a meter draws one block per unit of
+ * power, which shows the range the number lives in: approval power only means
+ * something against the power the wallet can reach, so the caller supplies
+ * `min`/`max`. A block is a mouse shortcut to its number; the keyboard uses the
+ * stepper.
  *
  * `fullAt` is the stop where the number is the whole thing there is: for a
  * threshold, where it takes every co-signer (2 on a wallet whose two co-signers
  * hold 1 each); for one person's power, where that person meets the threshold
- * alone. The track is shaded from half a step before it to the end, so the
- * shading stays visible when the thumb is one stop short, and the thumb lands
- * inside it on the next step. Once inside, the fill and the thumb turn the same
- * colour, so the state reads from the bar rather than from the number.
+ * alone. The blocks from that stop on are tinted whether filled or not, and
+ * filled ones take the warm colour, so the state reads from the bar rather
+ * than from the number.
  */
 export function ApprovalPowerSlider({
   id,
+  label,
   labelledBy,
   value,
   onChange,
@@ -41,6 +53,8 @@ export function ApprovalPowerSlider({
   className
 }: {
   id: string;
+  /** The field's `<Label>`, drawn on the stepper's row. Its id is `labelledBy`. */
+  label: ReactNode;
   labelledBy: string;
   value: string;
   onChange: (value: string) => void;
@@ -56,161 +70,213 @@ export function ApprovalPowerSlider({
   describedBy?: string;
   className?: string;
 }) {
+  const i18n = useTranslations("ComponentsUserWorkspaceEditorsApprovalPowerSlider");
   const parsed = Number.parseInt(value, 10);
   const exactValueNeedsEditor =
     /^\d+$/.test(value.trim()) && !Number.isSafeInteger(parsed);
   const [exactEditor] = useState(exactValueNeedsEditor);
-  // The caller's ceiling ignores the number this slider writes, so it cannot
-  // shrink mid-drag. A number stored above it still has to be representable, so
-  // the range is widened once, from the value this slider was first handed, and
-  // never afterwards.
+  // The caller's ceiling ignores the number this control writes, so it cannot
+  // shrink mid-gesture. A number stored above it still has to be representable,
+  // so the range is widened once, from the value this control was first handed,
+  // and never afterwards.
   const [storedTop] = useState(() => (Number.isFinite(parsed) ? parsed : min));
   const top = Math.max(max, storedTop);
   const current = Number.isFinite(parsed) ? Math.min(Math.max(parsed, min), top) : min;
   const span = top - min;
   const marksFull = fullAt !== undefined && fullAt > min && fullAt <= top;
-  const ticks =
-    span > 0 && span <= 10
-      ? Array.from({ length: span + 1 }, (_, index) => min + index)
-      : // The scale collapses to its ends on a long range, but never past the
-        // stop the shading marks: that band is the one thing on the track that
-        // needs a name.
-        [...new Set(marksFull ? [min, fullAt, top] : [min, top])].toSorted((a, b) => a - b);
-  const fractionOf = (point: number) => (span > 0 ? (point - min) / span : 0);
   const atFull = marksFull && current >= fullAt;
+  const tone = invalid ? "invalid" : atFull ? "full" : "normal";
+  const set = (next: number) => onChange(String(Math.min(Math.max(next, min), top)));
 
   // Radix sliders use JavaScript numbers. Keep an exact large on-chain value
   // visible, but do not let a pointer gesture round and overwrite it.
   if (exactEditor || exactValueNeedsEditor) {
     return (
-      <Input
-        id={id}
-        inputMode="numeric"
-        aria-labelledby={labelledBy}
-        aria-describedby={describedBy}
-        aria-invalid={invalid || !isNonNegativeUint64Decimal(value) || BigInt(value || "0") < BigInt(min) || undefined}
-        disabled={disabled}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className={cn("font-mono tabular-nums", className)}
-      />
+      <div className={cn("space-y-1", className)}>
+        {label}
+        <Input
+          id={id}
+          inputMode="numeric"
+          aria-labelledby={labelledBy}
+          aria-describedby={describedBy}
+          aria-invalid={invalid || !isNonNegativeUint64Decimal(value) || BigInt(value || "0") < BigInt(min) || undefined}
+          disabled={disabled}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="font-mono tabular-nums"
+        />
+      </div>
     );
   }
 
-  // A slider with a single reachable stop is a decoration, not a control: with
-  // no co-signers yet, `max` collapses onto `min`.
+  const valueTone = cn(
+    "tabular-nums",
+    tone === "invalid" && "text-[hsl(0_84%_60%)]",
+    tone === "full" && "text-[hsl(var(--brand-warm))]",
+    tone === "normal" && "text-foreground"
+  );
+
+  // A control with a single reachable stop is a decoration: with no co-signers
+  // yet, `max` collapses onto `min`.
   if (span <= 0) {
     return (
-      <p
-        id={id}
-        aria-labelledby={labelledBy}
-        className={cn("text-base font-semibold tabular-nums text-foreground", className)}
-      >
-        {current}
-      </p>
+      <div className={cn("flex items-center justify-between gap-3", className)}>
+        {label}
+        <p id={id} aria-labelledby={labelledBy} className={cn("text-base font-semibold", valueTone)}>
+          {current}
+        </p>
+      </div>
     );
   }
 
-  const tone = invalid ? "invalid" : atFull ? "full" : "normal";
+  const onKeyDown = (event: KeyboardEvent) => {
+    const next = {
+      ArrowUp: current + 1,
+      ArrowRight: current + 1,
+      ArrowDown: current - 1,
+      ArrowLeft: current - 1,
+      PageUp: current + 10,
+      PageDown: current - 10,
+      Home: min,
+      End: top
+    }[event.key];
+    if (next === undefined || disabled) return;
+    event.preventDefault();
+    set(next);
+  };
 
-  return (
-    <div
-      className={cn(
-        "rounded-lg border border-border/60 bg-background/40 px-3 pb-2 pt-1",
-        disabled && "opacity-60",
-        className
-      )}
-    >
-      {/* The readout rides above the thumb, so the live number needs no second
-          control beside the track. Both this and the scale below sit inside the
-          same half-thumb inset the thumb centre travels in. */}
-      <div className="relative mx-2.5 mb-1 h-6">
-        <span
-          style={{ left: `clamp(0px, calc(${fractionOf(current) * 100}% - 5rem), max(0px, calc(100% - 10rem)))` }}
+  const fractionOf = (point: number) => (point - min) / span;
+  // Counted before any array is built: a stored range can be millions wide.
+  const asBlocks = span + 1 <= MAX_BLOCKS;
+  const stops = asBlocks ? Array.from({ length: span + 1 }, (_, index) => min + index) : [];
+  // Where a stop's label sits under the bar: a block's middle, or a slider stop.
+  const centreOf = (point: number) =>
+    asBlocks ? (point - min + 0.5) / (span + 1) : fractionOf(point);
+  const fullStop =
+    marksFull && fullAtHint ? (
+      <Tooltip content={fullAtHint}>
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => set(fullAt)}
           className={cn(
-            "absolute top-0 w-40 max-w-full break-all text-center text-base font-semibold leading-6 tabular-nums",
-            "transition-[left,color] duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
-            tone === "invalid" && "text-[hsl(0_84%_60%)]",
-            tone === "full" && "text-[hsl(var(--brand-warm))]",
-            tone === "normal" && "text-foreground"
+            "inline-flex min-h-11 min-w-11 items-center justify-center rounded px-1 sm:min-h-6 sm:min-w-6",
+            "font-semibold text-[hsl(var(--brand-warm))] underline decoration-dotted underline-offset-2",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            "disabled:cursor-not-allowed"
           )}
         >
-          {current}
-        </span>
+          {fullAt}
+        </button>
+      </Tooltip>
+    ) : null;
+
+  return (
+    <div className={cn("space-y-2", disabled && "opacity-60", className)}>
+      <div className="flex items-center justify-between gap-3">
+        {label}
+        <div className="inline-flex shrink-0 items-center overflow-hidden rounded-md border border-border/60 bg-background/40">
+          <button
+            type="button"
+            aria-label={i18n("decrease")}
+            aria-controls={id}
+            disabled={disabled || current <= min}
+            onClick={() => set(current - 1)}
+            className={STEPPER_BUTTON}
+          >
+            <Minus aria-hidden="true" className="h-4 w-4" />
+          </button>
+          <span
+            id={id}
+            role="spinbutton"
+            tabIndex={disabled ? -1 : 0}
+            aria-labelledby={labelledBy}
+            aria-describedby={describedBy}
+            aria-valuenow={current}
+            aria-valuemin={min}
+            aria-valuemax={top}
+            aria-invalid={invalid ? true : undefined}
+            aria-disabled={disabled ? true : undefined}
+            onKeyDown={onKeyDown}
+            className={cn(
+              "min-w-10 border-x border-border/60 px-2 text-center text-base font-semibold leading-8",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+              valueTone
+            )}
+          >
+            {current}
+          </span>
+          <button
+            type="button"
+            aria-label={i18n("increase")}
+            aria-controls={id}
+            disabled={disabled || current >= top}
+            onClick={() => set(current + 1)}
+            className={STEPPER_BUTTON}
+          >
+            <Plus aria-hidden="true" className="h-4 w-4" />
+          </button>
+        </div>
       </div>
-      <Slider
-        id={id}
-        min={min}
-        max={top}
-        step={1}
-        value={[current]}
-        disabled={disabled}
-        onValueChange={([next]) => onChange(String(next ?? min))}
-        // Radix stays quiet when a gesture lands on the stop the thumb is
-        // already on, and a blank stored value shows as `min` without being one.
-        // Committing writes the displayed number, so clicking it stores it.
-        onValueCommit={([next]) => onChange(String(next ?? min))}
-        zoneFraction={marksFull ? fractionOf(fullAt - 0.5) : undefined}
-        // A full teal bar reads as "all set" even when the number on it cannot
-        // work, so the fill turns red instead of leaving the warning to the
-        // sentence underneath. Inside the shaded stretch it takes that colour.
-        rangeClassName={cn(
-          tone === "invalid" &&
-            "bg-[linear-gradient(90deg,hsl(20_90%_58%),hsl(0_84%_60%))]",
-          tone === "full" &&
-            "bg-[linear-gradient(90deg,hsl(var(--brand-teal)),hsl(var(--brand-warm)))]"
-        )}
-        thumbProps={{
-          "aria-labelledby": labelledBy,
-          "aria-describedby": describedBy,
-          "aria-invalid": invalid ? true : undefined,
-          "aria-disabled": disabled ? true : undefined,
-          className: cn(
-            tone === "invalid" &&
-              "border-[hsl(0_84%_60%)] shadow-[0_2px_10px_-2px_hsl(0_84%_60%/0.7)]",
-            tone === "full" &&
-              "border-[hsl(var(--brand-warm))] shadow-[0_2px_10px_-2px_hsl(var(--brand-warm)/0.7)]"
-          )
-        }}
-      />
-      <div className="relative mx-2.5 mt-1.5 h-4 text-[11px] leading-none text-muted-foreground tabular-nums">
-        {ticks.map((tick) => {
-          const isFull = marksFull && tick === fullAt;
-          const label = (
-            <span
-              style={{ left: `${fractionOf(tick) * 100}%` }}
-              className={cn(
-                "absolute top-0 -translate-x-1/2 leading-4",
-                isFull && "font-semibold text-[hsl(var(--brand-warm))]"
-              )}
-            >
-              {tick}
-            </span>
-          );
 
-          if (!isFull || !fullAtHint) {
-            return <span key={tick}>{label}</span>;
-          }
-
-          return (
-            <Tooltip key={tick} content={fullAtHint}>
+      {asBlocks ? (
+        <div className="flex gap-1">
+          {stops.map((stop) => {
+            const filled = stop <= current;
+            const inZone = marksFull && stop >= fullAt;
+            return (
+              // Not in the tab order and hidden from assistive tech: the
+              // spinbutton above is the accessible control for the same number.
               <button
+                key={stop}
                 type="button"
-                style={{ left: `${fractionOf(tick) * 100}%` }}
+                tabIndex={-1}
+                aria-hidden="true"
+                data-filled={filled || undefined}
                 disabled={disabled}
-                onClick={() => onChange(String(fullAt))}
+                onClick={() => set(stop)}
                 className={cn(
-                  "absolute -top-2 -translate-x-1/2 inline-flex min-h-11 min-w-11 items-center justify-center rounded px-1 leading-4 sm:min-h-6 sm:min-w-6",
-                  "font-semibold text-[hsl(var(--brand-warm))] underline decoration-dotted underline-offset-2",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  "disabled:cursor-not-allowed"
+                  "h-2.5 min-w-0 flex-1 rounded-[3px] transition-colors duration-150",
+                  "disabled:cursor-not-allowed",
+                  !filled && "bg-muted/60 hover:bg-muted",
+                  !filled && inZone && "bg-[hsl(var(--brand-warm)/0.2)] hover:bg-[hsl(var(--brand-warm)/0.35)]",
+                  filled && tone === "invalid" && "bg-[hsl(0_84%_60%)]",
+                  filled && tone !== "invalid" && (inZone ? "bg-[hsl(var(--brand-warm))]" : "bg-[hsl(var(--brand-teal))]")
                 )}
-              >
-                {tick}
-              </button>
-            </Tooltip>
-          );
-        })}
+              />
+            );
+          })}
+        </div>
+      ) : (
+        <Slider
+          min={min}
+          max={top}
+          step={1}
+          value={[current]}
+          disabled={disabled}
+          onValueChange={([next]) => set(next ?? min)}
+          zoneFraction={marksFull ? fractionOf(fullAt - 0.5) : undefined}
+          rangeClassName={cn(
+            tone === "invalid" && "bg-[linear-gradient(90deg,hsl(20_90%_58%),hsl(0_84%_60%))]",
+            tone === "full" && "bg-[linear-gradient(90deg,hsl(var(--brand-teal)),hsl(var(--brand-warm)))]"
+          )}
+          // The spinbutton is the accessible control; this thumb is a pointer
+          // shortcut over a long range, so it stays out of the tab order.
+          thumbProps={{ tabIndex: -1, "aria-hidden": true }}
+        />
+      )}
+
+      <div className="relative flex min-h-6 items-center justify-between text-[11px] leading-4 text-muted-foreground tabular-nums">
+        <span>{min}</span>
+        {fullStop && fullAt !== undefined && fullAt !== top ? (
+          <span
+            className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2"
+            style={{ left: `${centreOf(fullAt) * 100}%` }}
+          >
+            {fullStop}
+          </span>
+        ) : null}
+        {fullStop && fullAt === top ? fullStop : <span>{top}</span>}
       </div>
     </div>
   );

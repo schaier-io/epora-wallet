@@ -397,8 +397,8 @@ export function StateFormEditor({
         */}
         {hasCoSigners ? (
           <div className="space-y-1">
-            <Label id={`${uid}-approvals-needed-label`}>{i18n("approvalPowerNeeded")}</Label>
             <ApprovalPowerSlider
+              label={<Label id={`${uid}-approvals-needed-label`}>{i18n("approvalPowerNeeded")}</Label>}
               id={`${uid}-approvals-needed`}
               labelledBy={`${uid}-approvals-needed-label`}
               value={value.multiSigThreshold}

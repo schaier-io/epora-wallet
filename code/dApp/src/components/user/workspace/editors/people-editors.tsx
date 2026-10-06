@@ -300,8 +300,8 @@ export function MultisigThresholdEditor({
            * co-signers can meet the number, red once the threshold passes the
            * power they hold between them.
            */}
-          <Label id={`${uid}-required-approvals-label`}>{i18n("approvalPowerNeeded")}</Label>
           <ApprovalPowerSlider
+            label={<Label id={`${uid}-required-approvals-label`}>{i18n("approvalPowerNeeded")}</Label>}
             id={`${uid}-required-approvals`}
             labelledBy={`${uid}-required-approvals-label`}
             value={value.multiSigThreshold}
@@ -423,8 +423,8 @@ export function MultisigThresholdEditor({
           >
             <PersonHeading person={person}>{personLabel(i18n("cosigner"), person)}</PersonHeading>
             <div className="space-y-1">
-              <Label id={`${uid}-cosigner-power-${person.id}-label`}>{i18n("approvalPower")}</Label>
               <ApprovalPowerSlider
+                label={<Label id={`${uid}-cosigner-power-${person.id}-label`}>{i18n("approvalPower")}</Label>}
                 id={`${uid}-cosigner-power-${person.id}`}
                 labelledBy={`${uid}-cosigner-power-${person.id}-label`}
                 value={person.multiSigPower}

@@ -8,216 +8,160 @@ function renderField(
   props: Partial<React.ComponentProps<typeof ApprovalPowerSlider>> = {}
 ) {
   const onChange = vi.fn();
-  render(
-    <>
-      <Label id="power-label">Approval power</Label>
-      <ApprovalPowerSlider
-        id="power"
-        labelledBy="power-label"
-        value="2"
-        onChange={onChange}
-        min={1}
-        max={5}
-        {...props}
-      />
-    </>
+  const view = render(
+    <ApprovalPowerSlider
+      id="power"
+      label={<Label id="power-label">Approval power</Label>}
+      labelledBy="power-label"
+      value="2"
+      onChange={onChange}
+      min={1}
+      max={5}
+      {...props}
+    />
   );
-  return onChange;
+  return { onChange, ...view };
 }
 
-describe("the slider is the whole control", () => {
-  /**
-   * There is no second box holding the same number, so the slider itself has to
-   * carry the field's name and be reachable from the keyboard.
-   */
+const blocks = (root: HTMLElement) =>
+  Array.from(root.querySelectorAll<HTMLButtonElement>("button[aria-hidden='true']"));
+
+describe("the stepper holds the number", () => {
+  /** The number has one home: a spinbutton named by the field's label. */
   it("carries the label and stays focusable", () => {
     renderField();
 
-    const slider = screen.getByLabelText("Approval power");
-    expect(slider).toHaveAttribute("role", "slider");
-    expect(slider).toHaveAttribute("aria-valuenow", "2");
-    expect(slider).not.toHaveAttribute("tabindex", "-1");
+    const stepper = screen.getByRole("spinbutton", { name: "Approval power" });
+    expect(stepper).toHaveAttribute("aria-valuenow", "2");
+    expect(stepper).toHaveAttribute("aria-valuemin", "1");
+    expect(stepper).toHaveAttribute("aria-valuemax", "5");
+    expect(stepper).toHaveAttribute("tabindex", "0");
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
-    expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
+    expect(screen.queryByRole("slider")).not.toBeInTheDocument();
   });
 
-  it("reads out the current value without a second control", () => {
-    renderField({ min: 0, max: 40, value: "14" });
+  it("steps up and down with its buttons", () => {
+    const { onChange } = renderField();
 
-    const slider = screen.getByLabelText("Approval power");
-    expect(slider).toHaveAttribute("aria-valuemin", "0");
-    expect(slider).toHaveAttribute("aria-valuemax", "40");
-    expect(screen.getByText("14")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Increase" }));
+    fireEvent.click(screen.getByRole("button", { name: "Decrease" }));
+
+    expect(onChange.mock.calls).toEqual([["3"], ["1"]]);
+  });
+
+  it("switches each button off at its end of the range", () => {
+    renderField({ value: "1", max: 2 });
+    expect(screen.getByRole("button", { name: "Decrease" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Increase" })).toBeEnabled();
+  });
+
+  it("answers the keyboard like a spinbutton", () => {
+    const { onChange } = renderField();
+    const stepper = screen.getByRole("spinbutton");
+
+    fireEvent.keyDown(stepper, { key: "ArrowUp" });
+    fireEvent.keyDown(stepper, { key: "ArrowDown" });
+    fireEvent.keyDown(stepper, { key: "Home" });
+    fireEvent.keyDown(stepper, { key: "End" });
+    fireEvent.keyDown(stepper, { key: "PageUp" });
+
+    expect(onChange.mock.calls).toEqual([["3"], ["1"], ["1"], ["5"], ["5"]]);
   });
 
   it("clamps a stored number below the scale", () => {
     renderField({ value: "-4" });
 
-    expect(screen.getByLabelText("Approval power")).toHaveAttribute("aria-valuenow", "1");
+    expect(screen.getByRole("spinbutton")).toHaveAttribute("aria-valuenow", "1");
+  });
+});
+
+describe("the meter draws one block per unit of power", () => {
+  it("fills the blocks up to the number", () => {
+    const { container } = renderField({ value: "3" });
+
+    const all = blocks(container);
+    expect(all).toHaveLength(5);
+    expect(all.filter((block) => block.dataset.filled)).toHaveLength(3);
+    expect(all.every((block) => block.tabIndex === -1)).toBe(true);
   });
 
-  it("shows an exact large value without a rounding slider", () => {
-    const onChange = renderField({ value: "18446744073709551615" });
+  it("jumps to a block when clicked", () => {
+    const { container, onChange } = renderField();
 
-    const value = screen.getByLabelText("Approval power");
-    expect(value).toHaveValue("18446744073709551615");
-    expect(value).not.toBeDisabled();
-    expect(screen.queryByRole("slider")).not.toBeInTheDocument();
-    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.click(blocks(container)[3]!);
+
+    expect(onChange).toHaveBeenCalledWith("4");
+  });
+
+  /**
+   * A stored range can be millions wide. Blocks would be thinner than their
+   * gaps and the array would freeze the page, so a long range draws a slider.
+   */
+  it("draws a slider instead once the range is too long for blocks", () => {
+    const { container } = renderField({ value: "3", max: 1_000_000 });
+
+    expect(blocks(container)).toHaveLength(0);
+    expect(screen.getByRole("spinbutton")).toHaveAttribute("aria-valuemax", "1000000");
   });
 });
 
 describe("the stretch where the number is the whole thing there is", () => {
-  function renderWithFull(value: string) {
-    return render(
-      <>
-        <Label id="m-label">Approval power needed</Label>
-        <ApprovalPowerSlider
-          id="m"
-          labelledBy="m-label"
-          value={value}
-          onChange={() => undefined}
-          min={1}
-          max={5}
-          fullAt={3}
-          fullAtHint="Every co-signer has to approve."
-        />
-      </>
-    );
-  }
+  const hint = "Every co-signer has to approve.";
 
-  /**
-   * Half a step early on purpose: starting the shading on the stop itself would
-   * leave nothing to see until the thumb was already inside it.
-   */
-  it("shades from halfway between the stop before it and the stop itself", () => {
-    const { container } = renderWithFull("1");
+  it("tints the blocks from that stop on, filled or not", () => {
+    const { container } = renderField({ value: "1", fullAt: 3, fullAtHint: hint });
 
-    // min 1, max 5, shading starts at 2.5 -> (2.5 - 1) / 4 = 37.5%.
-    const zone = container.querySelector<HTMLElement>("span[aria-hidden='true'][style*='left']");
-    expect(zone?.style.left).toBe("37.5%");
+    const zone = blocks(container).map((block) => block.className.includes("brand-warm"));
+    expect(zone).toEqual([false, false, true, true, true]);
   });
 
-  it("draws no shading when the stop is not on the scale", () => {
-    const { container } = render(
-      <>
-        <Label id="n-label">Approval power needed</Label>
-        <ApprovalPowerSlider
-          id="n"
-          labelledBy="n-label"
-          value="1"
-          onChange={() => undefined}
-          min={1}
-          max={5}
-          fullAt={0}
-        />
-      </>
-    );
+  it("turns the filled blocks warm once the number is inside", () => {
+    const { container: below } = renderField({ value: "2", fullAt: 3, fullAtHint: hint });
+    const { container: inside } = renderField({ value: "3", fullAt: 3, fullAtHint: hint });
 
-    expect(container.querySelector("span[aria-hidden='true'][style*='left']")).toBeNull();
+    expect(blocks(below)[1]!.className).toContain("brand-teal");
+    expect(blocks(inside)[2]!.className).toContain("bg-[hsl(var(--brand-warm))]");
   });
 
   it("explains the stop on its own control, which also jumps to it", () => {
-    const onChange = vi.fn();
-    render(
-      <>
-        <Label id="h-label">Approval power needed</Label>
-        <ApprovalPowerSlider
-          id="h"
-          labelledBy="h-label"
-          value="1"
-          onChange={onChange}
-          min={1}
-          max={5}
-          fullAt={3}
-          fullAtHint="Every co-signer has to approve."
-        />
-      </>
-    );
+    const { onChange } = renderField({ value: "1", fullAt: 3, fullAtHint: hint });
 
     fireEvent.click(screen.getByRole("button", { name: "3" }));
 
     expect(onChange).toHaveBeenCalledWith("3");
   });
 
-  it("keeps the stop on the scale when the scale collapses to its ends", () => {
-    render(
-      <>
-        <Label id="w-label">Approval power needed</Label>
-        <ApprovalPowerSlider
-          id="w"
-          labelledBy="w-label"
-          value="1"
-          onChange={() => undefined}
-          min={1}
-          max={40}
-          fullAt={5}
-          fullAtHint="Every co-signer has to approve."
-        />
-      </>
-    );
+  it("names the stop on a long range too", () => {
+    renderField({ value: "1", max: 40, fullAt: 5, fullAtHint: hint });
 
-    // A 40-stop scale prints only its ends, but the shaded band needs its name.
     expect(screen.getByRole("button", { name: "5" })).toBeInTheDocument();
     expect(screen.getByText("40")).toBeInTheDocument();
   });
 
-  it("recolours the thumb once the value is inside the stretch", () => {
-    const { container: below } = renderWithFull("2");
-    const { container: inside } = renderWithFull("3");
+  it("draws no tint when the stop is not on the scale", () => {
+    const { container } = renderField({ value: "1", fullAt: 0 });
 
-    const thumbClass = (root: HTMLElement) =>
-      root.querySelector('[role="slider"]')!.className;
-
-    expect(thumbClass(below)).toContain("border-[hsl(var(--brand-teal))]");
-    expect(thumbClass(below)).not.toContain("border-[hsl(var(--brand-warm))]");
-    expect(thumbClass(inside)).toContain("border-[hsl(var(--brand-warm))]");
+    expect(blocks(container).some((block) => block.className.includes("brand-warm"))).toBe(false);
   });
 
-  it("offers no such control when the caller has nothing to explain", () => {
-    render(
-      <>
-        <Label id="q-label">Approval power needed</Label>
-        <ApprovalPowerSlider
-          id="q"
-          labelledBy="q-label"
-          value="1"
-          onChange={() => undefined}
-          min={1}
-          max={5}
-          fullAt={3}
-        />
-      </>
-    );
+  it("offers no jump control when the caller has nothing to explain", () => {
+    renderField({ value: "1", fullAt: 3 });
 
-    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "3" })).not.toBeInTheDocument();
   });
 });
 
 describe("a stored number the caller's ceiling does not cover", () => {
   /**
-   * The ceiling ignores the number this slider writes, so it cannot shrink
-   * mid-drag. Widening it here is what keeps a number loaded from chain
-   * readable.
+   * The ceiling ignores the number this control writes, so it cannot shrink
+   * mid-gesture. Widening it here keeps a number loaded from chain readable.
    */
   it("widens the scale to the value it was first handed", () => {
-    render(
-      <>
-        <Label id="s-label">Approval power needed</Label>
-        <ApprovalPowerSlider
-          id="s"
-          labelledBy="s-label"
-          value="20"
-          onChange={() => undefined}
-          min={1}
-          max={5}
-        />
-      </>
-    );
+    renderField({ value: "20", max: 5 });
 
-    const slider = screen.getByLabelText("Approval power needed");
-    expect(slider).toHaveAttribute("aria-valuemax", "20");
-    expect(slider).toHaveAttribute("aria-valuenow", "20");
+    const stepper = screen.getByRole("spinbutton");
+    expect(stepper).toHaveAttribute("aria-valuemax", "20");
+    expect(stepper).toHaveAttribute("aria-valuenow", "20");
   });
 });
 
@@ -225,30 +169,48 @@ describe("states the number can be in", () => {
   it("marks an unworkable number invalid and points at the sentence that explains it", () => {
     renderField({ invalid: true, describedBy: "why" });
 
-    const slider = screen.getByLabelText("Approval power");
-    expect(slider).toHaveAttribute("aria-invalid", "true");
-    expect(slider).toHaveAttribute("aria-describedby", "why");
+    const stepper = screen.getByRole("spinbutton");
+    expect(stepper).toHaveAttribute("aria-invalid", "true");
+    expect(stepper).toHaveAttribute("aria-describedby", "why");
   });
 
   it("says so when the field is switched off", () => {
-    renderField({ disabled: true });
+    const { onChange } = renderField({ disabled: true });
+    const stepper = screen.getByRole("spinbutton");
 
-    expect(screen.getByLabelText("Approval power")).toHaveAttribute("aria-disabled", "true");
+    expect(stepper).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("button", { name: "Increase" })).toBeDisabled();
+    fireEvent.keyDown(stepper, { key: "ArrowUp" });
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   /** One reachable stop is a decoration, not a control. */
   it("shows the number alone when the ends meet", () => {
     renderField({ min: 1, max: 1, value: "1" });
 
-    expect(screen.queryByRole("slider", { hidden: true })).not.toBeInTheDocument();
+    expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Approval power")).toHaveTextContent("1");
   });
 });
 
 // UX UI-02: importing a large integer must retain an exact repair path.
-it("lets the owner lower an exact large approval value", () => {
-  const onChange = renderField({ value: "18446744073709551615" });
-  const input = screen.getByRole("textbox", { name: "Approval power" });
-  fireEvent.change(input, { target: { value: "2" } });
-  expect(onChange).toHaveBeenCalledWith("2");
+describe("an exact large value", () => {
+  it("shows in a box, not a rounding control", () => {
+    const { onChange } = renderField({ value: "18446744073709551615" });
+
+    const value = screen.getByRole("textbox", { name: "Approval power" });
+    expect(value).toHaveValue("18446744073709551615");
+    expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("lets the owner lower it", () => {
+    const { onChange } = renderField({ value: "18446744073709551615" });
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Approval power" }), {
+      target: { value: "2" }
+    });
+
+    expect(onChange).toHaveBeenCalledWith("2");
+  });
 });
