@@ -43,6 +43,10 @@ test("does not read other certificates or broken payloads as a delegation", () =
   assert.equal(readVoteDelegationJson(JSON.stringify({ type: "RegisterStake", stakeKeyAddress: STAKE })), null);
   assert.equal(readVoteDelegationJson(JSON.stringify({ type: "VoteDelegation", stakeKeyAddress: STAKE, drep: {} })), null);
   assert.equal(
+    readVoteDelegationJson(JSON.stringify({ type: "VoteDelegation", stakeKeyAddress: STAKE, drep: { dRepId: "junk" } })),
+    null
+  );
+  assert.equal(
     readVoteDelegationJson(JSON.stringify({ type: "VoteRegistrationAndDelegation", stakeKeyAddress: STAKE, drep: { alwaysAbstain: null } })),
     null
   );

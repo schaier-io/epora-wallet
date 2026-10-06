@@ -1,3 +1,5 @@
+import { DrepIdSchema } from "@/lib/api/dreps";
+
 /**
  * The wallet-publish payload is one Mesh `CertificateType` (`publishCertificateJsonAtom`).
  * The voting-delegate picker writes it from a choice and reads it back, so the JSON stays
@@ -46,7 +48,12 @@ function record(value: unknown): Record<string, unknown> | null {
 
 function readChoice(drep: Record<string, unknown> | null): DelegateChoice | null {
   if (!drep) return null;
-  if (typeof drep.dRepId === "string" && drep.dRepId.trim()) return { kind: "drep", drepId: drep.dRepId.trim() };
+  // A malformed id (an older hand-edited draft) is no choice: Mesh's `toDRep` would only
+  // reject it at build time, with an error the reader cannot act on.
+  if (typeof drep.dRepId === "string") {
+    const parsed = DrepIdSchema.safeParse(drep.dRepId);
+    return parsed.success ? { kind: "drep", drepId: parsed.data } : null;
+  }
   if ("alwaysAbstain" in drep) return { kind: "alwaysAbstain" };
   if ("alwaysNoConfidence" in drep) return { kind: "alwaysNoConfidence" };
   return null;
