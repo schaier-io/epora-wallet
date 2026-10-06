@@ -32,3 +32,43 @@ input[type="checkbox"]:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
 }
+
+/* The select chevron.
+ *
+ * The UA arrow sat flush against the right border: `Select` only had `px-3`, and the
+ * arrow took its room out of that. `appearance: none` drops it and a drawn chevron
+ * takes its place, with `padding-inline-end` reserving 12px gutter + 16px icon + 8px
+ * gap. These rules are unlayered, so they outrank Tailwind utilities: a caller's
+ * `px-2` still tightens the left edge but cannot push text under the chevron.
+ *
+ * The stroke is `--muted-foreground` per theme. A data URI cannot read a custom
+ * property, so the colour is written into each theme's copy. */
+:root {
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+.dark {
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a1a1a1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+select:not([multiple]) {
+  appearance: none;
+  background-image: var(--select-chevron);
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1rem;
+  padding-inline-end: 2.25rem;
+  text-overflow: ellipsis;
+}
+
+/* Date and time pickers: the UA icon kept the arrow cursor and full-white ink, louder
+ * than the text it sits beside. */
+input::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 150ms;
+}
+
+input::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}

@@ -35,15 +35,15 @@ describe("Select", () => {
 
   it("lets a caller override the height without losing the ring", () => {
     render(
-      <Select aria-label="Path" className="h-8 w-auto">
+      <Select aria-label="Path" className="h-8 sm:h-8 w-auto">
         <option value="a">A</option>
       </Select>
     );
 
     const control = screen.getByLabelText("Path");
-    // tailwind-merge keeps the last height and drops the primitive's h-10.
+    // tailwind-merge keeps the last height and drops the primitive's h-11 sm:h-10.
     expect(control.className).toContain("h-8");
-    expect(control.className).not.toContain("h-10");
+    expect(control.className).not.toMatch(/\bh-11\b|sm:h-10/);
     expect(control.className).toContain("focus-visible:ring-2");
   });
 });
