@@ -216,3 +216,13 @@ export function thresholdIsUnreachable(form: StateFormState): boolean {
   const threshold = approvalThreshold(form);
   return threshold !== null && threshold > reachableApprovalPower(form.users);
 }
+
+/**
+ * A short name for a person where a full heading does not fit, such as a bar label:
+ * the start of the first wallet they sign with, or their record number before they
+ * have one.
+ */
+export function personTag(entry: { id: string; wallets: string[] }): string {
+  const wallet = entry.wallets.find((candidate) => candidate.trim().length > 0);
+  return wallet ? wallet.trim().slice(0, 6) : `#${entry.id}`;
+}

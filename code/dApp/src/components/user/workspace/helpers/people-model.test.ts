@@ -13,6 +13,7 @@ import {
   coSignerSegments,
   groupPeople,
   personPermissions,
+  personTag,
   personWallets,
   thresholdIsUnreachable,
   withOwnerToggled,
@@ -193,3 +194,7 @@ test("recovery on takes the first wallet that is filled in", () => {
   assert.equal(groupPeople(next).length, 1);
 });
 
+test("a person's tag is the start of their first wallet, or their record number", () => {
+  assert.equal(personTag({ id: "3", wallets: [" ", KEY_A] }), "aaaaaa");
+  assert.equal(personTag({ id: "3", wallets: [] }), "#3");
+});

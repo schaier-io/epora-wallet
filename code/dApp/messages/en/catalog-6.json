@@ -324,5 +324,43 @@
     "feesValue": "{margin} margin · {fixed} fixed",
     "unknown": "Unknown",
     "noShortlist": "No open pools to suggest right now. Search by ticker or name."
+  },
+  "ComponentsUserWorkspaceEditorsApprovalPowerBar": {
+    "totalApprovalPower": "Co-signers hold {total} approval power",
+    "neededOfTotal": "Approval power needed: {needed} of {total}",
+    "neededValue": "needed {needed}",
+    "labelPower": "{label} · {power}",
+    "missingPower": "{missing} missing"
+  },
+  "ComponentsUserWorkspaceEditorsWalletRulesCard": {
+    "walletRules": "Wallet rules",
+    "coSigners": "Co-signers",
+    "approvalPowerNeededOfTotal": "Approval power needed: {needed} of {total}",
+    "approvalPowerNeededNotSet": "Approval power needed: not set",
+    "offOnlyTheOwnersCanAct": "Off · only the owners can act",
+    "turnOnCoSignerForAPerson": "Turn on Co-signer for a person below to let several people act together.",
+    "approvalPowerNeeded": "Approval power needed",
+    "approvalPowerNeededHint": "Co-signers can act without an owner when their approval power adds up to this number. Owners never need approvals.",
+    "decrease": "Decrease",
+    "increase": "Increase",
+    "enterAWholeNumberOf1OrMore": "Enter a whole number of 1 or more, or no co-signer action can go through.",
+    "everyCoSignerHasToApprove": "Every co-signer has to approve. Nobody can be away.",
+    "canActAlone": "{names} can act alone. Others need a partner.",
+    "anyCoSignersTogetherReaching": "Any co-signers together reaching {needed} can act.",
+    "noGroupOfCoSignersCanReach": "No group of co-signers can reach {needed}",
+    "theyHoldTotalBetweenThem": "They hold {total} between them. Until someone gets more approval power, only the owners can act.",
+    "iUnderstandKeepThisThreshold": "I understand. Keep this threshold.",
+    "proofOfLife": "Proof of life",
+    "offNobodyCanRecoverThisWallet": "Off · nobody can recover this wallet",
+    "recoveryContactsCanClaimAfterDate": "Recovery contacts can claim after {date}",
+    "requireProofOfLife": "Require proof of life",
+    "recoveryContactsCanClaimAfter": "Recovery contacts can claim after",
+    "untilThisTimeOnlyTheOwnersCanUse": "Until this time, only the owners can use this wallet.",
+    "timeEachCheckInBuys": "Time each check-in buys",
+    "aCheckInMovesTheDateToAtMost": "A check-in moves the date beside this to at most this far from that moment.",
+    "recoveryTimeline": "Recovery timeline",
+    "now": "Now",
+    "contactsCanClaim": "Contacts can claim",
+    "turnOnRecoveryContactForAPerson": "Turn on Recovery contact for a person below to use this."
   }
 }
