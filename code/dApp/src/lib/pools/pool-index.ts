@@ -10,6 +10,7 @@ import type { PoolSummary } from "@/lib/api/pools";
 type Get = (path: string) => Promise<unknown>;
 
 export const POOL_PAGE_SIZE = 100;
+const POOL_ID_BECH32_PREFIX = "pool1";
 // Pages fetched at once. Blockfrost allows 10 requests per second with a burst
 // allowance, so one batch stays inside the burst.
 const PAGE_CONCURRENCY = 10;
@@ -96,24 +97,35 @@ let cached: { entries: PoolIndexEntry[]; expiresAt: number } | null = null;
 let inflight: Promise<PoolIndexEntry[]> | null = null;
 let failure: { error: unknown; retryAt: number } | null = null;
 
+/** A failed build waiting out its backoff. Carries the build's error and the time left. */
+export class PoolIndexBackoffError extends Error {
+  constructor(cause: unknown, readonly retryAfterSeconds: number) {
+    super("The pool index is waiting before it rebuilds.", { cause });
+    this.name = "PoolIndexBackoffError";
+  }
+}
+
 /**
  * The cached index. Concurrent callers share one build. An expired index is still
  * served while its rebuild runs, and after a failed rebuild. A failed build is not
  * cached and is not retried for `POOL_INDEX_RETRY_MS`; until then a caller with no
- * index gets the same error.
+ * index gets a `PoolIndexBackoffError`. The TTL and the backoff run from when the build
+ * ends, so a build that hangs for longer than the backoff still waits it out.
  */
 export function getPoolIndex(get: Get, now = Date.now()): Promise<PoolIndexEntry[]> {
   if (cached && cached.expiresAt > now) return Promise.resolve(cached.entries);
   if (!inflight && (!failure || failure.retryAt <= now)) {
+    // `now` is a parameter for the tests; real time is the later of the two.
+    const settledAt = () => Math.max(now, Date.now());
     inflight = buildPoolIndex(get)
       .then(
         (entries) => {
-          cached = { entries, expiresAt: now + POOL_INDEX_TTL_MS };
+          cached = { entries, expiresAt: settledAt() + POOL_INDEX_TTL_MS };
           failure = null;
           return entries;
         },
         (error: unknown) => {
-          failure = { error, retryAt: now + POOL_INDEX_RETRY_MS };
+          failure = { error, retryAt: settledAt() + POOL_INDEX_RETRY_MS };
           throw error;
         }
       )
@@ -124,7 +136,11 @@ export function getPoolIndex(get: Get, now = Date.now()): Promise<PoolIndexEntry
     inflight.catch(() => undefined);
   }
   if (cached) return Promise.resolve(cached.entries);
-  return inflight ?? Promise.reject(failure?.error);
+  if (inflight) return inflight;
+  const retryAt = failure?.retryAt ?? now;
+  return Promise.reject(
+    new PoolIndexBackoffError(failure?.error, Math.max(1, Math.ceil((retryAt - now) / 1000)))
+  );
 }
 
 export function resetPoolIndexForTests() {
@@ -136,8 +152,11 @@ export function resetPoolIndexForTests() {
 function rank(entry: PoolIndexEntry, query: string): number | null {
   const ticker = entry.ticker?.toLowerCase() ?? "";
   const name = entry.name?.toLowerCase() ?? "";
+  // Every bech32 id starts with "pool1", so an id prefix only counts once the query
+  // goes past it. Otherwise "pool" matched every pool, ahead of a ticker named POOL.
+  const idPrefix = query.length > POOL_ID_BECH32_PREFIX.length && entry.poolId.startsWith(query);
   // An exact ticker needs no rank of its own: it sorts first among the prefix matches.
-  if (ticker.startsWith(query) || entry.poolId.startsWith(query)) return 0;
+  if (ticker.startsWith(query) || idPrefix) return 0;
   if (name.startsWith(query)) return 1;
   if (ticker.includes(query) || name.includes(query)) return 2;
   return null;
@@ -152,15 +171,22 @@ export function searchPools(entries: PoolIndexEntry[], rawQuery: string): PoolIn
       const score = rank(entry, query);
       return score == null ? [] : [{ entry, score }];
     })
-    .sort((a, b) => a.score - b.score || (a.entry.ticker ?? "").localeCompare(b.entry.ticker ?? ""))
+    // Within a rank, pools with a ticker come first, then by ticker.
+    .sort(
+      (a, b) =>
+        a.score - b.score ||
+        Number(a.entry.ticker == null) - Number(b.entry.ticker == null) ||
+        (a.entry.ticker ?? "").localeCompare(b.entry.ticker ?? "")
+    )
     .slice(0, POOL_SEARCH_LIMIT)
     .map(({ entry }) => entry);
 }
 
 /**
  * A random sample of pools a delegator could pick: they publish a ticker, are not
- * retiring, have live stake, have room before saturation, and keep at most a 10% margin. Random, not ranked, so the
- * app neither endorses a pool nor steers everyone to the same few.
+ * retiring, have live stake, have room before saturation, and keep at most a 10%
+ * margin. Random, not ranked, so the app neither endorses a pool nor steers everyone
+ * to the same few.
  */
 export function shortlistPools(entries: PoolIndexEntry[], random = Math.random): PoolIndexEntry[] {
   const eligible = entries.filter(

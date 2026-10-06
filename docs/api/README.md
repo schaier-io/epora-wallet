@@ -125,7 +125,7 @@ An unknown pool returns `404`, not an empty body:
 ### Stake pool search
 
 Finds pools by ticker, name or bech32 pool id prefix, best match first, at most 20.
-Matching ignores case.
+Matching ignores case. An id prefix counts only past `pool1`, which every id shares.
 
 ```bash
 curl -s "$BASE/api/v1/pools/search?q=ata"
@@ -157,7 +157,8 @@ Blockfrost has no search, so the server keeps an index of every registered pool 
 refreshes it every six hours. The first search on a fresh server builds that index,
 which took about 5 seconds on preprod. While a refresh runs, or after one fails, the
 server keeps answering from the previous index. After a failed build with no previous
-index, the route answers with the same error for 30 seconds before it tries again. Use `/api/v1/pools?id=` for current figures
+index, the route answers with the same error for 30 seconds before it tries again. A
+`429` in that window carries the time left as `Retry-After`. Use `/api/v1/pools?id=` for current figures
 on one pool.
 
 ### Governance action lookup

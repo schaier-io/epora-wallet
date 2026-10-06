@@ -66,6 +66,19 @@ it("passes Blockfrost's rate limit on as a 429 with its Retry-After", async () =
   expect(response.headers.get("Retry-After")).toBe("20");
 });
 
+it("answers a search during the backoff without calling Blockfrost again", async () => {
+  mocks.get.mockRejectedValue(meshHttpError(429, { "Retry-After": "20" }));
+  await search("epo");
+  const callsAfterFailure = mocks.get.mock.calls.length;
+
+  const replay = await search("epo");
+
+  expect(replay.status).toBe(429);
+  // The time left in the 30 s backoff, not Blockfrost's original 20 s.
+  expect(Number(replay.headers.get("Retry-After"))).toBeGreaterThan(20);
+  expect(mocks.get.mock.calls.length).toBe(callsAfterFailure);
+});
+
 it("answers 502 when Blockfrost is down", async () => {
   mocks.get.mockRejectedValue(meshHttpError(503));
 

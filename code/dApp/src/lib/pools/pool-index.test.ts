@@ -3,6 +3,7 @@ import { beforeEach, describe, it } from "node:test";
 import {
   buildPoolIndex,
   getPoolIndex,
+  PoolIndexBackoffError,
   POOL_INDEX_RETRY_MS,
   POOL_INDEX_TTL_MS,
   POOL_PAGE_SIZE,
@@ -169,11 +170,28 @@ describe("getPoolIndex", () => {
 
     await assert.rejects(getPoolIndex(get, start));
     const afterFirst = calls;
-    await assert.rejects(getPoolIndex(get, start + POOL_INDEX_RETRY_MS - 1));
+    const replay: unknown = await getPoolIndex(get, start + POOL_INDEX_RETRY_MS - 1).catch((error: unknown) => error);
     fail = false;
 
     assert.equal(calls, afterFirst, "a call inside the retry window must not reach Blockfrost");
-    assert.equal((await getPoolIndex(get, start + POOL_INDEX_RETRY_MS)).length, 1);
+    assert.ok(replay instanceof PoolIndexBackoffError);
+    assert.equal(replay.retryAfterSeconds, 1);
+    assert.equal((await getPoolIndex(get, start + POOL_INDEX_RETRY_MS + 1_000)).length, 1);
+  });
+
+  it("starts the backoff when a slow build fails, not when it started", async () => {
+    let calls = 0;
+    const get = async () => {
+      calls++;
+      throw meshHttpError(429);
+    };
+
+    // A build that started a minute ago and fails now.
+    await assert.rejects(getPoolIndex(get, Date.now() - 60_000));
+    const afterFirst = calls;
+
+    await assert.rejects(getPoolIndex(get, Date.now()), PoolIndexBackoffError);
+    assert.equal(calls, afterFirst);
   });
 });
 
@@ -198,6 +216,23 @@ describe("searchPools", () => {
 
   it("matches a bech32 pool id prefix, so a pasted id finds a pool without metadata", () => {
     assert.deepEqual(searchPools(index, "pool1eee").map((pool) => pool.poolId), ["pool1eee"]);
+  });
+
+  it("does not let a query inside \"pool1\" match every pool id", () => {
+    const pools = [
+      entry({ poolId: "pool1zzz" }),
+      entry({ poolId: "pool1aaa", ticker: "POOL" }),
+      entry({ poolId: "pool1bbb", ticker: "ADA" })
+    ];
+
+    assert.deepEqual(searchPools(pools, "pool").map((pool) => pool.poolId), ["pool1aaa"]);
+    assert.deepEqual(searchPools(pools, "pool1").map((pool) => pool.poolId), []);
+  });
+
+  it("lists pools without a ticker after those with one", () => {
+    const pools = [entry({ poolId: "pool1abc" }), entry({ poolId: "pool1abd", ticker: "ZED" })];
+
+    assert.deepEqual(searchPools(pools, "pool1ab").map((pool) => pool.poolId), ["pool1abd", "pool1abc"]);
   });
 
   it("returns nothing for an empty query", () => {
