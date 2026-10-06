@@ -20,6 +20,9 @@ export const POOL_SEARCH_LIMIT = 20;
 export const POOL_SHORTLIST_SIZE = 6;
 // The shortlist leaves out pools close to saturation, where new stake earns less.
 export const POOL_SHORTLIST_MAX_SATURATION = 0.9;
+// It also leaves out pools that keep most rewards for themselves. Preprod lists pools at
+// a 100% margin, which pay their delegators nothing.
+export const POOL_SHORTLIST_MAX_MARGIN = 0.1;
 
 type RawExtendedPool = {
   pool_id?: unknown;
@@ -134,7 +137,7 @@ export function searchPools(entries: PoolIndexEntry[], rawQuery: string): PoolIn
 
 /**
  * A random sample of pools a delegator could pick: they publish a ticker, are not
- * retiring, have stake, and have room before saturation. Random, not ranked, so the
+ * retiring, have stake, have room before saturation, and keep at most a 10% margin. Random, not ranked, so the
  * app neither endorses a pool nor steers everyone to the same few.
  */
 export function shortlistPools(entries: PoolIndexEntry[], random = Math.random): PoolIndexEntry[] {
@@ -144,7 +147,9 @@ export function shortlistPools(entries: PoolIndexEntry[], random = Math.random):
       !entry.retiring &&
       entry.saturation != null &&
       entry.saturation > 0 &&
-      entry.saturation < POOL_SHORTLIST_MAX_SATURATION
+      entry.saturation < POOL_SHORTLIST_MAX_SATURATION &&
+      entry.marginPct != null &&
+      entry.marginPct <= POOL_SHORTLIST_MAX_MARGIN
   );
   // Partial Fisher-Yates: shuffle only the slots we return.
   const picked = [...eligible];

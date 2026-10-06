@@ -184,7 +184,9 @@ describe("shortlistPools", () => {
       entry({ poolId: "pool1retiring", ticker: "RET", retiring: true }),
       entry({ poolId: "pool1full", ticker: "FULL", saturation: 0.95 }),
       entry({ poolId: "pool1empty", ticker: "EMPTY", saturation: 0 }),
-      entry({ poolId: "pool1unknown", ticker: "UNK", saturation: null })
+      entry({ poolId: "pool1unknown", ticker: "UNK", saturation: null }),
+      entry({ poolId: "pool1greedy", ticker: "GREED", marginPct: 1 }),
+      entry({ poolId: "pool1nomargin", ticker: "NOMRG", marginPct: null })
     ];
 
     assert.deepEqual(shortlistPools(index).map((pool) => pool.poolId), ["pool1ok"]);

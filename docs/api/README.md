@@ -149,7 +149,8 @@ curl -s "$BASE/api/v1/pools/search?q=ata"
 ```
 
 Without `q`, the route returns a random shortlist of six pools. Each one publishes a
-ticker, is not retiring, and is below 90% saturation. The sample changes on every call.
+ticker, is not retiring, is below 90% saturation, and keeps a margin of at most 10%.
+The sample changes on every call.
 
 Blockfrost has no search, so the server keeps an index of every registered pool and
 refreshes it every six hours. The first search on a fresh server builds that index,
