@@ -49,7 +49,10 @@ export const poolSearchQueryOptions = (query: string) => queryOptions({
     (await fetchPools(`/api/v1/pools/search?q=${encodeURIComponent(query)}`, PoolSearchResponseSchema, signal)).pools,
   // The empty query is a random shortlist. Keep one sample for the session, so the list
   // does not reshuffle under the reader's cursor on every refetch.
-  ...(query ? {} : { staleTime: Infinity })
+  ...(query ? {} : { staleTime: Infinity }),
+  // A search answers typing. Retrying a 429 waits its Retry-After, 30 s or more, twice,
+  // and hid the failure behind a spinner for a minute. The reader can type again instead.
+  retry: false
 });
 
 /** Matches for the typed text, or the shortlist when it is empty. Off while `enabled` is false. */

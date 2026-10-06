@@ -1,8 +1,8 @@
 import type { ReactElement } from "react";
 import { createQueryTestWrapper } from "@/test/query-client";
 import { queryPolicy } from "@/lib/query/keys";
-import { queryRetryDelay } from "@/lib/query/client";
-import { poolQueryOptions } from "@/lib/query/pools";
+import { createAppQueryClient, queryRetryDelay } from "@/lib/query/client";
+import { poolQueryOptions, poolSearchQueryOptions } from "@/lib/query/pools";
 import { fireEvent, render as renderUI, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
@@ -542,6 +542,14 @@ it("queues an Enter for new text even when the previous text's search failed", a
   fireEvent.keyDown(input, { key: "Enter" });
 
   expect(await screen.findByRole("button", { name: "Pick this pool" })).toBeInTheDocument();
+});
+
+it("opts searches out of the app's retry policy", () => {
+  // The test client turns retries off for every query, so a rendered test cannot see
+  // this. In the app, retrying a 429 waited its Retry-After (30 s or more) twice and hid
+  // the failure behind a spinner for a minute.
+  expect(createAppQueryClient().getDefaultOptions().queries?.retry).not.toBe(false);
+  expect(poolSearchQueryOptions("epo").retry).toBe(false);
 });
 
 it("caps the box at the longest search the server accepts", () => {
