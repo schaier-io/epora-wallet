@@ -9,14 +9,16 @@ function readSource(path: string): string {
   return readFileSync(fileURLToPath(new URL(path, sourceRoot)), "utf8");
 }
 
-test("field primitives offset the focus ring to the card, not the page", () => {
+test("field chrome offsets the focus ring to the card, not the page", () => {
+  const source = readSource("field-styles.ts");
+  assert.match(source, /ring-offset-card/, "field-styles.ts missing ring-offset-card");
+  assert.doesNotMatch(source, /ring-offset-background/, "field-styles.ts uses ring-offset-background");
+});
+
+test("every field primitive draws from the shared chrome", () => {
   for (const path of ["input.tsx", "textarea.tsx", "select.tsx"]) {
     const source = readSource(path);
-    assert.match(source, /ring-offset-card/, `${path} missing ring-offset-card`);
-    assert.doesNotMatch(
-      source,
-      /ring-offset-background/,
-      `${path} still uses ring-offset-background`
-    );
+    assert.match(source, /fieldChrome/, `${path} does not use fieldChrome`);
+    assert.doesNotMatch(source, /ring-offset-/, `${path} hand-writes its own ring offset`);
   }
 });

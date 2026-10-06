@@ -1,5 +1,6 @@
 import * as React from "react";
 import { cn } from "@/lib/utils/cn";
+import { fieldChrome, fieldHeight } from "@/components/ui/field-styles";
 
 /**
  * A native `<Select>` wearing the same chrome as `Input` and `Textarea`.
@@ -9,6 +10,10 @@ import { cn } from "@/lib/utils/cn";
  * the input beside them drew the app ring, and one sat at 32px in a 40px row. The
  * `aria-[invalid=true]` rule matches `Input`, so a rejected select gets the rose border
  * for free once something sets the attribute.
+ *
+ * The UA arrow is replaced by a drawn chevron in `form-controls.css`. The native one
+ * sat flush against the border with no padding of its own, so the select read as a
+ * different control from the input beside it.
  *
  * Native on purpose: the platform control is keyboard- and screen-reader-correct out of
  * the box, and on touch it opens the OS picker. A custom listbox would have to re-earn
@@ -21,14 +26,11 @@ const Select = React.forwardRef<
   return (
     <select
       className={cn(
-        // 16px on mobile, 14px from `sm` up: iOS Safari zooms the page on focus below 16px.
-        // Matches `Input` and `Textarea`.
-        "flex h-10 w-full rounded-md border border-input bg-background/70 px-3 py-2 text-base sm:text-sm",
-        "ring-offset-card transition-colors duration-150",
-        "hover:border-primary/30",
-        "focus-visible:outline-none focus-visible:border-primary/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-        "disabled:cursor-not-allowed disabled:opacity-50",
-        "aria-[invalid=true]:border-rose-500/60 aria-[invalid=true]:focus-visible:ring-rose-500/40",
+        fieldChrome,
+        fieldHeight,
+        // `pr-*` is not set here: `form-controls.css` draws the chevron and reserves its
+        // room outside the utility layer, so a caller's `px-2` cannot squeeze it.
+        "flex px-3 py-2 enabled:cursor-pointer",
         className
       )}
       ref={ref}
