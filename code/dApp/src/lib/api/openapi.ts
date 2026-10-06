@@ -336,7 +336,7 @@ export function buildOpenApiDocument() {
           operationId: "searchStakePools",
           summary: "Search stake pools",
           description:
-            "Find stake pools by ticker, name or pool id prefix. Without a query, return a random shortlist of pools that publish a ticker, are not retiring, are below 90 percent saturation, and keep a margin of at most 10 percent. Results come from an index refreshed every few hours.",
+            "Find stake pools by ticker, name or pool id prefix. Without a query, return a random shortlist of pools that publish a ticker, are not retiring, have live stake, are below 90 percent saturation, and keep a margin of at most 10 percent. Results come from an index refreshed every few hours.",
           tags: ["Chain"],
           requestParams: { query: PoolSearchQuerySchema },
           responses: {

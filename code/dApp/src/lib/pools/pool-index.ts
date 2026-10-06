@@ -16,6 +16,9 @@ const PAGE_CONCURRENCY = 10;
 // 10,000 pools. A bound on the loop, far above any network's pool count.
 const MAX_PAGES = 100;
 export const POOL_INDEX_TTL_MS = 6 * 60 * 60 * 1000;
+// After a failed build, wait this long before the next one. Without it, every search
+// during a Blockfrost 429 started another twenty upstream requests on the shared key.
+export const POOL_INDEX_RETRY_MS = 30 * 1000;
 export const POOL_SEARCH_LIMIT = 20;
 export const POOL_SHORTLIST_SIZE = 6;
 // The shortlist leaves out pools close to saturation, where new stake earns less.
@@ -91,24 +94,43 @@ export async function buildPoolIndex(get: Get): Promise<PoolIndexEntry[]> {
 
 let cached: { entries: PoolIndexEntry[]; expiresAt: number } | null = null;
 let inflight: Promise<PoolIndexEntry[]> | null = null;
+let failure: { error: unknown; retryAt: number } | null = null;
 
-/** The cached index. Concurrent callers share one build; a failed build is not cached. */
+/**
+ * The cached index. Concurrent callers share one build. An expired index is still
+ * served while its rebuild runs, and after a failed rebuild. A failed build is not
+ * cached and is not retried for `POOL_INDEX_RETRY_MS`; until then a caller with no
+ * index gets the same error.
+ */
 export function getPoolIndex(get: Get, now = Date.now()): Promise<PoolIndexEntry[]> {
   if (cached && cached.expiresAt > now) return Promise.resolve(cached.entries);
-  inflight ??= buildPoolIndex(get)
-    .then((entries) => {
-      cached = { entries, expiresAt: Date.now() + POOL_INDEX_TTL_MS };
-      return entries;
-    })
-    .finally(() => {
-      inflight = null;
-    });
-  return inflight;
+  if (!inflight && (!failure || failure.retryAt <= now)) {
+    inflight = buildPoolIndex(get)
+      .then(
+        (entries) => {
+          cached = { entries, expiresAt: now + POOL_INDEX_TTL_MS };
+          failure = null;
+          return entries;
+        },
+        (error: unknown) => {
+          failure = { error, retryAt: now + POOL_INDEX_RETRY_MS };
+          throw error;
+        }
+      )
+      .finally(() => {
+        inflight = null;
+      });
+    // A caller served the stale index never awaits this build; keep its failure handled.
+    inflight.catch(() => undefined);
+  }
+  if (cached) return Promise.resolve(cached.entries);
+  return inflight ?? Promise.reject(failure?.error);
 }
 
 export function resetPoolIndexForTests() {
   cached = null;
   inflight = null;
+  failure = null;
 }
 
 function rank(entry: PoolIndexEntry, query: string): number | null {
@@ -137,7 +159,7 @@ export function searchPools(entries: PoolIndexEntry[], rawQuery: string): PoolIn
 
 /**
  * A random sample of pools a delegator could pick: they publish a ticker, are not
- * retiring, have stake, have room before saturation, and keep at most a 10% margin. Random, not ranked, so the
+ * retiring, have live stake, have room before saturation, and keep at most a 10% margin. Random, not ranked, so the
  * app neither endorses a pool nor steers everyone to the same few.
  */
 export function shortlistPools(entries: PoolIndexEntry[], random = Math.random): PoolIndexEntry[] {

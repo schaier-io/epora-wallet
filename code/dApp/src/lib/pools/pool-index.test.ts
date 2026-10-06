@@ -3,6 +3,7 @@ import { beforeEach, describe, it } from "node:test";
 import {
   buildPoolIndex,
   getPoolIndex,
+  POOL_INDEX_RETRY_MS,
   POOL_INDEX_TTL_MS,
   POOL_PAGE_SIZE,
   POOL_SEARCH_LIMIT,
@@ -118,27 +119,61 @@ describe("getPoolIndex", () => {
     assert.equal(builds, 1);
   });
 
-  it("rebuilds once the TTL has passed", async () => {
-    const { get, calls } = fakeGet(3);
+  it("serves the expired index while it rebuilds, then the new one", async () => {
+    let size = 1;
+    const calls: string[] = [];
+    const get = async (path: string) => {
+      calls.push(path);
+      return path === "/pools/extended?count=100&page=1" ? Array.from({ length: size }, (_, i) => rawPool(i)) : [];
+    };
+    const start = Date.now();
+    await getPoolIndex(get, start);
+    size = 2;
+    const later = start + POOL_INDEX_TTL_MS + 1;
 
-    await getPoolIndex(get);
-    await getPoolIndex(get, Date.now() + POOL_INDEX_TTL_MS + 1);
-    const builds = calls.filter((path) => path === "/pools/extended?count=100&page=1").length;
+    const stale = await getPoolIndex(get, later);
+    await new Promise((resolve) => setImmediate(resolve));
+    const fresh = await getPoolIndex(get, later);
 
-    assert.equal(builds, 2);
+    assert.equal(stale.length, 1);
+    assert.equal(fresh.length, 2);
+    assert.equal(calls.filter((path) => path === "/pools/extended?count=100&page=1").length, 2);
   });
 
-  it("does not cache a failed build", async () => {
-    let fail = true;
+  it("keeps serving the expired index when its rebuild fails", async () => {
+    let fail = false;
     const get = async (path: string) => {
-      if (fail) throw meshHttpError(503);
+      if (fail) throw meshHttpError(429);
       return path === "/pools/extended?count=100&page=1" ? [rawPool(1)] : [];
     };
+    const start = Date.now();
+    await getPoolIndex(get, start);
+    fail = true;
+    const later = start + POOL_INDEX_TTL_MS + 1;
 
-    await assert.rejects(getPoolIndex(get));
+    await getPoolIndex(get, later);
+    await new Promise((resolve) => setImmediate(resolve));
+
+    assert.equal((await getPoolIndex(get, later)).length, 1);
+  });
+
+  it("waits before retrying a failed build instead of rebuilding on every call", async () => {
+    let fail = true;
+    let calls = 0;
+    const get = async (path: string) => {
+      calls++;
+      if (fail) throw meshHttpError(429);
+      return path === "/pools/extended?count=100&page=1" ? [rawPool(1)] : [];
+    };
+    const start = Date.now();
+
+    await assert.rejects(getPoolIndex(get, start));
+    const afterFirst = calls;
+    await assert.rejects(getPoolIndex(get, start + POOL_INDEX_RETRY_MS - 1));
     fail = false;
 
-    assert.equal((await getPoolIndex(get)).length, 1);
+    assert.equal(calls, afterFirst, "a call inside the retry window must not reach Blockfrost");
+    assert.equal((await getPoolIndex(get, start + POOL_INDEX_RETRY_MS)).length, 1);
   });
 });
 

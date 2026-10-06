@@ -149,12 +149,15 @@ curl -s "$BASE/api/v1/pools/search?q=ata"
 ```
 
 Without `q`, the route returns a random shortlist of six pools. Each one publishes a
-ticker, is not retiring, is below 90% saturation, and keeps a margin of at most 10%.
+ticker, is not retiring, has live stake, is below 90% saturation, and keeps a margin of
+at most 10%.
 The sample changes on every call.
 
 Blockfrost has no search, so the server keeps an index of every registered pool and
 refreshes it every six hours. The first search on a fresh server builds that index,
-which took about 5 seconds on preprod. Use `/api/v1/pools?id=` for current figures
+which took about 5 seconds on preprod. While a refresh runs, or after one fails, the
+server keeps answering from the previous index. After a failed build with no previous
+index, the route answers with the same error for 30 seconds before it tries again. Use `/api/v1/pools?id=` for current figures
 on one pool.
 
 ### Governance action lookup
