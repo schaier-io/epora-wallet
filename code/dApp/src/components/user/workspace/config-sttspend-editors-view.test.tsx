@@ -611,6 +611,26 @@ describe("quick transfer builder amounts", () => {
     );
   });
 
+  /** Past 2^53 the slider's far end rounds below the balance and left dust. */
+  it("stages the exact balance at the far end of the slider", () => {
+    const unit = `${"ab".repeat(28)}544f4b454e`;
+    renderQuickTransfer([{ unit, quantity: "9007199254740993" }], { [unit]: "0" });
+
+    fireEvent.keyDown(screen.getByRole("slider"), { key: "End" });
+
+    expect(holder.updateSttTransferAmount).toHaveBeenLastCalledWith(
+      unit,
+      "9007199254740993",
+      "9007199254740993"
+    );
+  });
+
+  it("reads out an ADA row in ADA, not lovelace", () => {
+    renderQuickTransfer([{ unit: "lovelace", quantity: "5000000" }]);
+
+    expect(screen.getByRole("slider")).toHaveAttribute("aria-valuetext", expect.stringMatching(/^5 /));
+  });
+
   it("keeps token rows in raw units", () => {
     const input = renderQuickTransfer([{ unit: `${"ab".repeat(28)}544f4b454e`, quantity: "700" }]);
     expect(input.type).toBe("number");

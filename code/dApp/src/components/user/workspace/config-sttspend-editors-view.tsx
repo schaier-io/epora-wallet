@@ -267,18 +267,25 @@ export function SttSpendEditorsView() {
                             value={[Number(currentValue)]}
                             // A JavaScript number prints past 1e21 in exponent form,
                             // which the amount sanitiser would read as other digits.
-                            // BigInt prints every digit. The exact box beside this
-                            // stays the precise control for amounts past 2^53.
-                            onValueChange={([next]) =>
+                            // BigInt prints every digit. Past 2^53 the far end can
+                            // round below the balance, so it stages the exact
+                            // balance. The exact box beside this stays the precise
+                            // control for amounts in between.
+                            onValueChange={([next = 0]) =>
                               updateSttTransferAmount(
                                 asset.unit,
-                                BigInt(Math.round(next ?? 0)).toString(),
+                                next >= Number(asset.quantity)
+                                  ? asset.quantity
+                                  : BigInt(Math.round(next)).toString(),
                                 asset.quantity
                               )
                             }
                             thumbProps={{
                               id: `userSttTransferAmountRange-${controlId}`,
-                              "aria-labelledby": `userSttTransferAmountRange-${controlId}-label`
+                              "aria-labelledby": `userSttTransferAmountRange-${controlId}-label`,
+                              // The value is lovelace on ADA rows; read out what the
+                              // row shows instead.
+                              "aria-valuetext": `${shownAmount} ${resolveAssetIdentity(asset.unit).symbol}`
                             }}
                           />
                           <p className="wrap-anywhere text-xs text-muted-foreground">
