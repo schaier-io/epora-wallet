@@ -5,7 +5,7 @@ import { useEffect, useEffectEvent, useRef } from "react";
 
 import { CheckCircle2, ExternalLink, Loader2, Search } from "lucide-react";
 import { usePoolLookup, usePoolSearch } from "@/lib/query/pools";
-import { PoolIdSchema, type PoolsResponseDto } from "@/lib/api/pools";
+import { POOL_SEARCH_QUERY_MAX_LENGTH, PoolIdSchema, type PoolsResponseDto } from "@/lib/api/pools";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -66,10 +66,13 @@ export function PoolFinder({
   };
   const openTopLater = useEffectEvent(openTop);
   useEffect(() => {
-    if (!enterPending.current || !search.fresh) return;
+    if (!enterPending.current) return;
+    // A failed search ends the wait, so a later refetch cannot open a pool unasked.
+    if (search.failed) enterPending.current = false;
+    if (!search.fresh) return;
     enterPending.current = false;
     openTopLater();
-  }, [search.fresh]);
+  }, [search.fresh, search.failed]);
   const error = failure?.kind === "empty" ? i18n("typeToSearch")
     : failure?.kind === "response" ? failure.message ?? i18n("poolLookupFailed")
     : failure?.kind === "network" ? i18n("couldnTReachThePoolLookupTryAgain_fb9241")
@@ -99,6 +102,8 @@ export function PoolFinder({
               }
             }}
             placeholder={i18n("searchPlaceholder")}
+            // The server rejects a longer search; a pool id is 56 characters.
+            maxLength={POOL_SEARCH_QUERY_MAX_LENGTH}
             className="font-mono text-xs"
           />
           <Button type="button" variant="secondary" onClick={submit} disabled={loading}>

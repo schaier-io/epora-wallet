@@ -456,3 +456,41 @@ it("opens the top match when Enter comes before the matches do", async () => {
   expect(await screen.findByRole("button", { name: "Pick this pool" })).toBeInTheDocument();
   expect(lookup).toHaveBeenCalledWith(`/api/v1/pools?id=${BASE_POOL.poolId}`, expect.anything());
 });
+
+it("forgets a pending Enter when the search fails, so a later refetch opens nothing", async () => {
+  let failSearch = true;
+  const lookup = vi.fn<FetchImpl>(async () => new Response(JSON.stringify({ pool: BASE_POOL })));
+  vi.stubGlobal("fetch", vi.fn((url: string, init: RequestInit) => {
+    if (url === "/api/v1/pools/search?q=") return Promise.resolve(new Response(JSON.stringify({ pools: [] })));
+    if (url.startsWith("/api/v1/pools/search")) {
+      return Promise.resolve(failSearch
+        ? new Response(JSON.stringify({ error: "bad" }), { status: 400 })
+        : new Response(JSON.stringify({ pools: [{
+            poolId: BASE_POOL.poolId, ticker: "EPORA", name: "Epora", saturation: 0.1,
+            liveStakeLovelace: "1", marginPct: 0.01, fixedCostLovelace: "1", retiring: false
+          }] })));
+    }
+    return lookup(url, init);
+  }));
+  render(<PoolFinder selectedPool={null} onSelect={vi.fn()} />);
+  const input = screen.getByLabelText("Find your pool");
+  fireEvent.change(input, { target: { value: "epo" } });
+  fireEvent.keyDown(input, { key: "Enter" });
+  await screen.findByText("Couldn't load the pool list. You can still paste a pool id.");
+
+  failSearch = false;
+  await context.queryClient.refetchQueries({ queryKey: ["pool-search"] });
+  await screen.findByRole("button", { name: /\[EPORA\]/ });
+  // Opening a pool writes its id into the box at once and fetches it a render later.
+  await new Promise((resolve) => setTimeout(resolve, 100));
+
+  expect(input).toHaveValue("epo");
+  expect(lookup).not.toHaveBeenCalled();
+});
+
+it("caps the box at the longest search the server accepts", () => {
+  stubFetch(vi.fn<FetchImpl>());
+  render(<PoolFinder selectedPool={null} onSelect={vi.fn()} />);
+
+  expect(screen.getByLabelText("Find your pool")).toHaveAttribute("maxLength", "64");
+});
