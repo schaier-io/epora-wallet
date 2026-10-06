@@ -62,7 +62,9 @@ export function PoolFinder({
   const submit = () => {
     if (isPoolId || !query.trim()) return lookup();
     if (search.fresh) openTop();
-    else enterPending.current = true;
+    // After a failed search nothing would end the wait, and a later refetch, such as on
+    // window focus, would open a pool long after the key press.
+    else if (!search.failed) enterPending.current = true;
   };
   const openTopLater = useEffectEvent(openTop);
   useEffect(() => {
