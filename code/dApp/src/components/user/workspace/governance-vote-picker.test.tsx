@@ -1,8 +1,9 @@
 import type { ReactElement } from "react";
-import { fireEvent, render as renderUI, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render as renderUI, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createQueryTestWrapper } from "@/test/query-client";
 import { retryQuery } from "@/lib/query/client";
+import { queryKeys } from "@/lib/query/keys";
 import type { GovernanceAction } from "@/lib/api/governance-actions";
 
 const holder = vi.hoisted(() => ({
@@ -54,17 +55,39 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function stubLookup(action: GovernanceAction) {
-  const fetchMock = vi.fn(async () => new Response(JSON.stringify({ action })));
+const OPEN_ACTION: GovernanceAction = {
+  ...ACTION,
+  id: "gov_action1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq",
+  txHash: "cd".repeat(32),
+  index: 0,
+  type: "info_action",
+  title: "Raise the DRep activity window",
+  abstract: "An info action.",
+  expirationEpoch: 330
+};
+
+/** `open` answers the open-actions list; `lookup` answers every single-action lookup. */
+function stubFetch(lookup: GovernanceAction, open: GovernanceAction[] = []) {
+  const fetchMock = vi.fn(async (url: string) =>
+    url.endsWith("/active")
+      ? new Response(JSON.stringify({ actions: open }))
+      : new Response(JSON.stringify({ action: lookup }))
+  );
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
+}
+const stubLookup = (action: GovernanceAction) => stubFetch(action);
+const lookupCalls = (fetchMock: ReturnType<typeof stubFetch>) =>
+  fetchMock.mock.calls.filter(([url]) => !url.endsWith("/active"));
+
+function paste(text: string) {
+  fireEvent.change(screen.getByLabelText("Governance action"), { target: { value: text } });
 }
 
 async function lookUp(pasted: string, action = ACTION) {
   const fetchMock = stubLookup(action);
   render(<GovernanceVotePicker />);
-  fireEvent.change(screen.getByLabelText("Governance action"), { target: { value: pasted } });
-  fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
+  paste(pasted);
   await waitFor(() => expect(screen.getByText(action.title ?? "")).toBeInTheDocument());
   return fetchMock;
 }
@@ -97,15 +120,35 @@ describe("finding the action", () => {
     expect(screen.getByText(/This app runs on preprod, which has only test actions/)).toBeInTheDocument();
   });
 
-  it("says so when the pasted text holds no action id, without calling the server", () => {
-    const fetchMock = stubLookup(ACTION);
+  it("treats text without an action id as a search, without calling the lookup", async () => {
+    const fetchMock = stubFetch(ACTION, [OPEN_ACTION]);
     render(<GovernanceVotePicker />);
+    await waitFor(() => expect(screen.getByText(OPEN_ACTION.title!)).toBeInTheDocument());
 
-    fireEvent.change(screen.getByLabelText("Governance action"), { target: { value: "drep1abc" } });
-    fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
+    paste("drep1abc");
 
-    expect(screen.getByRole("alert")).toHaveTextContent(/No governance action id found/);
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(await screen.findByText(/No open action matches/)).toBeInTheDocument();
+    expect(lookupCalls(fetchMock)).toHaveLength(0);
+  });
+
+  it("does not look up a half-typed gov_action1 id", async () => {
+    const fetchMock = stubFetch(ACTION);
+    render(<GovernanceVotePicker />);
+    await waitFor(() => expect(screen.getByText(/No governance actions are open/)).toBeInTheDocument());
+
+    paste(ACTION.id.slice(0, 30));
+    await new Promise((resolve) => setTimeout(resolve, 400));
+
+    expect(lookupCalls(fetchMock)).toHaveLength(0);
+  });
+
+  it("looks a bare tx hash up as its first action when no open action has it", async () => {
+    const fetchMock = await lookUp(TX_HASH);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `/api/v1/governance-actions?id=${encodeURIComponent(`${TX_HASH}#0`)}`,
+      expect.anything()
+    );
   });
 
   it("re-shows the action an existing vote already names", async () => {
@@ -123,6 +166,165 @@ describe("finding the action", () => {
   });
 });
 
+describe("the open actions", () => {
+  it("keeps a pasted action selected after the vote, when the search box changes", async () => {
+    await lookUp(`${TX_HASH}#0`);
+    fireEvent.click(screen.getByRole("button", { name: "Yes" }));
+    holder.voteJson = holder.setVoteJson.mock.calls[0][0] as string;
+
+    paste("something else");
+    await new Promise((resolve) => setTimeout(resolve, 400));
+
+    expect(screen.getByText("Fund the node")).toBeInTheDocument();
+    expect(screen.queryByText(/The vote saved now/)).not.toBeInTheDocument();
+  });
+
+  it("waits for typed text to settle before looking it up", async () => {
+    const fetchMock = stubFetch(ACTION);
+    render(<GovernanceVotePicker />);
+    await screen.findByText(/No governance actions are open/);
+
+    paste(`${TX_HASH}#1`);
+    paste(`${TX_HASH}#0`);
+
+    expect(await screen.findByText("Fund the node")).toBeInTheDocument();
+    expect(lookupCalls(fetchMock).map(([url]) => url)).toEqual([
+      `/api/v1/governance-actions?id=${encodeURIComponent(`${TX_HASH}#0`)}`
+    ]);
+  });
+
+  it("lists them, and picking one shows its card without another request", async () => {
+    const fetchMock = stubFetch(ACTION, [OPEN_ACTION]);
+    render(<GovernanceVotePicker />);
+
+    expect(await screen.findByText("Open actions (1)")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Raise the DRep activity window/ }));
+
+    expect(screen.getByRole("button", { name: /Raise the DRep activity window/ })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("An info action.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Yes" }));
+    expect((JSON.parse(holder.setVoteJson.mock.calls[0][0] as string) as { govActionId: unknown }).govActionId).toEqual({
+      txHash: OPEN_ACTION.txHash,
+      txIndex: 0
+    });
+    expect(lookupCalls(fetchMock)).toHaveLength(0);
+  });
+
+  it("filters them by title, type or tx hash", async () => {
+    stubFetch(ACTION, [OPEN_ACTION, { ...ACTION, id: `${ACTION.id.slice(0, -1)}x` }]);
+    render(<GovernanceVotePicker />);
+    expect(await screen.findByText("Open actions (2)")).toBeInTheDocument();
+
+    paste("treasury");
+    expect(screen.getByRole("button", { name: /Fund the node/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Raise the DRep/ })).not.toBeInTheDocument();
+
+    paste(OPEN_ACTION.txHash);
+    expect(screen.getByRole("button", { name: /Raise the DRep/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Fund the node/ })).not.toBeInTheDocument();
+  });
+
+  it("selects a pasted id from the list when that action is open", async () => {
+    const fetchMock = stubFetch(ACTION, [OPEN_ACTION]);
+    render(<GovernanceVotePicker />);
+    await screen.findByText("Open actions (1)");
+
+    paste(`${OPEN_ACTION.txHash}#0`);
+
+    expect(await screen.findByText("An info action.")).toBeInTheDocument();
+    expect(lookupCalls(fetchMock)).toHaveLength(0);
+  });
+
+  it("says so when the list cannot load, and still accepts a pasted id", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url: string) =>
+      url.endsWith("/active")
+        ? new Response(JSON.stringify({ error: "down" }), { status: 502 })
+        : new Response(JSON.stringify({ action: ACTION }))
+    ));
+    render(<GovernanceVotePicker />);
+
+    expect(await screen.findByText(/Couldn't load the open actions/)).toBeInTheDocument();
+    paste(`${TX_HASH}#0`);
+    expect(await screen.findByText("Fund the node")).toBeInTheDocument();
+  });
+});
+
+describe("an open list that keeps failing", () => {
+  it("stops waiting for it after one failed attempt, so a pasted id still loads", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url: string) =>
+      url.endsWith("/active")
+        ? new Response(JSON.stringify({ error: "down" }), { status: 502 })
+        : new Response(JSON.stringify({ action: ACTION }))
+    ));
+    // The app's retry policy, with a delay long enough that a wait for all retries would time out.
+    context.queryClient.setDefaultOptions({ queries: { retry: retryQuery, retryDelay: 60_000 } });
+    render(<GovernanceVotePicker />);
+
+    expect(await screen.findByText(/Couldn't load the open actions/)).toBeInTheDocument();
+    expect(screen.getByText("Open actions")).toBeInTheDocument();
+    paste(`${TX_HASH}#3`);
+
+    expect(await screen.findByText("Fund the node")).toBeInTheDocument();
+  });
+});
+
+describe("a failed open list that fetches again", () => {
+  it("keeps accepting a pasted tx hash while the new attempt runs", async () => {
+    let listCalls = 0;
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      if (!url.endsWith("/active")) return new Response(JSON.stringify({ action: ACTION }));
+      listCalls += 1;
+      // The first attempt fails; the refetch never answers.
+      return listCalls === 1
+        ? new Response(JSON.stringify({ error: "down" }), { status: 502 })
+        : new Promise<Response>(() => {});
+    }));
+    render(<GovernanceVotePicker />);
+    await screen.findByText(/Couldn't load the open actions/);
+
+    void context.queryClient.refetchQueries({ queryKey: queryKeys.activeGovernanceActions() });
+    paste(TX_HASH);
+
+    expect(await screen.findByText("Fund the node")).toBeInTheDocument();
+    expect(listCalls).toBe(2);
+  });
+});
+
+describe("an open list whose background refetch fails", () => {
+  it("keeps showing the list it already has", async () => {
+    stubFetch(ACTION, [OPEN_ACTION]);
+    render(<GovernanceVotePicker />);
+    expect(await screen.findByText("Open actions (1)")).toBeInTheDocument();
+
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ error: "down" }), { status: 502 })));
+    await act(() => context.queryClient.refetchQueries());
+    // Query batches observer updates on a timer; let the error reach the component.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+
+    expect(context.queryClient.getQueryState(queryKeys.activeGovernanceActions())?.status).toBe("error");
+    expect(screen.getByText("Open actions (1)")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Raise the DRep activity window/ })).toBeInTheDocument();
+    expect(screen.queryByText(/Couldn't load the open actions/)).not.toBeInTheDocument();
+  });
+});
+
+describe("a pasted id that is not found", () => {
+  it("shows the not-found alert without the no-match hint", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url: string) =>
+      url.endsWith("/active")
+        ? new Response(JSON.stringify({ actions: [OPEN_ACTION] }))
+        : new Response(JSON.stringify({ error: "Governance action not found on this network." }), { status: 404 })
+    ));
+    render(<GovernanceVotePicker />);
+    await screen.findByText("Open actions (1)");
+
+    paste(`${"ef".repeat(32)}#3`);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("No governance action with that id on this network.");
+    expect(screen.queryByText(/No open action matches/)).not.toBeInTheDocument();
+  });
+});
+
 describe("a saved vote the card does not show", () => {
   const savedOn = (txHash: string, drepId: string) => JSON.stringify({
     voter: { type: "DRep", drepId },
@@ -136,8 +338,7 @@ describe("a saved vote the card does not show", () => {
     render(<GovernanceVotePicker />);
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
 
-    fireEvent.change(screen.getByLabelText("Governance action"), { target: { value: `${TX_HASH}#0` } });
-    fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
+    paste(`${TX_HASH}#0`);
 
     await waitFor(() => expect(screen.getByText(/The vote saved now is Yes on action abababab/)).toBeInTheDocument());
     expect(screen.getByRole("button", { name: "Yes" })).toHaveAttribute("aria-pressed", "false");
@@ -163,8 +364,7 @@ describe("a saved vote the card does not show", () => {
     render(<GovernanceVotePicker />);
     await waitFor(() => expect(screen.getByText("Fund the node")).toBeInTheDocument());
 
-    fireEvent.change(screen.getByLabelText("Governance action"), { target: { value: `${"ef".repeat(32)}#1` } });
-    fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
+    paste(`${"ef".repeat(32)}#1`);
 
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/No governance action/));
     expect(screen.getByRole("status")).toHaveTextContent(/The vote saved now is Yes on action 0ecc74fe/);
@@ -184,20 +384,21 @@ describe("a saved vote the card does not show", () => {
 
 describe("a lookup the server refused", () => {
   it("does not retry a 404, so not-found shows at once", async () => {
-    const fetchMock = vi.fn(async () =>
-      new Response(JSON.stringify({ error: "Governance action not found on this network." }), { status: 404 })
+    const fetchMock = vi.fn(async (url: string) =>
+      url.endsWith("/active")
+        ? new Response(JSON.stringify({ actions: [] }))
+        : new Response(JSON.stringify({ error: "Governance action not found on this network." }), { status: 404 })
     );
     vi.stubGlobal("fetch", fetchMock);
     // The test wrapper turns retries off; put the app's own policy back so a retry would show.
     context.queryClient.setDefaultOptions({ queries: { retry: retryQuery, retryDelay: 0 } });
     render(<GovernanceVotePicker />);
 
-    fireEvent.change(screen.getByLabelText("Governance action"), { target: { value: `${TX_HASH}#0` } });
-    fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
+    paste(`${TX_HASH}#0`);
 
     // The reader's own language, not the server's English text.
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("No governance action with that id on this network."));
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(lookupCalls(fetchMock)).toHaveLength(1);
   });
 });
 
@@ -243,8 +444,7 @@ describe("an empty vote the validator rejected", () => {
   it("moves the reason to the vote buttons once an action is shown", async () => {
     stubLookup(ACTION);
     render(<GovernanceVotePicker error={MESSAGE} />);
-    fireEvent.change(screen.getByLabelText("Governance action"), { target: { value: `${TX_HASH}#0` } });
-    fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
+    paste(`${TX_HASH}#0`);
 
     await waitFor(() => expect(screen.getByText("Fund the node")).toBeInTheDocument());
     expect(screen.getByLabelText("Governance action")).not.toHaveAttribute("aria-invalid");
