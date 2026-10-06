@@ -39,6 +39,14 @@ import { cn } from "@/lib/utils/cn";
 // never written: pressing Spender there goes through `withPersonUserEdited` instead.
 const NO_USER = { id: "", wallets: [], perDayAllowance: [], remainingAllowance: [] } as unknown as UserFormState;
 
+/** What a control is called: a field by its label, a button by its text. */
+function controlName(element: Element | null): string | null {
+  if (element instanceof HTMLInputElement || element instanceof HTMLSelectElement || element instanceof HTMLTextAreaElement) {
+    return element.labels?.[0]?.textContent ?? element.getAttribute("aria-label");
+  }
+  return element?.textContent ?? null;
+}
+
 /**
  * One person: a line with what they may do, and, once opened, a chip per permission
  * with that permission's settings underneath. The chips speak in people's terms; the
@@ -74,7 +82,7 @@ export function PersonRow({
   const records = value.users.length + value.beneficiaries.length;
   // Records join into one person through a shared wallet, so a person without one
   // cannot gain the second record yet: it would show up as somebody else.
-  const hasWallet = wallets.length > 0;
+  const hasWallet = wallets.some((wallet) => wallet.trim().length > 0);
   // A contact who gains a user permission brings their wallets into `users`.
   const canAddUser =
     user !== null ||
@@ -97,12 +105,21 @@ export function PersonRow({
   // A permission that moves the person to another record also moves their row, which
   // remounts it. Focus follows the pressed chip into the new row.
   const moveRow = (key: string | null) => {
-    const pressedName = document.activeElement instanceof HTMLElement ? document.activeElement.textContent : null;
+    const active = document.activeElement;
+    const fromThisRow = active?.closest(`[data-person-key="${person.key}"]`) != null;
+    const name = controlName(active);
     onOpenChange(key);
-    if (!key || key === person.key || !pressedName) return;
+    if (!key || key === person.key || !fromThisRow) return;
     requestAnimationFrame(() => {
-      const buttons = document.querySelectorAll<HTMLButtonElement>(`[data-person-key="${key}"] button`);
-      Array.from(buttons).find((button) => button.textContent === pressedName)?.focus();
+      const row = document.querySelector(`[data-person-key="${key}"]`);
+      const controls = Array.from(row?.querySelectorAll<HTMLElement>("button, input, select, textarea") ?? []);
+      const usable = (control: HTMLElement) =>
+        !control.hasAttribute("disabled") && control.closest("details:not([open])") === null;
+      // The same control when the new row can take focus there, else the row's own toggle.
+      const target =
+        controls.find((control) => name !== null && usable(control) && controlName(control) === name) ??
+        row?.querySelector<HTMLElement>("button[aria-expanded]");
+      target?.focus();
     });
   };
   const editUser = (edit: (user: UserFormState) => UserFormState) => {

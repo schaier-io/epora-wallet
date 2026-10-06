@@ -215,6 +215,33 @@ describe("recovery contacts behind the same row", () => {
     expect(chip("Co-signer")).toBeDisabled();
   });
 
+  it("moves focus to the contact row's toggle when the pressed chip is disabled there", async () => {
+    renderList(formWith({ users: [user("0", [KEY_A])] }), "user-0");
+    chip("Recovery contact").focus();
+    fireEvent.click(chip("Recovery contact"));
+    expect(latest.users).toHaveLength(0);
+    await waitFor(() => expect(document.activeElement).toHaveAccessibleName(/^Hide details for/));
+  });
+
+  it("keeps focus in the contact row when a payout address splits the person", async () => {
+    renderList(
+      formWith({
+        users: [user("0", [KEY_A], { canRenewProofOfLife: true })],
+        beneficiaries: [{ ...createDefaultBeneficiaryFormState("0"), wallets: [KEY_A] }]
+      }),
+      "user-0"
+    );
+    const field = screen.getByLabelText("Payout and signing wallet");
+    field.focus();
+    fireEvent.change(field, { target: { value: ADDRESS_C } });
+    await waitFor(() => expect(document.activeElement?.closest("[data-person-key]")).toHaveAttribute("data-person-key", "contact-0"));
+  });
+
+  it("does not count an empty wallet row as a wallet", () => {
+    renderList(formWith({ users: [user("0", [""], { canRenewProofOfLife: true })] }), "user-0");
+    expect(chip("Recovery contact")).toBeDisabled();
+  });
+
   it("offers no second record to a person without a wallet", () => {
     renderList(formWith({ users: [user("0", [], { canRenewProofOfLife: true })] }), "user-0");
     expect(chip("Recovery contact")).toBeDisabled();
