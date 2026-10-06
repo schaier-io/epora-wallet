@@ -12,9 +12,8 @@ import { Label } from "@/components/ui/label";
 import { InlineFieldError } from "@/components/user/workspace/editors";
 import { getFirstFieldError } from "@/components/user/workspace/helpers";
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
-import { usePublishForm } from "@/components/user/workspace/forms/use-publish-form";
 import { useVotingDelegate } from "@/components/user/workspace/forms/use-voting-delegate";
-import { readVoteDelegationJson, type DelegateChoice } from "@/lib/governance/vote-delegation";
+import type { DelegateChoice } from "@/lib/governance/vote-delegation";
 import { useDrepLookup } from "@/lib/query/dreps";
 import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 import { shortenIdentifier } from "@/lib/utils/explorer";
@@ -36,22 +35,16 @@ const PREDEFINED_DREP_KEYS: Record<string, "choiceAlwaysAbstain" | "choiceAlways
   drep_always_no_confidence: "choiceAlwaysNoConfidence"
 };
 
+function keyOf(choice: DelegateChoice): string {
+  return choice.kind === "drep" ? `drep:${choice.drepId}` : choice.kind;
+}
+
 /**
  * "Voting delegate": hands this wallet's voting power to a DRep, or to one of the two
  * predefined options. The choice is written as a Mesh certificate into the publish form,
  * so the builder, validation and co-signing request keep reading one payload.
- *
- * Keyed on the saved DRep, so a certificate that arrives while the form is open (a draft
- * restore, a reset) re-seeds the local lookup state instead of showing a stale card.
  */
 export function WalletPublishConfigView() {
-  const { publishCertificateJson } = usePublishForm();
-  const saved = readVoteDelegationJson(publishCertificateJson);
-  const savedDrepId = saved?.choice.kind === "drep" ? saved.choice.drepId : null;
-  return <VotingDelegateForm key={savedDrepId ?? ""} />;
-}
-
-function VotingDelegateForm() {
   const i18n = useTranslations("ComponentsUserWorkspaceConfigWalletpublishView");
   const { activeFieldErrors } = useWorkspaceActions();
   const delegate = useVotingDelegate();
@@ -62,6 +55,25 @@ function VotingDelegateForm() {
   const [browsingDrep, setBrowsingDrep] = useState(savedDrepId !== null);
   const lookup = useDrepLookup(savedDrepId);
   const { result } = lookup;
+
+  // A choice saved from elsewhere (a draft restore, a reset) re-seeds the local state. The
+  // form's own writes do not: re-seeding then would replace a pasted link, and a remount
+  // would drop the focus of the button the reader just pressed.
+  const savedKey = saved ? keyOf(saved.choice) : "";
+  const [seenKey, setSeenKey] = useState(savedKey);
+  const [ownKey, setOwnKey] = useState<string | null>(null);
+  if (savedKey !== seenKey) {
+    setSeenKey(savedKey);
+    if (savedKey !== ownKey) {
+      setOwnKey(null);
+      setBrowsingDrep(savedDrepId !== null);
+      if (savedDrepId) lookup.seed(savedDrepId);
+    }
+  }
+  const write = (choice: DelegateChoice) => {
+    setOwnKey(keyOf(choice));
+    delegate.choose(choice);
+  };
 
   const validationError =
     getFirstFieldError(activeFieldErrors, "Certificate JSON") ??
@@ -86,10 +98,13 @@ function VotingDelegateForm() {
     kind === "drep" ? browsingDrep : !browsingDrep && saved?.choice.kind === kind;
   const pick = (kind: ChoiceKind) => {
     setBrowsingDrep(kind === "drep");
-    if (kind !== "drep") delegate.choose({ kind });
+    if (kind !== "drep") write({ kind });
     // A saved predefined choice must not ride along while "A DRep" shows as picked: Build
     // would send it. Nothing is saved until the reader confirms a DRep.
-    else if (saved && saved.choice.kind !== "drep") delegate.clear();
+    else if (saved && saved.choice.kind !== "drep") {
+      setOwnKey("");
+      delegate.clear();
+    }
   };
   const savedLabel = !saved ? ""
     : saved.choice.kind !== "drep" ? i18n(saved.choice.kind === "alwaysAbstain" ? "choiceAlwaysAbstain" : "choiceAlwaysNoConfidence")
@@ -220,7 +235,7 @@ function VotingDelegateForm() {
                   variant={resultChosen ? "default" : "outline"}
                   aria-pressed={resultChosen}
                   disabled={result.status === "retired" || !delegate.ready}
-                  onClick={() => delegate.choose({ kind: "drep", drepId: result.drepId })}
+                  onClick={() => write({ kind: "drep", drepId: result.drepId })}
                 >
                   {resultChosen ? <CheckCircle2 className="h-4 w-4" /> : null}
                   {i18n("delegateToThisDrep")}

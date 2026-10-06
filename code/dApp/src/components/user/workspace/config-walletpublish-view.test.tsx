@@ -169,6 +169,24 @@ describe("choosing a DRep", () => {
     expect(written()).toEqual({ type: "VoteDelegation", stakeKeyAddress: STAKE, drep: { dRepId: DREP_ID } });
   });
 
+  it("keeps the pressed button in place, so focus is not lost", async () => {
+    // Review finding: keying the form on the saved DRep remounted it on the reader's own
+    // click, dropping focus to <body> and swapping the pasted link for the bare id.
+    stubChain();
+    renderView();
+    await ready();
+    const link = `https://explorer.example/drep/${DREP_ID}`;
+    await lookUp(link);
+    await waitFor(() => expect(screen.getByText("Ada Lovelace")).toBeInTheDocument());
+    const button = screen.getByRole("button", { name: /Delegate to this DRep/ });
+
+    fireEvent.click(button);
+
+    expect(button.isConnected).toBe(true);
+    expect(button).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByLabelText("Find your DRep")).toHaveValue(link);
+  });
+
   it("does not delegate to a retired DRep", async () => {
     stubChain({ drep: { ...DREP, status: "retired" } });
     renderView();
