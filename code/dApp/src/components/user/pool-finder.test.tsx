@@ -9,7 +9,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { PoolFinder, type StakePool } from "@/components/user/pool-finder";
 
 const BASE_POOL: StakePool = {
-  poolId: "pool1abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmn",
+  poolId: "pool1abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmno",
   ticker: "EPORA",
   name: "Epora Pool",
   homepage: null,
@@ -364,4 +364,77 @@ it("does not let Enter open a row left over from the previous search", async () 
 
   expect(screen.getByRole("button", { name: /\[OLD\]/ })).toBeInTheDocument();
   expect(lookup).not.toHaveBeenCalled();
+});
+
+describe("review fixes", () => {
+  const OTHER_ID = "pool1zyxwvutsrqponmlkjihgfedcba9876543210zyxwvutsrqponml";
+  const summary = (poolId: string, ticker: string) => ({
+    poolId, ticker, name: ticker, saturation: 0.1, liveStakeLovelace: "1",
+    marginPct: 0.01, fixedCostLovelace: "1", retiring: false
+  });
+
+  it("searches a partial pool id instead of treating it as a full one", async () => {
+    const lookup = vi.fn<FetchImpl>(async () => new Response(JSON.stringify({ pool: BASE_POOL })));
+    const fetchMock = stubFetch(lookup, [summary(BASE_POOL.poolId, "EPORA")]);
+    render(<PoolFinder selectedPool={null} onSelect={vi.fn()} />);
+
+    fireEvent.change(screen.getByLabelText("Find your pool"), { target: { value: "pool1abc" } });
+
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.map(([url]) => url)).toContain("/api/v1/pools/search?q=pool1abc")
+    );
+    expect(await screen.findByRole("button", { name: /\[EPORA\]/ })).toBeInTheDocument();
+    expect(lookup).not.toHaveBeenCalled();
+  });
+
+  it("shows the second row clicked, not the first, when the first is still loading", async () => {
+    const pending = new Map<string, (response: Response) => void>();
+    const lookup = vi.fn<FetchImpl>((url) => new Promise<Response>((resolve) => pending.set(url, resolve)));
+    stubFetch(lookup, [summary(BASE_POOL.poolId, "FIRST"), summary(OTHER_ID, "SECOND")]);
+    render(<PoolFinder selectedPool={null} onSelect={vi.fn()} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /\[FIRST\]/ }));
+    // The first click put a full id in the box, which hides the list; typing brings it back.
+    fireEvent.change(screen.getByLabelText("Find your pool"), { target: { value: "sec" } });
+    fireEvent.click(await screen.findByRole("button", { name: /\[SECOND\]/ }));
+    await waitFor(() => expect(lookup).toHaveBeenCalledTimes(2));
+    pending.get(`/api/v1/pools?id=${OTHER_ID}`)?.(
+      new Response(JSON.stringify({ pool: { ...BASE_POOL, poolId: OTHER_ID, ticker: "SECOND" } }))
+    );
+
+    expect(await screen.findByText("[SECOND]")).toBeInTheDocument();
+    expect(screen.getByLabelText("Find your pool")).toHaveValue(OTHER_ID);
+  });
+
+  it("drops the empty-box hint once the reader types", () => {
+    stubFetch(vi.fn<FetchImpl>());
+    render(<PoolFinder selectedPool={null} onSelect={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
+    expect(screen.getByText("Type a ticker, a pool name or a pool id (pool1…).")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Find your pool"), { target: { value: "e" } });
+
+    expect(screen.queryByText("Type a ticker, a pool name or a pool id (pool1…).")).not.toBeInTheDocument();
+  });
+
+  it("drops a lookup error once the text no longer names that pool", async () => {
+    stubFetch(vi.fn<FetchImpl>(async () => new Response(JSON.stringify({ error: "Pool not found" }), { status: 404 })));
+    render(<PoolFinder selectedPool={null} onSelect={vi.fn()} />);
+    const input = screen.getByLabelText("Find your pool");
+    fireEvent.change(input, { target: { value: OTHER_ID } });
+    fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Pool not found"));
+
+    fireEvent.change(input, { target: { value: "epo" } });
+
+    expect(screen.queryByText("Pool not found")).not.toBeInTheDocument();
+  });
+
+  it("says there is nothing to suggest, not that an empty search matched nothing", async () => {
+    stubFetch(vi.fn<FetchImpl>(), []);
+    render(<PoolFinder selectedPool={null} onSelect={vi.fn()} />);
+
+    expect(await screen.findByText("No open pools to suggest right now. Search by ticker or name.")).toBeInTheDocument();
+    expect(screen.queryByText(/matches “”/)).not.toBeInTheDocument();
+  });
 });

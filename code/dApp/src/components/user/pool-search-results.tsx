@@ -45,7 +45,7 @@ export function PoolSearchResults({
       ) : pools.length === 0 ? (
         <p role="status" className="flex items-center gap-2 text-xs text-muted-foreground">
           {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-          {loading ? i18n("loading") : i18n("noMatch", { query })}
+          {loading ? i18n("loading") : query ? i18n("noMatch", { query }) : i18n("noShortlist")}
         </p>
       ) : (
         // Dimmed while the next list loads: the rows still answer the previous text.

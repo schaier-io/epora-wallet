@@ -322,6 +322,7 @@
     "retiring": "Retiring",
     "saturationValue": "{value} saturated",
     "feesValue": "{margin} margin · {fixed} fixed",
-    "unknown": "Unknown"
+    "unknown": "Unknown",
+    "noShortlist": "No open pools to suggest right now. Search by ticker or name."
   }
 }

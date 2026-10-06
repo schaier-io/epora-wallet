@@ -14,6 +14,10 @@ import { CARDANO_NETWORK, POOL_EXPLORER_URLS } from "@/lib/cardano-network";
 
 export type StakePool = PoolsResponseDto["pool"];
 
+// A complete pool id, bech32 `pool1…` or hex, is 56 characters. Anything shorter is a
+// prefix and is searched, so `pool1rkfs` lists its matches instead of failing a lookup.
+const POOL_ID_LENGTH = 56;
+
 /**
  * "Find your pool": searches pools by ticker, name or id (`/api/v1/pools/search`), and with
  * an empty box lists a random shortlist. Opening a match, or pasting a full pool id, verifies
@@ -37,7 +41,8 @@ export function PoolFinder({
   const notReported = i18n("unknown");
   const { query, setQuery, result, loading, failure, lookup } = usePoolLookup();
   // A full pool id goes straight to the exact lookup; anything else searches the index.
-  const isPoolId = PoolIdSchema.safeParse(query).success;
+  const looksLikePoolId = PoolIdSchema.safeParse(query).success;
+  const isPoolId = looksLikePoolId && query.trim().length === POOL_ID_LENGTH;
   const search = usePoolSearch(query, !isPoolId);
   const open = (poolId: string) => {
     setQuery(poolId);
@@ -48,6 +53,8 @@ export function PoolFinder({
     if (isPoolId || !query.trim()) return lookup();
     const top = search.pools[0];
     if (top && search.fresh) open(top.poolId);
+    // An id-shaped text with no match still gets the server's own answer.
+    else if (looksLikePoolId) lookup();
   };
   const error = failure?.kind === "empty" ? i18n("typeToSearch")
     : failure?.kind === "response" ? failure.message ?? i18n("poolLookupFailed")

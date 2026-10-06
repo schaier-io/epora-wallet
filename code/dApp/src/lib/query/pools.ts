@@ -77,12 +77,19 @@ type LookupFailure = { kind: "empty" | "network" } | { kind: "response"; message
 /** Only the search text and validation state are local; the response belongs to Query. */
 export function usePoolLookup() {
   const client = useQueryClient();
-  const [query, setQuery] = useState("");
+  const [query, setQueryText] = useState("");
   const [lookupId, setLookupId] = useState("");
   const [missingId, setMissingId] = useState(false);
   const pool = useQuery({ ...poolQueryOptions(lookupId), enabled: !!lookupId });
+  // Typing dismisses the "type something" hint; it answered the previous, empty text.
+  const setQuery = (text: string) => {
+    setQueryText(text);
+    setMissingId(false);
+  };
   const lookup = (id = query.trim()) => {
-    if (pool.isFetching) return;
+    // Drop only a repeat of the lookup in flight. A different id replaces it, or a second
+    // row clicked before the first answered showed the first pool under the second's id.
+    if (pool.isFetching && id === lookupId) return;
     setMissingId(!id);
     if (!id) return;
     if (id === lookupId) {
@@ -92,8 +99,9 @@ export function usePoolLookup() {
       setLookupId(id);
     }
   };
+  // A lookup error belongs to the id it looked up; once the text moves on, it is stale.
   const failure: LookupFailure | null = missingId ? { kind: "empty" }
-    : pool.isFetching || !pool.error ? null
+    : pool.isFetching || !pool.error || query.trim() !== lookupId ? null
     : pool.error instanceof PoolLookupError ? { kind: "response", message: pool.error.serverMessage }
     : { kind: "network" };
   return { query, setQuery, result: pool.data ?? null, loading: pool.isFetching, failure, lookup };
