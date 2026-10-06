@@ -4,6 +4,22 @@
 export { ApiErrorSchema, type ApiError } from "./errors";
 export { HealthResponseSchema, type HealthResponse } from "./health";
 export {
+  AccountsQuerySchema,
+  AccountsResponseSchema,
+  StakeAddressSchema,
+  STAKE_ADDRESS_INVALID_MESSAGE,
+  STAKE_ADDRESS_MISSING_MESSAGE,
+  type AccountsResponseDto
+} from "./accounts";
+export {
+  DrepIdSchema,
+  DrepsQuerySchema,
+  DrepsResponseSchema,
+  DREP_ID_INVALID_MESSAGE,
+  DREP_ID_MISSING_MESSAGE,
+  type DrepsResponseDto
+} from "./dreps";
+export {
   GovernanceActionIdSchema,
   GovernanceActionsQuerySchema,
   GovernanceActionsResponseSchema,

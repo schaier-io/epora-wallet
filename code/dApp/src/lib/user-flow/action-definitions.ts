@@ -91,9 +91,9 @@ const USER_ACTION_UX_METADATA: Record<UserActionKind, TaskUxMetadata> = {
     routeExplanation: i18n("consolidateRouteExplanation")
   },
   "wallet-publish": {
-    receiptSummary: i18n("publishReceiptSummary"),
+    receiptSummary: i18n("votingDelegateReceiptSummary"),
     setupCTA: i18n("finishSetup"),
-    routeExplanation: i18n("publishRouteExplanation")
+    routeExplanation: i18n("votingDelegateRouteExplanation")
   },
   "wallet-vote": {
     receiptSummary: i18n("voteReceiptSummary"),
@@ -323,17 +323,17 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
   },
   {
     kind: "wallet-publish",
-    label: i18n("publishCertificate"),
-    shortLabel: i18n("publish"),
-    description: i18n("registerTheWalletForStakingOrGovernance"),
+    label: i18n("chooseAVotingDelegate"),
+    shortLabel: i18n("votingDelegate"),
+    description: i18n("votingDelegateDescription"),
     outcome:
-      i18n("sendsTheCertificateYouPasteToCardanoOn"),
-    whenToUse: i18n("publishWhenToUse"),
+      i18n("votingDelegateOutcome"),
+    whenToUse: i18n("votingDelegateWhenToUse"),
     whatChanges:
-      i18n("publishesTheCertificateAndCarriesTheWalletState"),
+      i18n("votingDelegateWhatChanges"),
     pathLabels: [i18n("owner"), i18n("coSigners")],
     surfaceLabel: i18n("governance"),
-    startingPoint: i18n("publishStartingPoint"),
+    startingPoint: i18n("votingDelegateStartingPoint"),
     icon: FileText,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference", "locking-contract"],
     risk: "high"

@@ -6,6 +6,7 @@ import type {
 import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 import { formatCountLabel } from "@/components/user/workspace/helpers/formatters";
 import { DEFAULT_WITHDRAWAL_LOVELACE } from "@/lib/units/lovelace";
+import { readVoteDelegationJson } from "@/lib/governance/vote-delegation";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/ComponentsUserGuidedActionAdapters.json";
 
@@ -318,14 +319,14 @@ export function buildGuidedActionDrafts(
         context.walletPublish.certificateJson.trim().length > 0 ||
         context.walletPublish.sttInputHash.trim().length > 0,
       ready: !context.actionReadinessMap["wallet-publish"].some((issue) => issue.blocking),
-      summary: i18n("value1PathAdvancedCertificatePayload", { value1: pathLabel(context.walletPublish.authorityPath) }),
+      summary: i18n("value1PathVotingDelegate", { value1: pathLabel(context.walletPublish.authorityPath) }),
       blockingHint: getBlockingHint(context.actionReadinessMap["wallet-publish"]),
       nextStep:
         context.walletPublish.sttInputHash.trim().length === 0
           ? i18n("chooseASmartWalletFirstOrSetIts")
-          : context.walletPublish.certificateJson.trim().length === 0
-            ? i18n("pasteTheCertificateJsonYouWantToPublish")
-            : i18n("reviewTheWrapperStateAndBuildTheCertificate")
+          : !readVoteDelegationJson(context.walletPublish.certificateJson)
+            ? i18n("chooseAVotingDelegate")
+            : i18n("reviewTheWalletStateAndBuildTheDelegation")
     },
     "wallet-vote": {
       dirty:

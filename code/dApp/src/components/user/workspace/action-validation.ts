@@ -21,6 +21,7 @@ import { type DetectedSttToken } from "@/lib/mesh/detection";
 import { getValidityWindow } from "@/lib/mesh/transactions";
 import { type Asset, type AuthorityPath, type ConsolidateAuthorityPath, type OperatorAuthorityPath, type PayoutTransfer, type WalletInputRef } from "@/lib/types/contracts";
 import { computeSpendActionErrors } from "@/components/user/workspace/action-validation-spend";
+import { readVoteDelegationJson } from "@/lib/governance/vote-delegation";
 import { createDefaultTranslator } from "@/i18n/default-translator";
 import defaultMessages from "@/i18n/generated/default-en/ComponentsUserWorkspaceActionValidation.json";
 
@@ -380,22 +381,10 @@ export function computeActionFieldErrors(
       : cloneStateForm(publishSttStateForm);
     validateAssetRows(publishErrors, i18n("forwardedSttAssets"), publishSttAssets);
     try {
-      // `{}` parses, so the old check passed it straight through to a wallet signature on a
-      // certificate with no content. A certificate is identified by its `type`, and nothing
-      // downstream can do anything useful without one.
-      const parsedCertificate: unknown = JSON.parse(publishCertificateJson);
-      if (
-        typeof parsedCertificate !== "object" ||
-        parsedCertificate === null ||
-        Array.isArray(parsedCertificate) ||
-        typeof (parsedCertificate as { type?: unknown }).type !== "string" ||
-        (parsedCertificate as { type: string }).type.trim().length === 0
-      ) {
-        pushFieldError(
-          publishErrors,
-          i18n("certificateJson"),
-          i18n("thisCertificateHasNoTypeSoThereIs")
-        );
+      // The tab only sends voting delegations. `{}` (an untouched or cleared form), a broken
+      // payload, and any other certificate type from an older draft all mean nothing was chosen.
+      if (!readVoteDelegationJson(publishCertificateJson)) {
+        pushFieldError(publishErrors, i18n("certificateJson"), i18n("chooseAVotingDelegate"));
       }
       const publishStateDatum = stateFormToDatum(
         cloneStateForm(publishGovernanceStateForm),

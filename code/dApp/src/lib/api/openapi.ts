@@ -5,6 +5,8 @@ import { createDocument, type ZodOpenApiOperationObject } from "zod-openapi";
 import { z } from "zod";
 import { ApiErrorSchema } from "./errors";
 import { HealthResponseSchema } from "./health";
+import { AccountsQuerySchema, AccountsResponseSchema } from "./accounts";
+import { DrepsQuerySchema, DrepsResponseSchema } from "./dreps";
 import { GovernanceActionsQuerySchema, GovernanceActionsResponseSchema } from "./governance-actions";
 import { PoolsQuerySchema, PoolsResponseSchema } from "./pools";
 import { UPSTREAM_RETRY_AFTER_FALLBACK_SECONDS } from "@/lib/mesh/http-error";
@@ -36,6 +38,8 @@ export const API_VERSION = "1.0.0";
 const RATE_LIMITS = {
   pools: { requests: 300, windowSeconds: 60 },
   governanceActions: { requests: 300, windowSeconds: 60 },
+  dreps: { requests: 300, windowSeconds: 60 },
+  accounts: { requests: 300, windowSeconds: 60 },
   sttLookup: { requests: 600, windowSeconds: 60 },
   tx: {
     requests: TX_RATE_LIMIT_DEFAULTS.perClientRequests,
@@ -333,6 +337,46 @@ export function buildOpenApiDocument() {
             "400": jsonError("The governance action id is missing or malformed."),
             "404": jsonError("No governance action exists with that id."),
             "429": tooManyRequests(RATE_LIMITS.governanceActions, UPSTREAM_RATE_LIMITED),
+            "500": jsonError("Unexpected server error."),
+            "502": jsonError("The chain data provider is unavailable.")
+          }
+        }
+      },
+      "/api/v1/accounts": {
+        get: {
+          operationId: "getStakeAccount",
+          summary: "Look up a stake account",
+          description:
+            "Fetch a stake address's registration state and where it delegates its stake and voting power. An address the chain has never seen answers 200 with `registered: false`.",
+          tags: ["Chain"],
+          requestParams: { query: AccountsQuerySchema },
+          responses: {
+            "200": {
+              description: "The account's state.",
+              content: { "application/json": { schema: AccountsResponseSchema } }
+            },
+            "400": jsonError("The stake address is missing, malformed, or on another network."),
+            "429": tooManyRequests(RATE_LIMITS.accounts, UPSTREAM_RATE_LIMITED),
+            "500": jsonError("Unexpected server error."),
+            "502": jsonError("The chain data provider is unavailable.")
+          }
+        }
+      },
+      "/api/v1/dreps": {
+        get: {
+          operationId: "getDrep",
+          summary: "Look up a DRep",
+          description: "Fetch one DRep's registration state, voting power and CIP-119 name by id.",
+          tags: ["Chain"],
+          requestParams: { query: DrepsQuerySchema },
+          responses: {
+            "200": {
+              description: "The DRep.",
+              content: { "application/json": { schema: DrepsResponseSchema } }
+            },
+            "400": jsonError("The DRep id is missing or malformed."),
+            "404": jsonError("No DRep exists with that id."),
+            "429": tooManyRequests(RATE_LIMITS.dreps, UPSTREAM_RATE_LIMITED),
             "500": jsonError("Unexpected server error."),
             "502": jsonError("The chain data provider is unavailable.")
           }
