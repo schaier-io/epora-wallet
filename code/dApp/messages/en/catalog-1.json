@@ -547,10 +547,8 @@
     "liveStake": "Live stake",
     "lookUp": "Look up",
     "margin": "Margin",
-    "pasteAPoolIdPool1ToLookIt": "Paste a pool id (pool1…) to look it up.",
     "picked": "Picked",
     "pickThisPool": "Pick this pool",
-    "pool1": "pool1…",
     "poolLookupFailed": "Pool lookup failed.",
     "retiring": "Retiring",
     "saturation": "Saturation",
@@ -558,7 +556,9 @@
     "thisPoolIsClosing": "This pool is closing",
     "value1": "[{value1}]",
     "website": "Website",
-    "unknown": "Unknown"
+    "unknown": "Unknown",
+    "searchPlaceholder": "Ticker, name or pool1…",
+    "typeToSearch": "Type a ticker, a pool name or a pool id (pool1…)."
   },
   "ComponentsUserPreprodFaucetHint": {
     "getFreeTestAdaFromTheCardanoPreprodFaucet": "Get free test ADA from the Preprod faucet",

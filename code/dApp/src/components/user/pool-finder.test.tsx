@@ -34,15 +34,29 @@ beforeEach(() => {
   vi.unstubAllGlobals();
 });
 
+type FetchImpl = (url: string, init: RequestInit) => Promise<Response>;
+
+/**
+ * The finder searches as soon as it mounts (the empty box lists a shortlist), so every
+ * stub answers `/api/v1/pools/search` itself and hands only exact lookups to `lookupImpl`.
+ * A test that counts `lookupImpl` calls therefore counts lookups, not searches.
+ */
+function stubFetch(lookupImpl: FetchImpl, searchPools: unknown[] = []) {
+  const fetchMock = vi.fn((url: string, init: RequestInit) =>
+    url.startsWith("/api/v1/pools/search")
+      ? Promise.resolve(new Response(JSON.stringify({ pools: searchPools })))
+      : lookupImpl(url, init)
+  );
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
+
 /**
  * The card only offers the pick button for a pool that is not already picked, so every test
  * that needs it looks one up with nothing picked yet.
  */
 async function lookUp(pool: StakePool, onSelect = vi.fn()) {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async () => new Response(JSON.stringify({ pool })))
-  );
+  stubFetch(vi.fn(async () => new Response(JSON.stringify({ pool }))));
   const result = render(<PoolFinder selectedPool={null} onSelect={onSelect} />);
   fireEvent.change(screen.getByLabelText("Find your pool"), {
     target: { value: pool.poolId }
@@ -127,12 +141,12 @@ describe("lookup", () => {
 
   it("asks for a pool id before it calls the server", () => {
     const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
+    stubFetch(fetchMock);
     render(<PoolFinder selectedPool={null} onSelect={vi.fn()} />);
 
     fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
 
-    expect(screen.getByText("Paste a pool id (pool1…) to look it up.")).toBeInTheDocument();
+    expect(screen.getByText("Type a ticker, a pool name or a pool id (pool1…).")).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -140,7 +154,7 @@ describe("lookup", () => {
     render(<PoolFinder selectedPool={null} onSelect={vi.fn()} />);
 
     const input = screen.getByLabelText("Find your pool");
-    expect(input).toHaveAttribute("placeholder", "pool1…");
+    expect(input).toHaveAttribute("placeholder", "Ticker, name or pool1…");
     expect(screen.getByRole("link", { name: "Cardanoscan" })).toHaveAttribute(
       "href",
       "https://cardanoscan.io/pools"
@@ -168,8 +182,8 @@ describe("depth", () => {
 describe("a lookup already running", () => {
   it("ignores a second Enter until the first lookup answers", async () => {
     // The button was disabled while loading, but Enter in the box called lookup anyway.
-    const fetchMock = vi.fn(() => new Promise(() => {}));
-    vi.stubGlobal("fetch", fetchMock);
+    const fetchMock = vi.fn(() => new Promise<Response>(() => {}));
+    stubFetch(fetchMock);
     render(<PoolFinder selectedPool={null} onSelect={vi.fn()} />);
     const input = screen.getByLabelText("Find your pool");
     fireEvent.change(input, { target: { value: BASE_POOL.poolId } });
@@ -184,7 +198,7 @@ it("reuses a fresh lookup and refreshes it after the chain freshness window", as
   const now = Date.now();
   const date = vi.spyOn(Date, "now").mockReturnValue(now);
   const fetchMock = vi.fn(async () => new Response(JSON.stringify({ pool: BASE_POOL })));
-  vi.stubGlobal("fetch", fetchMock);
+  stubFetch(fetchMock);
   render(<PoolFinder selectedPool={null} onSelect={vi.fn()} />);
   fireEvent.change(screen.getByLabelText("Find your pool"), { target: { value: BASE_POOL.poolId } });
   fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
@@ -198,7 +212,7 @@ it("reuses a fresh lookup and refreshes it after the chain freshness window", as
 });
 
 it("retains the selected pool while a failed lookup reports the server error", async () => {
-  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ error: "Pool not found" }), { status: 404 })));
+  stubFetch(vi.fn(async () => new Response(JSON.stringify({ error: "Pool not found" }), { status: 404 })));
   render(<PoolFinder selectedPool={BASE_POOL} onSelect={vi.fn()} />);
   fireEvent.change(screen.getByLabelText("Find your pool"), { target: { value: "pool1missing" } });
   fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
@@ -207,7 +221,7 @@ it("retains the selected pool while a failed lookup reports the server error", a
 });
 
 it("rejects a partial response instead of caching a malformed pool", async () => {
-  vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ pool: { poolId: BASE_POOL.poolId } }))));
+  stubFetch(vi.fn(async () => new Response(JSON.stringify({ pool: { poolId: BASE_POOL.poolId } }))));
   render(<PoolFinder selectedPool={null} onSelect={vi.fn()} />);
   fireEvent.change(screen.getByLabelText("Find your pool"), { target: { value: BASE_POOL.poolId } });
   fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
@@ -217,9 +231,9 @@ it("rejects a partial response instead of caching a malformed pool", async () =>
 
 it("aborts a lookup when its last observer unmounts", async () => {
   let signal: AbortSignal | undefined;
-  vi.stubGlobal("fetch", vi.fn((_url: string, options: RequestInit) => {
+  stubFetch(vi.fn((_url: string, options: RequestInit) => {
     signal = options.signal ?? undefined;
-    return new Promise(() => {});
+    return new Promise<Response>(() => {});
   }));
   const view = render(<PoolFinder selectedPool={null} onSelect={vi.fn()} />);
   fireEvent.change(screen.getByLabelText("Find your pool"), { target: { value: BASE_POOL.poolId } });
@@ -230,7 +244,7 @@ it("aborts a lookup when its last observer unmounts", async () => {
 });
 
 it("retains Retry-After when a rate-limited pool response contains HTML", async () => {
-  vi.stubGlobal("fetch", vi.fn(async () => new Response("<html>Rate limited</html>", {
+  stubFetch(vi.fn(async () => new Response("<html>Rate limited</html>", {
     status: 429, headers: { "Retry-After": "60" }
   })));
   const error: unknown = await context.queryClient.fetchQuery(poolQueryOptions(BASE_POOL.poolId)).catch((caught: unknown) => caught);
@@ -242,4 +256,112 @@ it("retains Retry-After when a rate-limited pool response contains HTML", async 
 it.each([1, 1.05])("explains saturation at or above capacity (%s)", (saturation) => {
   render(<PoolFinder selectedPool={{...BASE_POOL, saturation}} onSelect={vi.fn()} />);
   expect(screen.getByText("At or over capacity")).toBeInTheDocument();
+});
+
+describe("search", () => {
+  const SUMMARY = {
+    poolId: BASE_POOL.poolId,
+    ticker: "EPORA",
+    name: "Epora Pool",
+    saturation: 0.42,
+    liveStakeLovelace: "1000000000",
+    marginPct: 0.02,
+    fixedCostLovelace: "340000000",
+    retiring: false
+  };
+  const lookupOk = () => vi.fn(async () => new Response(JSON.stringify({ pool: BASE_POOL })));
+  const searchUrls = (fetchMock: ReturnType<typeof stubFetch>) =>
+    fetchMock.mock.calls.map(([url]) => url).filter((url) => url.startsWith("/api/v1/pools/search"));
+
+  it("lists the shortlist under an empty box, and says it is not a recommendation", async () => {
+    stubFetch(lookupOk(), [SUMMARY]);
+    render(<PoolFinder selectedPool={null} onSelect={vi.fn()} />);
+
+    expect(await screen.findByRole("button", { name: /\[EPORA\]/ })).toBeInTheDocument();
+    expect(screen.getByText(/This is not a recommendation/)).toBeInTheDocument();
+  });
+
+  it("opens a listed pool's card through the exact lookup, without picking it", async () => {
+    const lookup = lookupOk();
+    const onSelect = vi.fn();
+    stubFetch(lookup, [SUMMARY]);
+    render(<PoolFinder selectedPool={null} onSelect={onSelect} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /\[EPORA\]/ }));
+
+    expect(await screen.findByRole("button", { name: "Pick this pool" })).toBeInTheDocument();
+    expect(lookup).toHaveBeenCalledWith(`/api/v1/pools?id=${BASE_POOL.poolId}`, expect.anything());
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it("searches the typed text and opens the top match on Enter", async () => {
+    const fetchMock = stubFetch(lookupOk(), [SUMMARY]);
+    render(<PoolFinder selectedPool={null} onSelect={vi.fn()} />);
+    const input = screen.getByLabelText("Find your pool");
+
+    fireEvent.change(input, { target: { value: "epo" } });
+    await waitFor(() => expect(searchUrls(fetchMock)).toContain("/api/v1/pools/search?q=epo"));
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    expect(await screen.findByRole("button", { name: "Pick this pool" })).toBeInTheDocument();
+  });
+
+  it("waits for a pause in typing instead of searching every keystroke", async () => {
+    const fetchMock = stubFetch(lookupOk(), [SUMMARY]);
+    render(<PoolFinder selectedPool={null} onSelect={vi.fn()} />);
+    const input = screen.getByLabelText("Find your pool");
+
+    // Keystrokes 50ms apart: a pause, but shorter than the debounce.
+    for (const value of ["e", "ep", "epo"]) {
+      fireEvent.change(input, { target: { value } });
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    await waitFor(() => expect(searchUrls(fetchMock)).toContain("/api/v1/pools/search?q=epo"));
+
+    expect(searchUrls(fetchMock)).toEqual(["/api/v1/pools/search?q=", "/api/v1/pools/search?q=epo"]);
+  });
+
+  it("says when nothing matches", async () => {
+    stubFetch(lookupOk(), []);
+    render(<PoolFinder selectedPool={null} onSelect={vi.fn()} />);
+
+    fireEvent.change(screen.getByLabelText("Find your pool"), { target: { value: "zzz" } });
+
+    expect(await screen.findByText("No pool on this network matches “zzz”.")).toBeInTheDocument();
+  });
+
+  it("hides the list for a pasted pool id and does not search it", async () => {
+    const fetchMock = stubFetch(lookupOk(), [SUMMARY]);
+    render(<PoolFinder selectedPool={null} onSelect={vi.fn()} />);
+    await screen.findByRole("button", { name: /\[EPORA\]/ });
+
+    fireEvent.change(screen.getByLabelText("Find your pool"), { target: { value: BASE_POOL.poolId } });
+
+    expect(screen.queryByRole("button", { name: /\[EPORA\]/ })).not.toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(searchUrls(fetchMock)).toEqual(["/api/v1/pools/search?q="]);
+  });
+});
+
+it("does not let Enter open a row left over from the previous search", async () => {
+  // keepPreviousData keeps the shortlist on screen while the search for the typed text
+  // loads. Enter used to open the shortlist's top row, a pool the reader never searched.
+  const lookup = vi.fn<FetchImpl>(async () => new Response(JSON.stringify({ pool: BASE_POOL })));
+  vi.stubGlobal("fetch", vi.fn((url: string, init: RequestInit) =>
+    url === "/api/v1/pools/search?q="
+      ? Promise.resolve(new Response(JSON.stringify({ pools: [{ ...BASE_POOL, ticker: "OLD" }] })))
+      : url.startsWith("/api/v1/pools/search")
+        ? new Promise<Response>(() => {})
+        : lookup(url, init)
+  ));
+  render(<PoolFinder selectedPool={null} onSelect={vi.fn()} />);
+  await screen.findByRole("button", { name: /\[OLD\]/ });
+  const input = screen.getByLabelText("Find your pool");
+
+  fireEvent.change(input, { target: { value: "epo" } });
+  await new Promise((resolve) => setTimeout(resolve, 400));
+  fireEvent.keyDown(input, { key: "Enter" });
+
+  expect(screen.getByRole("button", { name: /\[OLD\]/ })).toBeInTheDocument();
+  expect(lookup).not.toHaveBeenCalled();
 });

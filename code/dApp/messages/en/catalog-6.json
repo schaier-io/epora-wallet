@@ -311,5 +311,17 @@
     "unrecognisedId": "No DRep id found. Paste a drep1… id.",
     "votingPower": "Voting power {power}",
     "accountWrongNetwork": "This wallet's staking address is on another network than this app."
+  },
+  "ComponentsUserPoolSearchResults": {
+    "shortlistNote": "Random picks from pools that have room for more stake. This is not a recommendation.",
+    "listFailed": "Couldn't load the pool list. You can still paste a pool id.",
+    "loading": "Loading pools…",
+    "noMatch": "No pool on this network matches “{query}”.",
+    "ticker": "[{ticker}]",
+    "noTicker": "No ticker",
+    "retiring": "Retiring",
+    "saturationValue": "{value} saturated",
+    "feesValue": "{margin} margin · {fixed} fixed",
+    "unknown": "Unknown"
   }
 }
