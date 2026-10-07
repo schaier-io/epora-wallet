@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createQueryTestWrapper } from "@/test/query-client";
 import { publishCertificateJsonAtom } from "@/components/user/workspace/atoms/forms/publish-form.atoms";
-import type { DrepsResponseDto } from "@/lib/api/dreps";
+import type { DrepsResponseDto, DrepSummary } from "@/lib/api/dreps";
 
 const STAKE = "stake_test17rphkx6acpnf78fuvxn0mkew3l0fd058hzquvz7w36x4gtcljw6kf";
 const DREP_ID = "drep1ygqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq7vlc9n";
@@ -44,10 +44,30 @@ const DREP: Drep = { drepId: DREP_ID, name: "Ada Lovelace", votingPowerLovelace:
 
 let context: ReturnType<typeof createQueryTestWrapper>;
 
-function stubChain({ registered = true, drepId = null as string | null, drep = DREP as Drep | null } = {}) {
+const OTHER_ID = "drep1ygpzpm4q38rfueu2use5te4ylykn4smvs7cxj2ggvktcjkqpxhvf4";
+const PICKS: DrepSummary[] = [
+  { drepId: DREP_ID, name: "Ada Lovelace", votingPowerLovelace: "12000000", hasScript: false, status: "active" },
+  { drepId: OTHER_ID, name: "Grace Hopper", votingPowerLovelace: "5000000", hasScript: false, status: "active" }
+];
+
+/** `search` answers `/api/v1/dreps/search` for the typed text; `null` fails it. */
+type Search = ((q: string) => DrepSummary[]) | null;
+
+function stubChain({
+  registered = true,
+  drepId = null as string | null,
+  drep = DREP as Drep | null,
+  search = ((q: string) => (q ? PICKS.filter((pick) => pick.name?.toLowerCase().includes(q.toLowerCase())) : PICKS)) as Search
+} = {}) {
   const fetchMock = vi.fn(async (url: string) => {
     if (url.startsWith("/api/v1/accounts")) {
       return new Response(JSON.stringify({ account: { stakeAddress: STAKE, registered, poolId: null, drepId } }));
+    }
+    if (url.startsWith("/api/v1/dreps/search")) {
+      const q = new URL(url, "http://x").searchParams.get("q") ?? "";
+      return search
+        ? new Response(JSON.stringify({ dreps: search(q) }))
+        : new Response(JSON.stringify({ error: "The chain data provider is unavailable." }), { status: 502 });
     }
     if (url.startsWith("/api/v1/dreps") && drep) return new Response(JSON.stringify({ drep }));
     return new Response(JSON.stringify({ error: "DRep not found on this network." }), { status: 404 });
@@ -257,6 +277,270 @@ describe("choosing a DRep", () => {
 
     await waitFor(() => expect(screen.getByText("Ada Lovelace")).toBeInTheDocument());
     expect(screen.getByRole("button", { name: /Delegate to this DRep/ })).toHaveAttribute("aria-pressed", "true");
+  });
+});
+
+describe("finding a DRep by name", () => {
+  const box = () => screen.getByLabelText("Find your DRep");
+  const searched = (fetchMock: ReturnType<typeof stubChain>) =>
+    fetchMock.mock.calls.map(([url]) => url).filter((url) => url.startsWith("/api/v1/dreps/search"));
+
+  async function browse() {
+    renderView();
+    await ready();
+    fireEvent.click(choice(/A DRep/));
+  }
+
+  it("offers random picks before the reader types, and says they are not a recommendation", async () => {
+    const fetchMock = stubChain();
+    await browse();
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /Grace Hopper/ })).toBeInTheDocument());
+    expect(screen.getByText(/This is not a recommendation/)).toBeInTheDocument();
+    expect(searched(fetchMock)).toEqual(["/api/v1/dreps/search?q="]);
+  });
+
+  it("searches the typed name and opens a match's card, which still asks before delegating", async () => {
+    const fetchMock = stubChain();
+    await browse();
+
+    await screen.findByRole("button", { name: /Grace Hopper/ });
+    fireEvent.change(box(), { target: { value: "ada" } });
+    // The random picks stay up, dimmed, until the matches for "ada" replace them.
+    await waitFor(() => expect(screen.queryByRole("button", { name: /Grace Hopper/ })).not.toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /Ada Lovelace/ }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /Delegate to this DRep/ })).toBeInTheDocument());
+    expect(fetchMock).toHaveBeenCalledWith(`/api/v1/dreps?id=${encodeURIComponent(DREP_ID)}`, expect.anything());
+    expect(box()).toHaveValue(DREP_ID);
+    expect(context.store.get(publishCertificateJsonAtom)).toBe("{}");
+  });
+
+  it("opens the top match when Look up is pressed before the matches arrive", async () => {
+    const fetchMock = stubChain();
+    await browse();
+
+    fireEvent.change(box(), { target: { value: "grace" } });
+    fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(`/api/v1/dreps?id=${encodeURIComponent(OTHER_ID)}`, expect.anything())
+    );
+    expect(box()).toHaveValue(OTHER_ID);
+  });
+
+  it("sends a pasted id to the exact lookup, not the search", async () => {
+    const fetchMock = stubChain();
+    await browse();
+    await waitFor(() => expect(searched(fetchMock)).toHaveLength(1));
+
+    fireEvent.change(box(), { target: { value: `https://explorer.example/drep/${DREP_ID}` } });
+    await new Promise((resolve) => setTimeout(resolve, 400));
+
+    expect(searched(fetchMock)).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: /Grace Hopper/ })).not.toBeInTheDocument();
+  });
+
+  it("says when no DRep matches the name", async () => {
+    stubChain();
+    await browse();
+
+    fireEvent.change(box(), { target: { value: "nobody" } });
+
+    await waitFor(() => expect(screen.getByText(/No DRep on this network matches/)).toHaveTextContent("nobody"));
+  });
+
+  it("says when the list cannot load, and still takes a pasted id", async () => {
+    stubChain({ search: null });
+    await browse();
+
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/You can still paste a DRep id/));
+    fireEvent.change(box(), { target: { value: DREP_ID } });
+    fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
+
+    await waitFor(() => expect(screen.getByText("Ada Lovelace")).toBeInTheDocument());
+  });
+
+  it("asks for a name or id on an empty Look up, and drops the hint once the reader types", async () => {
+    stubChain();
+    await browse();
+
+    fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Type a DRep name, or paste a drep1… id.");
+
+    fireEvent.change(box(), { target: { value: "a" } });
+    expect(screen.queryByText("Type a DRep name, or paste a drep1… id.")).not.toBeInTheDocument();
+  });
+
+  it("keeps a pasted explorer link whole, so the id inside it is not cut short", async () => {
+    // Review finding: a 64-character cap cut an 86-character link to a partial id.
+    stubChain();
+    await browse();
+
+    expect(box()).not.toHaveAttribute("maxlength");
+  });
+
+  it("sends at most 64 characters to the search, which refuses longer text", async () => {
+    const fetchMock = stubChain();
+    await browse();
+
+    fireEvent.change(box(), { target: { value: "a".repeat(80) } });
+
+    await waitFor(() => expect(searched(fetchMock)).toContain(`/api/v1/dreps/search?q=${"a".repeat(64)}`));
+  });
+
+  it.each(["drep1ygqzap", "DRep1Academy"])("searches %s instead of looking it up as an id", async (text) => {
+    // Review finding: any `drep1` text went to the exact lookup and failed as an invalid id.
+    const fetchMock = stubChain();
+    await browse();
+
+    fireEvent.change(box(), { target: { value: text } });
+
+    await waitFor(() => expect(searched(fetchMock)).toContain(`/api/v1/dreps/search?q=${text}`));
+    expect(fetchMock.mock.calls.some(([url]) => url.startsWith("/api/v1/dreps?id="))).toBe(false);
+  });
+
+  it("retries a failed lookup when the reader opens that DRep from the list", async () => {
+    const fetchMock = stubChain();
+    const answer = fetchMock.getMockImplementation()!;
+    let failLookup = true;
+    fetchMock.mockImplementation(async (url: string) =>
+      url.startsWith("/api/v1/dreps?id=") && failLookup
+        ? new Response(JSON.stringify({ error: "down" }), { status: 502 })
+        : answer(url)
+    );
+    await browse();
+    fireEvent.change(box(), { target: { value: DREP_ID } });
+    fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Could not look up this DRep"));
+    failLookup = false;
+
+    fireEvent.change(box(), { target: { value: "ada" } });
+    await waitFor(() => expect(screen.queryByRole("button", { name: /Grace Hopper/ })).not.toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /Ada Lovelace/ }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /Delegate to this DRep/ })).toBeInTheDocument());
+  });
+
+  it("puts focus back in the box when a row closes the list", async () => {
+    stubChain();
+    await browse();
+
+    const row = await screen.findByRole("button", { name: /Grace Hopper/ });
+    row.focus();
+    fireEvent.click(row);
+
+    expect(document.activeElement).toBe(box());
+  });
+
+  it("does not open a DRep after the reader leaves a pending Look up", async () => {
+    const fetchMock = stubChain();
+    const answer = fetchMock.getMockImplementation()!;
+    let release = () => undefined as void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.endsWith("?q=grace")) await held;
+      return answer(url);
+    });
+    await browse();
+
+    fireEvent.change(box(), { target: { value: "grace" } });
+    await waitFor(() => expect(searched(fetchMock)).toContain("/api/v1/dreps/search?q=grace"));
+    fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
+    fireEvent.click(choice(/Always abstain/));
+    await act(async () => {
+      release();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    expect(fetchMock.mock.calls.some(([url]) => url.startsWith("/api/v1/dreps?id="))).toBe(false);
+  });
+
+  it("does not open a DRep when a draft restore leaves the DRep choice during a pending Look up", async () => {
+    const fetchMock = stubChain();
+    const answer = fetchMock.getMockImplementation()!;
+    let release = () => undefined as void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.endsWith("?q=grace")) await held;
+      return answer(url);
+    });
+    await browse();
+
+    fireEvent.change(box(), { target: { value: "grace" } });
+    await waitFor(() => expect(searched(fetchMock)).toContain("/api/v1/dreps/search?q=grace"));
+    fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
+    act(() => {
+      context.store.set(
+        publishCertificateJsonAtom,
+        JSON.stringify({ type: "VoteDelegation", stakeKeyAddress: STAKE, drep: { alwaysAbstain: null } })
+      );
+    });
+    await act(async () => {
+      release();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    expect(fetchMock.mock.calls.some(([url]) => url.startsWith("/api/v1/dreps?id="))).toBe(false);
+  });
+
+  it("searches a long text cut through an emoji without failing", async () => {
+    const fetchMock = stubChain();
+    await browse();
+
+    fireEvent.change(box(), { target: { value: `${"a".repeat(63)}😀 more` } });
+
+    await waitFor(() => expect(searched(fetchMock)).toContain(`/api/v1/dreps/search?q=${"a".repeat(63)}`));
+    expect(screen.queryByText(/Couldn't load the DRep list/)).not.toBeInTheDocument();
+  });
+
+  it("looks up a pasted id while another DRep is still loading", async () => {
+    // Review finding: Look up was ignored while any lookup ran, so the first card showed under the second id.
+    const fetchMock = stubChain();
+    const answer = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation(async (url: string) =>
+      url === `/api/v1/dreps?id=${encodeURIComponent(DREP_ID)}` ? new Promise<Response>(() => undefined) : answer(url)
+    );
+    await browse();
+    fireEvent.click(await screen.findByRole("button", { name: /Ada Lovelace/ }));
+
+    fireEvent.change(box(), { target: { value: OTHER_ID } });
+    fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(`/api/v1/dreps?id=${encodeURIComponent(OTHER_ID)}`, expect.anything())
+    );
+  });
+
+  it.each([
+    ["in another case", "ada lovelace"],
+    ["with an invisible character", "Ada Lovelace\u200b"],
+    ["with an accent", "Adá Lovelace"]
+  ])("does not open either of two DReps that publish the same name %s", async (_, copy) => {
+    // Review finding: a copycat with a lower id took Enter for a well-known name.
+    const twin: DrepSummary = { ...PICKS[1], name: copy };
+    const fetchMock = stubChain({ search: (q) => (q ? [PICKS[0], twin] : PICKS) });
+    await browse();
+
+    fireEvent.change(box(), { target: { value: "ada" } });
+    fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
+    await waitFor(() => expect(searched(fetchMock)).toContain("/api/v1/dreps/search?q=ada"));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(fetchMock.mock.calls.some(([url]) => url.startsWith("/api/v1/dreps?id="))).toBe(false);
+    expect(screen.getAllByRole("button", { name: /lovelace/i })).toHaveLength(2);
+  });
+
+  it("does not show a failed id's error under a name search", async () => {
+    stubChain({ drep: null });
+    await browse();
+    fireEvent.change(box(), { target: { value: DREP_ID } });
+    fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("No DRep with that id"));
+
+    fireEvent.change(box(), { target: { value: "grace" } });
+
+    expect(screen.queryByText(/No DRep with that id/)).not.toBeInTheDocument();
   });
 });
 

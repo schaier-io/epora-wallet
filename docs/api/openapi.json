@@ -531,6 +531,92 @@
         }
       }
     },
+    "/api/v1/dreps/search": {
+      "get": {
+        "operationId": "searchDreps",
+        "summary": "Search DReps",
+        "description": "Find registered DReps that publish a CIP-119 name, by name or DRep id prefix. Without a query, return a random shortlist of active ones. Results come from an index refreshed every few hours; a DRep without a name is found by id through `/api/v1/dreps`.",
+        "tags": [
+          "Chain"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "description": "CIP-119 name or bech32 DRep id prefix. Omit it, or send it empty, for a random shortlist of active DReps.",
+              "example": "Cardano",
+              "type": "string",
+              "maxLength": 64
+            },
+            "description": "CIP-119 name or bech32 DRep id prefix. Omit it, or send it empty, for a random shortlist of active DReps."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Matching DReps, best match first, or the shortlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DrepSearchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The search text is longer than 64 characters.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. The limit is 300 requests per 60 seconds, per client address. The same status, with the chain data provider's message, means the provider is rate-limiting this deployment; `Retry-After` then carries the provider's delay, or 1 second when it gives none. After a provider rate limit, the route waits 30 seconds, or as long as the provider asked if that is longer, before it rebuilds its DRep index; the first `429` asks for at least that long, and a `429` in that time carries the seconds left as `Retry-After`.",
+            "headers": {
+              "Retry-After": {
+                "required": true,
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "string",
+                  "description": "Seconds to wait before retrying.",
+                  "example": "42"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The chain data provider is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/governance-actions/active": {
       "get": {
         "operationId": "listActiveGovernanceActions",
@@ -4619,6 +4705,58 @@
         ],
         "additionalProperties": false,
         "description": "A DRep's registration state and CIP-119 name."
+      },
+      "DrepSearchResponse": {
+        "type": "object",
+        "properties": {
+          "dreps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "drepId": {
+                  "type": "string",
+                  "description": "CIP-129 bech32 DRep id."
+                },
+                "name": {
+                  "type": "string",
+                  "description": "CIP-119 `givenName` from the DRep's current anchor."
+                },
+                "votingPowerLovelace": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "hasScript": {
+                  "type": "boolean"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "active",
+                    "inactive",
+                    "retired"
+                  ],
+                  "description": "Every listed DRep is registered, so this is `active` or `inactive`, never `retired`."
+                }
+              },
+              "required": [
+                "drepId",
+                "name",
+                "votingPowerLovelace",
+                "hasScript",
+                "status"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "dreps"
+        ],
+        "additionalProperties": false,
+        "description": "Matching registered DReps that publish a name, best match first, or a random shortlist when the query is empty."
       },
       "ActiveGovernanceActionsResponse": {
         "type": "object",

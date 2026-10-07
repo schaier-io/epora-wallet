@@ -38,6 +38,7 @@ export const queryKeys = {
   // Outside `chain`: a transaction's chain invalidation must not reshuffle the shortlist
   // while the reader is looking at it.
   poolSearch: (query: string) => ["pool-search", CHAIN_NETWORK, query] as const,
+  drepSearch: (query: string) => ["drep-search", CHAIN_NETWORK, query] as const,
   governanceAction: (id: string) => [...chain, "governance-action", id] as const,
   activeGovernanceActions: () => [...chain, "governance-actions", "active"] as const,
   sttCount: (policyId: string, network: string) => [...chain, "stt-count", network.toLowerCase(), policyId] as const,
