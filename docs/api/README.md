@@ -164,8 +164,9 @@ on one pool.
 
 ### DRep search
 
-Finds registered DReps by CIP-119 name or bech32 DRep id prefix, best match first, at
-most 20. Matching ignores case. A name that starts with the query comes before one that
+Finds registered DReps that publish a CIP-119 name, by name or bech32 DRep id prefix,
+best match first, at most 20. A DRep without a name is not listed; look it up by id
+with `/api/v1/dreps?id=`. Matching ignores case. A name that starts with the query comes before one that
 only contains it; within each, active DReps come before inactive ones. An id prefix
 counts only past `drep1`, which every id shares.
 
@@ -191,8 +192,9 @@ Without `q`, the route returns a random shortlist of six active DReps that publi
 name. The sample changes on every call.
 
 Blockfrost has no DRep name search, so the server keeps an index of every registered
-DRep, built from Koios, and refreshes it every six hours. The first search on a fresh
-server builds that index, which took about 10 seconds on mainnet and 4 seconds on
+DRep that publishes a name, built from Koios, and refreshes it every six hours. A name
+counts only while it comes from the DRep's current anchor. The first search on a fresh
+server builds that index, which took about 6 seconds on mainnet and 3 seconds on
 preprod. While a refresh runs, or after one fails, the server keeps answering from the
 previous index. After a failed build with no previous index, the route answers with the
 same error for 30 seconds, or as long as Koios asked if that is longer, before it tries

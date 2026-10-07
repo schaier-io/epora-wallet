@@ -19,33 +19,37 @@ import {
 } from "./drep-index";
 
 function entry(overrides: Partial<DrepIndexEntry> & { drepId: string }): DrepIndexEntry {
-  return { name: null, votingPowerLovelace: "1", hasScript: false, status: "active", ...overrides };
+  return { name: "Some DRep", votingPowerLovelace: "1", hasScript: false, status: "active", ...overrides };
 }
 
 type Call = { path: string; body?: unknown };
 
 /**
- * A Koios fake with `total` registered DReps `drep1d<i>`. Info and metadata answer every
- * requested id; `info` and `name` shape each row.
+ * A Koios fake with `total` DReps `drep1d<i>`, each with one named update whose anchor
+ * hash is `h<i>`. `updates` replaces that update list; `info` shapes each info row.
  */
 function fakeKoios(
   total: number,
   {
+    updates = Array.from({ length: total }, (_, i) => ({ drep_id: `drep1d${i}`, meta_hash: `h${i}`, name: `Name drep1d${i}` })) as Record<string, unknown>[],
     info = () => ({}),
-    name = (id: string) => `Name ${id}`
-  }: { info?: (id: string) => Record<string, unknown>; name?: (id: string) => unknown } = {}
+    maxBatch = Infinity
+  }: {
+    updates?: Record<string, unknown>[];
+    info?: (id: string) => Record<string, unknown>;
+    maxBatch?: number;
+  } = {}
 ) {
   const calls: Call[] = [];
   const call: KoiosCall = async (path, body) => {
     calls.push({ path, body });
     const url = new URL(path, "http://x");
-    if (url.pathname === "/drep_list") {
+    if (url.pathname === "/drep_updates") {
       const offset = Number(url.searchParams.get("offset"));
-      return Array.from({ length: Math.max(0, Math.min(KOIOS_PAGE_ROWS, total - offset)) }, (_, i) => ({
-        drep_id: `drep1d${offset + i}`
-      }));
+      return updates.slice(offset, offset + KOIOS_PAGE_ROWS);
     }
     const ids = (body as { _drep_ids: string[] })._drep_ids;
+    if (ids.length > maxBatch) throw new KoiosDrepsError(413, null);
     if (url.pathname === "/drep_info") {
       return ids.map((drep_id) => ({
         drep_id,
@@ -53,17 +57,17 @@ function fakeKoios(
         active: true,
         amount: "42",
         has_script: false,
+        meta_hash: `h${drep_id.slice("drep1d".length)}`,
         ...info(drep_id)
       }));
     }
-    if (url.pathname === "/drep_metadata") return ids.map((drep_id) => ({ drep_id, name: name(drep_id) }));
     throw new Error(`unexpected path ${path}`);
   };
   return { call, calls };
 }
 
 describe("buildDrepIndex", () => {
-  it("reads every list page and joins status, power and name per DRep", async () => {
+  it("reads every update page and joins status and power to each named DRep", async () => {
     const { call, calls } = fakeKoios(1_234, {
       info: (id) => (id === "drep1d7" ? { active: false, has_script: true, amount: "9" } : {})
     });
@@ -78,7 +82,51 @@ describe("buildDrepIndex", () => {
       hasScript: true,
       status: "inactive"
     });
-    assert.equal(calls.filter((c) => c.path.startsWith("/drep_list")).length, 2);
+    assert.equal(calls.filter((c) => c.path.startsWith("/drep_updates")).length, 2);
+  });
+
+  it("asks Koios for named updates only, oldest first, ordered by selected columns", async () => {
+    const { call, calls } = fakeKoios(1);
+
+    await buildDrepIndex(call);
+    const url = new URL(calls[0].path, "http://x");
+    const selected = url.searchParams.get("select")!.split(",");
+
+    assert.equal(url.searchParams.get("meta_json->body->givenName"), "not.is.null");
+    // Koios answers 400 when ordered by a column it was not asked to select.
+    for (const column of url.searchParams.get("order")!.split(",").map((part) => part.split(".")[0])) {
+      assert.ok(selected.includes(column), `${column} is ordered on but not selected`);
+    }
+  });
+
+  it("takes each DRep's last named update, and drops a name its current anchor no longer has", async () => {
+    const { call } = fakeKoios(2, {
+      updates: [
+        { drep_id: "drep1d0", meta_hash: "old", name: "Old Name" },
+        { drep_id: "drep1d0", meta_hash: "h0", name: "New Name" },
+        // drep1d1 later moved to an anchor without a name, so Koios lists no update with h1.
+        { drep_id: "drep1d1", meta_hash: "old", name: "Gone" }
+      ]
+    });
+
+    const index = await buildDrepIndex(call);
+
+    assert.deepEqual(index.map((drep) => [drep.drepId, drep.name]), [["drep1d0", "New Name"]]);
+  });
+
+  it("drops a DRep that has retired", async () => {
+    const { call } = fakeKoios(2, { info: (id) => (id === "drep1d1" ? { drep_status: "deregistered" } : {}) });
+
+    assert.deepEqual((await buildDrepIndex(call)).map((drep) => drep.drepId), ["drep1d0"]);
+  });
+
+  it("splits a batch Koios refuses as too large, and still reads every DRep", async () => {
+    const { call, calls } = fakeKoios(DREP_BATCH_SIZE, { maxBatch: 14 });
+
+    const index = await buildDrepIndex(call);
+
+    assert.equal(index.length, DREP_BATCH_SIZE);
+    assert.ok(calls.filter((c) => c.body !== undefined).length > 2);
   });
 
   it("asks for at most one batch of ids per request, so Koios does not answer 413", async () => {
@@ -87,29 +135,24 @@ describe("buildDrepIndex", () => {
     await buildDrepIndex(call);
     const posts = calls.filter((c) => c.body !== undefined);
 
-    assert.equal(posts.length, 6, "three batches for info, three for metadata");
+    assert.equal(posts.length, 3);
     for (const post of posts) {
       const ids = (post.body as { _drep_ids: string[] })._drep_ids;
       assert.ok(ids.length <= DREP_BATCH_SIZE);
-      // Koios refuses a body over 5 KB. A CIP-129 id is 58 characters.
+      // The public API refused 99 ids (about 6 KB) on 2026-10-07. A CIP-129 id is 58 characters.
       assert.ok(JSON.stringify({ _drep_ids: ids.map(() => "x".repeat(58)) }).length < 5_000);
     }
   });
 
-  it("reads a JSON-LD `@value` name and keeps a DRep without a name", async () => {
-    const { call } = fakeKoios(3, {
-      name: (id) => (id === "drep1d0" ? { "@value": " Wrapped " } : id === "drep1d1" ? null : "  ")
+  it("reads a JSON-LD `@value` name and skips an update whose name is blank", async () => {
+    const { call } = fakeKoios(2, {
+      updates: [
+        { drep_id: "drep1d0", meta_hash: "h0", name: { "@value": " Wrapped " } },
+        { drep_id: "drep1d1", meta_hash: "h1", name: "  " }
+      ]
     });
 
-    const names = (await buildDrepIndex(call)).map((drep) => drep.name);
-
-    assert.deepEqual(names, ["Wrapped", null, null]);
-  });
-
-  it("drops a DRep that retired between the list and the info call", async () => {
-    const { call } = fakeKoios(2, { info: (id) => (id === "drep1d1" ? { drep_status: "deregistered" } : {}) });
-
-    assert.deepEqual((await buildDrepIndex(call)).map((drep) => drep.drepId), ["drep1d0"]);
+    assert.deepEqual((await buildDrepIndex(call)).map((drep) => drep.name), ["Wrapped"]);
   });
 
   it("does not trust a voting power that is not a whole lovelace string", async () => {
@@ -130,7 +173,7 @@ describe("buildDrepIndex", () => {
 describe("getDrepIndex", () => {
   beforeEach(resetDrepIndexForTests);
 
-  const listCalls = (calls: Call[]) => calls.filter((c) => c.path.startsWith("/drep_list")).length;
+  const listCalls = (calls: Call[]) => calls.filter((c) => c.path.startsWith("/drep_updates")).length;
 
   it("shares one build between concurrent callers and caches it for the TTL", async () => {
     const { call, calls } = fakeKoios(3);
@@ -224,7 +267,8 @@ describe("getDrepIndex", () => {
 describe("searchDreps", () => {
   const index = [
     entry({ drepId: "drep1aaa", name: "The Epora Fund" }),
-    entry({ drepId: "drep1bbb", name: "Epora Two", status: "inactive" }),
+    // Sorts first by name, so only the active-first rule puts it after "Epora One".
+    entry({ drepId: "drep1bbb", name: "Epora Alpha", status: "inactive" }),
     entry({ drepId: "drep1ccc", name: "Epora One" }),
     entry({ drepId: "drep1ddd", name: "Unrelated" }),
     entry({ drepId: "drep1eee" })
@@ -240,7 +284,7 @@ describe("searchDreps", () => {
     assert.equal(searchDreps(index, "  UNREL ")[0].drepId, "drep1ddd");
   });
 
-  it("matches a bech32 id prefix, so a DRep without a name can still be found", () => {
+  it("matches a bech32 id prefix", () => {
     assert.deepEqual(searchDreps(index, "drep1eee").map((drep) => drep.drepId), ["drep1eee"]);
   });
 
@@ -260,10 +304,9 @@ describe("searchDreps", () => {
 });
 
 describe("shortlistDreps", () => {
-  it("only offers active DReps that publish a name", () => {
+  it("only offers active DReps", () => {
     const index = [
       entry({ drepId: "drep1ok", name: "OK" }),
-      entry({ drepId: "drep1unnamed" }),
       entry({ drepId: "drep1idle", name: "Idle", status: "inactive" })
     ];
 

@@ -535,7 +535,7 @@
       "get": {
         "operationId": "searchDreps",
         "summary": "Search DReps",
-        "description": "Find registered DReps by CIP-119 name or DRep id prefix. Without a query, return a random shortlist of active DReps that publish a name. Results come from an index refreshed every few hours.",
+        "description": "Find registered DReps that publish a CIP-119 name, by name or DRep id prefix. Without a query, return a random shortlist of active ones. Results come from an index refreshed every few hours; a DRep without a name is found by id through `/api/v1/dreps`.",
         "tags": [
           "Chain"
         ],
@@ -544,12 +544,12 @@
             "in": "query",
             "name": "q",
             "schema": {
-              "description": "CIP-119 name or bech32 DRep id prefix. Omit it, or send it empty, for a random shortlist of active, named DReps.",
+              "description": "CIP-119 name or bech32 DRep id prefix. Omit it, or send it empty, for a random shortlist of active DReps.",
               "example": "Cardano",
               "type": "string",
               "maxLength": 64
             },
-            "description": "CIP-119 name or bech32 DRep id prefix. Omit it, or send it empty, for a random shortlist of active, named DReps."
+            "description": "CIP-119 name or bech32 DRep id prefix. Omit it, or send it empty, for a random shortlist of active DReps."
           }
         ],
         "responses": {
@@ -4719,11 +4719,8 @@
                   "description": "CIP-129 bech32 DRep id."
                 },
                 "name": {
-                  "description": "CIP-119 `givenName`, when the anchor resolved.",
-                  "type": [
-                    "string",
-                    "null"
-                  ]
+                  "type": "string",
+                  "description": "CIP-119 `givenName` from the DRep's current anchor."
                 },
                 "votingPowerLovelace": {
                   "type": [
@@ -4759,7 +4756,7 @@
           "dreps"
         ],
         "additionalProperties": false,
-        "description": "Matching registered DReps, best match first, or a random shortlist when the query is empty."
+        "description": "Matching registered DReps that publish a name, best match first, or a random shortlist when the query is empty."
       },
       "ActiveGovernanceActionsResponse": {
         "type": "object",

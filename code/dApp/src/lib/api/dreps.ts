@@ -59,7 +59,7 @@ export const DrepSearchQuerySchema = z
       .optional()
       .meta({
         description:
-          "CIP-119 name or bech32 DRep id prefix. Omit it, or send it empty, for a random shortlist of active, named DReps.",
+          "CIP-119 name or bech32 DRep id prefix. Omit it, or send it empty, for a random shortlist of active DReps.",
         example: "Cardano"
       })
   })
@@ -67,7 +67,7 @@ export const DrepSearchQuerySchema = z
 
 export const DrepSummarySchema = z.object({
   drepId: z.string().meta({ description: "CIP-129 bech32 DRep id." }),
-  name: z.string().nullable().meta({ description: "CIP-119 `givenName`, when the anchor resolved." }),
+  name: z.string().meta({ description: "CIP-119 `givenName` from the DRep's current anchor." }),
   votingPowerLovelace: z.string().nullable(),
   hasScript: z.boolean(),
   status: z.enum(DREP_STATUSES).meta({
@@ -79,7 +79,7 @@ export const DrepSearchResponseSchema = z
   .object({ dreps: z.array(DrepSummarySchema) })
   .meta({
     id: "DrepSearchResponse",
-    description: "Matching registered DReps, best match first, or a random shortlist when the query is empty."
+    description: "Matching registered DReps that publish a name, best match first, or a random shortlist when the query is empty."
   });
 
 export type DrepSummary = z.infer<typeof DrepSummarySchema>;

@@ -13,8 +13,8 @@ vi.mock("@/lib/governance/koios-dreps", () => ({ koiosDrepCall: mocks.call }));
 import { GET } from "./route";
 
 const DREPS = [
-  { drep_id: "drep1epora", name: "Epora Collective" },
-  { drep_id: "drep1other", name: { "@value": "Other" } }
+  { drep_id: "drep1epora", meta_hash: "a", name: "Epora Collective" },
+  { drep_id: "drep1other", meta_hash: "b", name: { "@value": "Other" } }
 ];
 
 function search(q?: string) {
@@ -26,12 +26,10 @@ beforeEach(() => {
   resetDrepIndexForTests();
   mocks.call.mockReset();
   mocks.call.mockImplementation(async (path: string, body?: { _drep_ids: string[] }) => {
-    if (path.startsWith("/drep_list")) return DREPS.map(({ drep_id }) => ({ drep_id }));
-    const ids = body?._drep_ids ?? [];
-    if (path.startsWith("/drep_info")) {
-      return ids.map((drep_id) => ({ drep_id, drep_status: "registered", active: true, amount: "5", has_script: false }));
-    }
-    return DREPS.filter((drep) => ids.includes(drep.drep_id));
+    if (path.startsWith("/drep_updates")) return DREPS;
+    return DREPS.filter((drep) => body?._drep_ids.includes(drep.drep_id)).map(({ drep_id, meta_hash }) => (
+      { drep_id, meta_hash, drep_status: "registered", active: true, amount: "5", has_script: false }
+    ));
   });
 });
 
@@ -92,20 +90,13 @@ it("answers 502 when Koios is down or unreachable", async () => {
   expect((await search("epo")).status).toBe(502);
 
   resetDrepIndexForTests();
-  mocks.call.mockRejectedValue(new TypeError("fetch failed"));
-  expect((await search("epo")).status).toBe(502);
-
-  resetDrepIndexForTests();
-  mocks.call.mockRejectedValue(new DOMException("The operation timed out.", "TimeoutError"));
-  expect((await search("epo")).status).toBe(502);
-
-  resetDrepIndexForTests();
-  mocks.call.mockRejectedValue(new SyntaxError("Unexpected token < in JSON"));
+  mocks.call.mockRejectedValue(new KoiosDrepsError(0, null, { cause: new TypeError("fetch failed") }));
   expect((await search("epo")).status).toBe(502);
 });
 
 it("answers 500, not a provider outage, for its own bug", async () => {
-  mocks.call.mockRejectedValue(new RangeError("bug"));
+  // The common bug, a TypeError, must not read as an outage.
+  mocks.call.mockRejectedValue(new TypeError("Cannot read properties of undefined"));
 
   expect((await search("epo")).status).toBe(500);
 });

@@ -1,29 +1,35 @@
 import type { DrepSummary } from "@/lib/api/dreps";
 
-// A searchable copy of every registered DRep, so the voting-delegate form can find one
-// by name. Blockfrost has no DRep name search and serves each name with its own request.
-// Koios lists every registered DRep id, then returns status and CIP-119 metadata for a
-// batch of ids per request. Mainnet has about a thousand registered DReps, so one build
-// costs about thirty requests; the cache below pays that once per TTL per server instance.
+// A searchable copy of every registered DRep that publishes a CIP-119 name, so the
+// voting-delegate form can find one by name. Blockfrost has no DRep name search and serves
+// each name with its own request. Koios lists every DRep update with its metadata, which
+// names the DReps in a few pages; status and voting power then come in batches of ids.
+// One mainnet build costs about ten requests; the cache below pays that once per TTL per
+// server instance. A DRep without a name is not listed: the form finds it by its id.
 
 /** One Koios request: a GET without `body`, a POST of `body` as JSON with it. */
 export type KoiosCall = (path: string, body?: unknown) => Promise<unknown>;
 
-/** Koios answered with an error status; `retryAfter` is its `Retry-After`, when sent. */
+/**
+ * Koios failed: an error status, with its `Retry-After` when sent, or `status` 0 when it
+ * could not be reached in time or answered with a body that is not JSON.
+ */
 export class KoiosDrepsError extends Error {
-  constructor(readonly status: number, readonly retryAfter: string | null) {
-    super(`Koios DRep request failed (${status}).`);
+  constructor(readonly status: number, readonly retryAfter: string | null, options?: ErrorOptions) {
+    super(status ? `Koios DRep request failed (${status}).` : "Koios DRep request failed.", options);
     this.name = "KoiosDrepsError";
   }
 }
 
 // Koios answers at most this many rows per request (Koios API spec, "Pagination").
 export const KOIOS_PAGE_ROWS = 1000;
-// 20,000 DReps. A bound on the loop, far above any network's DRep count.
-const MAX_PAGES = 20;
-// Koios refuses a request body over 5 KB with a 413. A CIP-129 id is 58 characters,
-// about 61 bytes as a JSON string, so 64 ids stay near 4 KB. Measured on mainnet
-// 2026-10-07: 75 ids answered 200, 99 answered 413.
+// 50,000 named updates. A bound on the loop, far above any network's count (preview had
+// 2,621 on 2026-10-07).
+const MAX_PAGES = 50;
+// Koios refuses a large request body with a 413. Its spec allows 1 KB on the public tier
+// and 5 KB on registered tiers, but the public mainnet API took 75 ids (about 4.6 KB) and
+// refused 99 on 2026-10-07. A CIP-129 id is about 61 bytes as a JSON string, so 64 ids
+// stay near 4 KB; a batch that still meets a 413 is split in half and sent again.
 export const DREP_BATCH_SIZE = 64;
 // Batches requested at once, so a build does not burst into the public tier's limit.
 const BATCH_CONCURRENCY = 4;
@@ -35,9 +41,13 @@ export const DREP_INDEX_RETRY_MS = 30 * 1000;
 export const DREP_SEARCH_LIMIT = 20;
 export const DREP_SHORTLIST_SIZE = 6;
 
-const LIST_PATH = "/drep_list?registered=eq.true&select=drep_id&order=drep_id.asc";
-const INFO_PATH = "/drep_info?select=drep_id,drep_status,active,amount,has_script";
-const METADATA_PATH = "/drep_metadata?select=drep_id,name:meta_json->body->givenName";
+// Only updates whose anchor names the DRep, oldest first, so a DRep's last named update
+// is read last. The order is unique, so pages neither skip nor repeat a row. Koios orders
+// only by selected columns.
+const NAMED_UPDATES_PATH = "/drep_updates?select=drep_id,meta_hash,block_time,update_tx_hash,cert_index," +
+  "name:meta_json->body->givenName" +
+  "&meta_json->body->givenName=not.is.null&order=block_time.asc,update_tx_hash.asc,cert_index.asc";
+const INFO_PATH = "/drep_info?select=drep_id,drep_status,active,amount,has_script,meta_hash";
 
 export type DrepIndexEntry = DrepSummary;
 
@@ -56,14 +66,33 @@ function rowsOf(value: unknown): Row[] {
   return Array.isArray(value) ? value.flatMap((row) => asRecord(row) ?? []) as Row[] : [];
 }
 
-async function listRegisteredIds(call: KoiosCall): Promise<string[]> {
-  const ids: string[] = [];
+type NamedAnchor = { metaHash: string; name: string };
+
+/** Each DRep's last named anchor: the name and the hash of the document it came from. */
+async function lastNamedAnchors(call: KoiosCall): Promise<Map<string, NamedAnchor>> {
+  const anchors = new Map<string, NamedAnchor>();
   for (let page = 0; page < MAX_PAGES; page++) {
-    const rows = rowsOf(await call(`${LIST_PATH}&offset=${page * KOIOS_PAGE_ROWS}`));
-    ids.push(...rows.flatMap((row) => text(row.drep_id) ?? []));
+    const rows = rowsOf(await call(`${NAMED_UPDATES_PATH}&offset=${page * KOIOS_PAGE_ROWS}`));
+    for (const row of rows) {
+      const drepId = text(row.drep_id);
+      const metaHash = text(row.meta_hash);
+      const name = givenName(row.name);
+      if (drepId && metaHash && name) anchors.set(drepId, { metaHash, name });
+    }
     if (rows.length < KOIOS_PAGE_ROWS) break;
   }
-  return ids;
+  return anchors;
+}
+
+/** One batch, split in half for as long as Koios answers that the body is too large. */
+async function postBatch(call: KoiosCall, path: string, ids: string[]): Promise<Row[]> {
+  try {
+    return rowsOf(await call(path, { _drep_ids: ids }));
+  } catch (error) {
+    if (!(error instanceof KoiosDrepsError && error.status === 413) || ids.length < 2) throw error;
+    const half = Math.ceil(ids.length / 2);
+    return [...await postBatch(call, path, ids.slice(0, half)), ...await postBatch(call, path, ids.slice(half))];
+  }
 }
 
 /** `path` called once per batch of ids, `BATCH_CONCURRENCY` batches at a time. */
@@ -73,29 +102,25 @@ async function postInBatches(call: KoiosCall, path: string, ids: string[]): Prom
   const rows: Row[] = [];
   for (let i = 0; i < batches.length; i += BATCH_CONCURRENCY) {
     const answers = await Promise.all(
-      batches.slice(i, i + BATCH_CONCURRENCY).map((batch) => call(path, { _drep_ids: batch }))
+      batches.slice(i, i + BATCH_CONCURRENCY).map((batch) => postBatch(call, path, batch))
     );
-    for (const answer of answers) rows.push(...rowsOf(answer));
+    for (const answer of answers) rows.push(...answer);
   }
   return rows;
 }
 
 export async function buildDrepIndex(call: KoiosCall): Promise<DrepIndexEntry[]> {
-  const ids = await listRegisteredIds(call);
-  // Sequential, not parallel: both walks share one upstream budget.
-  const info = await postInBatches(call, INFO_PATH, ids);
-  const metadata = await postInBatches(call, METADATA_PATH, ids);
-  const names = new Map(metadata.flatMap((row) => {
-    const id = text(row.drep_id);
-    return id ? [[id, givenName(row.name)] as const] : [];
-  }));
+  const anchors = await lastNamedAnchors(call);
+  const info = await postInBatches(call, INFO_PATH, [...anchors.keys()]);
   return info.flatMap((row) => {
     const drepId = text(row.drep_id);
-    // The list and the info call are not one snapshot: a DRep can retire in between.
-    if (!drepId || row.drep_status !== "registered") return [];
+    const anchor = drepId ? anchors.get(drepId) : undefined;
+    // Retired DReps drop out. So does a name whose anchor is no longer the DRep's current
+    // one: a later update moved it to a document without a name, or to none.
+    if (!drepId || !anchor || row.drep_status !== "registered" || text(row.meta_hash) !== anchor.metaHash) return [];
     return [{
       drepId,
-      name: names.get(drepId) ?? null,
+      name: anchor.name,
       votingPowerLovelace: typeof row.amount === "string" && /^\d+$/.test(row.amount) ? row.amount : null,
       hasScript: row.has_script === true,
       status: row.active === true ? "active" : "inactive"
@@ -162,7 +187,7 @@ export function resetDrepIndexForTests() {
 }
 
 function rank(entry: DrepIndexEntry, query: string): number | null {
-  const name = entry.name?.toLowerCase() ?? "";
+  const name = entry.name.toLowerCase();
   // Every id starts with "drep1", so an id prefix only counts once the query goes past it.
   const idPrefix = query.length > DREP_ID_BECH32_PREFIX.length && entry.drepId.startsWith(query);
   if (name.startsWith(query) || idPrefix) return 0;
@@ -180,24 +205,23 @@ export function searchDreps(entries: DrepIndexEntry[], rawQuery: string): DrepIn
       return score == null ? [] : [{ entry, score }];
     })
     // Within a rank, active DReps come first (an inactive DRep's power does not count),
-    // then named ones, then by name.
+    // then by name.
     .sort(
       (a, b) =>
         a.score - b.score ||
         Number(a.entry.status !== "active") - Number(b.entry.status !== "active") ||
-        Number(a.entry.name == null) - Number(b.entry.name == null) ||
-        (a.entry.name ?? "").localeCompare(b.entry.name ?? "")
+        a.entry.name.localeCompare(b.entry.name)
     )
     .slice(0, DREP_SEARCH_LIMIT)
     .map(({ entry }) => entry);
 }
 
 /**
- * A random sample of active DReps that publish a name. Random, not ranked, so the app
- * neither endorses a DRep nor steers every delegator to the same few.
+ * A random sample of active DReps (every listed DRep publishes a name). Random, not
+ * ranked, so the app neither endorses a DRep nor steers every delegator to the same few.
  */
 export function shortlistDreps(entries: DrepIndexEntry[], random = Math.random): DrepIndexEntry[] {
-  const picked = entries.filter((entry) => entry.status === "active" && entry.name != null);
+  const picked = entries.filter((entry) => entry.status === "active");
   // Partial Fisher-Yates: shuffle only the slots we return.
   const size = Math.min(DREP_SHORTLIST_SIZE, picked.length);
   for (let i = 0; i < size; i++) {

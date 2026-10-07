@@ -426,7 +426,7 @@ export function buildOpenApiDocument() {
           operationId: "searchDreps",
           summary: "Search DReps",
           description:
-            "Find registered DReps by CIP-119 name or DRep id prefix. Without a query, return a random shortlist of active DReps that publish a name. Results come from an index refreshed every few hours.",
+            "Find registered DReps that publish a CIP-119 name, by name or DRep id prefix. Without a query, return a random shortlist of active ones. Results come from an index refreshed every few hours; a DRep without a name is found by id through `/api/v1/dreps`.",
           tags: ["Chain"],
           requestParams: { query: DrepSearchQuerySchema },
           responses: {
