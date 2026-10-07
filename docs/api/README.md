@@ -165,7 +165,8 @@ on one pool.
 ### DRep search
 
 Finds registered DReps by CIP-119 name or bech32 DRep id prefix, best match first, at
-most 20. Matching ignores case. Active DReps come before inactive ones. An id prefix
+most 20. Matching ignores case. A name that starts with the query comes before one that
+only contains it; within each, active DReps come before inactive ones. An id prefix
 counts only past `drep1`, which every id shares.
 
 ```bash

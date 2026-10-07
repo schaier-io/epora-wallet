@@ -435,6 +435,7 @@ export function buildOpenApiDocument() {
               content: { "application/json": { schema: DrepSearchResponseSchema } }
             },
             "400": jsonError("The search text is longer than 64 characters."),
+            "500": jsonError("Unexpected server error."),
             "429": tooManyRequests(
               RATE_LIMITS.dreps,
               `${UPSTREAM_RATE_LIMITED} After a provider rate limit, the route waits ${DREP_INDEX_RETRY_MS / 1000} seconds, or as long as the provider asked if that is longer, before it rebuilds its DRep index; the first \`429\` asks for at least that long, and a \`429\` in that time carries the seconds left as \`Retry-After\`.`

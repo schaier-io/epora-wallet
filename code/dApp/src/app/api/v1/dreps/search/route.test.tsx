@@ -94,4 +94,18 @@ it("answers 502 when Koios is down or unreachable", async () => {
   resetDrepIndexForTests();
   mocks.call.mockRejectedValue(new TypeError("fetch failed"));
   expect((await search("epo")).status).toBe(502);
+
+  resetDrepIndexForTests();
+  mocks.call.mockRejectedValue(new DOMException("The operation timed out.", "TimeoutError"));
+  expect((await search("epo")).status).toBe(502);
+
+  resetDrepIndexForTests();
+  mocks.call.mockRejectedValue(new SyntaxError("Unexpected token < in JSON"));
+  expect((await search("epo")).status).toBe(502);
+});
+
+it("answers 500, not a provider outage, for its own bug", async () => {
+  mocks.call.mockRejectedValue(new RangeError("bug"));
+
+  expect((await search("epo")).status).toBe(500);
 });

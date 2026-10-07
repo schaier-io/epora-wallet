@@ -58,6 +58,11 @@ export async function GET(request: Request) {
         { status: 429, headers: { "Retry-After": String(retryAfter) } }
       );
     }
-    return NextResponse.json({ error: PROVIDER_UNAVAILABLE_MESSAGE }, { status: 502 });
+    // Koios answered with an error or a body that is not JSON, or could not be reached in
+    // time: the provider is down. Anything else is this route's own bug.
+    const unreachable = cause instanceof KoiosDrepsError || cause instanceof TypeError ||
+      cause instanceof SyntaxError || (cause instanceof DOMException && cause.name === "TimeoutError");
+    if (unreachable) return NextResponse.json({ error: PROVIDER_UNAVAILABLE_MESSAGE }, { status: 502 });
+    return NextResponse.json({ error: "DRep search failed." }, { status: 500 });
   }
 }

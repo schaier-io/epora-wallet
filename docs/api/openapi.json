@@ -594,6 +594,16 @@
               }
             }
           },
+          "500": {
+            "description": "Unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
           "502": {
             "description": "The chain data provider is unavailable.",
             "content": {
