@@ -11,6 +11,7 @@ import {
   getDrepIndex,
   KOIOS_PAGE_ROWS,
   KoiosDrepsError,
+  NAME_WALKS,
   resetDrepIndexForTests,
   searchDreps,
   shortlistDreps,
@@ -26,7 +27,9 @@ type Call = { path: string; body?: unknown };
 
 /**
  * A Koios fake with `total` DReps `drep1d<i>`, each with one named update whose anchor
- * hash is `h<i>`. `updates` replaces that update list; `info` shapes each info row.
+ * hash is `h<i>`, at `block_time` i + 1. `updates` replaces that list; as a function it
+ * answers per `drep_updates` request (0, 1, …), like Koios servers that differ. `info`
+ * shapes each info row.
  */
 function fakeKoios(
   total: number,
@@ -35,7 +38,7 @@ function fakeKoios(
     info = () => ({}),
     maxBatch = Infinity
   }: {
-    updates?: Record<string, unknown>[];
+    updates?: Record<string, unknown>[] | ((request: number) => Record<string, unknown>[]);
     info?: (id: string) => Record<string, unknown>;
     maxBatch?: number;
   } = {}
@@ -45,8 +48,11 @@ function fakeKoios(
     calls.push({ path, body });
     const url = new URL(path, "http://x");
     if (url.pathname === "/drep_updates") {
-      const offset = Number(url.searchParams.get("offset"));
-      return updates.slice(offset, offset + KOIOS_PAGE_ROWS);
+      const request = calls.filter((c) => c.path.startsWith("/drep_updates")).length - 1;
+      const rows = (typeof updates === "function" ? updates(request) : updates)
+        .map((row, i) => ({ block_time: i + 1, ...row }));
+      const from = Number(url.searchParams.get("block_time")?.replace(/^gte\./, ""));
+      return rows.filter((row) => Number(row.block_time) >= from).slice(0, KOIOS_PAGE_ROWS);
     }
     const ids = (body as { _drep_ids: string[] })._drep_ids;
     if (ids.length > maxBatch) throw new KoiosDrepsError(413, null);
@@ -82,7 +88,7 @@ describe("buildDrepIndex", () => {
       hasScript: true,
       status: "inactive"
     });
-    assert.equal(calls.filter((c) => c.path.startsWith("/drep_updates")).length, 2);
+    assert.equal(calls.filter((c) => c.path.startsWith("/drep_updates")).length, 2 * NAME_WALKS);
   });
 
   it("asks Koios for named updates only, oldest first, ordered by selected columns", async () => {
@@ -97,6 +103,41 @@ describe("buildDrepIndex", () => {
     for (const column of url.searchParams.get("order")!.split(",").map((part) => part.split(".")[0])) {
       assert.ok(selected.includes(column), `${column} is ordered on but not selected`);
     }
+  });
+
+  it("continues each page from the last block read, never from an offset", async () => {
+    // Koios servers hold different rows, so an offset taken on one skips rows on another.
+    const { call, calls } = fakeKoios(1_500);
+
+    await buildDrepIndex(call);
+    const pages = calls.slice(0, 2).map((c) => new URL(c.path, "http://x").searchParams);
+
+    assert.equal(pages[0].get("block_time"), "gte.0");
+    assert.equal(pages[1].get("block_time"), `gte.${KOIOS_PAGE_ROWS}`);
+    assert.ok(pages.every((page) => !page.has("offset")));
+  });
+
+  it("merges the names each walk finds, so a server missing documents loses no DRep", async () => {
+    const full = [
+      { drep_id: "drep1d0", meta_hash: "h0", name: "Zero" },
+      { drep_id: "drep1d1", meta_hash: "h1", name: "One" }
+    ];
+    // The first server has not fetched drep1d1's document; the next one has.
+    const { call } = fakeKoios(2, { updates: (request) => (request === 0 ? full.slice(0, 1) : full) });
+
+    const names = (await buildDrepIndex(call)).map((drep) => drep.name);
+
+    assert.deepEqual(names, ["Zero", "One"]);
+  });
+
+  it("stops a walk whose full page does not move past its first block", async () => {
+    const { call, calls } = fakeKoios(0, {
+      updates: Array.from({ length: KOIOS_PAGE_ROWS }, (_, i) => ({ drep_id: `drep1d${i}`, meta_hash: `h${i}`, name: "N", block_time: 5 }))
+    });
+
+    await buildDrepIndex(call);
+
+    assert.ok(calls.filter((c) => c.path.startsWith("/drep_updates")).length <= 2 * NAME_WALKS);
   });
 
   it("takes each DRep's last named update, and drops a name its current anchor no longer has", async () => {
@@ -181,7 +222,7 @@ describe("getDrepIndex", () => {
     await Promise.all([getDrepIndex(call), getDrepIndex(call)]);
     await getDrepIndex(call);
 
-    assert.equal(listCalls(calls), 1);
+    assert.equal(listCalls(calls), NAME_WALKS);
   });
 
   it("serves the expired index while it rebuilds, then the new one", async () => {
@@ -203,7 +244,7 @@ describe("getDrepIndex", () => {
 
     assert.equal(stale.length, 1);
     assert.equal(fresh.length, 2);
-    assert.equal(listCalls(calls), 2);
+    assert.equal(listCalls(calls), 2 * NAME_WALKS);
   });
 
   it("keeps serving the expired index when its rebuild fails", async () => {

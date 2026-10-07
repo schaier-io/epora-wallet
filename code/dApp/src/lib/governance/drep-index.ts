@@ -4,8 +4,8 @@ import type { DrepSummary } from "@/lib/api/dreps";
 // voting-delegate form can find one by name. Blockfrost has no DRep name search and serves
 // each name with its own request. Koios lists every DRep update with its metadata, which
 // names the DReps in a few pages; status and voting power then come in batches of ids.
-// One mainnet build costs about ten requests; the cache below pays that once per TTL per
-// server instance. A DRep without a name is not listed: the form finds it by its id.
+// One mainnet build costs about fifteen requests; the cache below pays that once per TTL
+// per server instance. A DRep without a name is not listed: the form finds it by its id.
 
 /** One Koios request: a GET without `body`, a POST of `body` as JSON with it. */
 export type KoiosCall = (path: string, body?: unknown) => Promise<unknown>;
@@ -23,9 +23,14 @@ export class KoiosDrepsError extends Error {
 
 // Koios answers at most this many rows per request (Koios API spec, "Pagination").
 export const KOIOS_PAGE_ROWS = 1000;
-// 50,000 named updates. A bound on the loop, far above any network's count (preview had
-// 2,621 on 2026-10-07).
+// 50,000 named updates per walk. A bound on the loop, far above any network's count
+// (preview had 2,644 on 2026-10-07).
 const MAX_PAGES = 50;
+// Koios's servers do not hold the same metadata: on 2026-10-07 one mainnet server had 428
+// documents where the others had 984 to 990, while every server had the same 3,589
+// updates. Each request may reach any of them, so the names are read this many times
+// and merged. A name is a fact about one anchor document, so any server's copy is right.
+export const NAME_WALKS = 3;
 // Koios refuses a large request body with a 413. Its spec allows 1 KB on the public tier
 // and 5 KB on registered tiers, but the public mainnet API took 75 ids (about 4.6 KB) and
 // refused 99 on 2026-10-07. A CIP-129 id is about 61 bytes as a JSON string, so 64 ids
@@ -41,12 +46,11 @@ export const DREP_INDEX_RETRY_MS = 30 * 1000;
 export const DREP_SEARCH_LIMIT = 20;
 export const DREP_SHORTLIST_SIZE = 6;
 
-// Only updates whose anchor names the DRep, oldest first, so a DRep's last named update
-// is read last. The order is unique, so pages neither skip nor repeat a row. Koios orders
-// only by selected columns.
-const NAMED_UPDATES_PATH = "/drep_updates?select=drep_id,meta_hash,block_time,update_tx_hash,cert_index," +
-  "name:meta_json->body->givenName" +
-  "&meta_json->body->givenName=not.is.null&order=block_time.asc,update_tx_hash.asc,cert_index.asc";
+// Only updates whose anchor names the DRep, oldest first. Pages continue from the last
+// `block_time` read, not from an offset: servers hold different rows, so an offset taken
+// on one server skips rows on another. Koios orders only by selected columns.
+const NAMED_UPDATES_PATH = "/drep_updates?select=drep_id,meta_hash,block_time,name:meta_json->body->givenName" +
+  "&meta_json->body->givenName=not.is.null&order=block_time.asc";
 const INFO_PATH = "/drep_info?select=drep_id,drep_status,active,amount,has_script,meta_hash";
 
 export type DrepIndexEntry = DrepSummary;
@@ -66,22 +70,28 @@ function rowsOf(value: unknown): Row[] {
   return Array.isArray(value) ? value.flatMap((row) => asRecord(row) ?? []) as Row[] : [];
 }
 
-type NamedAnchor = { metaHash: string; name: string };
+const anchorKey = (drepId: string, metaHash: string) => `${drepId} ${metaHash}`;
 
-/** Each DRep's last named anchor: the name and the hash of the document it came from. */
-async function lastNamedAnchors(call: KoiosCall): Promise<Map<string, NamedAnchor>> {
-  const anchors = new Map<string, NamedAnchor>();
+/** Adds every named anchor one walk finds to `names`, keyed by DRep and anchor hash. */
+async function walkNamedAnchors(call: KoiosCall, names: Map<string, string>, drepIds: Set<string>) {
+  let from = 0;
   for (let page = 0; page < MAX_PAGES; page++) {
-    const rows = rowsOf(await call(`${NAMED_UPDATES_PATH}&offset=${page * KOIOS_PAGE_ROWS}`));
+    // `gte`, not `gt`: the last block may continue on the next page. Its rows repeat, and
+    // the map drops the repeats.
+    const rows = rowsOf(await call(`${NAMED_UPDATES_PATH}&block_time=gte.${from}`));
     for (const row of rows) {
       const drepId = text(row.drep_id);
       const metaHash = text(row.meta_hash);
       const name = givenName(row.name);
-      if (drepId && metaHash && name) anchors.set(drepId, { metaHash, name });
+      if (!drepId || !metaHash || !name) continue;
+      names.set(anchorKey(drepId, metaHash), name);
+      drepIds.add(drepId);
     }
-    if (rows.length < KOIOS_PAGE_ROWS) break;
+    const last = Number(rows.at(-1)?.block_time);
+    // A full page that did not move past `from` would ask for itself forever.
+    if (rows.length < KOIOS_PAGE_ROWS || !(last > from)) break;
+    from = last;
   }
-  return anchors;
 }
 
 /** One batch, split in half for as long as Koios answers that the body is too large. */
@@ -110,17 +120,21 @@ async function postInBatches(call: KoiosCall, path: string, ids: string[]): Prom
 }
 
 export async function buildDrepIndex(call: KoiosCall): Promise<DrepIndexEntry[]> {
-  const anchors = await lastNamedAnchors(call);
-  const info = await postInBatches(call, INFO_PATH, [...anchors.keys()]);
+  const names = new Map<string, string>();
+  const drepIds = new Set<string>();
+  // Sequential: each walk is a few requests, and they share one upstream budget.
+  for (let walk = 0; walk < NAME_WALKS; walk++) await walkNamedAnchors(call, names, drepIds);
+  const info = await postInBatches(call, INFO_PATH, [...drepIds]);
   return info.flatMap((row) => {
     const drepId = text(row.drep_id);
-    const anchor = drepId ? anchors.get(drepId) : undefined;
-    // Retired DReps drop out. So does a name whose anchor is no longer the DRep's current
-    // one: a later update moved it to a document without a name, or to none.
-    if (!drepId || !anchor || row.drep_status !== "registered" || text(row.meta_hash) !== anchor.metaHash) return [];
+    const metaHash = text(row.meta_hash);
+    // The name of the DRep's current anchor only. A retired DRep drops out, and so does
+    // one whose current anchor has no name: an older anchor's name no longer holds.
+    const name = drepId && metaHash ? names.get(anchorKey(drepId, metaHash)) : undefined;
+    if (!drepId || !name || row.drep_status !== "registered") return [];
     return [{
       drepId,
-      name: anchor.name,
+      name,
       votingPowerLovelace: typeof row.amount === "string" && /^\d+$/.test(row.amount) ? row.amount : null,
       hasScript: row.has_script === true,
       status: row.active === true ? "active" : "inactive"

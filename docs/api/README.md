@@ -193,9 +193,10 @@ name. The sample changes on every call.
 
 Blockfrost has no DRep name search, so the server keeps an index of every registered
 DRep that publishes a name, built from Koios, and refreshes it every six hours. A name
-counts only while it comes from the DRep's current anchor. The first search on a fresh
-server builds that index, which took about 6 seconds on mainnet and 3 seconds on
-preprod. While a refresh runs, or after one fails, the server keeps answering from the
+counts only while it comes from the DRep's current anchor. Koios's servers do not all
+hold every metadata document, so the index reads the names three times and merges them;
+a DRep can still be missing until the next refresh. The first search on a fresh server
+builds that index, which took 6 to 10 seconds on mainnet in four runs on 2026-10-07. While a refresh runs, or after one fails, the server keeps answering from the
 previous index. After a failed build with no previous index, the route answers with the
 same error for 30 seconds, or as long as Koios asked if that is longer, before it tries
 again. Use `/api/v1/dreps?id=` for current figures on one DRep.
