@@ -262,7 +262,7 @@ export function WalletPublishConfigView() {
             ) : null}
 
             {result ? (
-              <div className="rounded-2xl border border-border/60 bg-background/40 p-2 sm:p-3">
+              <div className="rounded-lg border border-border/60 bg-background/40 p-2 sm:p-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant={result.status === "active" ? "success" : result.status === "retired" ? "destructive" : "warning"}>
                     {i18n(STATUS_LABEL_KEYS[result.status])}
