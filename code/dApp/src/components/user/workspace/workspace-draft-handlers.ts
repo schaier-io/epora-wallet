@@ -9,7 +9,7 @@ import { lockFundsAssetsAtom } from "@/components/user/workspace/atoms/forms/loc
 import { mintReferenceAtom, mintStarterAssetsAtom, mintStateFormAtom, mintZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/mint-form.atoms";
 import { voteJsonAtom, voteSttAssetsAtom, voteSttInputHashAtom, voteSttInputIndexAtom, voteSttStateFormAtom, voteZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/vote-form.atoms";
 import { publishCertificateJsonAtom, publishSttAssetsAtom, publishSttInputHashAtom, publishSttInputIndexAtom, publishSttStateFormAtom, publishZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/publish-form.atoms";
-import { beneficiaryStreamStopIdAtom, consolidateAuthorityPathAtom, streamingPaymentPayoutAmountsAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputOutputIndexAtom, sttInputTxHashAtom, sttOutputAssetsAtom, sttProofOfLifeOverrideModeAtom, sttProofOfLifeSpecificDateTimeAtom, sttStateFormAtom, sttTransferAddressAtom, sttTransferAmountsAtom, sttWalletInputsAtom, sttWalletOutputsAtom, sttZeroAdminConfirmedAtom, updateStateFormAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import { beneficiaryStreamStopIdAtom, consolidateAuthorityPathAtom, streamingPaymentPayoutAmountsAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputOutputIndexAtom, sttInputTxHashAtom, sttOutputAssetsAtom, sttProofOfLifeOverrideModeAtom, sttProofOfLifeSpecificDateTimeAtom, sttStateFormAtom, sttTransferAddressAtom, sttTransferAmountsAtom, sttWalletInputsAtom, sttWalletOutputsAtom, sttThresholdConfirmedAtom, sttZeroAdminConfirmedAtom, updateStateFormAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { transferCustomAddressAtom, transferDisplayAmountAtom, transferRecipientModeAtom, transferSelectedUnitAtom } from "@/components/user/workspace/atoms/forms/transfer-form.atoms";
 import { withdrawAmountAtom, withdrawRewardAddressAtom, withdrawSttAssetsAtom, withdrawSttInputHashAtom, withdrawSttInputIndexAtom, withdrawSttStateFormAtom, withdrawZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/withdraw-form.atoms";
 import { type MutableRefObject } from "react";
@@ -97,6 +97,7 @@ export function useWorkspaceDraftHandlers(ctx: WorkspaceDraftHandlersCtx) {
   const setSttWalletInputs = useSetAtom(sttWalletInputsAtom);
   const setSttWalletOutputs = useSetAtom(sttWalletOutputsAtom);
   const setSttZeroAdminConfirmed = useSetAtom(sttZeroAdminConfirmedAtom);
+  const setSttThresholdConfirmed = useSetAtom(sttThresholdConfirmedAtom);
   const setTransferCustomAddress = useSetAtom(transferCustomAddressAtom);
   const setTransferDisplayAmount = useSetAtom(transferDisplayAmountAtom);
   const setTransferRecipientMode = useSetAtom(transferRecipientModeAtom);
@@ -123,16 +124,14 @@ export function useWorkspaceDraftHandlers(ctx: WorkspaceDraftHandlersCtx) {
     }
     const conflicts = { ...store.get(workspaceDraftConflictsAtom) };
     if (action === "update-state") {
-      const task = store.get(routeStateAtom).selectedTask;
+      // The settings are one page: people, co-signer threshold and recovery timer
+      // change together, so a reset takes the whole draft back to the chain.
       const current = store.get(updateStateFormAtom) ?? latest;
-      const fields: (keyof StateFormState)[] = task === "settings-people" ? ["users"]
-        : task === "settings-wallet-name" ? ["walletName"]
-        : task === "settings-multisig-threshold" ? ["multiSigThreshold", "multiSigThresholdMode"]
-        : task === "settings-proof-of-life" ? ["beneficiaries", "proofOfLifeUnlockTimeMode", "proofOfLifeUnlockTime", "proofOfLifeIncrementMode", "proofOfLifeIncrement"]
-        : Object.keys(latest) as (keyof StateFormState)[];
+      const fields = Object.keys(latest) as (keyof StateFormState)[];
       const next = withBeneficiarySigningAddressesDerived(cloneStateForm(current));
       for (const field of fields) Object.assign(next, { [field]: latest[field] });
       setUpdateStateForm(withBeneficiarySigningAddressesDerived(next));
+      setSttThresholdConfirmed(false);
       conflicts[action] = (conflicts[action] ?? []).filter(field => !fields.includes(field as keyof StateFormState));
       store.set(workspaceDraftConflictsAtom, conflicts);
       clearPreviewResult(); clearBuildMessages(); return;

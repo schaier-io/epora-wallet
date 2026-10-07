@@ -81,6 +81,7 @@ export type ActionFieldErrorsInput = {
   sttWalletInputs: WalletInputRef[];
   sttWalletOutputs: WalletScriptOutputFormState[];
   sttZeroAdminConfirmed: boolean;
+  sttThresholdConfirmed: boolean;
   useAllowancePreview: { error: string | null };
   walletOperatorPath: OperatorAuthorityPath;
   withdrawAmount: string;

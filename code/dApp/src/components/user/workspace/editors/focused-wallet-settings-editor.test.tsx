@@ -1,389 +1,154 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { FocusedWalletSettingsEditor } from "./focused-wallet-settings-editor";
+import { describeStateValidationError } from "../helpers/state-validation-copy";
+import { type UserWorkspaceTask } from "@/components/user/flow-types";
 import {
   type StateFormState,
-  createDefaultBeneficiaryFormState,
   createDefaultStateForm,
   createDefaultUserFormState
 } from "@/lib/contracts/state-form";
-import { MAX_ACCESS_RECORDS, MAX_BENEFICIARIES } from "@/lib/contracts/state-validation";
 
-function timerForm(enabled: boolean): StateFormState {
-  const value = createDefaultStateForm();
-  value.proofOfLifeUnlockTimeMode = enabled ? "some" : "none";
-  value.proofOfLifeIncrementMode = enabled ? "some" : "none";
-  value.proofOfLifeUnlockTime = enabled ? "1750000000000" : "";
-  value.proofOfLifeIncrement = enabled ? "2592000000" : "";
-  return value;
-}
+// jsdom has no layout, so it has no scrollIntoView. The jump calls it before focusing.
+beforeAll(() => {
+  Element.prototype.scrollIntoView = vi.fn();
+});
 
-function renderTimer(value: StateFormState = timerForm(true)) {
-  const onChange = vi.fn();
+const KEY_A = "a1".repeat(28);
+const KEY_B = "b2".repeat(28);
+
+/** An owner and one co-signer holding 1 power, with the threshold given. */
+function walletWith(threshold: string): StateFormState {
   return {
-    onChange,
-    ...render(
-      <FocusedWalletSettingsEditor
-        value={value}
-        onChange={onChange}
-        selectedTask="settings-proof-of-life"
-        onSelectTask={vi.fn()}
-        fieldErrors={{}}
-      />
-    )
+    ...createDefaultStateForm(),
+    walletName: "Family",
+    users: [
+      { ...createDefaultUserFormState("0"), wallets: [KEY_A], isAdmin: true },
+      { ...createDefaultUserFormState("1"), wallets: [KEY_B], multiSigPowerMode: "some", multiSigPower: "1" }
+    ],
+    beneficiaries: [],
+    multiSigThresholdMode: "some",
+    multiSigThreshold: threshold
   };
 }
 
-describe("adding a recovery contact", () => {
-  it("also adds the required proof-of-life settings", () => {
-    const view = renderTimer(timerForm(false));
-    fireEvent.click(screen.getByRole("button", { name: "Add recovery contact" }));
+function renderPage({
+  value = walletWith("1"),
+  selectedTask = "settings-people" as UserWorkspaceTask | null,
+  fieldErrors = {},
+  ...rest
+}: Partial<Parameters<typeof FocusedWalletSettingsEditor>[0]> = {}) {
+  const props = {
+    value,
+    onChange: vi.fn<(value: StateFormState) => void>(),
+    selectedTask,
+    onSelectTask: vi.fn<(task: UserWorkspaceTask) => void>(),
+    fieldErrors,
+    ...rest
+  };
+  return { props, ...render(<FocusedWalletSettingsEditor {...props} />) };
+}
 
-    const next = view.onChange.mock.calls[0]![0] as StateFormState;
-    expect(next.beneficiaries).toHaveLength(1);
-    expect(next.proofOfLifeUnlockTimeMode).toBe("some");
-    expect(next.proofOfLifeIncrementMode).toBe("some");
-    expect(next.proofOfLifeUnlockTime).not.toBe("");
-    expect(next.proofOfLifeIncrement).not.toBe("");
+describe("wallet settings on one page", () => {
+  it("shows the name, the rules and everyone in the wallet without tabs", () => {
+    renderPage();
+    expect(screen.queryByRole("tab")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Wallet name")).toHaveValue("Family");
+    expect(screen.getByText("Approval power needed: 1 of 1")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "People" })).toBeInTheDocument();
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
   });
 
-  it("stops at the combined users and recovery-contacts cap", () => {
-    const value = timerForm(true);
-    value.users = [createDefaultUserFormState("0")];
-    value.beneficiaries = Array.from(
-      { length: MAX_ACCESS_RECORDS - 1 },
-      (_, index) => createDefaultBeneficiaryFormState(String(index))
-    );
-    const { onChange } = renderTimer(value);
+  it("opens the rule that the sidebar entry names", () => {
+    const view = renderPage({ selectedTask: "settings-proof-of-life" });
+    expect(screen.getByRole("switch", { name: "Require proof of life" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Approval power needed")).not.toBeInTheDocument();
 
-    const add = screen.getByRole("button", { name: "Add recovery contact" });
-    expect(add).toBeDisabled();
-    fireEvent.click(add);
-    expect(onChange).not.toHaveBeenCalled();
-    // A dead button and nothing else was the whole message here. The full editor has always
-    // named the cap (`state-form-editor.tsx:270`); this tab did not.
-    expect(
-      screen.getByText(
-        `This wallet already holds ${MAX_ACCESS_RECORDS} owners, spenders, and recovery contacts in total. Remove one to add another.`
-      )
-    ).toBeInTheDocument();
+    view.rerender(<FocusedWalletSettingsEditor {...view.props} selectedTask="settings-multisig-threshold" />);
+    expect(screen.getByLabelText("Approval power needed")).toBeInTheDocument();
   });
 
-  it("names the recovery-contacts cap when that is the one it hit", () => {
-    const value = timerForm(true);
-    value.beneficiaries = Array.from(
-      { length: MAX_BENEFICIARIES },
-      (_, index) => createDefaultBeneficiaryFormState(String(index))
-    );
-    renderTimer(value);
-
-    expect(screen.getByRole("button", { name: "Add recovery contact" })).toBeDisabled();
-    expect(
-      screen.getByText(
-        `This wallet already holds ${MAX_BENEFICIARIES} recovery contacts. Remove one to add another.`
-      )
-    ).toBeInTheDocument();
-  });
-});
-
-describe("the combined recovery tab", () => {
-  /**
-   * The timer names recovery contacts in every helper, but the tab showed neither
-   * them nor a way to add one — the reader had to know to visit another tab for the
-   * people the timer hands the wallet to.
-   */
-  it("lists the contacts and offers the add beneath the deadline", () => {
-    const value = timerForm(true);
-    value.beneficiaries = [
-      {
-        id: "1",
-        wallets: ["ab".repeat(28)],
-        unlockAfterMode: "none",
-        unlockAfter: "",
-        weight: "1",
-      payoutAddress: ""
-      }
-    ];
-    renderTimer(value);
-
-    expect(screen.getByText(/Recovery contact · /)).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "Add recovery contact" })).toHaveLength(1);
-    expect(screen.queryByText("Nobody can recover this wallet")).not.toBeInTheDocument();
-  });
-
-  it("uses the payout address as the recovery contact's only signing wallet", () => {
-    const value = timerForm(true);
-    value.beneficiaries = [{
-      ...createDefaultBeneficiaryFormState("1"),
-      wallets: ["ab".repeat(28), "cd".repeat(28)]
-    }];
-    const { onChange } = renderTimer(value);
-    const address = "addr_test1qqg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyfzyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3qwzdgzn";
-
-    fireEvent.change(screen.getByLabelText("Payout and signing wallet"), {
-      target: { value: address }
+  it("asks to confirm an ownerless wallet once", () => {
+    renderPage({
+      value: { ...walletWith("1"), users: [] },
+      zeroAdminConfirmed: false,
+      onZeroAdminConfirmedChange: vi.fn()
     });
-
-    const next = onChange.mock.calls[0]![0] as StateFormState;
-    expect(next.beneficiaries[0]).toMatchObject({
-      payoutAddress: address,
-      wallets: ["11".repeat(28)]
-    });
-    expect(screen.queryByText("Recovery wallet IDs")).not.toBeInTheDocument();
-  });
-
-  it("offers one right-aligned add while nobody can recover", () => {
-    renderTimer();
-
-    expect(screen.getByText("Nobody can recover this wallet")).toBeInTheDocument();
-    const add = screen.getByRole("button", { name: "Add recovery contact" });
-    expect(add).toHaveClass("ml-auto");
-    expect(screen.getAllByRole("button", { name: "Add recovery contact" })).toHaveLength(1);
-  });
-
-  it("adds a contact from the timer tab into the same form", () => {
-    const { onChange } = renderTimer();
-
-    fireEvent.click(screen.getAllByRole("button", { name: "Add recovery contact" })[0]!);
-
-    const next = onChange.mock.calls[0]![0] as StateFormState;
-    expect(next.beneficiaries).toHaveLength(1);
-    expect(next.proofOfLifeUnlockTimeMode).toBe("some");
-  });
-
-  it("shows the contact count and proof-of-life state on one tab", () => {
-    renderTimer();
-
-    expect(
-      screen.getByRole("button", { name: "Recovery. 0 recovery contacts · Configured" })
-    ).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Recovery contacts/ })).not.toBeInTheDocument();
-  });
-
-  it("does not mark a half-configured proof of life as configured", () => {
-    const value = timerForm(false);
-    value.proofOfLifeUnlockTimeMode = "some";
-    renderTimer(value);
-
-    expect(
-      screen.getByRole("button", { name: "Recovery. 0 recovery contacts · Unset" })
-    ).toBeInTheDocument();
-  });
-});
-
-describe("one control for a paired setting", () => {
-  /**
-   * `expect_valid_settings` (`smart-contract/lib/state/proof_of_life.ak:31-40`) rejects a
-   * pair where exactly one of `unlock_time` and `increment` is present. The screen offered
-   * a separate None/Some select for each, so a reader could build a wallet the validator
-   * will not accept and only learn of it at the receipt.
-   */
-  it("replaces the two mode selects with a single question", () => {
-    renderTimer();
-
-    expect(screen.getByLabelText("Require proof of life")).toBeInTheDocument();
-    expect(screen.queryByLabelText("Proof of life Increment Mode")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Proof of life Unlock Time Mode")).not.toBeInTheDocument();
-    expect(screen.queryByRole("option", { name: "Some" })).not.toBeInTheDocument();
-  });
-
-  it("sets both halves at once when it is turned on", () => {
-    const { onChange } = renderTimer(timerForm(false));
-
-    fireEvent.change(screen.getByLabelText("Require proof of life"), {
-      target: { value: "some" }
-    });
-
-    const next = onChange.mock.calls[0]![0] as StateFormState;
-    expect(next.proofOfLifeUnlockTimeMode).toBe("some");
-    expect(next.proofOfLifeIncrementMode).toBe("some");
-    expect(next.proofOfLifeUnlockTime.trim()).not.toBe("");
-    expect(next.proofOfLifeIncrement.trim()).not.toBe("");
-  });
-
-  it("clears both halves at once when it is turned off", () => {
-    const { onChange } = renderTimer();
-
-    fireEvent.change(screen.getByLabelText("Require proof of life"), {
-      target: { value: "none" }
-    });
-
-    const next = onChange.mock.calls[0]![0] as StateFormState;
-    expect(next.proofOfLifeUnlockTimeMode).toBe("none");
-    expect(next.proofOfLifeIncrementMode).toBe("none");
-  });
-
-  it("hides the two values rather than greying them out when the timer is off", () => {
-    renderTimer(timerForm(false));
-
-    expect(screen.queryByText("Recovery contacts can claim after")).not.toBeInTheDocument();
-    expect(screen.queryByText("Time each check-in buys")).not.toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "Turn this on so your recovery contacts can claim this wallet if you stop checking in. Without it, they can never act."
-      )
-    ).toBeInTheDocument();
-  });
-});
-
-describe("the People tab inside Wallet settings", () => {
-  /**
-   * The People page merged into Wallet settings: one update-state form was reachable
-   * through two sidebar entries, and "who can act" belongs on the same surface as the
-   * rules it feeds. The roster renders as the first tab of the merged surface.
-   */
-  function renderPeopleTab() {
-    const onChange = vi.fn();
-    return {
-      onChange,
-      ...render(
-        <FocusedWalletSettingsEditor
-          value={createDefaultStateForm()}
-          onChange={onChange}
-          selectedTask="settings-people"
-          onSelectTask={vi.fn()}
-          fieldErrors={{}}
-        />
-      )
-    };
-  }
-
-  it("renders the roster for the merged tab", () => {
-    renderPeopleTab();
-
-    expect(screen.getByText("Nobody is in this wallet yet")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /add person/i })).toBeInTheDocument();
-  });
-
-  it("asks to confirm an ownerless wallet once, not twice", () => {
-    render(
-      <FocusedWalletSettingsEditor
-        value={createDefaultStateForm()}
-        onChange={vi.fn()}
-        selectedTask="settings-people"
-        onSelectTask={vi.fn()}
-        fieldErrors={{}}
-        zeroAdminConfirmed={false}
-        onZeroAdminConfirmedChange={vi.fn()}
-      />
-    );
-
     expect(screen.getAllByText("This wallet would have no owner")).toHaveLength(1);
-    expect(screen.getAllByRole("checkbox")).toHaveLength(1);
   });
 
-  it("adds a person through the same form", () => {
-    const { onChange } = renderPeopleTab();
-
-    fireEvent.click(screen.getByRole("button", { name: /add person/i }));
-
-    const next = onChange.mock.calls[0]![0] as StateFormState;
-    expect(next.users).toHaveLength(1);
-  });
-});
-
-describe("what the fields mean", () => {
-  it("says what the deadline does rather than naming the stored field", () => {
-    renderTimer();
-
-    expect(screen.getByText("Recovery contacts can claim after")).toBeInTheDocument();
-    expect(screen.queryByText("Proof of life Unlock Time")).not.toBeInTheDocument();
-    expect(
-      screen.getByText("Until this time, only the owners can use this wallet.")
-    ).toBeInTheDocument();
-  });
-
-  /**
-   * `increment` caps one check-in: a renewal must satisfy
-   * `updated_unlock_time <= tx_earliest_time + increment` (`proof_of_life.ak:124`). The old
-   * helper described the widget instead of the setting.
-   */
-  it("says what a check-in buys rather than how to type it", () => {
-    renderTimer();
-
-    expect(screen.getByText("Time each check-in buys")).toBeInTheDocument();
-    expect(screen.queryByText("Proof of life Increment")).not.toBeInTheDocument();
-    expect(
-      screen.getByText("Checking in moves the date beside this to that far from now, and no further.")
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByText("Use a human-sized interval instead of typing milliseconds.")
-    ).not.toBeInTheDocument();
-  });
-
-  /**
-   * The tab used to open with an intro paragraph. The helper on the control below said
-   * the same thing ("Check in before the date below to push it back. Miss it, and your
-   * recovery contacts can claim what is in this wallet."), and the line above the
-   * recovery-contact list said it a third time, so the tab stated one rule three times
-   * before the reader reached a field.
-   */
-  it("states the rule on the control that sets it, not in an intro above it", () => {
-    renderTimer();
-
-    expect(
-      screen.queryByText(/The proof of life is how long you have between check-ins/)
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "Check in before the date below to push it back. Miss it, and your recovery contacts can claim what is in this wallet."
-      )
-    ).toBeInTheDocument();
+  it("asks to confirm a threshold that no group of co-signers can reach", () => {
+    const onThresholdConfirmedChange = vi.fn<(value: boolean) => void>();
+    renderPage({
+      value: walletWith("3"),
+      selectedTask: "settings-multisig-threshold",
+      thresholdConfirmed: false,
+      onThresholdConfirmedChange
+    });
+    expect(screen.getByText("No group of co-signers can reach 3")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox", { name: "I understand. Keep this threshold." }));
+    expect(onThresholdConfirmedChange).toHaveBeenCalledWith(true);
   });
 });
 
-describe("dead chrome", () => {
-  /**
-   * `FocusedTaskSurface` declares a `stats` prop and has never rendered it. This file's
-   * block also carried "Proof of live", the same misspelling that spelled the banned term
-   * `proof of life` past `copy-terms.test.ts` in the people editor.
-   */
-  it("no longer authors a stats block the surface throws away", () => {
-    renderTimer();
-
-    expect(screen.queryByText("Proof of live")).not.toBeInTheDocument();
-    expect(screen.queryByText("Multisig")).not.toBeInTheDocument();
-  });
-});
-
-/**
- * The co-signer tab opened with "Let several people act together on this wallet, even
- * when none of them is an owner. An owner can still act alone either way." one line above
- * the control headed "Let several people act together", whose own helper ends "An owner
- * can still act alone." One rule, twice, before the reader reached the slider.
- */
-describe("the co-signer threshold tab", () => {
-  it("states the rule on the control, not in an intro above it", () => {
-    const value = createDefaultStateForm();
-    value.multiSigThresholdMode = "some";
-    value.multiSigThreshold = "2";
-    render(
-      <FocusedWalletSettingsEditor
-        value={value}
-        onChange={vi.fn()}
-        selectedTask="settings-multisig-threshold"
-        onSelectTask={vi.fn()}
-        fieldErrors={{}}
-      />
-    );
-
-    expect(
-      screen.queryByText(/even when none of them is an owner/)
-    ).not.toBeInTheDocument();
-    // The control that sets the rule is still here, with its own heading and helper.
-    expect(screen.getByText("Let several people act together")).toBeInTheDocument();
-  });
-});
-
-describe("finding draft issues across settings tabs", () => {
-  it("shows the failing message and jumps only to its settings task", () => {
-    const onSelectTask = vi.fn();
-    render(<FocusedWalletSettingsEditor value={createDefaultStateForm()} onChange={vi.fn()} selectedTask="settings-wallet-name" onSelectTask={onSelectTask} fieldErrors={{ "Output state": ["Person 12 daily limit must be >= 0."] }} />);
+describe("finding draft issues on the page", () => {
+  it("jumps from a people issue to the people task", () => {
+    const { props } = renderPage({
+      selectedTask: "settings-wallet-name",
+      fieldErrors: { "Output state": ["Person 12 daily limit must be >= 0."] }
+    });
     expect(screen.getByText("Person 12 daily limit must be >= 0.")).toBeInTheDocument();
-    expect(screen.queryByText(/Output state:/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Check People/i }));
-    expect(onSelectTask).toHaveBeenCalledWith("settings-people");
-    expect(screen.queryByRole("button", { name: /Check Proof of life/i })).not.toBeInTheDocument();
+    expect(props.onSelectTask).toHaveBeenCalledWith("settings-people");
+  });
+
+  it("lands on the first person from a people issue, not on Add person", async () => {
+    renderPage({
+      selectedTask: "settings-wallet-name",
+      fieldErrors: { "Output state": ["Person 12 daily limit must be >= 0."] }
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Check People/i }));
+    await waitFor(() => expect(document.activeElement?.closest("[data-person-key]")).not.toBeNull());
+    expect(document.activeElement).toHaveAttribute("aria-expanded");
+  });
+
+  it("opens the co-signers rule from a threshold issue", () => {
+    const message = `${describeStateValidationError("state.multi_sig_threshold")} must be at least 1.`;
+    const { props } = renderPage({ selectedTask: "settings-wallet-name", fieldErrors: { "Output state": [message] } });
+    expect(screen.queryByLabelText("Approval power needed")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Check Co-signer threshold/i }));
+    expect(props.onSelectTask).toHaveBeenCalledWith("settings-multisig-threshold");
+    expect(screen.getByLabelText("Approval power needed")).toBeInTheDocument();
+  });
+
+  it("lands on the confirmation from an unreachable-threshold issue", async () => {
+    renderPage({
+      value: walletWith("3"),
+      selectedTask: "settings-people",
+      thresholdConfirmed: false,
+      onThresholdConfirmedChange: vi.fn(),
+      fieldErrors: { "Approval power out of reach": ["No group of co-signers can reach the approval power needed. Confirm it, or lower it."] }
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Check Co-signer threshold/i }));
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole("checkbox", { name: "I understand. Keep this threshold." }))
+    );
+  });
+
+  it("lands inside the proof-of-life rule from its issue, not on the co-signers trigger", async () => {
+    const message = `${describeStateValidationError("state.proof_of_life_increment")} must be at least 1.`;
+    const value = {
+      ...walletWith("1"),
+      proofOfLifeUnlockTimeMode: "some" as const,
+      proofOfLifeUnlockTime: String(Date.UTC(2027, 0, 6)),
+      proofOfLifeIncrementMode: "some" as const,
+      // Valid values: nothing is marked invalid, so the jump takes its fallback.
+      proofOfLifeIncrement: String(90 * 24 * 60 * 60 * 1000)
+    };
+    renderPage({ value, selectedTask: "settings-wallet-name", fieldErrors: { "Output state": [message] } });
+    fireEvent.click(screen.getByRole("button", { name: /^Check /i }));
+    await waitFor(() => expect(document.activeElement?.closest('[role="region"]')).not.toBeNull());
+    expect(document.activeElement).not.toBe(screen.getByRole("switch", { name: "Require proof of life" }));
   });
 });

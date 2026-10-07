@@ -86,6 +86,7 @@ export function computeActionSignature(action: UserActionKind, ctx: BuildActionS
     sttWalletInputs,
     sttWalletOutputs,
     sttZeroAdminConfirmed,
+    sttThresholdConfirmed,
     streamingPaymentPayout,
     walletOperatorPath,
     withdrawAmount,
@@ -136,6 +137,7 @@ export function computeActionSignature(action: UserActionKind, ctx: BuildActionS
           sttProofOfLifeOverrideMode,
           sttProofOfLifeSpecificDateTime,
           sttZeroAdminConfirmed,
+          sttThresholdConfirmed,
           ...(action === "payout-streaming-payment"
             ? { streamingPaymentPayoutIdentity: streamingPaymentPayout.identity }
             : {})

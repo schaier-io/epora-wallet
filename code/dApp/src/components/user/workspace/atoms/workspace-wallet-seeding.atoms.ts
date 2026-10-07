@@ -33,6 +33,7 @@ import {
   sttTransferAmountsAtom,
   sttWalletInputsAtom,
   sttWalletOutputsAtom,
+  sttThresholdConfirmedAtom,
   sttZeroAdminConfirmedAtom
 } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import {
@@ -82,6 +83,7 @@ export const seedWorkspaceWalletAtom = atom(
     set(sttInputTxHashAtom, inputTxHash);
     set(sttInputOutputIndexAtom, inputOutputIndex);
     set(sttZeroAdminConfirmedAtom, false);
+    set(sttThresholdConfirmedAtom, false);
     set(sttStateFormAtom, cloneStateForm(stateForm));
     set(updateStateFormAtom, withBeneficiarySigningAddressesDerived(cloneStateForm(stateForm)));
     set(sttOutputAssetsAtom, []);

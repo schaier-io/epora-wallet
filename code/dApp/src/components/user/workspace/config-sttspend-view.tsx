@@ -19,7 +19,7 @@ import { stateFormToDatum } from "@/lib/contracts/state-form";
 import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 import { PreprodFaucetHint } from "@/components/user/preprod-faucet-hint";
 import { AddressCopyButton } from "@/components/ui/address-copy-button";
-import { FocusedPeopleEditor, FocusedStreamingPaymentRulesEditor, FocusedWalletSettingsEditor, InlineFieldError, SearchableAssetUnitDropdown, StateFormEditor } from "@/components/user/workspace/editors";
+import { FocusedStreamingPaymentRulesEditor, FocusedWalletSettingsEditor, InlineFieldError, SearchableAssetUnitDropdown, StateFormEditor } from "@/components/user/workspace/editors";
 import { formatAmountSummary, formatTimestampLabel, getFirstFieldError, shortenAddress } from "@/components/user/workspace/helpers";
 
 import { lockedContractUtxosErrorAtom, lockedContractUtxosLoadingAtom } from "@/components/user/workspace/atoms/workspace-data.atoms";
@@ -72,10 +72,12 @@ export function SttSpendConfigView() {
     setSttAuthorityPath,
     setSttExtraTransfers,
     setSttStateForm,
+    setSttThresholdConfirmed,
     setSttZeroAdminConfirmed,
     sttAuthorityPath,
     sttExtraTransfers,
     sttStateForm,
+    sttThresholdConfirmed,
     sttZeroAdminConfirmed,
     setTransferCustomAddress,
     setTransferDisplayAmount,
@@ -132,10 +134,10 @@ export function SttSpendConfigView() {
         selectedAction === "use-allowance" ||
         selectedAction === "use-beneficiary";
       const isGuidedStreamingPaymentAction = selectedAction === "payout-streaming-payment";
-      const usesFocusedPeopleEditor =
-        selectedAction === "update-state" && selectedIntent === "manage-people";
+      // People and the rules they feed are one page, whichever entry opened it.
       const usesFocusedWalletSettingsEditor =
-        selectedAction === "update-state" && selectedIntent === "wallet-settings";
+        selectedAction === "update-state" &&
+        (selectedIntent === "wallet-settings" || selectedIntent === "manage-people");
       const usesFocusedStreamingPaymentRulesEditor = selectedAction === "manage-streaming-payments";
 
       return (
@@ -168,23 +170,13 @@ export function SttSpendConfigView() {
           ) : null}
           {activeSttActionTab.allowsStateEditing ? (
             <>
-              {usesFocusedPeopleEditor ? (
-                <FocusedPeopleEditor
-                  value={sttStateForm}
-                  onChange={(nextState) => {
-                    setSttStateForm(nextState);
-                    setSttZeroAdminConfirmed(false);
-                  }}
-                  fieldErrors={activeFieldErrors}
-                  zeroAdminConfirmed={sttZeroAdminConfirmed}
-                  onZeroAdminConfirmedChange={setSttZeroAdminConfirmed}
-                />
-              ) : usesFocusedWalletSettingsEditor ? (
+              {usesFocusedWalletSettingsEditor ? (
                 <FocusedWalletSettingsEditor
                   value={sttStateForm}
                   onChange={(nextState) => {
                     setSttStateForm(nextState);
                     setSttZeroAdminConfirmed(false);
+                    setSttThresholdConfirmed(false);
                   }}
                   selectedTask={resolvedSelectedTask}
                   onSelectTask={handleFocusedTaskSelect}
@@ -192,6 +184,8 @@ export function SttSpendConfigView() {
                   walletNameEditable={sttAuthorityPath === "admin"}
                   zeroAdminConfirmed={sttZeroAdminConfirmed}
                   onZeroAdminConfirmedChange={setSttZeroAdminConfirmed}
+                  thresholdConfirmed={sttThresholdConfirmed}
+                  onThresholdConfirmedChange={setSttThresholdConfirmed}
                 />
               ) : usesFocusedStreamingPaymentRulesEditor ? (
                 <FocusedStreamingPaymentRulesEditor

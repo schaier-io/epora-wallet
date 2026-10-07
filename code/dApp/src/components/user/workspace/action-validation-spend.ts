@@ -6,6 +6,7 @@ import { type FieldErrors } from "@/components/user/flow-types";
 import { BENEFICIARY_WITHDRAWAL_ACTION, type RENEW_PROOF_OF_LIFE_ACTION, STREAMING_PAYMENT_PAYOUT_ACTION } from "@/components/user/workspace/constants";
 import { appendValidationErrors, cloneStateForm, pushFieldError, type resolveManageStreamingPaymentsActionAlternative, resolveSttFundPoolInputs, type resolveUpdateStateActionAlternative, type resolveUseActionAlternative, serializeTransfers, serializeWalletOutputs, validateTransferRows, validateWalletInputRefs } from "@/components/user/workspace/helpers";
 import {
+  requireReachableThresholdConfirmation,
   requireZeroAdminConfirmation,
   validateOutputStateDatum,
   validateSpecificProofOfLifeDate,
@@ -134,6 +135,7 @@ export function computeSpendActionErrors(
     sttWalletInputs,
     sttWalletOutputs,
     sttZeroAdminConfirmed,
+    sttThresholdConfirmed,
     useAllowancePreview
   } = input;
   const {
@@ -238,6 +240,7 @@ export function computeSpendActionErrors(
     fallbackMessage: i18n("outputStateIsInvalid")
   });
   requireZeroAdminConfirmation(updateErrors, updateStateForm, sttZeroAdminConfirmed);
+  requireReachableThresholdConfirmation(updateErrors, updateStateForm, sttThresholdConfirmed);
   if (normalizeWalletName(updateStateForm.walletName) !== currentWalletName && sttAuthorityPath !== "admin") {
     pushFieldError(
       updateErrors,

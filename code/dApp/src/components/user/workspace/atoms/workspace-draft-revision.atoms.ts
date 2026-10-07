@@ -3,7 +3,7 @@ import { activeAddressAtom, networkIdAtom } from "@/providers/wallet.atoms";
 import { stateFormFromDatum, type StateFormState } from "@/lib/contracts/state-form";
 import type { DetectedSttToken } from "@/lib/mesh/detection";
 import { cloneStateForm, withBeneficiarySigningAddressesDerived } from "../helpers/form-state";
-import { sttStateFormAtom, updateStateFormAtom, sttInputTxHashAtom, sttInputOutputIndexAtom } from "./forms/stt-spend-form.atoms";
+import { sttStateFormAtom, sttThresholdConfirmedAtom, updateStateFormAtom, sttInputTxHashAtom, sttInputOutputIndexAtom } from "./forms/stt-spend-form.atoms";
 import { consolidateStateFormAtom, consolidateSttInputHashAtom, consolidateSttInputIndexAtom } from "./forms/consolidate-form.atoms";
 import { withdrawSttStateFormAtom, withdrawSttInputHashAtom, withdrawSttInputIndexAtom } from "./forms/withdraw-form.atoms";
 import { publishSttStateFormAtom, publishSttInputHashAtom, publishSttInputIndexAtom } from "./forms/publish-form.atoms";
@@ -87,6 +87,8 @@ export const reconcileWorkspaceWalletAtom = atom(null, (get, set, token: Detecte
     const current = withBeneficiarySigningAddressesDerived(latest);
     const result = reconcileStateDraft(withBeneficiarySigningAddressesDerived(base.state), settings, current);
     set(updateStateFormAtom, result.merged);
+    // A yes to a threshold out of reach was a yes to the old co-signers.
+    if (JSON.stringify(result.merged) !== JSON.stringify(settings)) set(sttThresholdConfirmedAtom, false);
     const retained = (nextConflicts["update-state"] ?? []).filter(field =>
       JSON.stringify(result.merged[field as keyof StateFormState]) !== JSON.stringify(current[field as keyof StateFormState]));
     nextConflicts["update-state"] = [...new Set([...retained, ...result.conflicts])];

@@ -52,6 +52,7 @@ function lockFundsInput(lockFundsAssets: Asset[]): ActionFieldErrorsInput {
     sttWalletInputs: [],
     sttWalletOutputs: [],
     sttZeroAdminConfirmed: false,
+    sttThresholdConfirmed: false,
     useAllowancePreview: { error: null },
     walletOperatorPath: "admin",
     withdrawAmount: "",
@@ -162,4 +163,28 @@ test("equivalent normalized names do not count as draft renames", () => {
 
   assert.deepEqual(errors["update-state"], {});
   assert.deepEqual(errors["manage-streaming-payments"], {});
+});
+
+// The contract accepts a threshold above the power every co-signer holds together; the
+// owners can still act. Saving one locks the co-signers out, so it needs an explicit yes.
+test("a threshold no group of co-signers can reach needs a confirmation to save", () => {
+  const input = stateActionInput();
+  input.updateStateForm.users.push({
+    ...createDefaultUserFormState("1"),
+    wallets: ["bb".repeat(28)],
+    multiSigPowerMode: "some",
+    multiSigPower: "1"
+  });
+  input.updateStateForm.multiSigThresholdMode = "some";
+  input.updateStateForm.multiSigThreshold = "2";
+  assert.deepEqual(computeActionFieldErrors(input)["update-state"]["Approval power out of reach"], [
+    "No group of co-signers can reach the approval power needed. Confirm it, or lower it."
+  ]);
+
+  input.sttThresholdConfirmed = true;
+  assert.deepEqual(computeActionFieldErrors(input)["update-state"], {});
+
+  input.sttThresholdConfirmed = false;
+  input.updateStateForm.multiSigThreshold = "1";
+  assert.deepEqual(computeActionFieldErrors(input)["update-state"], {});
 });

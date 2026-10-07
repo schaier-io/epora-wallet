@@ -20,6 +20,7 @@ import {
   stateFormToDatum
 } from "@/lib/contracts/state-form";
 import { validateStateDatum } from "@/lib/contracts/state-validation";
+import { thresholdIsUnreachable } from "@/components/user/workspace/helpers/people-model";
 import { hasIntendedStakeCredential } from "@/lib/contracts/state-layout";
 import { extractErrorMessage } from "@/lib/utils/errors";
 import { type TransferFormState, type WalletScriptOutputFormState } from "@/components/user/workspace/types";
@@ -59,6 +60,21 @@ export function requireZeroAdminConfirmation(
       i18n("walletWithNoOwner"),
       i18n("confirmThatThisWalletWillHaveNoOwner")
     );
+  }
+}
+
+/**
+ * A threshold above the power every co-signer holds together is valid on chain: the
+ * owners can still act. It does lock the co-signers out, so saving it takes the same
+ * explicit yes as a wallet with no owner.
+ */
+export function requireReachableThresholdConfirmation(
+  errors: FieldErrors,
+  stateForm: StateFormState,
+  confirmed: boolean
+): void {
+  if (thresholdIsUnreachable(stateForm) && !confirmed) {
+    pushFieldError(errors, i18n("approvalPowerOutOfReach"), i18n("confirmTheApprovalPowerNobodyCanReach"));
   }
 }
 
