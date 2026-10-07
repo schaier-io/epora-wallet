@@ -3,7 +3,7 @@
   "info": {
     "title": "Epora permission wallet API",
     "version": "1.0.0",
-    "description": "HTTP access to the Epora permission wallet: read its indexed on-chain state, and\nbuild transactions against its smart contracts.\n\n**The server never holds a key and never signs.** Every active transaction build route takes an\naddress, returns an unsigned transaction as CBOR hex, and leaves signing and submission\nto the caller.\n\n**Network.** preprod. Addresses must match this deployment network.\n\n**Beta consent.** On mainnet, unsafe HTTP methods require explicit acceptance of the\nbeta risks and current terms, including the liability release for 41BIT LLC and the\nReleased Parties defined in the terms, to the extent permitted by law,\nno security audit, and possible loss of all funds.\nSend `x-epora-beta-consent: preprod:epora-beta-3` only after acceptance.\nA current browser consent cookie is also accepted. Missing acknowledgement returns 403\nwith `BETA_CONSENT_REQUIRED`. Read /terms and /privacy before accepting.\n\n**Versioning.** `v1` describes the current shape of the API. The compatibility promise\nstarts at the mainnet beta: until then a `v1` route may change without a version bump,\nand this document is the record of what it does today. After the beta, breaking changes\nget a new version prefix.\n\n**Errors.** Every failure returns the same body, `{ \"error\": \"...\" }`. A `400` carries a\nmessage naming what to fix. A `502` means the chain data provider is unreachable, and\nnever carries the provider's own text.\n\n**Rate limits.** Per client address: 10 requests per\n60s across all transaction builds together,\n600 per 60s for wallet lookups,\n300 per 60s for pool lookups,\n300 per 60s for governance action lookups. Builds also\nshare a deployment-wide cap of 50 per\n60s, because one build costs the chain provider tens of\nrequests. Each declared wallet input also consumes one weighted unit. The default client bucket\nholds 80 units per 60s,\nand the deployment bucket holds 240 units per\n60s. Every `429` carries `Retry-After`.\nDeployments may set their own caps.\n\nSee [the developer guide](https://github.com/schaier-io/epora-wallet/blob/main/docs/api/README.md).",
+    "description": "HTTP access to the Epora permission wallet: read its indexed on-chain state, and\nbuild transactions against its smart contracts.\n\n**The server never holds a key and never signs.** Every active transaction build route takes an\naddress, returns an unsigned transaction as CBOR hex, and leaves signing and submission\nto the caller.\n\n**Network.** preprod. Addresses must match this deployment network.\n\n**Beta consent.** On mainnet, unsafe HTTP methods require explicit acceptance of the\nbeta risks and current terms, including the liability release for 41BIT LLC and the\nReleased Parties defined in the terms, to the extent permitted by law,\nno security audit, and possible loss of all funds.\nSend `x-epora-beta-consent: preprod:epora-beta-3` only after acceptance.\nA current browser consent cookie is also accepted. Missing acknowledgement returns 403\nwith `BETA_CONSENT_REQUIRED`. Read /terms and /privacy before accepting.\n\n**Versioning.** `v1` describes the current shape of the API. The compatibility promise\nstarts at the mainnet beta: until then a `v1` route may change without a version bump,\nand this document is the record of what it does today. After the beta, breaking changes\nget a new version prefix.\n\n**Errors.** Every failure returns the same body, `{ \"error\": \"...\" }`. A `400` carries a\nmessage naming what to fix. A `502` means the chain data provider is unreachable, and\nnever carries the provider's own text.\n\n**Rate limits.** Per client address: 10 requests per\n60s across all transaction builds together,\n600 per 60s for wallet lookups,\n300 per 60s for pool lookups and searches together,\n300 per 60s for governance action lookups. Builds also\nshare a deployment-wide cap of 50 per\n60s, because one build costs the chain provider tens of\nrequests. Each declared wallet input also consumes one weighted unit. The default client bucket\nholds 80 units per 60s,\nand the deployment bucket holds 240 units per\n60s. Every `429` carries `Retry-After`.\nDeployments may set their own caps.\n\nSee [the developer guide](https://github.com/schaier-io/epora-wallet/blob/main/docs/api/README.md).",
     "license": {
       "name": "MIT",
       "identifier": "MIT"
@@ -122,6 +122,92 @@
           },
           "429": {
             "description": "Rate limit exceeded. The limit is 300 requests per 60 seconds, per client address. The same status, with the chain data provider's message, means the provider is rate-limiting this deployment; `Retry-After` then carries the provider's delay, or 1 second when it gives none.",
+            "headers": {
+              "Retry-After": {
+                "required": true,
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "string",
+                  "description": "Seconds to wait before retrying.",
+                  "example": "42"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected server error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The chain data provider is unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/pools/search": {
+      "get": {
+        "operationId": "searchStakePools",
+        "summary": "Search stake pools",
+        "description": "Find stake pools by ticker, name or pool id prefix. Without a query, return a random shortlist of pools that publish a ticker, are not retiring, have live stake, are below 90 percent saturation, and keep a margin of at most 10 percent. Results come from an index refreshed every few hours.",
+        "tags": [
+          "Chain"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "description": "Ticker, pool name or bech32 pool id prefix. Omit it, or send it empty, for a random shortlist of open pools.",
+              "example": "EPORA",
+              "type": "string",
+              "maxLength": 64
+            },
+            "description": "Ticker, pool name or bech32 pool id prefix. Omit it, or send it empty, for a random shortlist of open pools."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Matching pools, best match first, or the shortlist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PoolSearchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The search text is too long.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. The limit is 300 requests per 60 seconds, per client address. The same status, with the chain data provider's message, means the provider is rate-limiting this deployment; `Retry-After` then carries the provider's delay, or 1 second when it gives none. After a provider rate limit, the route waits 30 seconds, or as long as the provider asked if that is longer, before it rebuilds its pool index; the first `429` asks for at least that long, and a `429` in that time carries the seconds left as `Retry-After`.",
             "headers": {
               "Retry-After": {
                 "required": true,
@@ -4285,6 +4371,78 @@
         ],
         "additionalProperties": false,
         "description": "Standard error body for every public endpoint."
+      },
+      "PoolSearchResponse": {
+        "type": "object",
+        "properties": {
+          "pools": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "poolId": {
+                  "type": "string"
+                },
+                "ticker": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "name": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "saturation": {
+                  "description": "Live saturation as a fraction, where 1 is 100 percent.",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "liveStakeLovelace": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "marginPct": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "fixedCostLovelace": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "retiring": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "poolId",
+                "ticker",
+                "name",
+                "saturation",
+                "liveStakeLovelace",
+                "marginPct",
+                "fixedCostLovelace",
+                "retiring"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "pools"
+        ],
+        "additionalProperties": false,
+        "description": "Matching stake pools, best match first, or a random shortlist when the query is empty."
       },
       "GovernanceActionsResponse": {
         "type": "object",

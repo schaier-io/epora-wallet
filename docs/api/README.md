@@ -122,6 +122,46 @@ An unknown pool returns `404`, not an empty body:
 { "error": "Pool not found or not registered on this network." }
 ```
 
+### Stake pool search
+
+Finds pools by ticker, name or bech32 pool id prefix, best match first, at most 20.
+Matching ignores case. An id prefix counts only past `pool1`, which every id shares.
+
+```bash
+curl -s "$BASE/api/v1/pools/search?q=ata"
+```
+
+```json
+{
+  "pools": [
+    {
+      "poolId": "pool1rkfs9glmfva3jd0q9vnlqvuhnrflpzj4l07u6sayfx5k7d788us",
+      "ticker": "ATADA",
+      "name": "ATADA Austria - PreProd Pool #1",
+      "saturation": 0.008275189603315239,
+      "liveStakeLovelace": "531298928916",
+      "marginPct": 0.1,
+      "fixedCostLovelace": "170000000",
+      "retiring": false
+    }
+  ]
+}
+```
+
+Without `q`, the route returns a random shortlist of six pools. Each one publishes a
+ticker, is not retiring, has live stake, is below 90% saturation, and keeps a margin of
+at most 10%.
+The sample changes on every call.
+
+Blockfrost has no search, so the server keeps an index of every registered pool and
+refreshes it every six hours. The first search on a fresh server builds that index,
+which took about 5 seconds on preprod. While a refresh runs, or after one fails, the
+server keeps answering from the previous index. After a failed build with no previous
+index, the route answers with the same error for 30 seconds, or as long as the provider
+asked if that is longer, before it tries again. The first `429` asks for that whole
+wait, and a `429` in that window carries the time left as `Retry-After`. Use `/api/v1/pools?id=` for current figures
+on one pool.
+
 ### Governance action lookup
 
 Takes a Cardano governance action id and returns what it is, so a vote can be
@@ -747,7 +787,7 @@ Per client address, in a rolling window:
 |---|---|
 | Active `/api/v1/tx/*` build routes | 10 requests per 60 seconds, across all nine routes together |
 | `/api/v1/stt/lookup` | 600 requests per 60 seconds |
-| `/api/v1/pools` | 300 requests per 60 seconds |
+| `/api/v1/pools` and `/api/v1/pools/search` | 300 requests per 60 seconds, across both routes together |
 | `/api/v1/governance-actions` and `/api/v1/governance-actions/active` | 300 requests per 60 seconds, across both routes together |
 
 The nine active build routes share **one** bucket. Six mints and four deposits in the

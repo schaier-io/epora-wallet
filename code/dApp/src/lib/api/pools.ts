@@ -65,3 +65,48 @@ export const PoolsResponseSchema = z
   });
 
 export type PoolsResponseDto = z.infer<typeof PoolsResponseSchema>;
+
+// Search answers a ticker, a name or a pool id prefix. An empty query is allowed:
+// it returns a random shortlist instead of matches.
+export const POOL_SEARCH_QUERY_MAX_LENGTH = 64;
+
+export const PoolSearchQuerySchema = z
+  .object({
+    q: z
+      .string()
+      .trim()
+      .max(POOL_SEARCH_QUERY_MAX_LENGTH)
+      .optional()
+      .meta({
+        description:
+          "Ticker, pool name or bech32 pool id prefix. Omit it, or send it empty, for a random shortlist of open pools.",
+        example: "EPORA"
+      })
+  })
+  .meta({
+    id: "PoolSearchQuery",
+    description: "Query parameters for the stake-pool search."
+  });
+
+export const PoolSummarySchema = z.object({
+  poolId: z.string(),
+  ticker: z.string().nullable(),
+  name: z.string().nullable(),
+  saturation: z.number().nullable().meta({
+    description: "Live saturation as a fraction, where 1 is 100 percent."
+  }),
+  liveStakeLovelace: z.string().nullable(),
+  marginPct: z.number().nullable(),
+  fixedCostLovelace: z.string().nullable(),
+  retiring: z.boolean()
+});
+
+export const PoolSearchResponseSchema = z
+  .object({ pools: z.array(PoolSummarySchema) })
+  .meta({
+    id: "PoolSearchResponse",
+    description: "Matching stake pools, best match first, or a random shortlist when the query is empty."
+  });
+
+export type PoolSummary = z.infer<typeof PoolSummarySchema>;
+export type PoolSearchResponseDto = z.infer<typeof PoolSearchResponseSchema>;
