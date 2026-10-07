@@ -191,19 +191,21 @@ export function withPersonUserEdited(
     next.wallets.every((wallet) => contactWallets.includes(wallet.toLowerCase()));
   // A contact with no payout key yet signs with the person's first filled-in wallet. It
   // follows that wallet when it changes, so editing the wallets does not split the
-  // person. While every row is blank it goes blank too, and `groupPeople` keeps the
-  // two together until a wallet is typed again.
+  // person. While every row is blank it keeps its last key: the rows show apart for
+  // that moment, and join again when that key is typed back. A blank contact would
+  // name nobody and could later be joined to the wrong person.
   const linked = person.beneficiaryIndex === null ? null : form.beneficiaries[person.beneficiaryIndex];
+  const followed = next.wallets.find((wallet) => wallet.trim());
   const followsUser =
     linked !== null &&
-    next.wallets.length > 0 &&
+    followed !== undefined &&
     withBeneficiaryPayoutAndSigningAddress(linked, linked.payoutAddress).wallets.length === 0;
   return withMultisigDerivedFromCoSigners({
     ...form,
     beneficiaries: followsUser
       ? form.beneficiaries.map((entry, index) =>
           index === person.beneficiaryIndex
-            ? { ...entry, wallets: [next.wallets.find((wallet) => wallet.trim()) ?? ""] }
+            ? { ...entry, wallets: [followed] }
             : entry
         )
       : form.beneficiaries,

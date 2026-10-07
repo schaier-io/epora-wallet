@@ -263,17 +263,16 @@ test("recovery on keeps a permissionless user record that holds more than one wa
   assert.equal(groupPeople(next).length, 1);
 });
 
-test("a person who clears their wallet to retype it stays one person", () => {
+test("a contact keeps its last key while the person's wallet rows are all blank", () => {
   const value = form({ users: [user("0", [KEY_A], { canRenewProofOfLife: true })], beneficiaries: [contact("0", [KEY_A])] });
   const cleared = withPersonUserEdited(value, groupPeople(value)[0], (edited) => ({ ...edited, wallets: [""] }));
-  assert.deepEqual(cleared.beneficiaries[0].wallets, [""]);
-  assert.equal(groupPeople(cleared).length, 1);
-  const retyped = withPersonUserEdited(cleared, groupPeople(cleared)[0], (edited) => ({ ...edited, wallets: [KEY_B] }));
-  assert.deepEqual(retyped.beneficiaries[0].wallets, [KEY_B]);
-  assert.equal(groupPeople(retyped).length, 1);
+  assert.deepEqual(cleared.beneficiaries[0].wallets, [KEY_A]);
+  // The same key typed back joins them again.
+  const users = cleared.users.map((entry) => ({ ...entry, wallets: [KEY_A] }));
+  assert.equal(groupPeople({ ...cleared, users }).length, 1);
   // A blank first row names nobody: the contact follows the first filled-in wallet.
-  const reordered = withPersonUserEdited(retyped, groupPeople(retyped)[0], (edited) => ({ ...edited, wallets: ["", KEY_A] }));
-  assert.deepEqual(reordered.beneficiaries[0].wallets, [KEY_A]);
+  const reordered = withPersonUserEdited(value, groupPeople(value)[0], (edited) => ({ ...edited, wallets: ["", KEY_B] }));
+  assert.deepEqual(reordered.beneficiaries[0].wallets, [KEY_B]);
   assert.equal(groupPeople(reordered).length, 1);
 });
 
