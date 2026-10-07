@@ -42,7 +42,7 @@ function RuleTrigger({
   aside?: ReactNode;
 }) {
   return (
-    <AccordionTrigger className="items-center gap-3 px-4 py-4 hover:no-underline sm:px-5">
+    <AccordionTrigger className="items-center gap-3 px-4 py-4 hover:no-underline sm:px-6">
       <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border/60 bg-background/50 text-muted-foreground">
         <Icon className="h-4 w-4" aria-hidden="true" />
       </span>
@@ -149,7 +149,7 @@ function CoSignersRule({
           : i18n("anyCoSignersTogetherReaching", { needed: threshold });
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-1.5">
           <Label id={`${uid}-label`} htmlFor={`${uid}-threshold`}>
@@ -214,7 +214,7 @@ function ProofOfLifeRule({
   const deadline = Number(value.proofOfLifeUnlockTime);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {/* With a recovery contact the timer is required (`validateStateDatum` rejects a
           contact without one), so the switch only shows while there is no contact. */}
       {hasContacts ? null : (
@@ -352,7 +352,7 @@ export function WalletRulesCard({
               ) : null
             }
           />
-          <AccordionContent className="px-4 pb-5 sm:pl-[4.25rem] sm:pr-5">
+          <AccordionContent className="px-4 pb-6 sm:pl-18 sm:pr-6">
             <CoSignersRule
               value={value}
               onChange={onChange}
@@ -373,7 +373,7 @@ export function WalletRulesCard({
                 : i18n("offNobodyCanRecoverThisWallet")
             }
           />
-          <AccordionContent className="px-4 pb-5 sm:pl-[4.25rem] sm:pr-5">
+          <AccordionContent className="px-4 pb-6 sm:pl-18 sm:pr-6">
             <ProofOfLifeRule value={value} onChange={onChange} />
           </AccordionContent>
         </AccordionItem>

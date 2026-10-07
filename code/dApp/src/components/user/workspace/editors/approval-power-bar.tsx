@@ -52,8 +52,8 @@ export function ApprovalPowerBar({
       }
       className={cn("space-y-1.5", className)}
     >
-      <div className={cn("relative", markerAt !== null && !compact && "pt-5")}>
-        <div className={cn("flex gap-[3px]", compact ? "h-1.5" : "h-3")}>
+      <div className={cn("relative", markerAt !== null && !compact && "pt-6")}>
+        <div className={cn("flex gap-1", compact ? "h-1.5" : "h-3")}>
           {segments.map((segment) => (
             <div
               key={segment.key}
@@ -82,7 +82,7 @@ export function ApprovalPowerBar({
             <span
               className={cn(
                 "absolute bottom-[-4px] w-0.5 -translate-x-1/2 rounded-full bg-foreground transition-[left]",
-                compact ? "top-[-4px]" : "top-4",
+                compact ? "top-[-4px]" : "top-5",
                 "duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
               )}
               style={{ left: `${markerAt}%` }}
@@ -101,7 +101,7 @@ export function ApprovalPowerBar({
           </>
         ) : null}
       </div>
-      {compact ? null : <div className="flex gap-[3px] text-[11px] leading-4 text-muted-foreground">
+      {compact ? null : <div className="flex gap-1 text-[11px] leading-4 text-muted-foreground">
         {segments.map((segment) => (
           <span
             key={segment.key}
