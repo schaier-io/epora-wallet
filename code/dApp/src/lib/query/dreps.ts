@@ -3,7 +3,12 @@
 import { keepPreviousData, queryOptions, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import type { z } from "zod";
-import { DrepSearchResponseSchema, DrepsResponseSchema, extractDrepId } from "@/lib/api/dreps";
+import {
+  DREP_SEARCH_QUERY_MAX_LENGTH,
+  DrepSearchResponseSchema,
+  DrepsResponseSchema,
+  extractDrepId
+} from "@/lib/api/dreps";
 import { parseRetryAfterMs } from "@/lib/mesh/server-fetcher";
 import { queryKeys } from "./keys";
 
@@ -58,7 +63,8 @@ export const drepSearchQueryOptions = (query: string) => queryOptions({
 
 /** Matches for the typed name, or the shortlist when it is empty. Off while `enabled` is false. */
 export function useDrepSearch(text: string, enabled: boolean) {
-  const query = text.trim();
+  // The server refuses longer text. No DRep name is that long, so the cut costs no match.
+  const query = text.trim().slice(0, DREP_SEARCH_QUERY_MAX_LENGTH);
   const [debounced, setDebounced] = useState(query);
   useEffect(() => {
     const timer = setTimeout(() => setDebounced(query), DREP_SEARCH_DEBOUNCE_MS);
@@ -106,6 +112,8 @@ export function useDrepLookup(initialId: string | null) {
     setQueryText(id);
     setLookupId(id);
     setUnrecognised(false);
+    // Opening the same DRep again retries a failed lookup, as Look up does.
+    if (id === lookupId && drep.isError) void drep.refetch();
   };
   // A lookup error belongs to the id it looked up; once the text moves on, it is stale.
   const failure: LookupFailure | null = unrecognised ? { kind: "unrecognised" }

@@ -372,6 +372,105 @@ describe("finding a DRep by name", () => {
     expect(screen.queryByText("Type a DRep name, or paste a drep1… id.")).not.toBeInTheDocument();
   });
 
+  it("keeps a pasted explorer link whole, so the id inside it is not cut short", async () => {
+    // Review finding: a 64-character cap cut an 86-character link to a partial id.
+    stubChain();
+    await browse();
+
+    expect(box()).not.toHaveAttribute("maxlength");
+  });
+
+  it("sends at most 64 characters to the search, which refuses longer text", async () => {
+    const fetchMock = stubChain();
+    await browse();
+
+    fireEvent.change(box(), { target: { value: "a".repeat(80) } });
+
+    await waitFor(() => expect(searched(fetchMock)).toContain(`/api/v1/dreps/search?q=${"a".repeat(64)}`));
+  });
+
+  it.each(["drep1ygqzap", "DRep1Academy"])("searches %s instead of looking it up as an id", async (text) => {
+    // Review finding: any `drep1` text went to the exact lookup and failed as an invalid id.
+    const fetchMock = stubChain();
+    await browse();
+
+    fireEvent.change(box(), { target: { value: text } });
+
+    await waitFor(() => expect(searched(fetchMock)).toContain(`/api/v1/dreps/search?q=${text}`));
+    expect(fetchMock.mock.calls.some(([url]) => url.startsWith("/api/v1/dreps?id="))).toBe(false);
+  });
+
+  it("retries a failed lookup when the reader opens that DRep from the list", async () => {
+    const fetchMock = stubChain();
+    const answer = fetchMock.getMockImplementation()!;
+    let failLookup = true;
+    fetchMock.mockImplementation(async (url: string) =>
+      url.startsWith("/api/v1/dreps?id=") && failLookup
+        ? new Response(JSON.stringify({ error: "down" }), { status: 502 })
+        : answer(url)
+    );
+    await browse();
+    fireEvent.change(box(), { target: { value: DREP_ID } });
+    fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Could not look up this DRep"));
+    failLookup = false;
+
+    fireEvent.change(box(), { target: { value: "ada" } });
+    await waitFor(() => expect(screen.queryByRole("button", { name: /Grace Hopper/ })).not.toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /Ada Lovelace/ }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /Delegate to this DRep/ })).toBeInTheDocument());
+  });
+
+  it("puts focus back in the box when a row closes the list", async () => {
+    stubChain();
+    await browse();
+
+    const row = await screen.findByRole("button", { name: /Grace Hopper/ });
+    row.focus();
+    fireEvent.click(row);
+
+    expect(document.activeElement).toBe(box());
+  });
+
+  it("does not open a DRep after the reader leaves a pending Look up", async () => {
+    const fetchMock = stubChain();
+    const answer = fetchMock.getMockImplementation()!;
+    let release = () => undefined as void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.endsWith("?q=grace")) await held;
+      return answer(url);
+    });
+    await browse();
+
+    fireEvent.change(box(), { target: { value: "grace" } });
+    await waitFor(() => expect(searched(fetchMock)).toContain("/api/v1/dreps/search?q=grace"));
+    fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
+    fireEvent.click(choice(/Always abstain/));
+    await act(async () => {
+      release();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    expect(fetchMock.mock.calls.some(([url]) => url.startsWith("/api/v1/dreps?id="))).toBe(false);
+  });
+
+  it("does not open either of two DReps that publish the same name", async () => {
+    // Review finding: a copycat with a lower id took Enter for a well-known name.
+    const twin: DrepSummary = { ...PICKS[1], name: "ada lovelace" };
+    const fetchMock = stubChain({ search: (q) => (q ? [PICKS[0], twin] : PICKS) });
+    await browse();
+
+    fireEvent.change(box(), { target: { value: "ada" } });
+    fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
+    await waitFor(() => expect(searched(fetchMock)).toContain("/api/v1/dreps/search?q=ada"));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(fetchMock.mock.calls.some(([url]) => url.startsWith("/api/v1/dreps?id="))).toBe(false);
+    expect(screen.getAllByRole("button", { name: /ada lovelace/i })).toHaveLength(2);
+  });
+
   it("does not show a failed id's error under a name search", async () => {
     stubChain({ drep: null });
     await browse();

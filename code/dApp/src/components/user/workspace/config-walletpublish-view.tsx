@@ -15,7 +15,7 @@ import { getFirstFieldError } from "@/components/user/workspace/helpers";
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 import { useVotingDelegate } from "@/components/user/workspace/forms/use-voting-delegate";
 import type { DelegateChoice } from "@/lib/governance/vote-delegation";
-import { DREP_SEARCH_QUERY_MAX_LENGTH, extractDrepId } from "@/lib/api/dreps";
+import { extractDrepId } from "@/lib/api/dreps";
 import { useDrepLookup, useDrepSearch } from "@/lib/query/dreps";
 import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 import { cn } from "@/lib/utils/cn";
@@ -32,6 +32,10 @@ const CHOICES = [
 // "ADA", not "₳": screen readers name U+20B3 "austral sign". The no-break space keeps the
 // amount and unit on one line.
 const ADA_SUFFIX = "\u00a0ADA";
+
+// A complete bech32 DRep id: CIP-105 `drep1` (56), CIP-129 `drep1` (58), CIP-105
+// `drep_script1` (63). A shorter id-shaped text is a prefix, and is searched.
+const COMPLETE_DREP_ID_LENGTHS = new Set([56, 58, 63]);
 
 const STATUS_LABEL_KEYS = { active: "statusActive", inactive: "statusInactive", retired: "statusRetired" } as const;
 
@@ -62,9 +66,12 @@ export function WalletPublishConfigView() {
   const [browsingDrep, setBrowsingDrep] = useState(savedDrepId !== null);
   const lookup = useDrepLookup(savedDrepId);
   const { result } = lookup;
-  // Text that holds a DRep id goes to the exact lookup; anything else searches by name.
-  const typedId = extractDrepId(lookup.query) !== null;
+  // Text that holds a complete DRep id goes to the exact lookup; anything else, a partial id
+  // or a name such as "DRep1Academy" included, searches.
+  const typedId = COMPLETE_DREP_ID_LENGTHS.has(extractDrepId(lookup.query)?.length ?? 0);
   const search = useDrepSearch(lookup.query, browsingDrep && !typedId);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const enterPending = useRef(false);
   // Arrow keys select radios as they move, so passing over "Always abstain" and back must not
   // lose a confirmed DRep: returning to "A DRep" restores it.
   const [confirmedDrepId, setConfirmedDrepId] = useState(savedDrepId);
@@ -112,6 +119,8 @@ export function WalletPublishConfigView() {
   const isSelected = (kind: ChoiceKind) =>
     kind === "drep" ? browsingDrep : !browsingDrep && saved?.choice.kind === kind;
   const pick = (kind: ChoiceKind) => {
+    // A pending Look up must not open a DRep after the reader moved on.
+    enterPending.current = false;
     setBrowsingDrep(kind === "drep");
     if (kind !== "drep") write({ kind });
     else if (confirmedDrepId) write({ kind: "drep", drepId: confirmedDrepId });
@@ -141,11 +150,18 @@ export function WalletPublishConfigView() {
     }
   }, [delegate.accountFailed]);
 
+  // Two DReps can publish one name, so Look up opens the top match only when no other
+  // match shares it; otherwise the reader picks from the list.
   const openTop = () => {
-    const top = search.dreps[0];
-    if (top) lookup.seed(top.drepId);
+    const [top, ...rest] = search.dreps;
+    const name = top?.name?.toLowerCase();
+    if (top && !rest.some((drep) => name && drep.name?.toLowerCase() === name)) lookup.seed(top.drepId);
   };
-  const enterPending = useRef(false);
+  // The chosen row unmounts with the list; focus goes back to the box, not <body>.
+  const openRow = (drepId: string) => {
+    lookup.seed(drepId);
+    inputRef.current?.focus();
+  };
   const openTopLater = useEffectEvent(openTop);
   useEffect(() => {
     if (!enterPending.current) return;
@@ -246,6 +262,7 @@ export function WalletPublishConfigView() {
               <Label htmlFor="drepLookupInput">{i18n("findDrep")}</Label>
               <div className="flex gap-3">
                 <Input
+                  ref={inputRef}
                   id="drepLookupInput"
                   value={lookup.query}
                   onChange={(event) => {
@@ -261,9 +278,6 @@ export function WalletPublishConfigView() {
                   placeholder={i18n("idPlaceholder")}
                   spellCheck={false}
                   autoComplete="off"
-                  // The search rejects longer text; a pasted explorer link holds an id, so it
-                  // goes to the exact lookup and may be longer.
-                  maxLength={typedId ? undefined : DREP_SEARCH_QUERY_MAX_LENGTH}
                   aria-invalid={inputError || lookupError ? true : undefined}
                   aria-describedby={inputDescribedBy}
                   // `sm:` only: below it the field keeps 16px, or iOS Safari zooms on focus.
@@ -283,7 +297,7 @@ export function WalletPublishConfigView() {
                   dreps={search.dreps}
                   loading={search.loading}
                   failed={search.failed}
-                  onOpen={lookup.seed}
+                  onOpen={openRow}
                 />
               )}
             </div>
