@@ -15,7 +15,7 @@ import { getFirstFieldError } from "@/components/user/workspace/helpers";
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 import { useVotingDelegate } from "@/components/user/workspace/forms/use-voting-delegate";
 import type { DelegateChoice } from "@/lib/governance/vote-delegation";
-import { extractDrepId } from "@/lib/api/dreps";
+import { extractDrepId, type DrepSummary } from "@/lib/api/dreps";
 import { useDrepLookup, useDrepSearch } from "@/lib/query/dreps";
 import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 import { cn } from "@/lib/utils/cn";
@@ -151,10 +151,12 @@ export function WalletPublishConfigView() {
   }, [delegate.accountFailed]);
 
   // Two DReps can publish one name, so Look up opens the top match only when no other
-  // match shares it; otherwise the reader picks from the list.
+  // match shares it; otherwise the reader picks from the list. "Shares" ignores case,
+  // accents and invisible characters, so a copycat cannot look the same and still differ.
   const openTop = () => {
     const [top, ...rest] = search.dreps;
-    if (top && !rest.some((drep) => drep.name.toLowerCase() === top.name.toLowerCase())) lookup.open(top.drepId);
+    const sameName = (drep: DrepSummary) => drep.name.localeCompare(top.name, undefined, { sensitivity: "base" }) === 0;
+    if (top && !rest.some(sameName)) lookup.open(top.drepId);
   };
   // The chosen row unmounts with the list; focus goes back to the box, not <body>.
   const openRow = (drepId: string) => {

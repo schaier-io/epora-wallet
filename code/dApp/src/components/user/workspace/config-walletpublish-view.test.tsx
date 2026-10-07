@@ -512,9 +512,13 @@ describe("finding a DRep by name", () => {
     );
   });
 
-  it("does not open either of two DReps that publish the same name", async () => {
+  it.each([
+    ["in another case", "ada lovelace"],
+    ["with an invisible character", "Ada Lovelace\u200b"],
+    ["with an accent", "Adá Lovelace"]
+  ])("does not open either of two DReps that publish the same name %s", async (_, copy) => {
     // Review finding: a copycat with a lower id took Enter for a well-known name.
-    const twin: DrepSummary = { ...PICKS[1], name: "ada lovelace" };
+    const twin: DrepSummary = { ...PICKS[1], name: copy };
     const fetchMock = stubChain({ search: (q) => (q ? [PICKS[0], twin] : PICKS) });
     await browse();
 
@@ -524,7 +528,7 @@ describe("finding a DRep by name", () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     expect(fetchMock.mock.calls.some(([url]) => url.startsWith("/api/v1/dreps?id="))).toBe(false);
-    expect(screen.getAllByRole("button", { name: /ada lovelace/i })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: /lovelace/i })).toHaveLength(2);
   });
 
   it("does not show a failed id's error under a name search", async () => {
