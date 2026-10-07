@@ -276,3 +276,14 @@ test("a contact keeps its last key while the person's wallet rows are all blank"
   assert.equal(groupPeople(reordered).length, 1);
 });
 
+test("blank wallet rows do not keep an empty user record beside a contact", () => {
+  const value = form({
+    users: [user("0", [KEY_A, ""], { multiSigPowerMode: "some", multiSigPower: "1" })],
+    beneficiaries: [contact("0", [KEY_A])]
+  });
+  const next = withPersonUserEdited(value, groupPeople(value)[0], (edited) => ({ ...edited, multiSigPowerMode: "none" }));
+  assert.equal(next.users.length, 0);
+  const added = withRecoveryContactForUser(form({ users: [user("0", [KEY_A, " "])] }), 0, 1_000);
+  assert.equal(added.users.length, 0);
+});
+

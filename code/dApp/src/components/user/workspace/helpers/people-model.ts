@@ -154,7 +154,7 @@ export function withRecoveryContactForUser(
     {
       ...form,
       // Dropped only when the contact takes over its one wallet, so no wallet is lost.
-      users: userHasPermissions(user) || user.wallets.length > 1
+      users: userHasPermissions(user) || user.wallets.filter(normalizeKey).length > 1
         ? form.users
         : form.users.filter((_, index) => index !== userIndex),
       beneficiaries: [...form.beneficiaries, beneficiary]
@@ -184,11 +184,12 @@ export function withPersonUserEdited(
   const contactWallets =
     person.beneficiaryIndex === null
       ? []
-      : form.beneficiaries[person.beneficiaryIndex].wallets.map((wallet) => wallet.toLowerCase());
+      : form.beneficiaries[person.beneficiaryIndex].wallets.map(normalizeKey);
+  // Blank rows name nobody, so they do not keep an empty record alive.
   const drop =
     person.beneficiaryIndex !== null &&
     !userHasPermissions(next) &&
-    next.wallets.every((wallet) => contactWallets.includes(wallet.toLowerCase()));
+    next.wallets.map(normalizeKey).filter(Boolean).every((wallet) => contactWallets.includes(wallet));
   // A contact with no payout key yet signs with the person's first filled-in wallet. It
   // follows that wallet when it changes, so editing the wallets does not split the
   // person. While every row is blank it keeps its last key: the rows show apart for
