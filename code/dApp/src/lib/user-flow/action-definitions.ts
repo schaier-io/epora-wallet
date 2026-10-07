@@ -336,7 +336,8 @@ const BASE_USER_ACTION_DEFINITIONS: TaskDefinition[] = [
     startingPoint: i18n("votingDelegateStartingPoint"),
     icon: FileText,
     prerequisites: ["wallet", "preprod", "detected-token", "stt-reference", "locking-contract"],
-    risk: "high"
+    // Funds do not move, so this sits with withdraw, not with the actions that pay out.
+    risk: "medium"
   },
   {
     kind: "wallet-vote",
