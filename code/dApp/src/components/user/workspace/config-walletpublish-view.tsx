@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { CheckCircle2, Loader2, Search } from "lucide-react";
 
@@ -9,12 +9,14 @@ import { CopyButton } from "@/components/ui/copy-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+import { DrepSearchResults } from "@/components/user/workspace/drep-search-results";
 import { InlineFieldError } from "@/components/user/workspace/editors";
 import { getFirstFieldError } from "@/components/user/workspace/helpers";
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 import { useVotingDelegate } from "@/components/user/workspace/forms/use-voting-delegate";
 import type { DelegateChoice } from "@/lib/governance/vote-delegation";
-import { useDrepLookup } from "@/lib/query/dreps";
+import { DREP_SEARCH_QUERY_MAX_LENGTH, extractDrepId } from "@/lib/api/dreps";
+import { useDrepLookup, useDrepSearch } from "@/lib/query/dreps";
 import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 import { cn } from "@/lib/utils/cn";
 import { shortenIdentifier } from "@/lib/utils/explorer";
@@ -60,6 +62,9 @@ export function WalletPublishConfigView() {
   const [browsingDrep, setBrowsingDrep] = useState(savedDrepId !== null);
   const lookup = useDrepLookup(savedDrepId);
   const { result } = lookup;
+  // Text that holds a DRep id goes to the exact lookup; anything else searches by name.
+  const typedId = extractDrepId(lookup.query) !== null;
+  const search = useDrepSearch(lookup.query, browsingDrep && !typedId);
   // Arrow keys select radios as they move, so passing over "Always abstain" and back must not
   // lose a confirmed DRep: returning to "A DRep" restores it.
   const [confirmedDrepId, setConfirmedDrepId] = useState(savedDrepId);
@@ -136,6 +141,20 @@ export function WalletPublishConfigView() {
     }
   }, [delegate.accountFailed]);
 
+  const openTop = () => {
+    const top = search.dreps[0];
+    if (top) lookup.seed(top.drepId);
+  };
+  const enterPending = useRef(false);
+  const openTopLater = useEffectEvent(openTop);
+  useEffect(() => {
+    if (!enterPending.current) return;
+    if (search.failed) enterPending.current = false;
+    if (!search.fresh) return;
+    enterPending.current = false;
+    openTopLater();
+  }, [search.fresh, search.failed]);
+
   if (!delegate.stakeAddress) {
     return <p className="text-xs text-muted-foreground">{i18n("noStakeAddress")}</p>;
   }
@@ -145,8 +164,13 @@ export function WalletPublishConfigView() {
     lookupError ? "drepLookupInput-lookupError" : null,
     "drepLookupInput-hint"
   ].filter(Boolean).join(" ");
+  // Look up on a typed name opens the top match. Pressed before the matches arrive, it
+  // waits for them; a failed search ends the wait, so a later refetch opens nothing unasked.
   const lookUp = () => {
-    if (!lookup.loading) lookup.lookup();
+    if (typedId || !lookup.query.trim()) {
+      if (!lookup.loading) lookup.lookup();
+    } else if (search.fresh) openTop();
+    else if (!search.failed) enterPending.current = true;
   };
 
   return (
@@ -224,7 +248,10 @@ export function WalletPublishConfigView() {
                 <Input
                   id="drepLookupInput"
                   value={lookup.query}
-                  onChange={(event) => lookup.setQuery(event.target.value)}
+                  onChange={(event) => {
+                    lookup.setQuery(event.target.value);
+                    enterPending.current = false;
+                  }}
                   onKeyDown={(event) => {
                     if (event.key === "Enter") {
                       event.preventDefault();
@@ -234,6 +261,9 @@ export function WalletPublishConfigView() {
                   placeholder={i18n("idPlaceholder")}
                   spellCheck={false}
                   autoComplete="off"
+                  // The search rejects longer text; a pasted explorer link holds an id, so it
+                  // goes to the exact lookup and may be longer.
+                  maxLength={typedId ? undefined : DREP_SEARCH_QUERY_MAX_LENGTH}
                   aria-invalid={inputError || lookupError ? true : undefined}
                   aria-describedby={inputDescribedBy}
                   // `sm:` only: below it the field keeps 16px, or iOS Safari zooms on focus.
@@ -247,6 +277,15 @@ export function WalletPublishConfigView() {
               </div>
               <InlineFieldError id="drepLookupInput-error" message={inputError} />
               <p id="drepLookupInput-hint" className="text-xs text-muted-foreground">{i18n("pasteHint")}</p>
+              {typedId ? null : (
+                <DrepSearchResults
+                  query={search.query}
+                  dreps={search.dreps}
+                  loading={search.loading}
+                  failed={search.failed}
+                  onOpen={lookup.seed}
+                />
+              )}
             </div>
 
             {/* A found DRep is otherwise silent; failures use the alert below. */}

@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createQueryTestWrapper } from "@/test/query-client";
 import { publishCertificateJsonAtom } from "@/components/user/workspace/atoms/forms/publish-form.atoms";
-import type { DrepsResponseDto } from "@/lib/api/dreps";
+import type { DrepsResponseDto, DrepSummary } from "@/lib/api/dreps";
 
 const STAKE = "stake_test17rphkx6acpnf78fuvxn0mkew3l0fd058hzquvz7w36x4gtcljw6kf";
 const DREP_ID = "drep1ygqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq7vlc9n";
@@ -44,10 +44,30 @@ const DREP: Drep = { drepId: DREP_ID, name: "Ada Lovelace", votingPowerLovelace:
 
 let context: ReturnType<typeof createQueryTestWrapper>;
 
-function stubChain({ registered = true, drepId = null as string | null, drep = DREP as Drep | null } = {}) {
+const OTHER_ID = "drep1ygpzpm4q38rfueu2use5te4ylykn4smvs7cxj2ggvktcjkqpxhvf4";
+const PICKS: DrepSummary[] = [
+  { ...DREP },
+  { drepId: OTHER_ID, name: "Grace Hopper", votingPowerLovelace: "5000000", hasScript: false, status: "active" }
+];
+
+/** `search` answers `/api/v1/dreps/search` for the typed text; `null` fails it. */
+type Search = ((q: string) => DrepSummary[]) | null;
+
+function stubChain({
+  registered = true,
+  drepId = null as string | null,
+  drep = DREP as Drep | null,
+  search = ((q: string) => (q ? PICKS.filter((pick) => pick.name?.toLowerCase().includes(q.toLowerCase())) : PICKS)) as Search
+} = {}) {
   const fetchMock = vi.fn(async (url: string) => {
     if (url.startsWith("/api/v1/accounts")) {
       return new Response(JSON.stringify({ account: { stakeAddress: STAKE, registered, poolId: null, drepId } }));
+    }
+    if (url.startsWith("/api/v1/dreps/search")) {
+      const q = new URL(url, "http://x").searchParams.get("q") ?? "";
+      return search
+        ? new Response(JSON.stringify({ dreps: search(q) }))
+        : new Response(JSON.stringify({ error: "The chain data provider is unavailable." }), { status: 502 });
     }
     if (url.startsWith("/api/v1/dreps") && drep) return new Response(JSON.stringify({ drep }));
     return new Response(JSON.stringify({ error: "DRep not found on this network." }), { status: 404 });
@@ -257,6 +277,111 @@ describe("choosing a DRep", () => {
 
     await waitFor(() => expect(screen.getByText("Ada Lovelace")).toBeInTheDocument());
     expect(screen.getByRole("button", { name: /Delegate to this DRep/ })).toHaveAttribute("aria-pressed", "true");
+  });
+});
+
+describe("finding a DRep by name", () => {
+  const box = () => screen.getByLabelText("Find your DRep");
+  const searched = (fetchMock: ReturnType<typeof stubChain>) =>
+    fetchMock.mock.calls.map(([url]) => url).filter((url) => url.startsWith("/api/v1/dreps/search"));
+
+  async function browse() {
+    renderView();
+    await ready();
+    fireEvent.click(choice(/A DRep/));
+  }
+
+  it("offers random picks before the reader types, and says they are not a recommendation", async () => {
+    const fetchMock = stubChain();
+    await browse();
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /Grace Hopper/ })).toBeInTheDocument());
+    expect(screen.getByText(/This is not a recommendation/)).toBeInTheDocument();
+    expect(searched(fetchMock)).toEqual(["/api/v1/dreps/search?q="]);
+  });
+
+  it("searches the typed name and opens a match's card, which still asks before delegating", async () => {
+    const fetchMock = stubChain();
+    await browse();
+
+    await screen.findByRole("button", { name: /Grace Hopper/ });
+    fireEvent.change(box(), { target: { value: "ada" } });
+    // The random picks stay up, dimmed, until the matches for "ada" replace them.
+    await waitFor(() => expect(screen.queryByRole("button", { name: /Grace Hopper/ })).not.toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /Ada Lovelace/ }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /Delegate to this DRep/ })).toBeInTheDocument());
+    expect(fetchMock).toHaveBeenCalledWith(`/api/v1/dreps?id=${encodeURIComponent(DREP_ID)}`, expect.anything());
+    expect(box()).toHaveValue(DREP_ID);
+    expect(context.store.get(publishCertificateJsonAtom)).toBe("{}");
+  });
+
+  it("opens the top match when Look up is pressed before the matches arrive", async () => {
+    const fetchMock = stubChain();
+    await browse();
+
+    fireEvent.change(box(), { target: { value: "grace" } });
+    fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(`/api/v1/dreps?id=${encodeURIComponent(OTHER_ID)}`, expect.anything())
+    );
+    expect(box()).toHaveValue(OTHER_ID);
+  });
+
+  it("sends a pasted id to the exact lookup, not the search", async () => {
+    const fetchMock = stubChain();
+    await browse();
+    await waitFor(() => expect(searched(fetchMock)).toHaveLength(1));
+
+    fireEvent.change(box(), { target: { value: `https://explorer.example/drep/${DREP_ID}` } });
+    await new Promise((resolve) => setTimeout(resolve, 400));
+
+    expect(searched(fetchMock)).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: /Grace Hopper/ })).not.toBeInTheDocument();
+  });
+
+  it("says when no DRep matches the name", async () => {
+    stubChain();
+    await browse();
+
+    fireEvent.change(box(), { target: { value: "nobody" } });
+
+    await waitFor(() => expect(screen.getByText(/No DRep on this network matches/)).toHaveTextContent("nobody"));
+  });
+
+  it("says when the list cannot load, and still takes a pasted id", async () => {
+    stubChain({ search: null });
+    await browse();
+
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/You can still paste a DRep id/));
+    fireEvent.change(box(), { target: { value: DREP_ID } });
+    fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
+
+    await waitFor(() => expect(screen.getByText("Ada Lovelace")).toBeInTheDocument());
+  });
+
+  it("asks for a name or id on an empty Look up, and drops the hint once the reader types", async () => {
+    stubChain();
+    await browse();
+
+    fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Type a DRep name, or paste a drep1… id.");
+
+    fireEvent.change(box(), { target: { value: "a" } });
+    expect(screen.queryByText("Type a DRep name, or paste a drep1… id.")).not.toBeInTheDocument();
+  });
+
+  it("does not show a failed id's error under a name search", async () => {
+    stubChain({ drep: null });
+    await browse();
+    fireEvent.change(box(), { target: { value: DREP_ID } });
+    fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("No DRep with that id"));
+
+    fireEvent.change(box(), { target: { value: "grace" } });
+
+    expect(screen.queryByText(/No DRep with that id/)).not.toBeInTheDocument();
   });
 });
 
