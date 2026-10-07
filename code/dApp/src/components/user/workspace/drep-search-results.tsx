@@ -56,7 +56,7 @@ export function DrepSearchResults({
               >
                 <span className="min-w-0">
                   <span className="flex items-center gap-2 text-sm">
-                    <span className="truncate font-semibold text-foreground">{drep.name ?? i18n("unnamed")}</span>
+                    <span className="truncate font-semibold text-foreground">{drep.name}</span>
                     {drep.status === "active" ? null : (
                       <span className="eyebrow shrink-0 text-amber-100">{i18n("inactive")}</span>
                     )}

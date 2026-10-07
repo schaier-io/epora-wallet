@@ -46,7 +46,7 @@ let context: ReturnType<typeof createQueryTestWrapper>;
 
 const OTHER_ID = "drep1ygpzpm4q38rfueu2use5te4ylykn4smvs7cxj2ggvktcjkqpxhvf4";
 const PICKS: DrepSummary[] = [
-  { ...DREP },
+  { drepId: DREP_ID, name: "Ada Lovelace", votingPowerLovelace: "12000000", hasScript: false, status: "active" },
   { drepId: OTHER_ID, name: "Grace Hopper", votingPowerLovelace: "5000000", hasScript: false, status: "active" }
 ];
 
@@ -454,6 +454,62 @@ describe("finding a DRep by name", () => {
     });
 
     expect(fetchMock.mock.calls.some(([url]) => url.startsWith("/api/v1/dreps?id="))).toBe(false);
+  });
+
+  it("does not open a DRep when a draft restore leaves the DRep choice during a pending Look up", async () => {
+    const fetchMock = stubChain();
+    const answer = fetchMock.getMockImplementation()!;
+    let release = () => undefined as void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.endsWith("?q=grace")) await held;
+      return answer(url);
+    });
+    await browse();
+
+    fireEvent.change(box(), { target: { value: "grace" } });
+    await waitFor(() => expect(searched(fetchMock)).toContain("/api/v1/dreps/search?q=grace"));
+    fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
+    act(() => {
+      context.store.set(
+        publishCertificateJsonAtom,
+        JSON.stringify({ type: "VoteDelegation", stakeKeyAddress: STAKE, drep: { alwaysAbstain: null } })
+      );
+    });
+    await act(async () => {
+      release();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    expect(fetchMock.mock.calls.some(([url]) => url.startsWith("/api/v1/dreps?id="))).toBe(false);
+  });
+
+  it("searches a long text cut through an emoji without failing", async () => {
+    const fetchMock = stubChain();
+    await browse();
+
+    fireEvent.change(box(), { target: { value: `${"a".repeat(63)}😀 more` } });
+
+    await waitFor(() => expect(searched(fetchMock)).toContain(`/api/v1/dreps/search?q=${"a".repeat(63)}`));
+    expect(screen.queryByText(/Couldn't load the DRep list/)).not.toBeInTheDocument();
+  });
+
+  it("looks up a pasted id while another DRep is still loading", async () => {
+    // Review finding: Look up was ignored while any lookup ran, so the first card showed under the second id.
+    const fetchMock = stubChain();
+    const answer = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation(async (url: string) =>
+      url === `/api/v1/dreps?id=${encodeURIComponent(DREP_ID)}` ? new Promise<Response>(() => undefined) : answer(url)
+    );
+    await browse();
+    fireEvent.click(await screen.findByRole("button", { name: /Ada Lovelace/ }));
+
+    fireEvent.change(box(), { target: { value: OTHER_ID } });
+    fireEvent.click(screen.getByRole("button", { name: /Look up/ }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(`/api/v1/dreps?id=${encodeURIComponent(OTHER_ID)}`, expect.anything())
+    );
   });
 
   it("does not open either of two DReps that publish the same name", async () => {

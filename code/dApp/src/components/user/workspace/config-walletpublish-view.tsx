@@ -154,15 +154,17 @@ export function WalletPublishConfigView() {
   // match shares it; otherwise the reader picks from the list.
   const openTop = () => {
     const [top, ...rest] = search.dreps;
-    const name = top?.name?.toLowerCase();
-    if (top && !rest.some((drep) => name && drep.name?.toLowerCase() === name)) lookup.seed(top.drepId);
+    if (top && !rest.some((drep) => drep.name.toLowerCase() === top.name.toLowerCase())) lookup.open(top.drepId);
   };
   // The chosen row unmounts with the list; focus goes back to the box, not <body>.
   const openRow = (drepId: string) => {
-    lookup.seed(drepId);
+    lookup.open(drepId);
     inputRef.current?.focus();
   };
-  const openTopLater = useEffectEvent(openTop);
+  // Results can land after the reader left "A DRep", by a choice or a draft restore.
+  const openTopLater = useEffectEvent(() => {
+    if (browsingDrep) openTop();
+  });
   useEffect(() => {
     if (!enterPending.current) return;
     if (search.failed) enterPending.current = false;
@@ -184,7 +186,7 @@ export function WalletPublishConfigView() {
   // waits for them; a failed search ends the wait, so a later refetch opens nothing unasked.
   const lookUp = () => {
     if (typedId || !lookup.query.trim()) {
-      if (!lookup.loading) lookup.lookup();
+      lookup.lookup();
     } else if (search.fresh) openTop();
     else if (!search.failed) enterPending.current = true;
   };

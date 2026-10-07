@@ -64,7 +64,8 @@ export const drepSearchQueryOptions = (query: string) => queryOptions({
 /** Matches for the typed name, or the shortlist when it is empty. Off while `enabled` is false. */
 export function useDrepSearch(text: string, enabled: boolean) {
   // The server refuses longer text. No DRep name is that long, so the cut costs no match.
-  const query = text.trim().slice(0, DREP_SEARCH_QUERY_MAX_LENGTH);
+  // A cut through an emoji leaves half a surrogate pair, which encodeURIComponent refuses.
+  const query = text.trim().slice(0, DREP_SEARCH_QUERY_MAX_LENGTH).replace(/[\uD800-\uDBFF]$/, "");
   const [debounced, setDebounced] = useState(query);
   useEffect(() => {
     const timer = setTimeout(() => setDebounced(query), DREP_SEARCH_DEBOUNCE_MS);
@@ -101,18 +102,26 @@ export function useDrepLookup(initialId: string | null) {
   };
   const lookup = () => {
     const id = extractDrepId(query);
+    // Drop only a repeat of the lookup in flight; a different id replaces it.
+    if (id && id === lookupId && drep.isFetching) return;
     setUnrecognised(!id);
     if (id) {
       setLookupId(id);
       if (id === lookupId) void drep.refetch();
     }
   };
-  /** Show `id` as if the reader had looked it up: for a DRep saved from elsewhere (a draft). */
+  /**
+   * Show `id` as if the reader had looked it up: for a DRep saved from elsewhere (a draft).
+   * Runs during render, so it starts no request of its own.
+   */
   const seed = (id: string) => {
     setQueryText(id);
     setLookupId(id);
     setUnrecognised(false);
-    // Opening the same DRep again retries a failed lookup, as Look up does.
+  };
+  /** The reader opened `id` from the list. Opening it again retries a failed lookup. */
+  const open = (id: string) => {
+    seed(id);
     if (id === lookupId && drep.isError) void drep.refetch();
   };
   // A lookup error belongs to the id it looked up; once the text moves on, it is stale.
@@ -120,5 +129,5 @@ export function useDrepLookup(initialId: string | null) {
     : drep.isFetching || !drep.error || extractDrepId(query) !== lookupId ? null
     : drep.error instanceof DrepLookupError ? { kind: "response", status: drep.error.status }
     : { kind: "network" };
-  return { query, setQuery, result: drep.data ?? null, loading: drep.isFetching, failure, lookup, seed };
+  return { query, setQuery, result: drep.data ?? null, loading: drep.isFetching, failure, lookup, seed, open };
 }

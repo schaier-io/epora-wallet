@@ -333,7 +333,6 @@
     "loading": "Loading DReps…",
     "noMatch": "No DRep on this network matches “{query}”.",
     "noShortlist": "No DReps to suggest right now. Search by name, or paste a DRep id.",
-    "unnamed": "Unnamed DRep",
     "inactive": "Inactive",
     "votingPower": "{power} ADA"
   },
