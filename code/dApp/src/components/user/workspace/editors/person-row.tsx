@@ -178,7 +178,7 @@ export function PersonRow({
 
   return (
     <li data-person-key={person.key} className="border-t border-border/60 first:border-t-0">
-      <div className="flex items-center gap-3 px-4 py-3.5 sm:px-5">
+      <div className="flex items-center gap-3 px-4 py-3.5 sm:px-6">
         <span
           className={cn(
             "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
@@ -210,7 +210,7 @@ export function PersonRow({
         </button>
       </div>
       {open ? (
-        <div id={`${uid}-details`} className="space-y-4 px-4 pb-5 sm:pl-[4.25rem] sm:pr-5">
+        <div id={`${uid}-details`} className="space-y-4 px-4 pb-6 sm:pl-18 sm:pr-6">
           <div className="space-y-2">
             <p className="eyebrow text-muted-foreground">{people("permissions")}</p>
             <div className="flex flex-wrap gap-2">
