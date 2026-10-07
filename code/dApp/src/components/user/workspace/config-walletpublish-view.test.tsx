@@ -62,7 +62,7 @@ function renderView(saved = "{}") {
 }
 
 const written = () => JSON.parse(context.store.get(publishCertificateJsonAtom)) as unknown;
-const choice = (name: RegExp) => screen.getByRole("button", { name });
+const choice = (name: RegExp) => screen.getByRole("radio", { name });
 
 async function ready() {
   await waitFor(() => expect(choice(/Always abstain/)).toBeEnabled(), { timeout: 4000 });
@@ -87,8 +87,8 @@ describe("predefined choices", () => {
     fireEvent.click(choice(/Always abstain/));
 
     expect(written()).toEqual({ type: "VoteDelegation", stakeKeyAddress: STAKE, drep: { alwaysAbstain: null } });
-    expect(choice(/Always abstain/)).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByText(/Sends a voting delegation/)).toBeInTheDocument();
+    expect(choice(/Always abstain/)).toBeChecked();
+    expect(screen.getByText(/Delegates this wallet.s vote/)).toBeInTheDocument();
   });
 
   it("registers an unregistered address in the same certificate and names the deposit", async () => {
@@ -105,7 +105,7 @@ describe("predefined choices", () => {
       drep: { alwaysNoConfidence: null },
       coin: DEPOSIT
     });
-    expect(screen.getByText(/not registered yet/)).toHaveTextContent("2 ₳");
+    expect(screen.getByText(/not registered yet/)).toHaveTextContent("2 ADA");
     expect(screen.getByText(/Registers the staking address/)).toBeInTheDocument();
   });
 
@@ -121,8 +121,24 @@ describe("predefined choices", () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 502 })));
     renderView();
 
-    await waitFor(() => expect(screen.getByText(/Couldn't check/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Could not check/)).toBeInTheDocument());
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+  });
+
+  it("moves focus to the status text when a retry succeeds", async () => {
+    // Review finding: Retry unmounts on success, which dropped keyboard focus to <body>.
+    let fail = true;
+    const fetchMock = stubChain();
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => (fail ? new Response("{}", { status: 502 }) : fetchMock(url))));
+    renderView();
+    const retry = await screen.findByRole("button", { name: "Retry" });
+
+    fail = false;
+    retry.focus();
+    fireEvent.click(retry);
+
+    await waitFor(() => expect(document.activeElement).toHaveAttribute("role", "status"));
+    expect(document.activeElement).toHaveTextContent(/Current voting delegate/);
   });
 
   it("re-types a saved choice when the address turns out to be registered", async () => {
@@ -141,7 +157,7 @@ describe("predefined choices", () => {
     stubChain();
     renderView();
 
-    expect(screen.getByText(/staking address could not be worked out yet/)).toBeInTheDocument();
+    expect(screen.getByText(/Could not find this wallet.s staking address/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Always abstain/ })).not.toBeInTheDocument();
   });
 });
@@ -165,6 +181,33 @@ describe("choosing a DRep", () => {
     expect(context.store.get(publishCertificateJsonAtom)).toBe("{}");
 
     fireEvent.click(screen.getByRole("button", { name: /Delegate to this DRep/ }));
+
+    expect(written()).toEqual({ type: "VoteDelegation", stakeKeyAddress: STAKE, drep: { dRepId: DREP_ID } });
+  });
+
+  it("announces a found DRep, which is otherwise silent", async () => {
+    stubChain();
+    renderView();
+    await ready();
+
+    await lookUp(DREP_ID);
+
+    await waitFor(() =>
+      expect(screen.getAllByRole("status").some((node) => node.textContent === "Found Ada Lovelace.")).toBe(true)
+    );
+  });
+
+  it("restores a confirmed DRep when the reader passes over another choice and back", async () => {
+    // Review finding: arrow keys select radios as they move, so reading the next hint wiped the DRep.
+    stubChain();
+    renderView();
+    await ready();
+    await lookUp(DREP_ID);
+    await waitFor(() => expect(screen.getByText("Ada Lovelace")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /Delegate to this DRep/ }));
+
+    fireEvent.click(choice(/Always abstain/));
+    fireEvent.click(choice(/A DRep/));
 
     expect(written()).toEqual({ type: "VoteDelegation", stakeKeyAddress: STAKE, drep: { dRepId: DREP_ID } });
   });
@@ -227,7 +270,7 @@ describe("what Build sends", () => {
     fireEvent.click(choice(/A DRep/));
 
     expect(context.store.get(publishCertificateJsonAtom)).toBe("{}");
-    expect(screen.queryByText(/Sends a voting delegation/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Delegates this wallet.s vote/)).not.toBeInTheDocument();
   });
 
   it("names the delegate the certificate will send", async () => {
@@ -237,7 +280,7 @@ describe("what Build sends", () => {
 
     fireEvent.click(choice(/Always no confidence/));
 
-    expect(screen.getByText(/Sends a voting delegation to Always no confidence/)).toBeInTheDocument();
+    expect(screen.getByText(/Delegates this wallet.s vote to Always no confidence/)).toBeInTheDocument();
   });
 
   it("shows a DRep saved after the form opened", async () => {
@@ -254,7 +297,7 @@ describe("what Build sends", () => {
     });
 
     await waitFor(() => expect(screen.getByText("Ada Lovelace")).toBeInTheDocument());
-    expect(choice(/A DRep/)).toHaveAttribute("aria-pressed", "true");
+    expect(choice(/A DRep/)).toBeChecked();
   });
 });
 
@@ -263,7 +306,7 @@ describe("the current delegate", () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ error: "bad" }), { status: 400 })));
     renderView();
 
-    await waitFor(() => expect(screen.getByText(/on another network/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/on a different Cardano network/)).toBeInTheDocument());
     expect(screen.queryByRole("button", { name: "Retry" })).not.toBeInTheDocument();
   });
 
@@ -271,14 +314,14 @@ describe("the current delegate", () => {
     stubChain({ drepId: DREP_ID });
     renderView();
 
-    await waitFor(() => expect(screen.getByText(/^Now:/)).toHaveTextContent("drep1y"));
+    await waitFor(() => expect(screen.getByText(/^Current voting delegate:/)).toHaveTextContent("drep1y"));
   });
 
   it("says when there is none", async () => {
     stubChain();
     renderView();
 
-    await waitFor(() => expect(screen.getByText(/^Now:/)).toHaveTextContent("no voting delegate"));
+    await waitFor(() => expect(screen.getByText(/^Current voting delegate:/)).toHaveTextContent("Current voting delegate: none."));
   });
 });
 
@@ -301,7 +344,7 @@ describe("a rejected form", () => {
 
     fireEvent.click(choice(/A DRep/));
 
-    expect(screen.getByLabelText("Find your DRep")).toHaveAccessibleDescription(MESSAGE);
+    expect(screen.getByLabelText("Find your DRep")).toHaveAccessibleDescription(expect.stringContaining(MESSAGE));
     expect(screen.getByLabelText("Find your DRep")).toHaveAttribute("aria-invalid", "true");
   });
 
