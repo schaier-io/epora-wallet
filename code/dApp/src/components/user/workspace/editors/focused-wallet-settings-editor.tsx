@@ -74,6 +74,8 @@ export function FocusedWalletSettingsEditor({
       // first because an unreachable threshold is the one issue it answers.
       const scope = (rule ? section?.querySelector<HTMLElement>('[role="region"][data-state="open"]') : null) ?? section;
       const field = scope?.querySelector<HTMLElement>('[aria-invalid="true"]')
+        // A person issue lands on the first person, not on "Add person" at the list end.
+        ?? (task === "settings-people" ? scope?.querySelector<HTMLElement>("[data-person-key] button[aria-expanded]") : null)
         // Not the proof-of-life switch: one Space press there turns the timer off.
         ?? scope?.querySelector<HTMLElement>('input[type="checkbox"]:not([role="switch"])')
         ?? scope?.querySelector<HTMLElement>(

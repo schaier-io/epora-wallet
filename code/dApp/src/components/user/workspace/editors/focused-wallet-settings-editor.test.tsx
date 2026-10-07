@@ -103,6 +103,16 @@ describe("finding draft issues on the page", () => {
     expect(props.onSelectTask).toHaveBeenCalledWith("settings-people");
   });
 
+  it("lands on the first person from a people issue, not on Add person", async () => {
+    renderPage({
+      selectedTask: "settings-wallet-name",
+      fieldErrors: { "Output state": ["Person 12 daily limit must be >= 0."] }
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Check People/i }));
+    await waitFor(() => expect(document.activeElement?.closest("[data-person-key]")).not.toBeNull());
+    expect(document.activeElement).toHaveAttribute("aria-expanded");
+  });
+
   it("opens the co-signers rule from a threshold issue", () => {
     const message = `${describeStateValidationError("state.multi_sig_threshold")} must be at least 1.`;
     const { props } = renderPage({ selectedTask: "settings-wallet-name", fieldErrors: { "Output state": [message] } });
