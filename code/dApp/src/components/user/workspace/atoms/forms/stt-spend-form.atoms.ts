@@ -14,6 +14,8 @@ export const sttInputOutputIndexAtom = atom("");
 export const sttStateFormAtom = atom<StateFormState>(createDefaultStateForm());
 export const updateStateFormAtom = atom<StateFormState | null>(null);
 export const sttZeroAdminConfirmedAtom = atom(false);
+/** The owner saw that no group of co-signers can reach the approval threshold, and keeps it. */
+export const sttThresholdConfirmedAtom = atom(false);
 export const sttOutputAssetsAtom = atom<Asset[]>([]);
 export const sttWalletInputsAtom = atom<WalletInputRef[]>([]);
 export const sttWalletOutputsAtom = atom<WalletScriptOutputFormState[]>([]);
@@ -78,6 +80,7 @@ export const resetSttSpendFormAtom = atom(null, (_get, set) => {
   set(sttStateFormAtom, createDefaultStateForm());
   set(updateStateFormAtom, null);
   set(sttZeroAdminConfirmedAtom, false);
+  set(sttThresholdConfirmedAtom, false);
   set(sttOutputAssetsAtom, []);
   set(sttWalletInputsAtom, []);
   set(sttWalletOutputsAtom, []);

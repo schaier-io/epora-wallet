@@ -3,7 +3,6 @@ export { AssetListEditor } from "./asset-list-editor";
 export { SearchableAssetUnitDropdown } from "./asset-unit-dropdown";
 export { ConfigSection, LabeledField, LabeledInputField } from "./config-form-primitives";
 export { GuidedDateTimeField, GuidedLockedUtxoSelector } from "./guided-fields";
-export { FocusedPeopleEditor } from "./focused-people-editor";
 export { ActivityUtxoList, DisclosureSection, InlineFieldError, MintCelebrationOverlay, ReceiveAddressQrCode, SetupProgressStepper, SidebarActiveGlow, WalletCreationFullscreenProgress } from "./primitives";
 export { StateFormEditor } from "./state-form-editor";
 export { FocusedStreamingPaymentRulesEditor } from "./streaming-editors";

@@ -11,7 +11,7 @@ import { lockFundsAssetsAtom } from "@/components/user/workspace/atoms/forms/loc
 import { mintStarterAssetsAtom, mintStateFormAtom, mintZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/mint-form.atoms";
 import { voteJsonAtom, voteSttAssetsAtom, voteSttInputHashAtom, voteSttInputIndexAtom, voteSttStateFormAtom, voteZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/vote-form.atoms";
 import { publishCertificateJsonAtom, publishSttAssetsAtom, publishSttInputHashAtom, publishSttInputIndexAtom, publishSttStateFormAtom, publishZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/publish-form.atoms";
-import { beneficiaryStreamStopIdAtom, consolidateAuthorityPathAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputOutputIndexAtom, sttInputTxHashAtom, sttOutputAssetsAtom, sttProofOfLifeOverrideModeAtom, sttProofOfLifeSpecificDateTimeAtom, sttStateFormAtom, sttWalletInputsAtom, sttWalletOutputsAtom, sttZeroAdminConfirmedAtom, updateStateFormAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
+import { beneficiaryStreamStopIdAtom, consolidateAuthorityPathAtom, sttAuthorityPathAtom, sttExtraTransfersAtom, sttInputOutputIndexAtom, sttInputTxHashAtom, sttOutputAssetsAtom, sttProofOfLifeOverrideModeAtom, sttProofOfLifeSpecificDateTimeAtom, sttStateFormAtom, sttWalletInputsAtom, sttWalletOutputsAtom, sttThresholdConfirmedAtom, sttZeroAdminConfirmedAtom, updateStateFormAtom, walletOperatorPathAtom } from "@/components/user/workspace/atoms/forms/stt-spend-form.atoms";
 import { withdrawAmountAtom, withdrawSttAssetsAtom, withdrawSttInputHashAtom, withdrawSttInputIndexAtom, withdrawSttStateFormAtom, withdrawZeroAdminConfirmedAtom } from "@/components/user/workspace/atoms/forms/withdraw-form.atoms";
 import { effectiveWithdrawRewardAddressAtom } from "@/components/user/workspace/atoms/workspace-wallet-derivations.atoms";
 import { computeActionFieldErrors } from "@/components/user/workspace/action-validation";
@@ -83,6 +83,7 @@ export function useWorkspaceActionFieldErrors(ctx: WorkspaceActionFieldErrorsCtx
   const sttWalletInputs = useAtomValue(sttWalletInputsAtom);
   const sttWalletOutputs = useAtomValue(sttWalletOutputsAtom);
   const sttZeroAdminConfirmed = useAtomValue(sttZeroAdminConfirmedAtom);
+  const sttThresholdConfirmed = useAtomValue(sttThresholdConfirmedAtom);
   const walletOperatorPath = useAtomValue(walletOperatorPathAtom);
   const withdrawAmount = useAtomValue(withdrawAmountAtom);
   // The effective address, not the raw one. The view shows the wallet's own derived reward
@@ -142,6 +143,7 @@ export function useWorkspaceActionFieldErrors(ctx: WorkspaceActionFieldErrorsCtx
         sttWalletInputs,
         sttWalletOutputs,
         sttZeroAdminConfirmed,
+        sttThresholdConfirmed,
         useAllowancePreview,
         walletOperatorPath,
         withdrawAmount,
@@ -196,6 +198,7 @@ export function useWorkspaceActionFieldErrors(ctx: WorkspaceActionFieldErrorsCtx
     sttWalletInputs,
     sttWalletOutputs,
     sttZeroAdminConfirmed,
+    sttThresholdConfirmed,
     useAllowancePreview,
     walletOperatorPath,
     withdrawAmount,
