@@ -74,8 +74,13 @@ export function FocusedWalletSettingsEditor({
       // first because an unreachable threshold is the one issue it answers.
       const scope = (rule ? section?.querySelector<HTMLElement>('[role="region"][data-state="open"]') : null) ?? section;
       const field = scope?.querySelector<HTMLElement>('[aria-invalid="true"]')
-        ?? scope?.querySelector<HTMLElement>('input[type="checkbox"]')
-        ?? scope?.querySelector<HTMLElement>("input:not([disabled]), select:not([disabled]), button:not([disabled])");
+        // Not the proof-of-life switch: one Space press there turns the timer off.
+        ?? scope?.querySelector<HTMLElement>('input[type="checkbox"]:not([role="switch"])')
+        ?? scope?.querySelector<HTMLElement>(
+          'input:not([disabled]):not([role="switch"]), select:not([disabled]), button:not([disabled])'
+        )
+        // With the timer off the switch is all there is, and turning it on is the fix.
+        ?? scope?.querySelector<HTMLElement>('[role="switch"]');
       field?.focus({ preventScroll: true });
     });
   };

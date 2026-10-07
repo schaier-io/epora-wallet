@@ -128,9 +128,17 @@ describe("finding draft issues on the page", () => {
 
   it("lands inside the proof-of-life rule from its issue, not on the co-signers trigger", async () => {
     const message = `${describeStateValidationError("state.proof_of_life_increment")} must be at least 1.`;
-    renderPage({ selectedTask: "settings-wallet-name", fieldErrors: { "Output state": [message] } });
+    const value = {
+      ...walletWith("1"),
+      proofOfLifeUnlockTimeMode: "some" as const,
+      proofOfLifeUnlockTime: String(Date.UTC(2027, 0, 6)),
+      proofOfLifeIncrementMode: "some" as const,
+      // Valid values: nothing is marked invalid, so the jump takes its fallback.
+      proofOfLifeIncrement: String(90 * 24 * 60 * 60 * 1000)
+    };
+    renderPage({ value, selectedTask: "settings-wallet-name", fieldErrors: { "Output state": [message] } });
     fireEvent.click(screen.getByRole("button", { name: /^Check /i }));
     await waitFor(() => expect(document.activeElement?.closest('[role="region"]')).not.toBeNull());
-    expect(screen.getByRole("switch", { name: "Require proof of life" })).toBeInTheDocument();
+    expect(document.activeElement).not.toBe(screen.getByRole("switch", { name: "Require proof of life" }));
   });
 });
