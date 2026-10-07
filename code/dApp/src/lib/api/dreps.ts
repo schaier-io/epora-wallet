@@ -46,6 +46,45 @@ export const DrepsResponseSchema = z
 
 export type DrepsResponseDto = z.infer<typeof DrepsResponseSchema>;
 
+// Search answers a CIP-119 name or a DRep id prefix. An empty query is allowed: it
+// returns a random shortlist instead of matches.
+export const DREP_SEARCH_QUERY_MAX_LENGTH = 64;
+
+export const DrepSearchQuerySchema = z
+  .object({
+    q: z
+      .string()
+      .trim()
+      .max(DREP_SEARCH_QUERY_MAX_LENGTH)
+      .optional()
+      .meta({
+        description:
+          "CIP-119 name or bech32 DRep id prefix. Omit it, or send it empty, for a random shortlist of active, named DReps.",
+        example: "Cardano"
+      })
+  })
+  .meta({ id: "DrepSearchQuery", description: "Query parameters for the DRep search." });
+
+export const DrepSummarySchema = z.object({
+  drepId: z.string().meta({ description: "CIP-129 bech32 DRep id." }),
+  name: z.string().nullable().meta({ description: "CIP-119 `givenName`, when the anchor resolved." }),
+  votingPowerLovelace: z.string().nullable(),
+  hasScript: z.boolean(),
+  status: z.enum(DREP_STATUSES).meta({
+    description: "Every listed DRep is registered, so this is `active` or `inactive`, never `retired`."
+  })
+});
+
+export const DrepSearchResponseSchema = z
+  .object({ dreps: z.array(DrepSummarySchema) })
+  .meta({
+    id: "DrepSearchResponse",
+    description: "Matching registered DReps, best match first, or a random shortlist when the query is empty."
+  });
+
+export type DrepSummary = z.infer<typeof DrepSummarySchema>;
+export type DrepSearchResponseDto = z.infer<typeof DrepSearchResponseSchema>;
+
 /** The DRep id inside whatever the user pasted: a bare id or an explorer link that contains one. */
 export function extractDrepId(text: string): string | null {
   return /drep(?:_script)?1[02-9ac-hj-np-z]+/.exec(text.toLowerCase())?.[0] ?? null;

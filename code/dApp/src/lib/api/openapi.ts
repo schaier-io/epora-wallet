@@ -6,7 +6,12 @@ import { z } from "zod";
 import { ApiErrorSchema } from "./errors";
 import { HealthResponseSchema } from "./health";
 import { AccountsQuerySchema, AccountsResponseSchema } from "./accounts";
-import { DrepsQuerySchema, DrepsResponseSchema } from "./dreps";
+import {
+  DrepSearchQuerySchema,
+  DrepSearchResponseSchema,
+  DrepsQuerySchema,
+  DrepsResponseSchema
+} from "./dreps";
 import {
   ActiveGovernanceActionsResponseSchema,
   GovernanceActionsQuerySchema,
@@ -19,6 +24,7 @@ import {
   PoolsResponseSchema
 } from "./pools";
 import { POOL_INDEX_RETRY_MS } from "@/lib/pools/pool-index";
+import { DREP_INDEX_RETRY_MS } from "@/lib/governance/drep-index";
 import { UPSTREAM_RETRY_AFTER_FALLBACK_SECONDS } from "@/lib/mesh/http-error";
 import { SttLookupRequestSchema, SttLookupResponseSchema } from "./stt-lookup";
 import { BuildResultSchema } from "./tx-result";
@@ -411,6 +417,28 @@ export function buildOpenApiDocument() {
             "404": jsonError("No DRep exists with that id."),
             "429": tooManyRequests(RATE_LIMITS.dreps, UPSTREAM_RATE_LIMITED),
             "500": jsonError("Unexpected server error."),
+            "502": jsonError("The chain data provider is unavailable.")
+          }
+        }
+      },
+      "/api/v1/dreps/search": {
+        get: {
+          operationId: "searchDreps",
+          summary: "Search DReps",
+          description:
+            "Find registered DReps by CIP-119 name or DRep id prefix. Without a query, return a random shortlist of active DReps that publish a name. Results come from an index refreshed every few hours.",
+          tags: ["Chain"],
+          requestParams: { query: DrepSearchQuerySchema },
+          responses: {
+            "200": {
+              description: "Matching DReps, best match first, or the shortlist.",
+              content: { "application/json": { schema: DrepSearchResponseSchema } }
+            },
+            "400": jsonError("The search text is longer than 64 characters."),
+            "429": tooManyRequests(
+              RATE_LIMITS.dreps,
+              `${UPSTREAM_RATE_LIMITED} After a provider rate limit, the route waits ${DREP_INDEX_RETRY_MS / 1000} seconds, or as long as the provider asked if that is longer, before it rebuilds its DRep index; the first \`429\` asks for at least that long, and a \`429\` in that time carries the seconds left as \`Retry-After\`.`
+            ),
             "502": jsonError("The chain data provider is unavailable.")
           }
         }
