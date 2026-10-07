@@ -18,7 +18,6 @@ const state = vi.hoisted(() => ({
  * payout surface. This file renders its children so the pay-due rows can be asked about.
  */
 vi.mock("@/components/user/workspace/editors", async () => ({
-  FocusedPeopleEditor: () => null,
   FocusedStreamingPaymentRulesEditor: () => null,
   // The mock renders whatever heading props it is handed, so "describes the task once,
   // below the tabs" below is answered by the view's own call and not by the mock. A mock

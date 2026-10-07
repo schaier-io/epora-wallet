@@ -15,7 +15,6 @@ const lockingContract = vi.hoisted(() => ({
 
 // Each editor is a surface of its own (D3, E1-E3, E7, E13); this asks about the send form.
 vi.mock("@/components/user/workspace/editors", () => ({
-  FocusedPeopleEditor: () => null,
   FocusedStreamingPaymentRulesEditor: () => null,
   // Renders its children so the scheduled-payout rows are reachable.
   FocusedTaskSurface: ({ children }: PropsWithChildren) => <>{children}</>,
