@@ -162,6 +162,45 @@ asked if that is longer, before it tries again. The first `429` asks for that wh
 wait, and a `429` in that window carries the time left as `Retry-After`. Use `/api/v1/pools?id=` for current figures
 on one pool.
 
+### DRep search
+
+Finds registered DReps that publish a CIP-119 name, by name or bech32 DRep id prefix,
+best match first, at most 20. A DRep without a name is not listed; look it up by id
+with `/api/v1/dreps?id=`. Matching ignores case. A name that starts with the query comes before one that
+only contains it; within each, active DReps come before inactive ones. An id prefix
+counts only past `drep1`, which every id shares.
+
+```bash
+curl -s "$BASE/api/v1/dreps/search?q=adatainment"
+```
+
+```json
+{
+  "dreps": [
+    {
+      "drepId": "drep1yf3yx7ptr0hks02d7k8c8xfq58jn68nje5emscvv7a9ngpqudkpdh",
+      "name": "ADAtainment (Preprod)",
+      "votingPowerLovelace": "1101376244926",
+      "hasScript": false,
+      "status": "active"
+    }
+  ]
+}
+```
+
+Without `q`, the route returns a random shortlist of six active DReps that publish a
+name. The sample changes on every call.
+
+Blockfrost has no DRep name search, so the server keeps an index of every registered
+DRep that publishes a name, built from Koios, and refreshes it every six hours. A name
+counts only while it comes from the DRep's current anchor. Koios's servers do not all
+hold every metadata document, so the index reads the names three times and merges them;
+a DRep can still be missing until the next refresh. The first search on a fresh server
+builds that index, which took 6 to 10 seconds on mainnet in four runs on 2026-10-07. While a refresh runs, or after one fails, the server keeps answering from the
+previous index. After a failed build with no previous index, the route answers with the
+same error for 30 seconds, or as long as Koios asked if that is longer, before it tries
+again. Use `/api/v1/dreps?id=` for current figures on one DRep.
+
 ### Governance action lookup
 
 Takes a Cardano governance action id and returns what it is, so a vote can be
@@ -788,6 +827,7 @@ Per client address, in a rolling window:
 | Active `/api/v1/tx/*` build routes | 10 requests per 60 seconds, across all nine routes together |
 | `/api/v1/stt/lookup` | 600 requests per 60 seconds |
 | `/api/v1/pools` and `/api/v1/pools/search` | 300 requests per 60 seconds, across both routes together |
+| `/api/v1/dreps` and `/api/v1/dreps/search` | 300 requests per 60 seconds, across both routes together |
 | `/api/v1/governance-actions` and `/api/v1/governance-actions/active` | 300 requests per 60 seconds, across both routes together |
 
 The nine active build routes share **one** bucket. Six mints and four deposits in the

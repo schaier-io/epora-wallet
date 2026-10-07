@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { CheckCircle2, Loader2, Search } from "lucide-react";
 
@@ -9,12 +9,14 @@ import { CopyButton } from "@/components/ui/copy-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+import { DrepSearchResults } from "@/components/user/workspace/drep-search-results";
 import { InlineFieldError } from "@/components/user/workspace/editors";
 import { getFirstFieldError } from "@/components/user/workspace/helpers";
 import { useWorkspaceActions } from "@/components/user/workspace/workspace-actions-context";
 import { useVotingDelegate } from "@/components/user/workspace/forms/use-voting-delegate";
 import type { DelegateChoice } from "@/lib/governance/vote-delegation";
-import { useDrepLookup } from "@/lib/query/dreps";
+import { extractDrepId, type DrepSummary } from "@/lib/api/dreps";
+import { useDrepLookup, useDrepSearch } from "@/lib/query/dreps";
 import { formatLovelaceAsAda } from "@/lib/units/lovelace";
 import { cn } from "@/lib/utils/cn";
 import { shortenIdentifier } from "@/lib/utils/explorer";
@@ -30,6 +32,10 @@ const CHOICES = [
 // "ADA", not "₳": screen readers name U+20B3 "austral sign". The no-break space keeps the
 // amount and unit on one line.
 const ADA_SUFFIX = "\u00a0ADA";
+
+// A complete bech32 DRep id: CIP-105 `drep1` (56), CIP-129 `drep1` (58), CIP-105
+// `drep_script1` (63). A shorter id-shaped text is a prefix, and is searched.
+const COMPLETE_DREP_ID_LENGTHS = new Set([56, 58, 63]);
 
 const STATUS_LABEL_KEYS = { active: "statusActive", inactive: "statusInactive", retired: "statusRetired" } as const;
 
@@ -60,6 +66,12 @@ export function WalletPublishConfigView() {
   const [browsingDrep, setBrowsingDrep] = useState(savedDrepId !== null);
   const lookup = useDrepLookup(savedDrepId);
   const { result } = lookup;
+  // Text that holds a complete DRep id goes to the exact lookup; anything else, a partial id
+  // or a name such as "DRep1Academy" included, searches.
+  const typedId = COMPLETE_DREP_ID_LENGTHS.has(extractDrepId(lookup.query)?.length ?? 0);
+  const search = useDrepSearch(lookup.query, browsingDrep && !typedId);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const enterPending = useRef(false);
   // Arrow keys select radios as they move, so passing over "Always abstain" and back must not
   // lose a confirmed DRep: returning to "A DRep" restores it.
   const [confirmedDrepId, setConfirmedDrepId] = useState(savedDrepId);
@@ -107,6 +119,8 @@ export function WalletPublishConfigView() {
   const isSelected = (kind: ChoiceKind) =>
     kind === "drep" ? browsingDrep : !browsingDrep && saved?.choice.kind === kind;
   const pick = (kind: ChoiceKind) => {
+    // A pending Look up must not open a DRep after the reader moved on.
+    enterPending.current = false;
     setBrowsingDrep(kind === "drep");
     if (kind !== "drep") write({ kind });
     else if (confirmedDrepId) write({ kind: "drep", drepId: confirmedDrepId });
@@ -136,6 +150,31 @@ export function WalletPublishConfigView() {
     }
   }, [delegate.accountFailed]);
 
+  // Two DReps can publish one name, so Look up opens the top match only when no other
+  // match shares it; otherwise the reader picks from the list. "Shares" ignores case,
+  // accents and invisible characters, so a copycat cannot look the same and still differ.
+  const openTop = () => {
+    const [top, ...rest] = search.dreps;
+    const sameName = (drep: DrepSummary) => drep.name.localeCompare(top.name, undefined, { sensitivity: "base" }) === 0;
+    if (top && !rest.some(sameName)) lookup.open(top.drepId);
+  };
+  // The chosen row unmounts with the list; focus goes back to the box, not <body>.
+  const openRow = (drepId: string) => {
+    lookup.open(drepId);
+    inputRef.current?.focus();
+  };
+  // Results can land after the reader left "A DRep", by a choice or a draft restore.
+  const openTopLater = useEffectEvent(() => {
+    if (browsingDrep) openTop();
+  });
+  useEffect(() => {
+    if (!enterPending.current) return;
+    if (search.failed) enterPending.current = false;
+    if (!search.fresh) return;
+    enterPending.current = false;
+    openTopLater();
+  }, [search.fresh, search.failed]);
+
   if (!delegate.stakeAddress) {
     return <p className="text-xs text-muted-foreground">{i18n("noStakeAddress")}</p>;
   }
@@ -145,8 +184,13 @@ export function WalletPublishConfigView() {
     lookupError ? "drepLookupInput-lookupError" : null,
     "drepLookupInput-hint"
   ].filter(Boolean).join(" ");
+  // Look up on a typed name opens the top match. Pressed before the matches arrive, it
+  // waits for them; a failed search ends the wait, so a later refetch opens nothing unasked.
   const lookUp = () => {
-    if (!lookup.loading) lookup.lookup();
+    if (typedId || !lookup.query.trim()) {
+      lookup.lookup();
+    } else if (search.fresh) openTop();
+    else if (!search.failed) enterPending.current = true;
   };
 
   return (
@@ -217,14 +261,18 @@ export function WalletPublishConfigView() {
         <InlineFieldError id="votingDelegateChoice-error" message={choiceError} />
 
         {browsingDrep ? (
-          <div className="space-y-4 border-s-2 border-border/60 ps-3">
+          <div className="mt-4 space-y-4 border-s-2 border-border/60 ps-3">
             <div className="space-y-2">
               <Label htmlFor="drepLookupInput">{i18n("findDrep")}</Label>
               <div className="flex gap-3">
                 <Input
+                  ref={inputRef}
                   id="drepLookupInput"
                   value={lookup.query}
-                  onChange={(event) => lookup.setQuery(event.target.value)}
+                  onChange={(event) => {
+                    lookup.setQuery(event.target.value);
+                    enterPending.current = false;
+                  }}
                   onKeyDown={(event) => {
                     if (event.key === "Enter") {
                       event.preventDefault();
@@ -247,6 +295,15 @@ export function WalletPublishConfigView() {
               </div>
               <InlineFieldError id="drepLookupInput-error" message={inputError} />
               <p id="drepLookupInput-hint" className="text-xs text-muted-foreground">{i18n("pasteHint")}</p>
+              {typedId ? null : (
+                <DrepSearchResults
+                  query={search.query}
+                  dreps={search.dreps}
+                  loading={search.loading}
+                  failed={search.failed}
+                  onOpen={openRow}
+                />
+              )}
             </div>
 
             {/* A found DRep is otherwise silent; failures use the alert below. */}
