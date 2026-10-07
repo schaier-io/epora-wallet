@@ -261,7 +261,7 @@ export function WalletPublishConfigView() {
         <InlineFieldError id="votingDelegateChoice-error" message={choiceError} />
 
         {browsingDrep ? (
-          <div className="space-y-4 border-s-2 border-border/60 ps-3">
+          <div className="mt-4 space-y-4 border-s-2 border-border/60 ps-3">
             <div className="space-y-2">
               <Label htmlFor="drepLookupInput">{i18n("findDrep")}</Label>
               <div className="flex gap-3">
