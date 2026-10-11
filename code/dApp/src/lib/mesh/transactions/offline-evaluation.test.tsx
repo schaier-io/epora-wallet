@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { performance } from "node:perf_hooks";
 import { describe, expect, it } from "vitest";
-import { OfflineEvaluatorScalus, Transaction as CstTransaction, TransactionBody, HexBlob } from "@meshsdk/core-cst";
+import { OfflineEvaluatorScalus, Transaction as CstTransaction, TransactionBody, TxCBOR } from "@meshsdk/core-cst";
 import { deserializeTx } from "@/lib/mesh/cst";
 import { STT_MINT_VALIDATOR } from "./internals/constants";
 import { createOfflineMintFixture, DEFAULT_OFFLINE_COST_MODELS as COST_MODELS } from "./offline-evaluation-mint-fixture";
@@ -40,13 +40,13 @@ describe("offline Scalus evaluation probe (actual STT V3 mint)", () => {
 
   it("rejects an invalid state datum instead of returning a budget", async () => {
     const { utxos, passes, fetcher } = await createOfflineMintFixture();
-    const tx = CstTransaction.fromCbor(HexBlob(passes[1]!));
+    const tx = CstTransaction.fromCbor(TxCBOR(passes[1]!));
     const body = tx.body().toCore();
     body.outputs[0]!.datum = 99n;
     tx.setBody(TransactionBody.fromCore(body));
     const evaluator = new OfflineEvaluatorScalus(fetcher, "preprod", undefined, COST_MODELS);
     const invalidHex = String(tx.toCbor());
-    expect(CstTransaction.fromCbor(HexBlob(invalidHex)).body().toCore().outputs[0]!.datum).toBe(99n);
+    expect(CstTransaction.fromCbor(TxCBOR(invalidHex)).body().toCore().outputs[0]!.datum).toBe(99n);
     await expect(evaluator.evaluateTx(invalidHex, utxos)).rejects.toThrow(
       /Builtin error: UnConstrData.*Const\(Data\(99\)\).*scalus\.uplc\.eval\.DeserializationError/
     );
