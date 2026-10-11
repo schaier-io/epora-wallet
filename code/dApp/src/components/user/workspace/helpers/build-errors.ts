@@ -114,14 +114,23 @@ function voteRejectionMessage(messages: readonly string[]) {
 
 /**
  * Whether the node's ledger refused this exact transaction, so it can never confirm.
- * Blockfrost reports a ledger refusal as `ShelleyTxValidationError`. `BadInputsUTxO`
- * does not count: a resubmission of a transaction the wallet already broadcast fails
- * with it too. A transport failure does not count either: the wallet may have sent it.
+ * Blockfrost reports a ledger refusal as `ShelleyTxValidationError`. Two refusals do
+ * not count, because a resubmission of a transaction the wallet already broadcast
+ * gets them: `BadInputsUTxO`, and the Conway mempool's `ConwayMempoolFailure` ("All
+ * inputs are spent. Transaction has probably already been included"). A transport
+ * failure does not count either: the wallet may have sent it.
  */
+// Only the broadcast stages in `lib/mesh/transactions/submit.ts` send anything. A failure
+// earlier in the submit flow (consent, network check, signing) sent nothing.
+function failedWhileBroadcasting(error: unknown) {
+  const stage = error instanceof Error && "stage" in error ? (error as { stage?: unknown }).stage : undefined;
+  return stage === "submit:wallet.submitTx" || stage === "submit:blockfrost.submitTx";
+}
+
 export function ledgerRefusedSubmission(error: unknown): boolean {
   const messages = [...collectBuildErrorMessages(error)];
   return messages.some((message) => /\bShelleyTxValidationError\b/.test(message)) &&
-    !messages.some((message) => /\bBadInputsUTxO\b/.test(message));
+    !messages.some((message) => /\b(?:BadInputsUTxO|ConwayMempoolFailure)\b/.test(message));
 }
 
 const USER_DECLINED_TO_SIGN = i18n("youDeclinedToSignInYourWallet");
@@ -461,7 +470,7 @@ export function formatBuildError(error: unknown, errorContext: ErrorContext): Pa
     : resolveBuildErrorOutcome(
         error,
         fallbackMessage,
-        errorContext.action === "submit" ? UNRECOGNISED_SUBMIT_ERROR : UNRECOGNISED_BUILD_ERROR
+        failedWhileBroadcasting(error) ? UNRECOGNISED_SUBMIT_ERROR : UNRECOGNISED_BUILD_ERROR
       );
 
   const serializedError: Record<string, unknown> = {

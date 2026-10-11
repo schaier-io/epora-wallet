@@ -508,8 +508,12 @@ test("an owned message hidden behind a cyclic chain still counts as expected", (
 // /api/mesh route logged it on 2026-10-09 (`api.mesh_request_failed`, method submitTx).
 const VOTER_NOT_REGISTERED_BLOCKFROST = String.raw`{"data":{"error":"Bad Request","message":"{\"contents\":{\"contents\":{\"contents\":{\"era\":\"ShelleyBasedEraConway\",\"error\":[\"ConwayGovFailure (VotersDoNotExist (DRepVoter (ScriptHashObj (ScriptHash \\\"33c6203ecc59890e048af189778557fff6e6ed82ba0d8d38db5123f2\\\")) :| []))\"],\"kind\":\"ShelleyTxValidationError\"},\"tag\":\"TxValidationErrorInCardanoMode\"},\"tag\":\"TxCmdTxSubmitValidationError\"},\"tag\":\"TxSubmitFail\"}","status_code":400},"status":400}`;
 
+function stageError(stage: string, message: string) {
+  return Object.assign(new Error(`[${stage}] ${message}`), { stage });
+}
+
 function submitRefusal(ledgerText: string) {
-  return new Error(`[submit:blockfrost.submitTx] Mesh request failed\n${ledgerText}`);
+  return stageError("submit:blockfrost.submitTx", `Mesh request failed\n${ledgerText}`);
 }
 
 const SUBMIT_CONTEXT: ErrorContext = { ...BASE_CONTEXT, action: "submit" };
@@ -537,19 +541,28 @@ test("a vote the ledger does not allow for this voter reads as that fact", () =>
   }
 });
 
-test("an unrecognised failure at submit time says sending, not preparing", () => {
-  const submit = parse(new Error('{"status":500}'), SUBMIT_CONTEXT);
-  assert.match(submit.message, /Something went wrong while sending this transaction/);
-  assert.equal(submit.expected, false);
+test("an unrecognised broadcast failure says sending, not preparing", () => {
+  for (const stage of ["submit:wallet.submitTx", "submit:blockfrost.submitTx"]) {
+    const sent = parse(stageError(stage, '{"status":500}'), SUBMIT_CONTEXT);
+    assert.match(sent.message, /Something went wrong while sending this transaction/);
+    assert.equal(sent.expected, false);
+  }
+  // Earlier in the submit flow nothing was sent yet.
+  const signing = parse(stageError("submit:signTx", '{"status":500}'), SUBMIT_CONTEXT);
+  assert.match(signing.message, /Something went wrong while preparing this transaction/);
   const build = parse(new Error('{"status":500}'));
   assert.match(build.message, /Something went wrong while preparing this transaction/);
 });
 
 test("only a ledger refusal of this exact transaction counts as refused", () => {
   assert.equal(ledgerRefusedSubmission(submitRefusal(VOTER_NOT_REGISTERED_BLOCKFROST)), true);
-  // A resubmission of a transaction the wallet already broadcast also fails this way.
+  // A resubmission of a transaction the wallet already broadcast can fail this way.
   assert.equal(ledgerRefusedSubmission(submitRefusal(
     "ShelleyTxValidationError ConwayUtxowFailure (UtxoFailure (BadInputsUTxO (x)))"
+  )), false);
+  // The Conway mempool's answer to a transaction it already holds or included.
+  assert.equal(ledgerRefusedSubmission(submitRefusal(
+    'ShelleyTxValidationError ConwayMempoolFailure "All inputs are spent. Transaction has probably already been included"'
   )), false);
   // A transport failure says nothing about whether the wallet sent it.
   assert.equal(ledgerRefusedSubmission(new Error("Mesh RPC call failed for submitTx (HTTP 502)")), false);

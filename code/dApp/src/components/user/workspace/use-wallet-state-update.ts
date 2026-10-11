@@ -41,12 +41,21 @@ export async function readUsableWalletReplacement(
     } else {
       // A submission whose acceptance is unknown is released by a verified unspent
       // original input plus either chain progress past its validity window, or the
-      // chain still not knowing the transaction a few minutes after submission. If a
-      // late transaction lands after all, the next build sees the STT input spent and
-      // records the wait again.
-      const submittedTxMissing = typeof error === "object" && error !== null && "status" in error && error.status === 404;
+      // chain still not knowing the transaction a few minutes after submission. The
+      // early release first asks the provider's mempool, so a transaction delayed by
+      // congestion keeps its wait. One the provider never saw can still land; a new
+      // transaction against the same STT input then fails at submit, and the wait
+      // follows the spender once it confirms.
+      const isMissing = (reason: unknown) =>
+        typeof reason === "object" && reason !== null && "status" in reason && reason.status === 404;
+      const submittedTxMissing = isMissing(error);
       if (submittedTxMissing && pending.submittedAt !== undefined &&
         Date.now() - pending.submittedAt >= WALLET_STATE_UNSEEN_RELEASE_MS) {
+        const inMempool = await fetcher.get(`mempool/${pending.submittedTxHash}`).then(
+          () => true,
+          (mempoolError: unknown) => { if (isMissing(mempoolError)) return false; throw mempoolError; }
+        );
+        if (inMempool) return null;
         await assertExactInputUnspent(fetcher, pending.spentRef, "STT input", true);
         signal.throwIfAborted();
         return { replacementRef: pending.spentRef, expired: true };

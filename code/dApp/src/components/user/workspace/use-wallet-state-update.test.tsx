@@ -41,7 +41,7 @@ function detected(input: SttInputRef): DetectedSttInfo {
 
 type RpcOptions = {
   confirmed?: boolean; slot?: unknown; consumedBy?: string | null; unknownStatus?: boolean;
-  confirmedTxHash?: string; originalConsumedBy?: string;
+  confirmedTxHash?: string; originalConsumedBy?: string; inMempool?: boolean;
 };
 function rpc(options: RpcOptions = {}) {
   const fetch = vi.fn(async (_url: unknown, init?: RequestInit) => {
@@ -50,6 +50,11 @@ function rpc(options: RpcOptions = {}) {
       return options.confirmed === false && args[0] !== options.confirmedTxHash
         ? new Response(JSON.stringify({ error: "Transaction not indexed" }), { status: 404 })
         : Response.json({ result: { hash: args[0] } });
+    }
+    if (method === "get" && args[0]?.startsWith("mempool/")) {
+      return options.inMempool
+        ? Response.json({ result: { tx: { hash: args[0].slice("mempool/".length) } } })
+        : new Response(JSON.stringify({ error: "Not in mempool" }), { status: 404 });
     }
     if (method === "get" && args[0] === "blocks/latest") return Response.json({ result: { slot: options.slot } });
     if (method === "get" && args[0]?.startsWith("txs/")) {
@@ -162,7 +167,16 @@ it("releases a submission the chain still does not know a few minutes after subm
   expect(mocks.detectSttInfo).not.toHaveBeenCalled();
 });
 
-it("keeps an unseen submission locked before the release time or with its input spent", async () => {
+it("keeps an unseen submission locked while the provider's mempool still holds it", async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-10-09T03:43:00Z"));
+  rpc({ confirmed: false, slot: 999, inMempool: true });
+  const submittedAt = Date.now() - WALLET_STATE_UNSEEN_RELEASE_MS;
+  await expect(readUsableWalletReplacement(client(), { ...PENDING, invalidHereafter: 1000, submittedAt }, new AbortController().signal))
+    .resolves.toBeNull();
+});
+
+it("keeps an unseen submission locked before the release time or with its unspent status unverified", async () => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-10-09T03:43:00Z"));
   rpc({ confirmed: false, slot: 999 });
