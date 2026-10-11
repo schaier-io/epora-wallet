@@ -772,6 +772,31 @@ it.each([false, true])("#433 validates its own submission without accepting a fo
   expect(mocks.freshness).toHaveBeenCalledTimes(foreign ? 1 : 2);
 });
 
+it.each([
+  ["a ledger refusal releases", "ShelleyTxValidationError ConwayGovFailure (VotersDoNotExist (x :| []))", false],
+  ["a resubmission refusal keeps", "ShelleyTxValidationError ConwayUtxowFailure (UtxoFailure (BadInputsUTxO (x)))", true],
+  ["a transport failure keeps", "Mesh RPC call failed for submitTx (HTTP 502)", true]
+])("%s the wallet-state wait after a failed broadcast", async (_name, failure, kept) => {
+  const walletUnit = `${"aa".repeat(28)}01`;
+  const spent = { txHash: "cd".repeat(32), outputIndex: 0 };
+  const deps = makeDeps({ selectedDetectedToken: { unit: walletUnit, utxo: { input: spent } } });
+  deps.jotaiStore.set(routeStateAtom, { ...deps.jotaiStore.get(routeStateAtom), selectedWalletUnit: walletUnit });
+  deps.jotaiStore.set(sttInputTxHashAtom, spent.txHash);
+  deps.jotaiStore.set(sttInputOutputIndexAtom, "0");
+  bindPreview(deps);
+  mocks.signAndSubmitTx.mockImplementationOnce(async (_wallet, _hex, options: {
+    assertCurrent: () => Promise<void>;
+    beforeBroadcast: (transaction: { txHash: string; invalidHereafter: number }) => void;
+  }) => {
+    await options.assertCurrent();
+    options.beforeBroadcast({ txHash: TX_HASH, invalidHereafter: 123 });
+    throw new Error(`[submit:blockfrost.submitTx] ${failure}`);
+  });
+  await createWorkspaceTransactionSubmit(deps).submitTransactionPreview(preview);
+  expect(deps.jotaiStore.get(pendingWalletStateUpdatesAtom)[walletUnit]?.submittedTxHash)
+    .toBe(kept ? TX_HASH : undefined);
+});
+
 it("stops before broadcast when the pending guard cannot be persisted", async () => {
   const walletUnit = `${"aa".repeat(28)}01`;
   const spent = { txHash: "cd".repeat(32), outputIndex: 0 };
