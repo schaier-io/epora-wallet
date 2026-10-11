@@ -41,7 +41,7 @@ function detected(input: SttInputRef): DetectedSttInfo {
 
 type RpcOptions = {
   confirmed?: boolean; slot?: unknown; consumedBy?: string | null; unknownStatus?: boolean;
-  confirmedTxHash?: string; originalConsumedBy?: string; inMempool?: boolean;
+  confirmedTxHash?: string; originalConsumedBy?: string; inMempool?: boolean; mempoolFails?: boolean;
 };
 function rpc(options: RpcOptions = {}) {
   const fetch = vi.fn(async (_url: unknown, init?: RequestInit) => {
@@ -52,6 +52,7 @@ function rpc(options: RpcOptions = {}) {
         : Response.json({ result: { hash: args[0] } });
     }
     if (method === "get" && args[0]?.startsWith("mempool/")) {
+      if (options.mempoolFails) return new Response(JSON.stringify({ error: "Upstream failed" }), { status: 502 });
       return options.inMempool
         ? Response.json({ result: { tx: { hash: args[0].slice("mempool/".length) } } })
         : new Response(JSON.stringify({ error: "Not in mempool" }), { status: 404 });
@@ -174,6 +175,18 @@ it("keeps an unseen submission locked while the provider's mempool still holds i
   const submittedAt = Date.now() - WALLET_STATE_UNSEEN_RELEASE_MS;
   await expect(readUsableWalletReplacement(client(), { ...PENDING, invalidHereafter: 1000, submittedAt }, new AbortController().signal))
     .resolves.toBeNull();
+});
+
+it("falls back to the validity window when the mempool read fails", async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-10-09T03:43:00Z"));
+  const submittedAt = Date.now() - WALLET_STATE_UNSEEN_RELEASE_MS;
+  rpc({ confirmed: false, slot: 999, mempoolFails: true });
+  await expect(readUsableWalletReplacement(client(), { ...PENDING, invalidHereafter: 1000, submittedAt }, new AbortController().signal))
+    .resolves.toBeNull();
+  rpc({ confirmed: false, slot: 1000, mempoolFails: true });
+  await expect(readUsableWalletReplacement(client(), { ...PENDING, invalidHereafter: 1000, submittedAt }, new AbortController().signal))
+    .resolves.toEqual({ replacementRef: SPENT, expired: true });
 });
 
 it("keeps an unseen submission locked before the release time or with its unspent status unverified", async () => {

@@ -49,13 +49,11 @@ export async function readUsableWalletReplacement(
       const isMissing = (reason: unknown) =>
         typeof reason === "object" && reason !== null && "status" in reason && reason.status === 404;
       const submittedTxMissing = isMissing(error);
-      if (submittedTxMissing && pending.submittedAt !== undefined &&
-        Date.now() - pending.submittedAt >= WALLET_STATE_UNSEEN_RELEASE_MS) {
-        const inMempool = await fetcher.get(`mempool/${pending.submittedTxHash}`).then(
-          () => true,
-          (mempoolError: unknown) => { if (isMissing(mempoolError)) return false; throw mempoolError; }
-        );
-        if (inMempool) return null;
+      // An unanswered mempool read skips the early release; the validity window still applies.
+      const notInMempool = submittedTxMissing && pending.submittedAt !== undefined &&
+        Date.now() - pending.submittedAt >= WALLET_STATE_UNSEEN_RELEASE_MS &&
+        await fetcher.get(`mempool/${pending.submittedTxHash}`).then(() => false, isMissing);
+      if (notInMempool) {
         await assertExactInputUnspent(fetcher, pending.spentRef, "STT input", true);
         signal.throwIfAborted();
         return { replacementRef: pending.spentRef, expired: true };
