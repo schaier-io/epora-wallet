@@ -8,6 +8,7 @@
 // recoverable; leaking a wallet address is not.
 
 import { isBrowserExtensionNoise } from "./extension-noise-filter";
+import { isSkippedViewTransition } from "./view-transition-noise-filter";
 import {
   collectEventMessagesWithoutBreadcrumbs,
   eventMessageText
@@ -144,7 +145,8 @@ export function scrubSentryBreadcrumb<Breadcrumb extends SentryBreadcrumbLike>(
  * The `beforeSend` filter. Returns `null` for routine wallet rejections (the
  * user declined to sign, so there is nothing to diagnose) and for
  * browser-extension noise (an injected extension failing inside its own
- * script, see `extension-noise-filter.ts`); otherwise strips secrets
+ * script, see `extension-noise-filter.ts`) and for browser-skipped view
+ * transitions (see `view-transition-noise-filter.ts`); otherwise strips secrets
  * (cookies, authorization headers), request/response payloads, and
  * wallet addresses / transaction hashes from messages, extras, and contexts.
  * Deduplication itself is left to the SDK (`dedupeIntegration`, wired in the
@@ -157,6 +159,10 @@ export function scrubSentryEvent<T extends SentryEventLike>(event: T): T | null 
   }
 
   if (isBrowserExtensionNoise(event)) {
+    return null;
+  }
+
+  if (isSkippedViewTransition(event)) {
     return null;
   }
 
