@@ -9,7 +9,7 @@ import { assertExactInputUnspent } from "@/lib/mesh/transactions/internals/utxo"
 import { txInfoQueryOptions } from "@/lib/query/chain";
 import { sttWalletQueryOptions } from "@/lib/query/stt-inventory";
 import { invalidateChainQueries } from "@/lib/query/invalidation";
-import { STT_STATE_REFRESH_POLL_MS } from "./constants";
+import { STT_STATE_REFRESH_POLL_MS, WALLET_STATE_UNSEEN_RELEASE_MS } from "./constants";
 import { routeStateAtom } from "./atoms/workspace-route.atoms";
 import {
   completeWalletStateUpdateAtom, pendingWalletStateUpdatesAtom,
@@ -39,9 +39,25 @@ export async function readUsableWalletReplacement(
       // of waiting forever for our rejected candidate to appear.
       await readTxInfo(spentBy);
     } else {
-      // Only chain progress plus a verified original input can release a submission
-      // whose acceptance is unknown. A browser clock or timeout is insufficient.
-      const submittedTxMissing = typeof error === "object" && error !== null && "status" in error && error.status === 404;
+      // A submission whose acceptance is unknown is released by a verified unspent
+      // original input plus either chain progress past its validity window, or the
+      // chain still not knowing the transaction a few minutes after submission. The
+      // early release first asks the provider's mempool, so a transaction delayed by
+      // congestion keeps its wait. One the provider never saw can still land; a new
+      // transaction against the same STT input then fails at submit, and the wait
+      // follows the spender once it confirms.
+      const isMissing = (reason: unknown) =>
+        typeof reason === "object" && reason !== null && "status" in reason && reason.status === 404;
+      const submittedTxMissing = isMissing(error);
+      // An unanswered mempool read skips the early release; the validity window still applies.
+      const notInMempool = submittedTxMissing && pending.submittedAt !== undefined &&
+        Date.now() - pending.submittedAt >= WALLET_STATE_UNSEEN_RELEASE_MS &&
+        await fetcher.get(`mempool/${pending.submittedTxHash}`).then(() => false, isMissing);
+      if (notInMempool) {
+        await assertExactInputUnspent(fetcher, pending.spentRef, "STT input", true);
+        signal.throwIfAborted();
+        return { replacementRef: pending.spentRef, expired: true };
+      }
       if (pending.invalidHereafter === undefined) {
         if (submittedTxMissing) return null;
         throw error;
