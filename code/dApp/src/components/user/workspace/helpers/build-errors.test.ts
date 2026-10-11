@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { formatBuildError, getSpentSttInput, OwnedMessageError } from "./build-errors";
+import { formatBuildError, getSpentSttInput, ledgerRefusedSubmission, OwnedMessageError } from "./build-errors";
 import { type ErrorContext } from "@/components/user/workspace/types";
 
 const BASE_CONTEXT: ErrorContext = {
@@ -502,4 +502,55 @@ test("an owned message hidden behind a cyclic chain still counts as expected", (
 
   assert.equal(blob.expected, true);
   assert.equal(blob.diagnosticId, null);
+});
+
+// Blockfrost's refusal of a vote from a wallet that is not a registered DRep, as the
+// /api/mesh route logged it on 2026-10-09 (`api.mesh_request_failed`, method submitTx).
+const VOTER_NOT_REGISTERED_BLOCKFROST = String.raw`{"data":{"error":"Bad Request","message":"{\"contents\":{\"contents\":{\"contents\":{\"era\":\"ShelleyBasedEraConway\",\"error\":[\"ConwayGovFailure (VotersDoNotExist (DRepVoter (ScriptHashObj (ScriptHash \\\"33c6203ecc59890e048af189778557fff6e6ed82ba0d8d38db5123f2\\\")) :| []))\"],\"kind\":\"ShelleyTxValidationError\"},\"tag\":\"TxValidationErrorInCardanoMode\"},\"tag\":\"TxCmdTxSubmitValidationError\"},\"tag\":\"TxSubmitFail\"}","status_code":400},"status":400}`;
+
+function submitRefusal(ledgerText: string) {
+  return new Error(`[submit:blockfrost.submitTx] Mesh request failed\n${ledgerText}`);
+}
+
+const SUBMIT_CONTEXT: ErrorContext = { ...BASE_CONTEXT, action: "submit" };
+
+test("a vote from a wallet that is not a registered DRep reads as that fact", () => {
+  const result = parse(submitRefusal(VOTER_NOT_REGISTERED_BLOCKFROST), SUBMIT_CONTEXT);
+  assert.match(result.message, /not registered as a DRep/);
+  assert.equal(result.expected, true);
+  assert.equal(result.diagnosticId, null);
+});
+
+test("a vote on a closed or unknown governance action reads as that fact", () => {
+  for (const rule of ["GovActionsDoNotExist", "VotingOnExpiredGovAction"]) {
+    const result = parse(submitRefusal(`ShelleyTxValidationError ConwayGovFailure (${rule} (x :| []))`), SUBMIT_CONTEXT);
+    assert.match(result.message, /governance action is not open for votes/);
+    assert.equal(result.expected, true);
+  }
+});
+
+test("a vote the ledger does not allow for this voter reads as that fact", () => {
+  for (const rule of ["DisallowedVoters", "DisallowedVotesDuringBootstrap"]) {
+    const result = parse(submitRefusal(`ShelleyTxValidationError ConwayGovFailure (${rule} (x :| []))`), SUBMIT_CONTEXT);
+    assert.match(result.message, /may not vote on this type of governance action/);
+    assert.equal(result.expected, true);
+  }
+});
+
+test("an unrecognised failure at submit time says sending, not preparing", () => {
+  const submit = parse(new Error('{"status":500}'), SUBMIT_CONTEXT);
+  assert.match(submit.message, /Something went wrong while sending this transaction/);
+  assert.equal(submit.expected, false);
+  const build = parse(new Error('{"status":500}'));
+  assert.match(build.message, /Something went wrong while preparing this transaction/);
+});
+
+test("only a ledger refusal of this exact transaction counts as refused", () => {
+  assert.equal(ledgerRefusedSubmission(submitRefusal(VOTER_NOT_REGISTERED_BLOCKFROST)), true);
+  // A resubmission of a transaction the wallet already broadcast also fails this way.
+  assert.equal(ledgerRefusedSubmission(submitRefusal(
+    "ShelleyTxValidationError ConwayUtxowFailure (UtxoFailure (BadInputsUTxO (x)))"
+  )), false);
+  // A transport failure says nothing about whether the wallet sent it.
+  assert.equal(ledgerRefusedSubmission(new Error("Mesh RPC call failed for submitTx (HTTP 502)")), false);
 });

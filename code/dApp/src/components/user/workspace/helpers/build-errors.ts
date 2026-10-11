@@ -96,6 +96,34 @@ function looksWrittenForAPerson(message: string): boolean {
 
 const UNRECOGNISED_BUILD_ERROR = i18n("somethingWentWrongWhilePreparingThisTransaction");
 
+const UNRECOGNISED_SUBMIT_ERROR = i18n("somethingWentWrongWhileSendingThisTransaction");
+
+// Conway GOV rule failures for votes (cardano-ledger `ConwayGovPredFailure`). Script
+// evaluation at build time does not run these ledger rules, so a vote builds cleanly
+// and only the node's submit check rejects it. Each one is final for this transaction.
+const VOTE_REJECTIONS = [
+  [/\bVotersDoNotExist\b/, "voterIsNotARegisteredDrep"],
+  [/\b(?:GovActionsDoNotExist|VotingOnExpiredGovAction)\b/, "governanceActionIsNotOpen"],
+  [/\b(?:DisallowedVoters|DisallowedVotesDuringBootstrap)\b/, "voterMayNotVoteOnThisAction"]
+] as const;
+
+function voteRejectionMessage(messages: readonly string[]) {
+  const match = VOTE_REJECTIONS.find(([pattern]) => messages.some((message) => pattern.test(message)));
+  return match ? i18n(match[1]) : null;
+}
+
+/**
+ * Whether the node's ledger refused this exact transaction, so it can never confirm.
+ * Blockfrost reports a ledger refusal as `ShelleyTxValidationError`. `BadInputsUTxO`
+ * does not count: a resubmission of a transaction the wallet already broadcast fails
+ * with it too. A transport failure does not count either: the wallet may have sent it.
+ */
+export function ledgerRefusedSubmission(error: unknown): boolean {
+  const messages = [...collectBuildErrorMessages(error)];
+  return messages.some((message) => /\bShelleyTxValidationError\b/.test(message)) &&
+    !messages.some((message) => /\bBadInputsUTxO\b/.test(message));
+}
+
 const USER_DECLINED_TO_SIGN = i18n("youDeclinedToSignInYourWallet");
 
 /**
@@ -205,12 +233,18 @@ function createDiagnosticId(details: string) {
 /** Map known build failures to recovery guidance and mark whether the outcome is expected. */
 function resolveBuildErrorOutcome(
   error: unknown,
-  fallback: string
+  fallback: string,
+  unrecognised: string
 ): readonly [string, boolean] {
   const allMessages = [...collectBuildErrorMessages(error)].map(unwrapBuildErrorMessage);
 
   if (declinedToSign(error)) {
     return [USER_DECLINED_TO_SIGN, true];
+  }
+
+  const voteRejection = voteRejectionMessage(allMessages);
+  if (voteRejection) {
+    return [voteRejection, true];
   }
 
   if (allMessages.some((message) => message.includes("UTxO Fully Depleted"))) {
@@ -305,7 +339,7 @@ function resolveBuildErrorOutcome(
   // a recognised condition even though it reads like a sentence, while an arbitrary SDK
   // message that also reads like one stays unexpected and keeps its console diagnostic.
   return [
-    looksWrittenForAPerson(unwrappedFallback) ? unwrappedFallback : UNRECOGNISED_BUILD_ERROR,
+    looksWrittenForAPerson(unwrappedFallback) ? unwrappedFallback : unrecognised,
     carriesOwnedMessage(error)
   ];
 }
@@ -424,7 +458,11 @@ export function formatBuildError(error: unknown, errorContext: ErrorContext): Pa
               : i18n("someOfTheMoneyThisTransactionSpendsMissinginputref", { missingInputRef: missingInputRef }),
         true
       ] as const
-    : resolveBuildErrorOutcome(error, fallbackMessage);
+    : resolveBuildErrorOutcome(
+        error,
+        fallbackMessage,
+        errorContext.action === "submit" ? UNRECOGNISED_SUBMIT_ERROR : UNRECOGNISED_BUILD_ERROR
+      );
 
   const serializedError: Record<string, unknown> = {
     timestamp: now,
