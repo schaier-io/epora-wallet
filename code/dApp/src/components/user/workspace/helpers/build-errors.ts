@@ -308,12 +308,6 @@ function resolveBuildErrorOutcome(
     return ["The wallet has no spendable UTxOs right now. Fund it with some ADA and try again. If you funded it moments ago, wait a little for the chain to catch up.", true];
   }
 
-  // The ledger refuses a vote whose voter is not a registered DRep. The vote itself is
-  // well formed, so no retry helps until the wallet holds a DRep registration.
-  if (allMessages.some((message) => message.includes("VotersDoNotExist"))) {
-    return ["Cardano refused this vote because this wallet is not registered as a DRep. Only a registered DRep can vote on governance actions.", true];
-  }
-
   if (allMessages.some((message) => message.includes("BabbageOutputTooSmallUTxO"))) {
     return ["Cardano rejected this transaction because one of its payments holds less ADA than the network allows. If you staged a very small payout, raise it and try again.", true];
   }
