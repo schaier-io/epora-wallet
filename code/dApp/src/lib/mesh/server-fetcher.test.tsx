@@ -145,9 +145,39 @@ describe("safe read transport recovery", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
-  it.each(["submitTx", "evaluateTx"] as const)("does not retry %s transport failures", async (method) => {
+  it("does not retry submitTx transport failures", async () => {
     fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
-    await expect(new ServerFetcher()[method]("00")).rejects.toThrow("Failed to fetch");
+    await expect(new ServerFetcher().submitTx("00")).rejects.toThrow("Failed to fetch");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("recovers a temporary evaluateTx transport failure", async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValueOnce(answer('{"result":[]}', 200));
+    await expect(new ServerFetcher().evaluateTx("00")).resolves.toEqual([]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("limits persistent evaluateTx transport failures to three attempts", async () => {
+    fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
+    await expect(new ServerFetcher().evaluateTx("00")).rejects.toThrow("Failed to fetch");
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not retry an evaluateTx HTTP failure", async () => {
+    fetchMock.mockResolvedValue(answer('{"error":"busy"}', 503));
+    await expect(new ServerFetcher().evaluateTx("00")).rejects.toMatchObject({ status: 503 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops evaluateTx retries when the caller aborts", async () => {
+    const controller = new AbortController();
+    fetchMock.mockImplementation(async () => {
+      controller.abort();
+      throw new TypeError("Failed to fetch");
+    });
+    await expect(new ServerFetcher({ signal: controller.signal }).evaluateTx("00"))
+      .rejects.toMatchObject({ name: "AbortError" });
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 

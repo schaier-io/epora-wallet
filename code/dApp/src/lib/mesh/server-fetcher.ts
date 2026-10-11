@@ -1,4 +1,10 @@
-import { retryMeshRead, meshReadRetryDelay, MESH_CLIENT_READ_TIMEOUT_MS } from "./read-retry";
+import {
+  retryMeshRead,
+  meshReadRetryDelay,
+  waitForReadRetry,
+  MAX_READ_ATTEMPTS,
+  MESH_CLIENT_READ_TIMEOUT_MS
+} from "./read-retry";
 import { parseRetryAfterMs } from "@/lib/http/retry-after";
 export { parseRetryAfterMs } from "@/lib/http/retry-after";
 import type {
@@ -177,12 +183,22 @@ export class ServerFetcher implements IFetcher, IEvaluator {
     return this.rpc("fetchGovernanceProposal", [txHash, certIndex]);
   }
 
-  evaluateTx(
+  // Evaluation has no side effects, so a request that got no response can run
+  // again. It keeps no deadline: the read deadline would cut a slow evaluation.
+  async evaluateTx(
     tx: string,
     additionalUtxos?: UTxO[],
     additionalTxs?: string[]
   ): Promise<Omit<Action, "data">[]> {
-    return this.rpc("evaluateTx", [tx, additionalUtxos, additionalTxs]);
+    const signal = this.options.signal ?? new AbortController().signal;
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await rpc("evaluateTx", [tx, additionalUtxos, additionalTxs], this.options.signal);
+      } catch (error) {
+        if (!(error instanceof MeshTransportError) || attempt >= MAX_READ_ATTEMPTS) throw error;
+        await waitForReadRetry(meshReadRetryDelay(attempt), signal);
+      }
+    }
   }
 
   get(url: string, buildCache = false): Promise<unknown> {
