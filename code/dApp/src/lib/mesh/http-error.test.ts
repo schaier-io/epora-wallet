@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  isLedgerSubmitRejection,
   isScriptEvaluationRejection,
   meshHttpRetryAfter,
   meshHttpStatus,
@@ -41,6 +42,35 @@ test("a ScriptFailures map marks a caller-side rejection, other failure kinds do
   assert.equal(isScriptEvaluationRejection(body({ ScriptFailures: "{}" })), false);
   assert.equal(isScriptEvaluationRejection(JSON.stringify({ status: 500 })), false);
   assert.equal(isScriptEvaluationRejection("not json"), false);
+});
+
+// The Blockfrost submit answer from Sentry EPORA-WALLET-G, trimmed to the fields read.
+const votersDoNotExist = JSON.stringify({
+  data: {
+    error: "Bad Request",
+    message: JSON.stringify({
+      contents: { contents: { contents: {
+        era: "ShelleyBasedEraConway",
+        error: ["ConwayGovFailure (VotersDoNotExist (DRepVoter (ScriptHashObj (ScriptHash \"33c6203ecc59890e048af189778557fff6e6ed82ba0d8d38db5123f2\")) :| []))"],
+        kind: "ShelleyTxValidationError"
+      }, tag: "TxValidationErrorInCardanoMode" }, tag: "TxCmdTxSubmitValidationError" },
+      tag: "TxSubmitFail"
+    }),
+    status_code: 400
+  },
+  headers: {},
+  status: 400
+});
+
+test("a TxSubmitFail 400 marks a caller-side ledger rejection, other submit failures do not", () => {
+  assert.equal(isLedgerSubmitRejection(votersDoNotExist), true);
+  assert.equal(isLedgerSubmitRejection(new Error(votersDoNotExist)), true);
+  const withBody = (status: number, message: unknown) => JSON.stringify({ data: { message }, status });
+  assert.equal(isLedgerSubmitRejection(withBody(500, JSON.stringify({ tag: "TxSubmitFail" }))), false);
+  assert.equal(isLedgerSubmitRejection(withBody(400, JSON.stringify({ tag: "Other" }))), false);
+  assert.equal(isLedgerSubmitRejection(withBody(400, "Bad Request")), false);
+  assert.equal(isLedgerSubmitRejection(JSON.stringify({ status: 400 })), false);
+  assert.equal(isLedgerSubmitRejection("not json"), false);
 });
 
 test("an upstream 429 stays a 429 whose Retry-After is always in seconds", () => {

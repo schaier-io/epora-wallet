@@ -3,8 +3,12 @@
   "failedToBuildTransaction": "Failed to build transaction",
   "fundPoolMissinginputrefHasAlreadyBeenSpentReload": "Fund pool {missingInputRef} has already been spent. Reload the fund pools, remove that one, then try again.",
   "fundPoolMissinginputrefHasAlreadyBeenSpentReload_aff0e8": "Fund pool {missingInputRef} has already been spent. Reload the fund pools, then try again.",
+  "governanceActionIsNotOpen": "Cardano refused this vote because the governance action is not open for votes. It expired, it was enacted, or it does not exist on this network. Check the action id. Nothing changed on the chain.",
   "someOfTheMoneyThisTransactionSpendsMissinginputref": "Some of the money this transaction spends ({missingInputRef}) is no longer there. It was most likely already spent. Reload the wallet, then try again.",
   "somethingWentWrongWhilePreparingThisTransaction": "Something went wrong while preparing this transaction. Try again. If it keeps failing, contact support.",
+  "somethingWentWrongWhileSendingThisTransaction": "Something went wrong while sending this transaction to Cardano. Try again. If it keeps failing, contact support.",
   "thisWalletHasMovedOnSinceYouOpened": "This wallet has moved on since you opened this screen, so the version this transaction was built against is gone. Someone else may have used it. Reload the wallet and set this up again.",
+  "voterIsNotARegisteredDrep": "Cardano refused this vote because this wallet is not registered as a DRep. A wallet must register as a DRep before it can vote. Nothing changed on the chain.",
+  "voterMayNotVoteOnThisAction": "Cardano refused this vote because a DRep may not vote on this type of governance action. Nothing changed on the chain.",
   "youDeclinedToSignInYourWallet": "You declined to sign in your wallet, so nothing was sent and nothing changed. The transaction stays ready here whenever you want to try again."
 }
