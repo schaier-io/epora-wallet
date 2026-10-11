@@ -3,7 +3,7 @@ import { abortable } from "./build-cancellation";
 
 export const MESH_READ_TIMEOUT_MS = 15_000;
 export const MESH_CLIENT_READ_TIMEOUT_MS = 20_000;
-const MAX_READ_ATTEMPTS = 3;
+export const MAX_READ_ATTEMPTS = 3;
 const READ_RETRY_DELAY_MS = 250;
 const MAX_READ_RETRY_DELAY_MS = 1_000;
 

@@ -140,6 +140,20 @@ it("preserves provider transaction failure text", async () => {
   expect(vi.mocked(logger.error)).toHaveBeenCalledTimes(1);
 });
 
+it("answers 400 and skips the error log when the ledger refuses a submitted transaction", async () => {
+  const ledgerFailure = JSON.stringify({ tag: "TxSubmitFail", contents: "ConwayGovFailure (VotersDoNotExist ...)" });
+  mocks.execute.mockRejectedValue(JSON.stringify({ status: 400, data: { message: ledgerFailure } }));
+  const response = await POST(request('{"method":"submitTx","args":["00"]}'));
+  expect(response.status).toBe(400);
+  // The build client maps the rejection off this text, so it must survive.
+  expect(JSON.stringify(await response.json())).toContain("VotersDoNotExist");
+  expect(vi.mocked(logger.error)).not.toHaveBeenCalled();
+  expect(vi.mocked(logger.warn)).toHaveBeenCalledWith(
+    "api.mesh_ledger_submit_rejected",
+    expect.objectContaining({ method: "submitTx" })
+  );
+});
+
 // Blockfrost answers HTTP 200 for an evaluation that failed, so Mesh throws the
 // Ogmios body itself, doubly JSON-encoded.
 function ogmiosEvaluationFailure(failure: unknown) {
