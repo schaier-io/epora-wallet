@@ -4,7 +4,7 @@ import { Provider, createStore } from "jotai";
 import { queryClientAtom } from "jotai-tanstack-query";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { DetectedSttInfo } from "@/lib/mesh/detection";
-import { STT_STATE_REFRESH_POLL_MS } from "./constants";
+import { STT_STATE_REFRESH_POLL_MS, WALLET_STATE_UNSEEN_RELEASE_MS } from "./constants";
 import { routeStateAtom } from "./atoms/workspace-route.atoms";
 import { parseWorkspaceRouteState } from "@/components/user/workspace-controller";
 import {
@@ -150,6 +150,27 @@ it("#433 releases an expired submission only at its chain slot with the original
   await expect(readUsableWalletReplacement(client(), { ...PENDING, invalidHereafter: 1000 }, new AbortController().signal))
     .resolves.toEqual({ replacementRef: SPENT, expired: true });
   expect(mocks.detectSttInfo).not.toHaveBeenCalled();
+});
+
+it("releases a submission the chain still does not know a few minutes after submit", async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-10-09T03:43:00Z"));
+  rpc({ confirmed: false, slot: 999 });
+  const submittedAt = Date.now() - WALLET_STATE_UNSEEN_RELEASE_MS;
+  await expect(readUsableWalletReplacement(client(), { ...PENDING, invalidHereafter: 1000, submittedAt }, new AbortController().signal))
+    .resolves.toEqual({ replacementRef: SPENT, expired: true });
+  expect(mocks.detectSttInfo).not.toHaveBeenCalled();
+});
+
+it("keeps an unseen submission locked before the release time or with its input spent", async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-10-09T03:43:00Z"));
+  rpc({ confirmed: false, slot: 999 });
+  const early = { ...PENDING, invalidHereafter: 1000, submittedAt: Date.now() - WALLET_STATE_UNSEEN_RELEASE_MS + 1 };
+  await expect(readUsableWalletReplacement(client(), early, new AbortController().signal)).resolves.toBeNull();
+  rpc({ confirmed: false, slot: 999, unknownStatus: true });
+  const late = { ...PENDING, invalidHereafter: 1000, submittedAt: Date.now() - WALLET_STATE_UNSEEN_RELEASE_MS };
+  await expect(readUsableWalletReplacement(client(), late, new AbortController().signal)).rejects.toThrow();
 });
 
 function Reader() { useWalletStateUpdate(); return null; }

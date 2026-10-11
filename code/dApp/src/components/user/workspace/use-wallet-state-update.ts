@@ -9,7 +9,7 @@ import { assertExactInputUnspent } from "@/lib/mesh/transactions/internals/utxo"
 import { txInfoQueryOptions } from "@/lib/query/chain";
 import { sttWalletQueryOptions } from "@/lib/query/stt-inventory";
 import { invalidateChainQueries } from "@/lib/query/invalidation";
-import { STT_STATE_REFRESH_POLL_MS } from "./constants";
+import { STT_STATE_REFRESH_POLL_MS, WALLET_STATE_UNSEEN_RELEASE_MS } from "./constants";
 import { routeStateAtom } from "./atoms/workspace-route.atoms";
 import {
   completeWalletStateUpdateAtom, pendingWalletStateUpdatesAtom,
@@ -39,9 +39,18 @@ export async function readUsableWalletReplacement(
       // of waiting forever for our rejected candidate to appear.
       await readTxInfo(spentBy);
     } else {
-      // Only chain progress plus a verified original input can release a submission
-      // whose acceptance is unknown. A browser clock or timeout is insufficient.
+      // A submission whose acceptance is unknown is released by a verified unspent
+      // original input plus either chain progress past its validity window, or the
+      // chain still not knowing the transaction a few minutes after submission. If a
+      // late transaction lands after all, the next build sees the STT input spent and
+      // records the wait again.
       const submittedTxMissing = typeof error === "object" && error !== null && "status" in error && error.status === 404;
+      if (submittedTxMissing && pending.submittedAt !== undefined &&
+        Date.now() - pending.submittedAt >= WALLET_STATE_UNSEEN_RELEASE_MS) {
+        await assertExactInputUnspent(fetcher, pending.spentRef, "STT input", true);
+        signal.throwIfAborted();
+        return { replacementRef: pending.spentRef, expired: true };
+      }
       if (pending.invalidHereafter === undefined) {
         if (submittedTxMissing) return null;
         throw error;

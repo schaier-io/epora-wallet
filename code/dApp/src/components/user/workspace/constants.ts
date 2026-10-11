@@ -71,6 +71,11 @@ export const REVIEW_DONE_DOUBLE_PRESS_GUARD_MS = 500;
 // STT UTxO reaches address/asset lookup. Retry the exact wallet briefly.
 export const STT_STATE_REFRESH_POLL_MS = 2_000;
 
+// A submitted transaction the chain has not indexed after this long, with its STT
+// input still unspent, releases the wallet before its validity window ends. Blocks
+// come about every 20 seconds, so this allows for several missed blocks.
+export const WALLET_STATE_UNSEEN_RELEASE_MS = 3 * 60_000;
+
 export const NON_NEGATIVE_INTEGER_SCHEMA = z
   .string()
   .trim()
