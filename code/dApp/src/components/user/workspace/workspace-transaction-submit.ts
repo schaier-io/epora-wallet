@@ -13,6 +13,7 @@ import { recordRecoveryCapacityFailure } from "./recovery-capacity-model";
 import { submitPhaseAtom, workspaceSessionAtom, previewSignatureAtom, buildDiagnosticIdAtom, mintConfirmationRunAtom, submitConfirmedAtom, submitConfirmationUnseenAtom } from "@/components/user/workspace/atoms/transaction-flow.atoms";
 import {
   beginWalletStateUpdateAtom,
+  discardWalletStateUpdateAtom,
   walletStateBlocksAction,
   walletStateSubmissionsAtom,
   pendingWalletStateUpdatesAtom,
@@ -27,7 +28,7 @@ import {
   MINT_CONFIRMATION_MAX_ATTEMPTS
 } from "@/components/user/workspace/constants";
 import { formatBuildError, safeStringify } from "@/components/user/workspace/helpers";
-import { OwnedMessageError } from "./helpers/build-errors";
+import { OwnedMessageError, ledgerRefusedSubmission } from "./helpers/build-errors";
 import type { resolveWorkspaceTransactionInputs } from "@/components/user/workspace/workspace-transaction-inputs";
 import type { WorkspaceTransactionsCtx } from "@/components/user/workspace/workspace-transactions-types";
 import { normalizeWalletName } from "@/lib/contracts/state-wallet-name";
@@ -235,9 +236,9 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
     const pendingActivityInputs = capturePendingActivityInputs(jotaiStore);
     const pendingActivityWallet = deps.lockingContract.address;
     let txHash: string;
+    const submissionOwner: WorkspaceSubmissionOwnership | undefined = submissionUnit
+      ? { walletUnit: submissionUnit, pending: null } : undefined;
     try {
-      const submissionOwner: WorkspaceSubmissionOwnership | undefined = submissionUnit
-        ? { walletUnit: submissionUnit, pending: null } : undefined;
       const beforeBroadcast = spentSttRef && submissionOwner
         ? (transaction: { txHash: string; invalidHereafter?: number }) => {
             assertSnapshot();
@@ -290,6 +291,11 @@ export function createWorkspaceTransactionSubmit(deps: SubmitDeps) {
         });
       }
     } catch (error) {
+      // The ledger refused this exact transaction, so it cannot confirm: release the
+      // wallet now. Any other failure keeps the wait, which the chain check releases.
+      if (submissionOwner?.pending && ledgerRefusedSubmission(error)) {
+        jotaiStore.set(discardWalletStateUpdateAtom, submissionOwner.pending);
+      }
       if (!isCurrent()) return;
       const parsed = formatBuildError(error, {
         action: "submit",
