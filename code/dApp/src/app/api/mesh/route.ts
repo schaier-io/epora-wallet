@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { executeMeshMethod, getBlockfrostProvider, METHOD_VALUES, MeshRpcInputError } from "@/lib/mesh/blockfrost-server";
-import { isScriptEvaluationRejection, meshHttpRetryAfter, meshHttpStatus, meshUpstreamFailure } from "@/lib/mesh/http-error";
+import { isLedgerSubmitRejection, isScriptEvaluationRejection, meshHttpRetryAfter, meshHttpStatus, meshUpstreamFailure } from "@/lib/mesh/http-error";
 import { retryMeshRead, meshReadRetryDelay } from "@/lib/mesh/read-retry";
 import { parseRetryAfterMs } from "@/lib/http/retry-after";
 import { clientKey, rateLimit, rateLimitPair } from "@/lib/http/rate-limit";
@@ -130,6 +130,8 @@ async function handlePost(request: Request, timings: RequestTimings) {
     const scriptRejection = isScriptEvaluationRejection(error);
     if (scriptRejection) {
       logger.warn("api.mesh_script_evaluation_rejected", { method, err: serializeError(error) });
+    } else if (isLedgerSubmitRejection(error)) {
+      logger.warn("api.mesh_ledger_submit_rejected", { method, err: serializeError(error) });
     // Blockfrost answers 404 for a tx hash it has not indexed yet, and the
     // browser polls pending submissions every 2 seconds: without this skip,
     // every poll becomes a Sentry event. The 404 response below already

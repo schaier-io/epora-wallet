@@ -167,6 +167,15 @@ test("maps BabbageOutputTooSmallUTxO to the min-lovelace guidance", () => {
   assert.match(message, /holds less ADA than the network allows/);
 });
 
+test("maps an unregistered DRep voter to expected DRep guidance", () => {
+  const result = parse(new Error(
+    "[submit:blockfrost.submitTx] The network request failed. Try again. ConwayGovFailure (VotersDoNotExist (DRepVoter (ScriptHashObj (ScriptHash \\\"33c6\\\")) :| []))"
+  ));
+  assert.match(result.message, /not registered as a DRep/);
+  assert.equal(result.expected, true);
+  assert.equal(result.diagnosticId, null);
+});
+
 test("treats the managed-payment stop floor as a recoverable validation result", () => {
   const error = parse(
     new Error(

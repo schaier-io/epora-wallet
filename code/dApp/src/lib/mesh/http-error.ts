@@ -72,6 +72,17 @@ export function isScriptEvaluationRejection(error: unknown): boolean {
   return failure !== null && asRecord(failure.ScriptFailures) !== null;
 }
 
+// Blockfrost's submit endpoint answers 400 with a cardano-submit-api
+// `TxSubmitFail` body when the node's ledger rules refuse the transaction (a
+// vote from an unregistered DRep, an input spent meanwhile). Like a script
+// rejection, that is the caller's transaction failing a rule, not a server
+// fault; the browser's error mapper still reports the kinds it does not know.
+export function isLedgerSubmitRejection(error: unknown): boolean {
+  const record = errorRecord(error instanceof Error ? error.message : error);
+  const body = errorRecord(asRecord(record?.data)?.message);
+  return record?.status === 400 && body?.tag === "TxSubmitFail";
+}
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null && !Array.isArray(value)
     ? value as Record<string, unknown>
