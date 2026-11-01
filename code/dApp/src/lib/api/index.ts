@@ -2,7 +2,7 @@
 // generator reads this module, so a route that is documented is a route whose
 // schemas are exported here.
 export { ApiErrorSchema, type ApiError } from "./errors";
-export { HealthResponseSchema, type HealthResponse } from "./health";
+export { HealthResponseSchema, ReadinessResponseSchema, type HealthResponse, type ReadinessResponse } from "./health";
 export {
   AccountsQuerySchema,
   AccountsResponseSchema,
