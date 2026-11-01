@@ -12,6 +12,7 @@ import { mergeAndSortTransactions, normalizeTransactionIo, transactionTouchesAdd
 import { lockingContractAtom } from "./wallet-identity.atoms";
 import { selectedDetectedTokenAtom } from "./token-identity.atoms";
 import { activityAnchorTxHashesAtom } from "./activity-inputs.atoms";
+import { routeStateAtom } from "../atoms/workspace-route.atoms";
 import type { WalletTransactionSummary } from "../types";
 import { getUserFacingErrorMessage } from "@/lib/utils/errors";
 import { createDefaultTranslator } from "@/i18n/default-translator";
@@ -103,12 +104,15 @@ function sameWalletActivity(previous: readonly unknown[], input: WalletActivityI
 }
 export const walletActivityQueryAtom = atomWithQuery((get) => {
   const input = get(walletActivityInputAtom);
+  const route = get(routeStateAtom);
+  const activityVisible = route.workspaceMode === "existing-wallet" && !route.selectedAction && !route.selectedIntent &&
+    (route.overviewSection === "home" || route.overviewSection === "transactions");
   return {
     ...walletActivityQueryOptions(input, get(queryClientAtom)),
-    enabled: get(chainReadsEnabledAtom) && Boolean(input.walletAddress),
+    enabled: get(chainReadsEnabledAtom) && Boolean(input.walletAddress) && activityVisible,
     placeholderData: (previous: TransactionInfo[] | undefined, previousQuery?: { queryKey: readonly unknown[] }) =>
       previousQuery && sameWalletActivity(previousQuery.queryKey, input) ? previous : undefined,
-    refetchInterval: queryPolicy.activePollMs
+    refetchInterval: queryPolicy.backgroundPollMs
   };
 });
 // Manual refreshes in flight. A counter, not a flag: the header and the activity card
@@ -123,6 +127,6 @@ export const walletTransactionsAtom = atom((get): WalletTransactionSummary => {
   // reader is waiting for after sending or receiving funds.
   const refreshing = !result.isPending &&
     ((result.isPlaceholderData && result.isFetching) || get(activityManualRefreshCountAtom) > 0);
-  return { items: result.data ?? [], loading: result.isPending, fetching: result.isFetching, refreshing,
+  return { items: result.data ?? [], loading: result.isLoading, fetching: result.isFetching, refreshing,
     error: result.error ? getUserFacingErrorMessage(result.error, i18n("couldnTLoadRecentWalletActivityRefreshAnd")) : null };
 });

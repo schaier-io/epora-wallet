@@ -3,8 +3,9 @@ import type { RenderOptions } from "@testing-library/react";
 import { createQueryTestWrapper } from "@/test/query-client";
 import { act, render as queryRender, screen, waitFor } from "@testing-library/react";
 const render = (callback: ReactNode, options?: RenderOptions) => queryRender(callback, { wrapper: createQueryTestWrapper().wrapper, ...options });
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProposalListItemDto } from "@/lib/proposals/types";
+import { focusManager } from "@tanstack/react-query";
 
 const nav = vi.hoisted(() => ({ params: "" }));
 const session = vi.hoisted(() => ({
@@ -32,6 +33,7 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(nav.params)
 }));
 vi.mock("./use-proposal-session", () => ({ useProposalSession: () => session.value }));
+vi.mock("@/components/user/site-visit-sync", () => ({ SiteVisitSync: () => null }));
 vi.mock("@/providers/wallet-provider", () => ({ useWalletContext: () => wallet.value }));
 vi.mock("./use-proposals", () => ({
   useProposals: (enabled: boolean) => {
@@ -93,6 +95,7 @@ const report = async () =>
   >;
 
 beforeEach(() => {
+  focusManager.setFocused(true);
   nav.params = "";
   list.error = null;
   session.value = {
@@ -110,8 +113,57 @@ beforeEach(() => {
   client.fetch.mockReset();
   verify.proposal.mockReset();
 });
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); focusManager.setFocused(undefined); });
 
 describe("the background validity pass", () => {
+  it("stops an in-flight background pass before chain verification when the user becomes idle", async () => {
+    list.proposals = [openProposal("p1"), openProposal("p2")];
+    let release!: (record: { id: string }) => void;
+    client.fetch.mockReturnValue(new Promise(resolve => { release = resolve; }));
+    render(<ProposalsWorkspace />);
+    await waitFor(() => expect(client.fetch).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      focusManager.setFocused(false);
+      release({ id: "p1" });
+    });
+    await waitFor(async () => expect((await report()).p2?.validity).toBe("unknown"));
+    expect(client.fetch).toHaveBeenCalledTimes(1);
+    expect(verify.proposal).not.toHaveBeenCalled();
+  });
+
+  it("pauses list reads and verification behind a mobile detail, then resumes the visible list", async () => {
+    vi.stubGlobal("innerWidth", 375);
+    nav.params = "proposal=p1";
+    list.proposals = [openProposal("p1"), openProposal("p2")];
+    client.fetch.mockReturnValue(new Promise(() => undefined));
+    const rendered = render(<ProposalsWorkspace />);
+    expect(list.enabled).toBe(false);
+    expect(client.fetch).not.toHaveBeenCalled();
+
+    nav.params = "";
+    rendered.rerender(<ProposalsWorkspace />);
+    expect(list.enabled).toBe(true);
+    await waitFor(() => expect(client.fetch).toHaveBeenCalledTimes(1));
+  });
+
+  it("does not read the list or verify rows while the create pane is open", () => {
+    nav.params = "create=1";
+    list.proposals = [openProposal("p1")];
+    render(<ProposalsWorkspace />);
+    expect(list.enabled).toBe(false);
+    expect(client.fetch).not.toHaveBeenCalled();
+  });
+
+  it("leaves the selected proposal to its full verifier while checking other visible rows", async () => {
+    vi.stubGlobal("innerWidth", 1280);
+    nav.params = "proposal=p1";
+    list.proposals = [openProposal("p1"), openProposal("p2")];
+    client.fetch.mockReturnValue(new Promise(() => undefined));
+    render(<ProposalsWorkspace />);
+    await waitFor(() => expect(client.fetch).toHaveBeenCalledTimes(1));
+    expect(client.fetch).toHaveBeenCalledWith("p2", { signal: expect.any(AbortSignal) as AbortSignal });
+  });
+
   /**
    * Any throw used to be written down as `invalid`, which is a verdict on the request. A
    * dropped connection is not one: it says nothing about whether the transaction can still

@@ -1,15 +1,15 @@
 import { act, cleanup, render } from "@testing-library/react";
-import { QueryClient } from "@tanstack/react-query";
+import { focusManager, QueryClient } from "@tanstack/react-query";
 import { Provider, createStore } from "jotai";
 import { queryClientAtom } from "jotai-tanstack-query";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { DetectedSttInfo } from "@/lib/mesh/detection";
-import { STT_STATE_REFRESH_POLL_MS, WALLET_STATE_UNSEEN_RELEASE_MS } from "./constants";
+import { STT_STATE_REFRESH_FAST_ATTEMPTS, STT_STATE_REFRESH_MAX_POLL_MS, STT_STATE_REFRESH_POLL_MS, WALLET_STATE_UNSEEN_RELEASE_MS } from "./constants";
 import { routeStateAtom } from "./atoms/workspace-route.atoms";
 import { parseWorkspaceRouteState } from "@/components/user/workspace-controller";
 import {
   walletStateChecksAtom, pendingWalletStateUpdateAtom, pendingWalletStateUpdatesAtom, WALLET_STATE_STORAGE_KEY, WALLET_STATE_RECORD_PREFIX,
-  type PendingWalletStateUpdate, type SttInputRef
+  walletStateRetryAtom, type PendingWalletStateUpdate, type SttInputRef
 } from "./atoms/wallet-state-update.atoms";
 import { sttInputTxHashAtom, sttInputOutputIndexAtom } from "./atoms/forms/stt-spend-form.atoms";
 
@@ -72,6 +72,7 @@ function rpc(options: RpcOptions = {}) {
 }
 
 beforeEach(() => {
+  focusManager.setFocused(true);
   localStorage.clear();
   mocks.detectSttInfo.mockReset().mockResolvedValue(detected(NEXT));
 });
@@ -80,6 +81,7 @@ afterEach(() => {
   clients.splice(0).forEach(queryClient => queryClient.clear());
   vi.useRealTimers();
   vi.unstubAllGlobals();
+  focusManager.setFocused(undefined);
   localStorage.clear();
 });
 
@@ -279,4 +281,43 @@ it("does not carry a previous transaction's successful check into a new failed c
   render(<Provider store={store}><Reader /></Provider>);
   await act(async () => { await vi.advanceTimersByTimeAsync(0); });
   expect(store.get(walletStateChecksAtom)[UNIT]).toMatchObject({ txHash: PENDING.submittedTxHash, phase: "unavailable", lastSuccessfulAt: null });
+});
+
+it("pauses pending checks while hidden or idle and checks immediately on resume or retry", async () => {
+  vi.useFakeTimers();
+  const fetch = rpc({ confirmed: false });
+  const store = createStore();
+  store.set(queryClientAtom, client());
+  store.set(pendingWalletStateUpdateAtom, PENDING);
+  render(<Provider store={store}><Reader /></Provider>);
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  const initialCalls = fetch.mock.calls.length;
+  act(() => focusManager.setFocused(false));
+  await act(async () => { await vi.advanceTimersByTimeAsync(STT_STATE_REFRESH_MAX_POLL_MS * 2); });
+  expect(fetch).toHaveBeenCalledTimes(initialCalls);
+  expect(store.get(pendingWalletStateUpdatesAtom)[UNIT]).toEqual(PENDING);
+
+  await act(async () => { focusManager.setFocused(true); await vi.advanceTimersByTimeAsync(0); });
+  expect(fetch.mock.calls.length).toBeGreaterThan(initialCalls);
+  const resumedCalls = fetch.mock.calls.length;
+  await act(async () => { store.set(walletStateRetryAtom, value => value + 1); await vi.advanceTimersByTimeAsync(0); });
+  expect(fetch.mock.calls.length).toBeGreaterThan(resumedCalls);
+});
+
+it("backs off a persistent pending check without releasing its safety lock", async () => {
+  vi.useFakeTimers();
+  const fetch = rpc({ confirmed: false });
+  const store = createStore();
+  store.set(queryClientAtom, client());
+  store.set(pendingWalletStateUpdateAtom, PENDING);
+  render(<Provider store={store}><Reader /></Provider>);
+  const txReads = () => fetch.mock.calls.filter(([, init]) =>
+    (JSON.parse(String(init?.body)) as { method: string }).method === "fetchTxInfo").length;
+  await act(async () => { await vi.advanceTimersByTimeAsync(STT_STATE_REFRESH_POLL_MS * STT_STATE_REFRESH_FAST_ATTEMPTS); });
+  expect(txReads()).toBe(STT_STATE_REFRESH_FAST_ATTEMPTS + 1);
+  await act(async () => { await vi.advanceTimersByTimeAsync(STT_STATE_REFRESH_MAX_POLL_MS * 3); });
+  const reads = txReads();
+  await act(async () => { await vi.advanceTimersByTimeAsync(STT_STATE_REFRESH_MAX_POLL_MS); });
+  expect(txReads() - reads).toBe(1);
+  expect(store.get(pendingWalletStateUpdatesAtom)[UNIT]).toEqual(PENDING);
 });

@@ -200,7 +200,7 @@ export function ProposalList({
                     {proposal.title}
                   </span>
                   {proposal.status === "OPEN" ? (
-                    <ValidityBadge validity={report?.validity} />
+                    <ValidityBadge validity={report?.validity ?? "unknown"} />
                   ) : (
                     <StatusBadge status={proposal.status} />
                   )}
