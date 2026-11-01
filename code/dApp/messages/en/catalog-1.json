@@ -66,7 +66,8 @@
     "anSttSynchronizationIsAlreadyRunning": "A wallet sync is already running.",
     "invalidSttSyncRequest": "This wallet sync request is not valid.",
     "sttSynchronizationFailed": "The wallet sync failed.",
-    "unauthorized": "Unauthorized."
+    "unauthorized": "Unauthorized.",
+    "scheduledSyncDisabled": "Scheduled synchronization is disabled. Use the protected POST endpoint for manual synchronization."
   },
   "AppLayout": {
     "dailySpendingLimitsFeature": "Daily spending limits per spender",
