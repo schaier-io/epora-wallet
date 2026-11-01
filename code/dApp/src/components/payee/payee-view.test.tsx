@@ -11,6 +11,7 @@ import type {
 } from "@/components/payee/collect-payee-streaming-payments";
 import type { ConstrData } from "@/lib/types/contracts";
 import { defaultLocale, defaultTimeZone, formats } from "@/i18n/config";
+import { queryPolicy } from "@/lib/query/keys";
 
 const NOW = 1_760_000_000_000;
 let payeeStore: ReturnType<typeof createStore>;
@@ -299,7 +300,7 @@ describe("who this page is for", () => {
     // inside the same act().
     let release!: (value: { tokens: [] }) => void;
     chain.detect.mockReturnValueOnce(new Promise((resolve) => { release = resolve; }));
-    await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(queryPolicy.activePollMs); });
 
     expect(screen.getByText(/No scheduled payments to this wallet yet/)).toBeInTheDocument();
     expect(screen.queryByText(/Looking for payments scheduled to you/i)).toBeNull();

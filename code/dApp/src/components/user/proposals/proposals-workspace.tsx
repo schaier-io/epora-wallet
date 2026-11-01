@@ -1,7 +1,7 @@
 "use client";
 import { useTranslations } from "next-intl";
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, useSyncExternalStore } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FileSignature, Loader2, LogOut } from "lucide-react";
@@ -21,10 +21,22 @@ import { ProposalList } from "./proposal-list";
 import { SignInGate } from "./sign-in-gate";
 import { useProposalSession } from "./use-proposal-session";
 import { useProposals } from "./use-proposals";
+import { SiteVisitSync } from "@/components/user/site-visit-sync";
 
 const PROPOSALS_PATH = "/user/proposals";
+const DESKTOP_LIST_MIN_WIDTH = 1024;
+const subscribeViewport = (onChange: () => void) => {
+  window.addEventListener("resize", onChange);
+  return () => window.removeEventListener("resize", onChange);
+};
+const desktopListVisible = () => window.innerWidth >= DESKTOP_LIST_MIN_WIDTH;
+const serverListVisible = () => false;
 
 export function ProposalsWorkspace() {
+  return <><SiteVisitSync /><ProposalsWorkspaceContent /></>;
+}
+
+function ProposalsWorkspaceContent() {
   const i18n = useTranslations("ComponentsUserProposalsProposalsWorkspace");
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -34,6 +46,7 @@ export function ProposalsWorkspace() {
   // linked to, bookmarked, or returned to with Back. A co-signer had no way to send anyone
   // "the proposal I need you to sign".
   const selectedId = searchParams.get("proposal");
+  const wideLayout = useSyncExternalStore(subscribeViewport, desktopListVisible, serverListVisible);
 
   const session = useProposalSession();
   const { walletSessionLoading } = useWalletContext();
@@ -52,10 +65,15 @@ export function ProposalsWorkspace() {
   // instead. `walletSessionLoading` holds the gate back until the silent reconnect after a
   // reload has settled, so the gate does not flash on every load.
   const signedIn = Boolean(session.session) && !session.connectedWalletMismatch && Boolean(activeAddress);
+  const listVisible = !creating && (!selectedId || wideLayout);
   // See the grid below: with nothing to list there is nothing to select from either.
   const { proposals, loading, loadingMore, hasMore, error, refresh, loadMore } =
-    useProposals(signedIn, session.session?.paymentKeyHash ?? "");
-  const reportById = useProposalBackgroundVerification(proposals, session.session?.paymentKeyHash ?? "", signedIn);
+    useProposals(signedIn && listVisible, session.session?.paymentKeyHash ?? "");
+  const reportById = useProposalBackgroundVerification(
+    proposals.filter(proposal => proposal.id !== selectedId),
+    session.session?.paymentKeyHash ?? "",
+    signedIn && listVisible
+  );
   // `!selectedId` matters as much as the empty list. The detail is its own query
   // (`use-proposal-orchestration.ts`), not a lookup into this list, so an empty list does
   // not mean the open proposal has nothing to show. Without this term, opening

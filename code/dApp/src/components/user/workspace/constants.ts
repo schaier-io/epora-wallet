@@ -70,6 +70,8 @@ export const REVIEW_DONE_DOUBLE_PRESS_GUARD_MS = 500;
 // A confirmed transaction can reach the transaction index before its continuing
 // STT UTxO reaches address/asset lookup. Retry the exact wallet briefly.
 export const STT_STATE_REFRESH_POLL_MS = 2_000;
+export const STT_STATE_REFRESH_FAST_ATTEMPTS = 15;
+export const STT_STATE_REFRESH_MAX_POLL_MS = 60_000;
 
 // A submitted transaction the chain has not indexed after this long, with its STT
 // input still unspent, releases the wallet before its validity window ends. Blocks

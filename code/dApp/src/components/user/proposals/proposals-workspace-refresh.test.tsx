@@ -22,6 +22,7 @@ vi.mock("@/providers/wallet-provider", () => ({
     walletSessionLoading: false
   })
 }));
+vi.mock("@/components/user/site-visit-sync", () => ({ SiteVisitSync: () => null }));
 vi.mock("@/lib/proposals/client", async (importOriginal) => ({
   ...await importOriginal<typeof ProposalClient>(),
   fetchProposalSession: api.session,
@@ -164,6 +165,8 @@ it("hides signing while the manual detail refresh is still pending", async () =>
 
 
 it("refreshes background checks even when the server list is unchanged", async () => {
+  api.list.mockImplementation(async () => ({ proposals: [{ ...record }, { ...record, id: "proposal-2" }], nextCursor: null }));
+  api.detail.mockImplementation(async (id: string) => ({ ...record, id }));
   render(<ToastProvider><ProposalsWorkspace /></ToastProvider>, { wrapper: createQueryTestWrapper().wrapper });
   await screen.findByRole("button", { name: "Sign this request" });
   const backgroundCalls = () => api.verify.mock.calls.filter(([, options]) =>

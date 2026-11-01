@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { focusManager, useQuery, useQueryClient } from "@tanstack/react-query";
 import { proposalDetailQueryOptions, proposalKeys, proposalVerificationQueryOptions } from "@/lib/proposals/query";
 import type { ProposalListItemDto, ProposalValidity, SignerSatisfaction } from "@/lib/proposals/types";
 import { queryPolicy } from "@/lib/query/keys";
@@ -43,7 +43,7 @@ export function useProposalBackgroundVerification(
     retry: false,
     staleTime: queryPolicy.chainStaleMs,
     gcTime: queryPolicy.chainGcMs,
-    refetchInterval: enabled && open.length > 0 ? queryPolicy.activePollMs : false,
+    refetchInterval: enabled && open.length > 0 ? queryPolicy.backgroundPollMs : false,
     structuralSharing: false,
     meta: { chainDependent: true },
     queryFn: async ({ signal }): Promise<Reports> => {
@@ -61,10 +61,15 @@ export function useProposalBackgroundVerification(
       }
       for (const [index, proposal] of open.slice(0, MAX_BACKGROUND_VERIFY).entries()) {
         signal.throwIfAborted();
+        if (!focusManager.isFocused()) {
+          unknownFrom(index);
+          return reports;
+        }
         try {
           const work = client.fetchQuery(proposalDetailQueryOptions(signer, proposal.id))
             .then((detail) => {
               signal.throwIfAborted();
+              if (!focusManager.isFocused()) return null;
               return client.fetchQuery(proposalVerificationQueryOptions(signer, detail, "background"));
             });
           const tracked = work.then(() => undefined, () => undefined);

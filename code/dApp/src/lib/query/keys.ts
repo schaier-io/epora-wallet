@@ -6,7 +6,8 @@ export const CHAIN_NETWORK = CARDANO_NETWORK;
 export const queryPolicy = {
   chainStaleMs: 15_000,
   chainGcMs: 5 * 60_000,
-  activePollMs: 30_000,
+  activePollMs: 60_000,
+  backgroundPollMs: 120_000,
   metadataStaleMs: 60 * 60_000,
   metadataGcMs: 60 * 60_000,
   missingMetadataStaleMs: 60_000,
