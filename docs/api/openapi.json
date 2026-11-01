@@ -38,14 +38,14 @@
     "/api/health": {
       "get": {
         "operationId": "getHealth",
-        "summary": "Liveness and readiness",
-        "description": "Returns 200 when the app can reach its database and the indexer's sync cursors are fresh, and 503 when either is not, so an uptime monitor can alert on the difference. Deliberately unversioned: a health probe is operational, not part of the public contract.",
+        "summary": "Application liveness",
+        "description": "Returns 200 when the application handles the request. Does not access the database, indexer, or chain provider, so routine uptime checks allow Neon to suspend. Unversioned operational endpoint.",
         "tags": [
           "Service"
         ],
         "responses": {
           "200": {
-            "description": "The service is healthy: database up, indexer cursors fresh.",
+            "description": "The application handles requests. Dependencies were not probed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -53,13 +53,35 @@
                 }
               }
             }
-          },
-          "503": {
-            "description": "The service is up but a dependency is down or the indexer's sync cursors are stale or unreadable.",
+          }
+        }
+      }
+    },
+    "/api/health/ready": {
+      "get": {
+        "operationId": "getReadiness",
+        "summary": "Probe database and cached-index readiness",
+        "description": "On-demand diagnostic. Wakes a sleeping database. Returns 200 when the database answers and the cached index passes freshness checks, or 503 otherwise. Stale cursors are expected between visitor-triggered syncs and do not establish an application outage. Keep recurring uptime checks on /api/health.",
+        "tags": [
+          "Service"
+        ],
+        "responses": {
+          "200": {
+            "description": "Database up and cached-index cursors fresh.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HealthResponse"
+                  "$ref": "#/components/schemas/ReadinessResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database unavailable or cached-index cursors stale, missing, or unreadable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponse"
                 }
               }
             }
@@ -4172,6 +4194,26 @@
         "properties": {
           "status": {
             "type": "string",
+            "const": "ok"
+          },
+          "ts": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          }
+        },
+        "required": [
+          "status",
+          "ts"
+        ],
+        "additionalProperties": false,
+        "description": "Application liveness. Does not access the database, indexer, or chain provider."
+      },
+      "ReadinessResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
             "enum": [
               "ok",
               "degraded"
@@ -4231,7 +4273,7 @@
           "ts"
         ],
         "additionalProperties": false,
-        "description": "Liveness and dependency readiness."
+        "description": "On-demand database and cached-index readiness. Stale cursors are expected between visits."
       },
       "IndexerHealth": {
         "type": "object",

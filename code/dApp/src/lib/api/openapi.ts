@@ -4,7 +4,7 @@ import "zod-openapi";
 import { createDocument, type ZodOpenApiOperationObject } from "zod-openapi";
 import { z } from "zod";
 import { ApiErrorSchema } from "./errors";
-import { HealthResponseSchema } from "./health";
+import { HealthResponseSchema, ReadinessResponseSchema } from "./health";
 import { AccountsQuerySchema, AccountsResponseSchema } from "./accounts";
 import {
   DrepSearchQuerySchema,
@@ -301,19 +301,33 @@ export function buildOpenApiDocument() {
       "/api/health": {
         get: {
           operationId: "getHealth",
-          summary: "Liveness and readiness",
+          summary: "Application liveness",
           description:
-            "Returns 200 when the app can reach its database and the indexer's sync cursors are fresh, and 503 when either is not, so an uptime monitor can alert on the difference. Deliberately unversioned: a health probe is operational, not part of the public contract.",
+            "Returns 200 when the application handles the request. Does not access the database, indexer, or chain provider, so routine uptime checks allow Neon to suspend. Unversioned operational endpoint.",
           tags: ["Service"],
           responses: {
             "200": {
-              description: "The service is healthy: database up, indexer cursors fresh.",
+              description: "The application handles requests. Dependencies were not probed.",
               content: { "application/json": { schema: HealthResponseSchema } }
+            }
+          }
+        }
+      },
+      "/api/health/ready": {
+        get: {
+          operationId: "getReadiness",
+          summary: "Probe database and cached-index readiness",
+          description:
+            "On-demand diagnostic. Wakes a sleeping database. Returns 200 when the database answers and the cached index passes freshness checks, or 503 otherwise. Stale cursors are expected between visitor-triggered syncs and do not establish an application outage. Keep recurring uptime checks on /api/health.",
+          tags: ["Service"],
+          responses: {
+            "200": {
+              description: "Database up and cached-index cursors fresh.",
+              content: { "application/json": { schema: ReadinessResponseSchema } }
             },
             "503": {
-              description:
-                "The service is up but a dependency is down or the indexer's sync cursors are stale or unreadable.",
-              content: { "application/json": { schema: HealthResponseSchema } }
+              description: "Database unavailable or cached-index cursors stale, missing, or unreadable.",
+              content: { "application/json": { schema: ReadinessResponseSchema } }
             }
           }
         }

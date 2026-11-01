@@ -1,18 +1,15 @@
-// Sentry flood control for the health route. An uptime monitor polls
-// GET /api/health every 30-60 s (docs/RUNBOOK.md §5), and PR #481 wired every
-// failed probe to `logger.error`, which forwards to Sentry. A deployment whose
-// database is down therefore emits one Sentry event per poll. This module
+// Sentry flood control for on-demand GET /api/health/ready. Repeated failed
+// dependency probes must not forward the same error to Sentry each time. This module
 // holds the suppression decision: the first failure of a degraded state, any
 // change of that state, and one re-announcement per cooldown forward; the
 // identical repeats in between stay local. Pure logic first, the stateful gate
 // last, so the decision is testable without the route.
 
-import type { HealthResponse } from "@/lib/api/health";
+import type { ReadinessResponse } from "@/lib/api/health";
 
 // How long one unchanged degraded state goes between Sentry forwards.
-// Monitors poll every 30-60 s, so without suppression a broken deployment
-// emits 60-120 events per hour per instance; 5 minutes bounds that to at most
-// 12 while keeping first-failure and state-change latency at zero. Documented
+// A five-minute cooldown bounds repeated failures per instance while keeping
+// first-failure and state-change latency at zero. Documented
 // in docs/RUNBOOK.md §7.2.
 export const HEALTH_DEGRADED_FORWARD_COOLDOWN_MS = 5 * 60_000;
 
@@ -32,7 +29,7 @@ const VOLATILE_AGE_DETAIL = /\(ageMs=\d+ > staleAfterMs=\d+\)$/;
 // degraded reasons with the volatile cursor age removed. The response `ts` and
 // the indexer's age fields are excluded for the same reason. Two probes that
 // describe the same failure agree on this string no matter when they ran.
-export function degradedSignature(body: HealthResponse): string {
+export function degradedSignature(body: ReadinessResponse): string {
   const reasons = (body.indexer?.degradedReasons ?? [])
     .map((reason) => reason.replace(VOLATILE_AGE_DETAIL, "").trim());
   return `db=${body.checks.database},indexer=${body.checks.indexer},reasons=${reasons.join("|")}`;
@@ -93,7 +90,7 @@ export function createDegradedForwardGate(sinks: DegradedForwardSinks, cooldownM
      * gate only chooses how failures are logged; callers build and return the
      * HTTP response unchanged.
      */
-    observe(body: HealthResponse, nowMs: number, failures: readonly HealthProbeFailure[]): void {
+    observe(body: ReadinessResponse, nowMs: number, failures: readonly HealthProbeFailure[]): void {
       if (body.status !== "degraded") {
         lastForwarded = null;
         return;
