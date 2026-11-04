@@ -13,11 +13,27 @@ export type SttSyncLockClient = {
 
 type ConnectLockClient = () => Promise<SttSyncLockClient>;
 
-async function connectLockClient(): Promise<SttSyncLockClient> {
-  const connectionString = process.env.DATABASE_URL;
+// Session advisory locks need one dedicated PostgreSQL session. A transaction
+// pooler can assign the unlock to a different backend, leaving the lock held.
+export function sttSyncLockConnectionString(
+  env: { DATABASE_URL?: string; DATABASE_URL_UNPOOLED?: string } = {
+    DATABASE_URL: process.env.DATABASE_URL,
+    DATABASE_URL_UNPOOLED: process.env.DATABASE_URL_UNPOOLED
+  }
+): string {
+  const connectionString = env.DATABASE_URL_UNPOOLED?.trim() || env.DATABASE_URL?.trim();
   if (!connectionString) {
     throw new Error("DATABASE_URL is not set");
   }
+  const url = new URL(connectionString);
+  if (url.hostname.includes("-pooler.") || url.searchParams.get("pgbouncer") === "true") {
+    throw new Error("STT sync requires a direct DATABASE_URL_UNPOOLED connection for its advisory lock.");
+  }
+  return connectionString;
+}
+
+async function connectLockClient(): Promise<SttSyncLockClient> {
+  const connectionString = sttSyncLockConnectionString();
   const client = new Client({ connectionString });
   await client.connect();
   return {

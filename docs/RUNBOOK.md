@@ -95,16 +95,26 @@ migration (column/table drops).
 | Secret | Consumed by | Purpose |
 | --- | --- | --- |
 | `PROPOSAL_AUTH_SECRET` | `src/lib/proposals/auth.ts` | HMAC for multi-sig proposal sign-in nonces + session cookies. **Required in production** (a fixed dev fallback is used only when unset locally). |
-| `STT_SYNC_SECRET` | `src/app/api/stt/sync/route.ts` | Bearer secret guarding the background STT sync route. |
-| `CRON_SECRET` | Vercel Cron → `GET /api/stt/sync` | Vercel sends this as `Authorization: Bearer …` on the 5-minute indexer cron. Set it to the same value as `STT_SYNC_SECRET`. |
+| `STT_SYNC_SECRET` | `src/app/api/stt/sync/route.ts` | **VERIFIED:** bearer secret for manual `POST /api/stt/sync`. The visitor route does not use it. |
+| `CRON_SECRET` | `src/app/api/stt/sync/route.ts` | **VERIFIED:** accepted as a legacy secret alias for manual POST. Scheduled GET returns 405. |
 | `BLOCKFROST_PREPROD_PROJECT_ID` | server chain proxies | Blockfrost preprod access. |
 | `BLOCKFROST_MAINNET_PROJECT_ID` | server chain proxies | Blockfrost mainnet access. |
-| `DATABASE_URL` | Prisma | Postgres connection string. |
+| `DATABASE_URL` | Prisma | **VERIFIED:** runtime Postgres connection string. Deployments can use the pooled URL. |
+| `DATABASE_URL_UNPOOLED` | Prisma CLI and STT sync lock | **VERIFIED:** direct Postgres URL. Required for the dedicated sync lock when `DATABASE_URL` uses Neon's pooler. |
 | `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | client WalletConnect | Optional; CIP-45 pairing. Public by design. |
 | `KOIOS_URL` | Koios proxy | Optional endpoint override. |
 
 Full descriptions are in [`code/dApp/README.md`](../code/dApp/README.md) and
 [`code/dApp/.env.example`](../code/dApp/.env.example).
+
+**VERIFIED configuration evidence:** the manual route checks
+`[getSttSyncSecret(), getCronSecret()]` in
+[`sync/route.ts`](../code/dApp/src/app/api/stt/sync/route.ts#L52).
+Its GET handler returns `status: 405` before any database work.
+The sync lock selects `DATABASE_URL_UNPOOLED` first and rejects a `-pooler.`
+hostname in [`sync-lock.ts`](../code/dApp/src/lib/stt-cache/sync-lock.ts#L18).
+Prisma runtime still uses `DATABASE_URL` in
+[`prisma-adapter.ts`](../code/dApp/src/lib/prisma-adapter.ts#L29).
 
 Checked at `d3b5a239`: the public build-time variable `NEXT_PUBLIC_CARDANO_NETWORK` selects `mainnet`, `preprod`, or `preview`.
 It is not a secret. Rebuild when changing it; keep deployment secrets and databases separate.
@@ -121,10 +131,12 @@ them invalidates outstanding artifacts, so rotate deliberately:
    — signers must re-authenticate with their wallet. It does **not** affect
    already-collected on-chain witnesses (those are keyed by tx body hash, not
    this secret). Announce a maintenance window if signers are mid-flow.
-5. **`STT_SYNC_SECRET`**: if `CRON_SECRET` is a copy of this value, update both
-   in the same change, or the 5-minute Vercel cron starts returning 401.
-   Manual `POST /api/stt/sync` callers use this secret. See
-   [`tasks/subtasks/m4-deploy-03-sync-cron.md`](../tasks/subtasks/m4-deploy-03-sync-cron.md).
+5. **`STT_SYNC_SECRET`**: update manual `POST /api/stt/sync` callers with the
+   new secret. If `CRON_SECRET` remains a copy, rotate both values together.
+   **VERIFIED:** either configured value authorizes POST through
+   `secrets.some((secret) => bearerMatches(candidate, secret))` in
+   [`sync/route.ts`](../code/dApp/src/app/api/stt/sync/route.ts#L60).
+   Visitor-triggered sync sends neither secret.
 6. **`BLOCKFROST_PREPROD_PROJECT_ID`**: create the new project id in the
    Blockfrost dashboard, set it in Vercel, redeploy, then revoke the old key.
 
@@ -135,75 +147,76 @@ placeholders only.
 
 ## 5. Health check
 
-The indexer cron is a Vercel Cron Job in
-[`code/dApp/vercel.json`](../code/dApp/vercel.json): `GET /api/stt/sync` every
-five minutes. Vercel sends `Authorization: Bearer $CRON_SECRET`. Set
-`CRON_SECRET` in the Vercel project to the same value as `STT_SYNC_SECRET`.
-GET has no body, so the indexer defaults apply (recent-head 5 pages,
-history-backfill 10). HTTP 409 means a previous run still holds the advisory
-lock. Treat that as success. Each run is a function invocation under
-Project → Logs, path `/api/stt/sync`.
+**VERIFIED:** Vercel's committed configuration no longer declares a sync cron.
+Old `GET /api/stt/sync` requests return 405 before a database connection opens.
+Evidence: [`vercel.json`](../code/dApp/vercel.json) contains only `$schema`,
+`buildCommand`, and `git`; [`sync/route.ts`](../code/dApp/src/app/api/stt/sync/route.ts#L123)
+returns `status: 405`.
 
-`GET /api/health` ([`src/app/api/health/route.ts`](../code/dApp/src/app/api/health/route.ts))
-probes the database and the indexer's sync cursors:
+**VERIFIED:** the visitor sync controller persists one attempt per network
+before chain work and applies a 15-minute cooldown.
+It runs one bounded pass and returns explicit history and wallet-pass completion flags.
+Evidence: [`visit-sync.ts`](../code/dApp/src/lib/stt-cache/visit-sync.ts),
+[`visit-sync-policy.ts`](../code/dApp/src/lib/stt-cache/visit-sync-policy.ts),
+`STT_VISIT_SYNC_COOLDOWN_MS = 15 * 60_000`, `writeSyncCursor`, and
+`continuationNeeded: !historyComplete || !walletReconcileComplete`.
+**INFERRED:** unfinished work can remain incomplete until another eligible visit.
+The server does not schedule its own continuation.
 
-- `200 {"status":"ok",...}` — the database answers `SELECT 1` (2 s timeout) and
-  both recurring sync cursors are fresh.
-- `503 {"status":"degraded",...}` — the database probe failed, or a required
-  sync cursor is stale, never stamped, or unreadable. The route never throws.
+**VERIFIED:** `GET /api/health` is application liveness only. It returns
+`200 {"status":"ok","ts":"..."}` with `Cache-Control: no-store`.
+It does not probe the database, indexer, or chain provider.
+Evidence: [`route.ts`](../code/dApp/src/app/api/health/route.ts),
+`status: "ok"` and `ts: new Date().toISOString()`.
+Use this endpoint for recurring uptime checks so they do not wake Neon.
 
-Every response carries `checks.database` (`up`/`down`), `checks.indexer`
-(`up`/`down`/`unknown`; `unknown` means the cursors were not read because the
-database is down), and an `indexer` detail object with each cursor's
-`lastSyncedAt`, age in ms, freshness verdict, the history-backfill completion
-flag, and `degradedReasons`. `indexer` is `null` when the cursors were not read.
+**VERIFIED:** `GET /api/health/ready` keeps the deep dependency probe.
+It runs `SELECT 1`, then reads three indexer cursors if the database answers.
+Each probe has a two-second timeout. This request can wake Neon.
+Evidence: [`ready/route.ts`](../code/dApp/src/app/api/health/ready/route.ts),
+`getPrisma().$queryRaw` with `SELECT 1`, and `readIndexingFreshness(getPrisma(), now)`.
+Use it on demand during diagnosis, not as a recurring uptime target.
 
-### What each sync cursor attests
+### Deep readiness response
 
-| Cursor | Gates health on | Its timestamp attests |
+**VERIFIED:** `/api/health/ready` returns these dependency results:
+
+- `200 {"status":"ok",...}`: the database answers and both gated cursors are fresh.
+- `503 {"status":"degraded",...}`: the database fails, or a gated cursor is stale, missing, or unreadable.
+
+Evidence: [`ready/route.ts`](../code/dApp/src/app/api/health/ready/route.ts),
+`status: body.status === "ok" ? 200 : 503`.
+The body includes `checks.database`, `checks.indexer`, and cursor details.
+`indexer` is `null` when the database probe fails.
+
+**VERIFIED:** the cursor checks retain their existing thresholds:
+
+| Cursor | Deep readiness condition | Timestamp meaning |
 | --- | --- | --- |
-| `recent-head` | freshness (stale past 30 min) | a sync run last reached the chain (one page scanned). Not per-wallet freshness. |
-| `wallet-reconcile` | freshness (stale past 60 min) | the last *completed* full pass over the wallet collection. A deadline-stopped partial pass keeps the previous stamp. |
-| `history-backfill` | nothing (reported only) | nothing once complete: the walk returns early from then on, so its stamp freezes. Only its `completed` flag is reported. |
+| `recent-head` | stale after 30 minutes | A sync reached the chain. This does not establish full catch-up. |
+| `wallet-reconcile` | stale after 60 minutes | The last full wallet collection pass finished. Partial passes keep the previous stamp. |
+| `history-backfill` | reported only | Its `completed` flag reports whether the history walk reached the end. |
 
-The thresholds are named constants in
-[`src/lib/stt-cache/indexing-freshness.ts`](../code/dApp/src/lib/stt-cache/indexing-freshness.ts),
-derived from the sync schedule: the cron fires about every 5 minutes
-([`m4-deploy-03-sync-cron`](../tasks/subtasks/m4-deploy-03-sync-cron.md)) and
-one run budgets 4 minutes, so the legitimate gap between two stamps is at most
-about 9 minutes. The recent-head threshold is 6 missed runs (30 min); the
-wallet-reconcile threshold is 12 (60 min), wider because a completed pass may
-legitimately span several runs.
+Evidence: [`indexing-freshness.ts`](../code/dApp/src/lib/stt-cache/indexing-freshness.ts),
+`STT_HEALTH_RECENT_HEAD_STALE_MS = 6 * STT_SYNC_SCHEDULE_INTERVAL_MS` and
+`STT_HEALTH_WALLET_RECONCILE_STALE_MS = 12 * STT_SYNC_SCHEDULE_INTERVAL_MS`.
+The probe reads cursors and makes no chain calls or cursor writes.
 
-### Startup, clock skew, and probe behavior
+**INFERRED:** visitor-only sync leaves cursor ages growing between visits.
+A stale-index `503` after idle time describes cached-data readiness, not an application outage.
+Evidence: the deep probe compares saved cursor stamps with `now` in
+[`indexing-freshness.ts`](../code/dApp/src/lib/stt-cache/indexing-freshness.ts).
+Check the response reasons and the last eligible visit before investigating a sync failure.
+Do not use the old missed-cron alert rule for this mode.
 
-There is no startup grace period, on purpose. A database with no sync cursors
-reports `degraded` ("no completed sync recorded") until the first sync pass
-finishes, which is within one cron interval on a healthy deployment. A stamp
-slightly in the future is clamped to age 0, so clock skew between instances
-cannot read as stale. The probe only reads cursors and makes no chain calls; a
-timestamp moves only when a sync run does work, never because the health
-endpoint ran.
+### Monitor verification
 
-### Alert rule
-
-Monitor of record: BetterStack (free tier), polling `GET /api/health` at its
-configured interval and alerting the destinations set in the BetterStack
-dashboard on any non-200 response. The 503 body's `degradedReasons` names the
-failing cursor. BetterStack's own repeat handling covers the "page once, not on
-every poll" rule while the reason is unchanged. A `503` with
-`checks.database: "down"` means investigate the database or `DATABASE_URL`; with
-`checks.indexer: "down"`, investigate the sync cron and the chain provider. A `503` with `checks.database: "down"` means
-investigate the database or `DATABASE_URL`; with `checks.indexer: "down"`,
-investigate the sync cron and the chain provider.
-
-**Monitor verification (still to be executed):** the detection side ships in
-code; configuring the monitor for the active Preprod deployment, and the
-deliberate-outage drill from
-[`m5-harden-01-health-alerts`](../tasks/subtasks/m5-harden-01-health-alerts.md)
-(pause the sync cron, record the alert arriving within the 30-minute
-threshold, resume, verify recovery) remain open. Record deployment commit,
-timing, and observed responses in that task file.
+**REPORTED:** the previous runbook named BetterStack as the monitor of record.
+Its configuration and actual request cadence remain unverified in this change.
+Evidence: [`m5-harden-01-health-alerts`](../tasks/subtasks/m5-harden-01-health-alerts.md)
+contains the outstanding monitor configuration and outage drill.
+No monitor configuration changes form part of this route split.
+Verify that any recurring monitor targets `/api/health`, and run deep readiness only when needed.
 
 ---
 
@@ -272,7 +285,7 @@ setup.
   classify as unexpected and report; if their volume grows, reclassify them
   as owned messages instead of filtering in the seam.
 
-**Health-route flood control:** the health route forwards its probe-failure
+**VERIFIED: Deep-readiness flood control.** `/api/health/ready` forwards its probe-failure
 logs (`health.db_probe_failed`, `health.indexer_probe_failed`) to Sentry only
 for the first occurrence of a degraded state, any change of that state, and one
 re-announcement per 5-minute cooldown while the state stays identical
@@ -281,7 +294,8 @@ Suppressed repeats still reach the platform logs at `info` level with
 `sentrySuppressed: true`. The gate is in-process and per-instance: each server
 instance keeps only its own last-forwarded record, so N instances can each
 forward the same first failure once. It bounds the per-instance flood; it does
-not dedupe across instances.
+not dedupe across instances. Evidence: `createDegradedForwardGate` keeps
+`let lastForwarded: DegradedForwardRecord | null = null` in the linked source.
 
 **Redaction** (`src/lib/observability/sentry-scrub.ts`, wired as `beforeSend` /
 `beforeBreadcrumb`): routine wallet rejections (the user declined or cancelled a

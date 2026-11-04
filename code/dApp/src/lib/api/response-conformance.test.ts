@@ -10,7 +10,7 @@ import {
   createTestDatabaseClient,
   resetTestDatabase
 } from "@/lib/stt-cache/test-helpers";
-import { HealthResponseSchema } from "@/lib/api/health";
+import { ReadinessResponseSchema } from "@/lib/api/health";
 import { PoolsResponseSchema } from "@/lib/api/pools";
 import { SttLookupRequestSchema, SttLookupResponseSchema } from "@/lib/api/stt-lookup";
 
@@ -171,14 +171,14 @@ describe("health conformance", () => {
       },
       { status: "degraded", checks: { database: "down", indexer: "unknown" }, indexer: null, ts }
     ]) {
-      const parsed = HealthResponseSchema.safeParse(body);
+      const parsed = ReadinessResponseSchema.safeParse(body);
       assert.ok(parsed.success, `${JSON.stringify(body)}: ${JSON.stringify(parsed.error?.issues)}`);
     }
   });
 
   test("rejects a status the spec does not document", () => {
     assert.equal(
-      HealthResponseSchema.safeParse({
+      ReadinessResponseSchema.safeParse({
         status: "fine",
         checks: { database: "up", indexer: "up" },
         indexer: null,
@@ -190,7 +190,7 @@ describe("health conformance", () => {
 
   test("rejects an indexer check value the spec does not document", () => {
     assert.equal(
-      HealthResponseSchema.safeParse({
+      ReadinessResponseSchema.safeParse({
         status: "ok",
         checks: { database: "up", indexer: "maybe" },
         indexer: null,

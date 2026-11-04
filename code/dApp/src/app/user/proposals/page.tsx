@@ -25,7 +25,7 @@ export default function ProposalsPage() {
         {/* The orchestration hook below this page reuses the workspace flow-handlers
             copy, so its namespace has to ship with the scoped catalog. */}
         <ScopedClientIntlProvider
-          prefixes={["ComponentsUserProposals", "ComponentsUserWorkspaceWorkspaceFlowHandlers", "ComponentsUserPoolFinder", "ComponentsUi"]}
+          prefixes={["ComponentsUserProposals", "ComponentsUserSiteVisitSync", "ComponentsUserWorkspaceWorkspaceFlowHandlers", "ComponentsUserPoolFinder", "ComponentsUi"]}
         >
           <div className="container flex flex-1 flex-col py-3 md:py-4">
             <Suspense

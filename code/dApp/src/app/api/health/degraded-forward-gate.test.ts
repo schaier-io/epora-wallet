@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { HealthResponse } from "@/lib/api/health";
+import type { ReadinessResponse } from "@/lib/api/health";
 import {
   HEALTH_DEGRADED_FORWARD_COOLDOWN_MS,
   createDegradedForwardGate,
@@ -49,7 +49,7 @@ test("shouldForward: suppressed repeats do not extend the cooldown", () => {
 
 // --- degradedSignature: stable identity of a degraded state ---
 
-function dbDownBody(ts: string): HealthResponse {
+function dbDownBody(ts: string): ReadinessResponse {
   return {
     status: "degraded",
     checks: { database: "down", indexer: "unknown" },
@@ -58,7 +58,7 @@ function dbDownBody(ts: string): HealthResponse {
   };
 }
 
-function readFailedBody(ts: string): HealthResponse {
+function readFailedBody(ts: string): ReadinessResponse {
   return {
     status: "degraded",
     checks: { database: "up", indexer: "down" },
@@ -77,7 +77,7 @@ function readFailedBody(ts: string): HealthResponse {
   };
 }
 
-function staleCursorsBody(ageMs1: number, ageMs2: number, ts: string): HealthResponse {
+function staleCursorsBody(ageMs1: number, ageMs2: number, ts: string): ReadinessResponse {
   return {
     status: "degraded",
     checks: { database: "up", indexer: "down" },

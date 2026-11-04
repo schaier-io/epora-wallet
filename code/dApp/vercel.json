@@ -6,11 +6,5 @@
       "**": false,
       "main": true
     }
-  },
-  "crons": [
-    {
-      "path": "/api/stt/sync",
-      "schedule": "*/5 * * * *"
-    }
-  ]
+  }
 }

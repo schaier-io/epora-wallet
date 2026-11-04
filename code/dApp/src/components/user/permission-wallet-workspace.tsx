@@ -3,6 +3,7 @@
 import { usePermissionWalletWorkspaceState } from "@/components/user/workspace/use-permission-wallet-workspace-state";
 import { WorkspaceActionsProvider } from "@/components/user/workspace/workspace-actions-context";
 import { WorkspaceView } from "@/components/user/workspace/workspace-view";
+import { SiteVisitSync } from "@/components/user/site-visit-sync";
 
 // Orchestration shell: all workspace state/logic lives in the
 // `usePermissionWalletWorkspaceState` controller hook, and the entire render
@@ -12,6 +13,7 @@ export function PermissionWalletWorkspace() {
   const state = usePermissionWalletWorkspaceState();
   return (
     <WorkspaceActionsProvider value={state}>
+      <SiteVisitSync />
       <WorkspaceView />
     </WorkspaceActionsProvider>
   );

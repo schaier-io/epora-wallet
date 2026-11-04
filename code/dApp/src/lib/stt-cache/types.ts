@@ -114,3 +114,13 @@ export type SttBackgroundSyncResponse = {
   historyBackfill: SttSyncOperationResult;
   walletReconcile: SttSyncOperationResult;
 };
+
+export type SttVisitSyncResponse =
+  | {
+      outcome: "ran";
+      retryAfterMs: number;
+      historyComplete: boolean;
+      walletReconcileComplete: boolean;
+      continuationNeeded: boolean;
+    }
+  | { outcome: "skipped" | "busy"; retryAfterMs: number };

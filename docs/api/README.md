@@ -62,19 +62,28 @@ Neither mechanism authenticates a wallet or retains a signed acceptance record.
 
 ### Health
 
-Unversioned on purpose. A health probe is operational, not part of the public
-contract. It returns `200` when the app reaches its database and the indexer's
-sync cursors are fresh, `503` otherwise. The `indexer` object carries each sync
-cursor's last-sync time, age, and freshness verdict; what each field attests is
-documented in the [runbook](../RUNBOOK.md).
+**VERIFIED:** these operational endpoints are unversioned. `GET /api/health`
+returns application liveness without database or chain calls. Use it for recurring uptime checks.
+Evidence: [`health/route.ts`](../../code/dApp/src/app/api/health/route.ts),
+`status: "ok"` and `ts: new Date().toISOString()`.
 
 ```bash
 curl -s "$BASE/api/health"
 ```
 
+**VERIFIED:** this example illustrates the new liveness shape from `HealthResponseSchema`.
+Its timestamp comes from the older example. It is not a new live capture.
+Evidence: [`health.ts`](../../code/dApp/src/lib/api/health.ts), `HealthResponseSchema`.
+
 ```json
-{ "status": "ok", "checks": { "database": "up", "indexer": "up" }, "indexer": { "available": true, "recentHeadLastSyncedAt": "2026-08-31T11:43:19.993Z", "recentHeadAgeMs": 5000, "recentHeadFresh": true, "walletReconcileLastSyncedAt": "2026-08-31T11:42:44.993Z", "walletReconcileAgeMs": 40000, "walletReconcileFresh": true, "historyBackfillCompleted": true, "degradedReasons": [] }, "ts": "2026-08-31T11:43:24.993Z" }
+{ "status": "ok", "ts": "2026-08-31T11:43:24.993Z" }
 ```
+
+**VERIFIED:** `GET /api/health/ready` probes the database and sync cursors on demand.
+It returns `200` for fresh dependencies and `503` otherwise. It can wake Neon.
+Evidence: [`ready/route.ts`](../../code/dApp/src/app/api/health/ready/route.ts),
+`SELECT 1` and `readIndexingFreshness(getPrisma(), now)`.
+The [runbook](../RUNBOOK.md#5-health-check) explains expected stale cursors between visits.
 
 ### The spec itself
 
@@ -314,9 +323,12 @@ Four fields carry most of the weight:
 - `transitionKind` classifies each transaction: `MINT` created the wallet,
   `FORWARD` moved its state, `CLOSE` ended it.
 
-The response reports the cache's freshness in `sync` but never triggers a sync.
+**VERIFIED:** the response reports cache freshness in `sync` without starting a sync.
 `recentHeadTriggered` and `reconcileTriggered` are always `false` on this route.
-Indexing runs on its own schedule.
+Eligible browser visits trigger indexing, with a shared 15-minute cooldown.
+Evidence: [`lookup.ts`](../../code/dApp/src/lib/stt-cache/lookup.ts),
+`recentHeadTriggered: false`, and [`visit-sync-policy.ts`](../../code/dApp/src/lib/stt-cache/visit-sync-policy.ts),
+`STT_VISIT_SYNC_COOLDOWN_MS = 15 * 60_000`.
 
 `txLimit` bounds `recentTransactions` per wallet. It defaults to 10 and caps at
 50.
@@ -914,8 +926,14 @@ them.
 - **`GET /api/shared-helper`** finds the shared setup reference for the app's
   browser client. It requires no authentication, but rate limits apply.
   Its response is part of the app's setup flow, outside the public API contract.
-- **`POST /api/stt/sync`** drives the indexer. It is gated by a shared secret
-  and exists for scheduled jobs, not for callers.
+- **`POST /api/stt/sync`**: **VERIFIED:** this manual operator endpoint requires a shared secret.
+  Scheduled GET returns `405`. Evidence: [`sync/route.ts`](../../code/dApp/src/app/api/stt/sync/route.ts),
+  `isAuthorized(request)` and `status: 405`.
+- **`POST /api/stt/sync/visit`**: **VERIFIED:** this same-origin endpoint serves the app's own browser visits.
+  It accepts a signature session or a validated wallet address hint and applies the shared cooldown.
+  An address hint does not prove wallet ownership or grant private wallet access.
+  Evidence: [`visit/route.ts`](../../code/dApp/src/app/api/stt/sync/visit/route.ts),
+  `getProposalSession()`, `assertServerWalletAddress(body.address)`, and `runSttVisitSync()`.
 - **`POST /api/koios/credential-utxos`** exists only because Koios sends no
   `access-control-allow-origin` header, so the browser cannot read it directly.
   Call Koios yourself from a server, where CORS does not apply.
@@ -943,14 +961,21 @@ contract. They move independently.
 
 ## Provenance of the examples
 
-Every response in this guide was captured from a live preprod deployment on
-2026-08-31, not written from the schemas.
+**REPORTED:** the previous guide described response captures from a live Preprod deployment on 2026-08-31.
+Evidence: `git show 8e6fd820:docs/api/README.md`,
+"Every response in this guide was captured from a live preprod deployment".
 
-Ten of the thirteen endpoints were executed end to end and returned what is
-shown: health, the spec, pool lookup, wallet lookup (both pages), mint,
+**VERIFIED correction:** the health example now illustrates the changed liveness response.
+The previous blanket capture claim no longer covers that example.
+The endpoint split changed its fields, so historical output does not establish its current behavior.
+Evidence: [`health/route.ts`](../../code/dApp/src/app/api/health/route.ts),
+`status: "ok"` and `ts: new Date().toISOString()`.
+
+**REPORTED:** the earlier guide listed ten of thirteen endpoints as executed end to end.
+It listed health, the spec, pool lookup, wallet lookup (both pages), mint,
 lock-funds, stt-spend, set-stake-credential, publish and deploy-reference.
 
-Three build routes are shown as request shapes only, because the demonstration
+**REPORTED:** three build routes are shown as request shapes only, because the demonstration
 wallet lacks the chain state they need: `consolidate` needs a spendable wallet
 UTxO, `wallet-withdraw` needs a registered stake credential with rewards, and
 `vote` needs the wallet to be a registered voter. Their shapes come from the

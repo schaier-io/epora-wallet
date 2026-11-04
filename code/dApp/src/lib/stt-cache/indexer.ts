@@ -390,6 +390,7 @@ export async function reconcileCurrentWallets(
     cursorValue: String(seenUnits.size),
     state: {
       walletCount: seenUnits.size,
+      completed: !deadlineReached,
       ...(deadlineReached
         ? {
             [WALLET_RECONCILE_STATE.nextPage]: cursor ?? 1,

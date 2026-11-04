@@ -3,13 +3,13 @@
 import { useEffect } from "react";
 import { useAtomValue, useStore } from "jotai";
 import { queryClientAtom } from "jotai-tanstack-query";
-import type { QueryClient } from "@tanstack/react-query";
+import { focusManager, type QueryClient } from "@tanstack/react-query";
 import { ServerFetcher } from "@/lib/mesh/server-fetcher";
 import { assertExactInputUnspent } from "@/lib/mesh/transactions/internals/utxo";
 import { txInfoQueryOptions } from "@/lib/query/chain";
 import { sttWalletQueryOptions } from "@/lib/query/stt-inventory";
 import { invalidateChainQueries } from "@/lib/query/invalidation";
-import { STT_STATE_REFRESH_POLL_MS, WALLET_STATE_UNSEEN_RELEASE_MS } from "./constants";
+import { STT_STATE_REFRESH_FAST_ATTEMPTS, STT_STATE_REFRESH_MAX_POLL_MS, STT_STATE_REFRESH_POLL_MS, WALLET_STATE_UNSEEN_RELEASE_MS } from "./constants";
 import { routeStateAtom } from "./atoms/workspace-route.atoms";
 import {
   completeWalletStateUpdateAtom, pendingWalletStateUpdatesAtom,
@@ -99,8 +99,12 @@ export function useWalletStateUpdate(walletUnit?: string): void {
   useEffect(() => {
     const pendingUpdates = unit === null ? Object.values(updates) : updates[unit] ? [updates[unit]] : [];
     const abort = new AbortController();
-    const timers = new Set<ReturnType<typeof setTimeout>>();
+    const timers = new Map<PendingWalletStateUpdate, ReturnType<typeof setTimeout>>();
+    const attempts = new Map<PendingWalletStateUpdate, number>();
+    const running = new Set<PendingWalletStateUpdate>();
     const poll = async (pending: PendingWalletStateUpdate) => {
+      if (abort.signal.aborted || !focusManager.isFocused() || running.has(pending)) return;
+      running.add(pending);
       let phase: "waiting" | "unavailable" = "waiting";
       try {
         const result = await readUsableWalletReplacement(client, pending, abort.signal);
@@ -112,19 +116,31 @@ export function useWalletStateUpdate(walletUnit?: string): void {
         // Only a completed State check can report normal waiting. Other failures
         // include missing exact inputs and do not attest a successful chain check.
         phase = "unavailable";
+      } finally {
+        running.delete(pending);
       }
       if (abort.signal.aborted) return;
       store.set(walletStateChecksAtom, current => ({ ...current, [pending.walletUnit]: {
         txHash: pending.submittedTxHash, checkedAt: Date.now(), phase,
         lastSuccessfulAt: phase === "waiting" ? Date.now() : current[pending.walletUnit]?.txHash === pending.submittedTxHash ? current[pending.walletUnit]!.lastSuccessfulAt : null
       } }));
+      if (!focusManager.isFocused()) return;
+      const attempt = (attempts.get(pending) ?? 0) + 1;
+      attempts.set(pending, attempt);
+      const delay = Math.min(STT_STATE_REFRESH_MAX_POLL_MS,
+        STT_STATE_REFRESH_POLL_MS * 2 ** Math.max(0, attempt - STT_STATE_REFRESH_FAST_ATTEMPTS));
       const timer = setTimeout(() => {
-        timers.delete(timer);
+        timers.delete(pending);
         void poll(pending);
-      }, STT_STATE_REFRESH_POLL_MS);
-      timers.add(timer);
+      }, delay);
+      timers.set(pending, timer);
     };
+    const stopTimers = () => { timers.forEach(clearTimeout); timers.clear(); };
+    const unsubscribe = focusManager.subscribe(focused => {
+      stopTimers();
+      if (focused) pendingUpdates.forEach(pending => void poll(pending));
+    });
     pendingUpdates.forEach(pending => void poll(pending));
-    return () => { abort.abort(); timers.forEach(clearTimeout); };
+    return () => { abort.abort(); stopTimers(); unsubscribe(); };
   }, [client, updates, unit, retry, store]);
 }

@@ -1,0 +1,15 @@
+{
+  "ComponentsUserSiteVisitSync": {
+    "syncing": "Checking for wallet updates…",
+    "complete": "Wallet records refreshed.",
+    "incomplete": "Some wallet records still need an update. Another visit can continue the check.",
+    "busy": "Another wallet update is in progress.",
+    "failed": "Wallet updates could not finish. Please try again later."
+  },
+  "AppApiSttSyncVisitRoute": {
+    "sameOriginRequired": "A same-origin request is required.",
+    "connectOrSignIn": "Connect a wallet or sign in before synchronizing.",
+    "invalidRequest": "Invalid visit synchronization request.",
+    "syncFailed": "Visit synchronization failed."
+  }
+}

@@ -4,6 +4,9 @@ import { beforeEach, expect, it, vi } from "vitest";
 import { createQueryTestWrapper } from "@/test/query-client";
 import { activeAddressAtom, isConnectingAtom } from "@/providers/wallet.atoms";
 import { invalidateChainQueries } from "@/lib/query/invalidation";
+import { routeStateAtom } from "./atoms/workspace-route.atoms";
+import { parseWorkspaceRouteState } from "@/components/user/workspace-controller";
+import { queryPolicy } from "@/lib/query/keys";
 
 const chain = vi.hoisted(() => ({ fetchAddressTxs: vi.fn(), fetchTxInfo: vi.fn() }));
 vi.mock("@/lib/mesh/server-fetcher", () => ({ ServerFetcher: class { fetchAddressTxs = chain.fetchAddressTxs; fetchTxInfo = chain.fetchTxInfo; } }));
@@ -22,10 +25,11 @@ beforeEach(() => {
   chain.fetchAddressTxs.mockReset().mockResolvedValue([]);
   chain.fetchTxInfo.mockReset().mockResolvedValue(transaction);
 });
-function setup() {
+function setup(params = "wallet=wallet-a") {
   const context = createQueryTestWrapper();
   context.store.set(isConnectingAtom, true);
   context.store.set(activeAddressAtom, "wallet-a");
+  context.store.set(routeStateAtom, parseWorkspaceRouteState(new URLSearchParams(params)));
   return { ...context, ...renderHook(() => ({ ...useWalletActivity(), activity: useAtomValue(walletTransactionsAtom) }), { wrapper: context.wrapper }) };
 }
 it("loads the creation transaction when a wallet has empty address history", async () => {
@@ -33,6 +37,11 @@ it("loads the creation transaction when a wallet has empty address history", asy
   await waitFor(() => expect(test.result.current.activity.loading).toBe(false));
   expect(test.result.current.activity).toMatchObject({ items: [transaction], error: null });
   expect(chain.fetchTxInfo).toHaveBeenCalledTimes(1);
+});
+it("does not report a disabled initial history query as an active load", () => {
+  const test = setup("wallet=wallet-a&action=manual-tools");
+  expect(test.result.current.activity).toMatchObject({ items: [], loading: false, fetching: false, refreshing: false });
+  expect(chain.fetchAddressTxs).not.toHaveBeenCalled();
 });
 it("shares transaction details and ignores duplicate or reordered anchors", async () => {
   const { queryClient } = createQueryTestWrapper();
@@ -221,4 +230,23 @@ it("a background refetch spins but does not raise refreshing", async () => {
   await waitFor(() => expect(test.result.current.activity.fetching).toBe(true));
   expect(test.result.current.activity.refreshing).toBe(false);
   await act(async () => release([]));
+});
+
+it.each(["use", "manual-tools"])("pauses history reads during hidden %s and resumes when the overview returns", async (action) => {
+  const test = setup();
+  await waitFor(() => expect(test.result.current.activity.loading).toBe(false));
+  vi.useFakeTimers();
+  try {
+    act(() => test.store.set(routeStateAtom,
+      parseWorkspaceRouteState(new URLSearchParams(`wallet=wallet-a&action=${action}&step=configure`))));
+    const reads = chain.fetchAddressTxs.mock.calls.length;
+    await act(async () => { await vi.advanceTimersByTimeAsync(queryPolicy.backgroundPollMs * 2); });
+    expect(chain.fetchAddressTxs).toHaveBeenCalledTimes(reads);
+    act(() => test.store.set(routeStateAtom,
+      parseWorkspaceRouteState(new URLSearchParams("wallet=wallet-a&view=activity"))));
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(chain.fetchAddressTxs.mock.calls.length).toBeGreaterThan(reads);
+  } finally {
+    vi.useRealTimers();
+  }
 });

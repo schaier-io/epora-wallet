@@ -5,8 +5,7 @@ import {
   type IndexingFreshness
 } from "@/lib/stt-cache/indexing-freshness";
 
-// Mirrors the body of GET /api/health: 200 when the database answers and the
-// indexer's sync cursors are fresh, 503 otherwise.
+// /api/health is DB-free liveness. /api/health/ready probes cached-data readiness.
 
 export const IndexerHealthSchema = z
   .object({
@@ -81,7 +80,7 @@ export function indexerHealthUnavailable(reason: string): IndexerHealth {
   };
 }
 
-export const HealthResponseSchema = z
+export const ReadinessResponseSchema = z
   .object({
     status: z.enum(["ok", "degraded"]).meta({
       description: "`ok` when every dependency answers, `degraded` otherwise."
@@ -105,8 +104,18 @@ export const HealthResponseSchema = z
     })
   })
   .meta({
-    id: "HealthResponse",
-    description: "Liveness and dependency readiness."
+    id: "ReadinessResponse",
+    description: "On-demand database and cached-index readiness. Stale cursors are expected between visits."
   });
+
+export type ReadinessResponse = z.infer<typeof ReadinessResponseSchema>;
+
+export const HealthResponseSchema = z.object({
+  status: z.literal("ok"),
+  ts: z.iso.datetime()
+}).meta({
+  id: "HealthResponse",
+  description: "Application liveness. Does not access the database, indexer, or chain provider."
+});
 
 export type HealthResponse = z.infer<typeof HealthResponseSchema>;

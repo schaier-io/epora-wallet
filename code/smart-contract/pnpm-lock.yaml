@@ -5,8 +5,10 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  '@connectrpc/connect-node>undici': ^6.27.0
-  ip-address: ^10.1.1
+  '@connectrpc/connect-node>undici': ^6.29.1
+  ip-address: ^10.7.4
+  follow-redirects@^1: 1.16.2
+  pbkdf2@^3: 3.1.7
 
 importers:
 
@@ -19,8 +21,8 @@ importers:
         specifier: ^1.9.1
         version: 1.9.1(@harmoniclabs/bytestring@1.0.0)(@harmoniclabs/crypto@0.2.5)(rxjs@7.8.2)
       dotenv:
-        specifier: ^18.0.5
-        version: 18.0.5
+        specifier: ^18.0.9
+        version: 18.0.9
       ethereum-cryptography:
         specifier: 3.2.0
         version: 3.2.0
@@ -389,8 +391,8 @@ packages:
   dom-walk@0.1.2:
     resolution: {integrity: sha512-6QvTW9mrGeIegrFXdtQi9pk7O/nSK6lSdXW2eqUspN5LWD7UTji2Fqw5V2YLjBpHEoU9Xl/eUWNpDeZvoyOv2w==}
 
-  dotenv@18.0.5:
-    resolution: {integrity: sha512-aBrGvt6KhjxbEnatqMWOMidftwsrCiCvqh1yNIGB9QyF0J+VcWkKDMsvYOEm7ZS82oiV+BT1sTOtIlAmUlTpwQ==}
+  dotenv@18.0.9:
+    resolution: {integrity: sha512-3fVOW4cB02R066PUSwn8O4TJyz9NckQl7F81blIbaq9jKBm2tSmOKky7ZHIXzGvkVPXCSn6jkpziBPZdGFs8Tw==}
     engines: {node: '>=12'}
     hasBin: true
 
@@ -427,8 +429,8 @@ packages:
   file-uri-to-path@1.0.0:
     resolution: {integrity: sha512-0Zt+s3L7Vf1biwWZ29aARiVYLx7iMGnEUl9x33fbB/j3jR81u/O2LbqK+Bm1CDSNDKVtJ/YjwY7TUd5SkeLQLw==}
 
-  follow-redirects@1.16.0:
-    resolution: {integrity: sha512-y5rN/uOsadFT/JfYwhxRS5R7Qce+g3zG97+JrtFZlC9klX/W5hD7iiLzScI4nZqUS7DNUdhPgw4xI8W2LuXlUw==}
+  follow-redirects@1.16.2:
+    resolution: {integrity: sha512-/kVP2U8z596Ia0gwFrwyIeo74ta5aVmSeU1FfAUMAmcEP5EP7zydmag3SLiN64NaRKef3lxsq7i/g7ltJQDGow==}
     engines: {node: '>=4.0'}
     peerDependencies:
       debug: '*'
@@ -512,8 +514,8 @@ packages:
   inherits@2.0.4:
     resolution: {integrity: sha512-k/vGaX4/Yla3WzyMCvTQOXYeIHvqOKtnqBduzTHpzpQZzAskKMhZ2K+EnBiSM9zGSoIFeMpXKxa4dYeZIQqewQ==}
 
-  ip-address@10.7.0:
-    resolution: {integrity: sha512-BGFsyJd5mpXp3rK6jIdADLNgpJUK1jnjzvYF8lK+VyDab9JAmqN0YOKDdP17HlgKb2+ehPgDc8EtnRLbGCAMhA==}
+  ip-address@10.7.5:
+    resolution: {integrity: sha512-t2v0rkILYv9WXmSL7TpAaU3HXgaFYOPUcH3QHgwQ++gpJuH3bqyMy4Fvt/DJCTKwzH3Cf+bAp5W/mFL39KPLzA==}
     engines: {node: '>= 12'}
 
   is-arguments@1.2.0:
@@ -637,8 +639,8 @@ packages:
     resolution: {integrity: sha512-AxTM2wDGORHGEkPCt8yqxOTMgpfbEHqF51f/5fJCmwFC3C/zNcGT63SymH2ttOAaiIws2zVg4+izQCjrakcwHg==}
     engines: {node: '>=20'}
 
-  pbkdf2@3.1.6:
-    resolution: {integrity: sha512-BT6eelPB1EyGHo8pC0o9Bl6k6SYVhKO1jEbd3lcTrtr7XHdjP8BW1YpfCV3G9Kwkxgattk+S5q2/RvuttCsS1g==}
+  pbkdf2@3.1.7:
+    resolution: {integrity: sha512-nS4mvFgVwUrecPTRdpdseM2fwpdfnX0/HibA8DgBRQtihUAzHQYJFU2l+OlEtiXtpqkrMvCPDwyXMUnASDt6Qw==}
     engines: {node: '>= 0.10'}
 
   possible-typed-array-names@1.1.0:
@@ -757,8 +759,8 @@ packages:
   undici-types@8.3.0:
     resolution: {integrity: sha512-j375ScV60dom+YkPFIfTLcOiPxkN/buHz5GobjLhixFuANaNs3C9l4GmrWqejgXWJ7BbJcFYpTEUkS1Ge8bpZQ==}
 
-  undici@6.28.1:
-    resolution: {integrity: sha512-zWpdTVD54H48CIybL0rWQ3ukpb9d23wM7eH5RtfdmeP70cWHNjtfo7P4vZX+5CoDcO53J4Pu5uXp7lNfjc6DRA==}
+  undici@6.29.1:
+    resolution: {integrity: sha512-EvRlUt/QqAEvXdQeRMYUfwOQsfzpDztykrG2owGEE/rBOBoYv9uF39ZzsNDh4lTFHhTr2XOZjKkYgueD12ZmGA==}
     engines: {node: '>=18.17'}
 
   utf8-codec@1.0.0:
@@ -839,7 +841,7 @@ snapshots:
       '@foxglove/crc': 0.0.3
       '@scure/base': 1.2.6
       fraction.js: 4.0.1
-      ip-address: 10.7.0
+      ip-address: 10.7.5
       lodash: 4.18.1
       ts-custom-error: 3.3.1
       ts-log: 2.2.7
@@ -863,7 +865,7 @@ snapshots:
       '@foxglove/crc': 0.0.3
       '@scure/base': 1.2.6
       fraction.js: 4.0.1
-      ip-address: 10.7.0
+      ip-address: 10.7.5
       lodash: 4.18.1
       ts-custom-error: 3.3.1
       ts-log: 2.2.7
@@ -881,7 +883,7 @@ snapshots:
       i: 0.3.7
       libsodium-wrappers-sumo: 0.7.10
       lodash: 4.18.1
-      pbkdf2: 3.1.6
+      pbkdf2: 3.1.7
       ts-custom-error: 3.3.1
       ts-log: 2.2.7
     transitivePeerDependencies:
@@ -894,7 +896,7 @@ snapshots:
       i: 0.3.7
       libsodium-wrappers-sumo: 0.8.4
       lodash: 4.18.1
-      pbkdf2: 3.1.6
+      pbkdf2: 3.1.7
       ts-custom-error: 3.3.1
       ts-log: 2.2.7
     transitivePeerDependencies:
@@ -943,7 +945,7 @@ snapshots:
       chacha: 2.1.0
       get-random-values: 2.1.0
       lodash: 4.18.1
-      pbkdf2: 3.1.6
+      pbkdf2: 3.1.7
       rxjs: 7.8.2
       ts-custom-error: 3.3.1
       ts-log: 2.2.7
@@ -981,7 +983,7 @@ snapshots:
     dependencies:
       '@bufbuild/protobuf': 1.10.1
       '@connectrpc/connect': 1.4.0(@bufbuild/protobuf@1.10.1)
-      undici: 6.28.1
+      undici: 6.29.1
 
   '@connectrpc/connect-web@1.4.0(@bufbuild/protobuf@1.10.1)(@connectrpc/connect@1.4.0(@bufbuild/protobuf@1.10.1))':
     dependencies:
@@ -1318,7 +1320,7 @@ snapshots:
 
   axios@1.20.0:
     dependencies:
-      follow-redirects: 1.16.0
+      follow-redirects: 1.16.2
       form-data: 4.0.6
       https-proxy-agent: 5.0.1
       proxy-from-env: 2.1.0
@@ -1452,7 +1454,7 @@ snapshots:
 
   dom-walk@0.1.2: {}
 
-  dotenv@18.0.5: {}
+  dotenv@18.0.9: {}
 
   dunder-proto@1.0.1:
     dependencies:
@@ -1492,7 +1494,7 @@ snapshots:
   file-uri-to-path@1.0.0:
     optional: true
 
-  follow-redirects@1.16.0: {}
+  follow-redirects@1.16.2: {}
 
   for-each@0.3.5:
     dependencies:
@@ -1582,7 +1584,7 @@ snapshots:
 
   inherits@2.0.4: {}
 
-  ip-address@10.7.0: {}
+  ip-address@10.7.5: {}
 
   is-arguments@1.2.0:
     dependencies:
@@ -1688,7 +1690,7 @@ snapshots:
 
   p-timeout@7.0.1: {}
 
-  pbkdf2@3.1.6:
+  pbkdf2@3.1.7:
     dependencies:
       create-hash: 1.2.0
       create-hmac: 1.1.7
@@ -1824,7 +1826,7 @@ snapshots:
 
   undici-types@8.3.0: {}
 
-  undici@6.28.1: {}
+  undici@6.29.1: {}
 
   utf8-codec@1.0.0: {}
 

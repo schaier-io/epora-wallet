@@ -119,8 +119,11 @@ export async function POST(request: Request) {
   return handleSttSync(request);
 }
 
-// Vercel Cron Jobs issue GET. Empty body uses the indexer page-budget defaults
-// (recent-head 5, history-backfill 10).
-export async function GET(request: Request) {
-  return handleSttSync(request);
+// Old schedulers must stop here, before opening a database connection.
+export async function GET(_request: Request) {
+  const i18n = await getI18n();
+  return NextResponse.json(
+    { error: i18n("scheduledSyncDisabled") },
+    { status: 405, headers: { Allow: "POST", "Cache-Control": "no-store" } }
+  );
 }

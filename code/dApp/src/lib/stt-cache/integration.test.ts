@@ -782,6 +782,7 @@ test("reconcile resumes from the collection page it stopped on", async () => {
   assert.deepEqual(requestedPages, [1]);
   const paused = await getSttSyncCursor(STT_SYNC_CURSOR_KEYS.walletReconcile, { db });
   assert.equal(paused.state?.nextPage, 2);
+  assert.equal(paused.state?.completed, false);
   // A partial pass does not attest a full reconcile.
   assert.equal(paused.lastSyncedAt, null);
 
@@ -791,6 +792,7 @@ test("reconcile resumes from the collection page it stopped on", async () => {
   assert.deepEqual(requestedPages, [1, 2]);
   const done = await getSttSyncCursor(STT_SYNC_CURSOR_KEYS.walletReconcile, { db });
   assert.equal(done.state?.nextPage, undefined);
+  assert.equal(done.state?.completed, true);
   assert.notEqual(done.lastSyncedAt, null);
   assert.equal(await db.sttWallet.count(), 1);
 });
