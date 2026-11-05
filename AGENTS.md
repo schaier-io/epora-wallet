@@ -21,29 +21,13 @@ Universal rules for this repository. Domain-specific rules are nested:
   concern" signal (see the nested contracts rules); frontend components may run
   larger but still must stay under 750.
 
-### Known existing violations (remediation debt)
+### Files near the cap
 
-**No authored file is currently over the 750-line cap.** The former offenders
-were remediated: `permission-wallet-workspace.tsx` (~8158) was decomposed into a
-controller hook + per-concern hooks/views/atoms and is now an 18-line shim; the
-controller (`workspace/use-permission-wallet-workspace-state.tsx`) is ~636 after
-the state was atomized and the `useWorkspaceState` barrel was largely dissolved
-(see the `workspace-barrel-dismantle-arch` memory); `action-validation.ts` (~492),
-`lib/contracts/use-allowance.ts` (~482), and `lib/mesh/transactions/internals/budget.ts`
-(~98) are well under. `app/globals.css` is **733** lines and is close to the
-cap: split before adding to it. The "~483" once recorded here was stale; the
-file has since grown.
-
-Watch list (closest to the cap — split before adding, don't grow):
-`workspace/workspace-transactions.ts` (~720),
-`workspace/use-permission-wallet-workspace-state.tsx` (~636),
-`workspace/editors/primitives.tsx` (~633), `user/review-panel.tsx` (~630),
-`user/flow-config.ts` (~587), `lib/contracts/state-form.ts` (~568),
-`workspace/config-sttspend-view.tsx` (~568), `workspace/workspace-transactions-view.tsx`
-(~542), `workspace/editors/state-form-editor.tsx` (~533). Resolved:
-`permission-wallet-workspace.tsx` (~8158 → 18-line shim, as above); lovelace/ADA
-formatting was extracted into `lib/units/lovelace.ts` (~99), and the form primitives
-into `workspace/editors/config-form-primitives.tsx` (~164), out of the editors barrel.
+`pnpm file-length:check` (run it in `code/dApp`) enforces this cap across the
+whole repository. Line counts change with every commit, so this file does not
+list them. Before you add to a file, measure it with `wc -l`. If the edit takes
+it past 750 lines, split it by responsibility first. Frontend paths in this file
+are relative to `code/dApp/src/`.
 
 <!-- BEGIN cardano-dev-skills v2 -->
 ## Cardano Development Context

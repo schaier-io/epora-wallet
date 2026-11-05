@@ -1,9 +1,7 @@
 # Contract Engineering Rules (AI must follow)
 
-Rules distilled from the tech-debt remediation history (phase 1/2 clarity refactors,
-the `stt.ak` split, the dedupe-consensus-math pass, the wrapper collapse, and the
-dead-tooling/vocabulary cleanups). Their purpose is to stop the same debt from
-re-accruing. Read alongside [README.md](README.md) (validator roles) and the
+These rules stop known tech debt from coming back. Read alongside
+[README.md](README.md) (validator roles) and the
 **whitepaper** — source [whitepaper.tex](../../whitepaper/whitepaper.tex),
 rendered [whitepaper.pdf](../../whitepaper/whitepaper.pdf) — the canonical
 design and security document. In the whitepaper: "Limitations and Trust
@@ -11,20 +9,18 @@ Assumptions" records the intentional trade-offs; "Security Analysis" and the
 "Formal Model" (its theorems and Invariants subsection) record the invariants.
 The canonical contract vocabulary is inlined in §6 below.
 
-> The former `CONTEXT.md` and the `docs/` tree (ADRs 0001–0009, security-audit /
-> threat-model / gap-analysis / hardening-backlog docs) were deliberately deleted
-> in the 2026-06 slimming pass and folded into the whitepaper. Do not cite those
-> paths and do not re-create them.
+> This directory has no `CONTEXT.md` and no `docs/` tree (ADRs, security-audit,
+> threat-model, gap-analysis or hardening-backlog docs). The whitepaper holds that
+> content. Do not cite those paths and do not create them.
 
 ## 1. Validators stay thin; decision logic lives in `lib/`
 
 - A `validators/*.ak` file orchestrates: read inputs, dispatch on the `SttAction`,
   call into `lib/` for the actual checks. It does **not** hold the math/predicate
-  bodies. (`stt.ak` went 1308 → ~160 lines by moving logic into
-  `lib/stt/{io,preservation}.ak` plus the per-action `eval_*`
-  decision bodies, which live in the three per-authority-family handler modules
-  `lib/stt/{operator,user,settlement}_handlers.ak` — the validator only
-  dispatches; keep it that way.)
+  bodies. (The logic lives in `lib/stt/{io,preservation}.ak`. The per-action
+  `eval_*` decision bodies live in the three per-authority-family handler
+  modules `lib/stt/{operator,user,settlement}_handlers.ak`. The validator only
+  dispatches. Keep it that way.)
 - When a `.ak` file passes ~500 lines **or** mixes more than one audit concern,
   split it **by concern** (io / preservation / action-checks / value), not by
   arbitrary line count. The grouping must map to an audit boundary.
@@ -83,9 +79,9 @@ not a style nit.
   power-sum, streaming-payment reserve, payout-tag decode, allowance draw-down)
   must have **one** audited definition, owned by the `lib/` module that owns the
   type. Inject the differing intent as a lambda rather than copying the body.
-  - Precedent: `configuration.sum_multisig_power` / `multisig_threshold_is_met`
-    feed both the spend-time "did this user sign?" and config-time "can this user
-    sign?" callers. `streaming_payments/types.output_payout_tag` is the single
+  - Precedent: `configuration.multisig_threshold_is_met` feeds both the
+    spend-time "did this user sign?" and config-time "can this user sign?"
+    callers. `streaming_payments/types.output_payout_tag` is the single
     payout-tag decoder for both the wallet leak check and the payout matcher.
 - Before writing a `when … is InlineDatum -> if … is OutputId`-style ladder or a
   `multi_sig_power` fold, grep for an existing helper. If one exists, route through
@@ -103,14 +99,12 @@ not a style nit.
   experiments before committing.
 - Off-chain example/helper scripts (`offchain/*.mjs`) must validate under the
   **current** contract model. If a flow cannot validate (e.g. a close/burn flow
-  under the immortal-STT model; historically an `add_subscription` script died
-  this way back when streaming payments were still fixed at mint), delete the
+  under the immortal-STT model), delete the
   script — do not leave it as misleading reference.
 
 ## 6. Canonical vocabulary only — no legacy aliases
 
-The table below is the canonical contract vocabulary (formerly the `CONTEXT.md`
-glossary's `_Avoid_:` lines, preserved here verbatim since that file is gone).
+The table below is the canonical contract vocabulary.
 Use the canonical terms exactly; the banned words are forbidden in new code,
 identifiers, comments, and docs.
 
@@ -160,8 +154,9 @@ identifiers, comments, and docs.
   (→ `streaming_payment` / `StreamingPayment` / `PayStreamingPayment`),
   `WalletWitness`, and `NFT`/`beacon`/`state token` for the STT.
 - When renaming a domain term, rename across **contracts + blueprint + frontend in
-  one pass** and retain **no** alias (`aiken build` → `pnpm sync:blueprint`
-  regenerates `plutus.json` into the frontend).
+  one pass** and retain **no** alias (`pnpm sync` in this directory runs
+  `aiken build`, then `sync:blueprint` in `../dApp`, which regenerates
+  `plutus.json` into the frontend).
 
 ## 7. The whitepaper is the decision record — keep it in lockstep with the code
 
@@ -184,9 +179,7 @@ identifiers, comments, and docs.
   - ADR-0009 (permissionless-crank cooldown) → "Settlement cadence" theorem
     (Formal Model) + the Security Analysis item of the same name.
 - When a design changes, update the whitepaper section describing the old design
-  **in the same commit** (a removed handshake once left a stale
-  `validator-path-analysis.md` — do not repeat that). Stale design docs are worse
-  than none.
+  **in the same commit**. Stale design docs are worse than none.
 - [INTERACTIONS.md](INTERACTIONS.md) is the code-level interaction map + per-path
   audit checklist (diagrams of every actor → action → wallet effect). It follows
   the same lockstep rule: changing an `SttAction` variant, a handler, or a
