@@ -26,6 +26,7 @@ overrides:
   brace-expansion@^1: 1.1.21
   systeminformation@^5: 5.33.19
   pbkdf2@^3: 3.1.7
+  '@typescript-eslint/typescript-estree>minimatch': ^11.0.7
 
 importers:
 
@@ -9770,7 +9771,7 @@ snapshots:
       '@typescript-eslint/types': 8.72.1
       '@typescript-eslint/visitor-keys': 8.72.1
       debug: 4.4.3
-      minimatch: 10.2.6
+      minimatch: 11.0.7
       semver: 7.8.5
       tinyglobby: 0.2.17
       ts-api-utils: 2.5.0(typescript@6.0.3)
