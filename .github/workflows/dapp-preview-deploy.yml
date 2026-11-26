@@ -22,7 +22,7 @@ jobs:
   guard:
     # Ignore unrelated comments before entering deploy concurrency.
     if: github.event.issue.pull_request && github.event.comment.body == '/deploy'
-    runs-on: ubuntu-latest
+    runs-on: checklane
     permissions:
       pull-requests: read
     outputs:
@@ -69,7 +69,7 @@ jobs:
   deploy-preview:
     needs: guard
     if: needs.guard.outputs.allowed == 'true'
-    runs-on: ubuntu-latest
+    runs-on: checklane
     permissions:
       contents: read
       pull-requests: write

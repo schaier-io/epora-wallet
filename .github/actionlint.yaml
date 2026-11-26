@@ -1,0 +1,4 @@
+# actionlint knows only the runner labels of GitHub. The jobs run on Checklane runners.
+self-hosted-runner:
+  labels:
+    - checklane

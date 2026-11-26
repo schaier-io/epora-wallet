@@ -29,7 +29,7 @@ permissions:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    runs-on: checklane
     # Read-only check: it never pushes, so drop the default token scope and
     # the persisted checkout credential.
     permissions:

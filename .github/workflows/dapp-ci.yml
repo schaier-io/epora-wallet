@@ -34,7 +34,7 @@ jobs:
   # Type-check, lint (our format gate — eslint runs with --max-warnings=0), and
   # the stt-cache test suite against a throwaway Postgres.
   verify:
-    runs-on: ubuntu-latest
+    runs-on: checklane
 
     # Postgres for the stt-cache tests. The `test` script hardcodes
     # postgresql://postgres@localhost:5432/wallet, so the service must match:
@@ -111,7 +111,7 @@ jobs:
   # than masquerading as a build/test failure. `--prod` drops dev-only noise;
   # soften to `continue-on-error: true` here if advisory churn becomes disruptive.
   audit:
-    runs-on: ubuntu-latest
+    runs-on: checklane
     # Read-only advisory scan: it never pushes, so drop the default token scope
     # and the persisted checkout credential.
     permissions:
@@ -137,7 +137,7 @@ jobs:
   # typecheck / lint / tests are red.
   build:
     needs: verify
-    runs-on: ubuntu-latest
+    runs-on: checklane
 
     env:
       # `next build` does not connect to a database, but the Prisma adapter and a

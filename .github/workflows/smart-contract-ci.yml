@@ -29,7 +29,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: checklane
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -70,7 +70,7 @@ jobs:
   # Gate the off-chain example scripts too: every script must at least parse, so
   # broken imports / undeclared dependencies cannot slip in.
   offchain-scripts:
-    runs-on: ubuntu-latest
+    runs-on: checklane
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
