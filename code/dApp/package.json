@@ -58,7 +58,8 @@
       "brace-expansion@^1": "1.1.21",
       "systeminformation@^5": "5.33.19",
       "pbkdf2@^3": "3.1.7",
-      "@typescript-eslint/typescript-estree>minimatch": "^11.0.7"
+      "@typescript-eslint/typescript-estree>minimatch": "^11.0.7",
+      "effect": "^3.22.1"
     }
   },
   "engines": {
