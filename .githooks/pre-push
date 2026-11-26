@@ -146,7 +146,8 @@ if in_area '^\.github/(workflows/|actionlint\.yaml$)'; then
     checked="$checked workflows"
     run "actionlint" actionlint
   else
-    skip "workflows" "actionlint is not installed"
+    # No CI job runs actionlint, so this message must not say that CI checks it.
+    say "skipped workflows (actionlint is not installed). No CI job runs actionlint. Install it to check workflow files."
   fi
 fi
 
