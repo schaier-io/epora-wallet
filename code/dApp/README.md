@@ -63,6 +63,14 @@ pnpm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+Once per clone, turn on the repository git hooks from the repository root:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+The `pre-push` hook runs cheap checks (file length, eslint, type checks) only for the areas that the pushed commits changed. It skips a check when its tool or `node_modules` is missing. CI runs the full suite. To skip the hook once, use `git push --no-verify`.
+
 ## Environment
 
 - `BLOCKFROST_PREPROD_PROJECT_ID`: Blockfrost API key for preprod.

@@ -5,6 +5,13 @@ Universal rules for this repository. Domain-specific rules are nested:
 - Contracts (Aiken/Plutus): [code/smart-contract/CLAUDE.md](code/smart-contract/CLAUDE.md)
   (the rules file there is named CLAUDE.md; a stub AGENTS.md now points at it).
 
+## Checks before a push
+
+- The full check suite runs in CI on Checklane runners.
+- Before a push, run only the cheap checks of the pre-push hook (`.githooks/pre-push`). It checks only the areas that the pushed commits changed.
+- Do not run the full test suite locally as a push gate.
+- To skip the hook once, use `git push --no-verify`.
+
 ## File length: hard cap 750 lines
 
 - **No source file exceeds 750 lines.** Excluded: test files (`*_tests.ak`,

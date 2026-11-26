@@ -1,0 +1,159 @@
+#!/bin/sh
+# Cheap pre-push check. It runs only for the areas the pushed commits changed.
+# The full suite runs in CI. Skip this hook with: git push --no-verify
+#
+# One-time setup: git config core.hooksPath .githooks
+
+DAPP_DIR="code/dApp"
+CONTRACT_DIR="code/smart-contract"
+BASE_BRANCHES="origin/dev origin/main"
+ZERO_SHA="0000000000000000000000000000000000000000"
+DAPP_SOURCE_PATTERN='\.(ts|tsx|js|jsx|mjs|cjs)$'
+FILE_LENGTH_CMD="node $DAPP_DIR/scripts/check-file-length.mjs"
+ESLINT_BIN="node_modules/.bin/eslint"
+TSC_BIN="node_modules/.bin/tsc"
+TRACE_CHECK="scripts/check-traces.mjs"
+
+cd "$(git rev-parse --show-toplevel)" || exit 1
+
+say() { echo "pre-push: $*"; }
+skip() { say "skipped $1 ($2). CI will check it."; }
+failed=0
+# in_dir <dir> <command...>: run a command inside a package directory.
+in_dir() { dir=$1; shift; (cd "$dir" && "$@"); }
+run() { # run <label> <command...>
+  label=$1; shift
+  say "running $label"
+  "$@" || { say "FAILED: $label"; failed=1; }
+}
+
+# 1. Collect the changed files for every pushed ref. Deleted files stay in the
+#    list: a deleted module can break a type check.
+# The file that holds the raw output of one git diff.
+raw=$(mktemp) || { say "mktemp failed. Nothing checked. CI will check the push."; exit 0; }
+trap 'rm -f "$raw"' EXIT
+changed=""
+while read -r _local_ref local_sha _remote_ref remote_sha; do
+  [ "$local_sha" = "$ZERO_SHA" ] && continue # branch deletion
+  # A tag can point at an object that is not a commit. It has no files to check.
+  git rev-parse -q --verify "$local_sha^{commit}" >/dev/null 2>&1 || continue
+  base=""
+  if [ "$remote_sha" != "$ZERO_SHA" ] && git cat-file -e "$remote_sha^{commit}" 2>/dev/null; then
+    base=$remote_sha
+  else # new remote branch: compare with the base branch
+    for ref in $BASE_BRANCHES; do
+      base=$(git merge-base "$ref" "$local_sha" 2>/dev/null) && [ -n "$base" ] && break
+    done
+  fi
+  if [ -z "$base" ]; then
+    say "no base commit found for $local_sha. Nothing checked for it."
+    continue
+  fi
+  # -z prints each name as it is on disk: no quotes for a tab or for café.ts.
+  if ! git diff -z --name-only --no-renames "$base" "$local_sha" >"$raw" 2>/dev/null; then
+    say "cannot find the changed files of $local_sha. Nothing checked for it."
+    continue
+  fi
+  changed="$changed
+$(LC_ALL=C tr '\0' '\n' <"$raw")"
+done
+changed=$(printf '%s\n' "$changed" | sed '/^$/d' | sort -u)
+[ -z "$changed" ] && { say "no changed files. Nothing to check."; exit 0; }
+
+# Prose has no cheap check. A changed .md file starts no package check.
+code=$(printf '%s\n' "$changed" | grep -vE '\.md$')
+in_area() { printf '%s\n' "$code" | grep -qE "$1"; }
+# existing_in <pattern> <dir>: the changed files that match and still exist,
+# relative to <dir>. The "./" prefix stops a name that starts with "-" from
+# being read as an option.
+existing_in() {
+  printf '%s\n' "$code" | grep -E "$1" | while IFS= read -r file; do
+    if [ -f "$file" ]; then printf './%s\n' "${file#"$2"/}"; fi
+  done
+}
+# run_files <label> <dir> <newline-separated files> <command...>: run the
+# command in <dir> with one argument for each file. A file name can have spaces.
+run_files() {
+  label=$1; dir=$2; list=$3; shift 3
+  say "running $label"
+  printf '%s\n' "$list" | tr '\n' '\0' | (cd "$dir" && xargs -0 "$@") || { say "FAILED: $label"; failed=1; }
+}
+
+have_node=1
+command -v node >/dev/null 2>&1 || { have_node=0; skip "the Node checks" "node is not installed"; }
+
+checked=""; left_to_ci=""
+
+# 2. Repo-wide file-length cap. Plain node, no install. Runs for any non-doc change.
+if [ -n "$code" ] && [ "$have_node" -eq 1 ]; then
+  checked="$checked file-length"
+  # shellcheck disable=SC2086
+  run "file length" $FILE_LENGTH_CMD
+fi
+
+# 3. dApp: eslint on changed files, then a type check of the dApp package.
+if in_area "^$DAPP_DIR/"; then
+  if [ "$have_node" -eq 1 ] && [ -x "$DAPP_DIR/$ESLINT_BIN" ] && [ -x "$DAPP_DIR/$TSC_BIN" ]; then
+    checked="$checked dApp"
+    files=$(existing_in "^$DAPP_DIR/.*$DAPP_SOURCE_PATTERN" "$DAPP_DIR")
+    if [ -n "$files" ]; then
+      run_files "dApp eslint (changed files)" "$DAPP_DIR" "$files" "$ESLINT_BIN" --max-warnings=0 --no-warn-ignored
+    fi
+    run "dApp typecheck" in_dir "$DAPP_DIR" "$TSC_BIN" --noEmit
+  else
+    skip "dApp" "needs node, and pnpm install in $DAPP_DIR"
+  fi
+  left_to_ci="$left_to_ci dApp-tests dApp-build i18n-checks openapi-check native-recovery-checks"
+fi
+
+# 4. Smart contract: aiken fmt on changed files, a type check, the trace check,
+#    and a syntax check of the changed off-chain scripts.
+if in_area "^$CONTRACT_DIR/"; then
+  if command -v aiken >/dev/null 2>&1; then
+    files=$(existing_in "^$CONTRACT_DIR/.*\.ak$" "$CONTRACT_DIR")
+    if [ -n "$files" ]; then
+      checked="$checked contract-format"
+      run_files "aiken fmt (changed files)" "$CONTRACT_DIR" "$files" aiken fmt --check
+    fi
+    # The format check needs no packages. The type check does.
+    if [ -d "$CONTRACT_DIR/build/packages" ]; then
+      checked="$checked contract"
+      run "aiken type check (no tests)" in_dir "$CONTRACT_DIR" aiken check --skip-tests --deny
+    else
+      skip "contract type check" "needs fetched packages in $CONTRACT_DIR/build/packages"
+    fi
+  else
+    skip "contract" "the aiken binary is not installed"
+  fi
+  if [ "$have_node" -eq 1 ]; then
+    if in_area "^$CONTRACT_DIR/(.*\.ak|$TRACE_CHECK)$"; then
+      checked="$checked contract-traces"
+      run "contract trace check" in_dir "$CONTRACT_DIR" node "$TRACE_CHECK"
+    fi
+    scripts=$(existing_in "^$CONTRACT_DIR/.*\.(mjs|js)$" "$CONTRACT_DIR")
+    if [ -n "$scripts" ]; then
+      checked="$checked contract-script-syntax"
+      # node --check reads one file for each call.
+      run_files "syntax of changed contract scripts" "$CONTRACT_DIR" "$scripts" -n 1 node --check
+    fi
+  fi
+  left_to_ci="$left_to_ci contract-tests fuzz budgets blueprint-sync"
+fi
+
+# 5. Workflows: actionlint, when installed.
+if in_area '^\.github/(workflows/|actionlint\.yaml$)'; then
+  if command -v actionlint >/dev/null 2>&1; then
+    checked="$checked workflows"
+    run "actionlint" actionlint
+  else
+    skip "workflows" "actionlint is not installed"
+  fi
+fi
+
+# 6. Docs and other files have no cheap check. CI covers them.
+printf '%s\n' "$changed" | grep -qE '^(docs|whitepaper)/|\.md$' && left_to_ci="$left_to_ci docs whitepaper-build"
+
+say "checked:${checked:- none}"
+say "left to CI:${left_to_ci:- none}"
+say "skip this hook with: git push --no-verify"
+exit $failed
